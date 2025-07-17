@@ -1,0 +1,899 @@
+// backend/src/services/DatabaseService.ts - PostgreSQL Version
+import { Pool, PoolClient } from 'pg';
+import { logger } from '../utils/logger';
+import { CustomerData, TierLevel } from '../../../contracts/TierManager';
+
+// Re-export CustomerData for use in other modules
+export { CustomerData, TierLevel };
+import { PaginatedResult, PaginationParams, PaginationHelper } from '../utils/pagination';
+
+export interface ShopData {
+  shopId: string;
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  walletAddress: string;
+  reimbursementAddress: string;
+  verified: boolean;
+  active: boolean;
+  crossShopEnabled: boolean;
+  totalTokensIssued: number;
+  totalRedemptions: number;
+  totalReimbursements: number;
+  joinDate: string;
+  lastActivity: string;
+  fixflowShopId?: string;
+  location?: {
+    lat: number;
+    lng: number;
+    city: string;
+    state: string;
+    zipCode: string;
+  };
+}
+
+export interface TransactionRecord {
+  id: string;
+  type: 'mint' | 'redeem' | 'transfer';
+  customerAddress: string;
+  shopId: string;
+  amount: number;
+  reason: string;
+  transactionHash: string;
+  blockNumber?: number;
+  timestamp: string;
+  status: 'pending' | 'confirmed' | 'failed';
+  metadata?: {
+    repairAmount?: number;
+    referralId?: string;
+    engagementType?: string;
+    redemptionLocation?: string;
+    webhookId?: string;
+    oldTier?: string;
+    referrerTokens?: number;
+    baseAmount?: number;
+    shopName?: string;
+    [key: string]: any; // Allow additional properties
+  };
+}
+
+export interface WebhookLog {
+  id: string;
+  source: 'fixflow' | 'admin' | 'customer';
+  event: string;
+  payload: any;
+  processed: boolean;
+  processingTime?: number;
+  result?: {
+    success: boolean;
+    transactionHash?: string;
+    error?: string;
+  };
+  timestamp: string;
+  retryCount: number;
+}
+
+export interface CreateResult {
+  id: string;
+  success: boolean;
+  message?: string;
+}
+
+export class DatabaseService {
+  private pool: Pool;
+  
+  constructor() {
+    this.pool = new Pool({
+      host: process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.DB_PORT || '5432'),
+      database: process.env.DB_NAME || 'repaircoin',
+      user: process.env.DB_USER || 'repaircoin_user',
+      password: process.env.DB_PASSWORD || 'repaircoin_password',
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    });
+
+    // Test connection on startup
+    this.testConnection();
+  }
+
+  private async testConnection(): Promise<void> {
+    try {
+      const client = await this.pool.connect();
+      await client.query('SELECT NOW()');
+      client.release();
+      logger.info('✅ Database connection successful');
+    } catch (error) {
+      logger.error('❌ Database connection failed:', error);
+    }
+  }
+
+  // Customer operations
+  async getCustomer(address: string): Promise<CustomerData | null> {
+    try {
+      const query = 'SELECT * FROM customers WHERE address = $1';
+      const result = await this.pool.query(query, [address.toLowerCase()]);
+      
+      if (result.rows.length === 0) {
+        return null;
+      }
+      
+      return result.rows[0] as CustomerData;
+    } catch (error) {
+      logger.error('Error getting customer:', error);
+      throw new Error('Failed to retrieve customer data');
+    }
+  }
+
+  async createCustomer(customerData: CustomerData): Promise<CreateResult> {
+    try {
+      const query = `
+        INSERT INTO customers (
+          address, name, email, phone, wallet_address, is_active,
+          lifetime_earnings, tier, daily_earnings, monthly_earnings,
+          last_earned_date, referral_count, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+        RETURNING address
+      `;
+      
+      const values = [
+        customerData.address.toLowerCase(),
+        customerData.name || '',
+        customerData.email || '',
+        customerData.phone || '',
+        customerData.address.toLowerCase(),
+        customerData.isActive || true,
+        customerData.lifetimeEarnings || 0,
+        customerData.tier || 'BRONZE',
+        customerData.dailyEarnings || 0,
+        customerData.monthlyEarnings || 0,
+        customerData.lastEarnedDate || new Date().toISOString().split('T')[0],
+        customerData.referralCount || 0
+      ];
+      
+      const result = await this.pool.query(query, values);
+      
+      logger.info(`Customer created: ${customerData.address}`);
+      return {
+        id: result.rows[0].address,
+        success: true,
+        message: 'Customer created successfully'
+      };
+    } catch (error) {
+      logger.error('Error creating customer:', error);
+      throw new Error('Failed to create customer');
+    }
+  }
+
+  async updateCustomer(address: string, updates: Partial<CustomerData>): Promise<void> {
+    try {
+      const setClause = Object.keys(updates)
+        .map((key, index) => `${key} = ${index + 2}`)
+        .join(', ');
+      
+      const query = `
+        UPDATE customers 
+        SET ${setClause}, updated_at = NOW()
+        WHERE address = $1
+      `;
+      
+      const values = [address.toLowerCase(), ...Object.values(updates)];
+      await this.pool.query(query, values);
+      
+      logger.info(`Customer updated: ${address}`);
+    } catch (error) {
+      logger.error('Error updating customer:', error);
+      throw new Error('Failed to update customer');
+    }
+  }
+
+  async updateCustomerAfterEarning(address: string, tokensEarned: number, newTier: TierLevel): Promise<void> {
+    try {
+      const customerRef = address.toLowerCase();
+      
+      await this.pool.query('BEGIN');
+      
+      try {
+        // Get current customer data
+        const customerResult = await this.pool.query(
+          'SELECT * FROM customers WHERE address = $1', 
+          [customerRef]
+        );
+        
+        if (customerResult.rows.length === 0) {
+          throw new Error('Customer not found');
+        }
+        
+        const customer = customerResult.rows[0] as CustomerData;
+        const today = new Date().toISOString().split('T')[0];
+        const currentDate = new Date();
+        const lastEarnedDate = new Date(customer.lastEarnedDate);
+        
+        // Calculate updated earnings
+        const dailyEarnings = (customer.lastEarnedDate === today) 
+          ? customer.dailyEarnings + tokensEarned 
+          : tokensEarned;
+        
+        const monthlyEarnings = (currentDate.getMonth() === lastEarnedDate.getMonth() && 
+                                currentDate.getFullYear() === lastEarnedDate.getFullYear())
+          ? customer.monthlyEarnings + tokensEarned
+          : tokensEarned;
+        
+        // Update customer
+        await this.pool.query(`
+          UPDATE customers 
+          SET lifetime_earnings = lifetime_earnings + $2,
+              tier = $3,
+              daily_earnings = $4,
+              monthly_earnings = $5,
+              last_earned_date = $6,
+              updated_at = NOW()
+          WHERE address = $1
+        `, [
+          customerRef,
+          tokensEarned,
+          newTier,
+          dailyEarnings,
+          monthlyEarnings,
+          today
+        ]);
+        
+        await this.pool.query('COMMIT');
+        logger.info(`Customer earnings updated: ${address} earned ${tokensEarned} RCN`);
+      } catch (error) {
+        await this.pool.query('ROLLBACK');
+        throw error;
+      }
+    } catch (error) {
+      logger.error('Error updating customer earnings:', error);
+      throw new Error('Failed to update customer earnings');
+    }
+  }
+
+  async updateShop(shopId: string, updates: Partial<ShopData>): Promise<void> {
+    try {
+      const setClause = Object.keys(updates)
+        .map((key, index) => `${key} = ${index + 2}`)
+        .join(', ');
+      
+      const query = `
+        UPDATE shops 
+        SET ${setClause}, updated_at = NOW()
+        WHERE shop_id = $1
+      `;
+      
+      const values = [shopId, ...Object.values(updates)];
+      await this.pool.query(query, values);
+      
+      logger.info(`Shop updated: ${shopId}`);
+    } catch (error) {
+      logger.error('Error updating shop:', error);
+      throw new Error('Failed to update shop');
+    }
+  }
+
+  // Paginated customer retrieval
+async getCustomersPaginated(params: PaginationParams & { 
+  tier?: TierLevel; 
+  active?: boolean; 
+}): Promise<PaginatedResult<CustomerData>> {
+  try {
+    const validatedParams = PaginationHelper.validatePaginationParams(params);
+    
+    let whereClause = 'WHERE 1=1';
+    const queryParams: any[] = [];
+    let paramIndex = 1;
+    
+    // Apply filters
+    if (params.tier) {
+      whereClause += ` AND tier = $${paramIndex++}`;
+      queryParams.push(params.tier);
+    }
+    
+    if (params.active !== undefined) {
+      whereClause += ` AND is_active = $${paramIndex++}`;
+      queryParams.push(params.active);
+    }
+    
+    // Count total records
+    const countQuery = `SELECT COUNT(*) FROM customers ${whereClause}`;
+    const countResult = await this.pool.query(countQuery, queryParams);
+    const totalCount = parseInt(countResult.rows[0].count);
+    
+    // Get paginated data
+    const dataQuery = `
+      SELECT * FROM customers 
+      ${whereClause}
+      ORDER BY ${validatedParams.orderBy} ${validatedParams.orderDirection}
+      LIMIT $${paramIndex++} OFFSET $${paramIndex++}
+    `;
+    
+    const offset = (validatedParams.page - 1) * validatedParams.limit;
+    queryParams.push(validatedParams.limit, offset);
+    
+    const result = await this.pool.query(dataQuery, queryParams);
+    const customers = result.rows as CustomerData[];
+    
+    // Use the correct PaginatedResult format
+    return PaginationHelper.createOffsetPaginatedResult(
+      customers,
+      totalCount,
+      validatedParams.limit,
+      validatedParams.page
+    );
+  } catch (error) {
+    logger.error('Error getting paginated customers:', error);
+    throw new Error('Failed to retrieve paginated customers');
+  }
+}
+
+  // Shop operations
+  async getShop(shopId: string): Promise<ShopData | null> {
+    try {
+      const query = 'SELECT * FROM shops WHERE shop_id = $1';
+      const result = await this.pool.query(query, [shopId]);
+      
+      if (result.rows.length === 0) {
+        return null;
+      }
+      
+      return result.rows[0] as ShopData;
+    } catch (error) {
+      logger.error('Error getting shop:', error);
+      throw new Error('Failed to retrieve shop data');
+    }
+  }
+
+  async createShop(shopData: ShopData): Promise<CreateResult> {
+    try {
+      const query = `
+        INSERT INTO shops (
+          shop_id, name, address, phone, email, wallet_address,
+          reimbursement_address, verified, active, cross_shop_enabled,
+          total_tokens_issued, total_redemptions, total_reimbursements,
+          join_date, last_activity, fixflow_shop_id, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW())
+        RETURNING shop_id
+      `;
+      
+      const values = [
+        shopData.shopId,
+        shopData.name,
+        shopData.address,
+        shopData.phone,
+        shopData.email,
+        shopData.walletAddress,
+        shopData.reimbursementAddress,
+        shopData.verified || false,
+        shopData.active || true,
+        shopData.crossShopEnabled || false,
+        shopData.totalTokensIssued || 0,
+        shopData.totalRedemptions || 0,
+        shopData.totalReimbursements || 0,
+        shopData.joinDate || new Date().toISOString(),
+        shopData.lastActivity || new Date().toISOString(),
+        shopData.fixflowShopId
+      ];
+      
+      const result = await this.pool.query(query, values);
+      
+      logger.info(`Shop created: ${shopData.shopId}`);
+      return {
+        id: result.rows[0].shop_id,
+        success: true,
+        message: 'Shop created successfully'
+      };
+    } catch (error) {
+      logger.error('Error creating shop:', error);
+      throw new Error('Failed to create shop');
+    }
+  }
+
+  // Paginated shop retrieval
+async getShopsPaginated(params: PaginationParams & { 
+  active?: boolean; 
+  verified?: boolean; 
+}): Promise<PaginatedResult<ShopData>> {
+  try {
+    const validatedParams = PaginationHelper.validatePaginationParams(params);
+    
+    let whereClause = 'WHERE 1=1';
+    const queryParams: any[] = [];
+    let paramIndex = 1;
+    
+    if (params.active !== undefined) {
+      whereClause += ` AND active = $${paramIndex++}`;
+      queryParams.push(params.active);
+    }
+    
+    if (params.verified !== undefined) {
+      whereClause += ` AND verified = $${paramIndex++}`;
+      queryParams.push(params.verified);
+    }
+    
+    // Count total records
+    const countQuery = `SELECT COUNT(*) FROM shops ${whereClause}`;
+    const countResult = await this.pool.query(countQuery, queryParams);
+    const totalCount = parseInt(countResult.rows[0].count);
+    
+    // Get paginated data
+    const dataQuery = `
+      SELECT * FROM shops 
+      ${whereClause}
+      ORDER BY ${validatedParams.orderBy} ${validatedParams.orderDirection}
+      LIMIT $${paramIndex++} OFFSET $${paramIndex++}
+    `;
+    
+    const offset = (validatedParams.page - 1) * validatedParams.limit;
+    queryParams.push(validatedParams.limit, offset);
+    
+    const result = await this.pool.query(dataQuery, queryParams);
+    const shops = result.rows as ShopData[];
+    
+    // Use the correct PaginatedResult format
+    return PaginationHelper.createOffsetPaginatedResult(
+      shops,
+      totalCount,
+      validatedParams.limit,
+      validatedParams.page
+    );
+  } catch (error) {
+    logger.error('Error getting paginated shops:', error);
+    throw new Error('Failed to retrieve paginated shops');
+  }
+}
+
+  // Transaction operations
+  async recordTransaction(transaction: TransactionRecord): Promise<void> {
+    try {
+      const query = `
+        INSERT INTO transactions (
+          id, type, customer_address, shop_id, amount, reason,
+          transaction_hash, block_number, timestamp, status, metadata, created_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+      `;
+      
+      const values = [
+        transaction.id,
+        transaction.type,
+        transaction.customerAddress.toLowerCase(),
+        transaction.shopId,
+        transaction.amount,
+        transaction.reason,
+        transaction.transactionHash,
+        transaction.blockNumber,
+        transaction.timestamp,
+        transaction.status,
+        JSON.stringify(transaction.metadata || {})
+      ];
+      
+      await this.pool.query(query, values);
+      logger.info(`Transaction recorded: ${transaction.id}`);
+    } catch (error) {
+      logger.error('Error recording transaction:', error);
+      throw new Error('Failed to record transaction');
+    }
+  }
+
+  // Webhook operations
+  async logWebhook(webhookLog: WebhookLog): Promise<void> {
+    try {
+      const query = `
+        INSERT INTO webhook_logs (
+          id, source, event, payload, processed, processing_time,
+          result, timestamp, retry_count, created_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+      `;
+      
+      const values = [
+        webhookLog.id,
+        webhookLog.source,
+        webhookLog.event,
+        JSON.stringify(webhookLog.payload),
+        webhookLog.processed,
+        webhookLog.processingTime,
+        JSON.stringify(webhookLog.result || {}),
+        webhookLog.timestamp,
+        webhookLog.retryCount
+      ];
+      
+      await this.pool.query(query, values);
+      logger.info(`Webhook logged: ${webhookLog.id}`);
+    } catch (error) {
+      logger.error('Error logging webhook:', error);
+      throw new Error('Failed to log webhook');
+    }
+  }
+
+  async updateWebhookResult(
+    webhookId: string, 
+    result: { success: boolean; transactionHash?: string; error?: string; }, 
+    processingTime: number
+  ): Promise<void> {
+    try {
+      const query = `
+        UPDATE webhook_logs 
+        SET processed = true, result = $2, processing_time = $3, processed_at = NOW()
+        WHERE id = $1
+      `;
+      
+      await this.pool.query(query, [
+        webhookId,
+        JSON.stringify(result),
+        processingTime
+      ]);
+      
+      logger.info(`Webhook result updated: ${webhookId}`);
+    } catch (error) {
+      logger.error('Error updating webhook result:', error);
+      throw new Error('Failed to update webhook result');
+    }
+  }
+
+  async getFailedWebhooks(limit: number = 20): Promise<WebhookLog[]> {
+    try {
+      const query = `
+        SELECT * FROM webhook_logs 
+        WHERE processed = true 
+          AND (result->>'success')::boolean = false
+        ORDER BY timestamp DESC
+        LIMIT $1
+      `;
+      
+      const result = await this.pool.query(query, [limit]);
+      return result.rows.map(row => ({
+        ...row,
+        payload: typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload,
+        result: typeof row.result === 'string' ? JSON.parse(row.result) : row.result
+      })) as WebhookLog[];
+    } catch (error) {
+      logger.error('Error getting failed webhooks:', error);
+      throw new Error('Failed to retrieve failed webhooks');
+    }
+  }
+
+  async getWebhookLogsPaginated(params: PaginationParams & { 
+    eventType?: string;
+    source?: string;
+    processed?: boolean;
+    success?: boolean;
+  }): Promise<PaginatedResult<WebhookLog>> {
+    try {
+      const validatedParams = PaginationHelper.validatePaginationParams({
+        ...params,
+        orderBy: 'timestamp'
+      });
+      
+      let whereClause = 'WHERE 1=1';
+      const queryParams: any[] = [];
+      let paramIndex = 1;
+      
+      // Apply filters
+      if (params.eventType) {
+        whereClause += ` AND event = ${paramIndex++}`;
+        queryParams.push(params.eventType);
+      }
+      
+      if (params.source) {
+        whereClause += ` AND source = ${paramIndex++}`;
+        queryParams.push(params.source);
+      }
+      
+      if (params.processed !== undefined) {
+        whereClause += ` AND processed = ${paramIndex++}`;
+        queryParams.push(params.processed);
+      }
+      
+      if (params.success !== undefined) {
+        whereClause += ` AND (result->>'success')::boolean = ${paramIndex++}`;
+        queryParams.push(params.success);
+      }
+      
+      const query = `
+        SELECT * FROM webhook_logs 
+        ${whereClause}
+        ORDER BY ${validatedParams.orderBy} ${validatedParams.orderDirection}
+        LIMIT ${paramIndex++} OFFSET ${paramIndex++}
+      `;
+      
+      const offset = (validatedParams.page - 1) * validatedParams.limit;
+      queryParams.push(validatedParams.limit + 1, offset);
+      
+      const result = await this.pool.query(query, queryParams);
+      
+      const hasMore = result.rows.length > validatedParams.limit;
+      const webhookLogs = result.rows
+        .slice(0, validatedParams.limit)
+        .map(row => ({
+          ...row,
+          payload: typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload,
+          result: typeof row.result === 'string' ? JSON.parse(row.result) : row.result
+        })) as WebhookLog[];
+      
+      return PaginationHelper.createPaginatedResult(webhookLogs, validatedParams.limit);
+    } catch (error) {
+      logger.error('Error getting paginated webhook logs:', error);
+      throw new Error('Failed to retrieve paginated webhook logs');
+    }
+  }
+
+  // Health check
+  async healthCheck(): Promise<{ 
+    status: 'healthy' | 'degraded' | 'unhealthy';
+    details: {
+      database: boolean;
+      connection_pool: {
+        total: number;
+        idle: number;
+        waiting: number;
+      };
+    };
+  }> {
+    try {
+      const startTime = Date.now();
+      
+      // Test basic connectivity
+      const result = await this.pool.query('SELECT NOW() as current_time, version() as pg_version');
+      
+      const responseTime = Date.now() - startTime;
+      const isHealthy = responseTime < 1000; // Less than 1 second
+      
+      return {
+        status: isHealthy ? 'healthy' : 'degraded',
+        details: {
+          database: true,
+          connection_pool: {
+            total: this.pool.totalCount,
+            idle: this.pool.idleCount,
+            waiting: this.pool.waitingCount
+          }
+        }
+      };
+    } catch (error) {
+      logger.error('Database health check failed:', error);
+      return {
+        status: 'unhealthy',
+        details: {
+          database: false,
+          connection_pool: {
+            total: 0,
+            idle: 0,
+            waiting: 0
+          }
+        }
+      };
+    }
+  }
+
+  async getTransactionHistory(address: string, limit: number = 50): Promise<TransactionRecord[]> {
+  try {
+    const query = `
+      SELECT * FROM transactions 
+      WHERE customer_address = $1 
+      ORDER BY timestamp DESC 
+      LIMIT $2
+    `;
+    
+    const result = await this.pool.query(query, [address.toLowerCase(), limit]);
+    
+    return result.rows.map(row => ({
+      ...row,
+      metadata: typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata
+    })) as TransactionRecord[];
+  } catch (error) {
+    logger.error('Error getting transaction history:', error);
+    throw new Error('Failed to retrieve transaction history');
+  }
+}
+
+// Customer analytics method
+async getCustomerAnalytics(address: string): Promise<any> {
+  try {
+    const query = `
+      SELECT 
+        SUM(CASE WHEN type = 'mint' THEN amount ELSE 0 END) as total_earned,
+        SUM(CASE WHEN type = 'redeem' THEN amount ELSE 0 END) as total_spent,
+        COUNT(*) as transaction_count,
+        (
+          SELECT shop_id 
+          FROM transactions 
+          WHERE customer_address = $1 AND type = 'redeem'
+          GROUP BY shop_id 
+          ORDER BY COUNT(*) DESC 
+          LIMIT 1
+        ) as favorite_shop
+      FROM transactions 
+      WHERE customer_address = $1
+    `;
+    
+    const result = await this.pool.query(query, [address.toLowerCase()]);
+    const row = result.rows[0];
+    
+    // Get earning trend (last 30 days)
+    const trendQuery = `
+      SELECT 
+        DATE(timestamp) as date,
+        SUM(CASE WHEN type = 'mint' THEN amount ELSE 0 END) as amount
+      FROM transactions 
+      WHERE customer_address = $1 
+        AND timestamp >= NOW() - INTERVAL '30 days'
+        AND type = 'mint'
+      GROUP BY DATE(timestamp)
+      ORDER BY date DESC
+    `;
+    
+    const trendResult = await this.pool.query(trendQuery, [address.toLowerCase()]);
+    
+    return {
+      totalEarned: parseInt(row.total_earned || '0'),
+      totalSpent: parseInt(row.total_spent || '0'),
+      transactionCount: parseInt(row.transaction_count || '0'),
+      favoriteShop: row.favorite_shop,
+      earningTrend: trendResult.rows.map(r => ({
+        date: r.date,
+        amount: parseInt(r.amount)
+      }))
+    };
+  } catch (error) {
+    logger.error('Error getting customer analytics:', error);
+    throw new Error('Failed to retrieve customer analytics');
+  }
+}
+
+// Get customers by tier method
+async getCustomersByTier(tier: TierLevel): Promise<CustomerData[]> {
+  try {
+    const query = 'SELECT * FROM customers WHERE tier = $1 AND is_active = true ORDER BY lifetime_earnings DESC';
+    const result = await this.pool.query(query, [tier]);
+    
+    return result.rows as CustomerData[];
+  } catch (error) {
+    logger.error('Error getting customers by tier:', error);
+    throw new Error('Failed to retrieve customers by tier');
+  }
+}
+
+async getActiveShops(): Promise<ShopData[]> {
+  try {
+    const query = 'SELECT * FROM shops WHERE active = true ORDER BY name ASC';
+    const result = await this.pool.query(query);
+    
+    return result.rows as ShopData[];
+  } catch (error) {
+    logger.error('Error getting active shops:', error);
+    throw new Error('Failed to retrieve active shops');
+  }
+}
+
+// Get shop analytics
+async getShopAnalytics(shopId: string): Promise<any> {
+  try {
+    const query = `
+      SELECT 
+        SUM(CASE WHEN type = 'mint' THEN amount ELSE 0 END) as total_tokens_issued,
+        SUM(CASE WHEN type = 'redeem' THEN amount ELSE 0 END) as total_redemptions,
+        COUNT(DISTINCT customer_address) as unique_customers,
+        COUNT(*) as total_transactions
+      FROM transactions 
+      WHERE shop_id = $1
+    `;
+    
+    const result = await this.pool.query(query, [shopId]);
+    const row = result.rows[0];
+    
+    // Get transaction trend (last 30 days)
+    const trendQuery = `
+      SELECT 
+        DATE(timestamp) as date,
+        COUNT(*) as transaction_count,
+        SUM(amount) as total_amount
+      FROM transactions 
+      WHERE shop_id = $1 
+        AND timestamp >= NOW() - INTERVAL '30 days'
+      GROUP BY DATE(timestamp)
+      ORDER BY date DESC
+    `;
+    
+    const trendResult = await this.pool.query(trendQuery, [shopId]);
+    
+    return {
+      totalTokensIssued: parseInt(row.total_tokens_issued || '0'),
+      totalRedemptions: parseInt(row.total_redemptions || '0'),
+      uniqueCustomers: parseInt(row.unique_customers || '0'),
+      totalTransactions: parseInt(row.total_transactions || '0'),
+      activeCustomers: parseInt(row.unique_customers || '0'), // Simplified for now
+      averageRepairValue: row.total_tokens_issued && row.total_transactions 
+        ? Math.round(row.total_tokens_issued / row.total_transactions) 
+        : 0,
+      transactionTrend: trendResult.rows.map(r => ({
+        date: r.date,
+        transactionCount: parseInt(r.transaction_count),
+        totalAmount: parseInt(r.total_amount)
+      }))
+    };
+  } catch (error) {
+    logger.error('Error getting shop analytics:', error);
+    throw new Error('Failed to retrieve shop analytics');
+  }
+}
+
+// Get shop transactions
+async getShopTransactions(shopId: string, limit: number = 50): Promise<TransactionRecord[]> {
+  try {
+    const query = `
+      SELECT * FROM transactions 
+      WHERE shop_id = $1 
+      ORDER BY timestamp DESC 
+      LIMIT $2
+    `;
+    
+    const result = await this.pool.query(query, [shopId, limit]);
+    
+    return result.rows.map(row => ({
+      ...row,
+      metadata: typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata
+    })) as TransactionRecord[];
+  } catch (error) {
+    logger.error('Error getting shop transactions:', error);
+    throw new Error('Failed to retrieve shop transactions');
+  }
+}
+
+  // Cleanup old webhook logs
+  async cleanupOldWebhookLogs(daysOld: number = 30): Promise<number> {
+    try {
+      const query = `
+        DELETE FROM webhook_logs 
+        WHERE timestamp < NOW() - INTERVAL '${daysOld} days'
+      `;
+      
+      const result = await this.pool.query(query);
+      const deletedCount = result.rowCount || 0;
+      
+      logger.info(`Cleaned up ${deletedCount} old webhook logs older than ${daysOld} days`);
+      return deletedCount;
+    } catch (error) {
+      logger.error('Error cleaning up old webhook logs:', error);
+      throw new Error('Failed to cleanup old webhook logs');
+    }
+  }
+
+  // Get platform statistics
+  async getPlatformStatistics(): Promise<{
+    totalCustomers: number;
+    totalShops: number;
+    totalTransactions: number;
+    totalTokensIssued: number;
+    totalRedemptions: number;
+    activeCustomersLast30Days: number;
+    averageTransactionValue: number;
+    topPerformingShops: Array<{ shopId: string; name: string; totalTransactions: number }>;
+  }> {
+    try {
+      // Note: This is a placeholder implementation
+      // In a real implementation, these would be actual database queries
+      return {
+        totalCustomers: 0,
+        totalShops: 0,
+        totalTransactions: 0,
+        totalTokensIssued: 0,
+        totalRedemptions: 0,
+        activeCustomersLast30Days: 0,
+        averageTransactionValue: 0,
+        topPerformingShops: []
+      };
+    } catch (error) {
+      logger.error('Error getting platform statistics:', error);
+      throw new Error('Failed to retrieve platform statistics');
+    }
+  }
+
+  // Cleanup method
+  async close(): Promise<void> {
+    await this.pool.end();
+  }
+}
+
+export const databaseService = new DatabaseService();
