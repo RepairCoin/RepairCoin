@@ -2,6 +2,7 @@
   import crypto from 'crypto';
   import { databaseService, WebhookLog } from "../../../services/DatabaseService"
   import { tokenService } from '../../token/services/TokenService';
+  import { tierBonusService } from '../../shop/services/TierBonusService';
   import { logger } from '../../../utils/logger';
   import { webhookRateLimiter, RateLimitResult } from '../../../utils/rateLimiter';
 
@@ -225,7 +226,7 @@
           customer_id
         );
 
-        // Process repair earning
+        // Process repair earning with enhanced tier bonus system
         const result = await tokenService.processRepairEarning(
           customer_wallet_address,
           repairValue,
@@ -233,10 +234,34 @@
         );
 
         if (result.success) {
+          // Apply tier bonus if applicable
+          let tierBonusResult = null;
+          let totalTokensAwarded = result.tokensToMint;
+          
+          try {
+            tierBonusResult = await tierBonusService.applyTierBonus({
+              customerAddress: customer_wallet_address,
+              shopId: shop_id,
+              repairAmount: repairValue,
+              baseRcnEarned: result.tokensToMint,
+              transactionId: result.transactionHash || webhookId
+            });
+
+            if (tierBonusResult) {
+              totalTokensAwarded = tierBonusResult.totalRcnAwarded;
+              logger.info(`Tier bonus applied: ${tierBonusResult.customerTier} customer earned additional ${tierBonusResult.bonusAmount} RCN`);
+            }
+          } catch (tierBonusError) {
+            logger.error('Error applying tier bonus:', tierBonusError);
+            // Don't fail the entire transaction if tier bonus fails
+          }
+
           return {
             success: true,
             transactionHash: result.transactionHash,
-            message: `Minted ${result.tokensToMint} RCN for $${repairValue} repair`
+            message: tierBonusResult 
+              ? `Minted ${totalTokensAwarded} RCN for $${repairValue} repair (${result.tokensToMint} base + ${tierBonusResult.bonusAmount} ${tierBonusResult.customerTier} tier bonus)`
+              : `Minted ${result.tokensToMint} RCN for $${repairValue} repair`
           };
         } else {
           return {

@@ -31,11 +31,67 @@ export interface ShopData {
     state: string;
     zipCode: string;
   };
+  // New fields for shop purchasing model
+  purchasedRcnBalance?: number;
+  totalRcnPurchased?: number;
+  lastPurchaseDate?: string;
+  minimumBalanceAlert?: number;
+  autoPurchaseEnabled?: boolean;
+  autoPurchaseAmount?: number;
+}
+
+// New interfaces for enhanced functionality
+export interface ShopRcnPurchase {
+  id: string;
+  shopId: string;
+  amount: number;
+  pricePerRcn: number;
+  totalCost: number;
+  paymentMethod: 'credit_card' | 'bank_transfer' | 'usdc';
+  paymentReference?: string;
+  status: 'pending' | 'completed' | 'failed' | 'refunded';
+  createdAt: string;
+  completedAt?: string;
+}
+
+export interface TokenSource {
+  id: string;
+  customerAddress: string;
+  amount: number;
+  source: 'earned' | 'tier_bonus' | 'shop_distributed';
+  earningTransactionId?: string;
+  shopId?: string;
+  earnedDate: string;
+  isRedeemableAtShops: boolean;
+}
+
+export interface CrossShopVerification {
+  id: string;
+  customerAddress: string;
+  redemptionShopId: string;
+  earningShopId?: string;
+  requestedAmount: number;
+  availableCrossShopBalance: number;
+  verificationResult: 'approved' | 'denied' | 'insufficient_balance';
+  denialReason?: string;
+  verifiedAt: string;
+}
+
+export interface TierBonus {
+  id: string;
+  customerAddress: string;
+  shopId: string;
+  baseTransactionId: string;
+  customerTier: 'BRONZE' | 'SILVER' | 'GOLD';
+  bonusAmount: number;
+  baseRepairAmount: number;
+  baseRcnEarned: number;
+  appliedAt: string;
 }
 
 export interface TransactionRecord {
   id: string;
-  type: 'mint' | 'redeem' | 'transfer';
+  type: 'mint' | 'redeem' | 'transfer' | 'tier_bonus' | 'shop_purchase';
   customerAddress: string;
   shopId: string;
   amount: number;
@@ -56,6 +112,12 @@ export interface TransactionRecord {
     shopName?: string;
     [key: string]: any; // Allow additional properties
   };
+  // New fields for enhanced tracking
+  tokenSource?: 'earned' | 'purchased' | 'tier_bonus';
+  isCrossShop?: boolean;
+  redemptionShopId?: string;
+  tierBonusAmount?: number;
+  baseAmount?: number;
 }
 
 export interface WebhookLog {
@@ -887,6 +949,391 @@ async getShopTransactions(shopId: string, limit: number = 50): Promise<Transacti
     } catch (error) {
       logger.error('Error getting platform statistics:', error);
       throw new Error('Failed to retrieve platform statistics');
+    }
+  }
+
+  // ========================================
+  // NEW METHODS FOR ENHANCED REQUIREMENTS
+  // ========================================
+
+  // Shop RCN Purchasing Methods
+  async createShopPurchase(purchaseData: Omit<ShopRcnPurchase, 'id' | 'createdAt'>): Promise<CreateResult> {
+    try {
+      const query = `
+        INSERT INTO shop_rcn_purchases (
+          shop_id, amount, price_per_rcn, total_cost, payment_method,
+          payment_reference, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id
+      `;
+      
+      const values = [
+        purchaseData.shopId,
+        purchaseData.amount,
+        purchaseData.pricePerRcn,
+        purchaseData.totalCost,
+        purchaseData.paymentMethod,
+        purchaseData.paymentReference || null,
+        purchaseData.status || 'pending'
+      ];
+      
+      const result = await this.pool.query(query, values);
+      logger.info(`Shop purchase created: ${purchaseData.shopId} - ${purchaseData.amount} RCN`);
+      
+      return {
+        id: result.rows[0].id,
+        success: true,
+        message: 'Shop purchase created successfully'
+      };
+    } catch (error) {
+      logger.error('Error creating shop purchase:', error);
+      throw new Error('Failed to create shop purchase');
+    }
+  }
+
+  async completeShopPurchase(purchaseId: string, paymentReference?: string): Promise<void> {
+    try {
+      await this.pool.query('BEGIN');
+      
+      // Update purchase status
+      const updateQuery = `
+        UPDATE shop_rcn_purchases 
+        SET status = 'completed', completed_at = NOW(), payment_reference = COALESCE($2, payment_reference)
+        WHERE id = $1
+        RETURNING shop_id, amount
+      `;
+      
+      const result = await this.pool.query(updateQuery, [purchaseId, paymentReference]);
+      if (result.rows.length === 0) {
+        throw new Error('Purchase not found');
+      }
+      
+      const { shop_id, amount } = result.rows[0];
+      
+      // Update shop RCN balance
+      const shopUpdateQuery = `
+        UPDATE shops 
+        SET 
+          purchased_rcn_balance = purchased_rcn_balance + $1,
+          total_rcn_purchased = total_rcn_purchased + $1,
+          last_purchase_date = NOW()
+        WHERE shop_id = $2
+      `;
+      
+      await this.pool.query(shopUpdateQuery, [amount, shop_id]);
+      await this.pool.query('COMMIT');
+      
+      logger.info(`Shop purchase completed: ${shop_id} - ${amount} RCN`);
+    } catch (error) {
+      await this.pool.query('ROLLBACK');
+      logger.error('Error completing shop purchase:', error);
+      throw new Error('Failed to complete shop purchase');
+    }
+  }
+
+  // Tier Bonus Methods
+  async createTierBonus(bonusData: Omit<TierBonus, 'id' | 'appliedAt'>): Promise<CreateResult> {
+    try {
+      const query = `
+        INSERT INTO tier_bonuses (
+          customer_address, shop_id, base_transaction_id, customer_tier,
+          bonus_amount, base_repair_amount, base_rcn_earned
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id
+      `;
+      
+      const values = [
+        bonusData.customerAddress.toLowerCase(),
+        bonusData.shopId,
+        bonusData.baseTransactionId,
+        bonusData.customerTier,
+        bonusData.bonusAmount,
+        bonusData.baseRepairAmount,
+        bonusData.baseRcnEarned
+      ];
+      
+      const result = await this.pool.query(query, values);
+      logger.info(`Tier bonus created: ${bonusData.customerAddress} - ${bonusData.bonusAmount} RCN`);
+      
+      return {
+        id: result.rows[0].id,
+        success: true,
+        message: 'Tier bonus created successfully'
+      };
+    } catch (error) {
+      logger.error('Error creating tier bonus:', error);
+      throw new Error('Failed to create tier bonus');
+    }
+  }
+
+  async getTierBonusesForCustomer(customerAddress: string): Promise<TierBonus[]> {
+    try {
+      const query = `
+        SELECT * FROM tier_bonuses 
+        WHERE customer_address = $1 
+        ORDER BY applied_at DESC
+      `;
+      
+      const result = await this.pool.query(query, [customerAddress.toLowerCase()]);
+      return result.rows;
+    } catch (error) {
+      logger.error('Error getting tier bonuses:', error);
+      throw new Error('Failed to retrieve tier bonuses');
+    }
+  }
+
+  // Token Source Tracking Methods
+  async recordTokenSource(sourceData: Omit<TokenSource, 'id' | 'earnedDate'>): Promise<CreateResult> {
+    try {
+      const query = `
+        INSERT INTO token_sources (
+          customer_address, amount, source, earning_transaction_id,
+          shop_id, is_redeemable_at_shops
+        ) VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id
+      `;
+      
+      const values = [
+        sourceData.customerAddress.toLowerCase(),
+        sourceData.amount,
+        sourceData.source,
+        sourceData.earningTransactionId || null,
+        sourceData.shopId || null,
+        sourceData.isRedeemableAtShops
+      ];
+      
+      const result = await this.pool.query(query, values);
+      
+      return {
+        id: result.rows[0].id,
+        success: true,
+        message: 'Token source recorded successfully'
+      };
+    } catch (error) {
+      logger.error('Error recording token source:', error);
+      throw new Error('Failed to record token source');
+    }
+  }
+
+  async getRedeemableBalance(customerAddress: string): Promise<number> {
+    try {
+      const query = `
+        SELECT COALESCE(SUM(amount), 0) as redeemable_balance
+        FROM token_sources 
+        WHERE customer_address = $1 AND is_redeemable_at_shops = true
+      `;
+      
+      const result = await this.pool.query(query, [customerAddress.toLowerCase()]);
+      return parseFloat(result.rows[0].redeemable_balance) || 0;
+    } catch (error) {
+      logger.error('Error getting redeemable balance:', error);
+      throw new Error('Failed to retrieve redeemable balance');
+    }
+  }
+
+  // Cross-Shop Verification Methods
+  async verifyCrossShopRedemption(customerAddress: string, redemptionShopId: string, requestedAmount: number): Promise<CrossShopVerification> {
+    try {
+      const redeemableBalance = await this.getRedeemableBalance(customerAddress);
+      const maxCrossShopAmount = redeemableBalance * 0.20; // 20% limit as per requirements
+      
+      let verificationResult: 'approved' | 'denied' | 'insufficient_balance' = 'approved';
+      let denialReason: string | undefined;
+      
+      if (requestedAmount > redeemableBalance) {
+        verificationResult = 'insufficient_balance';
+        denialReason = `Insufficient redeemable balance. Available: ${redeemableBalance}, Requested: ${requestedAmount}`;
+      } else if (requestedAmount > maxCrossShopAmount) {
+        verificationResult = 'denied';
+        denialReason = `Cross-shop redemption exceeds 20% limit. Max allowed: ${maxCrossShopAmount}, Requested: ${requestedAmount}`;
+      }
+      
+      const insertQuery = `
+        INSERT INTO cross_shop_verifications (
+          customer_address, redemption_shop_id, requested_amount,
+          available_cross_shop_balance, verification_result, denial_reason
+        ) VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING *
+      `;
+      
+      const values = [
+        customerAddress.toLowerCase(),
+        redemptionShopId,
+        requestedAmount,
+        maxCrossShopAmount,
+        verificationResult,
+        denialReason || null
+      ];
+      
+      const result = await this.pool.query(insertQuery, values);
+      
+      logger.info(`Cross-shop verification: ${customerAddress} at ${redemptionShopId} - ${verificationResult}`);
+      return result.rows[0];
+    } catch (error) {
+      logger.error('Error verifying cross-shop redemption:', error);
+      throw new Error('Failed to verify cross-shop redemption');
+    }
+  }
+
+  // Enhanced Transaction Methods with New Features
+  async createTransactionWithTierBonus(transactionData: Omit<TransactionRecord, 'id' | 'timestamp'>, tierBonusData?: Omit<TierBonus, 'id' | 'appliedAt'>): Promise<CreateResult> {
+    try {
+      await this.pool.query('BEGIN');
+      
+      // Create main transaction
+      const transactionResult = await this.createTransaction({
+        ...transactionData,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Create tier bonus if provided
+      if (tierBonusData) {
+        await this.createTierBonus({
+          ...tierBonusData,
+          baseTransactionId: transactionResult.id
+        });
+        
+        // Record token source for tier bonus
+        await this.recordTokenSource({
+          customerAddress: transactionData.customerAddress,
+          amount: tierBonusData.bonusAmount,
+          source: 'tier_bonus',
+          earningTransactionId: transactionResult.id,
+          shopId: tierBonusData.shopId,
+          isRedeemableAtShops: true
+        });
+        
+        // Deduct bonus amount from shop's purchased balance
+        await this.pool.query(`
+          UPDATE shops 
+          SET purchased_rcn_balance = purchased_rcn_balance - $1
+          WHERE shop_id = $2 AND purchased_rcn_balance >= $1
+        `, [tierBonusData.bonusAmount, tierBonusData.shopId]);
+      }
+      
+      // Record token source for base transaction
+      if (transactionData.type === 'mint' && transactionData.tokenSource === 'earned') {
+        await this.recordTokenSource({
+          customerAddress: transactionData.customerAddress,
+          amount: transactionData.baseAmount || transactionData.amount,
+          source: 'earned',
+          earningTransactionId: transactionResult.id,
+          shopId: transactionData.shopId,
+          isRedeemableAtShops: true
+        });
+      }
+      
+      await this.pool.query('COMMIT');
+      
+      return transactionResult;
+    } catch (error) {
+      await this.pool.query('ROLLBACK');
+      logger.error('Error creating transaction with tier bonus:', error);
+      throw new Error('Failed to create transaction with tier bonus');
+    }
+  }
+
+  // Shop Management Methods
+  async getShopPurchaseHistory(shopId: string, pagination?: PaginationParams): Promise<PaginatedResult<ShopRcnPurchase>> {
+    try {
+      const { limit, offset, orderBy, orderDirection } = PaginationHelper.getPagination(pagination);
+      
+      const query = `
+        SELECT * FROM shop_rcn_purchases 
+        WHERE shop_id = $1 
+        ORDER BY ${orderBy} ${orderDirection} 
+        LIMIT $2 OFFSET $3
+      `;
+      
+      const countQuery = 'SELECT COUNT(*) FROM shop_rcn_purchases WHERE shop_id = $1';
+      
+      const [dataResult, countResult] = await Promise.all([
+        this.pool.query(query, [shopId, limit, offset]),
+        this.pool.query(countQuery, [shopId])
+      ]);
+      
+      const total = parseInt(countResult.rows[0].count);
+      
+      return PaginationHelper.createResult(dataResult.rows, total, pagination);
+    } catch (error) {
+      logger.error('Error getting shop purchase history:', error);
+      throw new Error('Failed to retrieve shop purchase history');
+    }
+  }
+
+  async updateShopRcnBalance(shopId: string, amount: number, operation: 'add' | 'subtract'): Promise<void> {
+    try {
+      const operator = operation === 'add' ? '+' : '-';
+      const query = `
+        UPDATE shops 
+        SET purchased_rcn_balance = purchased_rcn_balance ${operator} $1,
+            updated_at = NOW()
+        WHERE shop_id = $2 AND purchased_rcn_balance ${operation === 'subtract' ? '>=' : '> -'} $1
+        RETURNING purchased_rcn_balance
+      `;
+      
+      const result = await this.pool.query(query, [amount, shopId]);
+      
+      if (result.rows.length === 0) {
+        throw new Error(operation === 'subtract' ? 'Insufficient shop balance' : 'Shop not found');
+      }
+      
+      logger.info(`Shop ${shopId} balance ${operation}ed ${amount} RCN. New balance: ${result.rows[0].purchased_rcn_balance}`);
+    } catch (error) {
+      logger.error('Error updating shop RCN balance:', error);
+      throw new Error('Failed to update shop RCN balance');
+    }
+  }
+
+  // Analytics Methods
+  async getTierBonusStatistics(shopId?: string): Promise<{
+    totalBonusesIssued: number;
+    totalBonusAmount: number;
+    bonusesByTier: { [key: string]: { count: number; amount: number } };
+  }> {
+    try {
+      const whereClause = shopId ? 'WHERE shop_id = $1' : '';
+      const params = shopId ? [shopId] : [];
+      
+      const query = `
+        SELECT 
+          customer_tier,
+          COUNT(*) as count,
+          SUM(bonus_amount) as amount
+        FROM tier_bonuses 
+        ${whereClause}
+        GROUP BY customer_tier
+      `;
+      
+      const totalQuery = `
+        SELECT 
+          COUNT(*) as total_bonuses,
+          SUM(bonus_amount) as total_amount
+        FROM tier_bonuses
+        ${whereClause}
+      `;
+      
+      const [bonusResult, totalResult] = await Promise.all([
+        this.pool.query(query, params),
+        this.pool.query(totalQuery, params)
+      ]);
+      
+      const bonusesByTier = bonusResult.rows.reduce((acc, row) => {
+        acc[row.customer_tier] = {
+          count: parseInt(row.count),
+          amount: parseFloat(row.amount)
+        };
+        return acc;
+      }, {} as { [key: string]: { count: number; amount: number } });
+      
+      return {
+        totalBonusesIssued: parseInt(totalResult.rows[0].total_bonuses) || 0,
+        totalBonusAmount: parseFloat(totalResult.rows[0].total_amount) || 0,
+        bonusesByTier
+      };
+    } catch (error) {
+      logger.error('Error getting tier bonus statistics:', error);
+      throw new Error('Failed to retrieve tier bonus statistics');
     }
   }
 

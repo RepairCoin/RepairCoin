@@ -2,8 +2,8 @@
   "name": "repaircoin-development",
   "version": "1.0.0",
   "scripts": {
-    "dev": "cd backend && npm run dev",
-    "dev:server": "ts-node backend/server.ts",
+    "server": "cd backend && npm run dev",
+    "client": "cd frontend && npm run dev",
     "build": "cd backend && npm run build",
     "start": "cd backend && npm run start",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
