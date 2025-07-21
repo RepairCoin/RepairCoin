@@ -12,6 +12,7 @@
     "@coinbase/onchainkit": "^0.38.17",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "flowbite": "^3.1.2",
     "lucide-react": "^0.525.0",
     "next": "15.4.1",
     "react": "19.1.0",
