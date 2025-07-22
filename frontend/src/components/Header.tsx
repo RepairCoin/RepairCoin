@@ -31,17 +31,7 @@ const Header: React.FC = () => {
           {/* Logo */}
           <a href="/" className="flex items-center">
             <div className="flex items-center">
-              <svg 
-                className="w-8 h-8 mr-2 text-yellow-400" 
-                fill="currentColor" 
-                viewBox="0 0 24 24" 
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path d="M12 15l-3-3m0 0l3-3m-3 3h7.5M12 21a9 9 0 110-18 9 9 0 010 18z" />
-              </svg>
-              <span className="self-center text-2xl font-semibold whitespace-nowrap text-white">
-                RepairCoin
-              </span>
+              <img src="/nav-logo.png" alt="" />
             </div>
           </a>
 
