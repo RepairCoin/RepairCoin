@@ -1,5 +1,5 @@
 import Hero from "@/components/hero";
-import HowRepairCoinWorks from "./containers/HowRepairCoinWorks";
+import HowAndWhy from "@/containers/landing-page/HowAndWhy";
 
 export default function LandingPage() {
   return (
@@ -9,8 +9,7 @@ export default function LandingPage() {
         techBgImage="/tech-bg.png"
         hero1BgImage="/hero1-bg.png"  
       />
-      {/* How repair coin works */}
-      <HowRepairCoinWorks 
+      <HowAndWhy 
         techBgImage="/tech-bg.png"
       />
     </main>

@@ -1,0 +1,16 @@
+@theme {
+  /*Small devices (keypad) - */
+  --breakpoint-sm: 40rem;
+
+  /*Medium devices (phones - 768px)*/
+  --breakpoint-md: 48rem;
+
+  /*Large devices (tablets - 1024px)*/
+  /* --breakpoint-lg: 65rem; */
+
+  /*Extra large devices (laptop - 1280px)*/
+  --breakpoint-xl: 80rem;
+
+  /*2X large devices (Huge screens or large monitors - 1920px)*/
+  --breakpoint-2xl: 120rem;
+}

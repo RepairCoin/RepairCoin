@@ -11,7 +11,7 @@ interface HeroProps {
 
 export const Hero: React.FC<HeroProps> = ({ backgroundImage, techBgImage, hero1BgImage }) => {
   return (
-    <div className="relative h-screen w-full">
+    <div className="relative h-screen md:h-[70vh] xl:h-screen w-full">
       {/* Mobile View - Two Split Backgrounds */}
       <div className="md:hidden h-full w-full flex flex-col">
         {/* Top half background */}
@@ -54,16 +54,16 @@ export const Hero: React.FC<HeroProps> = ({ backgroundImage, techBgImage, hero1B
           <div className='flex flex-col'>
             <div className='md:w-3/7'>
               <p className='text-[#FFCC00] text-sm md:text-lg mb-6'>THE REPAIR INDUSTRY 'S LOYALTY TOKEN</p>
-              <p className='md:text-5xl text-3xl font-bold text-white mb-4'>Reward your Repairs with RepairCoin</p>
-              <p className='text-white text-xs md:text-base mb-6'>
+              <p className='md:text-5xl text-3xl font-bold text-white mb-6'>Reward your Repairs with RepairCoin</p>
+              <p className='text-white text-xs md:text-base mb-10'>
                 Amet minim mollit non deserunt ullamco est sit aliqua dolor do amet sint. Velit officia consequat duis enim velit mollit. Exercitation veniam consequat sunt nostrud amet.
               </p>
             </div>
             <div className='flex flex-row gap-6 pt-4'>
-              <button className='bg-[#FFCC00] text-black py-2 md:py-4 px-4 md:px-6 rounded-full font-semibold text-sm md:text-lg text-center'>
+              <button className='bg-[#FFCC00] text-black py-2 md:py-4 px-4 md:px-6 rounded-full font-semibold text-sm md:text-base text-center'>
                 Get Started <span className='ml-2 text-sm md:text-lg'>→</span>
               </button>
-              <button className='hidden md:block border border-white text-white py-4 px-6 rounded-full font-semibold text-sm md:text-lg text-center'>
+              <button className='hidden md:block border border-white text-white py-4 px-6 rounded-full font-semibold text-sm md:text-base text-center'>
                 Find a Participating Repair Shop <span className='ml-2 text-sm md:text-lg'>→</span>
               </button>
             </div>
