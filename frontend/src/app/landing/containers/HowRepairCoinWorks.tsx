@@ -12,10 +12,10 @@ interface StepCardProps {
 
 const StepCard = ({ title, description, icon }: StepCardProps) => (
   <div className="flex flex-col h-full items-center">
-    <div className="bg-white rounded-2xl p-6 h-full flex flex-row items-center justify-center text-center shadow-md gap-10">
+    <div className="bg-[#101010] rounded-2xl p-6 h-full flex flex-row items-center justify-center text-center shadow-md gap-10">
       <div className="w-2/3">
-        <h3 className="text-xl font-semibold text-gray-800 mb-2">{title}</h3>
-        <p className="text-gray-500 text-sm">{description}</p>
+        <h3 className="text-xl font-semibold text-[#FFCC00] mb-2">{title}</h3>
+        <p className="text-gray-300 text-sm">{description}</p>
       </div>
       <div className="w-1/3 flex justify-center">
         <div className="relative w-24 h-24">{icon}</div>
@@ -90,9 +90,8 @@ const HowRepairCoinWorks: React.FC<HowRepairCoinWorksProps> = ({
                 icon: <img src="/redeem.png" alt="" />,
               },
             ].map((step, index, array) => (
-              <>
+              <React.Fragment key={index}>
                 <div
-                  key={index}
                   className="flex w-full h-[25vh] gap-10"
                 >
                   <StepCard
@@ -106,7 +105,7 @@ const HowRepairCoinWorks: React.FC<HowRepairCoinWorksProps> = ({
                         <ArrowIcon />
                     </div>
                 )}
-              </>
+              </React.Fragment>
             ))}
           </div>
         </div>
