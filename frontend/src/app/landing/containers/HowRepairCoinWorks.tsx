@@ -12,12 +12,12 @@ interface StepCardProps {
 
 const StepCard = ({ title, description, icon }: StepCardProps) => (
   <div className="flex flex-col h-full items-center">
-    <div className="bg-[#101010] rounded-2xl p-6 h-full flex flex-row items-center justify-center text-center shadow-md gap-10">
-      <div className="w-2/3">
-        <h3 className="text-xl font-semibold text-[#FFCC00] mb-2">{title}</h3>
-        <p className="text-gray-300 text-sm">{description}</p>
+    <div className="bg-[#101010] rounded-2xl border-1 border-gray-500 p-6 h-full flex flex-row items-center justify-center text-center shadow-md gap-10">
+      <div className="flex flex-col h-full">
+        <h3 className="text-xl font-semibold text-left text-[#FFCC00] mb-2">{title}</h3>
+        <p className="text-gray-300 text-sm text-left">{description}</p>
       </div>
-      <div className="w-1/3 flex justify-center">
+      <div className="w-1/3 flex justify-center items-center h-full">
         <div className="relative w-24 h-24">{icon}</div>
       </div>
     </div>
@@ -70,7 +70,7 @@ const HowRepairCoinWorks: React.FC<HowRepairCoinWorksProps> = ({
               Exercitation veniam consequat sunt nostrud amet.
             </p>
           </div>
-          <div className="w-5/6 flex flex-col md:flex-row items-center justify-center gap-8 mt-12">
+          <div className="w-[90%] flex flex-col md:flex-row items-center justify-center gap-8 mt-12">
             {[
               {
                 title: "Repair",
@@ -81,19 +81,18 @@ const HowRepairCoinWorks: React.FC<HowRepairCoinWorksProps> = ({
               {
                 title: "Earn",
                 description: "Receive RepairCoin as a reward for every repair.",
-                icon: <img src="/earn.png" alt="" />,
+                icon: <img src="/redeem.png" alt="" />,
+
               },
               {
                 title: "Redeem",
                 description:
                   "Receive exciting rewards from our system. Trade other currencies from the market.",
-                icon: <img src="/redeem.png" alt="" />,
+                icon: <img src="/earn.png" alt="" />,
               },
             ].map((step, index, array) => (
               <React.Fragment key={index}>
-                <div
-                  className="flex w-full h-[25vh] gap-10"
-                >
+                <div className="flex w-full h-[25vh] gap-10">
                   <StepCard
                     title={step.title}
                     description={step.description}
@@ -101,9 +100,9 @@ const HowRepairCoinWorks: React.FC<HowRepairCoinWorksProps> = ({
                   />
                 </div>
                 {index < array.length - 1 && (
-                    <div className="border-1 rounded-full p-2">
-                        <ArrowIcon />
-                    </div>
+                  <div className="border-1 rounded-full p-2">
+                    <ArrowIcon />
+                  </div>
                 )}
               </React.Fragment>
             ))}
