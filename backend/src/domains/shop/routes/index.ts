@@ -7,7 +7,15 @@ import { TokenMinter } from '../../../../../contracts/TokenMinter';
 import { TierManager } from '../../../../../contracts/TierManager';
 import { logger } from '../../../utils/logger';
 
+// Import new route modules
+import purchaseRoutes from './purchase';
+import tierBonusRoutes from './tierBonus';
+
 const router = Router();
+
+// Register sub-routes
+router.use('/purchase', purchaseRoutes);
+router.use('/tier-bonus', tierBonusRoutes);
 
 // Lazy loading helpers
 let tokenMinter: TokenMinter | null = null;

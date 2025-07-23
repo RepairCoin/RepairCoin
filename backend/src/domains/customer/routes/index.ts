@@ -11,7 +11,13 @@ import {
 import { CustomerController } from '../controllers/CustomerController';
 import { CustomerService } from '../services/CustomerService';
 
+// Import new route modules
+import crossShopRoutes from './crossShop';
+
 const router = Router();
+
+// Register sub-routes
+router.use('/cross-shop', crossShopRoutes);
 
 // Initialize service and controller
 const customerService = new CustomerService();
