@@ -11,14 +11,14 @@ interface StepCardProps {
 }
 
 const StepCard = ({ title, description, icon }: StepCardProps) => (
-  <div className="flex flex-col h-full items-center">
-    <div className="bg-[#101010] rounded-2xl border-1 border-gray-500 p-6 h-full flex flex-row items-center justify-center text-center shadow-md gap-10">
-      <div className="flex flex-col h-full">
+  <div className="flex flex-col w-full h-full items-center">
+    <div className="bg-[#101010] w-full rounded-2xl border-1 border-gray-500 p-6 h-full flex flex-row items-center justify-center text-center shadow-md gap-10">
+      <div className="flex flex-col gap-6 w-full h-full">
         <h3 className="text-xl font-semibold text-left text-[#FFCC00] mb-2">{title}</h3>
         <p className="text-gray-300 text-sm text-left">{description}</p>
       </div>
-      <div className="w-1/3 flex justify-center items-center h-full">
-        <div className="relative w-24 h-24">{icon}</div>
+      <div className="flex justify-center items-center w-full h-full">
+        <div className="relative">{icon}</div>
       </div>
     </div>
   </div>
@@ -52,12 +52,12 @@ const HowRepairCoinWorks: React.FC<HowRepairCoinWorksProps> = ({
 }) => {
   return (
     <div
-      className="w-full border-2"
+      className="w-full"
       style={{ backgroundImage: `url(${techBgImage})` }}
     >
       <Section>
-        <div className="w-full flex flex-col justify-between items-center py-8 xl:py-10">
-          <div className="w-full md:w-1/2 flex flex-col border-2 items-center gap-6">
+        <div className="w-full  flex flex-col justify-between items-center py-8 xl:py-10">
+          <div className="w-full md:w-1/2 flex flex-col  items-center gap-6">
             <p className="text-[#FFCC00] text-sm md:text-lg tracking-wide">
               Fix it. Earn it. Power the Repair Economy.
             </p>
@@ -70,7 +70,7 @@ const HowRepairCoinWorks: React.FC<HowRepairCoinWorksProps> = ({
               Exercitation veniam consequat sunt nostrud amet.
             </p>
           </div>
-          <div className="w-[90%] flex flex-col md:flex-row items-center justify-center gap-8 mt-12">
+          <div className="flex w-full  flex-col md:flex-row items-center justify-center gap-8 mt-12">
             {[
               {
                 title: "Repair",
@@ -92,7 +92,7 @@ const HowRepairCoinWorks: React.FC<HowRepairCoinWorksProps> = ({
               },
             ].map((step, index, array) => (
               <React.Fragment key={index}>
-                <div className="flex w-full h-[25vh] gap-10">
+                <div className="flex w-full h-full gap-10">
                   <StepCard
                     title={step.title}
                     description={step.description}
