@@ -1,5 +1,6 @@
 "use client";
 
+import StepCard from "@/components/StepCard";
 import React from "react";
 
 const WhyRepairCoin: React.FC<any> = () => {
@@ -12,6 +13,44 @@ const WhyRepairCoin: React.FC<any> = () => {
         <p className="text-[#FFCC00] text-sm md:text-lg tracking-wide">
           Fix it. Earn it. Power the Repair Economy.
         </p>
+      </div>
+      <div className="w-full mt-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
+          {[
+            {
+              title: "Get Rewarded for What You’re Already Doing",
+              description:
+                "Every time you repair your phone, laptop, or device at a partner shop, you earn RepairCoin — a crypto token with real-world value.",
+              icon: <img src="/reward.png" alt="Repair" />,
+            },
+            {
+              title: "Loyalty That Pays You Back",
+              description: "Unlike generic points or coupons, RepairCoin is a blockchain-backed token that can grow in value, be traded, or used for discounts and perks.",
+              icon: <img src="/loyalty.png" alt="Earn" />,
+            },
+            {
+              title: "Support Local. Earn Global.",
+              description:
+                "When you use RepairCoin, you’re not just earning crypto — you’re empowering local repair businesses while tapping into a global digital economy.",
+              icon: <img src="/repair.png" alt="Redeem" />,
+            },
+            {
+              title: "Sustainable & Smart Choice",
+              description:
+                "Choosing to repair your devices instead of replacing them helps the planet. RepairCoin rewards eco-conscious behavior with smart, tech-forward incentives that benefit everyone.",
+              icon: <img src="/sustain.png" alt="Redeem" />,
+            },
+          ].map((step, index) => (
+            <div key={index} className="w-full h-full">
+              <StepCard
+                title={step.title}
+                description={step.description}
+                icon={step.icon}
+                whyRepairCoin={true}
+              />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
