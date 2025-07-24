@@ -51,6 +51,20 @@ router.post('/contract/unpause',
   asyncHandler(adminController.unpauseContract.bind(adminController))
 );
 
+// Shop creation (for admins)
+router.post('/create-shop',
+  validateRequired(['shop_id', 'name', 'address', 'phone', 'email', 'wallet_address']),
+  validateEthereumAddress('wallet_address'),
+  asyncHandler(adminController.createShop.bind(adminController))
+);
+
+// Admin creation (for super admins)
+router.post('/create-admin',
+  validateRequired(['walletAddress', 'permissions']),
+  validateEthereumAddress('walletAddress'),
+  asyncHandler(adminController.createAdmin.bind(adminController))
+);
+
 // Shop approval
 router.post('/shops/:shopId/approve', 
   asyncHandler(adminController.approveShop.bind(adminController))

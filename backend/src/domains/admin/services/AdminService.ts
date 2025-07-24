@@ -515,4 +515,107 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
       throw error;
     }
   }
+
+  async createShop(shopData: any) {
+    try {
+      logger.info('Admin creating shop', { shopId: shopData.shopId });
+
+      // Check if shop ID already exists
+      const existingShop = await databaseService.getShop(shopData.shopId);
+      if (existingShop) {
+        throw new Error('Shop ID already exists');
+      }
+
+      // Check if wallet address is already used
+      const existingShops = await databaseService.getShopsPaginated({ limit: 1000 });
+      const shopWithWallet = existingShops.items.find(s => 
+        s.walletAddress?.toLowerCase() === shopData.walletAddress.toLowerCase()
+      );
+      if (shopWithWallet) {
+        throw new Error('Wallet address already registered to another shop');
+      }
+
+      // Create shop with proper database field mapping
+      const dbShopData = {
+        shopId: shopData.shopId,
+        name: shopData.name,
+        address: shopData.address,
+        phone: shopData.phone,
+        email: shopData.email,
+        walletAddress: shopData.walletAddress,
+        reimbursementAddress: shopData.reimbursementAddress,
+        verified: shopData.verified,
+        active: shopData.active,
+        crossShopEnabled: shopData.crossShopEnabled,
+        totalTokensIssued: 0,
+        totalRedemptions: 0,
+        totalReimbursements: 0,
+        joinDate: new Date().toISOString(),
+        lastActivity: new Date().toISOString(),
+        fixflowShopId: shopData.fixflowShopId,
+        location: shopData.location
+      };
+
+      const result = await databaseService.createShop(dbShopData);
+
+      logger.info('Shop created by admin', {
+        shopId: shopData.shopId,
+        result: result
+      });
+
+      return {
+        success: true,
+        shopId: result.id,
+        message: 'Shop created successfully',
+        shop: {
+          shopId: shopData.shopId,
+          name: shopData.name,
+          verified: shopData.verified,
+          active: shopData.active
+        }
+      };
+    } catch (error) {
+      logger.error('Shop creation error:', error);
+      throw error;
+    }
+  }
+
+  async createAdmin(adminData: { walletAddress: string; name?: string; email?: string; permissions: string[] }) {
+    try {
+      logger.info('Creating new admin', { walletAddress: adminData.walletAddress });
+
+      // Note: For now, admin management is done via .env file
+      // In a real system, you'd probably have an admins table
+      // This is a placeholder implementation
+
+      // Check if address is already an admin
+      const currentAdmins = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
+      if (currentAdmins.includes(adminData.walletAddress.toLowerCase())) {
+        throw new Error('Address is already an admin');
+      }
+
+      // In a real implementation, you would:
+      // 1. Store admin in database table
+      // 2. Update environment configuration
+      // 3. Notify other services of new admin
+
+      logger.warn('Admin creation requested but not fully implemented', {
+        note: 'Currently admins are managed via ADMIN_ADDRESSES environment variable',
+        requestedAdmin: adminData
+      });
+
+      return {
+        success: true,
+        message: 'Admin creation logged. Please manually add the address to ADMIN_ADDRESSES environment variable.',
+        admin: {
+          walletAddress: adminData.walletAddress,
+          name: adminData.name,
+          permissions: adminData.permissions
+        }
+      };
+    } catch (error) {
+      logger.error('Admin creation error:', error);
+      throw error;
+    }
+  }
 }

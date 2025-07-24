@@ -115,10 +115,10 @@ export class ShopPurchaseService {
       });
 
       return {
-        purchases: result.data,
-        total: result.total,
-        page: result.page,
-        totalPages: result.totalPages
+        purchases: result.items,
+        total: result.pagination.totalItems || 0,
+        page: result.pagination.page || 1,
+        totalPages: result.pagination.totalPages || 1
       };
 
     } catch (error) {

@@ -143,4 +143,54 @@ export class AdminController {
       ResponseHelper.error(res, error.message, 500);
     }
   }
+
+  async createShop(req: Request, res: Response) {
+    try {
+      const shopData = req.body;
+      
+      // Map frontend field names to database field names
+      const dbShopData = {
+        shopId: shopData.shop_id,
+        name: shopData.name,
+        address: shopData.address,
+        phone: shopData.phone,
+        email: shopData.email,
+        walletAddress: shopData.wallet_address,
+        reimbursementAddress: shopData.reimbursement_address || shopData.wallet_address,
+        verified: shopData.verified || false,
+        active: shopData.active !== false,
+        crossShopEnabled: shopData.cross_shop_enabled || false,
+        fixflowShopId: shopData.fixflow_shop_id,
+        location: {
+          lat: shopData.location_lat ? parseFloat(shopData.location_lat) : undefined,
+          lng: shopData.location_lng ? parseFloat(shopData.location_lng) : undefined,
+          city: shopData.location_city,
+          state: shopData.location_state,
+          zipCode: shopData.location_zip_code
+        }
+      };
+
+      const result = await this.adminService.createShop(dbShopData);
+      ResponseHelper.success(res, result, 'Shop created successfully');
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message, 500);
+    }
+  }
+
+  async createAdmin(req: Request, res: Response) {
+    try {
+      const { walletAddress, name, email, permissions } = req.body;
+      
+      const result = await this.adminService.createAdmin({
+        walletAddress,
+        name,
+        email,
+        permissions
+      });
+      
+      ResponseHelper.success(res, result, 'Admin created successfully');
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message, 500);
+    }
+  }
 }

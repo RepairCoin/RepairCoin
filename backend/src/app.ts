@@ -25,6 +25,7 @@ import { eventBus } from './events/EventBus';
 // Your existing route imports (for non-domain routes)
 import healthRoutes from './routes/health';
 import metricsRoutes from './routes/metrics';
+import authRoutes from './routes/auth';
 
 // Middleware imports
 import { metricsMiddleware } from './utils/metrics';
@@ -109,6 +110,9 @@ class RepairCoinApp {
   private setupRoutes(): void {
     // Health check (always first)
     this.app.use('/api/health', healthRoutes);
+    
+    // Authentication routes
+    this.app.use('/api/auth', authRoutes);
     
     // Domain routes
     const routes = domainRegistry.getRoutes();

@@ -1175,6 +1175,51 @@ async getShopTransactions(shopId: string, limit: number = 50): Promise<Transacti
     }
   }
 
+  // Create basic transaction method (needed by createTransactionWithTierBonus)
+  async createTransaction(transaction: TransactionRecord): Promise<CreateResult> {
+    try {
+      const query = `
+        INSERT INTO transactions (
+          id, type, customer_address, shop_id, amount, reason,
+          transaction_hash, block_number, timestamp, status, metadata,
+          token_source, is_cross_shop, redemption_shop_id, tier_bonus_amount, base_amount
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        RETURNING id
+      `;
+      
+      const values = [
+        transaction.id || `txn_${Date.now()}`,
+        transaction.type,
+        transaction.customerAddress.toLowerCase(),
+        transaction.shopId,
+        transaction.amount,
+        transaction.reason,
+        transaction.transactionHash,
+        transaction.blockNumber,
+        transaction.timestamp,
+        transaction.status,
+        JSON.stringify(transaction.metadata || {}),
+        transaction.tokenSource,
+        transaction.isCrossShop || false,
+        transaction.redemptionShopId,
+        transaction.tierBonusAmount,
+        transaction.baseAmount
+      ];
+      
+      const result = await this.pool.query(query, values);
+      logger.info(`Transaction created: ${transaction.id}`);
+      
+      return {
+        id: result.rows[0].id,
+        success: true,
+        message: 'Transaction created successfully'
+      };
+    } catch (error) {
+      logger.error('Error creating transaction:', error);
+      throw new Error('Failed to create transaction');
+    }
+  }
+
   // Enhanced Transaction Methods with New Features
   async createTransactionWithTierBonus(transactionData: Omit<TransactionRecord, 'id' | 'timestamp'>, tierBonusData?: Omit<TierBonus, 'id' | 'appliedAt'>): Promise<CreateResult> {
     try {
@@ -1183,6 +1228,7 @@ async getShopTransactions(shopId: string, limit: number = 50): Promise<Transacti
       // Create main transaction
       const transactionResult = await this.createTransaction({
         ...transactionData,
+        id: `txn_${Date.now()}`,
         timestamp: new Date().toISOString()
       });
       
@@ -1236,25 +1282,26 @@ async getShopTransactions(shopId: string, limit: number = 50): Promise<Transacti
   // Shop Management Methods
   async getShopPurchaseHistory(shopId: string, pagination?: PaginationParams): Promise<PaginatedResult<ShopRcnPurchase>> {
     try {
-      const { limit, offset, orderBy, orderDirection } = PaginationHelper.getPagination(pagination);
+      const validatedParams = PaginationHelper.validatePaginationParams(pagination || {});
+      const offset = (validatedParams.page - 1) * validatedParams.limit;
       
       const query = `
         SELECT * FROM shop_rcn_purchases 
         WHERE shop_id = $1 
-        ORDER BY ${orderBy} ${orderDirection} 
+        ORDER BY ${validatedParams.orderBy} ${validatedParams.orderDirection} 
         LIMIT $2 OFFSET $3
       `;
       
       const countQuery = 'SELECT COUNT(*) FROM shop_rcn_purchases WHERE shop_id = $1';
       
       const [dataResult, countResult] = await Promise.all([
-        this.pool.query(query, [shopId, limit, offset]),
+        this.pool.query(query, [shopId, validatedParams.limit, offset]),
         this.pool.query(countQuery, [shopId])
       ]);
       
       const total = parseInt(countResult.rows[0].count);
       
-      return PaginationHelper.createResult(dataResult.rows, total, pagination);
+      return PaginationHelper.createOffsetPaginatedResult(dataResult.rows, total, validatedParams.limit, validatedParams.page);
     } catch (error) {
       logger.error('Error getting shop purchase history:', error);
       throw new Error('Failed to retrieve shop purchase history');
