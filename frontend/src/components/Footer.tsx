@@ -51,8 +51,8 @@ const Footer = () => {
           {/* Top Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 mb-12">
             {/* Logo and Description */}
-            <div className="md:col-span-2 w-[40%]">
-              <div className="flex flex-col space-x-3 mb-8">
+            <div className="md:col-span-2 w-full md:w-[40%]">
+              <div className="flex flex-col items-center md:items-start space-x-3 mb-8">
                 <div>
                   <img
                     src="/community-logo.png"
@@ -64,11 +64,11 @@ const Footer = () => {
                   The Repair Industry’s Loyalty Token
                 </span>
               </div>
-              <p className="text-gray-400 mb-6">
+              <p className="text-gray-400 text-center md:text-left mb-6">
                 Follow our Social Media for more news and be updated to our
                 promos!{" "}
               </p>
-              <div className="flex space-x-4">
+              <div className="flex space-x-4 justify-center md:justify-start">
                 {["twitter", "facebook", "instagram", "linkedin"].map(
                   (social) => (
                     <a
@@ -97,7 +97,7 @@ const Footer = () => {
 
             {/* Footer Links */}
             {footerLinks.map((section) => (
-              <div key={section.title}>
+              <div key={section.title} className="hidden md:block">
                 <h3 className="text-white font-semibold text-lg mb-4">
                   {section.title}
                 </h3>
@@ -117,7 +117,7 @@ const Footer = () => {
             ))}
           </div>
 
-          <div className="flex flex-col md:flex-row justify-end items-center">
+          <div className="hidden md:flex flex-col md:flex-row justify-end items-center">
             {/* visa */}
             <svg
               width="66"
