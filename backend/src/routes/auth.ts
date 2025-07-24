@@ -2,6 +2,7 @@
 import { Router } from 'express';
 import { databaseService } from '../services/DatabaseService';
 import { logger } from '../utils/logger';
+import { generateToken } from '../middleware/auth';
 
 const router = Router();
 
@@ -286,6 +287,59 @@ router.get('/session', async (req, res) => {
     return res.status(500).json({
       error: 'Internal server error',
       message: 'Error validating session'
+    });
+  }
+});
+
+/**
+ * Generate admin JWT token
+ * POST /api/auth/admin
+ */
+router.post('/admin', async (req, res) => {
+  try {
+    const { address } = req.body;
+
+    if (!address) {
+      return res.status(400).json({
+        error: 'Wallet address is required'
+      });
+    }
+
+    const normalizedAddress = address.toLowerCase();
+
+    // Check if address is in admin list
+    const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
+    if (!adminAddresses.includes(normalizedAddress)) {
+      return res.status(403).json({
+        error: 'Address not authorized as admin'
+      });
+    }
+
+    // Generate JWT token for admin
+    const token = generateToken({
+      address: normalizedAddress,
+      role: 'admin'
+    });
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: 'admin_' + normalizedAddress,
+        address: normalizedAddress,
+        walletAddress: normalizedAddress,
+        name: 'Administrator',
+        role: 'admin',
+        active: true,
+        createdAt: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    logger.error('Error generating admin token:', error);
+    return res.status(500).json({
+      error: 'Internal server error',
+      message: 'Error generating admin token'
     });
   }
 });

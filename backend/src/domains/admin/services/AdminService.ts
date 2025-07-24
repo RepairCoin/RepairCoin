@@ -316,9 +316,12 @@ export class AdminService {
 
   private async getTotalShopsCount(): Promise<number> {
     try {
+      // Count only active and verified shops (matching Active Shops tab)
       const result = await databaseService.getShopsPaginated({
         page: 1,
-        limit: 1
+        limit: 1,
+        active: true,
+        verified: true
       });
       return result.pagination.totalItems || 0;
     } catch (error) {

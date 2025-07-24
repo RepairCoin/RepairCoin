@@ -272,7 +272,7 @@ async function validateUserInDatabase(tokenPayload: JWTPayload): Promise<boolean
     switch (tokenPayload.role) {
       case 'admin':
         // Check if address is in admin list (could be environment variable or database)
-        const adminAddresses = process.env.ADMIN_ADDRESSES?.split(',') || [];
+        const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
         return adminAddresses.includes(tokenPayload.address.toLowerCase());
         
       case 'shop':

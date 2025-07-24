@@ -1,6 +1,6 @@
 // backend/src/routes/admin.ts
 import { Router } from 'express';
-import { requireAdmin } from '../../../middleware/auth';
+import { authMiddleware, requireAdmin } from '../../../middleware/auth';
 import { 
   validateRequired, 
   validateEthereumAddress, 
@@ -16,7 +16,8 @@ const router = Router();
 const adminService = new AdminService();
 const adminController = new AdminController(adminService);
 
-// All admin routes require admin role
+// All admin routes require authentication and admin role
+router.use(authMiddleware);
 router.use(requireAdmin);
 
 // Platform statistics

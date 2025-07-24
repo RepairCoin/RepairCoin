@@ -31,13 +31,19 @@ interface Customer {
 
 interface Shop {
   shopId: string;
+  shop_id?: string;
   name: string;
-  active: boolean;
-  verified: boolean;
-  totalTokensIssued: number;
-  totalRedemptions: number;
-  crossShopEnabled: boolean;
+  active?: boolean;
+  verified?: boolean;
+  totalTokensIssued?: number;
+  totalRedemptions?: number;
+  crossShopEnabled?: boolean;
+  cross_shop_enabled?: boolean;
   purchasedRcnBalance?: number;
+  email?: string;
+  phone?: string;
+  joinDate?: string;
+  join_date?: string;
 }
 
 export default function AdminDashboard() {
@@ -46,9 +52,39 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<PlatformStats | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [shops, setShops] = useState<Shop[]>([]);
+  const [pendingShops, setPendingShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'customers' | 'shops' | 'transactions' | 'create-admin' | 'create-shop'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'customers' | 'shops' | 'shop-applications' | 'transactions' | 'create-admin' | 'create-shop'>('overview');
+
+  // Generate JWT token for admin authentication
+  const generateAdminToken = async (): Promise<string | null> => {
+    if (!account?.address) return null;
+    
+    try {
+      // Call auth endpoint to get proper JWT token
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/admin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          address: account.address
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        return data.token;
+      }
+      
+      console.warn('Failed to get admin token:', await response.text());
+      return null;
+    } catch (error) {
+      console.error('Error generating admin token:', error);
+      return null;
+    }
+  };
 
   useEffect(() => {
     if (account?.address && isAdmin && !authLoading) {
@@ -63,25 +99,73 @@ export default function AdminDashboard() {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
       
+      // Generate JWT token for admin
+      const adminToken = await generateAdminToken();
+      if (!adminToken) {
+        setError('Failed to authenticate as admin');
+        setLoading(false);
+        return;
+      }
+      
+      // Create headers with JWT authentication
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${adminToken}`
+      };
+      
       // Load platform statistics
-      const statsResponse = await fetch(`${apiUrl}/admin/platform/statistics`);
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json();
-        setStats(statsData.data);
+      try {
+        const statsResponse = await fetch(`${apiUrl}/admin/stats`, { headers });
+        if (statsResponse.ok) {
+          const statsData = await statsResponse.json();
+          setStats(statsData.data || statsData);
+        } else {
+          console.warn('Stats API failed:', await statsResponse.text());
+        }
+      } catch (statsErr) {
+        console.warn('Stats API error:', statsErr);
       }
 
       // Load customers
-      const customersResponse = await fetch(`${apiUrl}/admin/customers?limit=50`);
-      if (customersResponse.ok) {
-        const customersData = await customersResponse.json();
-        setCustomers(customersData.data.customers || []);
+      try {
+        const customersResponse = await fetch(`${apiUrl}/admin/customers?limit=50`, { headers });
+        if (customersResponse.ok) {
+          const customersData = await customersResponse.json();
+          setCustomers(customersData.data?.customers || customersData.customers || []);
+        } else {
+          console.warn('Customers API failed:', await customersResponse.text());
+        }
+      } catch (customersErr) {
+        console.warn('Customers API error:', customersErr);
       }
 
-      // Load shops
-      const shopsResponse = await fetch(`${apiUrl}/admin/shops?limit=50`);
-      if (shopsResponse.ok) {
-        const shopsData = await shopsResponse.json();
-        setShops(shopsData.data.shops || []);
+      // Load active/verified shops
+      try {
+        const shopsResponse = await fetch(`${apiUrl}/admin/shops`, { headers });
+        if (shopsResponse.ok) {
+          const shopsData = await shopsResponse.json();
+          console.log('Active Shops API response:', shopsData);
+          setShops(shopsData.data?.shops || shopsData.shops || []);
+        } else {
+          const errorText = await shopsResponse.text();
+          console.warn('Active Shops API failed:', errorText);
+        }
+      } catch (shopsErr) {
+        console.warn('Active Shops API error:', shopsErr);
+      }
+
+      // Load pending shop applications (unverified shops)
+      try {
+        const pendingShopsResponse = await fetch(`${apiUrl}/admin/shops?verified=false`, { headers });
+        if (pendingShopsResponse.ok) {
+          const pendingData = await pendingShopsResponse.json();
+          console.log('Pending Shops API response:', pendingData);
+          setPendingShops(pendingData.data?.shops || pendingData.shops || []);
+        } else {
+          console.warn('Pending Shops API failed:', await pendingShopsResponse.text());
+        }
+      } catch (pendingErr) {
+        console.warn('Pending Shops API error:', pendingErr);
       }
 
     } catch (err) {
@@ -94,10 +178,18 @@ export default function AdminDashboard() {
 
   const mintTokensToCustomer = async (customerAddress: string, amount: number, reason: string) => {
     try {
+      // Get admin token
+      const adminToken = await generateAdminToken();
+      if (!adminToken) {
+        setError('Failed to authenticate as admin');
+        return;
+      }
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/mint`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
         },
         body: JSON.stringify({
           customerAddress,
@@ -120,6 +212,39 @@ export default function AdminDashboard() {
     } catch (err) {
       console.error('Error minting tokens:', err);
       setError('Failed to mint tokens');
+    }
+  };
+
+  const approveShop = async (shopId: string) => {
+    try {
+      // Get admin token
+      const adminToken = await generateAdminToken();
+      if (!adminToken) {
+        setError('Failed to authenticate as admin');
+        return;
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/shops/${shopId}/approve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to approve shop');
+      }
+
+      const result = await response.json();
+      console.log('Shop approved successfully:', result);
+      
+      // Reload data to reflect changes
+      await loadDashboardData();
+      
+    } catch (err) {
+      console.error('Error approving shop:', err);
+      setError('Failed to approve shop');
     }
   };
 
@@ -228,7 +353,8 @@ export default function AdminDashboard() {
             {[
               { id: 'overview', label: 'Overview', icon: '📊' },
               { id: 'customers', label: 'Customers', icon: '👥' },
-              { id: 'shops', label: 'Shops', icon: '🏪' },
+              { id: 'shops', label: 'Active Shops', icon: '🏪' },
+              { id: 'shop-applications', label: 'Shop Applications', icon: '📝' },
               { id: 'transactions', label: 'Transactions', icon: '💰' },
               { id: 'create-admin', label: 'Create Admin', icon: '⚡' },
               { id: 'create-shop', label: 'Create Shop', icon: '🆕' }
@@ -236,7 +362,7 @@ export default function AdminDashboard() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-colors ${
+                className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-colors cursor-pointer ${
                   activeTab === tab.id
                     ? 'bg-gradient-to-r from-red-600 to-pink-600 text-white shadow-lg'
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
@@ -253,7 +379,7 @@ export default function AdminDashboard() {
         {activeTab === 'overview' && (
           <div className="space-y-8">
             {/* Platform Statistics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
               <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
                 <div className="flex items-center justify-between">
                   <div>
@@ -271,6 +397,16 @@ export default function AdminDashboard() {
                     <p className="text-3xl font-bold text-green-600">{stats?.totalShops || 0}</p>
                   </div>
                   <div className="text-3xl">🏪</div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Pending Applications</p>
+                    <p className="text-3xl font-bold text-yellow-600">{pendingShops.length || 0}</p>
+                  </div>
+                  <div className="text-3xl">📝</div>
                 </div>
               </div>
 
@@ -455,6 +591,92 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {/* Shop Applications Tab */}
+        {activeTab === 'shop-applications' && (
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-2xl font-bold text-gray-900">Shop Applications</h2>
+              <p className="text-gray-600 mt-1">Review and approve pending shop applications</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shop</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applied Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {pendingShops.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                        <div className="text-4xl mb-2">📝</div>
+                        <p>No pending shop applications</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    pendingShops.map((shop) => (
+                      <tr key={shop.shopId || shop.shop_id}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{shop.name}</div>
+                            <div className="text-sm text-gray-500">{shop.shopId || shop.shop_id}</div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div>
+                            <div className="text-sm text-gray-900">{shop.email}</div>
+                            <div className="text-sm text-gray-500">{shop.phone}</div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex space-x-2">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              (shop.active ?? true) ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            }`}>
+                              {(shop.active ?? true) ? 'Active' : 'Inactive'}
+                            </span>
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              (shop.verified ?? false) ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {(shop.verified ?? false) ? 'Verified' : 'Pending Review'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {(() => {
+                            const dateStr = shop.joinDate || shop.join_date;
+                            if (!dateStr) return 'N/A';
+                            const date = new Date(dateStr);
+                            return isNaN(date.getTime()) ? 'Invalid Date' : date.toLocaleDateString();
+                          })()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <button
+                            onClick={() => approveShop(shop.shopId || shop.shop_id || '')}
+                            className="text-green-600 hover:text-green-900 mr-4"
+                          >
+                            Approve
+                          </button>
+                          <button className="text-blue-600 hover:text-blue-900 mr-4">
+                            Review
+                          </button>
+                          <button className="text-red-600 hover:text-red-900">
+                            Reject
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {/* Create Admin Tab */}
         {activeTab === 'create-admin' && (
           <div className="bg-white rounded-2xl shadow-xl border border-gray-100">
@@ -463,7 +685,7 @@ export default function AdminDashboard() {
               <p className="text-gray-600 mt-1">Grant admin privileges to a wallet address</p>
             </div>
             <div className="p-6">
-              <AdminCreationForm onSuccess={loadDashboardData} />
+              <AdminCreationForm onSuccess={loadDashboardData} account={account} />
             </div>
           </div>
         )}
@@ -476,7 +698,7 @@ export default function AdminDashboard() {
               <p className="text-gray-600 mt-1">Register a new repair shop in the system</p>
             </div>
             <div className="p-6">
-              <ShopCreationForm onSuccess={loadDashboardData} />
+              <ShopCreationForm onSuccess={loadDashboardData} account={account} />
             </div>
           </div>
         )}
@@ -499,7 +721,7 @@ export default function AdminDashboard() {
 }
 
 // Admin Creation Form Component
-function AdminCreationForm({ onSuccess }: { onSuccess: () => void }) {
+function AdminCreationForm({ onSuccess, account }: { onSuccess: () => void; account: any }) {
   const [formData, setFormData] = useState({
     walletAddress: '',
     name: '',
@@ -517,10 +739,43 @@ function AdminCreationForm({ onSuccess }: { onSuccess: () => void }) {
     setSuccess(null);
 
     try {
+      // Generate admin token first
+      const generateToken = async (): Promise<string | null> => {
+        if (!account?.address) return null;
+        
+        try {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/admin`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              address: account.address
+            }),
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            return data.token;
+          }
+          return null;
+        } catch (error) {
+          console.error('Error generating admin token:', error);
+          return null;
+        }
+      };
+
+      const adminToken = await generateToken();
+      if (!adminToken) {
+        setError('Failed to authenticate as admin');
+        return;
+      }
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/create-admin`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
         },
         body: JSON.stringify(formData),
       });
@@ -670,7 +925,7 @@ function AdminCreationForm({ onSuccess }: { onSuccess: () => void }) {
 }
 
 // Shop Creation Form Component
-function ShopCreationForm({ onSuccess }: { onSuccess: () => void }) {
+function ShopCreationForm({ onSuccess, account }: { onSuccess: () => void; account: any }) {
   const [formData, setFormData] = useState({
     shop_id: '',
     name: '',
@@ -700,6 +955,38 @@ function ShopCreationForm({ onSuccess }: { onSuccess: () => void }) {
     setSuccess(null);
 
     try {
+      // Generate admin token first
+      const generateToken = async (): Promise<string | null> => {
+        if (!account?.address) return null;
+        
+        try {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/admin`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              address: account.address
+            }),
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            return data.token;
+          }
+          return null;
+        } catch (error) {
+          console.error('Error generating admin token:', error);
+          return null;
+        }
+      };
+
+      const adminToken = await generateToken();
+      if (!adminToken) {
+        setError('Failed to authenticate as admin');
+        return;
+      }
+
       const submitData = {
         ...formData,
         location_lat: formData.location_lat ? parseFloat(formData.location_lat) : undefined,
@@ -711,6 +998,7 @@ function ShopCreationForm({ onSuccess }: { onSuccess: () => void }) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
         },
         body: JSON.stringify(submitData),
       });

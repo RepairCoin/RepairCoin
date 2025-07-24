@@ -17,6 +17,7 @@ cd backend && npm run dev
 npm run client
 cd frontend && npm run dev
 
+
 # Build backend
 npm run build
 cd backend && npm run build
@@ -75,7 +76,7 @@ docker exec -it repaircoin-db psql -U repaircoin -d repaircoin
 ### Tech Stack
 - **Backend**: Node.js + Express + TypeScript
 - **Database**: PostgreSQL with enhanced schema for new requirements
-- **Frontend**: Next.js 15 + React 19 + TypeScript
+- **Frontend**: Next.js 15 + React 19 + TypeScript + Zustand state management
 - **Blockchain**: Thirdweb on Base Sepolia
 - **Containerization**: Docker + Docker Compose
 
@@ -87,96 +88,47 @@ backend/src/
 ├── domains/
 │   ├── DomainRegistry.ts         # Central domain management
 │   ├── types.ts                  # Domain interfaces
-│   ├── customer/                 # Customer management + cross-shop verification
-│   │   └── services/
-│   │       └── CrossShopVerificationService.ts # 20% cross-shop verification
-│   ├── shop/                     # Shop management + RCN purchasing + tier bonuses
-│   │   └── services/
-│   │       ├── ShopPurchaseService.ts    # Shop RCN purchasing at $1 per RCN
-│   │       └── TierBonusService.ts       # Tier bonus system (10/20/30 RCN)
+│   ├── customer/                 # Customer management domain
+│   ├── shop/                     # Shop management domain
 │   ├── token/                    # Token operations domain
-│   ├── webhook/                  # Enhanced webhook processing with tier bonuses
+│   ├── webhook/                  # Webhook processing domain
 │   └── admin/                    # Admin operations domain
-├── services/
-│   └── DatabaseService.ts        # Enhanced with new tables and methods
 ├── events/
 │   └── EventBus.ts              # Domain event system
+├── services/
+│   └── DatabaseService.ts       # Central database operations
 ├── middleware/                   # Express middleware
 ├── utils/                        # Shared utilities
 └── docs/                        # API documentation
 ```
 
-### New Enhanced Features
-
-**Shop RCN Purchasing System**:
-- Shops purchase RCN at $1.00 per token
-- Minimum 100 RCN purchase requirement  
-- Multiple payment methods (credit card, bank transfer, USDC)
-- Automatic balance tracking and alerts
-
-**Tier Bonus System**:
-- **Bronze**: +10 RCN bonus per qualifying repair
-- **Silver**: +20 RCN bonus per qualifying repair
-- **Gold**: +30 RCN bonus per qualifying repair
-- Applied to every repair ≥ $50
-- Deducted from shop's purchased RCN balance
-
-**Cross-Shop Verification (20% Limit)**:
-- Universal 20% limit for all tiers (not tier-based)
-- Only earned RCN can be redeemed at shops (anti-arbitrage)
-- Centralized verification API for real-time validation
-- 80% home shop balance + 20% cross-shop balance
-
-**Anti-Arbitrage Protection**:
-- Token source tracking (earned vs purchased)
-- Only earned tokens redeemable at shops
-- Market-bought tokens blocked from shop redemption
-- Complete audit trail for all token sources
-
-### Enhanced Database Schema
-
-**New Tables**:
-- `shop_rcn_purchases` - Shop RCN purchase records
-- `token_sources` - Anti-arbitrage token source tracking
-- `cross_shop_verifications` - Centralized verification logs
-- `tier_bonuses` - Tier bonus application records
-
-**Enhanced Tables**:
-- `shops` - Added RCN balance fields and purchase tracking
-- `transactions` - Extended with token source and cross-shop flags
-- `customers` - Enhanced with tier progression tracking
+Each domain follows the pattern:
+- `{Domain}Domain.ts` - Domain registration and initialization
+- `controllers/` - HTTP request handlers
+- `services/` - Business logic
+- `routes/` - Express route definitions
 
 ### Key Components
 
-**ShopPurchaseService (`backend/src/domains/shop/services/ShopPurchaseService.ts`)**:
-- Handles shop RCN purchases at $1 per token
-- Payment processing and balance management
-- Automatic purchase recommendations
-- Purchase history and analytics
+**DomainRegistry (`backend/src/domains/DomainRegistry.ts:4-56`)**:
+- Manages domain registration and initialization
+- Provides centralized route management
+- Handles graceful shutdown across all domains
 
-**TierBonusService (`backend/src/domains/shop/services/TierBonusService.ts`)**:
-- Calculates tier bonuses (10/20/30 RCN by tier)
-- Applies bonuses to qualifying repair transactions
-- Tracks bonus history and statistics
-- Shop balance verification and deduction
+**DatabaseService (`backend/src/services/DatabaseService.ts`)**:
+- Centralized PostgreSQL operations
+- Customer, shop, and transaction management
+- Built-in pagination support
 
-**CrossShopVerificationService (`backend/src/domains/customer/services/CrossShopVerificationService.ts`)**:
-- Real-time 20% cross-shop redemption verification
-- Anti-arbitrage token source validation
-- Centralized verification API for shops
-- Network-wide cross-shop analytics
-
-**Enhanced DatabaseService**:
-- 20+ new methods for enhanced features
-- Token source tracking for anti-arbitrage
-- Cross-shop balance calculations
-- Tier bonus application with shop balance deduction
+**EventBus (`backend/src/events/EventBus.ts`)**:
+- Inter-domain communication
+- Event history tracking
+- Subscription management
 
 ### Blockchain Integration
 - **Contract**: `0xd92ced7c3f4D8E42C05A4c558F37dA6DC731d5f5` on Base Sepolia
 - **SDK**: Thirdweb v5 for token operations
 - **Network**: Base Sepolia testnet
-- **Token Economics**: Fixed 1B RCN supply with controlled distribution
 
 ## Environment Configuration
 
@@ -202,26 +154,109 @@ The API uses Swagger/OpenAPI documentation:
 - **JSON Spec**: http://localhost:3000/api-docs.json
 - **Access**: `npm run docs:open` in backend directory
 
-### New API Endpoints
+### Admin Dashboard API Endpoints
 
-**Shop RCN Purchasing**:
-- `POST /api/shops/purchase/initiate` - Initiate RCN purchase
-- `POST /api/shops/purchase/complete` - Complete RCN purchase
-- `GET /api/shops/purchase/balance/{shopId}` - Get shop RCN balance
-- `GET /api/shops/purchase/history/{shopId}` - Get purchase history
+**Authentication**:
+- `POST /api/auth/admin` - Generate JWT token for admin users
+- All admin routes require JWT Bearer token authentication
 
-**Tier Bonus System**:
-- `POST /api/shops/tier-bonus/preview` - Preview tier bonus for repair
-- `POST /api/shops/tier-bonus/calculate` - Calculate tier bonus
-- `GET /api/shops/tier-bonus/stats/{shopId}` - Get shop tier bonus stats
-- `GET /api/shops/tier-bonus/customer/{customerAddress}` - Get customer bonus history
+**Shop Management**:
+- `GET /api/admin/shops` - List active/verified shops (default: active=true, verified=true)
+- `GET /api/admin/shops?verified=false` - List pending shop applications
+- `POST /api/admin/shops/{shopId}/approve` - Approve pending shop application
+- `POST /api/admin/create-shop` - Admin creates new shop with full validation
 
-**Cross-Shop Verification**:
-- `POST /api/customers/cross-shop/verify` - Verify cross-shop redemption
-- `GET /api/customers/cross-shop/balance/{customerAddress}` - Get cross-shop balance breakdown
-- `POST /api/customers/cross-shop/process` - Process approved redemption
-- `GET /api/customers/cross-shop/history/{customerAddress}` - Get verification history
-- `GET /api/customers/cross-shop/stats/network` - Network-wide stats
+**Platform Management**:
+- `GET /api/admin/stats` - Platform statistics (customers, shops, transactions, tokens)
+- `GET /api/admin/customers` - List customers with pagination and filters
+- `POST /api/admin/mint` - Manual token minting to customer addresses
+- `POST /api/admin/create-admin` - Create new admin user (placeholder implementation)
+
+**System Operations**:
+- `POST /api/admin/contract/pause` - Emergency contract pause
+- `POST /api/admin/contract/unpause` - Resume contract operations
+- `GET /api/admin/webhooks/failed` - List failed webhook deliveries
+
+## Enhanced Features
+
+### Admin Dashboard (`/frontend/src/app/admin/page.tsx`)
+
+**Complete admin management interface with the following tabs:**
+
+**Overview Tab**:
+- Platform statistics dashboard showing total customers, active shops, pending applications
+- Real-time data from `/api/admin/stats` endpoint
+- Quick action buttons for common admin tasks
+
+**Customers Tab**:
+- Paginated customer list with tier information and lifetime earnings
+- Manual token minting capability (100 RCN quick mint button)
+- Customer status management (active/suspended)
+
+**Active Shops Tab**:
+- List of verified and active shops
+- Shop performance metrics (tokens issued, RCN balance, cross-shop status)
+- Shop management actions (edit, verify)
+
+**Shop Applications Tab**:
+- Review pending shop applications (unverified shops)
+- Approve/reject workflow with one-click approval
+- Application details (contact info, application date, status)
+- Real-time status updates after approval
+
+**Create Admin Tab**:
+- Form to create new admin accounts
+- Permission-based role assignment
+- Wallet address validation
+
+**Create Shop Tab**:
+- Complete shop creation form matching registration schema
+- Business information, wallet details, location data
+- Instant verification and activation options
+
+**Authentication & Security**:
+- JWT-based authentication for all admin operations
+- Automatic token refresh and session management
+- Admin address validation against `ADMIN_ADDRESSES` environment variable
+
+### Shop Registration System
+
+The shop registration form (`frontend/src/app/shop/register/page.tsx`) includes comprehensive business information:
+
+**Personal Information**:
+- First Name, Last Name
+- Phone Number, Email Address
+
+**Business Information**:
+- Shop ID (unique identifier)
+- Company Name
+- Company Size (1-10, 11-50, 51-100, 100+ employees)
+- Monthly Revenue (<$10k, $10k-$50k, $50k-$100k, $100k+)
+- Role (Owner, Manager, Employee)
+- Website URL (optional)
+- Referral information (optional)
+
+**Address Information**:
+- Street Address
+- City, Country
+- Additional location fields for mapping
+
+**Terms and Conditions**:
+- Required acceptance checkbox
+- Detailed terms including verification requirements
+
+### State Management Architecture
+
+**Zustand Store (`frontend/src/stores/authStore.ts`)**:
+- Centralized authentication state
+- Wallet integration with Thirdweb
+- Role-based access control (admin/shop/customer)
+- DevTools integration for debugging
+
+**Authentication Hook (`frontend/src/hooks/useAuth.tsx`)**:
+- Auto-sync between wallet connection and auth state
+- Higher-order component (withAuth) for route protection
+- Role validation and access control
 
 ## Development Guidelines
 
@@ -231,50 +266,24 @@ The API uses Swagger/OpenAPI documentation:
 - RESTful API design with consistent response formats
 - Comprehensive error handling and logging
 
-### New Business Logic Implementation
-
-**Shop RCN Purchasing**:
-- All purchases at exactly $1.00 per RCN
-- Minimum 100 RCN purchase enforced
-- Shop balance tracked separately from blockchain tokens
-- Tier bonuses deducted from purchased balance
-
-**Tier Bonus Application**:
-- Automatically applied to repairs ≥ $50
-- Bonus amounts: Bronze=10, Silver=20, Gold=30 RCN
-- Shop must have sufficient purchased balance
-- Failed bonuses logged for audit but don't fail repair
-
-**Cross-Shop Verification**:
-- 20% universal limit (not tier-specific)
-- Only earned/bonus tokens eligible for shop redemption
-- Market-purchased tokens blocked from shop use
-- Real-time verification before redemption
-
 ### Database Operations
 - Use `DatabaseService.ts` for all database operations
 - Built-in connection pooling and transaction support
-- New methods for shop purchasing, tier bonuses, cross-shop verification
-- Token source tracking for anti-arbitrage protection
-- Comprehensive audit trails for all operations
-
-### Service Integration
-- `ShopPurchaseService` for all RCN purchasing operations
-- `TierBonusService` for bonus calculations and application
-- `CrossShopVerificationService` for redemption verification
-- Enhanced `WebhookService` with automatic tier bonus application
+- Pagination helper for large result sets
+- Proper error handling and query logging
 
 ### Frontend Integration
-- Next.js with Thirdweb integration for Web3 functionality
-- New components needed for shop purchasing interface
-- Cross-shop balance display (80% home / 20% cross-shop)
-- Tier bonus preview for repair estimates
+- Next.js 15 with Thirdweb integration for Web3 functionality
+- **State Management**: Zustand store replacing React Context for better performance
+- **Authentication**: Custom useAuth hook with wallet integration and role-based access
+- Tailwind CSS for styling with responsive design
+- TypeScript throughout with strict typing
+- **File Structure**: Components use `.tsx` extension for JSX support
 
 ### Testing Strategy
 - Jest for backend unit/integration tests
 - Test files: `**/__tests__/**/*.ts` or `**/*.{spec,test}.ts`
-- Test new services thoroughly, especially financial calculations
-- Mock external payment processing in tests
+- Coverage reporting available
 
 ## Blockchain Operations
 
@@ -284,6 +293,25 @@ The system integrates with a deployed RepairCoin token contract:
 - **Transaction Logging**: All blockchain operations are logged in PostgreSQL
 
 ## Common Issues
+
+### Admin Dashboard Authentication
+If admin dashboard shows "Authentication required" errors:
+1. Verify `ADMIN_ADDRESSES` environment variable contains your wallet address
+2. Ensure `JWT_SECRET` is configured (32+ characters)
+3. Check that wallet address in `ADMIN_ADDRESSES` matches connected wallet exactly
+4. Frontend should be calling `POST /api/auth/admin` to get JWT token
+
+### Shop Count Discrepancies
+If Overview stats don't match Active Shops tab:
+- Overview shows only verified AND active shops
+- Shop Applications tab shows unverified shops
+- Total shops = Active Shops + Pending Applications
+
+### Date Display Issues
+If shop applications show "Invalid Date":
+- Backend returns `join_date` (snake_case) 
+- Frontend expects both `joinDate` and `join_date` formats
+- Date validation handles empty/invalid dates gracefully
 
 ### Database Connection
 If database connection fails, ensure PostgreSQL is running:
@@ -295,6 +323,30 @@ docker-compose up postgres -d
 If blockchain operations fail, verify:
 1. `THIRDWEB_CLIENT_ID` and `THIRDWEB_SECRET_KEY` are correct
 2. `PRIVATE_KEY` is valid and has Base Sepolia ETH
+
+### Frontend Build Issues
+**JSX in TypeScript files**: Use `.tsx` extension for files containing JSX
+**Next.js 15 Turbopack**: Some syntax patterns may need adjustment for compatibility
+**Port conflicts**: Frontend may use alternative ports (3002, 3003) if 3000 is occupied
+
+### Database Viewing
+**TablePlus Connection**:
+- Host: localhost:5432
+- Database: repaircoin
+- Username: repaircoin  
+- Password: repaircoin123
+
+**Shop ID Purpose**: Human-readable business identifiers for easy shop reference
+
+## Recent Updates
+
+### July 23, 2025 Development Session
+- **State Management Migration**: Replaced React Context with Zustand for improved performance
+- **Enhanced Shop Registration**: Added comprehensive business information fields
+- **Admin Shop Creation**: Backend API for admins to create shops with field mapping
+- **Authentication Improvements**: Role-based access control with wallet integration
+- **Build System Fixes**: Resolved Next.js 15 Turbopack compatibility issues
+- **Database Integration**: Enhanced field mapping between frontend and database schema
 3. Contract address matches deployed contract
 
 ### API Documentation

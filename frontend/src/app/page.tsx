@@ -77,11 +77,11 @@ export default function LandingPage() {
           {/* Registration Options */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
             {/* Customer Registration */}
-            <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 hover:shadow-2xl transition-shadow">
-              <div className="text-center">
+            <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 hover:shadow-2xl transition-shadow h-full">
+              <div className="text-center h-full flex flex-col">
                 <div className="text-5xl mb-4">👤</div>
                 <h3 className="text-2xl font-bold text-gray-900 mb-4">I'm a Customer</h3>
-                <p className="text-gray-600 mb-6">
+                <p className="text-gray-600 mb-6 flex-grow">
                   Start earning RepairCoin tokens for your device repairs and redeem them for discounts
                 </p>
                 <div className="space-y-3 text-sm text-gray-500 mb-6">
@@ -98,21 +98,23 @@ export default function LandingPage() {
                     <span>Access tier benefits</span>
                   </div>
                 </div>
-                <button
-                  onClick={() => router.push('/customer/register')}
-                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-xl transition duration-200 transform hover:scale-105"
-                >
-                  Register as Customer
-                </button>
+                <div className="mt-auto">
+                  <button
+                    onClick={() => router.push('/customer/register')}
+                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-4 px-6 rounded-xl transition duration-200 transform hover:scale-105 cursor-pointer"
+                  >
+                    Register as Customer
+                  </button>
+                </div>
               </div>
             </div>
 
             {/* Shop Registration */}
-            <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 hover:shadow-2xl transition-shadow">
-              <div className="text-center">
+            <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 hover:shadow-2xl transition-shadow h-full">
+              <div className="text-center h-full flex flex-col">
                 <div className="text-5xl mb-4">🏪</div>
                 <h3 className="text-2xl font-bold text-gray-900 mb-4">I'm a Repair Shop</h3>
-                <p className="text-gray-600 mb-6">
+                <p className="text-gray-600 mb-6 flex-grow">
                   Join our network to offer loyalty tokens to your customers and boost retention
                 </p>
                 <div className="space-y-3 text-sm text-gray-500 mb-6">
@@ -129,12 +131,14 @@ export default function LandingPage() {
                     <span>Cross-shop redemption network</span>
                   </div>
                 </div>
-                <button
-                  onClick={() => router.push('/shop/register')}
-                  className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-3 px-6 rounded-xl transition duration-200 transform hover:scale-105"
-                >
-                  Register as Shop
-                </button>
+                <div className="mt-auto">
+                  <button
+                    onClick={() => router.push('/shop/register')}
+                    className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-4 px-6 rounded-xl transition duration-200 transform hover:scale-105 cursor-pointer"
+                  >
+                    Register as Shop
+                  </button>
+                </div>
               </div>
             </div>
           </div>

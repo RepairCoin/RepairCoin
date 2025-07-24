@@ -3,6 +3,13 @@
 import { useState } from 'react';
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { createThirdwebClient } from "thirdweb";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const client = createThirdwebClient({
   clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "1969ac335e07ba13ad0f8d1a1de4f6ab",
@@ -31,7 +38,6 @@ export default function ShopRegistration() {
     country: '',
     companySize: '',
     monthlyRevenue: '',
-    role: '', // owner, manager, employee
     website: '',
     referral: '',
     
@@ -52,7 +58,7 @@ export default function ShopRegistration() {
     acceptTerms: false
   });
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target;
     
     if (name.startsWith('location.')) {
@@ -76,6 +82,13 @@ export default function ShopRegistration() {
         [name]: value
       }));
     }
+  };
+
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -128,7 +141,6 @@ export default function ShopRegistration() {
         country: '',
         companySize: '',
         monthlyRevenue: '',
-        role: '',
         website: '',
         referral: '',
         reimbursementAddress: '',
@@ -292,57 +304,36 @@ export default function ShopRegistration() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Company Size *
                   </label>
-                  <select
-                    name="companySize"
-                    value={formData.companySize}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  >
-                    <option value="">Select company size</option>
-                    <option value="1-10">1-10 employees</option>
-                    <option value="11-50">11-50 employees</option>
-                    <option value="51-100">51-100 employees</option>
-                    <option value="100+">100+ employees</option>
-                  </select>
+                  <Select value={formData.companySize} onValueChange={(value) => handleSelectChange('companySize', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select company size" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1-10">1-10 employees</SelectItem>
+                      <SelectItem value="11-50">11-50 employees</SelectItem>
+                      <SelectItem value="51-100">51-100 employees</SelectItem>
+                      <SelectItem value="100+">100+ employees</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Monthly Revenue *
                   </label>
-                  <select
-                    name="monthlyRevenue"
-                    value={formData.monthlyRevenue}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  >
-                    <option value="">Select monthly revenue</option>
-                    <option value="<$10k">Less than $10,000</option>
-                    <option value="$10k-$50k">$10,000 - $50,000</option>
-                    <option value="$50k-$100k">$50,000 - $100,000</option>
-                    <option value="$100k+">$100,000+</option>
-                  </select>
+                  <Select value={formData.monthlyRevenue} onValueChange={(value) => handleSelectChange('monthlyRevenue', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select monthly revenue" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="<$10k">Less than $10,000</SelectItem>
+                      <SelectItem value="$10k-$50k">$10,000 - $50,000</SelectItem>
+                      <SelectItem value="$50k-$100k">$50,000 - $100,000</SelectItem>
+                      <SelectItem value="$100k+">$100,000+</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Which best describes you? *
-                  </label>
-                  <select
-                    name="role"
-                    value={formData.role}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  >
-                    <option value="">Select your role</option>
-                    <option value="owner">Business Owner</option>
-                    <option value="manager">Manager</option>
-                    <option value="employee">Employee</option>
-                  </select>
-                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -413,22 +404,20 @@ export default function ShopRegistration() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Country *
                   </label>
-                  <select
-                    name="country"
-                    value={formData.country}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  >
-                    <option value="">Select country</option>
-                    <option value="US">United States</option>
-                    <option value="CA">Canada</option>
-                    <option value="UK">United Kingdom</option>
-                    <option value="AU">Australia</option>
-                    <option value="DE">Germany</option>
-                    <option value="FR">France</option>
-                    <option value="other">Other</option>
-                  </select>
+                  <Select value={formData.country} onValueChange={(value) => handleSelectChange('country', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select country" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="US">United States</SelectItem>
+                      <SelectItem value="CA">Canada</SelectItem>
+                      <SelectItem value="UK">United Kingdom</SelectItem>
+                      <SelectItem value="AU">Australia</SelectItem>
+                      <SelectItem value="DE">Germany</SelectItem>
+                      <SelectItem value="FR">France</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>
@@ -466,27 +455,13 @@ export default function ShopRegistration() {
               </div>
             </div>
 
-            {/* Location Information */}
+            {/* Additional Information */}
             <div>
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Location Information (Optional)</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Additional Information (Optional)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    City
-                  </label>
-                  <input
-                    type="text"
-                    name="location.city"
-                    value={formData.location.city}
-                    onChange={handleInputChange}
-                    placeholder="New York"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    State
+                    State/Province
                   </label>
                   <input
                     type="text"
@@ -500,7 +475,7 @@ export default function ShopRegistration() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    ZIP Code
+                    ZIP/Postal Code
                   </label>
                   <input
                     type="text"
@@ -512,37 +487,7 @@ export default function ShopRegistration() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Latitude
-                  </label>
-                  <input
-                    type="number"
-                    step="any"
-                    name="location.lat"
-                    value={formData.location.lat}
-                    onChange={handleInputChange}
-                    placeholder="40.7128"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Longitude
-                  </label>
-                  <input
-                    type="number"
-                    step="any"
-                    name="location.lng"
-                    value={formData.location.lng}
-                    onChange={handleInputChange}
-                    placeholder="-74.0060"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
+                <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     FixFlow Shop ID (Optional)
                   </label>
