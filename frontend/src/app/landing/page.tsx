@@ -1,6 +1,7 @@
 import Hero from "@/components/hero";
 import HowAndWhy from "@/containers/landing-page/HowAndWhy";
 import FindARepairCoin from "@/containers/landing-page/FindARepairCoin";
+import SuccessStories from "@/containers/landing-page/SuccessStories";
 
 export default function LandingPage() {
   return (
@@ -15,6 +16,9 @@ export default function LandingPage() {
       />
       <FindARepairCoin 
         chainBgImage="/chain.png"
+      />
+      <SuccessStories 
+        successStoriesBgImage="/success-stories-bg.png"
       />
     </main>
   );
