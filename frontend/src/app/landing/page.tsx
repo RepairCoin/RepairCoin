@@ -1,4 +1,4 @@
-import Hero from "@/components/Hero";
+import Hero from "@/components/hero";
 import HowAndWhy from "@/containers/landing-page/HowAndWhy";
 import FindARepairCoin from "@/containers/landing-page/FindARepairCoin";
 import SuccessStories from "@/containers/landing-page/SuccessStories";
