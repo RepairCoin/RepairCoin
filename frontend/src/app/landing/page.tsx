@@ -3,6 +3,7 @@ import HowAndWhy from "@/containers/landing-page/HowAndWhy";
 import FindARepairCoin from "@/containers/landing-page/FindARepairCoin";
 import SuccessStories from "@/containers/landing-page/SuccessStories";
 import LatestNews from "@/containers/landing-page/LatestNews";
+import CommunityBanner from "@/containers/landing-page/CommunityBanner";
 
 export default function LandingPage() {
   return (
@@ -23,6 +24,10 @@ export default function LandingPage() {
       />
       <LatestNews 
         latestNewsBgImage="/success-stories-bg.png"
+      />
+      <CommunityBanner 
+        communityBannerBgImage="/community-chain.png"
+        bannerChainImage="/banner-chain.png"
       />
     </main>
   );
