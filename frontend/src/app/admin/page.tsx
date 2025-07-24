@@ -657,14 +657,14 @@ export default function AdminDashboard() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <button
                             onClick={() => approveShop(shop.shopId || shop.shop_id || '')}
-                            className="text-green-600 hover:text-green-900 mr-4"
+                            className="text-green-600 hover:text-green-900 mr-4 cursor-pointer"
                           >
                             Approve
                           </button>
-                          <button className="text-blue-600 hover:text-blue-900 mr-4">
+                          <button className="text-blue-600 hover:text-blue-900 mr-4 cursor-pointer">
                             Review
                           </button>
-                          <button className="text-red-600 hover:text-red-900">
+                          <button className="text-red-600 hover:text-red-900 cursor-pointer" >
                             Reject
                           </button>
                         </td>

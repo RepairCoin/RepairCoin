@@ -1,73 +1,43 @@
-@import "tailwindcss";
-@import './theme/fonts.css';
-@import './theme/breakpoints.css';
-@import './theme/containers.css';
-@import './theme/colors.css';
-@import './theme/typography.css';
-@import './theme/radius.css';
-@import './theme/spacing.css';
-@import './theme/misc.css';
-@import './theme/keyframe.css';
-@import './theme/animations.css';
-@import './theme/shadows.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@theme {
-  /* shadcn/ui color system - Light theme */
-  --color-background: hsl(0 0% 100%);
-  --color-foreground: hsl(222 84% 5%);
-  --color-card: hsl(0 0% 100%);
-  --color-card-foreground: hsl(222 84% 5%);
-  --color-popover: hsl(0 0% 100%);
-  --color-popover-foreground: hsl(222 84% 5%);
-  --color-primary: hsl(222 47% 11%);
-  --color-primary-foreground: hsl(210 40% 98%);
-  --color-secondary: hsl(210 40% 96%);
-  --color-secondary-foreground: hsl(222 47% 11%);
-  --color-muted: hsl(210 40% 96%);
-  --color-muted-foreground: hsl(215 16% 47%);
-  --color-accent: hsl(210 40% 96%);
-  --color-accent-foreground: hsl(222 47% 11%);
-  --color-destructive: hsl(0 84% 60%);
-  --color-destructive-foreground: hsl(210 40% 98%);
-  --color-border: hsl(214 32% 91%);
-  --color-input: hsl(214 32% 91%);
-  --color-ring: hsl(222 84% 5%);
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
   
-  /* Border radius */
-  --radius: 0.5rem;
+  html {
+    scroll-behavior: smooth;
+  }
   
-  /* Font families */
-  --font-sans: 'Switzer', ui-sans-serif, system-ui, sans-serif;
-  --font-serif: 'Cormorant Garamond', ui-serif, serif;
-}
-
-@media (prefers-color-scheme: dark) {
-  @theme {
-    /* shadcn/ui color system - Dark theme */
-    --color-background: hsl(222 84% 5%);
-    --color-foreground: hsl(210 40% 98%);
-    --color-card: hsl(222 84% 5%);
-    --color-card-foreground: hsl(210 40% 98%);
-    --color-popover: hsl(222 84% 5%);
-    --color-popover-foreground: hsl(210 40% 98%);
-    --color-primary: hsl(210 40% 98%);
-    --color-primary-foreground: hsl(222 47% 11%);
-    --color-secondary: hsl(217 33% 17%);
-    --color-secondary-foreground: hsl(210 40% 98%);
-    --color-muted: hsl(217 33% 17%);
-    --color-muted-foreground: hsl(215 20% 65%);
-    --color-accent: hsl(217 33% 17%);
-    --color-accent-foreground: hsl(210 40% 98%);
-    --color-destructive: hsl(0 62% 30%);
-    --color-destructive-foreground: hsl(210 40% 98%);
-    --color-border: hsl(217 33% 17%);
-    --color-input: hsl(217 33% 17%);
-    --color-ring: hsl(212 72% 59%);
+  body {
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #ffffff;
+    color: #1f2937;
+    line-height: 1.6;
   }
 }
 
-body {
-  background-color: hsl(var(--color-background));
-  color: hsl(var(--color-foreground));
-  font-family: var(--font-sans);
+@layer components {
+  .btn-primary {
+    @apply bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-200 hover:bg-gray-300 text-gray-900 font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+  }
+  
+  .card {
+    @apply bg-white rounded-xl shadow-lg border border-gray-100 p-6;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    background: linear-gradient(135deg, #dc2626, #ec4899);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
 }
