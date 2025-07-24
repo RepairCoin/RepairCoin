@@ -10,24 +10,24 @@ interface SuccessStoriesProps {
 const testimonials = [
   {
     id: 1,
-    name: "Sarah Johnson",
-    role: "CEO, TechStart Inc.",
-    avatar: "/images/avatar1.jpg",
-    content: "RepairCoin transformed our repair business. The platform is intuitive and our customers love the transparency.",
+    name: "Luis M.",
+    role: "Owner of FixIt Hub, Texas",
+    avatar: "/user1.png",
+    content: "Since joining RepairCoin, we’ve seen a clear spike in return customers. It’s easy to use, and our shop now stands out in a crowded market.",
   },
   {
     id: 2,
-    name: "Michael Chen",
-    role: "Operations Manager, FixIt Pro",
-    avatar: "/images/avatar2.jpg",
-    content: "The best decision we made was switching to RepairCoin. Our workflow is now 40% more efficient.",
+    name: "Marianne C.",
+    role: "Customer, San Antonio, TX",
+    avatar: "/user2.png",
+    content: "I used to just go to the nearest shop, but now I actually look for RepairCoin partners. It feels like I’m getting more value every time.",
   },
   {
     id: 3,
-    name: "Emma Williams",
-    role: "Founder, GadgetCare",
-    avatar: "/images/avatar3.jpg",
-    content: "Outstanding service and support. The team at RepairCoin truly understands the repair industry.",
+    name: "Stephen Brekke",
+    role: "FCustomer, Dallas, TX",
+    avatar: "/user3.png",
+    content: "I love that I’m earning something real while supporting local repair shops. This is how loyalty should work.",
   },
 ];
 
@@ -42,11 +42,11 @@ const SuccessStories: React.FC<SuccessStoriesProps> = ({
       <Section>
         <div className="w-full flex flex-col items-center py-8 xl:py-12">
           <div className="w-full flex flex-col items-center mb-12">
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6 text-center">
-              Success Stories
-            </h2>
-            <p className="text-white text-lg text-center max-w-2xl mb-10">
-              Don't just take our word for it. Here's what our partners have to say about us.
+            <p className="text-4xl md:text-5xl font-bold text-white mb-6 text-center">
+            Success Stories from the RepairCoin Network
+            </p>
+            <p className="text-[#FFCC00] text-lg text-center max-w-2xl mb-10">
+            Explore how shops are growing and customers are earning through RepairCoin.
             </p>
           </div>
           
@@ -70,7 +70,7 @@ const SuccessStories: React.FC<SuccessStoriesProps> = ({
                   <h3 className="text-lg sm:text-xl font-semibold text-gray-800">
                     {testimonial.name}
                   </h3>
-                  <p className="text-blue-600 text-xs sm:text-sm">{testimonial.role}</p>
+                  <p className="text-gray-600 text-xs">{testimonial.role}</p>
                 </div>
                 <div className="absolute top-4 right-4 flex text-yellow-400">
                   {[...Array(5)].map((_, i) => (
