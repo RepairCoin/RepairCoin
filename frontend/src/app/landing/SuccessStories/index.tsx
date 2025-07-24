@@ -36,16 +36,16 @@ const SuccessStories: React.FC<SuccessStoriesProps> = ({
 }) => {
   return (
     <div
-      className="w-full min-h-screen md:py-8 px-4"
+      className="w-full h-full xl:h-screen md:py-8 px-4"
       style={{ backgroundImage: `url(${successStoriesBgImage})` }}
     >
       <Section>
         <div className="w-full flex flex-col items-center py-8 xl:py-12">
           <div className="w-full flex flex-col items-center mb-12">
-            <p className="text-4xl md:text-5xl font-bold text-white mb-6 text-center">
+            <p className="text-2xl md:text-4xl xl:text-5xl font-bold text-white mb-6 text-center">
             Success Stories from the RepairCoin Network
             </p>
-            <p className="text-[#FFCC00] text-lg text-center max-w-2xl mb-10">
+            <p className="text-[#FFCC00] text-sm md:text-sm xl:text-lg mb-10 text-center">
             Explore how shops are growing and customers are earning through RepairCoin.
             </p>
           </div>

@@ -44,16 +44,16 @@ interface LatestNewsProps {
 const LatestNews: React.FC<LatestNewsProps> = ({ latestNewsBgImage }) => {
     return (
         <div
-            className="w-full min-h-screen py-6 md:py-8 px-4"
+            className="w-full h-full xl:h-screen px-4"
             style={{ backgroundImage: `url(${latestNewsBgImage})` }}
         >
             <Section>
                 <div className="w-full flex flex-col items-center py-6 md:py-8 lg:py-12 px-4 md:px-6">
                     <div className="w-full flex flex-col items-center mb-8 md:mb-12 px-2 md:px-0">
-                        <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 md:mb-6 text-center leading-tight">
+                        <h1 className="text-2xl md:text-4xl xl:text-5xl font-bold text-white mb-4 md:mb-6 text-center leading-tight">
                             Insights, News & Tips From the World of Tech Repairs and Loyalty
                         </h1>
-                        <p className="text-[#FFCC00] text-base md:text-lg text-center max-w-2xl mb-6 md:mb-10 px-2">
+                        <p className="text-[#FFCC00] text-sm md:text-sm xl:text-lg text-center max-w-2xl mb-6 md:mb-10 px-2">
                             Discover the latest updates, partner stories, repair trends, and how crypto rewards are reshaping customer loyalty.
                         </p>
                     </div>

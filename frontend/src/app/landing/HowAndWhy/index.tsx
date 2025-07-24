@@ -11,7 +11,7 @@ interface HowAndWhy {
 
 const HowAndWhy: React.FC<HowAndWhy> = ({ techBgImage }) => {
   return (
-    <div className="w-full" style={{ backgroundImage: `url(${techBgImage})` }}>
+    <div className="w-full md:pt-10 xl:pt-0" style={{ backgroundImage: `url(${techBgImage})` }}>
       <Section>
         <div className="w-full flex flex-col justify-between items-center py-8 xl:py-20 gap-34">
           <HowRepairCoinWorks />
