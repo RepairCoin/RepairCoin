@@ -1,6 +1,7 @@
 // backend/src/routes/customers.ts
 import { Router } from 'express';
 import { requireRole,authMiddleware } from '../../../middleware/auth';
+import { validateCustomerRoleConflict } from '../../../middleware/roleConflictValidator';
 import { 
   validateRequired, 
   validateEthereumAddress, 
@@ -34,6 +35,7 @@ router.post('/register',
   validateRequired(['walletAddress']),
   validateEthereumAddress('walletAddress'),
   validateEmail('email'),
+  validateCustomerRoleConflict,
   asyncHandler(customerController.registerCustomer.bind(customerController))
 );
 

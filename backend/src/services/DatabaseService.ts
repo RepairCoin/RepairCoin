@@ -408,6 +408,22 @@ async getCustomersPaginated(params: PaginationParams & {
     }
   }
 
+  async getShopByWallet(walletAddress: string): Promise<ShopData | null> {
+    try {
+      const query = 'SELECT * FROM shops WHERE wallet_address = $1';
+      const result = await this.pool.query(query, [walletAddress.toLowerCase()]);
+      
+      if (result.rows.length === 0) {
+        return null;
+      }
+      
+      return result.rows[0] as ShopData;
+    } catch (error) {
+      logger.error('Error getting shop by wallet:', error);
+      throw new Error('Failed to retrieve shop data by wallet address');
+    }
+  }
+
   async createShop(shopData: ShopData): Promise<CreateResult> {
     try {
       const query = `

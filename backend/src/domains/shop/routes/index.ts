@@ -6,6 +6,8 @@ import { databaseService, ShopData } from '../../../services/DatabaseService';
 import { TokenMinter } from '../../../../../contracts/TokenMinter';
 import { TierManager } from '../../../../../contracts/TierManager';
 import { logger } from '../../../utils/logger';
+import { RoleValidator } from '../../../utils/roleValidator';
+import { validateShopRoleConflict } from '../../../middleware/roleConflictValidator';
 
 // Import new route modules
 import purchaseRoutes from './purchase';
@@ -128,11 +130,68 @@ router.get('/:shopId', async (req: Request, res: Response) => {
   }
 });
 
+// Get shop by wallet address
+router.get('/wallet/:address', 
+  async (req: Request, res: Response) => {
+    try {
+      const { address } = req.params;
+      
+      // Validate Ethereum address format
+      if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid Ethereum address format'
+        });
+      }
+      
+      const shop = await databaseService.getShopByWallet(address);
+      if (!shop) {
+        return res.status(404).json({
+          success: false,
+          error: 'Shop not found'
+        });
+      }
+
+      // Different data based on user role
+      let shopData;
+      if (req.user?.role === 'admin' || (req.user?.role === 'shop' && req.user.shopId === shop.shopId)) {
+        // Full data for admin or shop owner
+        shopData = shop;
+      } else {
+        // Limited data for others
+        shopData = {
+          shopId: shop.shopId,
+          name: shop.name,
+          address: shop.address,
+          phone: shop.phone,
+          verified: shop.verified,
+          crossShopEnabled: shop.crossShopEnabled,
+          location: shop.location,
+          joinDate: shop.joinDate
+        };
+      }
+
+      res.json({
+        success: true,
+        data: shopData
+      });
+
+    } catch (error: any) {
+      logger.error('Error getting shop by wallet:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve shop by wallet address'
+      });
+    }
+  }
+);
+
 // Register new shop
 router.post('/register',
   validateRequired(['shopId', 'name', 'address', 'phone', 'email', 'walletAddress']),
   validateEthereumAddress('walletAddress'),
   validateEmail('email'),
+  validateShopRoleConflict,
   async (req: Request, res: Response) => {
     try {
       const {
@@ -153,6 +212,16 @@ router.post('/register',
         return res.status(409).json({
           success: false,
           error: 'Shop ID already registered'
+        });
+      }
+
+      // Check if wallet is already used by another shop
+      const existingShopByWallet = await databaseService.getShopByWallet(walletAddress);
+      if (existingShopByWallet) {
+        return res.status(409).json({
+          success: false,
+          error: `This wallet address is already registered to shop: ${existingShopByWallet.name}`,
+          conflictingRole: 'shop'
         });
       }
 

@@ -1,5 +1,9 @@
 /**
  * @swagger
+ * tags:
+ *   - name: Shops
+ *     description: Shop management and operations. Implements role exclusivity - wallets can only be registered as either a shop, customer, or admin, not multiple roles.
+ * 
  * /api/shops:
  *   get:
  *     summary: Get all active shops
@@ -148,10 +152,49 @@
  *             schema:
  *               $ref: '#/components/schemas/ApiError'
  * 
+ * /api/shops/wallet/{address}:
+ *   get:
+ *     summary: Get shop by wallet address
+ *     description: Retrieve shop information by wallet address
+ *     tags: [Shops]
+ *     parameters:
+ *       - in: path
+ *         name: address
+ *         required: true
+ *         schema:
+ *           type: string
+ *           pattern: '^0x[a-fA-F0-9]{40}$'
+ *         description: Ethereum wallet address
+ *         example: "0x1234567890123456789012345678901234567890"
+ *     responses:
+ *       200:
+ *         description: Shop found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       $ref: '#/components/schemas/Shop'
+ *       400:
+ *         description: Invalid Ethereum address format
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       404:
+ *         description: Shop not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ * 
  * /api/shops/register:
  *   post:
  *     summary: Register a new shop
- *     description: Register a new shop in the system
+ *     description: Register a new shop in the system. Enforces role exclusivity - wallet addresses already registered as customers or admins cannot register as shops.
  *     tags: [Shops]
  *     security: []
  *     requestBody:
@@ -243,11 +286,37 @@
  *                           type: boolean
  *                           example: false
  *       409:
- *         description: Shop ID already registered
+ *         description: Conflict - Shop ID already registered or wallet has role conflict
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/ApiError'
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiError'
+ *                 - type: object
+ *                   properties:
+ *                     conflictingRole:
+ *                       type: string
+ *                       enum: [admin, customer, shop]
+ *                       description: The existing role that prevents registration
+ *                       example: customer
+ *             examples:
+ *               shopIdConflict:
+ *                 summary: Shop ID already exists
+ *                 value:
+ *                   success: false
+ *                   error: "Shop ID already registered"
+ *               customerRoleConflict:
+ *                 summary: Wallet is already a customer
+ *                 value:
+ *                   success: false
+ *                   error: "This wallet address is already registered as a customer and cannot be used for shop registration"
+ *                   conflictingRole: "customer"
+ *               adminRoleConflict:
+ *                 summary: Wallet is an admin
+ *                 value:
+ *                   success: false
+ *                   error: "This wallet address is already registered as an admin and cannot be used for shop registration"
+ *                   conflictingRole: "admin"
  *       400:
  *         description: Invalid request data
  *         content:

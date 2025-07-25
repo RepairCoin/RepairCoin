@@ -154,6 +154,38 @@ The API uses Swagger/OpenAPI documentation:
 - **JSON Spec**: http://localhost:3000/api-docs.json
 - **Access**: `npm run docs:open` in backend directory
 
+### Role Exclusivity System
+
+**Key Principle**: Each wallet address can only be registered as ONE role - shop, customer, or admin. This prevents conflicts and ensures clear identity management.
+
+**New API Endpoints**:
+- `GET /api/shops/wallet/{address}` - Find shop by wallet address (returns 404 if not found)
+- **Updated** `POST /api/shops/register` - Now validates that wallet isn't already a customer or admin
+- **Updated** `POST /api/customers/register` - Now validates that wallet isn't already a shop or admin
+
+**Role Conflict Responses**:
+All registration endpoints return HTTP 409 (Conflict) with a `conflictingRole` field when a wallet is already registered:
+```json
+{
+  "success": false,
+  "error": "This wallet address is already registered as a customer and cannot be used for shop registration",
+  "conflictingRole": "customer"
+}
+```
+
+**Frontend Implementation**:
+- Landing page (`/app/page.tsx`) checks existing registrations on wallet connection
+- Shows appropriate UI based on existing roles:
+  - Existing customers see "Already Registered" with dashboard link
+  - Existing shops see application status (pending/verified)
+  - Role conflicts show clear messaging explaining why registration is blocked
+- Registration forms handle role conflict errors gracefully
+
+**Backend Implementation**:
+- `RoleValidator` utility (`/backend/src/utils/roleValidator.ts`) - Central role validation logic
+- Role conflict middleware (`/backend/src/middleware/roleConflictValidator.ts`) - Reusable validation
+- Database methods check wallet addresses across all tables
+
 ### Admin Dashboard API Endpoints
 
 **Authentication**:
@@ -339,6 +371,13 @@ If blockchain operations fail, verify:
 **Shop ID Purpose**: Human-readable business identifiers for easy shop reference
 
 ## Recent Updates
+
+### July 25, 2025 Development Session
+- **Shop Wallet Lookup Endpoint**: Added `/api/shops/wallet/{address}` endpoint to find shops by wallet address
+- **Role Exclusivity System**: Implemented strict role separation - wallets can only be registered as one role (shop, customer, or admin)
+- **Frontend Role Conflict UI**: Landing page now prevents inappropriate registration based on existing roles
+- **Role Validation Middleware**: Added backend middleware to enforce role exclusivity during registration
+- **Swagger Documentation**: Enhanced API docs with role conflict examples and responses
 
 ### July 23, 2025 Development Session
 - **State Management Migration**: Replaced React Context with Zustand for improved performance

@@ -170,6 +170,18 @@ export default function ShopRegistration() {
 
       if (!response.ok) {
         const errorData = await response.json();
+        
+        // Handle role conflict errors with specific messaging
+        if (response.status === 409 && errorData.conflictingRole) {
+          const roleMessage = {
+            'admin': 'This wallet is registered as an admin account and cannot be used for shop registration.',
+            'customer': 'This wallet is already registered as a customer account. You cannot register the same wallet as both a customer and a shop.',
+            'shop': 'This wallet is already registered to another shop.'
+          };
+          
+          throw new Error(roleMessage[errorData.conflictingRole as keyof typeof roleMessage] || errorData.error);
+        }
+        
         throw new Error(errorData.error || 'Registration failed');
       }
 

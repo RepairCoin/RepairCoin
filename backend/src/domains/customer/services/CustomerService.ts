@@ -3,6 +3,7 @@ import { databaseService } from "../../../services/DatabaseService";
 import { TokenMinter } from '../../../../../contracts/TokenMinter';
 import { TierManager, CustomerData } from '../../../../../contracts/TierManager';
 import { logger } from '../../../utils/logger';
+import { RoleValidator } from '../../../utils/roleValidator';
 
 export interface CustomerRegistrationData {
   walletAddress: string;
@@ -87,6 +88,8 @@ export class CustomerService {
       if (existingCustomer) {
         throw new Error('Customer already registered');
       }
+
+      // Role conflict validation is handled by middleware
 
       // Create new customer
       const newCustomer = TierManager.createNewCustomer(

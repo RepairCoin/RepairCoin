@@ -59,7 +59,25 @@ export default function CustomerRegistration() {
         
         // Handle specific error cases
         if (response.status === 409) {
-          throw new Error('This wallet is already registered. Redirecting to your dashboard...');
+          // Handle role conflict errors with specific messaging
+          if (errorData.conflictingRole) {
+            const roleMessage = {
+              'admin': 'This wallet is registered as an admin account and cannot be used for customer registration.',
+              'shop': 'This wallet is already registered as a shop account. You cannot register the same wallet as both a shop and a customer.',
+              'customer': 'This wallet is already registered as a customer.'
+            };
+            
+            const message = roleMessage[errorData.conflictingRole as keyof typeof roleMessage] || errorData.error;
+            
+            // For existing customer, we still redirect, but for other roles we don't
+            if (errorData.conflictingRole === 'customer') {
+              throw new Error('This wallet is already registered. Redirecting to your dashboard...');
+            } else {
+              throw new Error(message);
+            }
+          } else {
+            throw new Error('This wallet is already registered. Redirecting to your dashboard...');
+          }
         }
         
         throw new Error(errorData.error || 'Registration failed');
@@ -82,8 +100,9 @@ export default function CustomerRegistration() {
       const errorMessage = err instanceof Error ? err.message : 'Registration failed';
       setError(errorMessage);
       
-      // If user already exists, redirect after a short delay
-      if (errorMessage.includes('already registered')) {
+      // If user already exists as customer, redirect after a short delay
+      // Don't redirect for role conflicts (admin/shop trying to register as customer)
+      if (errorMessage.includes('already registered') && errorMessage.includes('Redirecting')) {
         setTimeout(() => {
           router.push('/customer');
         }, 3000);
