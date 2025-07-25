@@ -211,9 +211,65 @@ export default function ShopDashboard() {
             <div className="text-red-500 text-4xl mb-4">🚫</div>
             <h3 className="text-xl font-semibold text-gray-900 mb-4">Shop Not Found</h3>
             <p className="text-gray-600 mb-6">{error}</p>
-            <button className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-3 px-4 rounded-xl transition duration-200 transform hover:scale-105">
+            <a 
+              href="/shop/register"
+              className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-3 px-4 rounded-xl transition duration-200 transform hover:scale-105 inline-block"
+            >
               Register Shop
-            </button>
+            </a>
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <ConnectButton 
+                client={client}
+                theme="light"
+                connectModal={{ size: "compact" }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Special case: Shop exists but is not verified (pending application)
+  if (shopData && !shopData.verified && !shopData.active) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+          <div className="text-center">
+            <div className="text-yellow-500 text-4xl mb-4">⏳</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">Application Pending</h3>
+            <p className="text-gray-600 mb-6">
+              Your shop registration has been submitted and is awaiting admin verification. 
+              You'll be able to access the full dashboard once approved.
+            </p>
+            
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">Shop Name:</span>
+                <span className="font-medium text-gray-900">{shopData.name}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm mt-2">
+                <span className="text-gray-600">Shop ID:</span>
+                <span className="font-medium text-gray-900">{shopData.shopId}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm mt-2">
+                <span className="text-gray-600">Status:</span>
+                <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                  Pending Verification
+                </span>
+              </div>
+            </div>
+
+            <div className="text-sm text-gray-500 mb-6">
+              <p>What happens next:</p>
+              <ul className="mt-2 text-left space-y-1">
+                <li>• Admin reviews your application</li>
+                <li>• Shop verification process</li>
+                <li>• Dashboard access granted</li>
+                <li>• RCN purchasing enabled</li>
+              </ul>
+            </div>
+
             <div className="mt-6 pt-6 border-t border-gray-200">
               <ConnectButton 
                 client={client}
