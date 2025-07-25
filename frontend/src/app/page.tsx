@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ConnectButton } from "thirdweb/react";
 import { createThirdwebClient } from "thirdweb";
@@ -13,6 +13,47 @@ const client = createThirdwebClient({
 export default function LandingPage() {
   const { account, isAuthenticated, isLoading, userType, userProfile } = useAuth();
   const router = useRouter();
+  const [shopApplicationStatus, setShopApplicationStatus] = useState<{
+    hasApplication: boolean;
+    status: 'pending' | 'verified' | 'rejected' | null;
+    shopName?: string;
+  }>({ hasApplication: false, status: null });
+  const [checkingApplication, setCheckingApplication] = useState(false);
+
+  // Check if wallet has existing shop application
+  const checkShopApplication = async (walletAddress: string) => {
+    setCheckingApplication(true);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/wallet/${walletAddress}`);
+      if (response.ok) {
+        const data = await response.json();
+        const shop = data.data;
+        if (shop) {
+          setShopApplicationStatus({
+            hasApplication: true,
+            status: shop.verified ? 'verified' : 'pending',
+            shopName: shop.name
+          });
+        }
+      } else if (response.status === 404) {
+        // No shop found - this is normal for new wallets
+        setShopApplicationStatus({ hasApplication: false, status: null });
+      }
+    } catch (error) {
+      console.error('Error checking shop application:', error);
+      // Don't show error to user, just assume no application
+      setShopApplicationStatus({ hasApplication: false, status: null });
+    } finally {
+      setCheckingApplication(false);
+    }
+  };
+
+  // Check for existing shop application when wallet connects
+  useEffect(() => {
+    if (account?.address && !isAuthenticated) {
+      checkShopApplication(account.address);
+    }
+  }, [account?.address, isAuthenticated]);
 
   // Auto-redirect authenticated users to their appropriate dashboard
   useEffect(() => {
@@ -112,33 +153,103 @@ export default function LandingPage() {
             {/* Shop Registration */}
             <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 hover:shadow-2xl transition-shadow h-full">
               <div className="text-center h-full flex flex-col">
-                <div className="text-5xl mb-4">🏪</div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-4">I'm a Repair Shop</h3>
-                <p className="text-gray-600 mb-6 flex-grow">
-                  Join our network to offer loyalty tokens to your customers and boost retention
-                </p>
-                <div className="space-y-3 text-sm text-gray-500 mb-6">
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="text-green-500">✓</span>
-                    <span>Purchase RCN at $1 per token</span>
-                  </div>
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="text-green-500">✓</span>
-                    <span>Automatic tier bonuses</span>
-                  </div>
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="text-green-500">✓</span>
-                    <span>Cross-shop redemption network</span>
-                  </div>
-                </div>
-                <div className="mt-auto">
-                  <button
-                    onClick={() => router.push('/shop/register')}
-                    className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-4 px-6 rounded-xl transition duration-200 transform hover:scale-105 cursor-pointer"
-                  >
-                    Register as Shop
-                  </button>
-                </div>
+                {checkingApplication ? (
+                  <>
+                    <div className="text-5xl mb-4">🔄</div>
+                    <h3 className="text-2xl font-bold text-gray-900 mb-4">Checking Application...</h3>
+                    <p className="text-gray-600 mb-6 flex-grow">
+                      Please wait while we check for existing shop applications
+                    </p>
+                    <div className="mt-auto">
+                      <div className="w-full bg-gray-200 rounded-xl py-4 px-6">
+                        <div className="animate-pulse flex items-center justify-center">
+                          <div className="rounded-full h-4 w-4 bg-gray-400"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : shopApplicationStatus.hasApplication ? (
+                  <>
+                    <div className="text-5xl mb-4">
+                      {shopApplicationStatus.status === 'pending' ? '⏳' : '✅'}
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                      {shopApplicationStatus.status === 'pending' ? 'Application Pending' : 'Shop Registered'}
+                    </h3>
+                    <p className="text-gray-600 mb-6 flex-grow">
+                      {shopApplicationStatus.status === 'pending' 
+                        ? 'Your shop application is being reviewed by our admin team'
+                        : 'Your shop is registered and verified in our network'
+                      }
+                    </p>
+                    {shopApplicationStatus.shopName && (
+                      <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                        <p className="text-sm text-gray-600">Shop Name:</p>
+                        <p className="font-semibold text-gray-900">{shopApplicationStatus.shopName}</p>
+                      </div>
+                    )}
+                    <div className="space-y-3 text-sm mb-6">
+                      {shopApplicationStatus.status === 'pending' ? (
+                        <div className="text-yellow-600 bg-yellow-50 rounded-lg p-3">
+                          <div className="flex items-center justify-center gap-2 mb-2">
+                            <span>⏳</span>
+                            <span className="font-medium">Awaiting Admin Review</span>
+                          </div>
+                          <p className="text-xs">You'll receive access once approved</p>
+                        </div>
+                      ) : (
+                        <div className="text-green-600 bg-green-50 rounded-lg p-3">
+                          <div className="flex items-center justify-center gap-2">
+                            <span>✓</span>
+                            <span className="font-medium">Ready to Use Dashboard</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-auto">
+                      <button
+                        onClick={() => router.push('/shop')}
+                        className={`w-full font-bold py-4 px-6 rounded-xl transition duration-200 transform hover:scale-105 cursor-pointer ${
+                          shopApplicationStatus.status === 'pending'
+                            ? 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white'
+                            : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white'
+                        }`}
+                      >
+                        {shopApplicationStatus.status === 'pending' ? 'View Application Status' : 'Go to Shop Dashboard'}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-5xl mb-4">🏪</div>
+                    <h3 className="text-2xl font-bold text-gray-900 mb-4">I'm a Repair Shop</h3>
+                    <p className="text-gray-600 mb-6 flex-grow">
+                      Join our network to offer loyalty tokens to your customers and boost retention
+                    </p>
+                    <div className="space-y-3 text-sm text-gray-500 mb-6">
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="text-green-500">✓</span>
+                        <span>Purchase RCN at $1 per token</span>
+                      </div>
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="text-green-500">✓</span>
+                        <span>Automatic tier bonuses</span>
+                      </div>
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="text-green-500">✓</span>
+                        <span>Cross-shop redemption network</span>
+                      </div>
+                    </div>
+                    <div className="mt-auto">
+                      <button
+                        onClick={() => router.push('/shop/register')}
+                        className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-4 px-6 rounded-xl transition duration-200 transform hover:scale-105 cursor-pointer"
+                      >
+                        Register as Shop
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
