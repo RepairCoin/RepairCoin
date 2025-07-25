@@ -72,8 +72,12 @@ export default function ShopRegistration() {
     setCheckingApplication(true);
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/wallet/${walletAddress}`);
+      console.log('Registration check - API Response Status:', response.status);
+      console.log('Registration check - Fetching for wallet:', walletAddress);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('Registration check - API Response:', data);
         const shop = data.data;
         if (shop) {
           setExistingApplication({

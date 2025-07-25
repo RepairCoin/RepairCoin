@@ -70,8 +70,12 @@ export default function ShopDashboard() {
       
       // Load shop data (would need shop ID lookup by wallet address)
       const shopResponse = await fetch(`${apiUrl}/shops/wallet/${account?.address}`);
+      console.log('Shop API Response Status:', shopResponse.status);
+      console.log('Fetching shop for wallet:', account?.address);
+      
       if (shopResponse.ok) {
         const shopResult = await shopResponse.json();
+        console.log('Shop API Response:', shopResult);
         setShopData(shopResult.data);
         
         // Load purchase history
