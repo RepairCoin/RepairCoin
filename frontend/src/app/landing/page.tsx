@@ -1,10 +1,10 @@
-import Hero from "@/components/hero";
-import HowAndWhy from "./HowAndWhy";
-import FindARepairCoin from "./FindARepairCoin";
-import SuccessStories from "./SuccessStories";
-import LatestNews from "./LatestNews";
-import CommunityBanner from "./CommunityBanner";
+import HowAndWhy from "@/containers/landing-page/HowAndWhy";
+import FindARepairCoin from "@/containers/landing-page/FindARepairCoin";
+import SuccessStories from "@/containers/landing-page/SuccessStories";
+import LatestNews from "@/containers/landing-page/LatestNews";
+import CommunityBanner from "@/containers/landing-page/CommunityBanner";
 import Footer from "@/components/Footer";
+import Hero from "@/components/Hero";
 
 export default function LandingPage() {
   return (
