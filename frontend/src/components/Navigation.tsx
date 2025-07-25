@@ -2,9 +2,16 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import Header from './Header';
 
 export default function Navigation() {
   const pathname = usePathname();
+  const isLandingPage = pathname.includes('/landing');
+
+  // If it's the landing page, render the Header component
+  if (isLandingPage) {
+    return <Header />;
+  }
 
   const navItems = [
     {

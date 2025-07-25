@@ -10,7 +10,7 @@ interface FindARepairCoinProps {
 const FindARepairCoin: React.FC<FindARepairCoinProps> = ({ chainBgImage }) => {
   return (
     <div
-      className="w-full h-[50vh] xl:h-screen"
+      className="w-full h-[50vh] xl:h-screen bg-[#000000]"
       style={{ backgroundImage: `url(${chainBgImage})` }}
     >
       <Section>
