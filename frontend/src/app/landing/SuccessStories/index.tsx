@@ -36,7 +36,7 @@ const SuccessStories: React.FC<SuccessStoriesProps> = ({
 }) => {
   return (
     <div
-      className="w-full h-full xl:h-screen md:py-8 px-4"
+      className="w-full h-full xl:h-screen md:py-8 px-4 bg-[#000000]"
       style={{ backgroundImage: `url(${successStoriesBgImage})` }}
     >
       <Section>

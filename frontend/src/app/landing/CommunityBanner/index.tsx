@@ -9,7 +9,7 @@ interface CommunityBannerProps {
 
 const CommunityBanner: React.FC<CommunityBannerProps> = ({ communityBannerBgImage, bannerChainImage }) => {
     return (
-        <div className="w-full">
+        <div className="w-full bg-[#000000]">
             {/* Desktop/Tablet View - Hidden on mobile */}
             <div className="hidden md:block w-full h-full xl:h-[80vh] px-4 flex items-center justify-center" 
                  style={{ backgroundImage: `url(${communityBannerBgImage})` }}>

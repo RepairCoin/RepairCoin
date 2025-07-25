@@ -251,11 +251,6 @@
   resolved "https://registry.npmjs.org/@emotion/weak-memoize/-/weak-memoize-0.4.0.tgz"
   integrity sha512-snKqtPW01tN0ui7yu9rGv69aJXr/a/Ywvl11sUjNtEcRc+ng/mQriFL0wLXMef74iHa/EkftbDzU9F8iFbH+zg==
 
-"@esbuild/darwin-arm64@0.25.6":
-  version "0.25.6"
-  resolved "https://registry.npmjs.org/@esbuild/darwin-arm64/-/darwin-arm64-0.25.6.tgz"
-  integrity sha512-FFCssz3XBavjxcFxKsGy2DYK5VSvJqa6y5HXljKzhRZ87LvEi13brPrf/wdyl/BbpbMKJNOr1Sd0jtW4Ge1pAA==
-
 "@eslint-community/eslint-utils@^4.2.0", "@eslint-community/eslint-utils@^4.7.0":
   version "4.7.0"
   resolved "https://registry.npmjs.org/@eslint-community/eslint-utils/-/eslint-utils-4.7.0.tgz"
@@ -502,18 +497,6 @@
   version "0.4.3"
   resolved "https://registry.npmjs.org/@humanwhocodes/retry/-/retry-0.4.3.tgz"
   integrity sha512-bV0Tgo9K4hfPCek+aMAn81RppFKv2ySDQeMoSZuvTASywNTnVJCArCZE2FWqpvIatKu7VMRLWlR1EazvVhDyhQ==
-
-"@img/sharp-darwin-arm64@0.34.3":
-  version "0.34.3"
-  resolved "https://registry.npmjs.org/@img/sharp-darwin-arm64/-/sharp-darwin-arm64-0.34.3.tgz"
-  integrity sha512-ryFMfvxxpQRsgZJqBd4wsttYQbCxsJksrv9Lw/v798JcQ8+w84mBWuXwl+TT0WJ/WrYOLaYpwQXi3sA9nTIaIg==
-  optionalDependencies:
-    "@img/sharp-libvips-darwin-arm64" "1.2.0"
-
-"@img/sharp-libvips-darwin-arm64@1.2.0":
-  version "1.2.0"
-  resolved "https://registry.npmjs.org/@img/sharp-libvips-darwin-arm64/-/sharp-libvips-darwin-arm64-1.2.0.tgz"
-  integrity sha512-sBZmpwmxqwlqG9ueWFXtockhsxefaV6O84BMOrhtg/YqbTaRdqDE7hxraVE3y6gVM4eExmfzW4a8el9ArLeEiQ==
 
 "@isaacs/cliui@^8.0.2":
   version "8.0.2"
@@ -764,10 +747,10 @@
   dependencies:
     fast-glob "3.3.1"
 
-"@next/swc-darwin-arm64@15.4.1":
+"@next/swc-win32-x64-msvc@15.4.1":
   version "15.4.1"
-  resolved "https://registry.npmjs.org/@next/swc-darwin-arm64/-/swc-darwin-arm64-15.4.1.tgz"
-  integrity sha512-L+81yMsiHq82VRXS2RVq6OgDwjvA4kDksGU8hfiDHEXP+ncKIUhUsadAVB+MRIp2FErs/5hpXR0u2eluWPAhig==
+  resolved "https://registry.npmjs.org/@next/swc-win32-x64-msvc/-/swc-win32-x64-msvc-15.4.1.tgz"
+  integrity sha512-y+wTBxelk2xiNofmDOVU7O5WxTHcvOoL3srOM0kxTzKDjQ57kPU0tpnPJ/BWrRnsOwXEv0+3QSbGR7hY4n9LkQ==
 
 "@noble/ciphers@^1.0.0", "@noble/ciphers@1.2.1":
   version "1.2.1"
@@ -1717,11 +1700,6 @@
   dependencies:
     "@typescript-eslint/types" "8.37.0"
     eslint-visitor-keys "^4.2.1"
-
-"@unrs/resolver-binding-darwin-arm64@1.11.1":
-  version "1.11.1"
-  resolved "https://registry.npmjs.org/@unrs/resolver-binding-darwin-arm64/-/resolver-binding-darwin-arm64-1.11.1.tgz"
-  integrity sha512-gPVA1UjRu1Y/IsB/dQEsp2V1pm44Of6+LWvbLc9SDk1c2KhhDRDBUkQCYVWe6f26uJb3fOK8saWMgtX8IrMk3g==
 
 "@vitest/expect@3.2.4":
   version "3.2.4"
@@ -4001,11 +3979,6 @@ fs-minipass@^2.0.0:
   integrity sha512-V/JgOLFCS+R6Vcq0slCuaeWEdNC3ouDlJMNIsacH2VtALiu9mV4LPrHc5cDl8k5aw6J8jwgWWpiTo5RYhmIzvg==
   dependencies:
     minipass "^3.0.0"
-
-fsevents@~2.3.2:
-  version "2.3.3"
-  resolved "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz"
-  integrity sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==
 
 function-bind@^1.1.2:
   version "1.1.2"
