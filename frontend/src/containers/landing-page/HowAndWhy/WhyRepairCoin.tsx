@@ -5,7 +5,7 @@ import React from "react";
 
 const WhyRepairCoin: React.FC<any> = () => {
   return (
-    <div className="w-full flex flex-col items-center gap-6">
+    <div className="w-full flex flex-col items-center gap-6 mt-20 md:mt-40">
       <div className="w-full flex flex-col  items-center md:gap-6 gap-4">
         <p className="md:text-5xl text-3xl text-center font-bold text-white tracking-wide">
           Why RepairCoin?
