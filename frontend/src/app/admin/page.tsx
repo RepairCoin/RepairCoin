@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { createThirdwebClient } from "thirdweb";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { useAuth } from '../../hooks/useAuth';
 
 const client = createThirdwebClient({
@@ -56,6 +58,12 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'customers' | 'shops' | 'shop-applications' | 'transactions' | 'create-admin' | 'create-shop'>('overview');
+  
+  // Modal state
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [selectedShop, setSelectedShop] = useState<any>(null);
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   // Generate JWT token for admin authentication
   const generateAdminToken = async (): Promise<string | null> => {
@@ -250,40 +258,28 @@ export default function AdminDashboard() {
 
   const reviewShop = async (shopId: string) => {
     try {
-      // Get admin token
-      const adminToken = await generateAdminToken();
-      if (!adminToken) {
-        setError('Failed to authenticate as admin');
-        return;
-      }
-
-      // For now, just show shop details for review
       const shop = pendingShops.find(s => (s.shopId || s.shop_id) === shopId);
       if (shop) {
-        alert(`Reviewing Shop Application:
-        
-Name: ${shop.name}
-Shop ID: ${shop.shopId || shop.shop_id}
-Email: ${shop.email}
-Phone: ${shop.phone}
-Address: ${shop.address}
-Business Type: ${shop.business_type || 'N/A'}
-Services: ${shop.services || 'N/A'}
-Website: ${shop.website || 'N/A'}
-
-Please approve or reject this application.`);
+        setSelectedShop(shop);
+        setReviewModalOpen(true);
       }
-      
     } catch (err) {
       console.error('Error reviewing shop:', err);
       setError('Failed to review shop');
     }
   };
 
-  const rejectShop = async (shopId: string) => {
-    // Confirm rejection
-    const reason = prompt('Enter rejection reason (optional):');
-    if (reason === null) return; // User cancelled
+  const openRejectModal = (shopId: string) => {
+    const shop = pendingShops.find(s => (s.shopId || s.shop_id) === shopId);
+    if (shop) {
+      setSelectedShop(shop);
+      setRejectionReason('');
+      setRejectModalOpen(true);
+    }
+  };
+
+  const rejectShop = async () => {
+    if (!selectedShop) return;
     
     try {
       // Get admin token
@@ -293,6 +289,7 @@ Please approve or reject this application.`);
         return;
       }
 
+      const shopId = selectedShop.shopId || selectedShop.shop_id;
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/shops/${shopId}/reject`, {
         method: 'POST',
         headers: {
@@ -300,7 +297,7 @@ Please approve or reject this application.`);
           'Authorization': `Bearer ${adminToken}`
         },
         body: JSON.stringify({
-          reason: reason || 'Application rejected by admin'
+          reason: rejectionReason || 'Application rejected by admin'
         })
       });
 
@@ -321,7 +318,10 @@ Please approve or reject this application.`);
 
       console.log('Shop rejected successfully');
       
-      // Reload data to reflect changes
+      // Close modal and reload data
+      setRejectModalOpen(false);
+      setSelectedShop(null);
+      setRejectionReason('');
       await loadDashboardData();
       
     } catch (err) {
@@ -751,7 +751,7 @@ Please approve or reject this application.`);
                               👁 Review
                             </button>
                             <button 
-                              onClick={() => rejectShop(shop.shopId || shop.shop_id || '')}
+                              onClick={() => openRejectModal(shop.shopId || shop.shop_id || '')}
                               className="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1 rounded-lg text-sm font-medium transition-colors"
                             >
                               ✗ Reject
@@ -805,6 +805,163 @@ Please approve or reject this application.`);
             </div>
           </div>
         )}
+
+        {/* Review Modal */}
+        <Dialog open={reviewModalOpen} onOpenChange={setReviewModalOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Review Shop Application</DialogTitle>
+              <DialogDescription>
+                Review the details of this shop application before making a decision.
+              </DialogDescription>
+            </DialogHeader>
+            
+            {selectedShop && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-semibold text-gray-700">Shop Name</label>
+                      <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{selectedShop.name}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-semibold text-gray-700">Shop ID</label>
+                      <p className="text-gray-900 bg-gray-50 p-3 rounded-lg font-mono text-sm">{selectedShop.shopId || selectedShop.shop_id}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-semibold text-gray-700">Email</label>
+                      <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{selectedShop.email}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-semibold text-gray-700">Phone</label>
+                      <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{selectedShop.phone}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-semibold text-gray-700">Business Address</label>
+                      <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{selectedShop.address}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-semibold text-gray-700">Business Type</label>
+                      <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{selectedShop.business_type || 'Not specified'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-semibold text-gray-700">Services</label>
+                      <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{selectedShop.services || 'Not specified'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-semibold text-gray-700">Website</label>
+                      <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{selectedShop.website || 'Not provided'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <label className="text-sm font-semibold text-gray-700">Application Date</label>
+                      <p className="text-gray-900">{(() => {
+                        const dateStr = selectedShop.joinDate || selectedShop.join_date;
+                        if (!dateStr) return 'N/A';
+                        const date = new Date(dateStr);
+                        return isNaN(date.getTime()) ? 'Invalid Date' : date.toLocaleDateString();
+                      })()}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-semibold text-gray-700">Current Status</label>
+                      <div className="flex space-x-2">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          (selectedShop.active ?? true) ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {(selectedShop.active ?? true) ? 'Active' : 'Inactive'}
+                        </span>
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          (selectedShop.verified ?? false) ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {(selectedShop.verified ?? false) ? 'Verified' : 'Pending Review'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setReviewModalOpen(false)}>
+                Close
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={() => {
+                  setReviewModalOpen(false);
+                  openRejectModal(selectedShop?.shopId || selectedShop?.shop_id || '');
+                }}
+              >
+                Reject
+              </Button>
+              <Button 
+                onClick={() => {
+                  if (selectedShop) {
+                    approveShop(selectedShop.shopId || selectedShop.shop_id || '');
+                    setReviewModalOpen(false);
+                  }
+                }}
+              >
+                Approve
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Reject Modal */}
+        <Dialog open={rejectModalOpen} onOpenChange={setRejectModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Reject Shop Application</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to reject this shop application? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            
+            {selectedShop && (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-semibold text-gray-700">Shop Details</label>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="font-medium">{selectedShop.name}</p>
+                    <p className="text-sm text-gray-600">{selectedShop.shopId || selectedShop.shop_id}</p>
+                    <p className="text-sm text-gray-600">{selectedShop.email}</p>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-semibold text-gray-700 mb-2 block">
+                    Rejection Reason (Optional)
+                  </label>
+                  <textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    placeholder="Enter reason for rejection..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    rows={4}
+                  />
+                </div>
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRejectModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={rejectShop}>
+                Reject Application
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
