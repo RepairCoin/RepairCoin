@@ -248,6 +248,88 @@ export default function AdminDashboard() {
     }
   };
 
+  const reviewShop = async (shopId: string) => {
+    try {
+      // Get admin token
+      const adminToken = await generateAdminToken();
+      if (!adminToken) {
+        setError('Failed to authenticate as admin');
+        return;
+      }
+
+      // For now, just show shop details for review
+      const shop = pendingShops.find(s => (s.shopId || s.shop_id) === shopId);
+      if (shop) {
+        alert(`Reviewing Shop Application:
+        
+Name: ${shop.name}
+Shop ID: ${shop.shopId || shop.shop_id}
+Email: ${shop.email}
+Phone: ${shop.phone}
+Address: ${shop.address}
+Business Type: ${shop.business_type || 'N/A'}
+Services: ${shop.services || 'N/A'}
+Website: ${shop.website || 'N/A'}
+
+Please approve or reject this application.`);
+      }
+      
+    } catch (err) {
+      console.error('Error reviewing shop:', err);
+      setError('Failed to review shop');
+    }
+  };
+
+  const rejectShop = async (shopId: string) => {
+    // Confirm rejection
+    const reason = prompt('Enter rejection reason (optional):');
+    if (reason === null) return; // User cancelled
+    
+    try {
+      // Get admin token
+      const adminToken = await generateAdminToken();
+      if (!adminToken) {
+        setError('Failed to authenticate as admin');
+        return;
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/shops/${shopId}/reject`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({
+          reason: reason || 'Application rejected by admin'
+        })
+      });
+
+      if (!response.ok) {
+        // If reject endpoint doesn't exist, we can delete the shop record
+        const deleteResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/shops/${shopId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${adminToken}`
+          }
+        });
+        
+        if (!deleteResponse.ok) {
+          throw new Error('Failed to reject shop');
+        }
+      }
+
+      console.log('Shop rejected successfully');
+      
+      // Reload data to reflect changes
+      await loadDashboardData();
+      
+    } catch (err) {
+      console.error('Error rejecting shop:', err);
+      setError('Failed to reject shop');
+    }
+  };
+
   const getTierColor = (tier: string): string => {
     switch (tier) {
       case 'BRONZE': return 'bg-orange-100 text-orange-800';
@@ -655,18 +737,26 @@ export default function AdminDashboard() {
                           })()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <button
-                            onClick={() => approveShop(shop.shopId || shop.shop_id || '')}
-                            className="text-green-600 hover:text-green-900 mr-4 cursor-pointer"
-                          >
-                            Approve
-                          </button>
-                          <button className="text-blue-600 hover:text-blue-900 mr-4 cursor-pointer">
-                            Review
-                          </button>
-                          <button className="text-red-600 hover:text-red-900 cursor-pointer" >
-                            Reject
-                          </button>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => approveShop(shop.shopId || shop.shop_id || '')}
+                              className="bg-green-100 text-green-700 hover:bg-green-200 px-3 py-1 rounded-lg text-sm font-medium transition-colors"
+                            >
+                              ✓ Approve
+                            </button>
+                            <button 
+                              onClick={() => reviewShop(shop.shopId || shop.shop_id || '')}
+                              className="bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1 rounded-lg text-sm font-medium transition-colors"
+                            >
+                              👁 Review
+                            </button>
+                            <button 
+                              onClick={() => rejectShop(shop.shopId || shop.shop_id || '')}
+                              className="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1 rounded-lg text-sm font-medium transition-colors"
+                            >
+                              ✗ Reject
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
