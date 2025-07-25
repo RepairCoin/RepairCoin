@@ -686,6 +686,7 @@ export default function AdminDashboard() {
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shop</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wallet</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applied Date</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -694,7 +695,7 @@ export default function AdminDashboard() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {pendingShops.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                      <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
                         <div className="text-4xl mb-2">📝</div>
                         <p>No pending shop applications</p>
                       </td>
@@ -712,6 +713,14 @@ export default function AdminDashboard() {
                           <div>
                             <div className="text-sm text-gray-900">{shop.email}</div>
                             <div className="text-sm text-gray-500">{shop.phone}</div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 font-mono">
+                            {shop.walletAddress || shop.wallet_address ? 
+                              `${(shop.walletAddress || shop.wallet_address).slice(0, 6)}...${(shop.walletAddress || shop.wallet_address).slice(-4)}`
+                              : 'Not provided'
+                            }
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -859,30 +868,37 @@ export default function AdminDashboard() {
                 </div>
 
                 <div className="border-t pt-4">
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="text-sm font-semibold text-gray-700">Wallet Address</label>
+                      <p className="text-gray-900 bg-gray-50 p-3 rounded-lg font-mono text-sm break-all">
+                        {selectedShop.walletAddress || selectedShop.wallet_address || 'Not provided'}
+                      </p>
+                    </div>
                     <div>
                       <label className="text-sm font-semibold text-gray-700">Application Date</label>
-                      <p className="text-gray-900">{(() => {
+                      <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{(() => {
                         const dateStr = selectedShop.joinDate || selectedShop.join_date;
                         if (!dateStr) return 'N/A';
                         const date = new Date(dateStr);
                         return isNaN(date.getTime()) ? 'Invalid Date' : date.toLocaleDateString();
                       })()}</p>
                     </div>
-                    <div>
-                      <label className="text-sm font-semibold text-gray-700">Current Status</label>
-                      <div className="flex space-x-2">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          (selectedShop.active ?? true) ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {(selectedShop.active ?? true) ? 'Active' : 'Inactive'}
-                        </span>
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          (selectedShop.verified ?? false) ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {(selectedShop.verified ?? false) ? 'Verified' : 'Pending Review'}
-                        </span>
-                      </div>
+                  </div>
+                  
+                  <div className="mt-4">
+                    <label className="text-sm font-semibold text-gray-700 mb-2 block">Application Status</label>
+                    <div className="flex space-x-3">
+                      <span className={`inline-flex items-center px-3 py-1 text-sm font-medium rounded-full ${
+                        (selectedShop.verified ?? false) ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {(selectedShop.verified ?? false) ? '✓ Verified' : '⏳ Pending Review'}
+                      </span>
+                      <span className={`inline-flex items-center px-3 py-1 text-sm font-medium rounded-full ${
+                        (selectedShop.active ?? true) ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {(selectedShop.active ?? true) ? '🟢 Active' : '🔴 Inactive'}
+                      </span>
                     </div>
                   </div>
                 </div>
