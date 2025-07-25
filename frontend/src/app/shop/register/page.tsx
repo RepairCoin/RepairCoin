@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { createThirdwebClient } from "thirdweb";
 import {
@@ -17,9 +18,17 @@ const client = createThirdwebClient({
 
 export default function ShopRegistration() {
   const account = useActiveAccount();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [checkingApplication, setCheckingApplication] = useState(false);
+  const [existingApplication, setExistingApplication] = useState<{
+    hasApplication: boolean;
+    status: 'pending' | 'verified' | null;
+    shopName?: string;
+    shopId?: string;
+  }>({ hasApplication: false, status: null });
   
   const [formData, setFormData] = useState({
     // Shop Information
@@ -57,6 +66,42 @@ export default function ShopRegistration() {
     // Terms and Conditions
     acceptTerms: false
   });
+
+  // Check if wallet has existing shop application
+  const checkExistingApplication = async (walletAddress: string) => {
+    setCheckingApplication(true);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/wallet/${walletAddress}`);
+      if (response.ok) {
+        const data = await response.json();
+        const shop = data.data;
+        if (shop) {
+          setExistingApplication({
+            hasApplication: true,
+            status: shop.verified ? 'verified' : 'pending',
+            shopName: shop.name,
+            shopId: shop.shopId || shop.shop_id
+          });
+        }
+      } else if (response.status === 404) {
+        // No shop found - this is normal for new wallets
+        setExistingApplication({ hasApplication: false, status: null });
+      }
+    } catch (error) {
+      console.error('Error checking existing application:', error);
+      // Don't show error to user, just assume no application
+      setExistingApplication({ hasApplication: false, status: null });
+    } finally {
+      setCheckingApplication(false);
+    }
+  };
+
+  // Check for existing application when wallet connects
+  useEffect(() => {
+    if (account?.address) {
+      checkExistingApplication(account.address);
+    }
+  }, [account?.address]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target;
@@ -178,6 +223,125 @@ export default function ShopRegistration() {
               theme="light"
               connectModal={{ size: "wide" }}
             />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show existing application status if application exists
+  if (checkingApplication || existingApplication.hasApplication) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+            <div className="text-center">
+              {checkingApplication ? (
+                <>
+                  <div className="text-6xl mb-6">🔄</div>
+                  <h1 className="text-3xl font-bold text-gray-900 mb-4">Checking Application Status...</h1>
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-6"></div>
+                  <p className="text-gray-600">Please wait while we check for existing shop applications</p>
+                </>
+              ) : existingApplication.status === 'pending' ? (
+                <>
+                  <div className="text-6xl mb-6">⏳</div>
+                  <h1 className="text-3xl font-bold text-gray-900 mb-4">Application Already Submitted</h1>
+                  <p className="text-gray-600 mb-8">
+                    Your shop application is currently being reviewed by our admin team. 
+                    You cannot submit another application with this wallet.
+                  </p>
+                  
+                  <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-6 mb-8">
+                    <h3 className="text-lg font-semibold text-yellow-800 mb-4">Application Details</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                      <div>
+                        <p className="text-sm text-yellow-700 font-medium">Shop Name:</p>
+                        <p className="text-yellow-900 font-semibold">{existingApplication.shopName}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-yellow-700 font-medium">Shop ID:</p>
+                        <p className="text-yellow-900 font-mono text-sm">{existingApplication.shopId}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-yellow-700 font-medium">Wallet:</p>
+                        <p className="text-yellow-900 font-mono text-sm">
+                          {account?.address?.slice(0, 6)}...{account?.address?.slice(-4)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-yellow-700 font-medium">Status:</p>
+                        <span className="inline-flex px-3 py-1 text-sm font-medium rounded-full bg-yellow-100 text-yellow-800">
+                          ⏳ Awaiting Admin Review
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-8">
+                    <h4 className="font-semibold text-blue-900 mb-2">What happens next?</h4>
+                    <ul className="text-sm text-blue-800 space-y-1">
+                      <li>• Admin will review your application details</li>
+                      <li>• You'll receive access once approved</li>
+                      <li>• Check your shop dashboard for status updates</li>
+                      <li>• Contact support if you have questions</li>
+                    </ul>
+                  </div>
+
+                  <div className="space-y-4">
+                    <button
+                      onClick={() => router.push('/shop')}
+                      className="w-full md:w-auto px-8 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-bold rounded-xl transition duration-200 transform hover:scale-105"
+                    >
+                      View Application Status
+                    </button>
+                    <div className="text-center">
+                      <button
+                        onClick={() => router.push('/')}
+                        className="text-gray-600 hover:text-gray-900 underline text-sm"
+                      >
+                        Return to Home
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-6xl mb-6">✅</div>
+                  <h1 className="text-3xl font-bold text-gray-900 mb-4">Shop Already Registered</h1>
+                  <p className="text-gray-600 mb-8">
+                    Your shop is already registered and verified in the RepairCoin network.
+                  </p>
+                  
+                  <div className="bg-green-50 border-2 border-green-200 rounded-xl p-6 mb-8">
+                    <h3 className="text-lg font-semibold text-green-800 mb-4">Shop Details</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                      <div>
+                        <p className="text-sm text-green-700 font-medium">Shop Name:</p>
+                        <p className="text-green-900 font-semibold">{existingApplication.shopName}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-green-700 font-medium">Shop ID:</p>
+                        <p className="text-green-900 font-mono text-sm">{existingApplication.shopId}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-green-700 font-medium">Status:</p>
+                        <span className="inline-flex px-3 py-1 text-sm font-medium rounded-full bg-green-100 text-green-800">
+                          ✅ Verified & Active
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => router.push('/shop')}
+                    className="w-full md:w-auto px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold rounded-xl transition duration-200 transform hover:scale-105"
+                  >
+                    Go to Shop Dashboard
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
