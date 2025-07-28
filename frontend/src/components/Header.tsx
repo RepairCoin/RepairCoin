@@ -6,6 +6,7 @@ import Section from './Section';
 const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -24,9 +25,10 @@ const Header: React.FC = () => {
   };
 
   return (
-    <header className={`fixed top-0 left-0 z-50 w-full transition-all duration-300 ${scrolled ? 'bg-gray-900/90 backdrop-blur-sm shadow-md' : 'bg-transparent'}`}>
-      <nav className="py-4">
-        <Section>
+    <>
+      <header className={`fixed top-0 left-0 z-50 w-full transition-all duration-300 ${scrolled ? 'bg-gray-900/90 backdrop-blur-sm shadow-md' : 'bg-transparent'}`}>
+        <nav className="py-4">
+          <Section>
           <div className="flex flex-wrap justify-between items-center w-full">
           {/* Logo */}
           <a href="/" className="flex items-center">
@@ -99,18 +101,12 @@ const Header: React.FC = () => {
             
             {/* Auth Buttons */}
             <div className="flex items-center space-x-4">
-              <a 
-                href="#" 
-                className="text-white hover:text-yellow-400 px-3 py-2 text-sm font-medium transition-colors duration-200"
-              >
-                Log In
-              </a>
-              <a 
-                href="#" 
+              <button 
+                onClick={() => setIsModalOpen(true)}
                 className="text-gray-900 bg-yellow-400 hover:bg-yellow-500 px-5 py-2.5 rounded-full text-sm font-medium border border-white transition-all duration-200 hover:shadow-lg hover:shadow-yellow-500/20"
               >
-                Sign Up
-              </a>
+                Log In
+              </button>
             </div>
           </div>
         </div>
@@ -135,12 +131,12 @@ const Header: React.FC = () => {
 
               {/* Auth Buttons */}
               <div className="pt-2 space-y-3">
-                <a
-                  href="#"
+                <button
+                  onClick={() => setIsModalOpen(true)}
                   className="block w-full px-4 py-3 text-base font-medium text-center text-white hover:bg-gray-700/50 rounded-lg transition-colors duration-200"
                 >
                   Log In
-                </a>
+                </button>
                 <a
                   href="#"
                   className="block w-full px-4 py-3 text-base font-medium text-center text-gray-900 bg-yellow-400 hover:bg-yellow-500 rounded-full border border-white transition-all duration-200 hover:shadow-lg hover:shadow-yellow-500/20"
@@ -154,6 +150,51 @@ const Header: React.FC = () => {
       </Section>
       </nav>
     </header>
+
+    {/* Login Modal */}
+    {isModalOpen && (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center">
+        {/* Overlay */}
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={() => setIsModalOpen(false)}
+        />
+        
+        {/* Modal Content */}
+        <div className="relative bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
+          {/* Close button */}
+          <button
+            onClick={() => setIsModalOpen(false)}
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <svg 
+              className="w-6 h-6" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={2} 
+                d="M6 18L18 6M6 6l12 12" 
+              />
+            </svg>
+          </button>
+          
+          {/* Modal Header */}
+          <h2 className="text-2xl font-bold text-center text-gray-900 mb-8">
+            Welcome to Repair Shop
+          </h2>
+          
+          {/* Connect Wallet Button */}
+          <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 shadow-lg hover:shadow-xl">
+            Connect Wallet
+          </button>
+        </div>
+      </div>
+    )}
+    </>
   );
 };
 

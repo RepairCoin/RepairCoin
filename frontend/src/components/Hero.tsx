@@ -51,8 +51,8 @@ export const Hero: React.FC<HeroProps> = ({ backgroundImage, techBgImage, hero1B
       {/* Content - Positioned at top with responsive padding */}
       <div className="absolute top-0 left-0 right-0 z-10 pt-28 md:pt-48">
         <Section>
-          <div className='flex flex-col'>
-            <div className='md:w-3/7'>
+          <div className='flex w-full flex-col'>
+            <div className='md:w-1/2'>
               <p className='text-[#FFCC00] text-sm md:text-sm xl:text-lg mb-6'>THE REPAIR INDUSTRY 'S LOYALTY TOKEN</p>
               <p className='text-2xl md:text-4xl xl:text-5xl font-bold text-white mb-6'>Reward your Repairs with RepairCoin</p>
               <p className='text-white text-xs md:text-sm xl:text-base mb-10'>
