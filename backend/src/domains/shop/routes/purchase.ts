@@ -25,7 +25,7 @@ const router = Router();
  *           description: Amount of RCN to purchase (minimum 100)
  *         paymentMethod:
  *           type: string
- *           enum: [credit_card, bank_transfer, usdc]
+ *           enum: [credit_card, bank_transfer, usdc, eth]
  *           description: Payment method for purchase
  *         paymentReference:
  *           type: string
@@ -81,12 +81,30 @@ const router = Router();
  */
 router.post('/initiate', async (req: Request, res: Response) => {
   try {
+    logger.info('Shop purchase initiate request:', {
+      body: req.body,
+      headers: req.headers['content-type']
+    });
+
+    // Validate required fields
+    if (!req.body.shopId) {
+      throw new Error('shopId is required');
+    }
+    if (!req.body.amount || req.body.amount < 1) {
+      throw new Error('amount must be at least 1');
+    }
+    if (!req.body.paymentMethod) {
+      throw new Error('paymentMethod is required');
+    }
+
     const purchaseData: PurchaseRequest = {
       shopId: req.body.shopId,
-      amount: req.body.amount,
+      amount: Number(req.body.amount),
       paymentMethod: req.body.paymentMethod,
       paymentReference: req.body.paymentReference
     };
+
+    logger.info('Processing purchase request:', purchaseData);
 
     const result = await shopPurchaseService.purchaseRcn(purchaseData);
 
@@ -96,7 +114,12 @@ router.post('/initiate', async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    logger.error('Error initiating shop purchase:', error);
+    logger.error('Error initiating shop purchase:', {
+      error: error instanceof Error ? error.message : error,
+      stack: error instanceof Error ? error.stack : undefined,
+      body: req.body
+    });
+    
     res.status(400).json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to initiate purchase'

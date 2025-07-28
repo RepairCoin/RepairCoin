@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { createThirdwebClient } from "thirdweb";
+import ThirdwebPayment from '../../components/ThirdwebPayment';
 
 const client = createThirdwebClient({
   clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "1969ac335e07ba13ad0f8d1a1de4f6ab",
@@ -28,7 +29,7 @@ interface ShopData {
 interface PurchaseHistory {
   id: string;
   amount: number;
-  totalCost: number;
+  totalCost?: number; // Make optional since it might be undefined
   paymentMethod: string;
   status: string;
   createdAt: string;
@@ -51,9 +52,13 @@ export default function ShopDashboard() {
   const [activeTab, setActiveTab] = useState<'overview' | 'purchase' | 'bonuses' | 'analytics'>('overview');
   
   // Purchase form state
-  const [purchaseAmount, setPurchaseAmount] = useState<number>(100);
-  const [paymentMethod, setPaymentMethod] = useState<'credit_card' | 'bank_transfer' | 'usdc'>('credit_card');
+  const [purchaseAmount, setPurchaseAmount] = useState<number>(1);
+  const [paymentMethod, setPaymentMethod] = useState<'usdc' | 'eth'>('usdc');
   const [purchasing, setPurchasing] = useState(false);
+  
+  // Payment flow state
+  const [currentPurchaseId, setCurrentPurchaseId] = useState<string | null>(null);
+  const [showPayment, setShowPayment] = useState(false);
 
   useEffect(() => {
     if (account?.address) {
@@ -76,7 +81,13 @@ export default function ShopDashboard() {
       if (shopResponse.ok) {
         const shopResult = await shopResponse.json();
         console.log('Shop API Response:', shopResult);
-        setShopData(shopResult.data);
+        if (shopResult.success && shopResult.data) {
+          setShopData(shopResult.data);
+        } else {
+          console.error('Invalid shop API response format:', shopResult);
+          setError('Invalid shop data received');
+          return;
+        }
         
         // Load purchase history
         if (shopResult.data.shopId) {
@@ -94,7 +105,11 @@ export default function ShopDashboard() {
           }
         }
       } else if (shopResponse.status === 404) {
-        setError('Shop not found. Please register your shop first.');
+        setError(
+          `Shop not found for wallet ${account?.address}. ` + 
+          'Available test shop wallet: 0x7890123456789012345678901234567890123456 (shop001). ' +
+          'Please switch to this wallet or register a new shop.'
+        );
       }
 
     } catch (err) {
@@ -105,10 +120,22 @@ export default function ShopDashboard() {
     }
   };
 
-  const purchaseRcn = async () => {
-    if (!shopData || !account?.address) return;
+  const initiatePurchase = async () => {
+    if (!shopData || !account?.address) {
+      setError('Shop data not loaded or wallet not connected');
+      return;
+    }
 
     setPurchasing(true);
+    setError(null);
+    
+    console.log('Initiating purchase with:', {
+      shopId: shopData.shopId,
+      amount: purchaseAmount,
+      paymentMethod: paymentMethod,
+      shopName: shopData.name
+    });
+    
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/purchase/initiate`, {
         method: 'POST',
@@ -118,31 +145,62 @@ export default function ShopDashboard() {
         body: JSON.stringify({
           shopId: shopData.shopId,
           amount: purchaseAmount,
-          paymentMethod,
-          shopWalletAddress: account.address
+          paymentMethod: paymentMethod
         }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Purchase failed');
+        let errorMessage = 'Purchase initiation failed';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          console.error('Failed to parse error response:', e);
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        }
+        console.error('Purchase API error:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorMessage,
+          url: response.url
+        });
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
       console.log('Purchase initiated:', result);
       
-      // In a real implementation, this would redirect to payment processing
-      alert(`Purchase initiated! Total cost: $${result.data.totalCost}. Please complete payment.`);
-      
-      // Reload shop data
-      await loadShopData();
+      // Set up payment flow
+      setCurrentPurchaseId(result.data.purchaseId);
+      setShowPayment(true);
       
     } catch (err) {
-      console.error('Error purchasing RCN:', err);
-      setError(err instanceof Error ? err.message : 'Purchase failed');
+      console.error('Error initiating purchase:', err);
+      setError(err instanceof Error ? err.message : 'Purchase initiation failed');
     } finally {
       setPurchasing(false);
     }
+  };
+
+  const handlePaymentSuccess = async () => {
+    setShowPayment(false);
+    setCurrentPurchaseId(null);
+    
+    // Show success message
+    alert(`✅ Payment successful! ${purchaseAmount} RCN has been added to your balance.`);
+    
+    // Reload shop data to show updated balance
+    await loadShopData();
+  };
+
+  const handlePaymentError = (error: string) => {
+    setError(`Payment failed: ${error}`);
+    // Keep the payment modal open so user can retry
+  };
+
+  const cancelPayment = () => {
+    setShowPayment(false);
+    setCurrentPurchaseId(null);
   };
 
   const getTierColor = (tier: string): string => {
@@ -351,7 +409,7 @@ export default function ShopDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-500">RCN Balance</p>
-                    <p className="text-3xl font-bold text-green-600">{shopData?.purchasedRcnBalance?.toFixed(2) || '0.00'}</p>
+                    <p className="text-3xl font-bold text-green-600">{(Number(shopData?.purchasedRcnBalance) || 0).toFixed(2)}</p>
                     <p className="text-xs text-gray-400">Available for bonuses</p>
                   </div>
                   <div className="text-3xl">💰</div>
@@ -384,7 +442,7 @@ export default function ShopDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-500">RCN Purchased</p>
-                    <p className="text-3xl font-bold text-orange-600">{shopData?.totalRcnPurchased?.toFixed(2) || '0.00'}</p>
+                    <p className="text-3xl font-bold text-orange-600">{(Number(shopData?.totalRcnPurchased) || 0).toFixed(2)}</p>
                     <p className="text-xs text-gray-400">Total investment</p>
                   </div>
                   <div className="text-3xl">📈</div>
@@ -468,15 +526,15 @@ export default function ShopDashboard() {
                 <div className="space-y-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Amount (minimum 100 RCN)
+                      Amount (minimum 1 RCN)
                     </label>
                     <input
                       type="number"
-                      min="100"
+                      min="1"
                       max="10000"
                       step="1"
                       value={purchaseAmount}
-                      onChange={(e) => setPurchaseAmount(parseInt(e.target.value) || 100)}
+                      onChange={(e) => setPurchaseAmount(parseInt(e.target.value) || 1)}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     />
                     <p className="text-sm text-gray-500 mt-2">
@@ -486,28 +544,46 @@ export default function ShopDashboard() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Payment Method
+                      Crypto Payment Method
                     </label>
-                    <select
-                      value={paymentMethod}
-                      onChange={(e) => setPaymentMethod(e.target.value as any)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    >
-                      <option value="credit_card">Credit Card</option>
-                      <option value="bank_transfer">Bank Transfer</option>
-                      <option value="usdc">USDC</option>
-                    </select>
+                    <div className="grid grid-cols-2 gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('usdc')}
+                        className={`p-4 rounded-xl border-2 transition-colors ${
+                          paymentMethod === 'usdc' 
+                            ? 'border-green-500 bg-green-50 text-green-900' 
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="font-medium">USDC</div>
+                        <div className="text-sm text-gray-500">Stablecoin ($1 = 1 USDC)</div>
+                      </button>
+                      
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('eth')}
+                        className={`p-4 rounded-xl border-2 transition-colors ${
+                          paymentMethod === 'eth' 
+                            ? 'border-green-500 bg-green-50 text-green-900' 
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="font-medium">ETH</div>
+                        <div className="text-sm text-gray-500">Base Sepolia ETH</div>
+                      </button>
+                    </div>
                   </div>
 
                   <button
-                    onClick={purchaseRcn}
-                    disabled={purchasing || purchaseAmount < 100}
+                    onClick={initiatePurchase}
+                    disabled={purchasing || purchaseAmount < 1}
                     className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-4 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition duration-200 transform hover:scale-105"
                   >
-                    {purchasing ? 'Processing...' : `Purchase ${purchaseAmount} RCN for $${(purchaseAmount * 1).toFixed(2)}`}
+                    {purchasing ? 'Initiating Purchase...' : `Buy ${purchaseAmount} RCN with ${paymentMethod.toUpperCase()}`}
                   </button>
 
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
                     <h4 className="text-sm font-medium text-blue-800 mb-2">💡 Why Purchase RCN?</h4>
                     <ul className="text-sm text-blue-700 space-y-1">
                       <li>• Fund tier bonuses for your customers</li>
@@ -515,6 +591,15 @@ export default function ShopDashboard() {
                       <li>• Applied to repairs ≥ $50</li>
                       <li>• Increases customer loyalty and retention</li>
                     </ul>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                    <h4 className="text-sm font-medium text-blue-800 mb-2">🚀 Live Crypto Payments</h4>
+                    <p className="text-sm text-blue-700">
+                      <strong>Base Sepolia Testnet:</strong> Pay with real USDC or ETH on Base testnet.
+                      <br />
+                      Transactions are processed on-chain via Thirdweb.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -528,12 +613,12 @@ export default function ShopDashboard() {
                       <div key={purchase.id} className="border border-gray-200 rounded-xl p-4">
                         <div className="flex justify-between items-start">
                           <div>
-                            <p className="font-medium text-gray-900">{purchase.amount} RCN</p>
-                            <p className="text-sm text-gray-500">${purchase.totalCost.toFixed(2)} via {purchase.paymentMethod}</p>
-                            <p className="text-xs text-gray-400">{new Date(purchase.createdAt).toLocaleDateString()}</p>
+                            <p className="font-medium text-gray-900">{purchase.amount || 0} RCN</p>
+                            <p className="text-sm text-gray-500">${(purchase.totalCost || 0).toFixed(2)} via {purchase.paymentMethod || 'N/A'}</p>
+                            <p className="text-xs text-gray-400">{purchase.createdAt ? new Date(purchase.createdAt).toLocaleDateString() : 'N/A'}</p>
                           </div>
-                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(purchase.status)}`}>
-                            {purchase.status}
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(purchase.status || 'pending')}`}>
+                            {purchase.status || 'pending'}
                           </span>
                         </div>
                       </div>
@@ -694,6 +779,32 @@ export default function ShopDashboard() {
               <div>
                 <h3 className="text-sm font-medium text-red-800">Error</h3>
                 <div className="mt-2 text-sm text-red-700">{error}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Payment Modal */}
+        {showPayment && currentPurchaseId && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="max-w-md w-full">
+              <ThirdwebPayment
+                purchaseId={currentPurchaseId}
+                amount={purchaseAmount}
+                totalCost={purchaseAmount * 1} // $1 per RCN
+                onSuccess={handlePaymentSuccess}
+                onError={handlePaymentError}
+                onCancel={cancelPayment}
+              />
+              
+              {/* Cancel Button */}
+              <div className="mt-4 text-center">
+                <button
+                  onClick={cancelPayment}
+                  className="text-gray-500 hover:text-gray-700 text-sm"
+                >
+                  Cancel Payment
+                </button>
               </div>
             </div>
           </div>

@@ -5,7 +5,7 @@ import { logger } from '../../../utils/logger';
 export interface PurchaseRequest {
   shopId: string;
   amount: number;
-  paymentMethod: 'credit_card' | 'bank_transfer' | 'usdc';
+  paymentMethod: 'credit_card' | 'bank_transfer' | 'usdc' | 'eth';
   paymentReference?: string;
 }
 
@@ -25,7 +25,7 @@ export interface PurchaseResponse {
  */
 export class ShopPurchaseService {
   private static readonly PRICE_PER_RCN = 1.0; // $1.00 per RCN as per requirements
-  private static readonly MINIMUM_PURCHASE = 100; // 100 RCN minimum
+  private static readonly MINIMUM_PURCHASE = 1; // 1 RCN minimum (reduced for testing)
   private static readonly MAXIMUM_PURCHASE = 10000; // 10,000 RCN maximum per transaction
 
   /**
@@ -114,8 +114,22 @@ export class ShopPurchaseService {
         orderDirection: 'desc'
       });
 
+      // Map snake_case database fields to camelCase for frontend
+      const mappedPurchases = result.items.map((purchase: any) => ({
+        id: purchase.id,
+        shopId: purchase.shop_id,
+        amount: parseFloat(purchase.amount),
+        pricePerRcn: parseFloat(purchase.price_per_rcn),
+        totalCost: parseFloat(purchase.total_cost),
+        paymentMethod: purchase.payment_method,
+        paymentReference: purchase.payment_reference,
+        status: purchase.status,
+        createdAt: purchase.created_at,
+        completedAt: purchase.completed_at
+      }));
+
       return {
-        purchases: result.items,
+        purchases: mappedPurchases,
         total: result.pagination.totalItems || 0,
         page: result.pagination.page || 1,
         totalPages: result.pagination.totalPages || 1
@@ -144,17 +158,19 @@ export class ShopPurchaseService {
       }
 
       // Calculate recommended purchase based on historical usage
+      // Note: Database returns snake_case fields, not camelCase
+      const shopData = shop as any;
       const recommendedPurchase = this.calculateRecommendedPurchase(
-        shop.purchasedRcnBalance || 0,
-        shop.totalRcnPurchased || 0,
-        shop.totalTokensIssued || 0
+        shopData.purchased_rcn_balance || 0,
+        shopData.total_rcn_purchased || 0,
+        shopData.total_tokens_issued || 0
       );
 
       return {
-        currentBalance: shop.purchasedRcnBalance || 0,
-        totalPurchased: shop.totalRcnPurchased || 0,
-        totalDistributed: shop.totalTokensIssued || 0,
-        lastPurchaseDate: shop.lastPurchaseDate,
+        currentBalance: shopData.purchased_rcn_balance || 0,
+        totalPurchased: shopData.total_rcn_purchased || 0,
+        totalDistributed: shopData.total_tokens_issued || 0,
+        lastPurchaseDate: shopData.last_purchase_date,
         recommendedPurchase
       };
 

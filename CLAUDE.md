@@ -80,6 +80,13 @@ docker exec -it repaircoin-db psql -U repaircoin -d repaircoin
 - **Blockchain**: Thirdweb on Base Sepolia
 - **Containerization**: Docker + Docker Compose
 
+### Business Model Overview
+- **Revenue Model**: Shops purchase RCN tokens directly from RepairCoin admin at $1.00 per RCN
+- **Token Distribution**: Shops distribute earned RCN to customers as loyalty rewards
+- **Redemption Value**: 1 RCN = $1.00 USD guaranteed within shop network
+- **Cross-Shop Network**: Customers can use 20% of their balance at other participating shops
+- **Market Protection**: Only earned RCN (not market-bought) can be redeemed at shops
+
 ### Domain-Driven Architecture
 The backend uses an enhanced domain-driven architecture with the following structure:
 
@@ -91,6 +98,11 @@ backend/src/
 │   ├── customer/                 # Customer management domain
 │   ├── shop/                     # Shop management domain
 │   ├── token/                    # Token operations domain
+│   │   ├── routes/
+│   │   │   ├── index.ts          # Token statistics and main routes
+│   │   │   └── verification.ts   # Verification API endpoints
+│   │   └── services/
+│   │       └── VerificationService.ts # Centralized verification logic
 │   ├── webhook/                  # Webhook processing domain
 │   └── admin/                    # Admin operations domain
 ├── events/
@@ -129,6 +141,11 @@ Each domain follows the pattern:
 - **Contract**: `0xd92ced7c3f4D8E42C05A4c558F37dA6DC731d5f5` on Base Sepolia
 - **SDK**: Thirdweb v5 for token operations
 - **Network**: Base Sepolia testnet
+- **Token Economics**: 
+  - Fixed supply: 1 billion RCN tokens
+  - Shop purchase price: $1.00 per RCN (fixed)
+  - Open market price: Floating (independent of shop redemption value)
+  - Anti-arbitrage: Centralized verification prevents market-bought tokens from shop redemption
 
 ## Environment Configuration
 
@@ -153,6 +170,19 @@ The API uses Swagger/OpenAPI documentation:
 - **Local**: http://localhost:3000/api-docs
 - **JSON Spec**: http://localhost:3000/api-docs.json
 - **Access**: `npm run docs:open` in backend directory
+
+### Customer Tier System
+
+**Tier Levels & Benefits**:
+- **Bronze Tier** (0-199 lifetime RCN): +10 RCN bonus per repair transaction
+- **Silver Tier** (200-999 lifetime RCN): +20 RCN bonus per repair transaction  
+- **Gold Tier** (1000+ lifetime RCN): +30 RCN bonus per repair transaction
+
+**Earning Structure**:
+- Small repairs ($50-$99): 10 RCN base + tier bonus
+- Large repairs ($100+): 25 RCN base + tier bonus
+- Daily limit: 40 RCN (excluding bonuses)
+- Monthly limit: 500 RCN (excluding bonuses)
 
 ### Role Exclusivity System
 
@@ -203,6 +233,11 @@ All registration endpoints return HTTP 409 (Conflict) with a `conflictingRole` f
 - `GET /api/admin/customers` - List customers with pagination and filters
 - `POST /api/admin/mint` - Manual token minting to customer addresses
 - `POST /api/admin/create-admin` - Create new admin user (placeholder implementation)
+
+**Shop RCN Management**:
+- `POST /api/admin/shops/{shopId}/sell-rcn` - Process shop RCN purchases at $1 per token
+- `GET /api/admin/shops/{shopId}/rcn-balance` - Check shop's purchased RCN balance
+- `GET /api/admin/shops/{shopId}/purchase-history` - View shop's RCN purchase history
 
 **System Operations**:
 - `POST /api/admin/contract/pause` - Emergency contract pause
@@ -324,6 +359,28 @@ The system integrates with a deployed RepairCoin token contract:
 - **Balance Checking**: Real-time token balance queries
 - **Transaction Logging**: All blockchain operations are logged in PostgreSQL
 
+### Centralized Verification System
+
+**Purpose**: Prevent arbitrage by distinguishing earned RCN from market-bought RCN
+
+**Key Endpoints**:
+- `POST /api/tokens/verify-redemption` - Validate if customer's RCN can be redeemed
+- `GET /api/tokens/earned-balance/{address}` - Get customer's earned (redeemable) RCN balance
+- `POST /api/shops/{shopId}/redeem` - Process customer redemption with verification
+
+**Verification Rules**:
+- Only RCN earned from repairs, referrals, or shop bonuses can be redeemed
+- Market-purchased RCN cannot be redeemed at shops
+- Cross-shop redemptions limited to 20% of earned balance
+- Same-shop redemptions allow 100% of earned balance
+
+**Implementation Details**:
+- **VerificationService** (`backend/src/domains/token/services/VerificationService.ts:56-394`) - Core verification logic
+- **Home Shop Detection** - Automatically identifies customer's primary earning shop
+- **Earning Breakdown** - Tracks RCN sources: repairs, referrals, tier bonuses
+- **Batch Processing** - Supports bulk verification for admin operations
+- **Real-time Validation** - Integrated into shop redemption flow at `backend/src/domains/shop/routes/index.ts:692-716`
+
 ## Common Issues
 
 ### Admin Dashboard Authentication
@@ -361,6 +418,33 @@ If blockchain operations fail, verify:
 **Next.js 15 Turbopack**: Some syntax patterns may need adjustment for compatibility
 **Port conflicts**: Frontend may use alternative ports (3002, 3003) if 3000 is occupied
 
+### Database Connection Issues
+If you see "Connection terminated due to connection timeout" errors:
+1. **Check Database Container**: Ensure PostgreSQL container is running
+   ```bash
+   docker ps | grep postgres
+   docker logs repaircoin-db --tail 10
+   ```
+2. **Test Direct Connection**: Verify database responds
+   ```bash
+   docker exec repaircoin-db psql -U repaircoin -d repaircoin -c "SELECT 1;"
+   ```
+3. **Environment Variables**: Ensure `.env` file has correct database credentials
+   - `DB_HOST=localhost`
+   - `DB_USER=repaircoin`
+   - `DB_PASSWORD=repaircoin123`
+   - `DB_NAME=repaircoin`
+4. **Connection Pool Settings**: Current settings in DatabaseService.ts:
+   - Connection timeout: 10 seconds (increased from 2s)
+   - Idle timeout: 30 seconds
+   - Keep-alive: enabled
+
+### Thirdweb v5 Issues
+If you see "parseUnits was not found" errors:
+- **Issue**: Thirdweb v5 doesn't export `parseUnits` from utils
+- **Solution**: Use manual BigInt conversion as implemented in `frontend/src/components/ThirdwebPayment.tsx:10-12`
+- **Alternative**: Import from ethers.js if needed: `import { parseUnits } from 'ethers'`
+
 ### Database Viewing
 **TablePlus Connection**:
 - Host: localhost:5432
@@ -386,7 +470,28 @@ If blockchain operations fail, verify:
 - **Authentication Improvements**: Role-based access control with wallet integration
 - **Build System Fixes**: Resolved Next.js 15 Turbopack compatibility issues
 - **Database Integration**: Enhanced field mapping between frontend and database schema
-3. Contract address matches deployed contract
+
+### July 28, 2025 Development Session - Business Model Update
+- **New Business Model**: Shops now purchase RCN tokens from RepairCoin admin at $1 per token
+- **Tier Bonus System**: Implemented automatic bonuses (Bronze +10, Silver +20, Gold +30 RCN per transaction)
+- **Cross-Shop Rules**: Changed to 20% balance limit (replacing tier-based transaction limits)
+- **Centralized Verification**: Added API to track earned vs market-bought RCN
+- **Arbitrage Prevention**: Only earned RCN can be redeemed at shops, market-bought tokens blocked
+- **Database Fix**: Fixed `updateShop` method field mapping for proper SQL generation
+
+### July 28, 2025 Evening Session - System Fixes
+- **Verification Service Implementation**: Added complete verification system with new endpoints
+  - `POST /api/tokens/verify-redemption` - Validate customer redemptions
+  - `GET /api/tokens/earned-balance/{address}` - Get earned vs market-bought RCN breakdown
+  - `GET /api/tokens/earning-sources/{address}` - Detailed earning history by shop
+  - `POST /api/tokens/verify-batch` - Batch verification for admin operations
+- **Shop Redemption Integration**: Updated shop redemption flow to use centralized verification
+- **Thirdweb v5 Compatibility**: Fixed `parseUnits` import error in payment component
+- **Database Connection Improvements**: 
+  - Increased connection timeout from 2s to 10s
+  - Fixed credential defaults to match production setup
+  - Added keep-alive for stable connections
+- **Live Crypto Payments**: Enhanced shop dashboard with USDC/ETH payment integration
 
 ### API Documentation
 If Swagger doesn't load, check that `ENABLE_SWAGGER=true` in environment variables.

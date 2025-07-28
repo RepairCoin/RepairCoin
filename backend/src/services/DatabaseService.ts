@@ -47,7 +47,7 @@ export interface ShopRcnPurchase {
   amount: number;
   pricePerRcn: number;
   totalCost: number;
-  paymentMethod: 'credit_card' | 'bank_transfer' | 'usdc';
+  paymentMethod: 'credit_card' | 'bank_transfer' | 'usdc' | 'eth';
   paymentReference?: string;
   status: 'pending' | 'completed' | 'failed' | 'refunded';
   createdAt: string;
@@ -150,11 +150,12 @@ export class DatabaseService {
       host: process.env.DB_HOST || 'localhost',
       port: parseInt(process.env.DB_PORT || '5432'),
       database: process.env.DB_NAME || 'repaircoin',
-      user: process.env.DB_USER || 'repaircoin_user',
-      password: process.env.DB_PASSWORD || 'repaircoin_password',
+      user: process.env.DB_USER || 'repaircoin',
+      password: process.env.DB_PASSWORD || 'repaircoin123',
       max: 20,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
+      connectionTimeoutMillis: 10000, // Increased from 2000 to 10000ms
+      keepAlive: true,
     });
 
     // Test connection on startup
@@ -316,17 +317,46 @@ export class DatabaseService {
 
   async updateShop(shopId: string, updates: Partial<ShopData>): Promise<void> {
     try {
-      const setClause = Object.keys(updates)
-        .map((key, index) => `${key} = ${index + 2}`)
-        .join(', ');
+      // Map camelCase field names to snake_case column names
+      const fieldMap: { [key: string]: string } = {
+        'verified': 'verified',
+        'active': 'active',
+        'crossShopEnabled': 'cross_shop_enabled',
+        'totalTokensIssued': 'total_tokens_issued',
+        'totalRedemptions': 'total_redemptions',
+        'totalReimbursements': 'total_reimbursements',
+        'lastActivity': 'last_activity',
+        'fixflowShopId': 'fixflow_shop_id',
+        'walletAddress': 'wallet_address',
+        'reimbursementAddress': 'reimbursement_address',
+        'name': 'name',
+        'address': 'address',
+        'phone': 'phone',
+        'email': 'email'
+      };
+
+      const setClauses: string[] = [];
+      const values: any[] = [shopId];
+      let paramCount = 1;
+
+      for (const [fieldName, value] of Object.entries(updates)) {
+        const columnName = fieldMap[fieldName] || fieldName;
+        paramCount++;
+        setClauses.push(`${columnName} = $${paramCount}`);
+        values.push(value);
+      }
+
+      if (setClauses.length === 0) {
+        logger.warn(`No valid fields to update for shop: ${shopId}`);
+        return;
+      }
       
       const query = `
         UPDATE shops 
-        SET ${setClause}, updated_at = NOW()
+        SET ${setClauses.join(', ')}, updated_at = NOW()
         WHERE shop_id = $1
       `;
       
-      const values = [shopId, ...Object.values(updates)];
       await this.pool.query(query, values);
       
       logger.info(`Shop updated: ${shopId}`);
@@ -417,7 +447,30 @@ async getCustomersPaginated(params: PaginationParams & {
         return null;
       }
       
-      return result.rows[0] as ShopData;
+      // Map snake_case database fields to camelCase
+      const row = result.rows[0];
+      return {
+        shopId: row.shop_id,
+        name: row.name,
+        address: row.address,
+        phone: row.phone,
+        email: row.email,
+        walletAddress: row.wallet_address,
+        reimbursementAddress: row.reimbursement_address,
+        verified: row.verified,
+        active: row.active,
+        crossShopEnabled: row.cross_shop_enabled,
+        totalTokensIssued: parseFloat(row.total_tokens_issued || '0'),
+        totalRedemptions: parseFloat(row.total_redemptions || '0'),
+        totalReimbursements: parseFloat(row.total_reimbursements || '0'),
+        joinDate: row.join_date,
+        lastActivity: row.last_activity,
+        fixflowShopId: row.fixflow_shop_id,
+        location: row.location,
+        purchasedRcnBalance: parseFloat(row.purchased_rcn_balance || '0'),
+        totalRcnPurchased: parseFloat(row.total_rcn_purchased || '0'),
+        lastPurchaseDate: row.last_purchase_date
+      } as ShopData;
     } catch (error) {
       logger.error('Error getting shop by wallet:', error);
       throw new Error('Failed to retrieve shop data by wallet address');

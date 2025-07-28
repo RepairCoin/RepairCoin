@@ -23,6 +23,12 @@ export default function LandingPage() {
     customerData?: any;
   }>({ isRegistered: false });
   const [checkingApplications, setCheckingApplications] = useState(false);
+  const [platformStats, setPlatformStats] = useState<{
+    totalCustomers: number;
+    activeShops: number;
+    totalTokensIssued: number;
+    totalTransactions: number;
+  } | null>(null);
 
   // Check if wallet has existing registrations
   const checkExistingRegistrations = async (walletAddress: string) => {
@@ -67,12 +73,30 @@ export default function LandingPage() {
     }
   };
 
+  // Fetch platform statistics
+  const fetchPlatformStats = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/stats`);
+      if (response.ok) {
+        const data = await response.json();
+        setPlatformStats(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching platform stats:', error);
+    }
+  };
+
   // Check for existing registrations when wallet connects
   useEffect(() => {
     if (account?.address && !isAuthenticated) {
       checkExistingRegistrations(account.address);
     }
   }, [account?.address, isAuthenticated]);
+
+  // Fetch platform stats on mount
+  useEffect(() => {
+    fetchPlatformStats();
+  }, []);
 
   // Auto-redirect authenticated users to their appropriate dashboard
   useEffect(() => {
@@ -370,6 +394,31 @@ export default function LandingPage() {
             </div>
           </div>
 
+          {/* Platform Stats */}
+          {platformStats && (
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl shadow-xl p-8 border border-blue-100 mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">Platform Activity</h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-blue-600 mb-1">{platformStats.totalCustomers.toLocaleString()}</div>
+                  <p className="text-sm text-gray-600">Active Customers</p>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-green-600 mb-1">{platformStats.activeShops.toLocaleString()}</div>
+                  <p className="text-sm text-gray-600">Verified Shops</p>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-purple-600 mb-1">{platformStats.totalTokensIssued.toLocaleString()}</div>
+                  <p className="text-sm text-gray-600">RCN Issued</p>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-orange-600 mb-1">{platformStats.totalTransactions.toLocaleString()}</div>
+                  <p className="text-sm text-gray-600">Total Transactions</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* How It Works */}
           <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
             <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">How RepairCoin Works</h2>
@@ -424,6 +473,31 @@ export default function LandingPage() {
               RepairCoin is a blockchain-based loyalty token system that rewards customers for device repairs and helps shops build customer loyalty.
             </p>
           </div>
+
+          {/* Platform Statistics */}
+          {platformStats && (
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Platform Statistics</h3>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="bg-blue-50 rounded-lg p-3">
+                  <p className="text-blue-600 font-medium">{platformStats.totalCustomers.toLocaleString()}</p>
+                  <p className="text-blue-500">Active Customers</p>
+                </div>
+                <div className="bg-green-50 rounded-lg p-3">
+                  <p className="text-green-600 font-medium">{platformStats.activeShops.toLocaleString()}</p>
+                  <p className="text-green-500">Verified Shops</p>
+                </div>
+                <div className="bg-purple-50 rounded-lg p-3">
+                  <p className="text-purple-600 font-medium">{platformStats.totalTokensIssued.toLocaleString()}</p>
+                  <p className="text-purple-500">RCN Issued</p>
+                </div>
+                <div className="bg-orange-50 rounded-lg p-3">
+                  <p className="text-orange-600 font-medium">{platformStats.totalTransactions.toLocaleString()}</p>
+                  <p className="text-orange-500">Transactions</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

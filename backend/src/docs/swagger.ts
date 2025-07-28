@@ -245,6 +245,96 @@ const options = {
           required: ['success', 'error', 'timestamp']
         },
         
+        // Token Verification schemas
+        VerificationResult: {
+          type: 'object',
+          properties: {
+            canRedeem: {
+              type: 'boolean',
+              description: 'Whether the customer can redeem at the shop',
+              example: true
+            },
+            earnedBalance: {
+              type: 'number',
+              description: 'Amount of RCN earned (redeemable) by the customer',
+              example: 125.50
+            },
+            totalBalance: {
+              type: 'number',
+              description: 'Total RCN balance (earned + market-bought)',
+              example: 200.75
+            },
+            maxRedeemable: {
+              type: 'number',
+              description: 'Maximum amount redeemable at this shop',
+              example: 125.50
+            },
+            isHomeShop: {
+              type: 'boolean',
+              description: 'Whether this is the customer\'s home shop',
+              example: true
+            },
+            crossShopLimit: {
+              type: 'number',
+              description: 'Cross-shop redemption limit (20% of earned balance)',
+              example: 25.10
+            },
+            message: {
+              type: 'string',
+              description: 'Human-readable verification message',
+              example: 'Redemption approved for 50 RCN'
+            }
+          },
+          required: ['canRedeem', 'earnedBalance', 'totalBalance', 'maxRedeemable', 'isHomeShop', 'crossShopLimit', 'message']
+        },
+
+        EarnedBalanceInfo: {
+          type: 'object',
+          properties: {
+            earnedBalance: {
+              type: 'number',
+              description: 'RCN earned from shops (redeemable)',
+              example: 125.50
+            },
+            totalBalance: {
+              type: 'number',
+              description: 'Total RCN balance (including market-bought)',
+              example: 200.75
+            },
+            marketBalance: {
+              type: 'number',
+              description: 'RCN bought on market (not redeemable)',
+              example: 75.25
+            },
+            earningHistory: {
+              type: 'object',
+              properties: {
+                fromRepairs: {
+                  type: 'number',
+                  description: 'RCN earned from repair transactions',
+                  example: 85.50
+                },
+                fromReferrals: {
+                  type: 'number',
+                  description: 'RCN earned from referrals',
+                  example: 20.00
+                },
+                fromBonuses: {
+                  type: 'number',
+                  description: 'RCN earned from general bonuses',
+                  example: 10.00
+                },
+                fromTierBonuses: {
+                  type: 'number',
+                  description: 'RCN earned from tier-based bonuses',
+                  example: 10.00
+                }
+              }
+            }
+          },
+          required: ['earnedBalance', 'totalBalance', 'marketBalance', 'earningHistory']
+        },
+
         // Webhook schemas
         WebhookPayload: {
           type: 'object',
@@ -281,6 +371,10 @@ const options = {
       {
         name: 'Tokens',
         description: 'Token statistics and management endpoints'
+      },
+      {
+        name: 'Token Verification',
+        description: 'Token verification and anti-arbitrage endpoints'
       },
       {
         name: 'Shops',
@@ -530,6 +624,247 @@ specs.paths = {
             }
           }
         }
+      }
+    }
+  },
+
+  // Token Verification Endpoints
+  '/api/tokens/verify-redemption': {
+    post: {
+      tags: ['Token Verification'],
+      summary: 'Verify if customer RCN can be redeemed at shop',
+      description: 'Centralized verification to prevent market-bought RCN from being redeemed. Only earned RCN can be redeemed at shops.',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['customerAddress', 'shopId', 'amount'],
+              properties: {
+                customerAddress: {
+                  type: 'string',
+                  pattern: '^0x[a-fA-F0-9]{40}$',
+                  description: 'Customer wallet address',
+                  example: '0x1234567890123456789012345678901234567890'
+                },
+                shopId: {
+                  type: 'string',
+                  description: 'Shop identifier',
+                  example: 'shop001'
+                },
+                amount: {
+                  type: 'number',
+                  minimum: 0.01,
+                  maximum: 10000,
+                  description: 'Amount of RCN to redeem',
+                  example: 50.0
+                }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        '200': {
+          description: 'Verification result',
+          content: {
+            'application/json': {
+              schema: {
+                allOf: [
+                  { $ref: '#/components/schemas/ApiResponse' },
+                  {
+                    type: 'object',
+                    properties: {
+                      data: { $ref: '#/components/schemas/VerificationResult' }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        '400': { description: 'Invalid request parameters', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
+        '404': { description: 'Customer or shop not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
+        '500': { description: 'Internal server error', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
+      }
+    }
+  },
+
+  '/api/tokens/earned-balance/{address}': {
+    get: {
+      tags: ['Token Verification'],
+      summary: 'Get customer\'s earned (redeemable) RCN balance',
+      description: 'Returns only RCN earned from repairs, referrals, and shop bonuses. Market-bought RCN is excluded.',
+      parameters: [{
+        in: 'path',
+        name: 'address',
+        required: true,
+        schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+        description: 'Customer wallet address',
+        example: '0x1234567890123456789012345678901234567890'
+      }],
+      responses: {
+        '200': {
+          description: 'Earned balance information',
+          content: {
+            'application/json': {
+              schema: {
+                allOf: [
+                  { $ref: '#/components/schemas/ApiResponse' },
+                  {
+                    type: 'object',
+                    properties: {
+                      data: { $ref: '#/components/schemas/EarnedBalanceInfo' }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        '400': { description: 'Invalid address format', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
+        '404': { description: 'Customer not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
+        '500': { description: 'Internal server error', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
+      }
+    }
+  },
+
+  '/api/tokens/earning-sources/{address}': {
+    get: {
+      tags: ['Token Verification'],
+      summary: 'Get detailed breakdown of customer\'s RCN earning sources',
+      description: 'Shows where the customer earned their RCN tokens from different shops',
+      parameters: [{
+        in: 'path',
+        name: 'address',
+        required: true,
+        schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+        description: 'Customer wallet address',
+        example: '0x1234567890123456789012345678901234567890'
+      }],
+      responses: {
+        '200': {
+          description: 'Earning sources breakdown',
+          content: {
+            'application/json': {
+              schema: {
+                allOf: [
+                  { $ref: '#/components/schemas/ApiResponse' },
+                  {
+                    type: 'object',
+                    properties: {
+                      data: {
+                        type: 'object',
+                        properties: {
+                          earningSources: {
+                            type: 'array',
+                            items: {
+                              type: 'object',
+                              properties: {
+                                shopId: { type: 'string', example: 'shop001' },
+                                shopName: { type: 'string', example: 'Tech Repair Pro' },
+                                totalEarned: { type: 'number', example: 85.50 },
+                                fromRepairs: { type: 'number', example: 70.00 },
+                                fromReferrals: { type: 'number', example: 10.00 },
+                                fromBonuses: { type: 'number', example: 5.50 },
+                                lastEarning: { type: 'string', format: 'date-time', example: '2024-01-15T10:30:00Z' }
+                              }
+                            }
+                          },
+                          summary: {
+                            type: 'object',
+                            properties: {
+                              totalShops: { type: 'number', example: 3 },
+                              primaryShop: { type: 'string', example: 'shop001' },
+                              totalEarned: { type: 'number', example: 125.50 }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        '400': { description: 'Invalid address format', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
+        '404': { description: 'Customer not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
+        '500': { description: 'Internal server error', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
+      }
+    }
+  },
+
+  '/api/tokens/verify-batch': {
+    post: {
+      tags: ['Token Verification'],
+      summary: 'Batch verification for multiple redemptions',
+      description: 'Verify multiple redemption requests at once (admin/shop access required)',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['verifications'],
+              properties: {
+                verifications: {
+                  type: 'array',
+                  maxItems: 50,
+                  description: 'Array of verification requests (max 50)',
+                  items: {
+                    type: 'object',
+                    required: ['customerAddress', 'shopId', 'amount'],
+                    properties: {
+                      customerAddress: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+                      shopId: { type: 'string' },
+                      amount: { type: 'number', minimum: 0.01 }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        '200': {
+          description: 'Batch verification results',
+          content: {
+            'application/json': {
+              schema: {
+                allOf: [
+                  { $ref: '#/components/schemas/ApiResponse' },
+                  {
+                    type: 'object',
+                    properties: {
+                      data: {
+                        type: 'array',
+                        items: {
+                          allOf: [
+                            { $ref: '#/components/schemas/VerificationResult' },
+                            {
+                              type: 'object',
+                              properties: {
+                                index: { type: 'number', description: 'Index in the original request array' }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        '400': { description: 'Invalid request parameters', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
+        '403': { description: 'Insufficient permissions', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
+        '500': { description: 'Internal server error', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
       }
     }
   },

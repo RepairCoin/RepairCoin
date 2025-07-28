@@ -158,7 +158,7 @@ router.get('/wallet/:address',
         // Full data for admin or shop owner
         shopData = shop;
       } else {
-        // Limited data for others
+        // Limited data for others, but include balance info for frontend display
         shopData = {
           shopId: shop.shopId,
           name: shop.name,
@@ -167,7 +167,11 @@ router.get('/wallet/:address',
           verified: shop.verified,
           crossShopEnabled: shop.crossShopEnabled,
           location: shop.location,
-          joinDate: shop.joinDate
+          joinDate: shop.joinDate,
+          // Include balance information for display
+          purchasedRcnBalance: shop.purchasedRcnBalance,
+          totalRcnPurchased: shop.totalRcnPurchased,
+          totalTokensIssued: shop.totalTokensIssued
         };
       }
 
@@ -689,34 +693,32 @@ router.post('/:shopId/redeem',
         });
       }
 
-      // Check customer balance
+      // Use centralized verification service to check if redemption is allowed
+      // This prevents market-bought RCN from being redeemed at shops
+      const { verificationService } = await import('../../token/services/VerificationService');
+      const verification = await verificationService.verifyRedemption(
+        customerAddress,
+        shopId,
+        amount
+      );
+
+      if (!verification.canRedeem) {
+        return res.status(400).json({
+          success: false,
+          error: verification.message,
+          data: {
+            earnedBalance: verification.earnedBalance,
+            totalBalance: verification.totalBalance,
+            maxRedeemable: verification.maxRedeemable,
+            isHomeShop: verification.isHomeShop,
+            crossShopLimit: verification.crossShopLimit
+          }
+        });
+      }
+
+      // Get current balance for transaction processing
       const currentBalance = await getTokenMinter().getCustomerBalance(customerAddress);
-      if (!currentBalance || currentBalance < amount) {
-        return res.status(400).json({
-          success: false,
-          error: 'Insufficient customer balance',
-          data: {
-            currentBalance,
-            requestedAmount: amount
-          }
-        });
-      }
-
-      // Check redemption rules (home shop vs cross-shop)
-      const isHomeShop = customer.fixflowCustomerId === shop.fixflowShopId;
-      const redemptionCheck = getTierManager().canRedeemAtShop(customer, amount, isHomeShop);
-
-      if (!redemptionCheck.canRedeem) {
-        return res.status(400).json({
-          success: false,
-          error: redemptionCheck.message,
-          data: {
-            maxRedemption: redemptionCheck.maxRedemption,
-            customerTier: customer.tier,
-            isHomeShop
-          }
-        });
-      }
+      const isHomeShop = verification.isHomeShop;
 
       // Process redemption (this would typically burn tokens)
       // For now, we'll record the transaction
