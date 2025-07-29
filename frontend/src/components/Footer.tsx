@@ -9,30 +9,28 @@ const Footer = () => {
 
   const footerLinks = [
     {
-      title: "Company",
+      title: "Lorem 1",
       links: [
-        { name: "About Us", href: "#" },
-        { name: "Careers", href: "#" },
-        { name: "Blog", href: "#" },
-        { name: "Press", href: "#" },
+        { name: "Lorem", href: "#" },
+        { name: "Lorem", href: "#" },
+        { name: "Lorem", href: "#" },
+        { name: "Lorem", href: "#" },
       ],
     },
     {
-      title: "Support",
+      title: "Lorem 2",
       links: [
-        { name: "Help Center", href: "#" },
-        { name: "Contact Us", href: "#" },
+        { name: "Lorem", href: "#" },
+        { name: "Lorem", href: "#" },
+        { name: "Lorem", href: "#" },
+        { name: "Lorem", href: "#" },
+      ],
+    },
+    {
+      title: "Resources",
+      links: [
         { name: "Privacy Policy", href: "#" },
-        { name: "Terms of Service", href: "#" },
-      ],
-    },
-    {
-      title: "Connect",
-      links: [
-        { name: "Twitter", href: "#" },
-        { name: "Facebook", href: "#" },
-        { name: "Instagram", href: "#" },
-        { name: "LinkedIn", href: "#" },
+        { name: "Terms and Condition", href: "#" },
       ],
     },
   ];
@@ -45,7 +43,7 @@ const Footer = () => {
   ];
 
   return (
-    <footer className="bg-[#000000] text-gray-300">
+    <footer className="bg-[#0D0D0D] text-gray-300">
       <Section>
         <div className="container mx-auto px-4 py-12 md:py-16">
           {/* Top Section */}
@@ -102,8 +100,8 @@ const Footer = () => {
                   {section.title}
                 </h3>
                 <ul className="space-y-3">
-                  {section.links.map((link) => (
-                    <li key={link.name}>
+                  {section.links.map((link, linkIndex) => (
+                    <li key={linkIndex}>
                       <Link
                         href={link.href}
                         className="text-gray-400 hover:text-[#FFCC00] transition-colors"
