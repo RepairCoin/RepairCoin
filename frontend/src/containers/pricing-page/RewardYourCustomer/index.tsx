@@ -60,7 +60,7 @@ const RewardYourCustomer: React.FC<RewardYourCustomerProps> = ({
 }) => {
   return (
     <div
-      className="w-full pt-10 bg-[#000000]"
+      className="w-full pt-10 bg-[#0D0D0D]"
       style={{ backgroundImage: `url(${techBgImage})` }}
     >
       <Section>

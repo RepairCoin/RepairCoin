@@ -11,7 +11,7 @@ interface HeroProps {
 
 export const Hero: React.FC<HeroProps> = ({ backgroundImage, techBgImage, hero1BgImage }) => {
   return (
-    <div className="relative h-screen md:h-[70vh] xl:h-screen w-full bg-[#000000]">
+    <div className="relative h-screen md:h-[70vh] xl:h-screen w-full bg-[#0D0D0D]">
       {/* Mobile View - Two Split Backgrounds */}
       <div className="md:hidden h-full w-full flex flex-col">
         {/* Top half background */}

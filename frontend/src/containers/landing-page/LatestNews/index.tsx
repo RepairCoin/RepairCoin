@@ -44,7 +44,7 @@ interface LatestNewsProps {
 const LatestNews: React.FC<LatestNewsProps> = ({ latestNewsBgImage }) => {
     return (
         <div
-            className="w-full h-full xl:h-screen px-4 bg-[#000000]"
+            className="w-full h-full xl:h-screen px-4 bg-[#0D0D0D]"
             style={{ backgroundImage: `url(${latestNewsBgImage})` }}
         >
             <Section>
