@@ -1,25 +1,34 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TokenMinter = void 0;
 // contracts/TokenMinter.ts
 const dotenv_1 = require("dotenv");
-(0, dotenv_1.config)();
+const path_1 = __importDefault(require("path"));
+// Load environment variables from root directory
+(0, dotenv_1.config)({ path: path_1.default.join(__dirname, '..', '.env') });
 const chains_1 = require("thirdweb/chains");
 const wallets_1 = require("thirdweb/wallets");
 const TierManager_1 = require("./TierManager");
 const thirdweb_1 = require("thirdweb");
 class TokenMinter {
     constructor() {
-        if (!process.env.THIRDWEB_CLIENT_ID || !process.env.THIRDWEB_SECRET_KEY || !process.env.PRIVATE_KEY) {
+        // Check for THIRDWEB_CLIENT_ID or NEXT_PUBLIC_THIRDWEB_CLIENT_ID
+        const clientId = process.env.THIRDWEB_CLIENT_ID || process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID;
+        const secretKey = process.env.THIRDWEB_SECRET_KEY;
+        const privateKey = process.env.PRIVATE_KEY;
+        if (!clientId || !secretKey || !privateKey) {
             throw new Error("Missing required environment variables");
         }
         this.client = (0, thirdweb_1.createThirdwebClient)({
-            clientId: process.env.THIRDWEB_CLIENT_ID,
-            secretKey: process.env.THIRDWEB_SECRET_KEY,
+            clientId: clientId,
+            secretKey: secretKey,
         });
         this.account = (0, wallets_1.privateKeyToAccount)({
             client: this.client,
-            privateKey: process.env.PRIVATE_KEY,
+            privateKey: privateKey,
         });
         this.contractAddress = process.env.REPAIRCOIN_CONTRACT_ADDRESS;
         this.tierManager = new TierManager_1.TierManager();
@@ -274,7 +283,7 @@ class TokenMinter {
             try {
                 const totalSupply = await (0, thirdweb_1.readContract)({
                     contract,
-                    method: "totalSupply",
+                    method: "function totalSupply() view returns (uint256)",
                     params: []
                 });
                 stats.totalSupply = totalSupply.toString();

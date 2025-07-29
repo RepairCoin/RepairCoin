@@ -68,16 +68,52 @@ class RepairCoinApp {
   }
 
   private setupMiddleware(): void {
-    this.app.use(helmet());
+    // CORS must come before helmet to handle preflight requests properly
     this.app.use(cors({
-      origin: process.env.FRONTEND_URL || 'http://localhost:3001',
-      credentials: true
+      origin: function(origin, callback) {
+        const allowedOrigins = [
+          'http://localhost:3000',
+          'http://localhost:3001', 
+          'http://localhost:3002',
+          'http://localhost:3003',
+          process.env.FRONTEND_URL
+        ].filter(Boolean);
+        
+        // Allow requests with no origin (like mobile apps or Postman)
+        if (!origin) return callback(null, true);
+        
+        if (allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          callback(null, true); // Allow all origins in development
+        }
+      },
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+      preflightContinue: false,
+      optionsSuccessStatus: 204
+    }));
+    
+    // Helmet with adjusted settings for CORS compatibility
+    this.app.use(helmet({
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+      crossOriginOpenerPolicy: { policy: "unsafe-none" }
     }));
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true }));
     
     // Add request ID middleware
     this.app.use(requestIdMiddleware);
+    
+    // Manual OPTIONS handler as fallback
+    this.app.options('*', (req, res) => {
+      res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Request-ID');
+      res.header('Access-Control-Allow-Credentials', 'true');
+      res.sendStatus(204);
+    });
     
     if (process.env.NODE_ENV !== 'test') {
       this.app.use(morgan('combined', {

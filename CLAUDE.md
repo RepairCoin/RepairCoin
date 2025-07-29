@@ -493,5 +493,237 @@ If you see "parseUnits was not found" errors:
   - Added keep-alive for stable connections
 - **Live Crypto Payments**: Enhanced shop dashboard with USDC/ETH payment integration
 
+### July 29, 2025 Development Session - Treasury Management
+- **Treasury Management Tab**: Added admin dashboard tab for RCN token sales tracking
+  - `GET /api/admin/treasury` - Get current treasury statistics
+  - `POST /api/admin/treasury/update` - Update treasury after RCN sales
+  - Treasury shows total supply (1B), total sold to shops, available balance, and revenue
+- **Treasury Calculation Fix**: Updated to use `shop_rcn_purchases` table instead of empty `transactions` table
+- **CORS Configuration**: Fixed CORS policy blocking frontend requests from different ports
+- **Database Column Fixes**: Corrected SQL queries to use proper column names (purchased_rcn_balance, total_cost, payment_reference)
+- **Token Minting**: Minted full 1 billion RCN supply to match business requirements (previously only had 20 RCN)
+- **Wallet Requirements Documentation**: Created comprehensive guide for production wallet setup and multi-sig requirements
+
 ### API Documentation
 If Swagger doesn't load, check that `ENABLE_SWAGGER=true` in environment variables.
+
+## 🚀 Pending Features & Important Tasks
+
+Based on RepairCoin Requirements v1.1, the following features need to be implemented:
+
+### 1. Multi-Signature Wallet Setup (CRITICAL - Before Production)
+**Status**: ⚠️ Not Started - Currently all 1B tokens in single wallet
+**Priority**: CRITICAL
+**Requirements**:
+- Deploy 3 multi-sig wallets (Customer Rewards, Business Operations, Team/Investor)
+- Configure Safe (Gnosis Safe) on Base network
+- Distribute tokens according to official allocation:
+  - 400M RCN to Customer Rewards Pool (2-of-3 multi-sig)
+  - 200M RCN to Business Operations Fund (3-of-5 multi-sig)
+  - 400M RCN to Team & Investor Allocation (vesting contract)
+- Add authorized signers (Miguel, Zeff, FixFlow Co-founder, Security Dev, Cold Storage)
+- Test multi-sig approval workflows
+- **Reference**: See `/WALLET-REQUIREMENTS.md` for complete implementation guide
+
+### 2. Customer Mobile App
+**Status**: 🔴 Not Started
+**Priority**: HIGH
+**Features Required**:
+- Customer registration and login
+- View RCN balance (earned vs market-bought breakdown)
+- Transaction history with earning sources
+- Shop discovery and cross-shop network
+- QR code generation for shop redemptions
+- Referral system integration
+- Push notifications for rewards
+- Tier progress tracking (Bronze/Silver/Gold)
+
+### 3. Shop Mobile/Tablet App
+**Status**: 🔴 Not Started  
+**Priority**: HIGH
+**Features Required**:
+- Shop staff login system
+- QR code scanner for customer redemptions
+- Issue RCN rewards for repairs
+- View shop RCN balance and purchase more
+- Transaction history and reporting
+- Customer verification before redemption
+- Cross-shop redemption handling (20% limit)
+
+### 4. Referral System
+**Status**: 🟡 Partially Implemented (database support exists)
+**Priority**: MEDIUM
+**Remaining Work**:
+- Frontend referral link generation
+- Referral tracking and attribution
+- Automated 20 RCN rewards for successful referrals
+- Referral statistics dashboard
+- Social sharing integration
+
+### 5. Marketing Website
+**Status**: 🔴 Not Started
+**Priority**: MEDIUM
+**Requirements**:
+- Public-facing website explaining RepairCoin
+- Shop onboarding information
+- Customer benefits explanation
+- Partner shop directory
+- Contact and support information
+
+### 6. Liquidity Management
+**Status**: 🔴 Not Started
+**Priority**: HIGH (Before Public Launch)
+**Requirements**:
+- Deploy 50M RCN to DEX liquidity pools
+- Set up liquidity provision on Base mainnet
+- Configure automated market making
+- Monitor and manage liquidity depth
+- Implement liquidity incentives
+
+### 7. Analytics Dashboard
+**Status**: 🟡 Basic stats in admin dashboard
+**Priority**: MEDIUM
+**Enhancements Needed**:
+- Detailed platform metrics and KPIs
+- Shop performance analytics
+- Customer engagement metrics
+- Token circulation analysis
+- Revenue tracking and projections
+- Export capabilities for reports
+
+### 8. Security Enhancements
+**Status**: 🟡 Basic implementation
+**Priority**: HIGH
+**Remaining Work**:
+- Smart contract audit before mainnet
+- Penetration testing
+- Rate limiting on all endpoints
+- DDoS protection
+- Implement monitoring and alerting
+- Security incident response plan
+- Regular security reviews
+
+### 9. Customer Engagement Features
+**Status**: 🔴 Not Started
+**Priority**: MEDIUM
+**Features**:
+- Loyalty challenges and missions
+- Seasonal promotions
+- Tier-exclusive benefits
+- Community features
+- Reward multiplier events
+
+### 10. Shop Tools & Integration
+**Status**: 🟡 Basic API exists
+**Priority**: MEDIUM
+**Enhancements**:
+- POS system integration APIs
+- Bulk transaction upload
+- Automated reconciliation
+- Shop performance dashboards
+- Marketing tools for shops
+- Staff training materials
+
+### 11. Compliance & Legal
+**Status**: 🔴 Not Started
+**Priority**: HIGH (Before Public Launch)
+**Requirements**:
+- Terms of Service finalization
+- Privacy Policy
+- AML/KYC procedures if required
+- Regulatory compliance review
+- Data protection (GDPR/CCPA)
+
+### 12. Production Infrastructure
+**Status**: 🔴 Not Started
+**Priority**: CRITICAL (Before Launch)
+**Requirements**:
+- Move from Base Sepolia to Base Mainnet
+- Production database setup
+- Load balancing
+- Backup and disaster recovery
+- Monitoring and logging infrastructure
+- CI/CD pipeline
+- Environment separation (dev/staging/prod)
+
+### 13. Customer Support System
+**Status**: 🔴 Not Started
+**Priority**: MEDIUM
+**Requirements**:
+- Help desk ticketing system
+- FAQ and knowledge base
+- Live chat integration
+- Support email workflows
+- Dispute resolution process
+
+### 14. Vesting Contract
+**Status**: 🔴 Not Started
+**Priority**: HIGH (Before Token Distribution)
+**Requirements**:
+- Deploy vesting smart contract
+- 4-year vesting with 12-month cliff
+- Quarterly release schedule
+- 400M RCN allocation for team/investors
+- Vesting dashboard for beneficiaries
+
+### 15. Emergency Procedures
+**Status**: 🟡 Basic pause/unpause implemented
+**Priority**: HIGH
+**Enhancements**:
+- Automated circuit breakers
+- Emergency contact system
+- Incident response runbooks
+- Recovery procedures
+- Communication templates
+
+## 📋 Development Priorities
+
+### Phase 1 - Pre-Pilot (Next 30 days)
+1. ✅ Complete multi-signature wallet setup
+2. ✅ Security audit preparation
+3. ✅ Basic mobile app MVP
+4. ✅ Production infrastructure setup
+
+### Phase 2 - Pilot Launch (30-60 days)
+1. ✅ Deploy to Base Mainnet
+2. ✅ Onboard 5-10 pilot shops
+3. ✅ Limited customer rollout
+4. ✅ Monitor and iterate
+
+### Phase 3 - Public Launch (60-90 days)
+1. ✅ Full mobile apps release
+2. ✅ Marketing website launch
+3. ✅ Liquidity provision
+4. ✅ Open shop registration
+5. ✅ Public customer onboarding
+
+## 🔧 Quick Development Setup
+
+For developers starting work on pending features:
+
+1. **Mobile App Development**:
+   ```bash
+   # Consider React Native or Flutter
+   # API endpoints are ready at http://localhost:3000/api
+   # Use Thirdweb SDK for wallet integration
+   ```
+
+2. **Multi-sig Wallet Testing**:
+   ```bash
+   # Use Safe SDK for integration
+   npm install @safe-global/safe-core-sdk
+   # Test on Base Sepolia first
+   ```
+
+3. **Feature Flags**:
+   Consider implementing feature flags for gradual rollout of new features
+
+4. **API Integration**:
+   All endpoints support JWT authentication and follow RESTful conventions
+
+## 📚 Resources
+
+- **Thirdweb Docs**: https://thirdweb.com/docs
+- **Base Network**: https://base.org/
+- **Safe (Gnosis)**: https://safe.global/
+- **Requirements Doc**: Internal document v1.1 (July 2025)

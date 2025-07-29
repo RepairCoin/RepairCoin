@@ -211,6 +211,22 @@ CREATE TABLE IF NOT EXISTS tier_bonuses (
     FOREIGN KEY (shop_id) REFERENCES shops(shop_id) ON DELETE CASCADE
 );
 
+-- Admin Treasury table for tracking RCN supply and sales
+CREATE TABLE IF NOT EXISTS admin_treasury (
+    id INTEGER PRIMARY KEY DEFAULT 1,
+    total_supply NUMERIC(20, 8) DEFAULT 1000000000,
+    available_supply NUMERIC(20, 8) DEFAULT 1000000000,
+    total_sold NUMERIC(20, 8) DEFAULT 0,
+    total_revenue NUMERIC(20, 8) DEFAULT 0,
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CHECK (id = 1) -- Ensure only one row exists
+);
+
+-- Initialize admin_treasury with default values if not exists
+INSERT INTO admin_treasury (id, total_supply, available_supply, total_sold, total_revenue)
+VALUES (1, 0, 0, 0, 0)
+ON CONFLICT (id) DO NOTHING;
+
 -- Create indexes for new tables
 CREATE INDEX IF NOT EXISTS idx_shop_purchases_shop ON shop_rcn_purchases(shop_id);
 CREATE INDEX IF NOT EXISTS idx_shop_purchases_status ON shop_rcn_purchases(status);

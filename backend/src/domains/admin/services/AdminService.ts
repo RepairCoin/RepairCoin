@@ -8,6 +8,9 @@ export interface AdminStats {
   totalCustomers: number;
   totalShops: number;
   totalTransactions: number;
+  totalTokensIssued: number;
+  totalRedemptions: number;
+  totalSupply: number;
   totalTokensInCirculation: number;
   recentActivity: {
     newCustomersToday: number;
@@ -60,8 +63,20 @@ export class AdminService {
       const totalShops = await this.getTotalShopsCount();
       const totalTransactions = await this.getTotalTransactionsCount();
       
-      // Mock data for blockchain stats until TokenMinter is ready
-      const totalTokensInCirculation = 0;
+      // Get total tokens minted from database
+      const totalTokensIssued = await this.getTotalTokensMinted();
+      const totalRedemptions = await this.getTotalRedemptions();
+      
+      // Get blockchain stats
+      let totalSupply = 0;
+      try {
+        const contractStats = await this.getTokenMinter().getContractStats();
+        if (contractStats && contractStats.totalSupplyReadable > 0) {
+          totalSupply = contractStats.totalSupplyReadable;
+        }
+      } catch (error) {
+        logger.warn('Could not fetch contract stats:', error);
+      }
       
       const recentActivity = {
         newCustomersToday: await this.getNewCustomersToday(),
@@ -73,7 +88,10 @@ export class AdminService {
         totalCustomers,
         totalShops,
         totalTransactions,
-        totalTokensInCirculation,
+        totalTokensIssued,
+        totalRedemptions,
+        totalSupply,
+        totalTokensInCirculation: totalTokensIssued,
         recentActivity
       };
     } catch (error) {
@@ -361,6 +379,27 @@ export class AdminService {
       // TODO: Implement today's token issuance query
       return 0; // Mock for now
     } catch (error) {
+      return 0;
+    }
+  }
+
+  private async getTotalTokensMinted(): Promise<number> {
+    try {
+      // Use a method from databaseService or create a new one
+      const stats = await databaseService.getPlatformStatistics();
+      return stats.totalTokensIssued || 0;
+    } catch (error) {
+      logger.error('Error getting total tokens minted:', error);
+      return 0;
+    }
+  }
+
+  private async getTotalRedemptions(): Promise<number> {
+    try {
+      const stats = await databaseService.getPlatformStatistics();
+      return stats.totalRedemptions || 0;
+    } catch (error) {
+      logger.error('Error getting total redemptions:', error);
       return 0;
     }
   }

@@ -57,7 +57,8 @@ export default function AdminDashboard() {
   const [pendingShops, setPendingShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'customers' | 'shops' | 'shop-applications' | 'transactions' | 'create-admin' | 'create-shop'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'customers' | 'shops' | 'shop-applications' | 'transactions' | 'create-admin' | 'create-shop' | 'treasury'>('overview');
+  const [treasury, setTreasury] = useState<any>(null);
   
   // Modal state
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
@@ -174,6 +175,19 @@ export default function AdminDashboard() {
         }
       } catch (pendingErr) {
         console.warn('Pending Shops API error:', pendingErr);
+      }
+
+      // Load treasury data
+      try {
+        const treasuryResponse = await fetch(`${apiUrl}/admin/treasury`, { headers });
+        if (treasuryResponse.ok) {
+          const treasuryData = await treasuryResponse.json();
+          setTreasury(treasuryData.data);
+        } else {
+          console.warn('Treasury API failed:', await treasuryResponse.text());
+        }
+      } catch (treasuryErr) {
+        console.warn('Treasury API error:', treasuryErr);
       }
 
     } catch (err) {
@@ -353,6 +367,7 @@ export default function AdminDashboard() {
               client={client}
               theme="light"
               connectModal={{ size: "wide" }}
+              autoConnect={true}
             />
           </div>
         </div>
@@ -374,6 +389,7 @@ export default function AdminDashboard() {
               client={client}
               theme="light"
               connectModal={{ size: "compact" }}
+              autoConnect={true}
             />
           </div>
         </div>
@@ -437,6 +453,7 @@ export default function AdminDashboard() {
               { id: 'customers', label: 'Customers', icon: '👥' },
               { id: 'shops', label: 'Active Shops', icon: '🏪' },
               { id: 'shop-applications', label: 'Shop Applications', icon: '📝' },
+              { id: 'treasury', label: 'Treasury', icon: '🏦' },
               { id: 'transactions', label: 'Transactions', icon: '💰' },
               { id: 'create-admin', label: 'Create Admin', icon: '⚡' },
               { id: 'create-shop', label: 'Create Shop', icon: '🆕' }
@@ -772,6 +789,232 @@ export default function AdminDashboard() {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* Treasury Tab */}
+        {activeTab === 'treasury' && (
+          <div className="space-y-8">
+            {/* Treasury Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Total Supply</p>
+                    <p className="text-3xl font-bold text-blue-600">{(treasury?.totalSupply || 1000000000).toLocaleString()}</p>
+                    <p className="text-xs text-gray-500 mt-1">RCN tokens</p>
+                  </div>
+                  <div className="text-3xl">🏦</div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Available Supply</p>
+                    <p className="text-3xl font-bold text-green-600">{(treasury?.availableSupply || 0).toLocaleString()}</p>
+                    <p className="text-xs text-gray-500 mt-1">RCN available</p>
+                  </div>
+                  <div className="text-3xl">💰</div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Total Sold</p>
+                    <p className="text-3xl font-bold text-purple-600">{(treasury?.totalSold || 0).toLocaleString()}</p>
+                    <p className="text-xs text-gray-500 mt-1">RCN sold to shops ({treasury?.percentageSold || 0}%)</p>
+                  </div>
+                  <div className="text-3xl">📊</div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Total Revenue</p>
+                    <p className="text-3xl font-bold text-orange-600">${(treasury?.totalRevenue || 0).toLocaleString()}</p>
+                    <p className="text-xs text-gray-500 mt-1">USD collected</p>
+                  </div>
+                  <div className="text-3xl">💵</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Top Buyers */}
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-100">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h2 className="text-2xl font-bold text-gray-900">Top RCN Buyers</h2>
+                <p className="text-gray-600 mt-1">Shops with highest RCN purchases</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shop</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Balance</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Purchased</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Spent</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {(!treasury?.topBuyers || treasury.topBuyers.length === 0) ? (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                          <div className="text-4xl mb-2">📦</div>
+                          <p>No RCN purchases yet</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      treasury.topBuyers.map((buyer: any) => (
+                        <tr key={buyer.shopId}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">{buyer.shopName}</div>
+                              <div className="text-sm text-gray-500">{buyer.shopId}</div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {buyer.currentBalance.toLocaleString()} RCN
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-semibold text-green-600">
+                              {buyer.totalPurchased.toLocaleString()} RCN
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-semibold text-blue-600">
+                              ${buyer.totalSpent.toLocaleString()}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button className="text-indigo-600 hover:text-indigo-900">
+                              View Details
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Recent Purchases */}
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-100">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h2 className="text-2xl font-bold text-gray-900">Recent RCN Purchases</h2>
+                <p className="text-gray-600 mt-1">Latest shop RCN purchase transactions</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shop</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {(!treasury?.recentPurchases || treasury.recentPurchases.length === 0) ? (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                          <div className="text-4xl mb-2">🛒</div>
+                          <p>No recent purchases</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      treasury.recentPurchases.map((purchase: any) => (
+                        <tr key={purchase.id}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">{purchase.shopName}</div>
+                              <div className="text-sm text-gray-500">{purchase.shopId}</div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                            {purchase.amount.toLocaleString()} RCN
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600">
+                            ${purchase.cost.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                              {purchase.paymentMethod || 'Admin'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              purchase.status === 'completed' 
+                                ? 'bg-green-100 text-green-800' 
+                                : purchase.status === 'pending'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {purchase.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {new Date(purchase.createdAt).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Treasury Actions */}
+            <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Treasury Actions</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <button 
+                  onClick={async () => {
+                    try {
+                      const adminToken = await generateAdminToken();
+                      if (!adminToken) {
+                        setError('Failed to authenticate as admin');
+                        return;
+                      }
+
+                      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/treasury/update`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${adminToken}`
+                        }
+                      });
+
+                      if (response.ok) {
+                        await loadDashboardData();
+                      } else {
+                        setError('Failed to update treasury');
+                      }
+                    } catch (err) {
+                      console.error('Error updating treasury:', err);
+                      setError('Failed to update treasury');
+                    }
+                  }}
+                  className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-100 hover:shadow-lg transition-shadow"
+                >
+                  <div className="text-4xl mb-4">🔄</div>
+                  <h3 className="font-bold text-gray-900 mb-2">Recalculate Treasury</h3>
+                  <p className="text-sm text-gray-600">Update treasury stats from purchase records</p>
+                </button>
+                
+                <button className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-100 hover:shadow-lg transition-shadow">
+                  <div className="text-4xl mb-4">📈</div>
+                  <h3 className="font-bold text-gray-900 mb-2">Export Report</h3>
+                  <p className="text-sm text-gray-600">Download treasury and sales report</p>
+                </button>
+              </div>
             </div>
           </div>
         )}

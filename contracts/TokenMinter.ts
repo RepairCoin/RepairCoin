@@ -1,6 +1,8 @@
 // contracts/TokenMinter.ts
 import { config } from 'dotenv';
-config(); 
+import path from 'path';
+// Load environment variables from root directory
+config({ path: path.join(__dirname, '..', '.env') }); 
 import { baseSepolia } from "thirdweb/chains";
 import { privateKeyToAccount } from "thirdweb/wallets";
 import { TierManager, CustomerData } from "./TierManager";
@@ -33,18 +35,23 @@ export class TokenMinter {
   private tierManager: TierManager;
 
   constructor() {
-    if (!process.env.THIRDWEB_CLIENT_ID || !process.env.THIRDWEB_SECRET_KEY || !process.env.PRIVATE_KEY) {
+    // Check for THIRDWEB_CLIENT_ID or NEXT_PUBLIC_THIRDWEB_CLIENT_ID
+    const clientId = process.env.THIRDWEB_CLIENT_ID || process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID;
+    const secretKey = process.env.THIRDWEB_SECRET_KEY;
+    const privateKey = process.env.PRIVATE_KEY;
+    
+    if (!clientId || !secretKey || !privateKey) {
       throw new Error("Missing required environment variables");
     }
 
     this.client = createThirdwebClient({
-      clientId: process.env.THIRDWEB_CLIENT_ID!,
-      secretKey: process.env.THIRDWEB_SECRET_KEY!,
+      clientId: clientId,
+      secretKey: secretKey,
     });
     
     this.account = privateKeyToAccount({
       client: this.client,
-      privateKey: process.env.PRIVATE_KEY!,
+      privateKey: privateKey,
     });
     
     this.contractAddress = process.env.REPAIRCOIN_CONTRACT_ADDRESS!;
@@ -348,7 +355,7 @@ async unpauseContract(): Promise<MintResult> {
       try {
         const totalSupply = await readContract({
           contract,
-          method: "totalSupply" as any,
+          method: "function totalSupply() view returns (uint256)" as any,
           params: []
         });
         stats.totalSupply = totalSupply.toString();

@@ -9,6 +9,7 @@ import {
 } from '../../../middleware/errorHandler';
 import { AdminController } from '../controllers/AdminController';
 import { AdminService } from '../services/AdminService';
+import treasuryRoutes from './treasury';
 
 const router = Router();
 
@@ -84,5 +85,8 @@ router.post('/maintenance/cleanup-webhooks',
 router.post('/maintenance/archive-transactions', 
   asyncHandler(adminController.archiveTransactions.bind(adminController))
 );
+
+// Treasury management routes
+router.use('', treasuryRoutes);
 
 export default router;

@@ -1003,17 +1003,75 @@ async getShopTransactions(shopId: string, limit: number = 50): Promise<Transacti
     topPerformingShops: Array<{ shopId: string; name: string; totalTransactions: number }>;
   }> {
     try {
-      // Note: This is a placeholder implementation
-      // In a real implementation, these would be actual database queries
+      // Get total customers
+      const customersResult = await this.pool.query('SELECT COUNT(*) FROM customers');
+      const totalCustomers = parseInt(customersResult.rows[0].count);
+
+      // Get total shops
+      const shopsResult = await this.pool.query('SELECT COUNT(*) FROM shops WHERE active = true AND verified = true');
+      const totalShops = parseInt(shopsResult.rows[0].count);
+
+      // Get total transactions
+      const transactionsResult = await this.pool.query('SELECT COUNT(*) FROM transactions');
+      const totalTransactions = parseInt(transactionsResult.rows[0].count);
+
+      // Get total tokens issued
+      const tokensResult = await this.pool.query(`
+        SELECT COALESCE(SUM(amount), 0) as total_minted
+        FROM transactions
+        WHERE type IN ('mint', 'tier_bonus') AND status = 'confirmed'
+      `);
+      const totalTokensIssued = parseFloat(tokensResult.rows[0].total_minted);
+
+      // Get total redemptions
+      const redemptionsResult = await this.pool.query(`
+        SELECT COALESCE(SUM(amount), 0) as total_redeemed
+        FROM transactions
+        WHERE type = 'redeem' AND status = 'confirmed'
+      `);
+      const totalRedemptions = parseFloat(redemptionsResult.rows[0].total_redeemed);
+
+      // Get active customers in last 30 days
+      const activeCustomersResult = await this.pool.query(`
+        SELECT COUNT(DISTINCT customer_address) 
+        FROM transactions 
+        WHERE timestamp > NOW() - INTERVAL '30 days'
+      `);
+      const activeCustomersLast30Days = parseInt(activeCustomersResult.rows[0].count);
+
+      // Get average transaction value
+      const avgResult = await this.pool.query(`
+        SELECT AVG(amount) as avg_amount 
+        FROM transactions 
+        WHERE type IN ('mint', 'tier_bonus')
+      `);
+      const averageTransactionValue = parseFloat(avgResult.rows[0].avg_amount) || 0;
+
+      // Get top performing shops
+      const topShopsResult = await this.pool.query(`
+        SELECT s.shop_id, s.name, COUNT(t.*) as total_transactions
+        FROM shops s
+        LEFT JOIN transactions t ON s.shop_id = t.shop_id
+        WHERE s.active = true AND s.verified = true
+        GROUP BY s.shop_id, s.name
+        ORDER BY total_transactions DESC
+        LIMIT 5
+      `);
+      const topPerformingShops = topShopsResult.rows.map(row => ({
+        shopId: row.shop_id,
+        name: row.name,
+        totalTransactions: parseInt(row.total_transactions)
+      }));
+
       return {
-        totalCustomers: 0,
-        totalShops: 0,
-        totalTransactions: 0,
-        totalTokensIssued: 0,
-        totalRedemptions: 0,
-        activeCustomersLast30Days: 0,
-        averageTransactionValue: 0,
-        topPerformingShops: []
+        totalCustomers,
+        totalShops,
+        totalTransactions,
+        totalTokensIssued,
+        totalRedemptions,
+        activeCustomersLast30Days,
+        averageTransactionValue,
+        topPerformingShops
       };
     } catch (error) {
       logger.error('Error getting platform statistics:', error);
@@ -1090,6 +1148,19 @@ async getShopTransactions(shopId: string, limit: number = 50): Promise<Transacti
       `;
       
       await this.pool.query(shopUpdateQuery, [amount, shop_id]);
+      
+      // Update admin treasury
+      const treasuryUpdateQuery = `
+        UPDATE admin_treasury 
+        SET 
+          available_supply = available_supply - $1,
+          total_sold = total_sold + $1,
+          total_revenue = total_revenue + $1,
+          last_updated = NOW()
+        WHERE id = 1
+      `;
+      await this.pool.query(treasuryUpdateQuery, [amount]);
+      
       await this.pool.query('COMMIT');
       
       logger.info(`Shop purchase completed: ${shop_id} - ${amount} RCN`);
@@ -1450,6 +1521,178 @@ async getShopTransactions(shopId: string, limit: number = 50): Promise<Transacti
     } catch (error) {
       logger.error('Error getting tier bonus statistics:', error);
       throw new Error('Failed to retrieve tier bonus statistics');
+    }
+  }
+
+  // Treasury management methods
+  async getTreasuryData(): Promise<{
+    totalSupply: number;
+    availableSupply: number;
+    totalSold: number;
+    totalRevenue: number;
+    lastUpdated: Date;
+  }> {
+    try {
+      const result = await this.pool.query(
+        'SELECT * FROM admin_treasury WHERE id = 1'
+      );
+      
+      if (result.rows.length === 0) {
+        throw new Error('Treasury data not found');
+      }
+      
+      const row = result.rows[0];
+      return {
+        totalSupply: parseFloat(row.total_supply),
+        availableSupply: parseFloat(row.available_supply),
+        totalSold: parseFloat(row.total_sold),
+        totalRevenue: parseFloat(row.total_revenue),
+        lastUpdated: row.last_updated
+      };
+    } catch (error) {
+      logger.error('Error getting treasury data:', error);
+      throw new Error('Failed to retrieve treasury data');
+    }
+  }
+
+  async getTopRCNBuyers(limit: number = 10): Promise<Array<{
+    shopId: string;
+    shopName: string;
+    totalPurchased: number;
+    totalSpent: number;
+    currentBalance: number;
+  }>> {
+    try {
+      const result = await this.pool.query(`
+        SELECT 
+          s.shop_id,
+          s.name as shop_name,
+          s.purchased_rcn_balance as current_balance,
+          COALESCE(SUM(p.amount), 0) as total_purchased,
+          COALESCE(SUM(p.total_cost), 0) as total_spent
+        FROM shops s
+        LEFT JOIN shop_rcn_purchases p ON s.shop_id = p.shop_id AND p.status = 'completed'
+        GROUP BY s.shop_id, s.name, s.purchased_rcn_balance
+        HAVING COALESCE(SUM(p.amount), 0) > 0
+        ORDER BY total_purchased DESC
+        LIMIT $1
+      `, [limit]);
+      
+      return result.rows.map(row => ({
+        shopId: row.shop_id,
+        shopName: row.shop_name,
+        totalPurchased: parseFloat(row.total_purchased),
+        totalSpent: parseFloat(row.total_spent),
+        currentBalance: parseFloat(row.current_balance)
+      }));
+    } catch (error) {
+      logger.error('Error getting top RCN buyers:', error);
+      throw new Error('Failed to retrieve top RCN buyers');
+    }
+  }
+
+  async getRecentRCNPurchases(limit: number = 20): Promise<Array<{
+    shopId: string;
+    shopName: string;
+    amount: number;
+    cost: number;
+    paymentMethod: string;
+    transactionHash: string | null;
+    status: string;
+    createdAt: Date;
+  }>> {
+    try {
+      const result = await this.pool.query(`
+        SELECT 
+          p.shop_id,
+          s.name as shop_name,
+          p.amount,
+          p.total_cost as cost,
+          p.payment_method,
+          p.payment_reference as transaction_hash,
+          p.status,
+          p.created_at
+        FROM shop_rcn_purchases p
+        JOIN shops s ON p.shop_id = s.shop_id
+        ORDER BY p.created_at DESC
+        LIMIT $1
+      `, [limit]);
+      
+      return result.rows.map(row => ({
+        shopId: row.shop_id,
+        shopName: row.shop_name,
+        amount: parseFloat(row.amount),
+        cost: parseFloat(row.cost),
+        paymentMethod: row.payment_method,
+        transactionHash: row.transaction_hash,
+        status: row.status,
+        createdAt: row.created_at
+      }));
+    } catch (error) {
+      logger.error('Error getting recent RCN purchases:', error);
+      throw new Error('Failed to retrieve recent RCN purchases');
+    }
+  }
+
+  async updateTreasuryTotalSupply(totalSupply: number): Promise<void> {
+    try {
+      await this.pool.query(`
+        UPDATE admin_treasury
+        SET 
+          total_supply = $1,
+          available_supply = $1 - total_sold,
+          last_updated = CURRENT_TIMESTAMP
+        WHERE id = 1
+      `, [totalSupply]);
+      
+      logger.info('Treasury total supply updated', { totalSupply });
+    } catch (error) {
+      logger.error('Error updating treasury total supply:', error);
+      throw new Error('Failed to update treasury total supply');
+    }
+  }
+
+  async recalculateTreasury(): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      // Calculate total sold and revenue from shop purchases (shops buying RCN from admin)
+      const purchaseStats = await client.query(`
+        SELECT 
+          COALESCE(SUM(amount), 0) as total_sold,
+          COALESCE(SUM(total_cost), 0) as total_revenue
+        FROM shop_rcn_purchases
+        WHERE status = 'completed'
+      `);
+      
+      const totalSold = parseFloat(purchaseStats.rows[0].total_sold);
+      const totalRevenue = parseFloat(purchaseStats.rows[0].total_revenue);
+      
+      // Get current total supply from treasury (will be updated separately from blockchain)
+      const currentTreasury = await client.query('SELECT total_supply FROM admin_treasury WHERE id = 1');
+      const totalSupply = currentTreasury.rows[0] ? parseFloat(currentTreasury.rows[0].total_supply) : 0;
+      const availableSupply = Math.max(0, totalSupply - totalSold);
+      
+      // Update treasury
+      await client.query(`
+        UPDATE admin_treasury
+        SET 
+          total_sold = $1,
+          total_revenue = $2,
+          available_supply = $3,
+          last_updated = CURRENT_TIMESTAMP
+        WHERE id = 1
+      `, [totalSold, totalRevenue, availableSupply]);
+      
+      await client.query('COMMIT');
+      logger.info('Treasury recalculated successfully', { totalSold, totalRevenue, availableSupply, totalSupply });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      logger.error('Error recalculating treasury:', error);
+      throw new Error('Failed to recalculate treasury');
+    } finally {
+      client.release();
     }
   }
 
