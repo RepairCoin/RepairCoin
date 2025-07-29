@@ -1,14 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { ConnectButton } from "thirdweb/react";
-import { createThirdwebClient } from "thirdweb";
-import { useAuth } from '../hooks/useAuth';
-
-const client = createThirdwebClient({
-  clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "1969ac335e07ba13ad0f8d1a1de4f6ab",
-});
+import HowAndWhy from "@/containers/landing-page/HowAndWhy";
+import FindARepairCoin from "@/containers/landing-page/FindARepairCoin";
+import SuccessStories from "@/containers/landing-page/SuccessStories";
+import LatestNews from "@/containers/landing-page/LatestNews";
+import CommunityBanner from "@/containers/landing-page/CommunityBanner";
+import Footer from "@/components/Footer";
+import Hero from "@/components/Hero";
 
 export default function LandingPage() {
   const { account, isAuthenticated, isLoading, userType, userProfile } = useAuth();
@@ -453,6 +451,30 @@ export default function LandingPage() {
 
   // Show connect wallet prompt for non-connected users
   return (
+    <main>
+      <Hero
+        backgroundImage="/hero-bg.png"  
+        techBgImage="/tech-bg.png"
+        hero1BgImage="/hero1-bg.png"  
+      />
+      <HowAndWhy 
+        techBgImage="/tech-bg.png"
+      />
+      <FindARepairCoin 
+        chainBgImage="/chain.png"
+      />
+      <SuccessStories 
+        successStoriesBgImage="/success-stories-bg.png"
+      />
+      <LatestNews 
+        latestNewsBgImage="/success-stories-bg.png"
+      />
+      <CommunityBanner 
+        communityBannerBgImage="/community-chain.png"
+        bannerChainImage="/banner-chain.png"
+      />
+      <Footer />
+    </main>
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
         <div className="text-center">

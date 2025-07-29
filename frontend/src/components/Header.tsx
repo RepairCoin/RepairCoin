@@ -39,7 +39,8 @@ const Header: React.FC = () => {
 
   useEffect(() => {
     if (account?.address && !isAuthenticated) {
-      router.push("/");
+      setIsModalOpen(false);
+      router.push("/choose");
     }
   }, [account?.address, isAuthenticated]);
 
