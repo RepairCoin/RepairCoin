@@ -112,11 +112,11 @@ const Header: React.FC = () => {
                 {/* Navigation Links */}
                 <nav className="flex items-center">
                   <ul className="flex space-x-6">
-                    {["Overview", "Features", "Pricing", "About"].map(
+                    {["Pricing", "About"].map(
                       (item) => (
                         <li key={item}>
                           <a
-                            href={`#${item.toLowerCase()}`}
+                            href={`${item.toLowerCase()}`}
                             className="text-gray-300 hover:text-white px-3 py-2 text-sm font-medium transition-colors duration-200"
                           >
                             {item}
