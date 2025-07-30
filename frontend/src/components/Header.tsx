@@ -112,18 +112,16 @@ const Header: React.FC = () => {
                 {/* Navigation Links */}
                 <nav className="flex items-center">
                   <ul className="flex space-x-6">
-                    {["Pricing", "About"].map(
-                      (item) => (
-                        <li key={item}>
-                          <a
-                            href={`${item.toLowerCase()}`}
-                            className="text-gray-300 hover:text-white px-3 py-2 text-sm font-medium transition-colors duration-200"
-                          >
-                            {item}
-                          </a>
-                        </li>
-                      )
-                    )}
+                    {["Pricing", "About"].map((item) => (
+                      <li key={item}>
+                        <a
+                          href={`${item.toLowerCase()}`}
+                          className="text-gray-300 hover:text-white px-3 py-2 text-sm font-medium transition-colors duration-200"
+                        >
+                          {item}
+                        </a>
+                      </li>
+                    ))}
                   </ul>
                 </nav>
 
@@ -191,11 +189,11 @@ const Header: React.FC = () => {
           />
 
           {/* Modal Content */}
-          <div className="relative bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
+          <div className="relative bg-gray-100 rounded-3xl p-8 max-w-2xl w-full mx-4 shadow-2xl overflow-hidden">
             {/* Close button */}
             <button
               onClick={() => setIsModalOpen(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+              className="absolute top-6 right-6 text-gray-500 hover:text-gray-700 transition-colors z-10"
             >
               <svg
                 className="w-6 h-6"
@@ -212,18 +210,52 @@ const Header: React.FC = () => {
               </svg>
             </button>
 
-            {/* Modal Header */}
-            <h2 className="text-2xl font-bold text-center text-gray-900 mb-8">
-              Welcome to Repair Shop
-            </h2>
+            <div className="flex flex-col md:flex-row items-center gap-8 h-full">
+              {/* Left Content */}
+              <div className="flex-1 h-full flex flex-col items-center space-y-10 text-center md:text-left">
+                <div className="w-full flex flex-col items-center justify-center gap-4">
+                  <h1 className="text-4xl md:text-4xl text-center font-bold text-gray-900 leading-tight">
+                    Welcome to
+                    <br />
+                    RepairCoin
+                  </h1>
+                  <p className="text-gray-500 text-center text-sm">
+                    Earn. Track. Redeem. Log in to manage your rewards and
+                    repairs.
+                  </p>
+                </div>
 
-            {/* Connect Wallet Button */}
-            <div className="w-full flex items-center justify-center">
-              <ConnectButton
-                client={client}
-                theme="light"
-                connectModal={{ size: "wide" }}
-              />
+                {/* Connect Wallet Button */}
+                <div className="pt-4 w-full">
+                  <ConnectButton
+                    client={client}
+                    connectModal={{ size: "wide" }}
+                    connectButton={{
+                      label: "Connect Wallet",
+                      className: "!bg-[#F7CC00] hover:!bg-[#E5BB00] !text-gray-900 !justify-center !w-full !font-semibold !px-8 !py-3 !rounded-full !inline-flex !items-center !gap-3 !transition-all !duration-200 !shadow-lg hover:!shadow-xl !border-none",
+                      style: {
+                        backgroundColor: "#F7CC00",
+                        color: "#111827",
+                        borderRadius: "9999px",
+                        fontWeight: "600",
+                        width: "100%",
+                        justifyContent: "center",
+                        padding: "0.75rem 2rem",
+                        boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Right Content - Character Illustrations */}
+              <div className="flex-1 relative h-64 md:h-80">
+                <img
+                  src="/connect-modal.png"
+                  alt="RepairCoin Characters"
+                  className="absolute inset-0 w-full h-full object-contain"
+                />
+              </div>
             </div>
           </div>
         </div>
