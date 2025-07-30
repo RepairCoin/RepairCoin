@@ -1696,6 +1696,456 @@ async getShopTransactions(shopId: string, limit: number = 50): Promise<Transacti
     }
   }
 
+  // Admin Activity Logging
+  async logAdminActivity(params: {
+    adminAddress: string;
+    actionType: string;
+    actionDescription: string;
+    entityType?: string;
+    entityId?: string;
+    metadata?: Record<string, any>;
+    ipAddress?: string;
+    userAgent?: string;
+  }): Promise<void> {
+    try {
+      await this.pool.query(`
+        INSERT INTO admin_activity_logs (
+          admin_address, action_type, action_description,
+          entity_type, entity_id, metadata, ip_address, user_agent
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `, [
+        params.adminAddress.toLowerCase(),
+        params.actionType,
+        params.actionDescription,
+        params.entityType || null,
+        params.entityId || null,
+        JSON.stringify(params.metadata || {}),
+        params.ipAddress || null,
+        params.userAgent || null
+      ]);
+    } catch (error) {
+      logger.error('Error logging admin activity:', error);
+      // Don't throw - logging should not break the main operation
+    }
+  }
+
+  async getAdminActivityLogs(filterParams: {
+    adminAddress?: string;
+    actionType?: string;
+    entityType?: string;
+    startDate?: Date;
+    endDate?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<Array<{
+    id: number;
+    adminAddress: string;
+    actionType: string;
+    actionDescription: string;
+    entityType: string | null;
+    entityId: string | null;
+    metadata: Record<string, any>;
+    ipAddress: string | null;
+    userAgent: string | null;
+    createdAt: Date;
+  }>> {
+    try {
+      let query = `
+        SELECT * FROM admin_activity_logs
+        WHERE 1=1
+      `;
+      const queryParams: any[] = [];
+      let paramCount = 0;
+
+      if (filterParams.adminAddress) {
+        query += ` AND admin_address = $${++paramCount}`;
+        queryParams.push(filterParams.adminAddress.toLowerCase());
+      }
+
+      if (filterParams.actionType) {
+        query += ` AND action_type = $${++paramCount}`;
+        queryParams.push(filterParams.actionType);
+      }
+
+      if (filterParams.entityType) {
+        query += ` AND entity_type = $${++paramCount}`;
+        queryParams.push(filterParams.entityType);
+      }
+
+      if (filterParams.startDate) {
+        query += ` AND created_at >= $${++paramCount}`;
+        queryParams.push(filterParams.startDate);
+      }
+
+      if (filterParams.endDate) {
+        query += ` AND created_at <= $${++paramCount}`;
+        queryParams.push(filterParams.endDate);
+      }
+
+      query += ` ORDER BY created_at DESC`;
+
+      if (filterParams.limit) {
+        query += ` LIMIT $${++paramCount}`;
+        queryParams.push(filterParams.limit);
+      }
+
+      if (filterParams.offset) {
+        query += ` OFFSET $${++paramCount}`;
+        queryParams.push(filterParams.offset);
+      }
+
+      const result = await this.pool.query(query, queryParams);
+      return result.rows.map(row => ({
+        id: row.id,
+        adminAddress: row.admin_address,
+        actionType: row.action_type,
+        actionDescription: row.action_description,
+        entityType: row.entity_type,
+        entityId: row.entity_id,
+        metadata: row.metadata || {},
+        ipAddress: row.ip_address,
+        userAgent: row.user_agent,
+        createdAt: row.created_at
+      }));
+    } catch (error) {
+      logger.error('Error getting admin activity logs:', error);
+      throw new Error('Failed to retrieve admin activity logs');
+    }
+  }
+
+  // Admin Alerts for Automated Monitoring
+  async createAlert(params: {
+    alertType: string;
+    severity: 'low' | 'medium' | 'high' | 'critical';
+    title: string;
+    message: string;
+    metadata?: Record<string, any>;
+  }): Promise<number> {
+    try {
+      const result = await this.pool.query(`
+        INSERT INTO admin_alerts (
+          alert_type, severity, title, message, metadata
+        ) VALUES ($1, $2, $3, $4, $5)
+        RETURNING id
+      `, [
+        params.alertType,
+        params.severity,
+        params.title,
+        params.message,
+        JSON.stringify(params.metadata || {})
+      ]);
+      
+      return result.rows[0].id;
+    } catch (error) {
+      logger.error('Error creating alert:', error);
+      throw new Error('Failed to create alert');
+    }
+  }
+
+  async getAlerts(filterParams: {
+    unreadOnly?: boolean;
+    severity?: string;
+    alertType?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<Array<{
+    id: number;
+    alertType: string;
+    severity: string;
+    title: string;
+    message: string;
+    metadata: Record<string, any>;
+    isRead: boolean;
+    resolved: boolean;
+    resolvedAt: Date | null;
+    resolvedBy: string | null;
+    createdAt: Date;
+  }>> {
+    try {
+      let query = `
+        SELECT * FROM admin_alerts
+        WHERE 1=1
+      `;
+      const queryParams: any[] = [];
+      let paramCount = 0;
+
+      if (filterParams.unreadOnly) {
+        query += ` AND is_read = FALSE`;
+      }
+
+      if (filterParams.severity) {
+        query += ` AND severity = $${++paramCount}`;
+        queryParams.push(filterParams.severity);
+      }
+
+      if (filterParams.alertType) {
+        query += ` AND alert_type = $${++paramCount}`;
+        queryParams.push(filterParams.alertType);
+      }
+
+      query += ` ORDER BY severity = 'critical' DESC, severity = 'high' DESC, severity = 'medium' DESC, created_at DESC`;
+
+      if (filterParams.limit) {
+        query += ` LIMIT $${++paramCount}`;
+        queryParams.push(filterParams.limit);
+      }
+
+      if (filterParams.offset) {
+        query += ` OFFSET $${++paramCount}`;
+        queryParams.push(filterParams.offset);
+      }
+
+      const result = await this.pool.query(query, queryParams);
+      return result.rows.map(row => ({
+        id: row.id,
+        alertType: row.alert_type,
+        severity: row.severity,
+        title: row.title,
+        message: row.message,
+        metadata: row.metadata || {},
+        isRead: row.is_read,
+        resolved: row.resolved,
+        resolvedAt: row.resolved_at,
+        resolvedBy: row.resolved_by,
+        createdAt: row.created_at
+      }));
+    } catch (error) {
+      logger.error('Error getting alerts:', error);
+      throw new Error('Failed to retrieve alerts');
+    }
+  }
+
+  async markAlertAsRead(alertId: number): Promise<void> {
+    try {
+      await this.pool.query(`
+        UPDATE admin_alerts
+        SET is_read = TRUE
+        WHERE id = $1
+      `, [alertId]);
+    } catch (error) {
+      logger.error('Error marking alert as read:', error);
+      throw new Error('Failed to mark alert as read');
+    }
+  }
+
+  async resolveAlert(alertId: number, resolvedBy: string): Promise<void> {
+    try {
+      await this.pool.query(`
+        UPDATE admin_alerts
+        SET 
+          resolved = TRUE,
+          resolved_at = CURRENT_TIMESTAMP,
+          resolved_by = $2
+        WHERE id = $1
+      `, [alertId, resolvedBy.toLowerCase()]);
+    } catch (error) {
+      logger.error('Error resolving alert:', error);
+      throw new Error('Failed to resolve alert');
+    }
+  }
+
+  // Analytics Methods
+  async getTokenCirculationMetrics(): Promise<{
+    totalSupply: number;
+    inTreasury: number;
+    inShops: number;
+    inCustomerWallets: number;
+    inCirculation: number;
+    percentageInShops: number;
+    percentageWithCustomers: number;
+  }> {
+    try {
+      // Get treasury data
+      const treasury = await this.getTreasuryData();
+      
+      // Get total RCN in shops
+      const shopBalances = await this.pool.query(`
+        SELECT COALESCE(SUM(purchased_rcn_balance), 0) as total
+        FROM shops
+      `);
+      const inShops = parseFloat(shopBalances.rows[0].total);
+      
+      // Get total RCN earned by customers (not including market purchases)
+      const customerBalances = await this.pool.query(`
+        SELECT COALESCE(SUM(lifetime_rcn_earned), 0) as total
+        FROM customers
+      `);
+      const inCustomerWallets = parseFloat(customerBalances.rows[0].total);
+      
+      const inCirculation = inShops + inCustomerWallets;
+      const inTreasury = treasury.availableSupply;
+      
+      return {
+        totalSupply: treasury.totalSupply,
+        inTreasury,
+        inShops,
+        inCustomerWallets,
+        inCirculation,
+        percentageInShops: (inShops / treasury.totalSupply) * 100,
+        percentageWithCustomers: (inCustomerWallets / treasury.totalSupply) * 100
+      };
+    } catch (error) {
+      logger.error('Error getting token circulation metrics:', error);
+      throw new Error('Failed to get token circulation metrics');
+    }
+  }
+
+  async getShopPerformanceRankings(limit: number = 10): Promise<Array<{
+    shopId: string;
+    shopName: string;
+    totalRevenue: number;
+    totalTokensIssued: number;
+    totalCustomers: number;
+    averageTransactionSize: number;
+    rank: number;
+  }>> {
+    try {
+      const result = await this.pool.query(`
+        WITH shop_stats AS (
+          SELECT 
+            s.shop_id,
+            s.name as shop_name,
+            COALESCE(SUM(p.total_cost), 0) as total_revenue,
+            s.total_tokens_issued,
+            COUNT(DISTINCT t.customer_address) as total_customers,
+            CASE 
+              WHEN COUNT(t.id) > 0 THEN s.total_tokens_issued / COUNT(t.id)
+              ELSE 0
+            END as avg_transaction_size
+          FROM shops s
+          LEFT JOIN shop_rcn_purchases p ON s.shop_id = p.shop_id AND p.status = 'completed'
+          LEFT JOIN transactions t ON s.shop_id = t.shop_id
+          WHERE s.verified = TRUE AND s.active = TRUE
+          GROUP BY s.shop_id, s.name, s.total_tokens_issued
+        )
+        SELECT 
+          *,
+          RANK() OVER (ORDER BY total_revenue DESC) as rank
+        FROM shop_stats
+        ORDER BY rank
+        LIMIT $1
+      `, [limit]);
+      
+      return result.rows.map(row => ({
+        shopId: row.shop_id,
+        shopName: row.shop_name,
+        totalRevenue: parseFloat(row.total_revenue),
+        totalTokensIssued: parseFloat(row.total_tokens_issued),
+        totalCustomers: parseInt(row.total_customers),
+        averageTransactionSize: parseFloat(row.avg_transaction_size),
+        rank: parseInt(row.rank)
+      }));
+    } catch (error) {
+      logger.error('Error getting shop performance rankings:', error);
+      throw new Error('Failed to get shop performance rankings');
+    }
+  }
+
+  // Automated Monitoring Checks
+  async checkLowTreasuryBalance(): Promise<void> {
+    try {
+      const treasury = await this.getTreasuryData();
+      const threshold = treasury.totalSupply * 0.1; // Alert when below 10% of total supply
+      
+      if (treasury.availableSupply < threshold) {
+        await this.createAlert({
+          alertType: 'low_treasury_balance',
+          severity: 'high',
+          title: 'Low Treasury Balance Alert',
+          message: `Treasury balance is below 10% of total supply. Current: ${treasury.availableSupply.toLocaleString()} RCN`,
+          metadata: {
+            currentBalance: treasury.availableSupply,
+            threshold,
+            percentageRemaining: (treasury.availableSupply / treasury.totalSupply) * 100
+          }
+        });
+      }
+    } catch (error) {
+      logger.error('Error checking low treasury balance:', error);
+    }
+  }
+
+  async checkPendingApplications(): Promise<void> {
+    try {
+      const pendingCount = await this.pool.query(`
+        SELECT COUNT(*) as count
+        FROM shops
+        WHERE verified = FALSE
+        AND created_at < NOW() - INTERVAL '48 hours'
+      `);
+      
+      const count = parseInt(pendingCount.rows[0].count);
+      
+      if (count > 0) {
+        await this.createAlert({
+          alertType: 'pending_applications',
+          severity: 'medium',
+          title: 'Pending Shop Applications',
+          message: `${count} shop application(s) have been pending for more than 48 hours`,
+          metadata: {
+            pendingCount: count
+          }
+        });
+      }
+    } catch (error) {
+      logger.error('Error checking pending applications:', error);
+    }
+  }
+
+  async checkUnusualActivity(): Promise<void> {
+    try {
+      // Check for shops with sudden spike in token issuance
+      const suspiciousActivity = await this.pool.query(`
+        WITH daily_issuance AS (
+          SELECT 
+            shop_id,
+            DATE(created_at) as issue_date,
+            SUM(amount) as daily_amount
+          FROM transactions
+          WHERE type = 'mint' 
+          AND created_at > NOW() - INTERVAL '7 days'
+          GROUP BY shop_id, DATE(created_at)
+        ),
+        shop_averages AS (
+          SELECT 
+            shop_id,
+            AVG(daily_amount) as avg_daily,
+            STDDEV(daily_amount) as stddev_daily
+          FROM daily_issuance
+          GROUP BY shop_id
+        )
+        SELECT 
+          di.shop_id,
+          s.name as shop_name,
+          di.issue_date,
+          di.daily_amount,
+          sa.avg_daily
+        FROM daily_issuance di
+        JOIN shop_averages sa ON di.shop_id = sa.shop_id
+        JOIN shops s ON di.shop_id = s.shop_id
+        WHERE di.daily_amount > sa.avg_daily + (2 * sa.stddev_daily)
+        AND di.issue_date = CURRENT_DATE
+      `);
+      
+      for (const row of suspiciousActivity.rows) {
+        await this.createAlert({
+          alertType: 'unusual_activity',
+          severity: 'medium',
+          title: 'Unusual Token Issuance Detected',
+          message: `Shop ${row.shop_name} issued ${row.daily_amount} RCN today, significantly above their average of ${row.avg_daily}`,
+          metadata: {
+            shopId: row.shop_id,
+            shopName: row.shop_name,
+            todayAmount: parseFloat(row.daily_amount),
+            averageAmount: parseFloat(row.avg_daily)
+          }
+        });
+      }
+    } catch (error) {
+      logger.error('Error checking unusual activity:', error);
+    }
+  }
+
   // Cleanup method
   async close(): Promise<void> {
     await this.pool.end();

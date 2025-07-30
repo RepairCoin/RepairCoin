@@ -21,6 +21,7 @@ import { WebhookDomain } from './domains/webhook/WebhookDomain';
 import { ShopDomain } from './domains/shop/ShopDomain';
 import { AdminDomain } from './domains/admin/AdminDomain'; 
 import { eventBus } from './events/EventBus';
+import { monitoringService } from './services/MonitoringService';
 
 // Your existing route imports (for non-domain routes)
 import healthRoutes from './routes/health';
@@ -253,6 +254,7 @@ class RepairCoinApp {
       // Enhanced shutdown
       await domainRegistry.cleanup();
       eventBus.clear();
+      monitoringService.stopMonitoring();
       
       // Common cleanup
       if (generalCache?.destroy) {
@@ -278,6 +280,10 @@ class RepairCoinApp {
       logger.info(`📈 Events: http://localhost:${port}/api/events/history`);
       logger.info(`🏛️  Domains: ${domainRegistry.getAllDomains().map(d => d.name).join(', ')}`);
       logger.info(`🏗️  Architecture: Enhanced Domains`);
+      
+      // Start monitoring service
+      monitoringService.startMonitoring(30); // Run checks every 30 minutes
+      logger.info(`🔍 Monitoring service started`);
     });
   }
 }

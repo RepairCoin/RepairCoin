@@ -186,6 +186,20 @@ export class AdminService {
         }
       });
 
+      // Log admin activity
+      await databaseService.logAdminActivity({
+        adminAddress: params.adminAddress || 'system',
+        actionType: 'manual_mint',
+        actionDescription: `Minted ${params.amount} RCN to customer: ${params.reason}`,
+        entityType: 'customer',
+        entityId: params.customerAddress,
+        metadata: {
+          amount: params.amount,
+          reason: params.reason,
+          transactionHash: mockTransactionHash
+        }
+      });
+
       return {
         success: true,
         transactionHash: mockTransactionHash,
@@ -206,6 +220,18 @@ export class AdminService {
       // TODO: Implement actual contract pausing when TokenMinter is ready
       // const result = await this.tokenMinter.pause();
       
+      // Log admin activity
+      await databaseService.logAdminActivity({
+        adminAddress: adminAddress || 'system',
+        actionType: 'contract_pause',
+        actionDescription: 'Paused RepairCoin contract',
+        entityType: 'contract',
+        entityId: 'repaircoin',
+        metadata: {
+          action: 'pause'
+        }
+      });
+      
       return {
         success: true,
         transactionHash: `mock_pause_${Date.now()}`,
@@ -223,6 +249,18 @@ export class AdminService {
       
       // TODO: Implement actual contract unpausing when TokenMinter is ready
       // const result = await this.tokenMinter.unpause();
+      
+      // Log admin activity
+      await databaseService.logAdminActivity({
+        adminAddress: adminAddress || 'system',
+        actionType: 'contract_unpause',
+        actionDescription: 'Unpaused RepairCoin contract',
+        entityType: 'contract',
+        entityId: 'repaircoin',
+        metadata: {
+          action: 'unpause'
+        }
+      });
       
       return {
         success: true,
@@ -255,6 +293,19 @@ export class AdminService {
       logger.info('Shop approved', {
         shopId,
         adminAddress
+      });
+
+      // Log admin activity
+      await databaseService.logAdminActivity({
+        adminAddress: adminAddress || 'system',
+        actionType: 'shop_approval',
+        actionDescription: `Approved shop: ${shop.name}`,
+        entityType: 'shop',
+        entityId: shopId,
+        metadata: {
+          shopName: shop.name,
+          shopWallet: shop.walletAddress
+        }
       });
 
       return {

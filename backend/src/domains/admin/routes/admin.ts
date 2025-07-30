@@ -10,6 +10,7 @@ import {
 import { AdminController } from '../controllers/AdminController';
 import { AdminService } from '../services/AdminService';
 import treasuryRoutes from './treasury';
+import analyticsRoutes from './analytics';
 
 const router = Router();
 
@@ -88,5 +89,8 @@ router.post('/maintenance/archive-transactions',
 
 // Treasury management routes
 router.use('', treasuryRoutes);
+
+// Analytics routes
+router.use('/analytics', analyticsRoutes);
 
 export default router;

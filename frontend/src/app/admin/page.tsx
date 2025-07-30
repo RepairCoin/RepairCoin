@@ -48,6 +48,20 @@ interface Shop {
   join_date?: string;
 }
 
+interface Transaction {
+  id: number;
+  shopId: string;
+  shopName?: string;
+  customerAddress: string;
+  customerName?: string;
+  type: 'mint' | 'redemption' | 'purchase';
+  amount: number;
+  status: 'completed' | 'pending' | 'failed';
+  createdAt: string;
+  txHash?: string;
+  details?: any;
+}
+
 export default function AdminDashboard() {
   const account = useActiveAccount();
   const { isAdmin, isLoading: authLoading, userProfile } = useAuth();
@@ -57,14 +71,23 @@ export default function AdminDashboard() {
   const [pendingShops, setPendingShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'customers' | 'shops' | 'shop-applications' | 'transactions' | 'create-admin' | 'create-shop' | 'treasury'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'customers' | 'shops' | 'shop-applications' | 'transactions' | 'create-admin' | 'create-shop' | 'treasury' | 'activity-logs' | 'analytics'>('overview');
   const [treasury, setTreasury] = useState<any>(null);
+  const [activityLogs, setActivityLogs] = useState<any[]>([]);
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [alerts, setAlerts] = useState<any[]>([]);
+  const [showAlerts, setShowAlerts] = useState(false);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [shopRankings, setShopRankings] = useState<any[]>([]);
   
   // Modal state
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [selectedShop, setSelectedShop] = useState<any>(null);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [treasuryDetailsModal, setTreasuryDetailsModal] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
+  const [selectedShopForDetails, setSelectedShopForDetails] = useState<any>(null);
 
   // Generate JWT token for admin authentication
   const generateAdminToken = async (): Promise<string | null> => {
@@ -95,11 +118,86 @@ export default function AdminDashboard() {
     }
   };
 
+  // Mark alert as read
+  const markAlertAsRead = async (alertId: number) => {
+    try {
+      const adminToken = await generateAdminToken();
+      if (!adminToken) {
+        console.error('Failed to get admin token');
+        return;
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/analytics/alerts/${alertId}/read`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${adminToken}`
+        }
+      });
+
+      if (response.ok) {
+        // Update alerts list to mark as read
+        setAlerts(alerts.map(alert => 
+          alert.id === alertId ? { ...alert, isRead: true } : alert
+        ));
+      } else {
+        console.error('Failed to mark alert as read');
+      }
+    } catch (error) {
+      console.error('Error marking alert as read:', error);
+    }
+  };
+
+  // Resolve alert (dismiss it)
+  const resolveAlert = async (alertId: number) => {
+    try {
+      const adminToken = await generateAdminToken();
+      if (!adminToken) {
+        console.error('Failed to get admin token');
+        return;
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/analytics/alerts/${alertId}/resolve`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${adminToken}`
+        }
+      });
+
+      if (response.ok) {
+        // Remove alert from list
+        setAlerts(alerts.filter(alert => alert.id !== alertId));
+      } else {
+        console.error('Failed to resolve alert');
+      }
+    } catch (error) {
+      console.error('Error resolving alert:', error);
+    }
+  };
+
   useEffect(() => {
     if (account?.address && isAdmin && !authLoading) {
       loadDashboardData();
     }
   }, [account?.address, isAdmin, authLoading]);
+
+  // Close alerts dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showAlerts) {
+        const alertsDropdown = document.querySelector('.alerts-dropdown');
+        const alertsButton = document.querySelector('.alerts-button');
+        if (alertsDropdown && !alertsDropdown.contains(event.target as Node) && 
+            alertsButton && !alertsButton.contains(event.target as Node)) {
+          setShowAlerts(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showAlerts]);
 
   const loadDashboardData = async () => {
     setLoading(true);
@@ -188,6 +286,92 @@ export default function AdminDashboard() {
         }
       } catch (treasuryErr) {
         console.warn('Treasury API error:', treasuryErr);
+      }
+
+      // Load activity logs
+      try {
+        const activityResponse = await fetch(`${apiUrl}/admin/analytics/activity-logs?limit=50`, { headers });
+        if (activityResponse.ok) {
+          const activityData = await activityResponse.json();
+          setActivityLogs(activityData.data?.logs || activityData.logs || []);
+        } else {
+          console.warn('Activity logs API failed:', await activityResponse.text());
+        }
+      } catch (activityErr) {
+        console.warn('Activity logs API error:', activityErr);
+      }
+
+      // Load analytics data
+      try {
+        const analyticsResponse = await fetch(`${apiUrl}/admin/analytics/token-circulation`, { headers });
+        if (analyticsResponse.ok) {
+          const analyticsData = await analyticsResponse.json();
+          setAnalytics(analyticsData.data || analyticsData);
+        } else {
+          console.warn('Analytics API failed:', await analyticsResponse.text());
+        }
+      } catch (analyticsErr) {
+        console.warn('Analytics API error:', analyticsErr);
+      }
+
+      // Load shop rankings
+      try {
+        const rankingsResponse = await fetch(`${apiUrl}/admin/analytics/shop-rankings?limit=10`, { headers });
+        if (rankingsResponse.ok) {
+          const rankingsData = await rankingsResponse.json();
+          setShopRankings(rankingsData.data || []);
+        } else {
+          console.warn('Shop rankings API failed:', await rankingsResponse.text());
+        }
+      } catch (rankingsErr) {
+        console.warn('Shop rankings API error:', rankingsErr);
+      }
+
+      // Load recent transactions
+      try {
+        const transactionsData = [];
+        
+        // Get recent shop RCN purchases from treasury
+        if (treasury?.recentPurchases) {
+          treasury.recentPurchases.forEach((purchase: any) => {
+            transactionsData.push({
+              id: purchase.id,
+              shopId: purchase.shop_id,
+              shopName: purchase.shop_name,
+              customerAddress: '',
+              type: 'purchase' as const,
+              amount: purchase.amount,
+              status: 'completed' as const,
+              createdAt: purchase.purchase_date,
+              details: purchase
+            });
+          });
+        }
+        
+        // Get recent customer transactions from platform stats
+        if (stats?.topPerformingShops) {
+          // For now, we'll simulate some transaction data since we don't have a dedicated endpoint
+          // In production, you'd want to add a proper transactions endpoint
+        }
+        
+        setTransactions(transactionsData.sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        ));
+      } catch (transactionsErr) {
+        console.warn('Transactions error:', transactionsErr);
+      }
+
+      // Load alerts
+      try {
+        const alertsResponse = await fetch(`${apiUrl}/admin/analytics/alerts`, { headers });
+        if (alertsResponse.ok) {
+          const alertsData = await alertsResponse.json();
+          setAlerts(alertsData.data?.alerts || alertsData.alerts || []);
+        } else {
+          console.warn('Alerts API failed:', await alertsResponse.text());
+        }
+      } catch (alertsErr) {
+        console.warn('Alerts API error:', alertsErr);
       }
 
     } catch (err) {
@@ -435,7 +619,20 @@ export default function AdminDashboard() {
                 {account.address?.slice(0, 6)}...{account.address?.slice(-4)}
               </p>
             </div>
-            <div className="mt-4 sm:mt-0">
+            <div className="mt-4 sm:mt-0 flex items-center gap-4">
+              <button 
+                onClick={() => setShowAlerts(!showAlerts)}
+                className="alerts-button relative p-2 text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                {alerts.length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    {alerts.length}
+                  </span>
+                )}
+              </button>
               <ConnectButton 
                 client={client}
                 theme="light"
@@ -455,6 +652,8 @@ export default function AdminDashboard() {
               { id: 'shop-applications', label: 'Shop Applications', icon: '📝' },
               { id: 'treasury', label: 'Treasury', icon: '🏦' },
               { id: 'transactions', label: 'Transactions', icon: '💰' },
+              { id: 'activity-logs', label: 'Activity Logs', icon: '📋' },
+              { id: 'analytics', label: 'Analytics', icon: '📊' },
               { id: 'create-admin', label: 'Create Admin', icon: '⚡' },
               { id: 'create-shop', label: 'Create Shop', icon: '🆕' }
             ].map((tab) => (
@@ -474,8 +673,18 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+        {/* Loading Indicator */}
+        {loading && activeTab === 'overview' && (
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+              <p className="mt-4 text-gray-600">Loading dashboard data...</p>
+            </div>
+          </div>
+        )}
+
         {/* Overview Tab */}
-        {activeTab === 'overview' && (
+        {activeTab === 'overview' && !loading && (
           <div className="space-y-8">
             {/* Platform Statistics */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -891,7 +1100,41 @@ export default function AdminDashboard() {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <button className="text-indigo-600 hover:text-indigo-900">
+                            <button 
+                              onClick={async () => {
+                                setSelectedTransaction(buyer);
+                                // Fetch detailed purchase history for this shop
+                                try {
+                                  const adminToken = await generateAdminToken();
+                                  if (adminToken) {
+                                    const response = await fetch(
+                                      `${process.env.NEXT_PUBLIC_API_URL}/admin/shops/${buyer.shopId}/purchase-history`,
+                                      {
+                                        headers: {
+                                          'Authorization': `Bearer ${adminToken}`
+                                        }
+                                      }
+                                    );
+                                    if (response.ok) {
+                                      const data = await response.json();
+                                      setSelectedTransaction({
+                                        ...buyer,
+                                        transactions: data.data?.purchases || data.purchases || []
+                                      });
+                                    }
+                                  }
+                                } catch (error) {
+                                  console.error('Failed to fetch purchase history:', error);
+                                }
+                                setSelectedShopForDetails({
+                                  shopId: purchase.shop_id,
+                                  shopName: purchase.shop_name,
+                                  purchases: treasury.recentPurchases.filter((p: any) => p.shop_id === purchase.shop_id)
+                                });
+                                setTreasuryDetailsModal(true);
+                              }}
+                              className="text-indigo-600 hover:text-indigo-900"
+                            >
                               View Details
                             </button>
                           </td>
@@ -1019,6 +1262,155 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {/* Transactions Tab */}
+        {activeTab === 'transactions' && (
+          <div className="space-y-8">
+            {/* Transactions Overview Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Total Transactions</p>
+                    <p className="text-3xl font-bold text-gray-900">{transactions.length}</p>
+                  </div>
+                  <div className="text-3xl">💰</div>
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Total Volume</p>
+                    <p className="text-3xl font-bold text-green-600">
+                      {transactions.reduce((sum, tx) => sum + tx.amount, 0).toFixed(2)} RCN
+                    </p>
+                  </div>
+                  <div className="text-3xl">📊</div>
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Success Rate</p>
+                    <p className="text-3xl font-bold text-blue-600">100%</p>
+                  </div>
+                  <div className="text-3xl">✅</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Transactions Table */}
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-100">
+              <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Recent Transactions</h2>
+                  <p className="text-gray-600 mt-1">View all platform transactions</p>
+                </div>
+                <div className="flex gap-2">
+                  <select className="px-3 py-2 border rounded-lg text-sm">
+                    <option value="all">All Types</option>
+                    <option value="purchase">RCN Purchases</option>
+                    <option value="mint">Token Mints</option>
+                    <option value="redemption">Redemptions</option>
+                  </select>
+                  <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm">
+                    Export CSV
+                  </button>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shop/Customer</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {transactions.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                          No transactions found. Transactions will appear here once shops start purchasing RCN.
+                        </td>
+                      </tr>
+                    ) : (
+                      transactions.map((transaction) => (
+                        <tr key={transaction.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {new Date(transaction.createdAt).toLocaleDateString()}
+                            <div className="text-xs text-gray-500">
+                              {new Date(transaction.createdAt).toLocaleTimeString()}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              transaction.type === 'purchase' ? 'bg-blue-100 text-blue-800' :
+                              transaction.type === 'mint' ? 'bg-green-100 text-green-800' :
+                              'bg-orange-100 text-orange-800'
+                            }`}>
+                              {transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">
+                              {transaction.shopName || transaction.customerName || 'Unknown'}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {transaction.shopId || transaction.customerAddress?.slice(0, 6) + '...' + transaction.customerAddress?.slice(-4)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {transaction.amount} RCN
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              transaction.status === 'completed' ? 'bg-green-100 text-green-800' :
+                              transaction.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            {transaction.txHash ? (
+                              <a 
+                                href={`https://sepolia.basescan.org/tx/${transaction.txHash}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-indigo-600 hover:text-indigo-900"
+                              >
+                                View on Explorer
+                              </a>
+                            ) : (
+                              <button className="text-gray-400 cursor-not-allowed">
+                                No TX Hash
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {transactions.length > 10 && (
+                <div className="px-6 py-4 border-t border-gray-200 flex justify-between items-center">
+                  <p className="text-sm text-gray-700">
+                    Showing 1 to {Math.min(10, transactions.length)} of {transactions.length} transactions
+                  </p>
+                  <div className="flex gap-2">
+                    <button className="px-3 py-1 border rounded hover:bg-gray-50 text-sm">Previous</button>
+                    <button className="px-3 py-1 border rounded hover:bg-gray-50 text-sm">Next</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Create Admin Tab */}
         {activeTab === 'create-admin' && (
           <div className="bg-white rounded-2xl shadow-xl border border-gray-100">
@@ -1028,6 +1420,212 @@ export default function AdminDashboard() {
             </div>
             <div className="p-6">
               <AdminCreationForm onSuccess={loadDashboardData} account={account} />
+            </div>
+          </div>
+        )}
+
+        {/* Activity Logs Tab */}
+        {activeTab === 'activity-logs' && (
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-2xl font-bold text-gray-900">Activity Logs</h2>
+              <p className="text-gray-600 mt-1">Track admin actions and system events</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admin</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {activityLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                        <div className="text-4xl mb-2">📋</div>
+                        <p>No activity logs available</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    activityLogs.map((log: any, index: number) => (
+                      <tr key={log.id || index}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {new Date(log.timestamp || log.createdAt).toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 font-mono">
+                            {log.adminAddress ? `${log.adminAddress.slice(0, 6)}...${log.adminAddress.slice(-4)}` : 'System'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                            {log.action}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 max-w-md truncate">
+                          {log.details || log.description || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            log.status === 'success' 
+                              ? 'bg-green-100 text-green-800' 
+                              : log.status === 'failed'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {log.status || 'completed'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Analytics Tab */}
+        {activeTab === 'analytics' && (
+          <div className="space-y-8">
+            {/* Token Circulation Metrics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Tokens in Circulation</p>
+                    <p className="text-3xl font-bold text-blue-600">{(analytics?.tokensInCirculation || 0).toLocaleString()}</p>
+                    <p className="text-xs text-gray-500 mt-1">RCN in customer wallets</p>
+                  </div>
+                  <div className="text-3xl">🪙</div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Velocity Rate</p>
+                    <p className="text-3xl font-bold text-green-600">{(analytics?.velocityRate || 0).toFixed(2)}x</p>
+                    <p className="text-xs text-gray-500 mt-1">Last 30 days</p>
+                  </div>
+                  <div className="text-3xl">⚡</div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Average Hold Time</p>
+                    <p className="text-3xl font-bold text-purple-600">{analytics?.avgHoldTime || 0}</p>
+                    <p className="text-xs text-gray-500 mt-1">Days per token</p>
+                  </div>
+                  <div className="text-3xl">⏱️</div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Active Wallets</p>
+                    <p className="text-3xl font-bold text-orange-600">{(analytics?.activeWallets || 0).toLocaleString()}</p>
+                    <p className="text-xs text-gray-500 mt-1">Last 30 days</p>
+                  </div>
+                  <div className="text-3xl">💳</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Shop Performance Rankings */}
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-100">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h2 className="text-2xl font-bold text-gray-900">Shop Performance Rankings</h2>
+                <p className="text-gray-600 mt-1">Top performing shops by various metrics</p>
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Top by Token Issuance */}
+                  <div>
+                    <h3 className="font-bold text-gray-900 mb-4">🏆 Top Token Issuers</h3>
+                    <div className="space-y-3">
+                      {shopRankings.length > 0 ? (
+                        shopRankings.slice(0, 5).map((shop: any, index: number) => (
+                          <div key={shop.shop_id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <span className="text-lg font-bold text-gray-400">#{index + 1}</span>
+                              <div>
+                                <p className="font-medium text-gray-900">{shop.shop_name}</p>
+                                <p className="text-xs text-gray-500">{shop.shop_id}</p>
+                              </div>
+                            </div>
+                            <p className="font-bold text-blue-600">{shop.total_tokens_issued?.toLocaleString() || 0} RCN</p>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-gray-500 text-center py-4">No shop data available</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Top by Customer Count */}
+                  <div>
+                    <h3 className="font-bold text-gray-900 mb-4">👥 Most Customers</h3>
+                    <div className="space-y-3">
+                      {shopRankings.length > 0 ? (
+                        shopRankings
+                          .sort((a, b) => (b.unique_customers || 0) - (a.unique_customers || 0))
+                          .slice(0, 5)
+                          .map((shop: any, index: number) => (
+                            <div key={shop.shop_id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                              <div className="flex items-center gap-3">
+                                <span className="text-lg font-bold text-gray-400">#{index + 1}</span>
+                                <div>
+                                  <p className="font-medium text-gray-900">{shop.shop_name}</p>
+                                  <p className="text-xs text-gray-500">{shop.shop_id}</p>
+                                </div>
+                              </div>
+                              <p className="font-bold text-green-600">{shop.unique_customers?.toLocaleString() || 0}</p>
+                            </div>
+                          ))
+                      ) : (
+                        <p className="text-gray-500 text-center py-4">No shop data available</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Top by Revenue */}
+                  <div>
+                    <h3 className="font-bold text-gray-900 mb-4">💰 Highest Revenue</h3>
+                    <div className="space-y-3">
+                      {(analytics?.topShopsByRevenue || []).slice(0, 5).map((shop: any, index: number) => (
+                        <div key={shop.shopId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <span className="text-lg font-bold text-gray-400">#{index + 1}</span>
+                            <div>
+                              <p className="font-medium text-gray-900">{shop.name}</p>
+                              <p className="text-xs text-gray-500">{shop.shopId}</p>
+                            </div>
+                          </div>
+                          <p className="font-bold text-purple-600">${shop.revenue.toLocaleString()}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Token Flow Chart Placeholder */}
+            <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Token Flow Analysis</h2>
+              <div className="bg-gray-50 rounded-xl p-12 text-center">
+                <div className="text-6xl mb-4">📊</div>
+                <p className="text-gray-600">Token flow visualization coming soon</p>
+                <p className="text-sm text-gray-500 mt-2">Track RCN movement between shops and customers</p>
+              </div>
             </div>
           </div>
         )}
@@ -1221,6 +1819,163 @@ export default function AdminDashboard() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Treasury Details Modal */}
+        <Dialog open={treasuryDetailsModal} onOpenChange={setTreasuryDetailsModal}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Shop RCN Purchase History</DialogTitle>
+              <DialogDescription>
+                Complete purchase history for {selectedShopForDetails?.shopName || 'this shop'}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              {selectedShopForDetails && (
+                <div className="space-y-6">
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h3 className="font-semibold text-gray-900 mb-3">Shop Information</h3>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <label className="text-gray-500">Shop ID</label>
+                        <p className="font-medium">{selectedShopForDetails.shopId}</p>
+                      </div>
+                      <div>
+                        <label className="text-gray-500">Shop Name</label>
+                        <p className="font-medium">{selectedShopForDetails.shopName}</p>
+                      </div>
+                      <div>
+                        <label className="text-gray-500">Total Purchases</label>
+                        <p className="font-medium">{selectedShopForDetails.purchases?.length || 0} transactions</p>
+                      </div>
+                      <div>
+                        <label className="text-gray-500">Total RCN Purchased</label>
+                        <p className="font-medium">
+                          {selectedShopForDetails.purchases?.reduce((sum: number, p: any) => sum + p.amount, 0) || 0} RCN
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-3">Purchase History</h3>
+                    <div className="max-h-96 overflow-y-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50 sticky top-0">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price/RCN</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 bg-white">
+                          {selectedShopForDetails.purchases?.map((purchase: any) => (
+                            <tr key={purchase.id} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 text-sm">
+                                {new Date(purchase.purchase_date).toLocaleDateString()}
+                                <div className="text-xs text-gray-500">
+                                  {new Date(purchase.purchase_date).toLocaleTimeString()}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-sm font-medium">{purchase.amount} RCN</td>
+                              <td className="px-4 py-3 text-sm">${purchase.price_per_rcn}</td>
+                              <td className="px-4 py-3 text-sm font-medium">${purchase.total_paid}</td>
+                              <td className="px-4 py-3">
+                                <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                  Completed
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button onClick={() => {
+                setTreasuryDetailsModal(false);
+                setSelectedShopForDetails(null);
+              }}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Alerts Dropdown */}
+        {showAlerts && (
+          <div className="alerts-dropdown fixed top-20 right-4 w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50">
+            <div className="px-4 py-3 border-b border-gray-200">
+              <h3 className="font-bold text-gray-900">System Alerts</h3>
+            </div>
+            <div className="max-h-96 overflow-y-auto">
+              {alerts.length === 0 ? (
+                <div className="p-8 text-center text-gray-500">
+                  <div className="text-3xl mb-2">✅</div>
+                  <p>No active alerts</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {alerts.map((alert: any, index: number) => (
+                    <div 
+                      key={alert.id || index} 
+                      className={`p-4 hover:bg-gray-50 transition-colors cursor-pointer ${
+                        alert.isRead ? 'opacity-60' : ''
+                      }`}
+                      onClick={() => alert.id && !alert.isRead && markAlertAsRead(alert.id)}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`mt-0.5 text-lg ${
+                          alert.severity === 'high' ? '🔴' : 
+                          alert.severity === 'medium' ? '🟡' : '🟢'
+                        }`}>
+                          {alert.severity === 'high' ? '🚨' : 
+                           alert.severity === 'medium' ? '⚠️' : 'ℹ️'}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h4 className="font-medium text-gray-900 text-sm">
+                                {alert.title || alert.alert_type}
+                                {!alert.isRead && <span className="ml-2 text-xs text-blue-600 font-normal">New</span>}
+                              </h4>
+                              <p className="text-xs text-gray-600 mt-1">{alert.message || alert.alert_message}</p>
+                              <p className="text-xs text-gray-400 mt-2">
+                                {new Date(alert.timestamp || alert.created_at).toLocaleString()}
+                              </p>
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (alert.id) resolveAlert(alert.id);
+                              }}
+                              className="ml-2 text-gray-400 hover:text-gray-600"
+                              title="Dismiss alert"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 rounded-b-2xl">
+              <button 
+                onClick={() => setShowAlerts(false)}
+                className="text-sm text-gray-600 hover:text-gray-900 font-medium"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
