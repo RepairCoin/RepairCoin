@@ -1,6 +1,6 @@
 import RewardYourCustomer from "@/containers/pricing-page/RewardYourCustomer";
 import LoyaltyTier from "@/containers/pricing-page/LoyaltyTier";
-import CommunityBanner from "@/containers/landing-page/CommunityBanner";
+import CommunityBanner from "@/components/CommunityBanner";
 
 export default function PricingPage() {
   return (
