@@ -599,7 +599,7 @@
         const existingCustomer = await databaseService.getCustomer(walletAddress);
         
         if (!existingCustomer) {
-          const { TierManager } = await import('../contracts/TierManager');
+          const { TierManager } = await import('../../../../contracts/TierManager');
           const newCustomer = TierManager.createNewCustomer(
             walletAddress,
             email,
