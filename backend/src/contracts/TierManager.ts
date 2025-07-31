@@ -17,7 +17,9 @@ export interface CustomerData {
   lastEarnedDate: string;
   referralCount: number;
   joinDate: string; 
-  fixflowCustomerId?: string;  
+  fixflowCustomerId?: string;
+  suspendedAt?: string | null;
+  suspensionReason?: string | null;
 }
 
 // Single TierBenefits interface with all required properties

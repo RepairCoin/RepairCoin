@@ -38,6 +38,11 @@ export interface ShopData {
   minimumBalanceAlert?: number;
   autoPurchaseEnabled?: boolean;
   autoPurchaseAmount?: number;
+  // Suspension fields
+  suspendedAt?: string | null;
+  suspensionReason?: string | null;
+  verifiedAt?: string | null;
+  verifiedBy?: string | null;
 }
 
 // New interfaces for enhanced functionality
@@ -197,7 +202,25 @@ export class DatabaseService {
         return null;
       }
       
-      return result.rows[0] as CustomerData;
+      // Map database fields to CustomerData interface
+      const row = result.rows[0];
+      return {
+        address: row.address,
+        name: row.name,
+        email: row.email,
+        phone: row.phone,
+        isActive: row.is_active,
+        lifetimeEarnings: parseFloat(row.lifetime_earnings || '0'),
+        tier: row.tier,
+        dailyEarnings: parseFloat(row.daily_earnings || '0'),
+        monthlyEarnings: parseFloat(row.monthly_earnings || '0'),
+        lastEarnedDate: row.last_earned_date,
+        referralCount: row.referral_count || 0,
+        joinDate: row.join_date,
+        fixflowCustomerId: row.fixflow_customer_id,
+        suspendedAt: row.suspended_at,
+        suspensionReason: row.suspension_reason
+      } as CustomerData;
     } catch (error) {
       logger.error('Error getting customer:', error);
       throw new Error('Failed to retrieve customer data');
@@ -466,7 +489,34 @@ async getCustomersPaginated(params: PaginationParams & {
         return null;
       }
       
-      return result.rows[0] as ShopData;
+      // Map snake_case database fields to camelCase
+      const row = result.rows[0];
+      return {
+        shopId: row.shop_id,
+        name: row.name,
+        address: row.address,
+        phone: row.phone,
+        email: row.email,
+        walletAddress: row.wallet_address,
+        reimbursementAddress: row.reimbursement_address,
+        verified: row.verified,
+        active: row.active,
+        crossShopEnabled: row.cross_shop_enabled,
+        totalTokensIssued: parseFloat(row.total_tokens_issued || '0'),
+        totalRedemptions: parseFloat(row.total_redemptions || '0'),
+        totalReimbursements: parseFloat(row.total_reimbursements || '0'),
+        joinDate: row.join_date,
+        lastActivity: row.last_activity,
+        fixflowShopId: row.fixflow_shop_id,
+        location: row.location,
+        purchasedRcnBalance: parseFloat(row.purchased_rcn_balance || '0'),
+        totalRcnPurchased: parseFloat(row.total_rcn_purchased || '0'),
+        lastPurchaseDate: row.last_purchase_date,
+        suspendedAt: row.suspended_at,
+        suspensionReason: row.suspension_reason,
+        verifiedAt: row.verified_at,
+        verifiedBy: row.verified_by
+      } as ShopData;
     } catch (error) {
       logger.error('Error getting shop:', error);
       throw new Error('Failed to retrieve shop data');
@@ -504,7 +554,11 @@ async getCustomersPaginated(params: PaginationParams & {
         location: row.location,
         purchasedRcnBalance: parseFloat(row.purchased_rcn_balance || '0'),
         totalRcnPurchased: parseFloat(row.total_rcn_purchased || '0'),
-        lastPurchaseDate: row.last_purchase_date
+        lastPurchaseDate: row.last_purchase_date,
+        suspendedAt: row.suspended_at,
+        suspensionReason: row.suspension_reason,
+        verifiedAt: row.verified_at,
+        verifiedBy: row.verified_by
       } as ShopData;
     } catch (error) {
       logger.error('Error getting shop by wallet:', error);
