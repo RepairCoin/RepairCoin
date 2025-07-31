@@ -1,0 +1,54 @@
+name: repaircoin-backend-staging
+region: nyc
+services:
+  - name: backend
+    github:
+      branch: main
+      deploy_on_push: true
+      repo: RepairCoin/RepairCoin
+    source_dir: /backend
+    dockerfile_path: backend/Dockerfile
+    http_port: 3000
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    health_check:
+      http_path: /api/health
+    envs:
+      - key: NODE_ENV
+        scope: RUN_TIME
+        value: staging
+      - key: PORT
+        scope: RUN_TIME
+        value: "3000"
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${db.DATABASE_URL}
+      - key: JWT_SECRET
+        scope: RUN_TIME
+        type: SECRET
+      - key: THIRDWEB_CLIENT_ID
+        scope: RUN_TIME
+        value: "1969ac335e07ba13ad0f8d1a1de4f6ab"
+      - key: THIRDWEB_SECRET_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: PRIVATE_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: REPAIRCOIN_CONTRACT_ADDRESS
+        scope: RUN_TIME
+        value: "0xd92ced7c3f4D8E42C05A4c558F37dA6DC731d5f5"
+      - key: FRONTEND_URL
+        scope: RUN_TIME
+        value: "http://localhost:3000"
+      - key: ADMIN_ADDRESSES
+        scope: RUN_TIME
+        value: "0x761E5E59485ec6feb263320f5d636042bD9EBc8c"
+      - key: ENABLE_SWAGGER
+        scope: RUN_TIME
+        value: "true"
+databases:
+  - name: db
+    cluster_name: db-postgresql-repaircoin-staging
+    engine: PG
+    production: false
