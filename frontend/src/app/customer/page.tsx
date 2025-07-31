@@ -107,6 +107,36 @@ export default function CustomerDashboard() {
     );
   }
 
+  // Check if customer is suspended
+  if (userProfile && !userProfile.isActive) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-pink-100">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100 text-center">
+          <div className="text-6xl mb-6">🚫</div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Account Suspended</h1>
+          <p className="text-gray-600 mb-6">
+            Your account has been suspended. You cannot perform any token transactions while suspended.
+          </p>
+          {userProfile.suspensionReason && (
+            <div className="bg-red-50 rounded-lg p-4 mb-6">
+              <p className="text-sm text-red-800 font-medium">Reason:</p>
+              <p className="text-sm text-red-700">{userProfile.suspensionReason}</p>
+            </div>
+          )}
+          <button 
+            onClick={() => {
+              // TODO: Implement request unsuspend feature
+              alert('Request unsuspend feature coming soon. Please contact support.');
+            }}
+            className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+          >
+            Request Unsuspend
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">

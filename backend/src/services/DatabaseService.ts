@@ -246,17 +246,34 @@ export class DatabaseService {
 
   async updateCustomer(address: string, updates: Partial<CustomerData>): Promise<void> {
     try {
-      const setClause = Object.keys(updates)
-        .map((key, index) => `${key} = ${index + 2}`)
-        .join(', ');
+      // Map field names to database columns
+      const fieldMap: { [key: string]: string } = {
+        'isActive': 'is_active',
+        'suspendedAt': 'suspended_at',
+        'suspensionReason': 'suspension_reason'
+      };
+      
+      const setClauses: string[] = [];
+      const values: any[] = [address.toLowerCase()];
+      let paramCount = 1;
+      
+      for (const [fieldName, value] of Object.entries(updates)) {
+        const columnName = fieldMap[fieldName] || fieldName;
+        paramCount++;
+        setClauses.push(`${columnName} = $${paramCount}`);
+        values.push(value);
+      }
+      
+      if (setClauses.length === 0) {
+        return; // Nothing to update
+      }
       
       const query = `
         UPDATE customers 
-        SET ${setClause}, updated_at = NOW()
+        SET ${setClauses.join(', ')}, updated_at = NOW()
         WHERE address = $1
       `;
       
-      const values = [address.toLowerCase(), ...Object.values(updates)];
       await this.pool.query(query, values);
       
       logger.info(`Customer updated: ${address}`);
@@ -346,7 +363,11 @@ export class DatabaseService {
         'name': 'name',
         'address': 'address',
         'phone': 'phone',
-        'email': 'email'
+        'email': 'email',
+        'suspendedAt': 'suspended_at',
+        'suspensionReason': 'suspension_reason',
+        'verifiedAt': 'verified_at',
+        'verifiedBy': 'verified_by'
       };
 
       const setClauses: string[] = [];

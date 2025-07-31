@@ -193,4 +193,99 @@ export class AdminController {
       ResponseHelper.error(res, error.message, 500);
     }
   }
+
+  async suspendCustomer(req: Request, res: Response) {
+    try {
+      const { address } = req.params;
+      const { reason } = req.body;
+      
+      const result = await this.adminService.suspendCustomer(address, reason, req.user?.address);
+      ResponseHelper.success(res, result, 'Customer suspended successfully');
+    } catch (error: any) {
+      if (error.message === 'Customer not found') {
+        ResponseHelper.error(res, error.message, 404);
+      } else {
+        ResponseHelper.error(res, error.message, 400);
+      }
+    }
+  }
+
+  async unsuspendCustomer(req: Request, res: Response) {
+    try {
+      const { address } = req.params;
+      
+      const result = await this.adminService.unsuspendCustomer(address, req.user?.address);
+      ResponseHelper.success(res, result, 'Customer unsuspended successfully');
+    } catch (error: any) {
+      if (error.message === 'Customer not found') {
+        ResponseHelper.error(res, error.message, 404);
+      } else {
+        ResponseHelper.error(res, error.message, 400);
+      }
+    }
+  }
+
+  async suspendShop(req: Request, res: Response) {
+    try {
+      const { shopId } = req.params;
+      const { reason } = req.body;
+      
+      const result = await this.adminService.suspendShop(shopId, reason, req.user?.address);
+      ResponseHelper.success(res, result, 'Shop suspended successfully');
+    } catch (error: any) {
+      if (error.message === 'Shop not found') {
+        ResponseHelper.error(res, error.message, 404);
+      } else {
+        ResponseHelper.error(res, error.message, 400);
+      }
+    }
+  }
+
+  async unsuspendShop(req: Request, res: Response) {
+    try {
+      const { shopId } = req.params;
+      
+      const result = await this.adminService.unsuspendShop(shopId, req.user?.address);
+      ResponseHelper.success(res, result, 'Shop unsuspended successfully');
+    } catch (error: any) {
+      if (error.message === 'Shop not found') {
+        ResponseHelper.error(res, error.message, 404);
+      } else {
+        ResponseHelper.error(res, error.message, 400);
+      }
+    }
+  }
+
+  async updateShop(req: Request, res: Response) {
+    try {
+      const { shopId } = req.params;
+      const updates = req.body;
+      
+      const result = await this.adminService.updateShop(shopId, updates, req.user?.address);
+      ResponseHelper.success(res, result, 'Shop updated successfully');
+    } catch (error: any) {
+      if (error.message === 'Shop not found') {
+        ResponseHelper.error(res, error.message, 404);
+      } else {
+        ResponseHelper.error(res, error.message, 400);
+      }
+    }
+  }
+
+  async verifyShop(req: Request, res: Response) {
+    try {
+      const { shopId } = req.params;
+      
+      const result = await this.adminService.verifyShop(shopId, req.user?.address);
+      ResponseHelper.success(res, result, 'Shop verified successfully');
+    } catch (error: any) {
+      if (error.message === 'Shop not found') {
+        ResponseHelper.error(res, error.message, 404);
+      } else if (error.message === 'Shop already verified') {
+        ResponseHelper.error(res, error.message, 400);
+      } else {
+        ResponseHelper.error(res, error.message, 500);
+      }
+    }
+  }
 }

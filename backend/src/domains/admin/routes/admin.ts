@@ -73,6 +73,36 @@ router.post('/shops/:shopId/approve',
   asyncHandler(adminController.approveShop.bind(adminController))
 );
 
+// Customer suspension management
+router.post('/customers/:address/suspend',
+  validateEthereumAddress('address'),
+  asyncHandler(adminController.suspendCustomer.bind(adminController))
+);
+
+router.post('/customers/:address/unsuspend',
+  validateEthereumAddress('address'),
+  asyncHandler(adminController.unsuspendCustomer.bind(adminController))
+);
+
+// Shop suspension management
+router.post('/shops/:shopId/suspend',
+  asyncHandler(adminController.suspendShop.bind(adminController))
+);
+
+router.post('/shops/:shopId/unsuspend',
+  asyncHandler(adminController.unsuspendShop.bind(adminController))
+);
+
+// Shop editing
+router.put('/shops/:shopId',
+  asyncHandler(adminController.updateShop.bind(adminController))
+);
+
+// Shop verification
+router.post('/shops/:shopId/verify',
+  asyncHandler(adminController.verifyShop.bind(adminController))
+);
+
 // Webhook management
 router.get('/webhooks/failed', 
   asyncHandler(adminController.getFailedWebhooks.bind(adminController))

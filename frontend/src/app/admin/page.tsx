@@ -817,9 +817,74 @@ export default function AdminDashboard() {
                         >
                           Mint 100 RCN
                         </button>
-                        <button className="text-red-600 hover:text-red-900">
-                          Suspend
-                        </button>
+                        {customer.isActive ? (
+                          <button 
+                            onClick={async () => {
+                              if (confirm('Are you sure you want to suspend this customer?')) {
+                                try {
+                                  const adminToken = await generateAdminToken();
+                                  if (!adminToken) {
+                                    setError('Failed to authenticate as admin');
+                                    return;
+                                  }
+                                  
+                                  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/customers/${customer.address}/suspend`, {
+                                    method: 'POST',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                      'Authorization': `Bearer ${adminToken}`
+                                    },
+                                    body: JSON.stringify({ reason: 'Admin action' })
+                                  });
+                                  
+                                  if (response.ok) {
+                                    await loadDashboardData();
+                                  } else {
+                                    setError('Failed to suspend customer');
+                                  }
+                                } catch (err) {
+                                  console.error('Error suspending customer:', err);
+                                  setError('Failed to suspend customer');
+                                }
+                              }
+                            }}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            Suspend
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={async () => {
+                              try {
+                                const adminToken = await generateAdminToken();
+                                if (!adminToken) {
+                                  setError('Failed to authenticate as admin');
+                                  return;
+                                }
+                                
+                                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/customers/${customer.address}/unsuspend`, {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${adminToken}`
+                                  }
+                                });
+                                
+                                if (response.ok) {
+                                  await loadDashboardData();
+                                } else {
+                                  setError('Failed to unsuspend customer');
+                                }
+                              } catch (err) {
+                                console.error('Error unsuspending customer:', err);
+                                setError('Failed to unsuspend customer');
+                              }
+                            }}
+                            className="text-green-600 hover:text-green-900"
+                          >
+                            Unsuspend
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -884,12 +949,118 @@ export default function AdminDashboard() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button className="text-indigo-600 hover:text-indigo-900 mr-4">
-                          Edit
-                        </button>
-                        <button className="text-green-600 hover:text-green-900">
-                          Verify
-                        </button>
+                        <div className="flex flex-wrap gap-2">
+                          <button 
+                            onClick={() => {
+                              // TODO: Implement edit modal
+                              alert('Edit functionality coming soon');
+                            }}
+                            className="text-indigo-600 hover:text-indigo-900"
+                          >
+                            Edit
+                          </button>
+                          {!shop.verified && (
+                            <button 
+                              onClick={async () => {
+                                try {
+                                  const adminToken = await generateAdminToken();
+                                  if (!adminToken) {
+                                    setError('Failed to authenticate as admin');
+                                    return;
+                                  }
+                                  
+                                  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/shops/${shop.shopId}/verify`, {
+                                    method: 'POST',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                      'Authorization': `Bearer ${adminToken}`
+                                    }
+                                  });
+                                  
+                                  if (response.ok) {
+                                    await loadDashboardData();
+                                  } else {
+                                    setError('Failed to verify shop');
+                                  }
+                                } catch (err) {
+                                  console.error('Error verifying shop:', err);
+                                  setError('Failed to verify shop');
+                                }
+                              }}
+                              className="text-green-600 hover:text-green-900"
+                            >
+                              Verify
+                            </button>
+                          )}
+                          {shop.active ? (
+                            <button 
+                              onClick={async () => {
+                                if (confirm('Are you sure you want to suspend this shop?')) {
+                                  try {
+                                    const adminToken = await generateAdminToken();
+                                    if (!adminToken) {
+                                      setError('Failed to authenticate as admin');
+                                      return;
+                                    }
+                                    
+                                    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/shops/${shop.shopId}/suspend`, {
+                                      method: 'POST',
+                                      headers: {
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Bearer ${adminToken}`
+                                      },
+                                      body: JSON.stringify({ reason: 'Admin action' })
+                                    });
+                                    
+                                    if (response.ok) {
+                                      await loadDashboardData();
+                                    } else {
+                                      setError('Failed to suspend shop');
+                                    }
+                                  } catch (err) {
+                                    console.error('Error suspending shop:', err);
+                                    setError('Failed to suspend shop');
+                                  }
+                                }
+                              }}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              Suspend
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={async () => {
+                                try {
+                                  const adminToken = await generateAdminToken();
+                                  if (!adminToken) {
+                                    setError('Failed to authenticate as admin');
+                                    return;
+                                  }
+                                  
+                                  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/shops/${shop.shopId}/unsuspend`, {
+                                    method: 'POST',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                      'Authorization': `Bearer ${adminToken}`
+                                    }
+                                  });
+                                  
+                                  if (response.ok) {
+                                    await loadDashboardData();
+                                  } else {
+                                    setError('Failed to unsuspend shop');
+                                  }
+                                } catch (err) {
+                                  console.error('Error unsuspending shop:', err);
+                                  setError('Failed to unsuspend shop');
+                                }
+                              }}
+                              className="text-green-600 hover:text-green-900"
+                            >
+                              Unsuspend
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1340,10 +1511,20 @@ export default function AdminDashboard() {
                       transactions.map((transaction) => (
                         <tr key={transaction.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {new Date(transaction.createdAt).toLocaleDateString()}
-                            <div className="text-xs text-gray-500">
-                              {new Date(transaction.createdAt).toLocaleTimeString()}
-                            </div>
+                            {(() => {
+                              const date = new Date(transaction.createdAt);
+                              if (isNaN(date.getTime())) {
+                                return 'N/A';
+                              }
+                              return (
+                                <>
+                                  {date.toLocaleDateString()}
+                                  <div className="text-xs text-gray-500">
+                                    {date.toLocaleTimeString()}
+                                  </div>
+                                </>
+                              );
+                            })()}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${

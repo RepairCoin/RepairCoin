@@ -711,4 +711,248 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
       throw error;
     }
   }
+
+  async suspendCustomer(customerAddress: string, reason?: string, adminAddress?: string) {
+    try {
+      const customer = await databaseService.getCustomer(customerAddress);
+      if (!customer) {
+        throw new Error('Customer not found');
+      }
+
+      await databaseService.updateCustomer(customerAddress, {
+        isActive: false,
+        suspendedAt: new Date().toISOString(),
+        suspensionReason: reason
+      });
+
+      // Log admin activity
+      await databaseService.logAdminActivity({
+        adminAddress: adminAddress || 'system',
+        actionType: 'customer_suspension',
+        actionDescription: `Suspended customer: ${reason || 'No reason provided'}`,
+        entityType: 'customer',
+        entityId: customerAddress,
+        metadata: { reason }
+      });
+
+      logger.info('Customer suspended', { customerAddress, reason, adminAddress });
+
+      return {
+        success: true,
+        message: 'Customer suspended successfully',
+        customer: {
+          address: customerAddress,
+          isActive: false,
+          suspendedAt: new Date().toISOString()
+        }
+      };
+    } catch (error) {
+      logger.error('Customer suspension error:', error);
+      throw error;
+    }
+  }
+
+  async unsuspendCustomer(customerAddress: string, adminAddress?: string) {
+    try {
+      const customer = await databaseService.getCustomer(customerAddress);
+      if (!customer) {
+        throw new Error('Customer not found');
+      }
+
+      await databaseService.updateCustomer(customerAddress, {
+        isActive: true,
+        suspendedAt: null,
+        suspensionReason: null
+      });
+
+      // Log admin activity
+      await databaseService.logAdminActivity({
+        adminAddress: adminAddress || 'system',
+        actionType: 'customer_unsuspension',
+        actionDescription: 'Unsuspended customer',
+        entityType: 'customer',
+        entityId: customerAddress
+      });
+
+      logger.info('Customer unsuspended', { customerAddress, adminAddress });
+
+      return {
+        success: true,
+        message: 'Customer unsuspended successfully',
+        customer: {
+          address: customerAddress,
+          isActive: true
+        }
+      };
+    } catch (error) {
+      logger.error('Customer unsuspension error:', error);
+      throw error;
+    }
+  }
+
+  async suspendShop(shopId: string, reason?: string, adminAddress?: string) {
+    try {
+      const shop = await databaseService.getShop(shopId);
+      if (!shop) {
+        throw new Error('Shop not found');
+      }
+
+      await databaseService.updateShop(shopId, {
+        active: false,
+        suspendedAt: new Date().toISOString(),
+        suspensionReason: reason
+      });
+
+      // Log admin activity
+      await databaseService.logAdminActivity({
+        adminAddress: adminAddress || 'system',
+        actionType: 'shop_suspension',
+        actionDescription: `Suspended shop: ${reason || 'No reason provided'}`,
+        entityType: 'shop',
+        entityId: shopId,
+        metadata: { 
+          shopName: shop.name,
+          reason 
+        }
+      });
+
+      logger.info('Shop suspended', { shopId, reason, adminAddress });
+
+      return {
+        success: true,
+        message: 'Shop suspended successfully',
+        shop: {
+          shopId,
+          active: false,
+          suspendedAt: new Date().toISOString()
+        }
+      };
+    } catch (error) {
+      logger.error('Shop suspension error:', error);
+      throw error;
+    }
+  }
+
+  async unsuspendShop(shopId: string, adminAddress?: string) {
+    try {
+      const shop = await databaseService.getShop(shopId);
+      if (!shop) {
+        throw new Error('Shop not found');
+      }
+
+      await databaseService.updateShop(shopId, {
+        active: true,
+        suspendedAt: null,
+        suspensionReason: null
+      });
+
+      // Log admin activity
+      await databaseService.logAdminActivity({
+        adminAddress: adminAddress || 'system',
+        actionType: 'shop_unsuspension',
+        actionDescription: 'Unsuspended shop',
+        entityType: 'shop',
+        entityId: shopId,
+        metadata: { shopName: shop.name }
+      });
+
+      logger.info('Shop unsuspended', { shopId, adminAddress });
+
+      return {
+        success: true,
+        message: 'Shop unsuspended successfully',
+        shop: {
+          shopId,
+          active: true
+        }
+      };
+    } catch (error) {
+      logger.error('Shop unsuspension error:', error);
+      throw error;
+    }
+  }
+
+  async updateShop(shopId: string, updates: any, adminAddress?: string) {
+    try {
+      const shop = await databaseService.getShop(shopId);
+      if (!shop) {
+        throw new Error('Shop not found');
+      }
+
+      // Filter out protected fields that shouldn't be updated directly
+      const { shopId: _, walletAddress: __, ...safeUpdates } = updates;
+
+      await databaseService.updateShop(shopId, safeUpdates);
+
+      // Log admin activity
+      await databaseService.logAdminActivity({
+        adminAddress: adminAddress || 'system',
+        actionType: 'shop_update',
+        actionDescription: 'Updated shop details',
+        entityType: 'shop',
+        entityId: shopId,
+        metadata: { 
+          shopName: shop.name,
+          updates: safeUpdates 
+        }
+      });
+
+      logger.info('Shop updated', { shopId, updates: safeUpdates, adminAddress });
+
+      const updatedShop = await databaseService.getShop(shopId);
+      return {
+        success: true,
+        message: 'Shop updated successfully',
+        shop: updatedShop
+      };
+    } catch (error) {
+      logger.error('Shop update error:', error);
+      throw error;
+    }
+  }
+
+  async verifyShop(shopId: string, adminAddress?: string) {
+    try {
+      const shop = await databaseService.getShop(shopId);
+      if (!shop) {
+        throw new Error('Shop not found');
+      }
+
+      if (shop.verified) {
+        throw new Error('Shop already verified');
+      }
+
+      await databaseService.updateShop(shopId, {
+        verified: true,
+        verifiedAt: new Date().toISOString(),
+        verifiedBy: adminAddress
+      });
+
+      // Log admin activity
+      await databaseService.logAdminActivity({
+        adminAddress: adminAddress || 'system',
+        actionType: 'shop_verification',
+        actionDescription: 'Verified shop',
+        entityType: 'shop',
+        entityId: shopId,
+        metadata: { shopName: shop.name }
+      });
+
+      logger.info('Shop verified', { shopId, adminAddress });
+
+      return {
+        success: true,
+        message: 'Shop verified successfully',
+        shop: {
+          shopId,
+          name: shop.name,
+          verified: true,
+          verifiedAt: new Date().toISOString()
+        }
+      };
+    } catch (error) {
+      logger.error('Shop verification error:', error);
+      throw error;
+    }
+  }
 }
