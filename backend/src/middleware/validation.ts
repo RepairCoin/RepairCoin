@@ -256,7 +256,8 @@ export const validate = (fieldName: string, ruleName: keyof typeof ValidationRul
         throw new Error(`Unknown validation rule: ${ruleName}`);
       }
       
-      const result = rule(value, ...(ruleParams as any[]));
+      const params = Array.isArray(ruleParams) ? ruleParams : [];
+      const result = (rule as any)(value, ...params);
       
       if (!result.isValid) {
         const error = new ValidationError(`Validation failed for ${fieldName}: ${result.errors.join(', ')}`);
@@ -305,7 +306,8 @@ export const validateFields = (validationMap: { [fieldName: string]: { rule: key
           continue;
         }
         
-        const result = rule(value, ...(validation.params || [] as any[]));
+        const params = Array.isArray(validation.params) ? validation.params : [];
+        const result = (rule as any)(value, ...params);
         
         if (!result.isValid) {
           errors.push(`${fieldName}: ${result.errors.join(', ')}`);
