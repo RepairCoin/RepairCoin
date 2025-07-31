@@ -1,0 +1,55 @@
+name: repaircoin-backend-staging
+region: nyc
+services:
+- environment_slug: node-js
+  github:
+    branch: main
+    deploy_on_push: true
+    repo: YOUR_GITHUB_USERNAME/repaircoin-backend
+  http_port: 3000
+  instance_count: 1
+  instance_size_slug: basic-xxs
+  name: api
+  build_command: npm install && npm run build
+  run_command: npm start
+  envs:
+  - key: NODE_ENV
+    value: production
+  - key: DATABASE_URL
+    scope: RUN_AND_BUILD_TIME
+    value: ${db.DATABASE_URL}
+  - key: JWT_SECRET
+    scope: RUN_TIME
+    type: SECRET
+    value: YOUR_JWT_SECRET_HERE
+  - key: THIRDWEB_CLIENT_ID
+    scope: RUN_TIME
+    value: "1969ac335e07ba13ad0f8d1a1de4f6ab"
+  - key: THIRDWEB_SECRET_KEY
+    scope: RUN_TIME
+    type: SECRET
+    value: YOUR_THIRDWEB_SECRET
+  - key: PRIVATE_KEY
+    scope: RUN_TIME
+    type: SECRET
+    value: YOUR_WALLET_PRIVATE_KEY
+  - key: REPAIRCOIN_CONTRACT_ADDRESS
+    scope: RUN_TIME
+    value: "0xd92ced7c3f4D8E42C05A4c558F37dA6DC731d5f5"
+  - key: FRONTEND_URL
+    scope: RUN_TIME
+    value: "https://repaircoin.vercel.app"
+  - key: ADMIN_ADDRESSES
+    scope: RUN_TIME
+    value: "0x761E5E59485ec6feb263320f5d636042bD9EBc8c"
+  - key: ENABLE_SWAGGER
+    scope: RUN_TIME
+    value: "true"
+databases:
+- cluster_name: db-postgresql-repaircoin-staging
+  db_name: repaircoin
+  db_user: doadmin
+  engine: PG
+  name: db
+  production: false
+  version: "16"
