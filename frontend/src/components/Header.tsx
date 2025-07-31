@@ -8,7 +8,7 @@ import Section from "./Section";
 import { useAuth } from "@/hooks/useAuth";
 
 const Header: React.FC = () => {
-  const { account, isAuthenticated, userType } = useAuth();
+  const { account, isAuthenticated } = useAuth();
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -39,25 +39,12 @@ const Header: React.FC = () => {
   useEffect(() => {
     if (account?.address && !isAuthenticated) {
       setIsModalOpen(false);
-      router.push("/choose");
     }
+  }, [account?.address, isAuthenticated]);
 
-    if (isAuthenticated && userType) {
-      switch (userType) {
-        case "admin":
-          router.push("/admin");
-          break;
-        case "shop":
-          router.push("/shop");
-          break;
-        case "customer":
-          router.push("/customer");
-          break;
-        default:
-          console.warn("Unknown user type:", userType);
-      }
-    }
-  }, [account?.address, isAuthenticated, userType]);
+  const handleModalOpen = () => {
+    setIsModalOpen(true);
+  };
 
   return (
     <>
@@ -156,7 +143,7 @@ const Header: React.FC = () => {
                   ) : (
                     <div className="flex items-center space-x-4">
                       <button
-                        onClick={() => setIsModalOpen(true)}
+                        onClick={handleModalOpen}
                         className="text-gray-900 bg-yellow-400 hover:bg-yellow-500 px-5 py-2.5 rounded-full text-sm font-medium border border-white transition-all duration-200 hover:shadow-lg hover:shadow-yellow-500/20"
                       >
                         Log In
