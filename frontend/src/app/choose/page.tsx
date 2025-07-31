@@ -66,10 +66,16 @@ export default function ChoosePage() {
     }
   };
 
+  console.log("account?.address", account?.address);
+  console.log("isAuthenticated", isAuthenticated);
+
   // Check for existing registrations when wallet connects
   useEffect(() => {
     if (account?.address && !isAuthenticated) {
+      console.log("Checking existing registrations for:", account.address);
       checkExistingRegistrations(account.address);
+    } else {
+      router.push("/");
     }
   }, [account?.address, isAuthenticated]);
 
