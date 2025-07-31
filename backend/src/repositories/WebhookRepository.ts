@@ -1,6 +1,17 @@
 import { BaseRepository } from './BaseRepository';
-import { WebhookLog } from '../services/DatabaseService';
 import { logger } from '../utils/logger';
+
+interface WebhookLog {
+  id: string;
+  source: string;
+  event: string;
+  payload: any;
+  processed: boolean;
+  processingTime?: number;
+  result?: any;
+  timestamp?: Date;
+  retryCount?: number;
+}
 
 export class WebhookRepository extends BaseRepository {
   async recordWebhook(webhook: WebhookLog): Promise<void> {

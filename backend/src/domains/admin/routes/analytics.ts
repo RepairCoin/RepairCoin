@@ -1,14 +1,15 @@
 import { Router, Request, Response } from 'express';
-import { databaseService } from '../../../services/DatabaseService';
 import { logger } from '../../../utils/logger';
 import { requireAdmin } from '../../../middleware/auth';
+// TODO: Implement analytics methods in repositories
 
 const router = Router();
 
 // Get token circulation metrics
 router.get('/token-circulation', requireAdmin, async (req: Request, res: Response) => {
   try {
-    const metrics = await databaseService.getTokenCirculationMetrics();
+    // TODO: Implement getTokenCirculationMetrics in repository
+    const metrics = {}; // await analyticsRepository.getTokenCirculationMetrics();
     
     res.json({
       success: true,
@@ -27,7 +28,8 @@ router.get('/token-circulation', requireAdmin, async (req: Request, res: Respons
 router.get('/shop-rankings', requireAdmin, async (req: Request, res: Response) => {
   try {
     const limit = parseInt(req.query.limit as string) || 10;
-    const rankings = await databaseService.getShopPerformanceRankings(limit);
+    // TODO: Implement getShopPerformanceRankings in repository
+    const rankings = []; // await analyticsRepository.getShopPerformanceRankings(limit);
     
     res.json({
       success: true,
@@ -55,15 +57,17 @@ router.get('/activity-logs', requireAdmin, async (req: Request, res: Response) =
       offset = '0'
     } = req.query;
     
-    const logs = await databaseService.getAdminActivityLogs({
-      adminAddress: adminAddress as string,
-      actionType: actionType as string,
-      entityType: entityType as string,
-      startDate: startDate ? new Date(startDate as string) : undefined,
-      endDate: endDate ? new Date(endDate as string) : undefined,
-      limit: parseInt(limit as string),
-      offset: parseInt(offset as string)
-    });
+    // TODO: Implement getAdminActivityLogs in repository
+    const logs = { logs: [], total: 0 };
+    // await analyticsRepository.getAdminActivityLogs({
+    //   adminAddress: adminAddress as string,
+    //   actionType: actionType as string,
+    //   entityType: entityType as string,
+    //   startDate: startDate ? new Date(startDate as string) : undefined,
+    //   endDate: endDate ? new Date(endDate as string) : undefined,
+    //   limit: parseInt(limit as string),
+    //   offset: parseInt(offset as string)
+    // });
     
     res.json({
       success: true,
@@ -89,13 +93,15 @@ router.get('/alerts', requireAdmin, async (req: Request, res: Response) => {
       offset = '0'
     } = req.query;
     
-    const alerts = await databaseService.getAlerts({
-      unreadOnly: unreadOnly === 'true',
-      severity: severity as string,
-      alertType: alertType as string,
-      limit: parseInt(limit as string),
-      offset: parseInt(offset as string)
-    });
+    // TODO: Implement getAlerts in repository
+    const alerts = { alerts: [], total: 0 };
+    // await analyticsRepository.getAlerts({
+    //   unreadOnly: unreadOnly === 'true',
+    //   severity: severity as string,
+    //   alertType: alertType as string,
+    //   limit: parseInt(limit as string),
+    //   offset: parseInt(offset as string)
+    // });
     
     res.json({
       success: true,
@@ -114,18 +120,19 @@ router.get('/alerts', requireAdmin, async (req: Request, res: Response) => {
 router.put('/alerts/:id/read', requireAdmin, async (req: Request, res: Response) => {
   try {
     const alertId = parseInt(req.params.id);
-    await databaseService.markAlertAsRead(alertId);
+    // TODO: Implement markAlertAsRead in repository
+    // await analyticsRepository.markAlertAsRead(alertId);
     
     // Log admin action
-    await databaseService.logAdminActivity({
-      adminAddress: req.user?.address || 'system',
-      actionType: 'alert_read',
-      actionDescription: 'Marked alert as read',
-      entityType: 'alert',
-      entityId: alertId.toString(),
-      ipAddress: req.ip,
-      userAgent: req.get('user-agent')
-    });
+    // await analyticsRepository.logAdminActivity({
+    //   adminAddress: req.user?.address || 'system',
+    //   actionType: 'alert_read',
+    //   actionDescription: 'Marked alert as read',
+    //   entityType: 'alert',
+    //   entityId: alertId.toString(),
+    //   ipAddress: req.ip,
+    //   userAgent: req.get('user-agent')
+    // });
     
     res.json({
       success: true,
@@ -144,18 +151,19 @@ router.put('/alerts/:id/read', requireAdmin, async (req: Request, res: Response)
 router.put('/alerts/:id/resolve', requireAdmin, async (req: Request, res: Response) => {
   try {
     const alertId = parseInt(req.params.id);
-    await databaseService.resolveAlert(alertId, req.user?.address || 'system');
+    // TODO: Implement resolveAlert in repository
+    // await analyticsRepository.resolveAlert(alertId, req.user?.address || 'system');
     
     // Log admin action
-    await databaseService.logAdminActivity({
-      adminAddress: req.user?.address || 'system',
-      actionType: 'alert_resolved',
-      actionDescription: 'Resolved alert',
-      entityType: 'alert',
-      entityId: alertId.toString(),
-      ipAddress: req.ip,
-      userAgent: req.get('user-agent')
-    });
+    // await analyticsRepository.logAdminActivity({
+    //   adminAddress: req.user?.address || 'system',
+    //   actionType: 'alert_resolved',
+    //   actionDescription: 'Resolved alert',
+    //   entityType: 'alert',
+    //   entityId: alertId.toString(),
+    //   ipAddress: req.ip,
+    //   userAgent: req.get('user-agent')
+    // });
     
     res.json({
       success: true,
@@ -173,12 +181,13 @@ router.put('/alerts/:id/resolve', requireAdmin, async (req: Request, res: Respon
 // Run monitoring checks manually (for testing)
 router.post('/monitoring/check', requireAdmin, async (req: Request, res: Response) => {
   try {
+    // TODO: Implement monitoring checks in repository
     // Run all monitoring checks
-    await Promise.all([
-      databaseService.checkLowTreasuryBalance(),
-      databaseService.checkPendingApplications(),
-      databaseService.checkUnusualActivity()
-    ]);
+    // await Promise.all([
+    //   monitoringRepository.checkLowTreasuryBalance(),
+    //   monitoringRepository.checkPendingApplications(),
+    //   monitoringRepository.checkUnusualActivity()
+    // ]);
     
     res.json({
       success: true,

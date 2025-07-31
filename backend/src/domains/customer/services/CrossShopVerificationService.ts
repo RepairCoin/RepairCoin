@@ -1,6 +1,16 @@
 // backend/src/domains/customer/services/CrossShopVerificationService.ts
-import { databaseService, CrossShopVerification } from '../../../services/DatabaseService';
+import { shopRepository, customerRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
+
+interface CrossShopVerification {
+  id: string;
+  customerAddress: string;
+  redemptionShopId: string;
+  requestedAmount: number;
+  approved: boolean;
+  denialReason?: string;
+  timestamp: Date;
+}
 
 export interface RedemptionRequest {
   customerAddress: string;
@@ -47,7 +57,8 @@ export class CrossShopVerificationService {
       this.validateRedemptionRequest(request);
 
       // Get customer's redeemable balance (only earned tokens)
-      const redeemableBalance = await databaseService.getRedeemableBalance(request.customerAddress);
+      const customer = await customerRepository.getCustomer(request.customerAddress);
+      const redeemableBalance = customer ? customer.lifetimeEarnings : 0;
       
       // Calculate 20% cross-shop limit
       const maxCrossShopAmount = redeemableBalance * CrossShopVerificationService.CROSS_SHOP_LIMIT_PERCENTAGE;
@@ -73,7 +84,7 @@ export class CrossShopVerificationService {
       }
 
       // Verify the redemption shop exists and is active
-      const redemptionShop = await databaseService.getShop(request.redemptionShopId);
+      const redemptionShop = await shopRepository.getShop(request.redemptionShopId);
       if (!redemptionShop) {
         return await this.createVerificationRecord(request, {
           approved: false,
@@ -121,7 +132,8 @@ export class CrossShopVerificationService {
    */
   async getCrossShopBalance(customerAddress: string): Promise<CrossShopBalance> {
     try {
-      const redeemableBalance = await databaseService.getRedeemableBalance(customerAddress);
+      const customer = await customerRepository.getCustomer(customerAddress);
+      const redeemableBalance = customer ? customer.lifetimeEarnings : 0;
       const crossShopLimit = redeemableBalance * CrossShopVerificationService.CROSS_SHOP_LIMIT_PERCENTAGE;
       const homeShopBalance = redeemableBalance - crossShopLimit;
 
@@ -281,11 +293,18 @@ export class CrossShopVerificationService {
     }
   ): Promise<RedemptionVerificationResult> {
     try {
-      const verification = await databaseService.verifyCrossShopRedemption(
-        request.customerAddress,
-        request.redemptionShopId,
-        request.requestedAmount
-      );
+      // Create a verification record
+      const verification: CrossShopVerification = {
+        id: 'verify_' + Date.now(),
+        customerAddress: request.customerAddress,
+        redemptionShopId: request.redemptionShopId,
+        requestedAmount: request.requestedAmount,
+        approved: result.approved,
+        denialReason: result.denialReason,
+        timestamp: new Date()
+      };
+      
+      // TODO: Store verification record in database when verification table is added
 
       const message = result.approved 
         ? `Cross-shop redemption approved for ${request.requestedAmount} RCN`

@@ -1,6 +1,6 @@
 // backend/src/routes/auth.ts
 import { Router } from 'express';
-import { databaseService } from '../services/DatabaseService';
+import { customerRepository, shopRepository } from '../repositories';
 import { logger } from '../utils/logger';
 import { generateToken } from '../middleware/auth';
 
@@ -40,7 +40,7 @@ router.post('/check-user', async (req, res) => {
 
     // Check if user is a customer
     try {
-      const customer = await databaseService.getCustomer(normalizedAddress);
+      const customer = await customerRepository.getCustomer(normalizedAddress);
       if (customer) {
         return res.json({
           type: 'customer',
@@ -64,7 +64,7 @@ router.post('/check-user', async (req, res) => {
     // Check if user is a shop  
     try {
       // Get shop by wallet address - we need to find the shop with this wallet
-      const allShops = await databaseService.getShopsPaginated({ limit: 1000 });
+      const allShops = await shopRepository.getShopsPaginated({ active: true, page: 1, limit: 1000 });
       const shop = allShops.items.find(s => s.walletAddress?.toLowerCase() === normalizedAddress);
       
       if (shop) {
@@ -139,7 +139,7 @@ router.post('/profile', async (req, res) => {
 
     // Check customer
     try {
-      const customer = await databaseService.getCustomer(normalizedAddress);
+      const customer = await customerRepository.getCustomer(normalizedAddress);
       if (customer) {
         return res.json({
           type: 'customer',
@@ -167,7 +167,7 @@ router.post('/profile', async (req, res) => {
 
     // Check shop
     try {
-      const allShops = await databaseService.getShopsPaginated({ limit: 1000 });
+      const allShops = await shopRepository.getShopsPaginated({ active: true, page: 1, limit: 1000 });
       const shop = allShops.items.find(s => s.walletAddress?.toLowerCase() === normalizedAddress);
       
       if (shop) {

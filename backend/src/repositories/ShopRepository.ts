@@ -1,6 +1,31 @@
 import { BaseRepository, PaginatedResult } from './BaseRepository';
-import { ShopData } from '../services/DatabaseService';
 import { logger } from '../utils/logger';
+
+interface ShopData {
+  shopId: string;
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  walletAddress: string;
+  reimbursementAddress?: string;
+  verified: boolean;
+  active: boolean;
+  crossShopEnabled: boolean;
+  totalTokensIssued: number;
+  totalRedemptions: number;
+  totalReimbursements: number;
+  joinDate: string;
+  lastActivity: string;
+  fixflowShopId?: string;
+  location?: string;
+  suspendedAt?: string;
+  suspensionReason?: string;
+  verifiedAt?: string;
+  verifiedBy?: string;
+  purchasedRcnBalance?: number;
+  totalRcnPurchased?: number;
+}
 
 export interface ShopFilters {
   active?: boolean;
@@ -40,7 +65,9 @@ export class ShopRepository extends BaseRepository {
         suspendedAt: row.suspended_at,
         suspensionReason: row.suspension_reason,
         verifiedAt: row.verified_at,
-        verifiedBy: row.verified_by
+        verifiedBy: row.verified_by,
+        purchasedRcnBalance: parseFloat(row.purchased_rcn_balance || 0),
+        totalRcnPurchased: parseFloat(row.total_rcn_purchased || 0)
       };
     } catch (error) {
       logger.error('Error fetching shop:', error);
@@ -114,7 +141,9 @@ export class ShopRepository extends BaseRepository {
         suspendedAt: 'suspended_at',
         suspensionReason: 'suspension_reason',
         verifiedAt: 'verified_at',
-        verifiedBy: 'verified_by'
+        verifiedBy: 'verified_by',
+        purchasedRcnBalance: 'purchased_rcn_balance',
+        totalRcnPurchased: 'total_rcn_purchased'
       };
 
       for (const [key, value] of Object.entries(updates)) {
@@ -259,7 +288,9 @@ export class ShopRepository extends BaseRepository {
         suspendedAt: row.suspended_at,
         suspensionReason: row.suspension_reason,
         verifiedAt: row.verified_at,
-        verifiedBy: row.verified_by
+        verifiedBy: row.verified_by,
+        purchasedRcnBalance: parseFloat(row.purchased_rcn_balance || 0),
+        totalRcnPurchased: parseFloat(row.total_rcn_purchased || 0)
       }));
 
       const totalPages = Math.ceil(totalItems / filters.limit);
@@ -306,7 +337,9 @@ export class ShopRepository extends BaseRepository {
         suspendedAt: row.suspended_at,
         suspensionReason: row.suspension_reason,
         verifiedAt: row.verified_at,
-        verifiedBy: row.verified_by
+        verifiedBy: row.verified_by,
+        purchasedRcnBalance: parseFloat(row.purchased_rcn_balance || 0),
+        totalRcnPurchased: parseFloat(row.total_rcn_purchased || 0)
       }));
     } catch (error) {
       logger.error('Error getting active shops:', error);
@@ -345,7 +378,9 @@ export class ShopRepository extends BaseRepository {
         suspendedAt: row.suspended_at,
         suspensionReason: row.suspension_reason,
         verifiedAt: row.verified_at,
-        verifiedBy: row.verified_by
+        verifiedBy: row.verified_by,
+        purchasedRcnBalance: parseFloat(row.purchased_rcn_balance || 0),
+        totalRcnPurchased: parseFloat(row.total_rcn_purchased || 0)
       }));
     } catch (error) {
       logger.error('Error getting cross-shop enabled shops:', error);
@@ -384,7 +419,9 @@ export class ShopRepository extends BaseRepository {
         suspendedAt: row.suspended_at,
         suspensionReason: row.suspension_reason,
         verifiedAt: row.verified_at,
-        verifiedBy: row.verified_by
+        verifiedBy: row.verified_by,
+        purchasedRcnBalance: parseFloat(row.purchased_rcn_balance || 0),
+        totalRcnPurchased: parseFloat(row.total_rcn_purchased || 0)
       };
     } catch (error) {
       logger.error('Error fetching shop by wallet:', error);

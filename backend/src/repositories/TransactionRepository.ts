@@ -1,6 +1,21 @@
 import { BaseRepository, PaginatedResult } from './BaseRepository';
-import { TransactionRecord } from '../services/DatabaseService';
 import { logger } from '../utils/logger';
+
+interface TransactionRecord {
+  id: string;
+  type: 'mint' | 'redeem' | 'transfer' | 'tier_bonus' | 'shop_purchase';
+  customerAddress: string;
+  shopId?: string;
+  amount: number;
+  reason?: string;
+  transactionHash?: string;
+  blockNumber?: number;
+  timestamp: string;
+  status: 'pending' | 'confirmed' | 'failed';
+  metadata?: any;
+  shopName?: string;
+  customerName?: string;
+}
 
 export interface TransactionFilters {
   customerAddress?: string;

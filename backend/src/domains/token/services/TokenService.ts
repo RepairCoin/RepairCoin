@@ -1,7 +1,7 @@
   // backend/src/services/tokenService.ts
   import { TokenMinter, MintResult } from '../../../contracts/TokenMinter';
   import { TierManager, CustomerData } from '../../../contracts/TierManager';
-  import { databaseService } from '../../../services/DatabaseService';
+  import { customerRepository, shopRepository, transactionRepository } from '../../../repositories';
   import { logger } from '../../../utils/logger';
 
   export interface TokenEarningRequest {
@@ -70,10 +70,10 @@
         });
 
         // Get or create customer
-        let customer = await databaseService.getCustomer(customerAddress);
+        let customer = await customerRepository.getCustomer(customerAddress);
         if (!customer) {
           customer = TierManager.createNewCustomer(customerAddress);
-          await databaseService.createCustomer(customer);
+          await customerRepository.createCustomer(customer);
           logger.info('New customer created during repair earning', { customerAddress });
         }
 
@@ -87,7 +87,7 @@
 
         if (result.success && result.tokensToMint && result.newTier) {
           // Update customer in database
-          await databaseService.updateCustomerAfterEarning(
+          await customerRepository.updateCustomerAfterEarning(
             customerAddress,
             result.tokensToMint,
             result.newTier as any
@@ -97,7 +97,7 @@
           await this.updateShopStats(shopId, result.tokensToMint, 0);
 
           // Record transaction
-          await databaseService.recordTransaction({
+          await transactionRepository.recordTransaction({
             id: `repair_${Date.now()}_${Math.random().toString(36).substring(7)}`,
             type: 'mint',
             customerAddress: customerAddress.toLowerCase(),
@@ -147,17 +147,17 @@
         });
 
         // Ensure both customers exist
-        let referrer = await databaseService.getCustomer(referrerAddress);
-        let referee = await databaseService.getCustomer(refereeAddress);
+        let referrer = await customerRepository.getCustomer(referrerAddress);
+        let referee = await customerRepository.getCustomer(refereeAddress);
 
         if (!referrer) {
           referrer = TierManager.createNewCustomer(referrerAddress);
-          await databaseService.createCustomer(referrer);
+          await customerRepository.createCustomer(referrer);
         }
 
         if (!referee) {
           referee = TierManager.createNewCustomer(refereeAddress);
-          await databaseService.createCustomer(referee);
+          await customerRepository.createCustomer(referee);
         }
 
         // Process referral minting
@@ -173,12 +173,12 @@
           const refereeNewTier = this.getTierManager().calculateTier(referee.lifetimeEarnings + 10);
 
           await Promise.all([
-            databaseService.updateCustomerAfterEarning(referrerAddress, 25, referrerNewTier),
-            databaseService.updateCustomerAfterEarning(refereeAddress, 10, refereeNewTier)
+            customerRepository.updateCustomerAfterEarning(referrerAddress, 25, referrerNewTier),
+            customerRepository.updateCustomerAfterEarning(refereeAddress, 10, refereeNewTier)
           ]);
 
           // Record transaction
-          await databaseService.recordTransaction({
+          await transactionRepository.recordTransaction({
             id: `referral_${Date.now()}`,
             type: 'mint',
             customerAddress: referrerAddress.toLowerCase(),
@@ -226,7 +226,7 @@
           baseAmount
         });
 
-        const customer = await databaseService.getCustomer(customerAddress);
+        const customer = await customerRepository.getCustomer(customerAddress);
         if (!customer) {
           return {
             success: false,
@@ -245,10 +245,10 @@
         if (result.success && result.tokensToMint) {
           // Update customer
           const newTier = this.getTierManager().calculateTier(customer.lifetimeEarnings + result.tokensToMint);
-          await databaseService.updateCustomerAfterEarning(customerAddress, result.tokensToMint, newTier);
+          await customerRepository.updateCustomerAfterEarning(customerAddress, result.tokensToMint, newTier);
 
           // Record transaction
-          await databaseService.recordTransaction({
+          await transactionRepository.recordTransaction({
             id: `engagement_${Date.now()}`,
             type: 'mint',
             customerAddress: customerAddress.toLowerCase(),
@@ -302,8 +302,8 @@
 
         // Get customer and shop
         const [customer, shop] = await Promise.all([
-          databaseService.getCustomer(customerAddress),
-          databaseService.getShop(shopId)
+          customerRepository.getCustomer(customerAddress),
+          shopRepository.getShop(shopId)
         ]);
 
         if (!customer) {
@@ -341,7 +341,7 @@
         // Record redemption transaction
         const transactionId = `redeem_${Date.now()}_${Math.random().toString(36).substring(7)}`;
         
-        await databaseService.recordTransaction({
+        await transactionRepository.recordTransaction({
           id: transactionId,
           type: 'redeem',
           customerAddress: customerAddress.toLowerCase(),
@@ -390,14 +390,15 @@
       try {
         const [contractStats, platformStats] = await Promise.all([
           this.getTokenMinter().getContractStats(),
-          databaseService.getPlatformStatistics()
+          // TODO: Implement getPlatformStatistics in repository
+          Promise.resolve({ totalCustomers: 0, totalShops: 0, totalTransactions: 0 }) // databaseService.getPlatformStatistics()
         ]);
 
         // Get top holders (simplified - would need proper database query)
         const allCustomers = await Promise.all([
-          databaseService.getCustomersByTier('BRONZE'),
-          databaseService.getCustomersByTier('SILVER'),
-          databaseService.getCustomersByTier('GOLD')
+          customerRepository.getCustomersByTier('BRONZE'),
+          customerRepository.getCustomersByTier('SILVER'),
+          customerRepository.getCustomersByTier('GOLD')
         ]);
 
         const flatCustomers = allCustomers.flat();
@@ -435,7 +436,7 @@
       additionalParams?: any
     ): Promise<{ isValid: boolean; error?: string; details?: any }> {
       try {
-        const customer = await databaseService.getCustomer(customerAddress);
+        const customer = await customerRepository.getCustomer(customerAddress);
         
         if (!customer) {
           return { isValid: false, error: 'Customer not found' };
@@ -485,7 +486,7 @@
             }
 
             if (additionalParams?.shopId) {
-              const shop = await databaseService.getShop(additionalParams.shopId);
+              const shop = await shopRepository.getShop(additionalParams.shopId);
               if (!shop?.active || !shop?.verified) {
                 return { isValid: false, error: 'Shop is not active or verified' };
               }
@@ -536,9 +537,9 @@
     // Helper function to update shop statistics
     private async updateShopStats(shopId: string, tokensIssued: number, tokensRedeemed: number): Promise<void> {
       try {
-        const shop = await databaseService.getShop(shopId);
+        const shop = await shopRepository.getShop(shopId);
         if (shop) {
-          await databaseService.updateShop(shopId, {
+          await shopRepository.updateShop(shopId, {
             totalTokensIssued: shop.totalTokensIssued + tokensIssued,
             totalRedemptions: shop.totalRedemptions + tokensRedeemed,
             lastActivity: new Date().toISOString()

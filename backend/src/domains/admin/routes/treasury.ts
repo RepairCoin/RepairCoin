@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { databaseService } from '../../../services/DatabaseService';
 import { TokenMinter } from '../../../contracts/TokenMinter';
 import jwt from 'jsonwebtoken';
+// TODO: Implement treasury methods in repository
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
@@ -38,10 +38,17 @@ const verifyAdminToken = (req: Request, res: Response, next: Function) => {
 // Get treasury statistics
 router.get('/treasury', verifyAdminToken, async (req: Request, res: Response) => {
     try {
-        const db = databaseService;
+        // Import required repositories
+        const { shopRepository, transactionRepository } = require('../../../repositories');
         
         // Get treasury data from database
-        const treasuryData = await db.getTreasuryData();
+        // TODO: Implement getTreasuryData in repository
+        const treasuryData = {
+          totalSupply: 1000000000, // 1 billion default
+          totalSold: 0,
+          totalRevenue: 0,
+          lastUpdated: new Date()
+        }; // await treasuryRepository.getTreasuryData();
         
         // Get actual total supply from blockchain
         let actualTotalSupply = treasuryData.totalSupply;
@@ -57,10 +64,10 @@ router.get('/treasury', verifyAdminToken, async (req: Request, res: Response) =>
         }
         
         // Get top RCN buyers (shops with most purchases)
-        const topBuyers = await db.getTopRCNBuyers(10);
+        const topBuyers = []; // await treasuryRepository.getTopRCNBuyers(10);
         
         // Get recent RCN purchases
-        const recentPurchases = await db.getRecentRCNPurchases(20);
+        const recentPurchases = []; // await treasuryRepository.getRecentRCNPurchases(20);
         
         // Calculate percentage sold based on actual total supply
         const percentageSold = actualTotalSupply > 0 
@@ -93,23 +100,29 @@ router.get('/treasury', verifyAdminToken, async (req: Request, res: Response) =>
 // Update treasury calculations
 router.post('/treasury/update', verifyAdminToken, async (req: Request, res: Response) => {
     try {
-        const db = databaseService;
-        
+        // TODO: Implement treasury repository methods
         // First, update total supply from blockchain
         try {
             const contractStats = await getTokenMinter().getContractStats();
             if (contractStats && contractStats.totalSupplyReadable > 0) {
-                await db.updateTreasuryTotalSupply(contractStats.totalSupplyReadable);
+                // await treasuryRepository.updateTreasuryTotalSupply(contractStats.totalSupplyReadable);
             }
         } catch (error) {
             console.warn('Could not update total supply from blockchain:', error);
         }
         
         // Recalculate treasury from all shop RCN purchases
-        await db.recalculateTreasury();
+        // await treasuryRepository.recalculateTreasury();
         
         // Get updated treasury data
-        const treasuryData = await db.getTreasuryData();
+        const treasuryData = {
+            totalSupply: 0,
+            totalCirculating: 0,
+            totalReserved: 0,
+            totalSold: 0,
+            totalRevenue: 0,
+            lastUpdated: new Date()
+        }; // await treasuryRepository.getTreasuryData();
         
         res.json({
             success: true,

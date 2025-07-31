@@ -1,7 +1,37 @@
 // backend/src/utils/cache.ts
 import { Request, Response, NextFunction } from 'express';
-import { DatabaseService } from '../services/DatabaseService';
-import { CustomerData, ShopData } from '../services/DatabaseService';
+// TODO: DatabaseService no longer exists - refactor caching logic
+
+interface CustomerData {
+  address: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  tier: 'BRONZE' | 'SILVER' | 'GOLD';
+  lifetimeEarnings: number;
+  balance: number;
+  active: boolean;
+  joinDate: string;
+  lastActivity: string;
+}
+
+interface ShopData {
+  shopId: string;
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  walletAddress: string;
+  reimbursementAddress?: string;
+  verified: boolean;
+  active: boolean;
+  crossShopEnabled: boolean;
+  totalTokensIssued: number;
+  totalRedemptions: number;
+  totalReimbursements: number;
+  joinDate: string;
+  lastActivity: string;
+}
 
 interface CacheItem<T> {
   data: T;
@@ -106,6 +136,8 @@ export function cached(ttlMs: number = 300000) {
 }
 
 // Enhanced database service with caching
+// TODO: Refactor to work with repositories instead of DatabaseService
+/* 
 export class CachedDatabaseService extends DatabaseService {
   // Use manual caching instead of decorators for better TypeScript support
   async getCustomer(address: string): Promise<CustomerData | null> {
@@ -165,6 +197,7 @@ export class CachedDatabaseService extends DatabaseService {
     generalCache.delete(activeShopsCacheKey);
   }
 }
+*/
 
 // Request caching middleware
 export const requestCache = (ttlMs: number = 60000) => {

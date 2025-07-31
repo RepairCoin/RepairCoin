@@ -2,11 +2,11 @@
   "name": "repaircoin-backend",
   "version": "1.0.0",
   "description": "RepairCoin loyalty token system backend API",
-  "main": "dist/app.js",
+  "main": "dist/src/app.js",
   "scripts": {
     "dev": "nodemon src/app.ts",
     "dev:ts": "ts-node -r dotenv/config src/app.ts",
-    "start": "node dist/app.js",
+    "start": "node dist/src/app.js",
     "build": "tsc",
     "test": "jest",
     "test:watch": "jest --watch",

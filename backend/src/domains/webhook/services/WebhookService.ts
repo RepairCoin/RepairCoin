@@ -1,10 +1,22 @@
   // backend/src/services/webhookService.ts
   import crypto from 'crypto';
-  import { databaseService, WebhookLog } from "../../../services/DatabaseService"
+  import { webhookRepository, customerRepository } from '../../../repositories';
   import { tokenService } from '../../token/services/TokenService';
   import { tierBonusService } from '../../shop/services/TierBonusService';
   import { logger } from '../../../utils/logger';
   import { webhookRateLimiter, RateLimitResult } from '../../../utils/rateLimiter';
+
+  interface WebhookLog {
+    id: string;
+    source: string;
+    event: string;
+    payload: any;
+    processed: boolean;
+    processingTime?: number;
+    result?: any;
+    timestamp?: Date;
+    retryCount?: number;
+  }
 
   export interface WebhookEvent {
     id: string;
@@ -106,11 +118,11 @@
           event,
           payload: { event, data },
           processed: false,
-          timestamp: new Date().toISOString(),
+          timestamp: new Date(),
           retryCount: 0
         };
 
-        await databaseService.logWebhook(webhookLog);
+        await webhookRepository.recordWebhook(webhookLog);
 
         // Process based on event type
         let result: { success: boolean; transactionHash?: string; error?: string; message?: string };
@@ -143,7 +155,7 @@
         const processingTime = Date.now() - startTime;
 
         // Update webhook log with result
-        await databaseService.updateWebhookResult(id, result, processingTime);
+        await webhookRepository.updateWebhookProcessingStatus(id, true, processingTime, result);
 
         logger.webhook('Webhook processed', {
           event,
@@ -166,10 +178,10 @@
         logger.error('Webhook processing error:', error, { event, source, webhookId: id });
 
         try {
-          await databaseService.updateWebhookResult(id, {
+          await webhookRepository.updateWebhookProcessingStatus(id, false, processingTime, {
             success: false,
             error: error.message
-          }, processingTime);
+          });
         } catch (logError) {
           logger.error('Failed to update webhook log:', logError);
         }
@@ -415,7 +427,7 @@
         }
 
         // Check if customer already exists
-        const existingCustomer = await databaseService.getCustomer(customer_wallet_address);
+        const existingCustomer = await customerRepository.getCustomer(customer_wallet_address);
         if (existingCustomer) {
           return {
             success: true,
@@ -455,7 +467,7 @@
     // Retry failed webhooks
     async retryFailedWebhook(webhookId: string): Promise<WebhookProcessingResult> {
       try {
-        const failedWebhooks = await databaseService.getFailedWebhooks(100);
+        const failedWebhooks = await webhookRepository.getFailedWebhooks(100);
         const webhook = failedWebhooks.find(w => w.id === webhookId);
 
         if (!webhook) {
@@ -482,10 +494,10 @@
         );
 
         // Update original webhook retry count
-        await databaseService.logWebhook({
+        await webhookRepository.recordWebhook({
           ...webhook,
           retryCount: webhook.retryCount + 1,
-          timestamp: new Date().toISOString()
+          timestamp: new Date()
         });
 
         return result;
@@ -508,7 +520,7 @@
       rateLimitStats: any;
     }> {
       try {
-        const failedWebhooks = await databaseService.getFailedWebhooks(1000);
+        const failedWebhooks = await webhookRepository.getFailedWebhooks(1000);
         const rateLimitStats = webhookRateLimiter.getStats();
         
         const stats = {
@@ -547,7 +559,7 @@
       };
     }> {
       try {
-        const failedWebhooks = await databaseService.getFailedWebhooks(10);
+        const failedWebhooks = await webhookRepository.getFailedWebhooks(10);
         const recentFailures = failedWebhooks.filter(w => {
           const webhookTime = new Date(w.timestamp);
           const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
@@ -568,7 +580,7 @@
             recentSuccessRate,
             pendingRetries,
             averageResponseTime: 200,
-            lastProcessedWebhook: failedWebhooks[0]?.timestamp || 'None',
+            lastProcessedWebhook: failedWebhooks[0]?.timestamp ? failedWebhooks[0].timestamp.toISOString() : 'None',
             rateLimitStatus: rateLimitStats
           }
         };
@@ -596,7 +608,7 @@
       customerId?: string
     ): Promise<void> {
       try {
-        const existingCustomer = await databaseService.getCustomer(walletAddress);
+        const existingCustomer = await customerRepository.getCustomer(walletAddress);
         
         if (!existingCustomer) {
           const { TierManager } = await import('../../../contracts/TierManager');
@@ -606,7 +618,7 @@
             phone,
             customerId
           );
-          await databaseService.createCustomer(newCustomer);
+          await customerRepository.createCustomer(newCustomer);
           logger.info('Customer created via webhook', { walletAddress, customerId });
         }
       } catch (error: any) {
@@ -664,7 +676,7 @@
     // Cleanup old webhook logs
     async cleanupOldLogs(daysOld: number = 30): Promise<number> {
       try {
-        const deletedCount = await databaseService.cleanupOldWebhookLogs(daysOld);
+        const deletedCount = await webhookRepository.cleanupOldWebhooks(daysOld);
         logger.info('Cleaned up old webhook logs', { deletedCount, daysOld });
         return deletedCount;
       } catch (error: any) {

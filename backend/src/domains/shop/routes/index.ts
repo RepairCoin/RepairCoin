@@ -2,7 +2,6 @@
 import { Router, Request, Response } from 'express';
 import { requireRole, requireShopOrAdmin, requireShopOwnership } from '../../../middleware/auth';
 import { validateRequired, validateEthereumAddress, validateEmail, validateNumeric } from '../../../middleware/errorHandler';
-import { ShopData } from '../../../services/DatabaseService';
 import { 
   shopRepository, 
   customerRepository, 
@@ -13,6 +12,28 @@ import { TierManager } from '../../../contracts/TierManager';
 import { logger } from '../../../utils/logger';
 import { RoleValidator } from '../../../utils/roleValidator';
 import { validateShopRoleConflict } from '../../../middleware/roleConflictValidator';
+
+interface ShopData {
+  shopId: string;
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  walletAddress: string;
+  reimbursementAddress?: string;
+  verified: boolean;
+  active: boolean;
+  crossShopEnabled: boolean;
+  totalTokensIssued: number;
+  totalRedemptions: number;
+  totalReimbursements: number;
+  joinDate: string;
+  lastActivity: string;
+  fixflowShopId?: string;
+  location?: string;
+  purchasedRcnBalance?: number;
+  totalRcnPurchased?: number;
+}
 
 // Import new route modules
 import purchaseRoutes from './purchase';

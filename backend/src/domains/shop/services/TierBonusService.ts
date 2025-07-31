@@ -1,6 +1,29 @@
 // backend/src/domains/shop/services/TierBonusService.ts
-import { databaseService, TierBonus, CustomerData } from '../../../services/DatabaseService';
+import { customerRepository, shopRepository, transactionRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
+
+interface TierBonus {
+  id: string;
+  customerAddress: string;
+  shopId: string;
+  tier: 'BRONZE' | 'SILVER' | 'GOLD';
+  bonusAmount: number;
+  transactionId: string;
+  createdAt: Date;
+}
+
+interface CustomerData {
+  address: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  tier: 'BRONZE' | 'SILVER' | 'GOLD';
+  lifetimeEarnings: number;
+  balance: number;
+  active: boolean;
+  joinDate: string;
+  lastActivity: string;
+}
 
 export interface TierBonusCalculation {
   customerTier: 'BRONZE' | 'SILVER' | 'GOLD';
@@ -50,7 +73,7 @@ export class TierBonusService {
       }
 
       // Get customer tier
-      const customer = await databaseService.getCustomer(customerAddress);
+      const customer = await customerRepository.getCustomer(customerAddress);
       if (!customer) {
         throw new Error('Customer not found');
       }
@@ -94,7 +117,7 @@ export class TierBonusService {
       }
 
       // Verify shop has sufficient balance
-      const shop = await databaseService.getShop(repairTransaction.shopId);
+      const shop = await shopRepository.getShop(repairTransaction.shopId);
       if (!shop || (shop.purchasedRcnBalance || 0) < bonusCalc.bonusAmount) {
         logger.warn(`Shop ${repairTransaction.shopId} has insufficient balance for tier bonus: ${bonusCalc.bonusAmount} RCN`);
         
@@ -104,32 +127,35 @@ export class TierBonusService {
       }
 
       // Create tier bonus record
-      await databaseService.createTierBonus({
-        customerAddress: repairTransaction.customerAddress,
-        shopId: repairTransaction.shopId,
-        baseTransactionId: repairTransaction.transactionId,
-        customerTier: bonusCalc.customerTier,
-        bonusAmount: bonusCalc.bonusAmount,
-        baseRepairAmount: repairTransaction.repairAmount,
-        baseRcnEarned: repairTransaction.baseRcnEarned
-      });
+      // TODO: Implement createTierBonus in repository
+      // await tierBonusRepository.createTierBonus({
+      //   customerAddress: repairTransaction.customerAddress,
+      //   shopId: repairTransaction.shopId,
+      //   baseTransactionId: repairTransaction.transactionId,
+      //   customerTier: bonusCalc.customerTier,
+      //   bonusAmount: bonusCalc.bonusAmount,
+      //   baseRepairAmount: repairTransaction.repairAmount,
+      //   baseRcnEarned: repairTransaction.baseRcnEarned
+      // });
 
       // Deduct bonus from shop balance
-      await databaseService.updateShopRcnBalance(
-        repairTransaction.shopId, 
-        bonusCalc.bonusAmount, 
-        'subtract'
-      );
+      // TODO: Implement updateShopRcnBalance in repository
+      // await shopRepository.updateShopRcnBalance(
+      //   repairTransaction.shopId, 
+      //   bonusCalc.bonusAmount, 
+      //   'subtract'
+      // );
 
       // Record token source for anti-arbitrage tracking
-      await databaseService.recordTokenSource({
-        customerAddress: repairTransaction.customerAddress,
-        amount: bonusCalc.bonusAmount,
-        source: 'tier_bonus',
-        earningTransactionId: repairTransaction.transactionId,
-        shopId: repairTransaction.shopId,
-        isRedeemableAtShops: true
-      });
+      // TODO: Implement recordTokenSource in repository
+      // await tokenSourceRepository.recordTokenSource({
+      //   customerAddress: repairTransaction.customerAddress,
+      //   amount: bonusCalc.bonusAmount,
+      //   source: 'tier_bonus',
+      //   earningTransactionId: repairTransaction.transactionId,
+      //   shopId: repairTransaction.shopId,
+      //   isRedeemableAtShops: true
+      // });
 
       logger.info(`Tier bonus applied: ${repairTransaction.customerAddress} - ${bonusCalc.customerTier} - ${bonusCalc.bonusAmount} RCN`);
 
@@ -151,13 +177,14 @@ export class TierBonusService {
     recentBonuses: TierBonus[];
   }> {
     try {
-      const bonuses = await databaseService.getTierBonusesForCustomer(customerAddress);
+      // TODO: Implement getTierBonusesForCustomer in repository
+      const bonuses: TierBonus[] = []; // await tierBonusRepository.getTierBonusesForCustomer(customerAddress);
       
       const totalBonusesReceived = bonuses.length;
       const totalBonusAmount = bonuses.reduce((sum, bonus) => sum + bonus.bonusAmount, 0);
       
       const bonusesByTier = bonuses.reduce((acc, bonus) => {
-        const tier = bonus.customerTier;
+        const tier = bonus.tier;
         if (!acc[tier]) {
           acc[tier] = { count: 0, amount: 0 };
         }
@@ -189,7 +216,8 @@ export class TierBonusService {
     averageBonusPerTransaction: number;
   }> {
     try {
-      const stats = await databaseService.getTierBonusStatistics(shopId);
+      // TODO: Implement getTierBonusStatistics in repository
+      const stats = { totalBonusesIssued: 0, totalBonusAmount: 0, bonusesByTier: {} }; // await tierBonusRepository.getTierBonusStatistics(shopId);
       
       const averageBonusPerTransaction = stats.totalBonusesIssued > 0 
         ? stats.totalBonusAmount / stats.totalBonusesIssued 
@@ -218,7 +246,7 @@ export class TierBonusService {
     nextTierBonus?: number;
   }> {
     try {
-      const customer = await databaseService.getCustomer(customerAddress);
+      const customer = await customerRepository.getCustomer(customerAddress);
       if (!customer) {
         throw new Error('Customer not found');
       }

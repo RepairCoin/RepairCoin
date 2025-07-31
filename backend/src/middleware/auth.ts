@@ -2,7 +2,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { logger } from '../utils/logger';
-import { databaseService } from '../services/DatabaseService';
+import { customerRepository, shopRepository } from '../repositories';
 
 interface JWTPayload {
   address: string;
@@ -277,14 +277,14 @@ async function validateUserInDatabase(tokenPayload: JWTPayload): Promise<boolean
         
       case 'shop':
         if (!tokenPayload.shopId) return false;
-        const shop = await databaseService.getShop(tokenPayload.shopId);
+        const shop = await shopRepository.getShop(tokenPayload.shopId);
         return shop !== null && 
                shop.active && 
                shop.verified && 
                shop.walletAddress.toLowerCase() === tokenPayload.address.toLowerCase();
         
       case 'customer':
-        const customer = await databaseService.getCustomer(tokenPayload.address);
+        const customer = await customerRepository.getCustomer(tokenPayload.address);
         return customer !== null && customer.isActive;
         
       default:

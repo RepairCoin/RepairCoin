@@ -1,5 +1,5 @@
 // backend/src/utils/roleValidator.ts
-import { databaseService } from '../services/DatabaseService';
+import { customerRepository, shopRepository } from '../repositories';
 import { logger } from './logger';
 
 export interface RoleCheckResult {
@@ -30,7 +30,7 @@ export class RoleValidator {
       }
 
       // Check if address is already a shop
-      const existingShop = await databaseService.getShopByWallet(normalizedAddress);
+      const existingShop = await shopRepository.getShopByWallet(normalizedAddress);
       if (existingShop) {
         return {
           isValid: false,
@@ -64,7 +64,7 @@ export class RoleValidator {
       }
 
       // Check if address is already a customer
-      const existingCustomer = await databaseService.getCustomer(normalizedAddress);
+      const existingCustomer = await customerRepository.getCustomer(normalizedAddress);
       if (existingCustomer) {
         return {
           isValid: false,
@@ -94,13 +94,13 @@ export class RoleValidator {
       }
 
       // Check shop
-      const shop = await databaseService.getShopByWallet(normalizedAddress);
+      const shop = await shopRepository.getShopByWallet(normalizedAddress);
       if (shop) {
         return 'shop';
       }
 
       // Check customer
-      const customer = await databaseService.getCustomer(normalizedAddress);
+      const customer = await customerRepository.getCustomer(normalizedAddress);
       if (customer) {
         return 'customer';
       }

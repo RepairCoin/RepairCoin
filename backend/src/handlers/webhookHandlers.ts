@@ -1,8 +1,22 @@
 // backend/src/handlers/webhookHandlers.ts
 import { TokenMinter } from "../contracts/TokenMinter";
 import { TierManager } from "../contracts/TierManager";
-import { databaseService, TransactionRecord } from "../services/DatabaseService"
+import { customerRepository, shopRepository, transactionRepository } from "../repositories";
 import { logger } from "../utils/logger";
+
+interface TransactionRecord {
+  id: string;
+  type: 'mint' | 'redeem' | 'transfer' | 'tier_bonus' | 'shop_purchase';
+  customerAddress: string;
+  shopId?: string;
+  amount: number;
+  reason?: string;
+  transactionHash?: string;
+  blockNumber?: number;
+  timestamp: string;
+  status: 'pending' | 'confirmed' | 'failed';
+  metadata?: any;
+}
 
 // Lazy loading helpers
 let tokenMinter: TokenMinter | null = null;
@@ -51,7 +65,7 @@ export async function handleRepairCompleted(data: any, webhookId: string): Promi
     }
     
     // Get or create customer
-    let customer = await databaseService.getCustomer(customer_wallet_address);
+    let customer = await customerRepository.getCustomer(customer_wallet_address);
     
     if (!customer) {
       // Create new customer
@@ -61,7 +75,7 @@ export async function handleRepairCompleted(data: any, webhookId: string): Promi
         customer_phone,
         customer_id
       );
-      await databaseService.createCustomer(customer);
+      await customerRepository.createCustomer(customer);
       logger.info(`New customer created: ${customer_wallet_address}`);
     }
     
@@ -82,7 +96,7 @@ export async function handleRepairCompleted(data: any, webhookId: string): Promi
     
     // Update customer data in database
     if (mintResult.tokensToMint && mintResult.newTier) {
-      await databaseService.updateCustomerAfterEarning(
+      await customerRepository.updateCustomerAfterEarning(
         customer_wallet_address,
         mintResult.tokensToMint,
         mintResult.newTier as any
@@ -106,12 +120,12 @@ export async function handleRepairCompleted(data: any, webhookId: string): Promi
       }
     };
     
-    await databaseService.recordTransaction(transactionRecord);
+    await transactionRepository.recordTransaction(transactionRecord);
     
     // Update shop statistics
-    const shop = await databaseService.getShop(shop_id);
+    const shop = await shopRepository.getShop(shop_id);
     if (shop) {
-      await databaseService.updateShop(shop_id, {
+      await shopRepository.updateShop(shop_id, {
         totalTokensIssued: shop.totalTokensIssued + (mintResult.tokensToMint || 0),
         lastActivity: new Date().toISOString()
       });
@@ -154,7 +168,7 @@ export async function handleReferralVerified(data: any, webhookId: string): Prom
     }
     
     // Ensure referee is new customer or create them
-    let referee = await databaseService.getCustomer(referee_wallet_address);
+    let referee = await customerRepository.getCustomer(referee_wallet_address);
     if (!referee) {
       referee = TierManager.createNewCustomer(
         referee_wallet_address,
@@ -162,7 +176,7 @@ export async function handleReferralVerified(data: any, webhookId: string): Prom
         referee_phone,
         referee_id
       );
-      await databaseService.createCustomer(referee);
+      await customerRepository.createCustomer(referee);
     }
     
     // Mint referral tokens
@@ -181,18 +195,18 @@ export async function handleReferralVerified(data: any, webhookId: string): Prom
     
     // Update both customer records
     const [referrer, updatedReferee] = await Promise.all([
-      databaseService.getCustomer(referrer_wallet_address),
-      databaseService.getCustomer(referee_wallet_address)
+      customerRepository.getCustomer(referrer_wallet_address),
+      customerRepository.getCustomer(referee_wallet_address)
     ]);
     
     if (referrer) {
       const newReferrerTier = getTierManager().calculateTier(referrer.lifetimeEarnings + 25);
-      await databaseService.updateCustomerAfterEarning(referrer_wallet_address, 25, newReferrerTier);
+      await customerRepository.updateCustomerAfterEarning(referrer_wallet_address, 25, newReferrerTier);
     }
     
     if (updatedReferee) {
       const newRefereeTier = getTierManager().calculateTier(updatedReferee.lifetimeEarnings + 10);
-      await databaseService.updateCustomerAfterEarning(referee_wallet_address, 10, newRefereeTier);
+      await customerRepository.updateCustomerAfterEarning(referee_wallet_address, 10, newRefereeTier);
     }
     
     // Record transaction
@@ -212,7 +226,7 @@ export async function handleReferralVerified(data: any, webhookId: string): Prom
       }
     };
     
-    await databaseService.recordTransaction(transactionRecord);
+    await transactionRepository.recordTransaction(transactionRecord);
     
     return {
       success: true,
@@ -247,7 +261,7 @@ export async function handleAdFunnelConversion(data: any, webhookId: string): Pr
     }
     
     // Get customer data
-    const customer = await databaseService.getCustomer(customer_wallet_address);
+    const customer = await customerRepository.getCustomer(customer_wallet_address);
     if (!customer) {
       return {
         success: false,
@@ -273,7 +287,7 @@ export async function handleAdFunnelConversion(data: any, webhookId: string): Pr
     // Update customer data
     if (mintResult.tokensToMint) {
       const newTier = getTierManager().calculateTier(customer.lifetimeEarnings + mintResult.tokensToMint);
-      await databaseService.updateCustomerAfterEarning(
+      await customerRepository.updateCustomerAfterEarning(
         customer_wallet_address,
         mintResult.tokensToMint,
         newTier
@@ -297,7 +311,7 @@ export async function handleAdFunnelConversion(data: any, webhookId: string): Pr
       }
     };
     
-    await databaseService.recordTransaction(transactionRecord);
+    await transactionRepository.recordTransaction(transactionRecord);
     
     return {
       success: true,
@@ -333,7 +347,7 @@ export async function handleCustomerRegistered(data: any, webhookId: string): Pr
     }
     
     // Check if customer already exists
-    const existingCustomer = await databaseService.getCustomer(customer_wallet_address);
+    const existingCustomer = await customerRepository.getCustomer(customer_wallet_address);
     if (existingCustomer) {
       return {
         success: true,
@@ -349,7 +363,7 @@ export async function handleCustomerRegistered(data: any, webhookId: string): Pr
       customer_id
     );
     
-    await databaseService.createCustomer(newCustomer);
+    await customerRepository.createCustomer(newCustomer);
     
     logger.info(`New customer registered: ${customer_wallet_address}`, { 
       customerId: customer_id,

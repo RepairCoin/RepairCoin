@@ -1,5 +1,5 @@
 // backend/src/domains/token/services/VerificationService.ts
-import { databaseService } from '../../../services/DatabaseService';
+import { customerRepository, shopRepository, transactionRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
 
 export interface VerificationResult {
@@ -64,13 +64,13 @@ export class VerificationService {
   ): Promise<VerificationResult> {
     try {
       // Get customer data
-      const customer = await databaseService.getCustomer(customerAddress);
+      const customer = await customerRepository.getCustomer(customerAddress);
       if (!customer) {
         throw new Error('Customer not found');
       }
 
       // Get shop data
-      const shop = await databaseService.getShop(shopId);
+      const shop = await shopRepository.getShop(shopId);
       if (!shop) {
         throw new Error('Shop not found');
       }
@@ -158,7 +158,7 @@ export class VerificationService {
    */
   async getEarnedBalance(customerAddress: string): Promise<EarnedBalanceInfo> {
     try {
-      const customer = await databaseService.getCustomer(customerAddress);
+      const customer = await customerRepository.getCustomer(customerAddress);
       if (!customer) {
         throw new Error('Customer not found');
       }
@@ -193,13 +193,13 @@ export class VerificationService {
    */
   async getEarningSources(customerAddress: string): Promise<EarningSources> {
     try {
-      const customer = await databaseService.getCustomer(customerAddress);
+      const customer = await customerRepository.getCustomer(customerAddress);
       if (!customer) {
         throw new Error('Customer not found');
       }
 
       // Get all transactions for this customer
-      const transactions = await databaseService.getTransactionHistory(customerAddress, 1000);
+      const transactions = await transactionRepository.getTransactionsByCustomer(customerAddress, 1000);
 
       // Group by shop and calculate totals
       const shopEarnings = new Map<string, any>();
@@ -207,7 +207,7 @@ export class VerificationService {
       for (const tx of transactions) {
         if (tx.type === 'mint' && tx.shopId && tx.shopId !== 'admin_system') {
           if (!shopEarnings.has(tx.shopId)) {
-            const shop = await databaseService.getShop(tx.shopId);
+            const shop = await shopRepository.getShop(tx.shopId);
             shopEarnings.set(tx.shopId, {
               shopId: tx.shopId,
               shopName: shop?.name || 'Unknown Shop',
@@ -306,7 +306,7 @@ export class VerificationService {
   private async calculateEarnedBalance(customerAddress: string): Promise<number> {
     try {
       // Get all mint transactions for this customer
-      const transactions = await databaseService.getTransactionHistory(customerAddress, 1000);
+      const transactions = await transactionRepository.getTransactionsByCustomer(customerAddress, 1000);
       
       let earnedBalance = 0;
 
@@ -339,7 +339,7 @@ export class VerificationService {
     fromTierBonuses: number;
   }> {
     try {
-      const transactions = await databaseService.getTransactionHistory(customerAddress, 1000);
+      const transactions = await transactionRepository.getTransactionsByCustomer(customerAddress, 1000);
       
       const breakdown = {
         fromRepairs: 0,

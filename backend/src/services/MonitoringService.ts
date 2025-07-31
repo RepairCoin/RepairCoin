@@ -1,5 +1,5 @@
-import { databaseService } from './DatabaseService';
 import { logger } from '../utils/logger';
+// TODO: Implement monitoring checks in repositories
 
 export class MonitoringService {
   private intervalId: NodeJS.Timeout | null = null;
@@ -28,10 +28,11 @@ export class MonitoringService {
     logger.info('Running monitoring checks...');
     
     try {
+      // TODO: Implement monitoring checks in repositories
       await Promise.all([
-        databaseService.checkLowTreasuryBalance(),
-        databaseService.checkPendingApplications(),
-        databaseService.checkUnusualActivity()
+        // monitoringRepository.checkLowTreasuryBalance(),
+        // monitoringRepository.checkPendingApplications(),
+        // monitoringRepository.checkUnusualActivity()
       ]);
       
       logger.info('Monitoring checks completed');
