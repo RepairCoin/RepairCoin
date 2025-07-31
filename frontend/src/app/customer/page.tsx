@@ -5,6 +5,7 @@ import { ConnectButton, useReadContract } from "thirdweb/react";
 import { getContract, createThirdwebClient } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
 import { useAuth } from '../../hooks/useAuth';
+import { useRouter } from 'next/navigation';
 
 const client = createThirdwebClient({
   clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "1969ac335e07ba13ad0f8d1a1de4f6ab",
@@ -24,7 +25,8 @@ interface CustomerStats {
 }
 
 export default function CustomerDashboard() {
-  const { account, userProfile, isLoading } = useAuth();
+  const router = useRouter();
+  const { account, userProfile, isLoading, isAuthenticated } = useAuth();
   const [customerStats, setCustomerStats] = useState<CustomerStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,13 +37,6 @@ export default function CustomerDashboard() {
     method: "function balanceOf(address) view returns (uint256)",
     params: account?.address ? [account.address] : undefined,
   });
-
-  // Fetch customer statistics
-  useEffect(() => {
-    if (userProfile?.id) {
-      fetchCustomerStats();
-    }
-  }, [userProfile?.id]);
 
   const fetchCustomerStats = async () => {
     if (!userProfile?.id) return;
@@ -83,6 +78,19 @@ export default function CustomerDashboard() {
       default: return '🏆';
     }
   };
+
+  // Fetch customer statistics
+  useEffect(() => {
+    if (userProfile?.id) {
+      fetchCustomerStats();
+    }
+  }, [userProfile?.id]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push('/');
+    }
+  }, [isAuthenticated]);
 
   if (isLoading) {
     return (
