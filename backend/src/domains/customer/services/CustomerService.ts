@@ -1,7 +1,7 @@
 // backend/src/services/CustomerService.ts
 import { databaseService } from "../../../services/DatabaseService";
-import { TokenMinter } from '../../../../contracts/TokenMinter';
-import { TierManager, CustomerData } from '../../../../contracts/TierManager';
+import { TokenMinter } from '../../../contracts/TokenMinter';
+import { TierManager, CustomerData } from '../../../contracts/TierManager';
 import { logger } from '../../../utils/logger';
 import { RoleValidator } from '../../../utils/roleValidator';
 

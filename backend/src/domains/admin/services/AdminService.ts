@@ -1,7 +1,7 @@
 // backend/src/services/AdminService.ts
 import { databaseService } from '../../../services/DatabaseService';
-import { TokenMinter } from '../../../../contracts/TokenMinter';
-import { TierManager, CustomerData, TierLevel } from '../../../../contracts/TierManager';
+import { TokenMinter } from '../../../contracts/TokenMinter';
+import { TierManager, CustomerData, TierLevel } from '../../../contracts/TierManager';
 import { logger } from '../../../utils/logger';
 
 export interface AdminStats {

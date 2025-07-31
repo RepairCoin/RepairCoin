@@ -1,6 +1,6 @@
   // backend/src/services/tokenService.ts
-  import { TokenMinter, MintResult } from '../../../../contracts/TokenMinter';
-  import { TierManager, CustomerData } from '../../../../contracts/TierManager';
+  import { TokenMinter, MintResult } from '../../../contracts/TokenMinter';
+  import { TierManager, CustomerData } from '../../../contracts/TierManager';
   import { databaseService } from '../../../services/DatabaseService';
   import { logger } from '../../../utils/logger';
 
