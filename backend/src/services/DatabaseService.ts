@@ -192,6 +192,20 @@ export class DatabaseService {
     }
   }
 
+  // Helper method to convert snake_case to camelCase
+  private mapSnakeToCamel(obj: any): any {
+    if (!obj) return obj;
+    
+    const camelCaseObj: any = {};
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+        camelCaseObj[camelKey] = obj[key];
+      }
+    }
+    return camelCaseObj;
+  }
+
   // Customer operations
   async getCustomer(address: string): Promise<CustomerData | null> {
     try {
@@ -2232,6 +2246,132 @@ async getShopTransactions(shopId: string, limit: number = 50): Promise<Transacti
       }
     } catch (error) {
       logger.error('Error checking unusual activity:', error);
+    }
+  }
+
+  // Unsuspend Request Methods
+  async createUnsuspendRequest(data: {
+    entityType: 'customer' | 'shop';
+    entityId: string;
+    requestReason: string;
+    status: 'pending' | 'approved' | 'rejected';
+  }): Promise<any> {
+    try {
+      const result = await this.pool.query(`
+        INSERT INTO unsuspend_requests (
+          entity_type, entity_id, request_reason, status, created_at
+        ) VALUES ($1, $2, $3, $4, NOW())
+        RETURNING *
+      `, [data.entityType, data.entityId, data.requestReason, data.status]);
+      
+      return this.mapSnakeToCamel(result.rows[0]);
+    } catch (error) {
+      logger.error('Error creating unsuspend request:', error);
+      throw new Error('Failed to create unsuspend request');
+    }
+  }
+
+  async getUnsuspendRequests(filters: {
+    status?: string;
+    entityType?: string;
+  }): Promise<any[]> {
+    try {
+      let query = 'SELECT * FROM unsuspend_requests WHERE 1=1';
+      const params: any[] = [];
+      let paramCount = 0;
+
+      if (filters.status) {
+        paramCount++;
+        query += ` AND status = $${paramCount}`;
+        params.push(filters.status);
+      }
+
+      if (filters.entityType) {
+        paramCount++;
+        query += ` AND entity_type = $${paramCount}`;
+        params.push(filters.entityType);
+      }
+
+      query += ' ORDER BY created_at DESC';
+
+      const result = await this.pool.query(query, params);
+      return result.rows.map(row => this.mapSnakeToCamel(row));
+    } catch (error) {
+      logger.error('Error getting unsuspend requests:', error);
+      throw new Error('Failed to get unsuspend requests');
+    }
+  }
+
+  async getUnsuspendRequest(id: number): Promise<any> {
+    try {
+      const result = await this.pool.query(
+        'SELECT * FROM unsuspend_requests WHERE id = $1',
+        [id]
+      );
+      
+      if (result.rows.length === 0) {
+        return null;
+      }
+      
+      return this.mapSnakeToCamel(result.rows[0]);
+    } catch (error) {
+      logger.error('Error getting unsuspend request:', error);
+      throw new Error('Failed to get unsuspend request');
+    }
+  }
+
+  async updateUnsuspendRequest(id: number, updates: {
+    status?: string;
+    reviewedAt?: string;
+    reviewedBy?: string;
+    reviewNotes?: string;
+  }): Promise<void> {
+    try {
+      const fields: string[] = [];
+      const values: any[] = [];
+      let paramCount = 0;
+
+      if (updates.status !== undefined) {
+        paramCount++;
+        fields.push(`status = $${paramCount}`);
+        values.push(updates.status);
+      }
+
+      if (updates.reviewedAt !== undefined) {
+        paramCount++;
+        fields.push(`reviewed_at = $${paramCount}`);
+        values.push(updates.reviewedAt);
+      }
+
+      if (updates.reviewedBy !== undefined) {
+        paramCount++;
+        fields.push(`reviewed_by = $${paramCount}`);
+        values.push(updates.reviewedBy);
+      }
+
+      if (updates.reviewNotes !== undefined) {
+        paramCount++;
+        fields.push(`review_notes = $${paramCount}`);
+        values.push(updates.reviewNotes);
+      }
+
+      if (fields.length === 0) {
+        return;
+      }
+
+      paramCount++;
+      values.push(id);
+
+      const query = `
+        UPDATE unsuspend_requests 
+        SET ${fields.join(', ')}, updated_at = NOW()
+        WHERE id = $${paramCount}
+      `;
+
+      await this.pool.query(query, values);
+    } catch (error) {
+      logger.error('Error updating unsuspend request:', error);
+      throw new Error('Failed to update unsuspend request');
     }
   }
 

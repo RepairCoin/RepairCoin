@@ -196,4 +196,30 @@ export class CustomerController {
       }
     }
   }
+
+  async requestUnsuspend(req: Request, res: Response) {
+    try {
+      const { address } = req.params;
+      const { reason } = req.body;
+      
+      // Verify the requesting user is the suspended customer
+      if (req.user?.address?.toLowerCase() !== address.toLowerCase()) {
+        return ResponseHelper.forbidden(res, 'You can only request unsuspension for your own account');
+      }
+      
+      const result = await this.customerService.requestUnsuspend(address, reason);
+      
+      ResponseHelper.success(res, result, 'Unsuspend request submitted successfully');
+    } catch (error: any) {
+      if (error.message === 'Customer not found') {
+        ResponseHelper.notFound(res, error.message);
+      } else if (error.message === 'Customer is not suspended') {
+        ResponseHelper.badRequest(res, error.message);
+      } else if (error.message.includes('pending request')) {
+        ResponseHelper.badRequest(res, error.message);
+      } else {
+        ResponseHelper.error(res, error.message, 500);
+      }
+    }
+  }
 }

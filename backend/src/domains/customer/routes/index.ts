@@ -96,4 +96,13 @@ router.post('/:address/deactivate',
   asyncHandler(customerController.deactivateCustomer.bind(customerController))
 );
 
+// Request unsuspension
+router.post('/:address/request-unsuspend',
+  authMiddleware,
+  requireRole(['customer']),
+  validateEthereumAddress('address'),
+  validateRequired(['reason']),
+  asyncHandler(customerController.requestUnsuspend.bind(customerController))
+);
+
 export default router;

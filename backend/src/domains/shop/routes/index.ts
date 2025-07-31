@@ -2,7 +2,12 @@
 import { Router, Request, Response } from 'express';
 import { requireRole, requireShopOrAdmin, requireShopOwnership } from '../../../middleware/auth';
 import { validateRequired, validateEthereumAddress, validateEmail, validateNumeric } from '../../../middleware/errorHandler';
-import { databaseService, ShopData } from '../../../services/DatabaseService';
+import { ShopData } from '../../../services/DatabaseService';
+import { 
+  shopRepository, 
+  customerRepository, 
+  transactionRepository 
+} from '../../../repositories';
 import { TokenMinter } from '../../../contracts/TokenMinter';
 import { TierManager } from '../../../contracts/TierManager';
 import { logger } from '../../../utils/logger';
@@ -42,7 +47,7 @@ router.get('/', async (req: Request, res: Response) => {
   try {
     const { verified = 'true', crossShopEnabled } = req.query;
     
-    let shops = await databaseService.getActiveShops();
+    let shops = await shopRepository.getActiveShops();
     
     // Apply filters
     if (verified === 'false') {
@@ -89,7 +94,7 @@ router.get('/:shopId', async (req: Request, res: Response) => {
   try {
     const { shopId } = req.params;
     
-    const shop = await databaseService.getShop(shopId);
+    const shop = await shopRepository.getShop(shopId);
     if (!shop) {
       return res.status(404).json({
         success: false,
@@ -144,7 +149,7 @@ router.get('/wallet/:address',
         });
       }
       
-      const shop = await databaseService.getShopByWallet(address);
+      const shop = await shopRepository.getShopByWallet(address);
       if (!shop) {
         return res.status(404).json({
           success: false,
@@ -211,7 +216,7 @@ router.post('/register',
       } = req.body;
 
       // Check if shop already exists
-      const existingShop = await databaseService.getShop(shopId);
+      const existingShop = await shopRepository.getShop(shopId);
       if (existingShop) {
         return res.status(409).json({
           success: false,
@@ -220,7 +225,7 @@ router.post('/register',
       }
 
       // Check if wallet is already used by another shop
-      const existingShopByWallet = await databaseService.getShopByWallet(walletAddress);
+      const existingShopByWallet = await shopRepository.getShopByWallet(walletAddress);
       if (existingShopByWallet) {
         return res.status(409).json({
           success: false,
@@ -250,7 +255,7 @@ router.post('/register',
         location
       };
 
-      await databaseService.createShop(newShop);
+      await shopRepository.createShop(newShop);
 
       logger.info('New shop registered', {
         shopId,
@@ -297,7 +302,7 @@ router.put('/:shopId',
         location
       } = req.body;
 
-      const shop = await databaseService.getShop(shopId);
+      const shop = await shopRepository.getShop(shopId);
       if (!shop) {
         return res.status(404).json({
           success: false,
@@ -319,7 +324,7 @@ router.put('/:shopId',
         if (crossShopEnabled !== undefined) updates.crossShopEnabled = crossShopEnabled;
       }
 
-      await databaseService.updateShop(shopId, updates);
+      await shopRepository.updateShop(shopId, updates);
 
       logger.info('Shop updated', {
         shopId,
@@ -350,7 +355,7 @@ router.get('/:shopId/analytics',
     try {
       const { shopId } = req.params;
       
-      const shop = await databaseService.getShop(shopId);
+      const shop = await shopRepository.getShop(shopId);
       if (!shop) {
         return res.status(404).json({
           success: false,
@@ -358,7 +363,7 @@ router.get('/:shopId/analytics',
         });
       }
 
-      const analytics = await databaseService.getShopAnalytics(shopId);
+      const analytics = await shopRepository.getShopAnalytics(shopId);
       
       res.json({
         success: true,
@@ -392,7 +397,7 @@ router.get('/:shopId/transactions',
       const { shopId } = req.params;
       const { limit = '100', type } = req.query;
       
-      const shop = await databaseService.getShop(shopId);
+      const shop = await shopRepository.getShop(shopId);
       if (!shop) {
         return res.status(404).json({
           success: false,
@@ -400,7 +405,7 @@ router.get('/:shopId/transactions',
         });
       }
 
-      const transactions = await databaseService.getShopTransactions(shopId, parseInt(limit as string));
+      const transactions = await shopRepository.getShopTransactions(shopId, parseInt(limit as string));
       
       // Filter by type if specified
       let filteredTransactions = transactions;
@@ -438,7 +443,7 @@ router.post('/:shopId/cross-shop',
       const { shopId } = req.params;
       const { enabled } = req.body;
       
-      const shop = await databaseService.getShop(shopId);
+      const shop = await shopRepository.getShop(shopId);
       if (!shop) {
         return res.status(404).json({
           success: false,
@@ -453,7 +458,7 @@ router.post('/:shopId/cross-shop',
         });
       }
 
-      await databaseService.updateShop(shopId, {
+      await shopRepository.updateShop(shopId, {
         crossShopEnabled: enabled
       });
 
@@ -485,7 +490,7 @@ router.post('/:shopId/verify',
     try {
       const { shopId } = req.params;
       
-      const shop = await databaseService.getShop(shopId);
+      const shop = await shopRepository.getShop(shopId);
       if (!shop) {
         return res.status(404).json({
           success: false,
@@ -500,7 +505,7 @@ router.post('/:shopId/verify',
         });
       }
 
-      await databaseService.updateShop(shopId, {
+      await shopRepository.updateShop(shopId, {
         verified: true,
         active: true,
         lastActivity: new Date().toISOString()
@@ -534,7 +539,7 @@ router.post('/:shopId/deactivate',
       const { shopId } = req.params;
       const { reason } = req.body;
       
-      const shop = await databaseService.getShop(shopId);
+      const shop = await shopRepository.getShop(shopId);
       if (!shop) {
         return res.status(404).json({
           success: false,
@@ -549,7 +554,7 @@ router.post('/:shopId/deactivate',
         });
       }
 
-      await databaseService.updateShop(shopId, {
+      await shopRepository.updateShop(shopId, {
         active: false
       });
 
@@ -579,7 +584,7 @@ router.get('/admin/pending',
   requireRole(['admin']),
   async (req: Request, res: Response) => {
     try {
-      const allShops = await databaseService.getActiveShops();
+      const allShops = await shopRepository.getActiveShops();
       const pendingShops = allShops.filter(shop => !shop.verified);
 
       res.json({
@@ -608,7 +613,7 @@ router.get('/:shopId/dashboard',
     try {
       const { shopId } = req.params;
       
-      const shop = await databaseService.getShop(shopId);
+      const shop = await shopRepository.getShop(shopId);
       if (!shop) {
         return res.status(404).json({
           success: false,
@@ -617,8 +622,8 @@ router.get('/:shopId/dashboard',
       }
 
       const [analytics, recentTransactions] = await Promise.all([
-        databaseService.getShopAnalytics(shopId),
-        databaseService.getShopTransactions(shopId, 10)
+        shopRepository.getShopAnalytics(shopId),
+        shopRepository.getShopTransactions(shopId, 10)
       ]);
 
       const dashboardData = {
@@ -636,10 +641,10 @@ router.get('/:shopId/dashboard',
         analytics,
         recentTransactions: recentTransactions.slice(0, 5), // Last 5 transactions
         summary: {
-          totalRevenue: analytics.totalTokensIssued || 0,
-          totalRedemptions: analytics.totalRedemptions || 0,
-          activeCustomers: analytics.activeCustomers || 0,
-          averageRepairValue: analytics.averageRepairValue || 0
+          totalRevenue: shop.totalTokensIssued || 0,
+          totalRedemptions: shop.totalRedemptions || 0,
+          activeCustomers: analytics.totalCustomersServed || 0,
+          averageRepairValue: analytics.averageTransactionAmount || 0
         }
       };
 
@@ -670,7 +675,7 @@ router.post('/:shopId/redeem',
       const { shopId } = req.params;
       const { customerAddress, amount, notes } = req.body;
       
-      const shop = await databaseService.getShop(shopId);
+      const shop = await shopRepository.getShop(shopId);
       if (!shop) {
         return res.status(404).json({
           success: false,
@@ -685,7 +690,7 @@ router.post('/:shopId/redeem',
         });
       }
 
-      const customer = await databaseService.getCustomer(customerAddress);
+      const customer = await customerRepository.getCustomer(customerAddress);
       if (!customer) {
         return res.status(404).json({
           success: false,
@@ -741,10 +746,10 @@ router.post('/:shopId/redeem',
         }
       };
 
-      await databaseService.recordTransaction(transactionRecord);
+      await transactionRepository.recordTransaction(transactionRecord);
 
       // Update shop statistics
-      await databaseService.updateShop(shopId, {
+      await shopRepository.updateShop(shopId, {
         totalRedemptions: shop.totalRedemptions + amount,
         lastActivity: new Date().toISOString()
       });
@@ -791,7 +796,7 @@ router.get('/:shopId/qr-code',
     try {
       const { shopId } = req.params;
       
-      const shop = await databaseService.getShop(shopId);
+      const shop = await shopRepository.getShop(shopId);
       if (!shop) {
         return res.status(404).json({
           success: false,
@@ -842,7 +847,7 @@ router.put('/:shopId/reimbursement-address',
       const { shopId } = req.params;
       const { reimbursementAddress } = req.body;
       
-      const shop = await databaseService.getShop(shopId);
+      const shop = await shopRepository.getShop(shopId);
       if (!shop) {
         return res.status(404).json({
           success: false,
@@ -850,7 +855,7 @@ router.put('/:shopId/reimbursement-address',
         });
       }
 
-      await databaseService.updateShop(shopId, {
+      await shopRepository.updateShop(shopId, {
         reimbursementAddress: reimbursementAddress.toLowerCase()
       });
 

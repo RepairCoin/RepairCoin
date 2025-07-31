@@ -107,8 +107,16 @@ backend/src/
 │   └── admin/                    # Admin operations domain
 ├── events/
 │   └── EventBus.ts              # Domain event system
+├── repositories/                 # Data access layer (Repository pattern)
+│   ├── BaseRepository.ts        # Base repository with common operations
+│   ├── CustomerRepository.ts    # Customer data access
+│   ├── ShopRepository.ts        # Shop data access
+│   ├── TransactionRepository.ts # Transaction data access
+│   ├── AdminRepository.ts       # Admin operations
+│   ├── WebhookRepository.ts     # Webhook management
+│   └── TreasuryRepository.ts    # Treasury operations
 ├── services/
-│   └── DatabaseService.ts       # Central database operations
+│   └── DatabaseService.ts       # Legacy - being phased out
 ├── middleware/                   # Express middleware
 ├── utils/                        # Shared utilities
 └── docs/                        # API documentation

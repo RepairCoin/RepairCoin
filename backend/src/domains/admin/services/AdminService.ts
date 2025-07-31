@@ -1,5 +1,12 @@
 // backend/src/services/AdminService.ts
-import { databaseService } from '../../../services/DatabaseService';
+import { 
+  customerRepository, 
+  shopRepository, 
+  transactionRepository, 
+  adminRepository,
+  webhookRepository,
+  treasuryRepository 
+} from '../../../repositories';
 import { TokenMinter } from '../../../contracts/TokenMinter';
 import { TierManager, CustomerData, TierLevel } from '../../../contracts/TierManager';
 import { logger } from '../../../utils/logger';
@@ -102,7 +109,7 @@ export class AdminService {
 
   async getCustomers(params: PaginationParams) {
     try {
-      const result = await databaseService.getCustomersPaginated({
+      const result = await customerRepository.getCustomersPaginated({
         page: params.page,
         limit: params.limit,
         tier: params.tier as TierLevel,
@@ -126,7 +133,7 @@ export class AdminService {
 
   async getShops(filters: ShopFilters) {
     try {
-      const result = await databaseService.getShopsPaginated({
+      const result = await shopRepository.getShopsPaginated({
         page: 1,
         limit: 1000, // Get all shops for admin
         active: filters.active,
@@ -146,7 +153,7 @@ export class AdminService {
   async manualMint(params: ManualMintParams) {
     try {
       // Validate customer exists
-      const customer = await databaseService.getCustomer(params.customerAddress);
+      const customer = await customerRepository.getCustomer(params.customerAddress);
       if (!customer) {
         throw new Error('Customer not found');
       }
@@ -164,10 +171,10 @@ export class AdminService {
 
       // Update customer data
       const newTier = this.getTierManager().calculateTier(customer.lifetimeEarnings + params.amount);
-      await databaseService.updateCustomerAfterEarning(params.customerAddress, params.amount, newTier);
+      await customerRepository.updateCustomerAfterEarning(params.customerAddress, params.amount, newTier);
 
       // Record transaction
-      await databaseService.recordTransaction({
+      await transactionRepository.recordTransaction({
         id: `admin_mint_${Date.now()}`,
         type: 'mint',
         customerAddress: params.customerAddress.toLowerCase(),
@@ -187,7 +194,7 @@ export class AdminService {
       });
 
       // Log admin activity
-      await databaseService.logAdminActivity({
+      await adminRepository.logAdminActivity({
         adminAddress: params.adminAddress || 'system',
         actionType: 'manual_mint',
         actionDescription: `Minted ${params.amount} RCN to customer: ${params.reason}`,
@@ -221,7 +228,7 @@ export class AdminService {
       // const result = await this.tokenMinter.pause();
       
       // Log admin activity
-      await databaseService.logAdminActivity({
+      await adminRepository.logAdminActivity({
         adminAddress: adminAddress || 'system',
         actionType: 'contract_pause',
         actionDescription: 'Paused RepairCoin contract',
@@ -251,7 +258,7 @@ export class AdminService {
       // const result = await this.tokenMinter.unpause();
       
       // Log admin activity
-      await databaseService.logAdminActivity({
+      await adminRepository.logAdminActivity({
         adminAddress: adminAddress || 'system',
         actionType: 'contract_unpause',
         actionDescription: 'Unpaused RepairCoin contract',
@@ -275,7 +282,7 @@ export class AdminService {
 
   async approveShop(shopId: string, adminAddress?: string) {
     try {
-      const shop = await databaseService.getShop(shopId);
+      const shop = await shopRepository.getShop(shopId);
       if (!shop) {
         throw new Error('Shop not found');
       }
@@ -284,7 +291,7 @@ export class AdminService {
         throw new Error('Shop already verified');
       }
 
-      await databaseService.updateShop(shopId, {
+      await shopRepository.updateShop(shopId, {
         verified: true,
         active: true,
         lastActivity: new Date().toISOString()
@@ -296,7 +303,7 @@ export class AdminService {
       });
 
       // Log admin activity
-      await databaseService.logAdminActivity({
+      await adminRepository.logAdminActivity({
         adminAddress: adminAddress || 'system',
         actionType: 'shop_approval',
         actionDescription: `Approved shop: ${shop.name}`,
@@ -326,7 +333,7 @@ export class AdminService {
 
   async getFailedWebhooks(limit: number = 20) {
     try {
-      const failedWebhooks = await databaseService.getFailedWebhooks(limit);
+      const failedWebhooks = await webhookRepository.getFailedWebhooks(limit);
       
       return {
         webhooks: failedWebhooks,
@@ -373,7 +380,7 @@ export class AdminService {
   // Helper methods for getting counts
   private async getTotalCustomersCount(): Promise<number> {
     try {
-      const result = await databaseService.getCustomersPaginated({
+      const result = await customerRepository.getCustomersPaginated({
         page: 1,
         limit: 1
       });
@@ -386,7 +393,7 @@ export class AdminService {
   private async getTotalShopsCount(): Promise<number> {
     try {
       // Count only active and verified shops (matching Active Shops tab)
-      const result = await databaseService.getShopsPaginated({
+      const result = await shopRepository.getShopsPaginated({
         page: 1,
         limit: 1,
         active: true,
@@ -437,7 +444,7 @@ export class AdminService {
   private async getTotalTokensMinted(): Promise<number> {
     try {
       // Use a method from databaseService or create a new one
-      const stats = await databaseService.getPlatformStatistics();
+      const stats = await adminRepository.getPlatformStatistics();
       return stats.totalTokensIssued || 0;
     } catch (error) {
       logger.error('Error getting total tokens minted:', error);
@@ -447,7 +454,7 @@ export class AdminService {
 
   private async getTotalRedemptions(): Promise<number> {
     try {
-      const stats = await databaseService.getPlatformStatistics();
+      const stats = await adminRepository.getPlatformStatistics();
       return stats.totalRedemptions || 0;
     } catch (error) {
       logger.error('Error getting total redemptions:', error);
@@ -505,7 +512,7 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
   }> {
     try {
       // Check various system components
-      const dbHealth = await databaseService.healthCheck();
+      const dbHealth = await customerRepository.healthCheck();
       
       // Could check other services too:
       // - Redis connectivity
@@ -614,13 +621,13 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
       logger.info('Admin creating shop', { shopId: shopData.shopId });
 
       // Check if shop ID already exists
-      const existingShop = await databaseService.getShop(shopData.shopId);
+      const existingShop = await shopRepository.getShop(shopData.shopId);
       if (existingShop) {
         throw new Error('Shop ID already exists');
       }
 
       // Check if wallet address is already used
-      const existingShops = await databaseService.getShopsPaginated({ limit: 1000 });
+      const existingShops = await shopRepository.getShopsPaginated({ page: 1, limit: 1000 });
       const shopWithWallet = existingShops.items.find(s => 
         s.walletAddress?.toLowerCase() === shopData.walletAddress.toLowerCase()
       );
@@ -649,7 +656,7 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
         location: shopData.location
       };
 
-      const result = await databaseService.createShop(dbShopData);
+      const result = await shopRepository.createShop(dbShopData);
 
       logger.info('Shop created by admin', {
         shopId: shopData.shopId,
@@ -714,19 +721,19 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
 
   async suspendCustomer(customerAddress: string, reason?: string, adminAddress?: string) {
     try {
-      const customer = await databaseService.getCustomer(customerAddress);
+      const customer = await customerRepository.getCustomer(customerAddress);
       if (!customer) {
         throw new Error('Customer not found');
       }
 
-      await databaseService.updateCustomer(customerAddress, {
+      await customerRepository.updateCustomer(customerAddress, {
         isActive: false,
         suspendedAt: new Date().toISOString(),
         suspensionReason: reason
       });
 
       // Log admin activity
-      await databaseService.logAdminActivity({
+      await adminRepository.logAdminActivity({
         adminAddress: adminAddress || 'system',
         actionType: 'customer_suspension',
         actionDescription: `Suspended customer: ${reason || 'No reason provided'}`,
@@ -754,19 +761,19 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
 
   async unsuspendCustomer(customerAddress: string, adminAddress?: string) {
     try {
-      const customer = await databaseService.getCustomer(customerAddress);
+      const customer = await customerRepository.getCustomer(customerAddress);
       if (!customer) {
         throw new Error('Customer not found');
       }
 
-      await databaseService.updateCustomer(customerAddress, {
+      await customerRepository.updateCustomer(customerAddress, {
         isActive: true,
         suspendedAt: null,
         suspensionReason: null
       });
 
       // Log admin activity
-      await databaseService.logAdminActivity({
+      await adminRepository.logAdminActivity({
         adminAddress: adminAddress || 'system',
         actionType: 'customer_unsuspension',
         actionDescription: 'Unsuspended customer',
@@ -792,19 +799,19 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
 
   async suspendShop(shopId: string, reason?: string, adminAddress?: string) {
     try {
-      const shop = await databaseService.getShop(shopId);
+      const shop = await shopRepository.getShop(shopId);
       if (!shop) {
         throw new Error('Shop not found');
       }
 
-      await databaseService.updateShop(shopId, {
+      await shopRepository.updateShop(shopId, {
         active: false,
         suspendedAt: new Date().toISOString(),
         suspensionReason: reason
       });
 
       // Log admin activity
-      await databaseService.logAdminActivity({
+      await adminRepository.logAdminActivity({
         adminAddress: adminAddress || 'system',
         actionType: 'shop_suspension',
         actionDescription: `Suspended shop: ${reason || 'No reason provided'}`,
@@ -835,19 +842,19 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
 
   async unsuspendShop(shopId: string, adminAddress?: string) {
     try {
-      const shop = await databaseService.getShop(shopId);
+      const shop = await shopRepository.getShop(shopId);
       if (!shop) {
         throw new Error('Shop not found');
       }
 
-      await databaseService.updateShop(shopId, {
+      await shopRepository.updateShop(shopId, {
         active: true,
         suspendedAt: null,
         suspensionReason: null
       });
 
       // Log admin activity
-      await databaseService.logAdminActivity({
+      await adminRepository.logAdminActivity({
         adminAddress: adminAddress || 'system',
         actionType: 'shop_unsuspension',
         actionDescription: 'Unsuspended shop',
@@ -874,7 +881,7 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
 
   async updateShop(shopId: string, updates: any, adminAddress?: string) {
     try {
-      const shop = await databaseService.getShop(shopId);
+      const shop = await shopRepository.getShop(shopId);
       if (!shop) {
         throw new Error('Shop not found');
       }
@@ -882,10 +889,10 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
       // Filter out protected fields that shouldn't be updated directly
       const { shopId: _, walletAddress: __, ...safeUpdates } = updates;
 
-      await databaseService.updateShop(shopId, safeUpdates);
+      await shopRepository.updateShop(shopId, safeUpdates);
 
       // Log admin activity
-      await databaseService.logAdminActivity({
+      await adminRepository.logAdminActivity({
         adminAddress: adminAddress || 'system',
         actionType: 'shop_update',
         actionDescription: 'Updated shop details',
@@ -899,7 +906,7 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
 
       logger.info('Shop updated', { shopId, updates: safeUpdates, adminAddress });
 
-      const updatedShop = await databaseService.getShop(shopId);
+      const updatedShop = await shopRepository.getShop(shopId);
       return {
         success: true,
         message: 'Shop updated successfully',
@@ -913,7 +920,7 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
 
   async verifyShop(shopId: string, adminAddress?: string) {
     try {
-      const shop = await databaseService.getShop(shopId);
+      const shop = await shopRepository.getShop(shopId);
       if (!shop) {
         throw new Error('Shop not found');
       }
@@ -922,14 +929,14 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
         throw new Error('Shop already verified');
       }
 
-      await databaseService.updateShop(shopId, {
+      await shopRepository.updateShop(shopId, {
         verified: true,
         verifiedAt: new Date().toISOString(),
         verifiedBy: adminAddress
       });
 
       // Log admin activity
-      await databaseService.logAdminActivity({
+      await adminRepository.logAdminActivity({
         adminAddress: adminAddress || 'system',
         actionType: 'shop_verification',
         actionDescription: 'Verified shop',
@@ -952,6 +959,157 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
       };
     } catch (error) {
       logger.error('Shop verification error:', error);
+      throw error;
+    }
+  }
+
+  async getUnsuspendRequests(filters: { status?: string; entityType?: string }) {
+    try {
+      const requests = await adminRepository.getUnsuspendRequests(filters);
+      
+      // Enrich with entity details
+      const enrichedRequests = await Promise.all(
+        requests.map(async (request) => {
+          let entityDetails = null;
+          
+          if (request.entityType === 'customer') {
+            const customer = await customerRepository.getCustomer(request.entityId);
+            entityDetails = customer ? {
+              name: customer.name,
+              email: customer.email,
+              address: customer.address
+            } : null;
+          } else if (request.entityType === 'shop') {
+            const shop = await shopRepository.getShop(request.entityId);
+            entityDetails = shop ? {
+              name: shop.name,
+              email: shop.email,
+              shopId: shop.shopId
+            } : null;
+          }
+          
+          return {
+            ...request,
+            entityDetails
+          };
+        })
+      );
+      
+      return {
+        requests: enrichedRequests,
+        count: enrichedRequests.length
+      };
+    } catch (error) {
+      logger.error('Error getting unsuspend requests:', error);
+      throw new Error('Failed to retrieve unsuspend requests');
+    }
+  }
+
+  async approveUnsuspendRequest(requestId: number, adminAddress?: string, notes?: string) {
+    try {
+      const request = await adminRepository.getUnsuspendRequest(requestId);
+      if (!request) {
+        throw new Error('Request not found');
+      }
+
+      if (request.status !== 'pending') {
+        throw new Error('Request has already been processed');
+      }
+
+      // Update request status
+      await adminRepository.updateUnsuspendRequest(requestId, {
+        status: 'approved',
+        reviewedAt: new Date().toISOString(),
+        reviewedBy: adminAddress,
+        reviewNotes: notes
+      });
+
+      // Unsuspend the entity
+      if (request.entityType === 'customer') {
+        await this.unsuspendCustomer(request.entityId, adminAddress);
+      } else if (request.entityType === 'shop') {
+        await this.unsuspendShop(request.entityId, adminAddress);
+      }
+
+      // Log admin activity
+      await adminRepository.logAdminActivity({
+        adminAddress: adminAddress || 'system',
+        actionType: 'unsuspend_request_approved',
+        actionDescription: `Approved unsuspend request for ${request.entityType}`,
+        entityType: 'unsuspend_request',
+        entityId: requestId.toString(),
+        metadata: { 
+          entityType: request.entityType,
+          entityId: request.entityId,
+          notes 
+        }
+      });
+
+      logger.info('Unsuspend request approved', { requestId, adminAddress });
+
+      return {
+        success: true,
+        message: `${request.entityType} unsuspension approved`,
+        request: {
+          id: requestId,
+          entityType: request.entityType,
+          entityId: request.entityId,
+          status: 'approved'
+        }
+      };
+    } catch (error) {
+      logger.error('Error approving unsuspend request:', error);
+      throw error;
+    }
+  }
+
+  async rejectUnsuspendRequest(requestId: number, adminAddress?: string, notes?: string) {
+    try {
+      const request = await adminRepository.getUnsuspendRequest(requestId);
+      if (!request) {
+        throw new Error('Request not found');
+      }
+
+      if (request.status !== 'pending') {
+        throw new Error('Request has already been processed');
+      }
+
+      // Update request status
+      await adminRepository.updateUnsuspendRequest(requestId, {
+        status: 'rejected',
+        reviewedAt: new Date().toISOString(),
+        reviewedBy: adminAddress,
+        reviewNotes: notes
+      });
+
+      // Log admin activity
+      await adminRepository.logAdminActivity({
+        adminAddress: adminAddress || 'system',
+        actionType: 'unsuspend_request_rejected',
+        actionDescription: `Rejected unsuspend request for ${request.entityType}`,
+        entityType: 'unsuspend_request',
+        entityId: requestId.toString(),
+        metadata: { 
+          entityType: request.entityType,
+          entityId: request.entityId,
+          notes 
+        }
+      });
+
+      logger.info('Unsuspend request rejected', { requestId, adminAddress });
+
+      return {
+        success: true,
+        message: `Unsuspend request rejected`,
+        request: {
+          id: requestId,
+          entityType: request.entityType,
+          entityId: request.entityId,
+          status: 'rejected'
+        }
+      };
+    } catch (error) {
+      logger.error('Error rejecting unsuspend request:', error);
       throw error;
     }
   }

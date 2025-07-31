@@ -103,6 +103,19 @@ router.post('/shops/:shopId/verify',
   asyncHandler(adminController.verifyShop.bind(adminController))
 );
 
+// Unsuspend requests management
+router.get('/unsuspend-requests',
+  asyncHandler(adminController.getUnsuspendRequests.bind(adminController))
+);
+
+router.post('/unsuspend-requests/:requestId/approve',
+  asyncHandler(adminController.approveUnsuspendRequest.bind(adminController))
+);
+
+router.post('/unsuspend-requests/:requestId/reject',
+  asyncHandler(adminController.rejectUnsuspendRequest.bind(adminController))
+);
+
 // Webhook management
 router.get('/webhooks/failed', 
   asyncHandler(adminController.getFailedWebhooks.bind(adminController))

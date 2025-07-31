@@ -1,10 +1,10 @@
-import { databaseService } from '../../../services/DatabaseService';
+import { shopRepository, transactionRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
 
 export class ShopService {
   async updateTokenStats(shopId: string, amount: number, type: 'minted' | 'redeemed'): Promise<void> {
     try {
-      const shop = await databaseService.getShop(shopId);
+      const shop = await shopRepository.getShop(shopId);
       if (!shop) {
         logger.warn(`Shop not found for stats update: ${shopId}`);
         return;
@@ -20,7 +20,7 @@ export class ShopService {
         updates.totalRedemptions = shop.totalRedemptions + amount;
       }
 
-      await databaseService.updateShop(shopId, updates);
+      await shopRepository.updateShop(shopId, updates);
       
       logger.info(`Shop stats updated`, {
         shopId,

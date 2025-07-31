@@ -124,9 +124,34 @@ export default function CustomerDashboard() {
             </div>
           )}
           <button 
-            onClick={() => {
-              // TODO: Implement request unsuspend feature
-              alert('Request unsuspend feature coming soon. Please contact support.');
+            onClick={async () => {
+              const reason = prompt('Please provide a reason for your unsuspend request:');
+              if (!reason || reason.trim().length === 0) {
+                alert('Please provide a reason for your request');
+                return;
+              }
+
+              try {
+                const response = await fetch(`/api/customers/${address}/request-unsuspend`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`
+                  },
+                  body: JSON.stringify({ reason })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                  alert('Your unsuspend request has been submitted successfully. An admin will review it soon.');
+                } else {
+                  alert(data.error || 'Failed to submit unsuspend request');
+                }
+              } catch (error) {
+                console.error('Error submitting unsuspend request:', error);
+                alert('Failed to submit unsuspend request. Please try again.');
+              }
             }}
             className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
           >

@@ -1,5 +1,5 @@
 // backend/src/services/CustomerService.ts
-import { databaseService } from "../../../services/DatabaseService";
+import { customerRepository, transactionRepository, shopRepository, adminRepository } from "../../../repositories";
 import { TokenMinter } from '../../../contracts/TokenMinter';
 import { TierManager, CustomerData } from '../../../contracts/TierManager';
 import { logger } from '../../../utils/logger';
@@ -51,7 +51,7 @@ export class CustomerService {
 
   async getCustomerDetails(address: string) {
     try {
-      const customer = await databaseService.getCustomer(address);
+      const customer = await customerRepository.getCustomer(address);
       if (!customer) {
         throw new Error('Customer not found');
       }
@@ -84,7 +84,7 @@ export class CustomerService {
   async registerCustomer(data: CustomerRegistrationData) {
     try {
       // Check if customer already exists
-      const existingCustomer = await databaseService.getCustomer(data.walletAddress);
+      const existingCustomer = await customerRepository.getCustomer(data.walletAddress);
       if (existingCustomer) {
         throw new Error('Customer already registered');
       }
@@ -99,7 +99,7 @@ export class CustomerService {
         data.fixflowCustomerId
       );
 
-      await databaseService.createCustomer(newCustomer);
+      await customerRepository.createCustomer(newCustomer);
 
       logger.info('New customer registered', {
         address: data.walletAddress,
@@ -117,7 +117,7 @@ export class CustomerService {
   async updateCustomer(address: string, updates: CustomerUpdateData, requestingUserAddress?: string, userRole?: string) {
     try {
       // Check if customer exists
-      const customer = await databaseService.getCustomer(address);
+      const customer = await customerRepository.getCustomer(address);
       if (!customer) {
         throw new Error('Customer not found');
       }
@@ -132,7 +132,7 @@ export class CustomerService {
       if (updates.email !== undefined) customerUpdates.email = updates.email;
       if (updates.phone !== undefined) customerUpdates.phone = updates.phone;
 
-      await databaseService.updateCustomer(address, customerUpdates);
+      await customerRepository.updateCustomer(address, customerUpdates);
 
       logger.info('Customer updated', {
         address,
@@ -152,7 +152,7 @@ export class CustomerService {
   async getTransactionHistory(address: string, limit: number = 50, type?: string, requestingUserAddress?: string, userRole?: string) {
     try {
       // Check if customer exists
-      const customer = await databaseService.getCustomer(address);
+      const customer = await customerRepository.getCustomer(address);
       if (!customer) {
         throw new Error('Customer not found');
       }
@@ -220,7 +220,7 @@ export class CustomerService {
   ) {
     try {
       // Check if customer exists
-      const customer = await databaseService.getCustomer(address);
+      const customer = await customerRepository.getCustomer(address);
       if (!customer) {
         throw new Error('Customer not found');
       }
@@ -248,10 +248,10 @@ export class CustomerService {
 
       // Update customer data
       const newTier = this.getTierManager().calculateTier(customer.lifetimeEarnings + amount);
-      await databaseService.updateCustomerAfterEarning(address, amount, newTier);
+      await customerRepository.updateCustomerAfterEarning(address, amount, newTier);
 
       // Record transaction
-      await databaseService.recordTransaction({
+      await transactionRepository.recordTransaction({
         id: `admin_mint_${Date.now()}`,
         type: 'mint',
         customerAddress: address.toLowerCase(),
@@ -284,12 +284,12 @@ export class CustomerService {
 
   async checkRedemptionEligibility(params: RedemptionCheckParams) {
     try {
-      const customer = await databaseService.getCustomer(params.customerAddress);
+      const customer = await customerRepository.getCustomer(params.customerAddress);
       if (!customer) {
         throw new Error('Customer not found');
       }
 
-      const shop = await databaseService.getShop(params.shopId);
+      const shop = await shopRepository.getShop(params.shopId);
       if (!shop) {
         throw new Error('Shop not found');
       }
@@ -345,7 +345,7 @@ export class CustomerService {
 
   async deactivateCustomer(address: string, reason: string, adminAddress?: string) {
     try {
-      const customer = await databaseService.getCustomer(address);
+      const customer = await customerRepository.getCustomer(address);
       if (!customer) {
         throw new Error('Customer not found');
       }
@@ -354,7 +354,7 @@ export class CustomerService {
         throw new Error('Customer already inactive');
       }
 
-      await databaseService.updateCustomer(address, {
+      await customerRepository.updateCustomer(address, {
         isActive: false
       });
 
@@ -372,8 +372,56 @@ export class CustomerService {
       throw error;
     }
   }
+
+  async requestUnsuspend(address: string, reason: string) {
+    try {
+      const customer = await customerRepository.getCustomer(address);
+      if (!customer) {
+        throw new Error('Customer not found');
+      }
+
+      if (customer.isActive) {
+        throw new Error('Customer is not suspended');
+      }
+
+      // Check if there's already a pending request
+      const existingRequests = await adminRepository.getUnsuspendRequests({
+        entityType: 'customer',
+        status: 'pending'
+      });
+
+      // Filter for this specific customer
+      const customerRequests = existingRequests.filter(r => r.entityId === address);
+
+      if (customerRequests.length > 0) {
+        throw new Error('You already have a pending unsuspend request');
+      }
+
+      // Create unsuspend request
+      const request = await adminRepository.createUnsuspendRequest({
+        entityType: 'customer',
+        entityId: address,
+        requestReason: reason,
+        status: 'pending'
+      });
+
+      logger.info('Unsuspend request created', {
+        customerAddress: address,
+        requestId: request.id
+      });
+
+      return {
+        success: true,
+        message: 'Your unsuspend request has been submitted for review',
+        requestId: request.id
+      };
+    } catch (error) {
+      logger.error('Error creating unsuspend request:', error);
+      throw error;
+    }
+  }
    async ensureCustomerExists(walletAddress: string): Promise<CustomerData> {
-    let customer = await databaseService.getCustomer(walletAddress);
+    let customer = await customerRepository.getCustomer(walletAddress);
     
     if (!customer) {
       // Auto-create customer if they don't exist
@@ -386,9 +434,9 @@ export class CustomerService {
 
    async updateReferralCount(walletAddress: string): Promise<void> {
     try {
-      const customer = await databaseService.getCustomer(walletAddress);
+      const customer = await customerRepository.getCustomer(walletAddress);
       if (customer) {
-        await databaseService.updateCustomer(walletAddress, {
+        await customerRepository.updateCustomer(walletAddress, {
           referralCount: customer.referralCount + 1
         });
         

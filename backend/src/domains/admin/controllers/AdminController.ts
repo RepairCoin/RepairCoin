@@ -288,4 +288,61 @@ export class AdminController {
       }
     }
   }
+
+  async getUnsuspendRequests(req: Request, res: Response) {
+    try {
+      const { status = 'pending', entityType } = req.query;
+      
+      const result = await this.adminService.getUnsuspendRequests({
+        status: status as string,
+        entityType: entityType as string
+      });
+      
+      ResponseHelper.success(res, result);
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message, 500);
+    }
+  }
+
+  async approveUnsuspendRequest(req: Request, res: Response) {
+    try {
+      const { requestId } = req.params;
+      const { notes } = req.body;
+      
+      const result = await this.adminService.approveUnsuspendRequest(
+        parseInt(requestId),
+        req.user?.address,
+        notes
+      );
+      
+      ResponseHelper.success(res, result, 'Unsuspend request approved');
+    } catch (error: any) {
+      if (error.message === 'Request not found') {
+        ResponseHelper.error(res, error.message, 404);
+      } else {
+        ResponseHelper.error(res, error.message, 400);
+      }
+    }
+  }
+
+  async rejectUnsuspendRequest(req: Request, res: Response) {
+    try {
+      const { requestId } = req.params;
+      const { notes } = req.body;
+      
+      const result = await this.adminService.rejectUnsuspendRequest(
+        parseInt(requestId),
+        req.user?.address,
+        notes
+      );
+      
+      ResponseHelper.success(res, result, 'Unsuspend request rejected');
+    } catch (error: any) {
+      if (error.message === 'Request not found') {
+        ResponseHelper.error(res, error.message, 404);
+      } else {
+        ResponseHelper.error(res, error.message, 400);
+      }
+    }
+  }
 }
