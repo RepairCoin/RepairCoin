@@ -256,7 +256,7 @@ export const validate = (fieldName: string, ruleName: keyof typeof ValidationRul
         throw new Error(`Unknown validation rule: ${ruleName}`);
       }
       
-      const result = rule(value, ...ruleParams);
+      const result = rule(value, ...(ruleParams as any[]));
       
       if (!result.isValid) {
         const error = new ValidationError(`Validation failed for ${fieldName}: ${result.errors.join(', ')}`);
@@ -305,7 +305,7 @@ export const validateFields = (validationMap: { [fieldName: string]: { rule: key
           continue;
         }
         
-        const result = rule(value, ...(validation.params || []));
+        const result = rule(value, ...(validation.params || [] as any[]));
         
         if (!result.isValid) {
           errors.push(`${fieldName}: ${result.errors.join(', ')}`);
@@ -429,7 +429,7 @@ export const validateFileUpload = (options: {
 }) => {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
-      const file = req.file;
+      const file = (req as any).file;
       
       if (options.required && !file) {
         return next(new ValidationError('File upload is required'));
