@@ -1,7 +1,7 @@
 // backend/src/services/DatabaseService.ts - PostgreSQL Version
 import { Pool, PoolClient } from 'pg';
 import { logger } from '../utils/logger';
-import { CustomerData, TierLevel } from '../../../contracts/TierManager';
+import { CustomerData, TierLevel } from '../contracts/TierManager';
 
 // Re-export CustomerData for use in other modules
 export { CustomerData, TierLevel };

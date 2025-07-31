@@ -22,8 +22,7 @@
   },
   "include": [
     "src/**/*",
-    "src/types/**/*",
-    "../contracts/**/*"
+    "src/types/**/*"
   ],
   "exclude": [
     "node_modules",

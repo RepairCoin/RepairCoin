@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { databaseService } from '../../../services/DatabaseService';
-import { TokenMinter } from '../../../../../contracts/TokenMinter';
+import { TokenMinter } from '../contracts/TokenMinter';
 import jwt from 'jsonwebtoken';
 
 const router = Router();

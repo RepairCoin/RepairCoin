@@ -1,6 +1,6 @@
 // backend/src/handlers/webhookHandlers.ts
-import { TokenMinter } from "../../../contracts/TokenMinter";
-import { TierManager } from "../../../contracts/TierManager";
+import { TokenMinter } from "../contracts/TokenMinter";
+import { TierManager } from "../contracts/TierManager";
 import { databaseService, TransactionRecord } from "../services/DatabaseService"
 import { logger } from "../utils/logger";
 

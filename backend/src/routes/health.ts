@@ -1,7 +1,7 @@
 // backend/src/routes/health.ts
 import { Router, Request, Response } from 'express';
 import { databaseService } from "../services/DatabaseService";
-import { TokenMinter } from '../../../contracts/TokenMinter';
+import { TokenMinter } from '../contracts/TokenMinter';
 import { ResponseHelper } from '../utils/responseHelper';
 import { asyncHandler } from '../middleware/errorHandler';
 
