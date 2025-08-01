@@ -2,10 +2,10 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import HowAndWhy from "@/containers/landing-page/HowAndWhy";
-import FindARepairCoin from "@/containers/landing-page/FindARepairCoin";
-import SuccessStories from "@/containers/landing-page/SuccessStories";
-import LatestNews from "@/containers/landing-page/LatestNews";
+import HowAndWhy from "@/components/landing/HowAndWhy";
+import FindARepairCoin from "@/components/landing/FindARepairCoin";
+import SuccessStories from "@/components/landing/SuccessStories";
+import LatestNews from "@/components/landing/LatestNews";
 import CommunityBanner from "@/components/CommunityBanner";
 import Hero from "@/components/Hero";
 import { useAuth } from "@/hooks/useAuth";

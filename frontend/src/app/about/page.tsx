@@ -1,6 +1,6 @@
-import Hero from "@/containers/about-page/Hero";
-import SecondSection from "@/containers/about-page/SecondSection";
-import ThirdSection from "@/containers/about-page/ThirdSection";
+import Hero from "@/components/about/Hero";
+import SecondSection from "@/components/about/SecondSection";
+import ThirdSection from "@/components/about/ThirdSection";
 import CommunityBanner from "@/components/CommunityBanner";
 
 export default function About() {
