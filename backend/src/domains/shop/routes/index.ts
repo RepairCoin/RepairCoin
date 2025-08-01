@@ -1,6 +1,6 @@
 // backend/src/routes/shops.ts
 import { Router, Request, Response } from 'express';
-import { requireRole, requireShopOrAdmin, requireShopOwnership } from '../../../middleware/auth';
+import { authMiddleware, requireRole, requireShopOrAdmin, requireShopOwnership } from '../../../middleware/auth';
 import { validateRequired, validateEthereumAddress, validateEmail, validateNumeric } from '../../../middleware/errorHandler';
 import { 
   shopRepository, 
@@ -897,6 +897,208 @@ router.put('/:shopId/reimbursement-address',
       res.status(500).json({
         success: false,
         error: 'Failed to update reimbursement address'
+      });
+    }
+  }
+);
+
+// Issue reward to customer
+router.post('/:shopId/issue-reward',
+  authMiddleware,
+  requireShopOrAdmin,
+  requireShopOwnership,
+  validateRequired(['customerAddress', 'repairAmount']),
+  validateEthereumAddress('customerAddress'),
+  validateNumeric('repairAmount', 1, 100000),
+  async (req: Request, res: Response) => {
+    try {
+      const { shopId } = req.params;
+      const { customerAddress, repairAmount, skipTierBonus = false } = req.body;
+      
+      const shop = await shopRepository.getShop(shopId);
+      if (!shop) {
+        return res.status(404).json({
+          success: false,
+          error: 'Shop not found'
+        });
+      }
+
+      if (!shop.active || !shop.verified) {
+        return res.status(400).json({
+          success: false,
+          error: 'Shop must be active and verified to issue rewards'
+        });
+      }
+
+      const customer = await customerRepository.getCustomer(customerAddress);
+      if (!customer) {
+        return res.status(404).json({
+          success: false,
+          error: 'Customer not found'
+        });
+      }
+
+      if (!customer.isActive) {
+        return res.status(400).json({
+          success: false,
+          error: 'Cannot issue rewards to suspended customers'
+        });
+      }
+
+      // Calculate base reward based on repair amount
+      let baseReward = 0;
+      if (repairAmount >= 100) {
+        baseReward = 25;
+      } else if (repairAmount >= 50) {
+        baseReward = 10;
+      } else {
+        return res.status(400).json({
+          success: false,
+          error: 'Repair amount must be at least $50 to earn rewards'
+        });
+      }
+
+      // Get tier bonus based on customer tier
+      let tierBonus = 0;
+      switch (customer.tier) {
+        case 'BRONZE':
+          tierBonus = 10;
+          break;
+        case 'SILVER':
+          tierBonus = 20;
+          break;
+        case 'GOLD':
+          tierBonus = 30;
+          break;
+      }
+      const totalReward = skipTierBonus ? baseReward : baseReward + tierBonus;
+
+      // Check shop has sufficient balance
+      const shopBalance = shop.purchasedRcnBalance || 0;
+      if (shopBalance < totalReward) {
+        return res.status(400).json({
+          success: false,
+          error: 'Insufficient shop RCN balance',
+          data: {
+            required: totalReward,
+            available: shopBalance,
+            baseReward,
+            tierBonus: skipTierBonus ? 0 : tierBonus
+          }
+        });
+      }
+
+      // Check customer daily/monthly limits
+      const dailyLimit = 40;
+      const monthlyLimit = 500;
+      
+      if (customer.dailyEarnings + baseReward > dailyLimit) {
+        return res.status(400).json({
+          success: false,
+          error: 'Customer daily earning limit exceeded',
+          data: {
+            dailyLimit,
+            currentDaily: customer.dailyEarnings,
+            attempted: baseReward
+          }
+        });
+      }
+
+      if (customer.monthlyEarnings + baseReward > monthlyLimit) {
+        return res.status(400).json({
+          success: false,
+          error: 'Customer monthly earning limit exceeded',
+          data: {
+            monthlyLimit,
+            currentMonthly: customer.monthlyEarnings,
+            attempted: baseReward
+          }
+        });
+      }
+
+      // Process the reward using mintRepairTokens
+      const tokenMinter = getTokenMinter();
+      const mintResult = await tokenMinter.mintRepairTokens(
+        customerAddress,
+        repairAmount,
+        shop.shopId,
+        customer
+      );
+
+      if (!mintResult.success) {
+        return res.status(400).json({
+          success: false,
+          error: mintResult.message || 'Failed to mint tokens'
+        });
+      }
+
+      // The actual tokens minted (includes tier bonus already)
+      const actualTokensMinted = mintResult.tokensToMint || totalReward;
+
+      // Update shop balance
+      await shopRepository.updateShop(shopId, {
+        purchasedRcnBalance: shopBalance - actualTokensMinted,
+        totalTokensIssued: (shop.totalTokensIssued || 0) + actualTokensMinted
+      });
+
+      // Calculate new tier after earning
+      const updatedLifetimeEarnings = customer.lifetimeEarnings + actualTokensMinted;
+      const newTier = getTierManager().calculateTier(updatedLifetimeEarnings);
+      
+      // Update customer earnings using the correct method
+      await customerRepository.updateCustomerAfterEarning(
+        customerAddress,
+        actualTokensMinted,
+        newTier
+      );
+
+      // Log transaction using the correct method
+      await transactionRepository.recordTransaction({
+        id: `${Date.now()}_${customerAddress}_${shopId}`,
+        type: 'mint',
+        customerAddress,
+        shopId,
+        amount: actualTokensMinted,
+        reason: `Repair reward - $${repairAmount} repair`,
+        transactionHash: mintResult.transactionHash,
+        timestamp: new Date().toISOString(),
+        status: 'confirmed',
+        metadata: {
+          repairAmount,
+          baseReward,
+          tierBonus: skipTierBonus ? 0 : tierBonus
+        }
+      });
+
+      // Tier update is already handled in updateCustomerAfterEarning
+
+      logger.info('Reward issued successfully', {
+        shopId,
+        customerAddress,
+        repairAmount,
+        baseReward,
+        tierBonus: skipTierBonus ? 0 : tierBonus,
+        totalReward: actualTokensMinted,
+        txHash: mintResult.transactionHash || ''
+      });
+
+      res.json({
+        success: true,
+        data: {
+          baseReward,
+          tierBonus: skipTierBonus ? 0 : tierBonus,
+          totalReward: actualTokensMinted,
+          txHash: mintResult.transactionHash || '',
+          customerNewBalance: customer.lifetimeEarnings + actualTokensMinted,
+          shopNewBalance: shopBalance - actualTokensMinted
+        }
+      });
+
+    } catch (error: any) {
+      logger.error('Issue reward error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to issue reward'
       });
     }
   }

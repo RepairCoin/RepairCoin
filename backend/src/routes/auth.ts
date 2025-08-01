@@ -344,4 +344,76 @@ router.post('/admin', async (req, res) => {
   }
 });
 
+/**
+ * Generate shop JWT token
+ * POST /api/auth/shop
+ */
+router.post('/shop', async (req, res) => {
+  try {
+    const { address } = req.body;
+
+    if (!address) {
+      return res.status(400).json({
+        error: 'Wallet address is required'
+      });
+    }
+
+    const normalizedAddress = address.toLowerCase();
+
+    // Check if address belongs to a shop
+    try {
+      const allShops = await shopRepository.getShopsPaginated({ active: true, page: 1, limit: 1000 });
+      const shop = allShops.items.find(s => s.walletAddress?.toLowerCase() === normalizedAddress);
+      
+      if (!shop) {
+        return res.status(403).json({
+          error: 'Address not associated with a shop'
+        });
+      }
+
+      if (!shop.active || !shop.verified) {
+        return res.status(403).json({
+          error: 'Shop must be active and verified to authenticate'
+        });
+      }
+
+      // Generate JWT token for shop
+      const token = generateToken({
+        address: normalizedAddress,
+        role: 'shop',
+        shopId: shop.shopId
+      });
+
+      res.json({
+        success: true,
+        token,
+        user: {
+          id: shop.shopId,
+          shopId: shop.shopId,
+          address: shop.walletAddress,
+          walletAddress: shop.walletAddress,
+          name: shop.name,
+          role: 'shop',
+          active: shop.active,
+          verified: shop.verified,
+          createdAt: shop.joinDate
+        }
+      });
+
+    } catch (error) {
+      logger.error('Error checking shop:', error);
+      return res.status(500).json({
+        error: 'Failed to verify shop'
+      });
+    }
+
+  } catch (error) {
+    logger.error('Error generating shop token:', error);
+    return res.status(500).json({
+      error: 'Internal server error',
+      message: 'Error generating shop token'
+    });
+  }
+});
+
 export default router;

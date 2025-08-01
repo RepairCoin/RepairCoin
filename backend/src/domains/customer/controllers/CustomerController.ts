@@ -202,10 +202,12 @@ export class CustomerController {
       const { address } = req.params;
       const { reason } = req.body;
       
-      // Verify the requesting user is the suspended customer
-      if (req.user?.address?.toLowerCase() !== address.toLowerCase()) {
-        return ResponseHelper.forbidden(res, 'You can only request unsuspension for your own account');
-      }
+      // TODO: Re-enable this check once customer authentication is implemented
+      // Temporarily disabled to allow suspended customers to request unsuspension
+      // // Verify the requesting user is the suspended customer
+      // if (req.user?.address?.toLowerCase() !== address.toLowerCase()) {
+      //   return ResponseHelper.forbidden(res, 'You can only request unsuspension for your own account');
+      // }
       
       const result = await this.customerService.requestUnsuspend(address, reason);
       

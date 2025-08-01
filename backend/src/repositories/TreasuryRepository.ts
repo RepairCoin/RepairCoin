@@ -145,38 +145,29 @@ export class TreasuryRepository extends BaseRepository {
   async getTreasuryData(): Promise<TreasuryData> {
     try {
       const query = `
-        WITH treasury_stats AS (
+        WITH minted_stats AS (
           SELECT 
-            1000000000 as total_supply, -- 1 billion total supply
-            COALESCE(SUM(
-              CASE 
-                WHEN type = 'mint' AND status = 'confirmed' THEN amount 
-                ELSE 0 
-              END
-            ), 0) as total_minted,
-            COALESCE(SUM(
-              CASE 
-                WHEN type = 'shop_purchase' AND status = 'completed' THEN amount 
-                ELSE 0 
-              END
-            ), 0) as total_shop_purchases
-          FROM transactions t
-          LEFT JOIN shop_rcn_purchases s ON t.id = s.id
+            COALESCE(SUM(amount), 0) as total_minted
+          FROM transactions
+          WHERE type = 'mint' AND status = 'confirmed'
         ),
-        revenue_stats AS (
+        shop_purchase_stats AS (
           SELECT 
+            COALESCE(SUM(purchase_amount), 0) as total_sold,
             COALESCE(SUM(amount_paid), 0) as total_revenue,
             COALESCE(AVG(price_per_token), 1.0) as avg_price
           FROM shop_rcn_purchases
           WHERE status = 'completed'
         )
         SELECT 
-          ts.total_supply,
-          ts.total_minted + ts.total_shop_purchases as circulating_supply,
-          ts.total_supply - (ts.total_minted + ts.total_shop_purchases) as available_supply,
-          rs.total_revenue,
-          rs.avg_price
-        FROM treasury_stats ts, revenue_stats rs
+          1000000000 as total_supply, -- 1 billion total supply
+          ms.total_minted,
+          sps.total_sold,
+          sps.total_sold + ms.total_minted as circulating_supply,
+          1000000000 - sps.total_sold as available_supply,
+          sps.total_revenue,
+          sps.avg_price
+        FROM minted_stats ms, shop_purchase_stats sps
       `;
       
       const result = await this.pool.query(query);
@@ -193,6 +184,11 @@ export class TreasuryRepository extends BaseRepository {
       logger.error('Error fetching treasury data:', error);
       throw new Error('Failed to fetch treasury data');
     }
+  }
+
+  // Public query method for custom queries
+  async query(sql: string, params?: any[]) {
+    return this.pool.query(sql, params);
   }
 
   async getRevenueByPeriod(

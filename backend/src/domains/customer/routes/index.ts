@@ -97,9 +97,9 @@ router.post('/:address/deactivate',
 );
 
 // Request unsuspension
+// Note: Temporarily removed auth requirement since suspended customers can't authenticate
+// TODO: Implement proper customer auth flow
 router.post('/:address/request-unsuspend',
-  authMiddleware,
-  requireRole(['customer']),
   validateEthereumAddress('address'),
   validateRequired(['reason']),
   asyncHandler(customerController.requestUnsuspend.bind(customerController))
