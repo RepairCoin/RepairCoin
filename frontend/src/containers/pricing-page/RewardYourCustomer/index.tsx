@@ -20,7 +20,7 @@ const tiers = [
       "Lorem ipsum dolor sit amet",
       "Lorem ipsum dolor sit amet",
     ],
-    character: "/bronze-character.png", // You'll need to add this image
+    character: "/pr1.png", // You'll need to add this image
   },
   {
     name: "Silver Partner",
@@ -36,7 +36,7 @@ const tiers = [
       "Lorem ipsum dolor sit amet",
       "Lorem ipsum dolor sit amet",
     ],
-    character: "/silver-character.png", // You'll need to add this image
+    character: "/pr2.png", // You'll need to add this image
   },
   {
     name: "Gold Partner",
@@ -51,7 +51,7 @@ const tiers = [
       "Lorem ipsum dolor sit amet",
       "Lorem ipsum dolor sit amet",
     ],
-    character: "/gold-character.png", // You'll need to add this image
+    character: "/pr3.png", // You'll need to add this image
   },
 ];
 
@@ -130,10 +130,8 @@ const RewardYourCustomer: React.FC<RewardYourCustomerProps> = ({
                       <div className="relative h-48 mb-6">
                         <div className="absolute inset-0 flex items-center justify-center">
                           {/* Placeholder for character image */}
-                          <div className="text-6xl">
-                            {index === 0 && "👩‍💼"}
-                            {index === 1 && "👨‍💼"}
-                            {index === 2 && "🧑‍💼"}
+                          <div className="pb-4">
+                            <img src={tier.character} alt="" />
                           </div>
                         </div>
                       </div>
