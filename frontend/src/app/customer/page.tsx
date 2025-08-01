@@ -222,15 +222,14 @@ export default function CustomerDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
+    <div className="min-h-screen py-8 bg-[#0D0D0D]" style={{ backgroundImage: `url('/cus-dash-chain.png')` }}>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="bg-white rounded-2xl shadow-xl p-6 mb-8 border border-gray-100">
+        <div className="relative p-6 mb-8 backdrop-blur-sm">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="text-2xl">👤</div>
-                <h1 className="text-2xl font-bold text-gray-900">Customer Dashboard</h1>
+            <div className='flex items-center gap-3 mb-2'>
+              <div className="flex items-center w-[80px] h-[80px] p-2 gap-3 mb-2">
+                <img src="/avatar1.png" alt="" />
               </div>
               <p className="text-gray-600 mb-2">Welcome back, {customerData?.name || 'Customer'}!</p>
               <p className="text-gray-500 text-sm font-mono bg-gray-50 px-3 py-1 rounded-lg inline-block">
@@ -238,9 +237,8 @@ export default function CustomerDashboard() {
               </p>
             </div>
             <div className="mt-4 sm:mt-0">
-              <ConnectButton 
+              <ConnectButton
                 client={client}
-                theme="light"
                 connectModal={{ size: "compact" }}
               />
             </div>
@@ -392,7 +390,7 @@ export default function CustomerDashboard() {
         )}
 
         {/* How to Earn More */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+        {/* <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
           <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">How to Earn More RCN</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
@@ -423,7 +421,7 @@ export default function CustomerDashboard() {
               </p>
             </div>
           </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );
