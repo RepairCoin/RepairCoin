@@ -6,9 +6,10 @@ import { useRouter } from "next/navigation";
 import { ConnectButton } from "thirdweb/react";
 import Section from "./Section";
 import { useAuth } from "@/hooks/useAuth";
+import Spinner from "./Spinner";
 
 const Header: React.FC = () => {
-  const { account, isAuthenticated } = useAuth();
+  const { account, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -128,7 +129,7 @@ const Header: React.FC = () => {
 
                 {/* Auth Buttons */}
                 {
-                  account?.address ? (
+                  account?.address && !isLoading ? (
                     <div className="flex justify-center items-center">
                       <div className="flex bg-white items-center w-12 h-12 border-2 p-1 border-gray-500 rounded-full space-x-2">
                         <img src="/avatar1.png" className="w-full h-full rounded-full" alt="" />
@@ -144,9 +145,10 @@ const Header: React.FC = () => {
                     <div className="flex items-center space-x-4">
                       <button
                         onClick={handleModalOpen}
-                        className="text-gray-900 bg-yellow-400 hover:bg-yellow-500 px-5 py-2.5 rounded-full text-sm font-medium border border-white transition-all duration-200 hover:shadow-lg hover:shadow-yellow-500/20"
+                        disabled={isLoading}
+                        className="text-gray-900 bg-yellow-400 hover:bg-yellow-500 px-5 py-2.5 rounded-full text-sm font-medium border border-white transition-all duration-200 hover:shadow-lg hover:shadow-yellow-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[90px]"
                       >
-                        Log In
+                        {isLoading ? <Spinner className="w-5 h-5" /> : "Log In"}
                       </button>
                     </div>
                   )
@@ -178,9 +180,10 @@ const Header: React.FC = () => {
                   <div className="pt-2 space-y-3">
                     <button
                       onClick={() => setIsModalOpen(true)}
-                      className="block w-full px-4 py-3 text-base font-medium text-center text-white hover:bg-gray-700/50 rounded-lg transition-colors duration-200"
+                      disabled={isLoading}
+                      className="block w-full px-4 py-3 text-base font-medium text-center text-white hover:bg-gray-700/50 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                     >
-                      Log In
+                      {isLoading ? <Spinner className="w-5 h-5" /> : "Log In"}
                     </button>
                     <a
                       href="#"
