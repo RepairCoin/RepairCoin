@@ -262,7 +262,7 @@ export default function CustomerDashboard() {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {/* RCN Balance Card */}
-          <div className="bg-gray-900 rounded-2xl p-6 shadow-lg flex justify-between items-center">
+          <div className="bg-gradient-to-r from-black to-[#3C3C3C] rounded-2xl p-6 shadow-lg flex justify-between items-center">
             <div>
               <p className="text-yellow-400 text-sm font-medium mb-1">RCN Balance</p>
               <p className="text-white text-2xl font-bold">{earnedBalanceData?.totalBalance || customerData?.currentBalance || 0} RCN</p>
@@ -296,7 +296,7 @@ export default function CustomerDashboard() {
           </div>
 
           {/* Customer Tier Card */}
-          <div className="bg-gray-900 rounded-2xl p-6 shadow-lg flex justify-between items-center">
+          <div className="bg-gradient-to-r from-black to-[#3C3C3C] rounded-2xl p-6 shadow-lg flex justify-between items-center">
             <div>
               <p className="text-yellow-400 text-sm font-medium mb-1">Your Tier Level</p>
               <p className="text-white text-2xl font-bold">{customerData?.tier || 'SILVER'}</p>
@@ -328,7 +328,7 @@ export default function CustomerDashboard() {
           </div>
 
           {/* Total Repairs Card */}
-          <div className="bg-gray-900 rounded-2xl p-6 shadow-lg flex justify-between items-center">
+          <div className="bg-gradient-to-r from-black to-[#3C3C3C] rounded-2xl p-6 shadow-lg flex justify-between items-center">
             <div>
               <p className="text-yellow-400 text-sm font-medium mb-1">Total Repairs</p>
               <p className="text-white text-2xl font-bold">{customerData?.lifetimeEarnings || 0}</p>
@@ -358,7 +358,7 @@ export default function CustomerDashboard() {
         {/* Earnings Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           {/* Token Summary Card */}
-          <div className="bg-gray-900 rounded-2xl p-6 shadow-lg">
+          <div className="rounded-2xl p-6 shadow-lg" style={{ backgroundImage: `url(/tier-benefits.png)`, backgroundSize: "cover", }}>
             <div className="flex justify-between items-start mb-6">
               <h3 className="text-yellow-400 text-lg font-bold">Token Summary</h3>
             </div>
@@ -386,7 +386,7 @@ export default function CustomerDashboard() {
           </div>
 
           {/* Tier Benefits Card */}
-          <div className="bg-gray-900 rounded-2xl p-6 shadow-lg">
+          <div className="rounded-2xl p-6 shadow-lg" style={{ backgroundImage: `url(/tier-benefits.png)`, backgroundSize: "cover", }}>
             <div className="flex justify-between items-start mb-6">
               <h3 className="text-yellow-400 text-lg font-bold">Tier Benefits</h3>
             </div>
@@ -456,46 +456,37 @@ export default function CustomerDashboard() {
           </div>
         )}
 
-        {/* Banner */}
-        <div
-          className="w-full mx-auto bg-black/70 rounded-2xl overflow-hidden my-40"
-          style={{ backgroundImage: `url('/banner-chain.png')` }}
+        {/* How to Earn More RepairCoin Section */}
+        <div 
+          className="my-36 bg-gradient-to-b from-[#1A1A1A] to-[#2A2A2A] rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow"
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 px-8 pt-12">
-            {/* Left Column - Content */}
-            <div className="flex flex-col justify-between pb-12">
-              {/* Logo and Tagline */}
-              <div className="flex flex-col space-x-3 mb-8">
-                <div>
-                  <img
-                    src="/community-logo.png"
-                    alt="RepairCoin Logo"
-                    className="h-10 w-auto"
-                  />
-                </div>
-                <span className="text-[#FFCC00] text-sm font-medium">
-                  The Repair Industry's Loyalty Coin
-                </span>
+          <h2 className="text-3xl tracking-wide font-bold text-white my-6 text-center">How to Earn More RepairCoin</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            {/* Refer Friends Card */}
+            <div className="rounded-2xl p-6">
+              <div className="w-full h-48 mb-4 flex items-center justify-center overflow-hidden rounded-2xl">
+                <img src="/story1.png" alt="Refer Friends" className="w-full h-full object-contain" />
               </div>
-
-              {/* Main Heading */}
-              <p className="text-xl md:text-3xl font-bold text-white leading-tight">
-                Join the Growing Community!{" "}
-                <span className="text-[#FFCC00]">Earning</span> while
-                repairing.
-              </p>
-
-              {/* CTA Button */}
-              <button className="bg-[#FFCC00] hover:bg-yellow-400 text-gray-900 font-semibold px-8 py-3 rounded-full transition-all duration-300 transform hover:scale-105 w-max">
-                Sign Up Now <span className="ml-2 text-sm md:text-lg">→</span>
-              </button>
+              <h3 className="text-[#FFCC00] text-lg font-semibold mb-2 text-center tracking-wide">Refer Friends</h3>
+              <p className="text-gray-300 text-sm tracking-wide">Earn 25 RCN for each successful referral. New customers get 10 RCN bonus. No limit on referrals.</p>
             </div>
 
-            {/* Right Column - Placeholder for Image/Illustration */}
-            <div className="flex items-center justify-center">
-              <div className="relative w-full h-64 md:h-80 rounded-xl flex items-center justify-center">
-                <img src="/people.png" alt="Community Banner" />
+            {/* Complete Repairs Card */}
+            <div className="rounded-2xl p-6">
+              <div className="w-full h-48 mb-4 flex items-center justify-center overflow-hidden rounded-2xl">
+                <img src="/whatWeDo3.png" alt="Complete Repairs" className="w-full h-full object-contain" />
               </div>
+              <h3 className="text-[#FFCC00] text-lg font-semibold mb-2 text-center tracking-wide">Complete Repairs</h3>
+              <p className="text-gray-300 text-sm tracking-wide">Earn 10 RCN for $50-99 repairs. Earn 25 RCN for $100+ repairs. Plus tier bonuses!</p>
+            </div>
+
+            {/* Upgrade Your Tier Card */}
+            <div className="rounded-2xl p-6">
+              <div className="w-full h-48 mb-4 flex items-center justify-center overflow-hidden rounded-2xl">
+                <img src="/customer-avatar.png" alt="Upgrade Your Tier" className="w-full h-full object-contain" />
+              </div>
+              <h3 className="text-[#FFCC00] text-lg font-semibold mb-2 text-center tracking-wide">Upgrade Your Tier</h3>
+              <p className="text-gray-300 text-sm tracking-wide">Bronze: 0-99 RCN Earned. Silver: 100-499 RCN Earned. Gold: 500+ RCN Earned.</p>
             </div>
           </div>
         </div>
