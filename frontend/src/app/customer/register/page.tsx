@@ -14,7 +14,7 @@ const client = createThirdwebClient({
 });
 
 export default function CustomerRegistration() {
-  const account = useActiveAccount();
+  const account = "fwbkfjweflkwefkwejflwkejflkwj"
   const { refreshProfile } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -129,26 +129,26 @@ export default function CustomerRegistration() {
     }
   };
 
-  if (!account) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-          <div className="text-center">
-            <div className="text-6xl mb-6">👤</div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">Customer Registration</h1>
-            <p className="text-gray-600 mb-8">
-              Connect your wallet to register as a customer
-            </p>
-            <ConnectButton
-              client={client}
-              theme="light"
-              connectModal={{ size: "wide" }}
-            />
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // if (!account) {
+  //   return (
+  //     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+  //       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+  //         <div className="text-center">
+  //           <div className="text-6xl mb-6">👤</div>
+  //           <h1 className="text-3xl font-bold text-gray-900 mb-4">Customer Registration</h1>
+  //           <p className="text-gray-600 mb-8">
+  //             Connect your wallet to register as a customer
+  //           </p>
+  //           <ConnectButton
+  //             client={client}
+  //             theme="light"
+  //             connectModal={{ size: "wide" }}
+  //           />
+  //         </div>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div
@@ -176,8 +176,8 @@ export default function CustomerRegistration() {
               <p className="text-lg font-bold text-[#FFCC00] mb-4">
                 Personal Information
               </p>
-              <div className="flex w-full gap-32">
-                <div className="w-1/2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-24">
+                <div>
                   <input
                     type="text"
                     name="name"
@@ -188,7 +188,7 @@ export default function CustomerRegistration() {
                   />
                 </div>
 
-                <div className="w-1/2">
+                <div>
                   <input
                     type="email"
                     name="email"
@@ -209,8 +209,8 @@ export default function CustomerRegistration() {
               <p className="text-lg font-bold text-[#FFCC00] mb-4">
                 Referral (Optional)
               </p>
-              <div className="flex w-full gap-32">
-                <div className="w-1/2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-24">
+                <div>
                   <input
                     type="text"
                     name="referralCode"
@@ -224,7 +224,7 @@ export default function CustomerRegistration() {
                   </p>
                 </div>
                 {/* Submit Button */}
-                <div className="w-1/2">
+                <div>
                   <button
                     type="submit"
                     disabled={loading}

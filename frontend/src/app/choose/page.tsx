@@ -67,14 +67,14 @@ export default function ChoosePage() {
   };
 
   // Check for existing registrations when wallet connects
-  useEffect(() => {
-    if (account?.address && !isAuthenticated) {
-      console.log("Checking existing registrations for:", account.address);
-      checkExistingRegistrations(account.address);
-    } else {
-      router.push("/");
-    }
-  }, [account?.address, isAuthenticated]);
+  // useEffect(() => {
+  //   if (account?.address && !isAuthenticated) {
+  //     console.log("Checking existing registrations for:", account.address);
+  //     checkExistingRegistrations(account.address);
+  //   } else {
+  //     router.push("/");
+  //   }
+  // }, [account?.address, isAuthenticated]);
 
   // Auto-redirect authenticated users to their appropriate dashboard
   // useEffect(() => {
