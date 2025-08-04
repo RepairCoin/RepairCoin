@@ -1,10 +1,10 @@
-import RewardYourCustomer from "@/containers/pricing-page/RewardYourCustomer";
-import LoyaltyTier from "@/containers/pricing-page/LoyaltyTier";
+import RewardYourCustomer from "@/components/pricing/RewardYourCustomer";
+import LoyaltyTier from "@/components/pricing/LoyaltyTier";
 import CommunityBanner from "@/components/CommunityBanner";
 
 export default function PricingPage() {
   return (
-    <main>
+    <main>  
       <RewardYourCustomer techBgImage="/tech-bg.png" />
       <LoyaltyTier techBgImage="/tech-bg.png" />
       <CommunityBanner 
