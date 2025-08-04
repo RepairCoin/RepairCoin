@@ -4,10 +4,10 @@ import { useState, useEffect } from "react";
 import { ConnectButton, useReadContract } from "thirdweb/react";
 import { getContract, createThirdwebClient } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
-import { useAuth } from "../../hooks/useAuth";
-import { useRouter } from "next/navigation";
-import { SimpleUnsuspendModal } from "../../components/SimpleUnsuspendModal";
-import CommunityBanner from "@/components/CommunityBanner";
+import { useAuth } from '../../hooks/useAuth';
+import { useRouter } from 'next/navigation';
+import { SimpleUnsuspendModal } from '../../components/SimpleUnsuspendModal';
+import { ReferralDashboard } from '../../components/customer/ReferralDashboard';
 
 const client = createThirdwebClient({
   clientId:
@@ -62,6 +62,7 @@ export default function CustomerDashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showUnsuspendModal, setShowUnsuspendModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'referrals'>('overview');
 
   // Read token balance from contract
   const { data: tokenBalance, isLoading: balanceLoading } = useReadContract({
@@ -308,7 +309,46 @@ export default function CustomerDashboard() {
           </div>
         </div>
 
-        {/* Stats Grid */}
+        {/* Tab Navigation */}
+        <div className="bg-white rounded-2xl shadow-xl p-2 mb-8 border border-gray-100">
+          <div className="flex space-x-2">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
+                activeTab === 'overview'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              Overview
+            </button>
+            <button
+              onClick={() => setActiveTab('transactions')}
+              className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
+                activeTab === 'transactions'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              Transactions
+            </button>
+            <button
+              onClick={() => setActiveTab('referrals')}
+              className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
+                activeTab === 'referrals'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              Referrals
+            </button>
+          </div>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'overview' && (
+          <>
+            {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {/* RCN Balance Card */}
           <div className="bg-gradient-to-r from-black to-[#3C3C3C] rounded-2xl px-6 py-4 shadow-lg flex justify-between items-center">
@@ -809,6 +849,54 @@ export default function CustomerDashboard() {
             </div>
           </div>
         </div>
+          </>
+        )}
+
+        {/* Transactions Tab */}
+        {activeTab === 'transactions' && (
+          <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Transaction History</h2>
+            {loading ? (
+              <div className="animate-pulse space-y-4">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="h-16 bg-gray-200 rounded-lg"></div>
+                ))}
+              </div>
+            ) : transactions.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-5xl mb-4">📋</div>
+                <p className="text-gray-500">No transactions yet</p>
+                <p className="text-sm text-gray-400 mt-2">
+                  Start earning RCN by visiting participating repair shops!
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {transactions.map((transaction) => (
+                  <div key={transaction.id} className="flex justify-between items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">{transaction.description}</p>
+                      <p className="text-sm text-gray-500">
+                        {transaction.shopName && `${transaction.shopName} • `}
+                        {new Date(transaction.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className={`font-bold ${
+                      transaction.type === 'redeemed' ? 'text-red-600' : 'text-green-600'
+                    }`}>
+                      {transaction.type === 'redeemed' ? '-' : '+'}{transaction.amount} RCN
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Referrals Tab */}
+        {activeTab === 'referrals' && (
+          <ReferralDashboard />
+        )}
       </div>
     </div>
   );

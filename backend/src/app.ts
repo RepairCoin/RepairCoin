@@ -27,6 +27,7 @@ import { monitoringService } from './services/MonitoringService';
 import healthRoutes from './routes/health';
 import metricsRoutes from './routes/metrics';
 import authRoutes from './routes/auth';
+import referralRoutes from './routes/referral';
 
 // Middleware imports
 import { metricsMiddleware } from './utils/metrics';
@@ -150,6 +151,9 @@ class RepairCoinApp {
     
     // Authentication routes
     this.app.use('/api/auth', authRoutes);
+    
+    // Referral routes
+    this.app.use('/api/referrals', referralRoutes);
     
     // Domain routes
     const routes = domainRegistry.getRoutes();

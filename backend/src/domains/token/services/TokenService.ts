@@ -2,6 +2,7 @@
   import { TokenMinter, MintResult } from '../../../contracts/TokenMinter';
   import { TierManager, CustomerData } from '../../../contracts/TierManager';
   import { customerRepository, shopRepository, transactionRepository } from '../../../repositories';
+  import { ReferralRepository } from '../../../repositories/ReferralRepository';
   import { logger } from '../../../utils/logger';
 
   export interface TokenEarningRequest {
@@ -41,6 +42,11 @@
   export class TokenService {
     private tokenMinter: TokenMinter | null = null;
     private tierManager: TierManager | null = null;
+    private referralRepository: ReferralRepository;
+
+    constructor() {
+      this.referralRepository = new ReferralRepository();
+    }
 
     private getTokenMinter(): TokenMinter {
       if (!this.tokenMinter) {
@@ -113,6 +119,25 @@
               newTier: result.newTier
             }
           });
+
+          // Track RCN source
+          await this.referralRepository.recordRcnSource({
+            customerAddress: customerAddress.toLowerCase(),
+            sourceType: 'shop_repair',
+            sourceShopId: shopId,
+            amount: result.tokensToMint,
+            transactionId: `repair_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+            transactionHash: result.transactionHash,
+            isRedeemable: true,
+            metadata: {
+              repairAmount,
+              oldTier: customer.tier,
+              newTier: result.newTier
+            }
+          });
+
+          // Update customer's home shop
+          await this.referralRepository.updateCustomerHomeShop(customerAddress.toLowerCase());
 
           logger.transaction('Repair earning processed successfully', {
             customerAddress,
@@ -425,6 +450,130 @@
       } catch (error: any) {
         logger.error('Error getting token statistics:', error);
         throw new Error('Failed to retrieve token statistics');
+      }
+    }
+
+    // General purpose token minting with source tracking
+    async mintTokens(
+      customerAddress: string,
+      amount: number,
+      reason: string,
+      sourceType: 'shop_repair' | 'referral_bonus' | 'tier_bonus' | 'promotion' = 'promotion',
+      shopId?: string,
+      metadata?: any
+    ): Promise<MintResult> {
+      try {
+        logger.transaction('Processing token mint', {
+          customerAddress,
+          amount,
+          reason,
+          sourceType,
+          shopId
+        });
+
+        // Get customer
+        const customer = await customerRepository.getCustomer(customerAddress);
+        if (!customer) {
+          return {
+            success: false,
+            error: 'Customer not found'
+          };
+        }
+
+        // Validate operation
+        const validation = await this.validateTokenOperation('mint', customerAddress, amount);
+        if (!validation.isValid) {
+          return {
+            success: false,
+            error: validation.error
+          };
+        }
+
+        // Mint tokens using TokenMinter private method via repair tokens
+        // Since mintTokens is private, we use a workaround
+        const result = await (this.getTokenMinter() as any).mintTokens(
+          customerAddress,
+          amount,
+          `manual_${sourceType}_${Date.now()}`
+        );
+
+        if (result.success) {
+          // Calculate new tier
+          const newTier = this.getTierManager().calculateTier(customer.lifetimeEarnings + amount);
+
+          // Update customer
+          await customerRepository.updateCustomerAfterEarning(customerAddress, amount, newTier);
+
+          // Record transaction
+          const transactionId = `mint_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+          await transactionRepository.recordTransaction({
+            id: transactionId,
+            type: 'mint',
+            customerAddress: customerAddress.toLowerCase(),
+            shopId: shopId || 'system',
+            amount,
+            reason,
+            transactionHash: result.transactionHash || '',
+            timestamp: new Date().toISOString(),
+            status: 'confirmed',
+            metadata: {
+              sourceType,
+              ...metadata
+            }
+          });
+
+          // Track RCN source
+          await this.referralRepository.recordRcnSource({
+            customerAddress: customerAddress.toLowerCase(),
+            sourceType,
+            sourceShopId: shopId,
+            amount,
+            transactionId,
+            transactionHash: result.transactionHash,
+            isRedeemable: true, // All minted tokens are redeemable
+            metadata: {
+              reason,
+              ...metadata
+            }
+          });
+
+          // Update home shop if shop-based earning
+          if (shopId && sourceType === 'shop_repair') {
+            await this.referralRepository.updateCustomerHomeShop(customerAddress.toLowerCase());
+          }
+
+          logger.transaction('Token mint processed successfully', {
+            customerAddress,
+            amount,
+            sourceType,
+            transactionHash: result.transactionHash
+          });
+
+          return {
+            ...result,
+            newTier: newTier as string
+          };
+        }
+
+        return result;
+
+      } catch (error: any) {
+        logger.error('Error minting tokens:', error);
+        return {
+          success: false,
+          error: `Failed to mint tokens: ${error.message}`
+        };
+      }
+    }
+
+    // Get customer balance (earned vs total)
+    async getBalance(customerAddress: string): Promise<number> {
+      try {
+        const balance = await this.getTokenMinter().getCustomerBalance(customerAddress);
+        return balance || 0;
+      } catch (error) {
+        logger.error('Error getting balance:', error);
+        return 0;
       }
     }
 

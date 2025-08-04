@@ -4,12 +4,14 @@ import { TokenMinter } from '../../../contracts/TokenMinter';
 import { TierManager, CustomerData } from '../../../contracts/TierManager';
 import { logger } from '../../../utils/logger';
 import { RoleValidator } from '../../../utils/roleValidator';
+import { ReferralService } from '../../../services/ReferralService';
 
 export interface CustomerRegistrationData {
   walletAddress: string;
   email?: string;
   phone?: string;
   fixflowCustomerId?: string;
+  referralCode?: string;
 }
 
 export interface CustomerUpdateData {
@@ -34,6 +36,11 @@ export interface CustomerAnalyticsResult {
 export class CustomerService {
   private tokenMinter: TokenMinter | null = null;
   private tierManager: TierManager | null = null;
+  private referralService: ReferralService;
+
+  constructor() {
+    this.referralService = new ReferralService();
+  }
 
   private getTokenMinter(): TokenMinter {
     if (!this.tokenMinter) {
@@ -101,10 +108,33 @@ export class CustomerService {
 
       await customerRepository.createCustomer(newCustomer);
 
+      // Process referral if code provided
+      if (data.referralCode) {
+        try {
+          const referralResult = await this.referralService.processReferral(
+            data.referralCode,
+            data.walletAddress,
+            newCustomer
+          );
+          
+          if (!referralResult.success) {
+            logger.warn('Referral processing failed', {
+              reason: referralResult.message,
+              referralCode: data.referralCode,
+              customerAddress: data.walletAddress
+            });
+          }
+        } catch (referralError) {
+          // Log error but don't fail registration
+          logger.error('Error processing referral:', referralError);
+        }
+      }
+
       logger.info('New customer registered', {
         address: data.walletAddress,
         email: data.email,
-        fixflowCustomerId: data.fixflowCustomerId
+        fixflowCustomerId: data.fixflowCustomerId,
+        withReferral: !!data.referralCode
       });
 
       return newCustomer;

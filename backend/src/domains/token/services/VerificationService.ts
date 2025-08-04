@@ -1,5 +1,6 @@
 // backend/src/domains/token/services/VerificationService.ts
 import { customerRepository, shopRepository, transactionRepository } from '../../../repositories';
+import { ReferralRepository } from '../../../repositories/ReferralRepository';
 import { logger } from '../../../utils/logger';
 
 export interface VerificationResult {
@@ -54,6 +55,11 @@ export interface EarningSources {
  * - Market-bought RCN cannot be redeemed at any shop
  */
 export class VerificationService {
+  private referralRepository: ReferralRepository;
+
+  constructor() {
+    this.referralRepository = new ReferralRepository();
+  }
   /**
    * Verify if a customer can redeem RCN at a specific shop
    */
@@ -163,17 +169,31 @@ export class VerificationService {
         throw new Error('Customer not found');
       }
 
-      // Calculate earned balance from transaction history
-      const earnedBalance = await this.calculateEarnedBalance(customerAddress);
+      // Get RCN breakdown from ReferralRepository
+      const rcnBreakdown = await this.referralRepository.getCustomerRcnBySource(customerAddress);
       
-      // Total balance includes everything
-      const totalBalance = customer.lifetimeEarnings || 0;
+      // Get redemptions to calculate current balance
+      const transactions = await transactionRepository.getTransactionsByCustomer(customerAddress, 1000);
+      let totalRedeemed = 0;
       
-      // Market balance is the difference
-      const marketBalance = Math.max(0, totalBalance - earnedBalance);
+      for (const tx of transactions) {
+        if (tx.type === 'redeem') {
+          totalRedeemed += tx.amount;
+        }
+      }
+      
+      // Calculate balances
+      const earnedBalance = Math.max(0, rcnBreakdown.earned - totalRedeemed);
+      const totalBalance = earnedBalance + rcnBreakdown.marketBought;
+      const marketBalance = rcnBreakdown.marketBought;
 
-      // Get earning breakdown
-      const earningHistory = await this.getEarningBreakdown(customerAddress);
+      // Get earning breakdown by type
+      const earningHistory = {
+        fromRepairs: rcnBreakdown.byType['shop_repair'] || 0,
+        fromReferrals: rcnBreakdown.byType['referral_bonus'] || 0,
+        fromBonuses: rcnBreakdown.byType['promotion'] || 0,
+        fromTierBonuses: rcnBreakdown.byType['tier_bonus'] || 0
+      };
 
       return {
         earnedBalance,
@@ -305,22 +325,22 @@ export class VerificationService {
    */
   private async calculateEarnedBalance(customerAddress: string): Promise<number> {
     try {
-      // Get all mint transactions for this customer
-      const transactions = await transactionRepository.getTransactionsByCustomer(customerAddress, 1000);
+      // Use the new ReferralRepository to get accurate earned balance
+      const rcnBreakdown = await this.referralRepository.getCustomerRcnBySource(customerAddress);
       
-      let earnedBalance = 0;
-
+      // Get redemptions to subtract from earned balance
+      const transactions = await transactionRepository.getTransactionsByCustomer(customerAddress, 1000);
+      let totalRedeemed = 0;
+      
       for (const tx of transactions) {
-        // Only count mints from shops (not market purchases)
-        if (tx.type === 'mint' && tx.shopId && tx.shopId !== 'market') {
-          earnedBalance += tx.amount;
-        }
-        // Subtract redemptions
-        else if (tx.type === 'redeem') {
-          earnedBalance -= tx.amount;
+        if (tx.type === 'redeem') {
+          totalRedeemed += tx.amount;
         }
       }
-
+      
+      // Earned balance is all redeemable RCN minus redemptions
+      const earnedBalance = rcnBreakdown.earned - totalRedeemed;
+      
       return Math.max(0, earnedBalance);
 
     } catch (error) {
@@ -383,8 +403,8 @@ export class VerificationService {
    */
   private async isCustomerHomeShop(customerAddress: string, shopId: string): Promise<boolean> {
     try {
-      const earningSources = await this.getEarningSources(customerAddress);
-      return earningSources.summary.primaryShop === shopId;
+      const homeShop = await this.referralRepository.getHomeShop(customerAddress);
+      return homeShop === shopId;
 
     } catch (error) {
       logger.error('Error determining home shop:', error);
