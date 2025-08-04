@@ -34,7 +34,8 @@ export class CustomerRepository extends BaseRepository {
         referralCount: row.referral_count,
         fixflowCustomerId: row.fixflow_customer_id,
         suspendedAt: row.suspended_at,
-        suspensionReason: row.suspension_reason
+        suspensionReason: row.suspension_reason,
+        referralCode: row.referral_code
       };
     } catch (error) {
       logger.error('Error fetching customer:', error);

@@ -8,6 +8,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { SimpleUnsuspendModal } from '../../components/SimpleUnsuspendModal';
 import { ReferralDashboard } from '../../components/customer/ReferralDashboard';
+import { Toaster } from 'react-hot-toast';
 
 const client = createThirdwebClient({
   clientId:
@@ -249,15 +250,17 @@ export default function CustomerDashboard() {
   }
 
   return (
-    <div
-      className="min-h-screen py-8 bg-[#0D0D0D]"
-      style={{ 
-        backgroundImage: `url('/cus-dash-chain.png')`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-      }}
-    >
+    <>
+      <Toaster position="top-right" />
+      <div
+        className="min-h-screen py-8 bg-[#0D0D0D]"
+        style={{ 
+          backgroundImage: `url('/cus-dash-chain.png')`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
+      >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="relative p-6 mb-8">
@@ -899,5 +902,6 @@ export default function CustomerDashboard() {
         )}
       </div>
     </div>
+    </>
   );
 }

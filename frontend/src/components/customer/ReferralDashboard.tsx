@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAccount } from 'thirdweb/react';
+import { useActiveAccount } from 'thirdweb/react';
 import { toast } from 'react-hot-toast';
 
 interface ReferralData {
@@ -33,7 +33,7 @@ interface ReferralData {
 }
 
 export function ReferralDashboard() {
-  const account = useAccount();
+  const account = useActiveAccount();
   const [referralData, setReferralData] = useState<ReferralData | null>(null);
   const [loading, setLoading] = useState(true);
   const [copying, setCopying] = useState(false);
@@ -50,20 +50,11 @@ export function ReferralDashboard() {
 
     try {
       setLoading(true);
-      const token = localStorage.getItem('customerAuthToken');
       
-      // Fetch referral stats and RCN breakdown
+      // Fetch referral stats and RCN breakdown using wallet address
       const [statsResponse, breakdownResponse] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/referrals/stats`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/referrals/rcn-breakdown`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/referrals/stats/${account.address}`),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/referrals/rcn-breakdown/${account.address}`)
       ]);
 
       if (statsResponse.ok && breakdownResponse.ok) {
@@ -76,10 +67,9 @@ export function ReferralDashboard() {
         
         if (!referralCode) {
           // Generate referral code if not exists
-          const generateResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/referrals/generate`, {
+          const generateResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/referrals/generate/${account.address}`, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             }
           });

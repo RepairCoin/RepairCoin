@@ -20,6 +20,7 @@ export interface CustomerData {
   fixflowCustomerId?: string;
   suspendedAt?: string | null;
   suspensionReason?: string | null;
+  referralCode?: string;
 }
 
 // Single TierBenefits interface with all required properties
