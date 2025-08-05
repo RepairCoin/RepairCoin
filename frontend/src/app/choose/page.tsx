@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function ChoosePage() {
   const { account, isAuthenticated, isLoading, userType, userProfile } =
@@ -67,35 +67,35 @@ export default function ChoosePage() {
   };
 
   // Check for existing registrations when wallet connects
-  useEffect(() => {
-    if (account?.address && !isAuthenticated) {
-      console.log("Checking existing registrations for:", account.address);
-      checkExistingRegistrations(account.address);
-    } else {
-      router.push("/");
-    }
-  }, [account?.address, isAuthenticated]);
+  // useEffect(() => {
+  //   if (account?.address && !isAuthenticated) {
+  //     console.log("Checking existing registrations for:", account.address);
+  //     checkExistingRegistrations(account.address);
+  //   } else {
+  //     router.push("/");
+  //   }
+  // }, [account?.address, isAuthenticated]);
 
   // Auto-redirect authenticated users to their appropriate dashboard
-  useEffect(() => {
-    if (isAuthenticated && userType && !isLoading) {
-      console.log("Redirecting user:", { userType, userProfile });
+  // useEffect(() => {
+  //   if (isAuthenticated && userType && !isLoading) {
+  //     console.log("Redirecting user:", { userType, userProfile });
 
-      switch (userType) {
-        case "admin":
-          router.push("/admin");
-          break;
-        case "shop":
-          router.push("/shop");
-          break;
-        case "customer":
-          router.push("/customer");
-          break;
-        default:
-          console.warn("Unknown user type:", userType);
-      }
-    }
-  }, [isAuthenticated, userType, isLoading, router, userProfile]);
+  //     switch (userType) {
+  //       case "admin":
+  //         router.push("/admin");
+  //         break;
+  //       case "shop":
+  //         router.push("/shop");
+  //         break;
+  //       case "customer":
+  //         router.push("/customer");
+  //         break;
+  //       default:
+  //         console.warn("Unknown user type:", userType);
+  //     }
+  //   }
+  // }, [isAuthenticated, userType, isLoading, router, userProfile]);
 
   // Show loading state
   if (isLoading) {
@@ -115,36 +115,31 @@ export default function ChoosePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div
+      className="min-h-screen pb-10 pt-36 bg-[#0D0D0D]"
+      style={{
+        backgroundImage: `url('/dashboard-bg.png')`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
+      <div className="max-w-screen-2xl w-[70%] mx-auto">
         {/* Header */}
-        <div className="text-center mb-12">
-          <div className="text-6xl mb-6">🔧</div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+        <div className="w-full flex flex-col  items-center md:gap-6 gap-4">
+          <p className="md:text-5xl text-3xl text-center font-bold text-white tracking-wide">
             Welcome to RepairCoin
-          </h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+          </p>
+          <p className="text-white text-xs md:text-base mb-6 xl:w-2/3 md:w-2/4 text-center tracking-wide">
             Choose how you'd like to join our blockchain-powered repair
             ecosystem
           </p>
         </div>
 
-        {/* Wallet Info */}
-        <div className="bg-white rounded-2xl shadow-xl p-6 mb-8 border border-gray-100">
-          <div className="text-center">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Connected Wallet
-            </h3>
-            <p className="text-sm font-mono text-gray-600 bg-gray-50 px-4 py-2 rounded-lg inline-block">
-              {account?.address.slice(0, 6)}...{account?.address.slice(-4)}
-            </p>
-          </div>
-        </div>
-
         {/* Registration Options */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 my-8">
           {/* Customer Registration */}
-          <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 hover:shadow-2xl transition-shadow h-full">
+          <div className="rounded-2xl shadow-xl hover:shadow-2xl transition-shadow h-full">
             <div className="text-center h-full flex flex-col">
               {checkingApplications ? (
                 <>
@@ -235,44 +230,94 @@ export default function ChoosePage() {
                   </div>
                 </>
               ) : (
-                <>
-                  <div className="text-5xl mb-4">👤</div>
-                  <h3 className="text-2xl font-bold text-gray-900 mb-4">
-                    I'm a Customer
-                  </h3>
-                  <p className="text-gray-600 mb-6 flex-grow">
-                    Start earning RepairCoin tokens for your device repairs and
-                    redeem them for discounts
-                  </p>
-                  <div className="space-y-3 text-sm text-gray-500 mb-6">
-                    <div className="flex items-center justify-center gap-2">
-                      <span className="text-green-500">✓</span>
-                      <span>Earn 10-25 RCN per repair</span>
-                    </div>
-                    <div className="flex items-center justify-center gap-2">
-                      <span className="text-green-500">✓</span>
-                      <span>Redeem tokens for discounts</span>
-                    </div>
-                    <div className="flex items-center justify-center gap-2">
-                      <span className="text-green-500">✓</span>
-                      <span>Access tier benefits</span>
+                <div className="flex flex-col h-full bg-[#1C1C1C] rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                  <div className="relative w-full bg-[#1C1C1C] overflow-hidden">
+                    <div className="w-full pt-[56.25%] relative">
+                      <img
+                        src="/choose-avatar1.png"
+                        alt="Customer"
+                        className="absolute top-0 left-0 w-full h-full object-cover"
+                        loading="lazy"
+                      />
                     </div>
                   </div>
-                  <div className="mt-auto">
-                    <button
-                      onClick={() => router.push("/customer/register")}
-                      className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-4 px-6 rounded-xl transition duration-200 transform hover:scale-105 cursor-pointer"
-                    >
-                      Register as Customer
-                    </button>
+                  <div className="flex flex-col flex-grow p-5 sm:p-6 gap-2">
+                    <p className="text-2xl font-semibold text-white mb-2 sm:mb-3 line-clamp-2">
+                      I'm a Customer
+                    </p>
+                    <p className="text-gray-300 text-xs mb-4 line-clamp-3">
+                      Start earning RepairCoin tokens for your device repairs
+                      and redeem them for discounts
+                    </p>
+                    <div className="flex flex-col mt-4 space-y-3">
+                      <div className="flex items-center gap-3">
+                        <svg
+                          width="25"
+                          height="25"
+                          viewBox="0 0 30 30"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            d="M15 2.8125C8.27988 2.8125 2.8125 8.27988 2.8125 15C2.8125 21.7201 8.27988 27.1875 15 27.1875C21.7201 27.1875 27.1875 21.7201 27.1875 15C27.1875 8.27988 21.7201 2.8125 15 2.8125ZM21.3428 10.9154L13.4678 20.2904C13.3814 20.3933 13.2739 20.4764 13.1526 20.5342C13.0313 20.5919 12.899 20.6229 12.7646 20.625H12.7488C12.6174 20.625 12.4875 20.5973 12.3675 20.5438C12.2475 20.4903 12.14 20.4122 12.0521 20.3145L8.67715 16.5645C8.59144 16.4735 8.52476 16.3664 8.48104 16.2494C8.43732 16.1323 8.41744 16.0077 8.42256 15.8829C8.42769 15.758 8.45771 15.6355 8.51088 15.5224C8.56404 15.4093 8.63928 15.308 8.73215 15.2245C8.82503 15.1409 8.93367 15.0767 9.0517 15.0357C9.16973 14.9947 9.29476 14.9777 9.41945 14.9858C9.54414 14.9938 9.66597 15.0266 9.77777 15.0824C9.88958 15.1382 9.98911 15.2158 10.0705 15.3105L12.7242 18.259L19.9072 9.70957C20.0683 9.52329 20.2963 9.40789 20.5418 9.38833C20.7873 9.36877 21.0307 9.4466 21.2193 9.60502C21.4079 9.76343 21.5265 9.9897 21.5497 10.2349C21.5728 10.4801 21.4984 10.7246 21.3428 10.9154Z"
+                            fill="#FFCC00"
+                          />
+                        </svg>
+                        <span className="text-gray-300">
+                          Earn 10-25 RCN per repair
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <svg
+                          width="25"
+                          height="25"
+                          viewBox="0 0 30 30"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            d="M15 2.8125C8.27988 2.8125 2.8125 8.27988 2.8125 15C2.8125 21.7201 8.27988 27.1875 15 27.1875C21.7201 27.1875 27.1875 21.7201 27.1875 15C27.1875 8.27988 21.7201 2.8125 15 2.8125ZM21.3428 10.9154L13.4678 20.2904C13.3814 20.3933 13.2739 20.4764 13.1526 20.5342C13.0313 20.5919 12.899 20.6229 12.7646 20.625H12.7488C12.6174 20.625 12.4875 20.5973 12.3675 20.5438C12.2475 20.4903 12.14 20.4122 12.0521 20.3145L8.67715 16.5645C8.59144 16.4735 8.52476 16.3664 8.48104 16.2494C8.43732 16.1323 8.41744 16.0077 8.42256 15.8829C8.42769 15.758 8.45771 15.6355 8.51088 15.5224C8.56404 15.4093 8.63928 15.308 8.73215 15.2245C8.82503 15.1409 8.93367 15.0767 9.0517 15.0357C9.16973 14.9947 9.29476 14.9777 9.41945 14.9858C9.54414 14.9938 9.66597 15.0266 9.77777 15.0824C9.88958 15.1382 9.98911 15.2158 10.0705 15.3105L12.7242 18.259L19.9072 9.70957C20.0683 9.52329 20.2963 9.40789 20.5418 9.38833C20.7873 9.36877 21.0307 9.4466 21.2193 9.60502C21.4079 9.76343 21.5265 9.9897 21.5497 10.2349C21.5728 10.4801 21.4984 10.7246 21.3428 10.9154Z"
+                            fill="#FFCC00"
+                          />
+                        </svg>
+                        <span className="text-gray-300">
+                          Redeem tokens for discounts
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <svg
+                          width="25"
+                          height="25"
+                          viewBox="0 0 30 30"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            d="M15 2.8125C8.27988 2.8125 2.8125 8.27988 2.8125 15C2.8125 21.7201 8.27988 27.1875 15 27.1875C21.7201 27.1875 27.1875 21.7201 27.1875 15C27.1875 8.27988 21.7201 2.8125 15 2.8125ZM21.3428 10.9154L13.4678 20.2904C13.3814 20.3933 13.2739 20.4764 13.1526 20.5342C13.0313 20.5919 12.899 20.6229 12.7646 20.625H12.7488C12.6174 20.625 12.4875 20.5973 12.3675 20.5438C12.2475 20.4903 12.14 20.4122 12.0521 20.3145L8.67715 16.5645C8.59144 16.4735 8.52476 16.3664 8.48104 16.2494C8.43732 16.1323 8.41744 16.0077 8.42256 15.8829C8.42769 15.758 8.45771 15.6355 8.51088 15.5224C8.56404 15.4093 8.63928 15.308 8.73215 15.2245C8.82503 15.1409 8.93367 15.0767 9.0517 15.0357C9.16973 14.9947 9.29476 14.9777 9.41945 14.9858C9.54414 14.9938 9.66597 15.0266 9.77777 15.0824C9.88958 15.1382 9.98911 15.2158 10.0705 15.3105L12.7242 18.259L19.9072 9.70957C20.0683 9.52329 20.2963 9.40789 20.5418 9.38833C20.7873 9.36877 21.0307 9.4466 21.2193 9.60502C21.4079 9.76343 21.5265 9.9897 21.5497 10.2349C21.5728 10.4801 21.4984 10.7246 21.3428 10.9154Z"
+                            fill="#FFCC00"
+                          />
+                        </svg>
+                        <span className="text-gray-300">
+                          Access tier benefits
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-8">
+                      <button
+                        onClick={() => router.push("/customer/register")}
+                        className="w-full bg-[#FFCC00] text-black font-semibold py-4 px-6 rounded-xl transition duration-200 transform hover:scale-105 cursor-pointer"
+                      >
+                        Register as Customer
+                      </button>
+                    </div>
                   </div>
-                </>
+                </div>
               )}
             </div>
           </div>
 
           {/* Shop Registration */}
-          <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 hover:shadow-2xl transition-shadow h-full">
+          <div className="rounded-2xl shadow-xl hover:shadow-2xl transition-shadow h-full">
             <div className="text-center h-full flex flex-col">
               {checkingApplications ? (
                 <>
@@ -389,35 +434,87 @@ export default function ChoosePage() {
                 </>
               ) : (
                 <>
-                  <div className="text-5xl mb-4">🏪</div>
-                  <h3 className="text-2xl font-bold text-gray-900 mb-4">
-                    I'm a Repair Shop
-                  </h3>
-                  <p className="text-gray-600 mb-6 flex-grow">
-                    Join our network to offer loyalty tokens to your customers
-                    and boost retention
-                  </p>
-                  <div className="space-y-3 text-sm text-gray-500 mb-6">
-                    <div className="flex items-center justify-center gap-2">
-                      <span className="text-green-500">✓</span>
-                      <span>Purchase RCN at $1 per token</span>
+                  <div className="flex flex-col h-full bg-[#1C1C1C] rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                    <div className="relative w-full bg-[#1C1C1C] overflow-hidden">
+                      <div className="w-full pt-[56.25%] relative">
+                        <img
+                          src="/choose-avatar2.png"
+                          alt="Customer"
+                          className="absolute top-0 left-0 w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      </div>
                     </div>
-                    <div className="flex items-center justify-center gap-2">
-                      <span className="text-green-500">✓</span>
-                      <span>Automatic tier bonuses</span>
+                    <div className="flex flex-col flex-grow p-5 sm:p-6 gap-2">
+                      <p className="text-2xl font-semibold text-white mb-2 sm:mb-3 line-clamp-2">
+                        I’m a Repair Shop Owner
+                      </p>
+                      <p className="text-gray-300 text-xs mb-4 line-clamp-3">
+                        Join our network to offer loyalty tokens to your
+                        customers and boost retentions
+                      </p>
+                      <div className="flex flex-col mt-4 space-y-3">
+                        <div className="flex items-center gap-3">
+                          <svg
+                            width="25"
+                            height="25"
+                            viewBox="0 0 30 30"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M15 2.8125C8.27988 2.8125 2.8125 8.27988 2.8125 15C2.8125 21.7201 8.27988 27.1875 15 27.1875C21.7201 27.1875 27.1875 21.7201 27.1875 15C27.1875 8.27988 21.7201 2.8125 15 2.8125ZM21.3428 10.9154L13.4678 20.2904C13.3814 20.3933 13.2739 20.4764 13.1526 20.5342C13.0313 20.5919 12.899 20.6229 12.7646 20.625H12.7488C12.6174 20.625 12.4875 20.5973 12.3675 20.5438C12.2475 20.4903 12.14 20.4122 12.0521 20.3145L8.67715 16.5645C8.59144 16.4735 8.52476 16.3664 8.48104 16.2494C8.43732 16.1323 8.41744 16.0077 8.42256 15.8829C8.42769 15.758 8.45771 15.6355 8.51088 15.5224C8.56404 15.4093 8.63928 15.308 8.73215 15.2245C8.82503 15.1409 8.93367 15.0767 9.0517 15.0357C9.16973 14.9947 9.29476 14.9777 9.41945 14.9858C9.54414 14.9938 9.66597 15.0266 9.77777 15.0824C9.88958 15.1382 9.98911 15.2158 10.0705 15.3105L12.7242 18.259L19.9072 9.70957C20.0683 9.52329 20.2963 9.40789 20.5418 9.38833C20.7873 9.36877 21.0307 9.4466 21.2193 9.60502C21.4079 9.76343 21.5265 9.9897 21.5497 10.2349C21.5728 10.4801 21.4984 10.7246 21.3428 10.9154Z"
+                              fill="#FFCC00"
+                            />
+                          </svg>
+                          <span className="text-gray-300">
+                            Purchase RCN at $1 per token
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <svg
+                            width="25"
+                            height="25"
+                            viewBox="0 0 30 30"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M15 2.8125C8.27988 2.8125 2.8125 8.27988 2.8125 15C2.8125 21.7201 8.27988 27.1875 15 27.1875C21.7201 27.1875 27.1875 21.7201 27.1875 15C27.1875 8.27988 21.7201 2.8125 15 2.8125ZM21.3428 10.9154L13.4678 20.2904C13.3814 20.3933 13.2739 20.4764 13.1526 20.5342C13.0313 20.5919 12.899 20.6229 12.7646 20.625H12.7488C12.6174 20.625 12.4875 20.5973 12.3675 20.5438C12.2475 20.4903 12.14 20.4122 12.0521 20.3145L8.67715 16.5645C8.59144 16.4735 8.52476 16.3664 8.48104 16.2494C8.43732 16.1323 8.41744 16.0077 8.42256 15.8829C8.42769 15.758 8.45771 15.6355 8.51088 15.5224C8.56404 15.4093 8.63928 15.308 8.73215 15.2245C8.82503 15.1409 8.93367 15.0767 9.0517 15.0357C9.16973 14.9947 9.29476 14.9777 9.41945 14.9858C9.54414 14.9938 9.66597 15.0266 9.77777 15.0824C9.88958 15.1382 9.98911 15.2158 10.0705 15.3105L12.7242 18.259L19.9072 9.70957C20.0683 9.52329 20.2963 9.40789 20.5418 9.38833C20.7873 9.36877 21.0307 9.4466 21.2193 9.60502C21.4079 9.76343 21.5265 9.9897 21.5497 10.2349C21.5728 10.4801 21.4984 10.7246 21.3428 10.9154Z"
+                              fill="#FFCC00"
+                            />
+                          </svg>
+                          <span className="text-gray-300">
+                            Automatic Tier Bonuses
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <svg
+                            width="25"
+                            height="25"
+                            viewBox="0 0 30 30"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M15 2.8125C8.27988 2.8125 2.8125 8.27988 2.8125 15C2.8125 21.7201 8.27988 27.1875 15 27.1875C21.7201 27.1875 27.1875 21.7201 27.1875 15C27.1875 8.27988 21.7201 2.8125 15 2.8125ZM21.3428 10.9154L13.4678 20.2904C13.3814 20.3933 13.2739 20.4764 13.1526 20.5342C13.0313 20.5919 12.899 20.6229 12.7646 20.625H12.7488C12.6174 20.625 12.4875 20.5973 12.3675 20.5438C12.2475 20.4903 12.14 20.4122 12.0521 20.3145L8.67715 16.5645C8.59144 16.4735 8.52476 16.3664 8.48104 16.2494C8.43732 16.1323 8.41744 16.0077 8.42256 15.8829C8.42769 15.758 8.45771 15.6355 8.51088 15.5224C8.56404 15.4093 8.63928 15.308 8.73215 15.2245C8.82503 15.1409 8.93367 15.0767 9.0517 15.0357C9.16973 14.9947 9.29476 14.9777 9.41945 14.9858C9.54414 14.9938 9.66597 15.0266 9.77777 15.0824C9.88958 15.1382 9.98911 15.2158 10.0705 15.3105L12.7242 18.259L19.9072 9.70957C20.0683 9.52329 20.2963 9.40789 20.5418 9.38833C20.7873 9.36877 21.0307 9.4466 21.2193 9.60502C21.4079 9.76343 21.5265 9.9897 21.5497 10.2349C21.5728 10.4801 21.4984 10.7246 21.3428 10.9154Z"
+                              fill="#FFCC00"
+                            />
+                          </svg>
+                          <span className="text-gray-300">
+                            Cross-shop redemption network
+                          </span>
+                        </div>
+                      </div>
+                      <div className="mt-8">
+                        <button
+                          onClick={() => router.push("/shop/register")}
+                          className="w-full bg-[#FFCC00] text-black font-semibold py-4 px-6 rounded-xl transition duration-200 transform hover:scale-105 cursor-pointer"
+                        >
+                          Register as Shop
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-center gap-2">
-                      <span className="text-green-500">✓</span>
-                      <span>Cross-shop redemption network</span>
-                    </div>
-                  </div>
-                  <div className="mt-auto">
-                    <button
-                      onClick={() => router.push("/shop/register")}
-                      className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-4 px-6 rounded-xl transition duration-200 transform hover:scale-105 cursor-pointer"
-                    >
-                      Register as Shop
-                    </button>
                   </div>
                 </>
               )}
@@ -425,33 +522,68 @@ export default function ChoosePage() {
           </div>
         </div>
 
-        {/* How It Works */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-          <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">
-            How RepairCoin Works
+        {/* How to Earn More RepairCoin Section */}
+        <div
+          className="my-28 bg-gradient-to-b from-[#1A1A1A] to-[#2A2A2A] rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow"
+          style={{
+            backgroundImage: `url('/cus-how-to-earn.png')`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+          }}
+        >
+          <h2 className="text-3xl tracking-wide font-bold text-white my-6 text-center">
+            How to Earn More RepairCoin
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="text-center">
-              <div className="text-4xl mb-4">🔧</div>
-              <h3 className="font-bold text-gray-900 mb-3">1. Get Repairs</h3>
-              <p className="text-sm text-gray-600">
-                Customers get their devices repaired at participating shops
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+            {/* Refer Friends Card */}
+            <div className="rounded-2xl p-6">
+              <div className="w-full h-48 mb-4 flex items-center justify-center overflow-hidden rounded-2xl">
+                <img
+                  src="/story1.png"
+                  alt="Refer Friends"
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <h3 className="text-[#FFCC00] text-lg font-semibold mb-2 text-center tracking-wide">
+                1. Get Repairs
+              </h3>
+              <p className="text-gray-300 text-sm tracking-wide text-center">
+                Customers get their devices repaired at participating shops.
               </p>
             </div>
-            <div className="text-center">
-              <div className="text-4xl mb-4">🪙</div>
-              <h3 className="font-bold text-gray-900 mb-3">2. Earn Tokens</h3>
-              <p className="text-sm text-gray-600">
-                Receive RepairCoin (RCN) tokens based on repair value and tier
+
+            {/* Complete Repairs Card */}
+            <div className="rounded-2xl p-6">
+              <div className="w-full h-48 mb-4 flex items-center justify-center overflow-hidden rounded-2xl">
+                <img
+                  src="/whatWeDo3.png"
+                  alt="Complete Repairs"
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <h3 className="text-[#FFCC00] text-lg font-semibold mb-2 text-center tracking-wide">
+                2. Earn Tokens
+              </h3>
+              <p className="text-gray-300 text-sm tracking-wide text-center">
+                Receive RepairCoin tokens based on repair value and tier
               </p>
             </div>
-            <div className="text-center">
-              <div className="text-4xl mb-4">💰</div>
-              <h3 className="font-bold text-gray-900 mb-3">
+
+            {/* Upgrade Your Tier Card */}
+            <div className="rounded-2xl p-6">
+              <div className="w-full h-48 mb-4 flex items-center justify-center overflow-hidden rounded-2xl">
+                <img
+                  src="/customer-avatar.png"
+                  alt="Upgrade Your Tier"
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <h3 className="text-[#FFCC00] text-lg font-semibold mb-2 text-center tracking-wide">
                 3. Redeem Benefits
               </h3>
-              <p className="text-sm text-gray-600">
-                Use tokens for discounts at any participating repair shop
+              <p className="text-gray-300 text-sm tracking-wide text-center">
+                Use tokens for discounts at any participating shop
               </p>
             </div>
           </div>

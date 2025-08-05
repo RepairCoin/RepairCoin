@@ -181,13 +181,13 @@ const Header: React.FC = () => {
                     <button
                       onClick={() => setIsModalOpen(true)}
                       disabled={isLoading}
-                      className="block w-full px-4 py-3 text-base font-medium text-center text-white hover:bg-gray-700/50 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                      className="w-full px-4 py-3 text-base font-medium text-center text-white hover:bg-gray-700/50 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                     >
                       {isLoading ? <Spinner className="w-5 h-5" /> : "Log In"}
                     </button>
                     <a
                       href="#"
-                      className="block w-full px-4 py-3 text-base font-medium text-center text-gray-900 bg-yellow-400 hover:bg-yellow-500 rounded-full border border-white transition-all duration-200 hover:shadow-lg hover:shadow-yellow-500/20"
+                      className="w-full px-4 py-3 text-base font-medium text-center text-gray-900 bg-yellow-400 hover:bg-yellow-500 rounded-full border border-white transition-all duration-200 hover:shadow-lg hover:shadow-yellow-500/20"
                     >
                       Sign Up
                     </a>
