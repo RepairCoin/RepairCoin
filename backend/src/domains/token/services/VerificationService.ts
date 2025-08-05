@@ -102,17 +102,26 @@ export class VerificationService {
       // Determine if this is the customer's home shop (where they earn most RCN)
       const isHomeShop = await this.isCustomerHomeShop(customerAddress, shopId);
 
+      // Define tier-based redemption limits per transaction
+      const tierLimits = {
+        bronze: 10,
+        silver: 20,
+        gold: 30
+      };
+      
+      const maxPerTransaction = tierLimits[customer.tier as keyof typeof tierLimits] || 10;
+
       // Calculate maximum redeemable amount
       let maxRedeemable: number;
       let crossShopLimit = 0;
 
       if (isHomeShop) {
-        // 100% of earned balance can be redeemed at home shop
-        maxRedeemable = earnedBalance;
+        // At home shop: limited by tier per transaction OR earned balance (whichever is lower)
+        maxRedeemable = Math.min(maxPerTransaction, earnedBalance);
       } else {
-        // Only 20% of earned balance can be redeemed at other shops
+        // At other shops: limited by tier, 20% of earned balance, whichever is lower
         crossShopLimit = Math.floor(earnedBalance * 0.2);
-        maxRedeemable = crossShopLimit;
+        maxRedeemable = Math.min(maxPerTransaction, crossShopLimit);
       }
 
       // Check if requested amount can be redeemed
@@ -122,10 +131,19 @@ export class VerificationService {
       if (canRedeem) {
         message = `Redemption approved for ${requestedAmount} RCN`;
       } else if (requestedAmount > maxRedeemable) {
-        if (isHomeShop) {
-          message = `Insufficient earned balance. Maximum redeemable: ${maxRedeemable} RCN`;
+        // Determine which limit is restricting the redemption
+        const tierLimitReached = requestedAmount > maxPerTransaction;
+        const balanceLimitReached = requestedAmount > earnedBalance;
+        const crossShopLimitReached = !isHomeShop && requestedAmount > crossShopLimit;
+        
+        if (tierLimitReached) {
+          message = `${customer.tier.charAt(0).toUpperCase() + customer.tier.slice(1)} tier limit: ${maxPerTransaction} RCN per transaction`;
+        } else if (balanceLimitReached) {
+          message = `Insufficient earned balance. Available: ${earnedBalance} RCN`;
+        } else if (crossShopLimitReached) {
+          message = `Cross-shop limit: ${crossShopLimit} RCN (20% of earned balance)`;
         } else {
-          message = `Cross-shop limit exceeded. Maximum redeemable at this shop: ${maxRedeemable} RCN (20% of earned balance)`;
+          message = `Maximum redeemable: ${maxRedeemable} RCN`;
         }
       } else if (requestedAmount <= 0) {
         message = 'Invalid redemption amount';

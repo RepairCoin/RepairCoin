@@ -58,6 +58,84 @@ export class TokenMinter {
     this.tierManager = new TierManager();
   }
 
+  // Burn tokens when customer redeems at shop
+  async burnTokens(
+    customerAddress: string,
+    amount: number,
+    shopId: string,
+    reason: string = "Shop redemption"
+  ): Promise<MintResult> {
+    try {
+      console.log(`🔥 Burning ${amount} RCN from ${customerAddress} for redemption at ${shopId}`);
+
+      if (!this.isValidAddress(customerAddress)) {
+        return {
+          success: false,
+          message: "Invalid customer address format"
+        };
+      }
+
+      // Check customer balance first
+      const balance = await this.getCustomerBalance(customerAddress);
+      if (balance < amount) {
+        return {
+          success: false,
+          message: `Insufficient balance. Customer has ${balance} RCN, attempting to burn ${amount} RCN`
+        };
+      }
+
+      // Get the contract
+      const contract = getContract({
+        client: this.client,
+        chain: baseSepolia,
+        address: this.contractAddress,
+      });
+
+      // Prepare burn transaction
+      // Note: Standard ERC20 uses "burn" or "burnFrom" function
+      // If using burnFrom, shop would need allowance from customer
+      const burnTx = prepareContractCall({
+        contract,
+        method: "function burn(uint256 amount)",
+        params: [BigInt(amount * 10 ** 18)] // Convert to wei (18 decimals)
+      });
+
+      // Send transaction
+      const result = await sendTransaction({
+        transaction: burnTx,
+        account: this.account,
+      });
+
+      console.log(`✅ Burn successful! Hash: ${result.transactionHash}`);
+
+      return {
+        success: true,
+        tokensToMint: -amount, // Negative to indicate burn
+        transactionHash: result.transactionHash,
+        message: `Successfully burned ${amount} RCN for ${reason}`,
+        timestamp: new Date().toISOString()
+      };
+
+    } catch (error: any) {
+      console.error('❌ Burn error:', error);
+      
+      // Check if it's because burn function doesn't exist
+      if (error.message?.includes('function selector was not recognized')) {
+        return {
+          success: false,
+          error: "Contract does not support burning. Consider tracking redemptions off-chain instead.",
+          message: "Burn function not available in current contract"
+        };
+      }
+      
+      return {
+        success: false,
+        error: error.message || 'Burn failed',
+        message: `Failed to burn ${amount} RCN: ${error.message}`
+      };
+    }
+  }
+
   // Main function: Mint tokens for repair jobs
   async mintRepairTokens(
     customerAddress: string, 

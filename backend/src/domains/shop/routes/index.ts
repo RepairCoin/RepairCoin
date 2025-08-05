@@ -755,8 +755,37 @@ router.post('/:shopId/redeem',
       const currentBalance = await getTokenMinter().getCustomerBalance(customerAddress);
       const isHomeShop = verification.isHomeShop;
 
-      // Process redemption (this would typically burn tokens)
-      // For now, we'll record the transaction
+      // Attempt to burn tokens on blockchain
+      let burnResult;
+      let transactionHash = '';
+      
+      try {
+        burnResult = await getTokenMinter().burnTokens(
+          customerAddress,
+          amount,
+          shopId,
+          `Redemption at ${shop.name}`
+        );
+        
+        if (burnResult.success && burnResult.transactionHash) {
+          transactionHash = burnResult.transactionHash;
+          logger.info('Tokens burned on blockchain', { 
+            customerAddress, 
+            amount, 
+            transactionHash 
+          });
+        } else {
+          // If burn fails (e.g., contract doesn't support it), continue with off-chain tracking
+          logger.warn('Token burn failed or not supported, tracking redemption off-chain', {
+            reason: burnResult.message
+          });
+        }
+      } catch (burnError) {
+        // Don't fail the redemption if burn fails - track off-chain
+        logger.error('Token burn error, continuing with off-chain tracking', burnError);
+      }
+
+      // Record the redemption transaction (whether burn succeeded or not)
       const transactionRecord = {
         id: `redeem_${Date.now()}`,
         type: 'redeem' as const,
@@ -764,7 +793,7 @@ router.post('/:shopId/redeem',
         shopId,
         amount,
         reason: `Redemption at ${shop.name}`,
-        transactionHash: '', // Would have actual burn transaction hash
+        transactionHash, // Will be empty if burn failed
         timestamp: new Date().toISOString(),
         status: 'confirmed' as const,
         metadata: {
@@ -772,7 +801,8 @@ router.post('/:shopId/redeem',
           referralId: undefined,
           engagementType: 'redemption',
           redemptionLocation: shop.name,
-          webhookId: `redeem_${Date.now()}`
+          webhookId: `redeem_${Date.now()}`,
+          burnSuccessful: !!transactionHash
         }
       };
 

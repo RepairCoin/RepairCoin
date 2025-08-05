@@ -217,12 +217,83 @@ cd backend && npm run dev:docs
 - Implemented repair-completion requirement for referral rewards
 - Fixed RCN breakdown case sensitivity issues
 - Updated wallet detection service for better user routing
+- Added tier-based redemption limits (Bronze: 10, Silver: 20, Gold: 30 RCN per transaction)
+- Implemented token burning functionality for redemptions
 
 ### July 28, 2025
 - Implemented new business model: shops purchase RCN at $0.10
 - Added centralized verification system
 - Created tier bonus system
 - Updated cross-shop redemption to 20% limit
+
+---
+
+## 🚧 Features Still To Build
+
+### 🚨 CRITICAL (Blocking Production)
+1. **Multi-Signature Wallet Setup**
+   - All 1B tokens currently in single wallet (security risk!)
+   - Need 3 multi-sig wallets: Customer Rewards (400M), Business Operations (200M), Team/Investors (400M)
+   - Must implement before handling real funds
+
+2. **Production Infrastructure**
+   - Deploy to Base Mainnet (currently on Sepolia testnet)
+   - Set up monitoring, backups, disaster recovery
+   - Production database and environment separation
+
+### 📱 HIGH Priority (Core Functionality)
+1. **Mobile Applications**
+   - **Customer App**: View balance, QR code for redemptions, find shops, share referrals
+   - **Shop App**: QR scanner, issue rewards, view balance, transaction reporting
+   - Critical for real-world usage
+
+2. **FixFlow Webhook Integration**
+   - Receive `repair_completed` webhooks to auto-mint tokens
+   - Receive `referral_verified` and `ad_funnel_conversion` events
+   - Currently using manual reward issuance
+
+3. **QR Code System**
+   - Generate unique QR codes for each customer
+   - Shop scanning interface for redemptions
+   - Real-time validation and processing
+
+4. **Security & Compliance**
+   - Smart contract professional audit
+   - Penetration testing
+   - Terms of Service and Privacy Policy
+   - KYC/AML procedures if required
+
+### 🔧 MEDIUM Priority (Enhanced Features)
+1. **Public Marketing Website**
+   - repaircoin.ai landing page
+   - Shop onboarding information
+   - Customer education materials
+
+2. **Guest Wallet Solutions**
+   - Web3Auth or Magic.link integration
+   - Allow non-crypto users to participate
+   - Email/social login options
+
+3. **Advanced Analytics**
+   - Detailed platform metrics beyond basic stats
+   - Revenue projections and insights
+   - Export capabilities for reports
+
+4. **Shop Integration Tools**
+   - POS system APIs
+   - Bulk repair upload
+   - Automated reconciliation
+
+### ✅ Already Implemented
+- Complete backend API with domain-driven architecture
+- Admin dashboard with full platform control
+- Customer and shop registration flows
+- Token minting and distribution system
+- Referral system with repair requirement
+- Centralized verification (earned vs market-bought RCN)
+- Treasury management for shop RCN purchases
+- Tier system with redemption limits
+- Basic analytics and reporting
 
 ---
 
