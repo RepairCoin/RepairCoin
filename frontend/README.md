@@ -15,7 +15,7 @@ The application provides three main user interfaces:
    - Tier progression tracking (Bronze/Silver/Gold)
 
 2. **Shop Dashboard** (`/shop`)
-   - Purchase RCN tokens at $1.00 per token
+   - Purchase RCN tokens at $0.10 per token
    - Manage tier bonus distribution
    - View shop analytics and purchase history
    - Monitor cross-shop redemption settings

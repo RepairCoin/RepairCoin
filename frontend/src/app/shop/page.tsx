@@ -487,7 +487,7 @@ export default function ShopDashboard() {
               <ThirdwebPayment
                 purchaseId={currentPurchaseId}
                 amount={purchaseAmount}
-                totalCost={purchaseAmount * 1} // $1 per RCN
+                totalCost={purchaseAmount * 0.10} // $0.10 per RCN
                 onSuccess={handlePaymentSuccess}
                 onError={handlePaymentError}
                 onCancel={cancelPayment}

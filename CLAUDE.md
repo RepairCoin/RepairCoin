@@ -81,7 +81,7 @@ docker exec -it repaircoin-db psql -U repaircoin -d repaircoin
 - **Containerization**: Docker + Docker Compose
 
 ### Business Model Overview
-- **Revenue Model**: Shops purchase RCN tokens directly from RepairCoin admin at $1.00 per RCN
+- **Revenue Model**: Shops purchase RCN tokens directly from RepairCoin admin at $0.10 per RCN
 - **Token Distribution**: Shops distribute earned RCN to customers as loyalty rewards
 - **Redemption Value**: 1 RCN = $1.00 USD guaranteed within shop network
 - **Cross-Shop Network**: Customers can use 20% of their balance at other participating shops
@@ -151,7 +151,7 @@ Each domain follows the pattern:
 - **Network**: Base Sepolia testnet
 - **Token Economics**: 
   - Fixed supply: 1 billion RCN tokens
-  - Shop purchase price: $1.00 per RCN (fixed)
+  - Shop purchase price: $0.10 per RCN (fixed)
   - Open market price: Floating (independent of shop redemption value)
   - Anti-arbitrage: Centralized verification prevents market-bought tokens from shop redemption
 
@@ -243,7 +243,7 @@ All registration endpoints return HTTP 409 (Conflict) with a `conflictingRole` f
 - `POST /api/admin/create-admin` - Create new admin user (placeholder implementation)
 
 **Shop RCN Management**:
-- `POST /api/admin/shops/{shopId}/sell-rcn` - Process shop RCN purchases at $1 per token
+- `POST /api/admin/shops/{shopId}/sell-rcn` - Process shop RCN purchases at $0.10 per token
 - `GET /api/admin/shops/{shopId}/rcn-balance` - Check shop's purchased RCN balance
 - `GET /api/admin/shops/{shopId}/purchase-history` - View shop's RCN purchase history
 
@@ -480,7 +480,7 @@ If you see "parseUnits was not found" errors:
 - **Database Integration**: Enhanced field mapping between frontend and database schema
 
 ### July 28, 2025 Development Session - Business Model Update
-- **New Business Model**: Shops now purchase RCN tokens from RepairCoin admin at $1 per token
+- **New Business Model**: Shops now purchase RCN tokens from RepairCoin admin at $0.10 per token
 - **Tier Bonus System**: Implemented automatic bonuses (Bronze +10, Silver +20, Gold +30 RCN per transaction)
 - **Cross-Shop Rules**: Changed to 20% balance limit (replacing tier-based transaction limits)
 - **Centralized Verification**: Added API to track earned vs market-bought RCN

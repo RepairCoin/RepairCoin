@@ -155,7 +155,7 @@ export class TreasuryRepository extends BaseRepository {
           SELECT 
             COALESCE(SUM(purchase_amount), 0) as total_sold,
             COALESCE(SUM(amount_paid), 0) as total_revenue,
-            COALESCE(AVG(price_per_token), 1.0) as avg_price
+            COALESCE(AVG(price_per_token), 0.10) as avg_price
           FROM shop_rcn_purchases
           WHERE status = 'completed'
         )

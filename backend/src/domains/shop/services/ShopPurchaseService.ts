@@ -35,13 +35,13 @@ export interface PurchaseResponse {
 
 /**
  * Service for handling shop RCN purchases according to new requirements:
- * - Shops buy RCN at $1.00 per token
- * - Minimum purchase: 100 RCN ($100)
+ * - Shops buy RCN at $0.10 per token
+ * - Minimum purchase: 100 RCN ($10)
  * - Multiple payment methods supported
  * - Automatic balance updates upon completion
  */
 export class ShopPurchaseService {
-  private static readonly PRICE_PER_RCN = 1.0; // $1.00 per RCN as per requirements
+  private static readonly PRICE_PER_RCN = 0.10; // $0.10 per RCN as per requirements
   private static readonly MINIMUM_PURCHASE = 1; // 1 RCN minimum (reduced for testing)
   private static readonly MAXIMUM_PURCHASE = 10000; // 10,000 RCN maximum per transaction
 

@@ -21,6 +21,7 @@ export interface CustomerData {
   suspendedAt?: string | null;
   suspensionReason?: string | null;
   referralCode?: string;
+  referredBy?: string | null;
 }
 
 // Single TierBenefits interface with all required properties

@@ -54,7 +54,7 @@ export class ReferralRepository extends BaseRepository {
         RETURNING *
       `;
       
-      const result = await this.pool.query(query, [referrerAddress]);
+      const result = await this.pool.query(query, [referrerAddress.toLowerCase()]);
       const row = result.rows[0];
       
       return this.mapReferralFromDb(row);
@@ -96,7 +96,7 @@ export class ReferralRepository extends BaseRepository {
         LIMIT 1
       `;
       
-      const result = await this.pool.query(query, [referrerAddress]);
+      const result = await this.pool.query(query, [referrerAddress.toLowerCase()]);
       
       if (result.rows.length === 0) {
         return null;
@@ -106,6 +106,59 @@ export class ReferralRepository extends BaseRepository {
     } catch (error) {
       logger.error('Error getting referral by referrer:', error);
       throw new Error('Failed to get referral');
+    }
+  }
+
+  async updateReferral(
+    referralId: string,
+    updates: {
+      refereeAddress?: string;
+      status?: 'pending' | 'completed' | 'expired';
+      metadata?: any;
+    }
+  ): Promise<void> {
+    try {
+      const fields: string[] = [];
+      const values: any[] = [];
+      let paramCount = 0;
+
+      if (updates.refereeAddress !== undefined) {
+        paramCount++;
+        fields.push(`referee_address = $${paramCount}`);
+        values.push(updates.refereeAddress);
+      }
+
+      if (updates.status !== undefined) {
+        paramCount++;
+        fields.push(`status = $${paramCount}`);
+        values.push(updates.status);
+      }
+
+      if (updates.metadata !== undefined) {
+        paramCount++;
+        fields.push(`metadata = $${paramCount}`);
+        values.push(JSON.stringify(updates.metadata));
+      }
+
+      if (fields.length === 0) {
+        return;
+      }
+
+      paramCount++;
+      values.push(referralId);
+
+      const query = `
+        UPDATE referrals 
+        SET ${fields.join(', ')}
+        WHERE id = $${paramCount}
+      `;
+
+      await this.pool.query(query, values);
+      
+      logger.info('Referral updated', { referralId, updates });
+    } catch (error) {
+      logger.error('Error updating referral:', error);
+      throw new Error('Failed to update referral');
     }
   }
 
@@ -150,7 +203,7 @@ export class ReferralRepository extends BaseRepository {
         ORDER BY created_at DESC
       `;
       
-      const result = await this.pool.query(query, [customerAddress]);
+      const result = await this.pool.query(query, [customerAddress.toLowerCase()]);
       
       return result.rows.map(row => this.mapReferralFromDb(row));
     } catch (error) {
@@ -194,7 +247,7 @@ export class ReferralRepository extends BaseRepository {
       `;
       
       await this.pool.query(query, [
-        source.customerAddress,
+        source.customerAddress.toLowerCase(),
         source.sourceType,
         source.sourceShopId,
         source.amount,
@@ -231,7 +284,7 @@ export class ReferralRepository extends BaseRepository {
       
       query += ' ORDER BY earned_at DESC';
       
-      const result = await this.pool.query(query, [customerAddress]);
+      const result = await this.pool.query(query, [customerAddress.toLowerCase()]);
       
       return result.rows.map(row => ({
         id: row.id,
@@ -269,7 +322,7 @@ export class ReferralRepository extends BaseRepository {
         GROUP BY source_type, source_shop_id, is_redeemable
       `;
       
-      const result = await this.pool.query(query, [customerAddress]);
+      const result = await this.pool.query(query, [customerAddress.toLowerCase()]);
       
       let earned = 0;
       let marketBought = 0;
@@ -315,7 +368,7 @@ export class ReferralRepository extends BaseRepository {
         LIMIT 1
       `;
       
-      const result = await this.pool.query(query, [customerAddress]);
+      const result = await this.pool.query(query, [customerAddress.toLowerCase()]);
       
       if (result.rows.length === 0) {
         return null;
@@ -339,7 +392,7 @@ export class ReferralRepository extends BaseRepository {
           WHERE address = $2
         `;
         
-        await this.pool.query(updateQuery, [homeShop, customerAddress]);
+        await this.pool.query(updateQuery, [homeShop, customerAddress.toLowerCase()]);
         
         logger.info('Customer home shop updated', { 
           customerAddress, 

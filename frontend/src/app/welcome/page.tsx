@@ -27,7 +27,7 @@ export default function WelcomePage() {
       color: 'from-green-600 to-emerald-600',
       bgColor: 'from-green-50 to-emerald-100',
       features: [
-        'Purchase RCN at $1.00 per token',
+        'Purchase RCN at $0.10 per token',
         'Track tier bonus distribution',
         'Monitor shop analytics',
         'Manage cross-shop redemptions',

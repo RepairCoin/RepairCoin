@@ -5,12 +5,12 @@ import FindARepairCoin from "@/components/landing/FindARepairCoin";
 import SuccessStories from "@/components/landing/SuccessStories";
 import LatestNews from "@/components/landing/LatestNews";
 import CommunityBanner from "@/components/CommunityBanner";
-import Hero from "@/components/Hero";
+import WalletAwareHero from "@/components/landing/WalletAwareHero";
 
 export default function LandingPage() {
   return (
     <main>
-      <Hero
+      <WalletAwareHero
         backgroundImage="/hero-bg.png"  
         techBgImage="/tech-bg.png"
         hero1BgImage="/hero1-bg.png"  

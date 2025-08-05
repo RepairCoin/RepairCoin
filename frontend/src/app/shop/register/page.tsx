@@ -806,7 +806,7 @@ export default function ShopRegistration() {
                 <ul className="space-y-4 mb-6">
                   {[
                     "Your shop will need admin verification before activation",
-                    "You'll be able to purchase RCN at $100 each",
+                    "You'll be able to purchase RCN at $0.10 each",
                     "Tier bonuses will be automatically deducted from your RCN Balance",
                     "Cross hop redemption can be enabled after verification",
                     "All transactions are recorded on the blockchain",

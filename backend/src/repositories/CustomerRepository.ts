@@ -35,7 +35,8 @@ export class CustomerRepository extends BaseRepository {
         fixflowCustomerId: row.fixflow_customer_id,
         suspendedAt: row.suspended_at,
         suspensionReason: row.suspension_reason,
-        referralCode: row.referral_code
+        referralCode: row.referral_code,
+        referredBy: row.referred_by
       };
     } catch (error) {
       logger.error('Error fetching customer:', error);
@@ -43,19 +44,55 @@ export class CustomerRepository extends BaseRepository {
     }
   }
 
+  async getCustomerByReferralCode(referralCode: string): Promise<CustomerData | null> {
+    try {
+      const query = 'SELECT * FROM customers WHERE referral_code = $1';
+      const result = await this.pool.query(query, [referralCode]);
+      
+      if (result.rows.length === 0) {
+        return null;
+      }
+      
+      // Map database fields to CustomerData interface
+      const row = result.rows[0];
+      return {
+        address: row.address,
+        name: row.name,
+        email: row.email,
+        phone: row.phone,
+        tier: row.tier,
+        lifetimeEarnings: parseFloat(row.lifetime_earnings),
+        dailyEarnings: parseFloat(row.daily_earnings || 0),
+        monthlyEarnings: parseFloat(row.monthly_earnings),
+        lastEarnedDate: row.last_earned_date,
+        joinDate: row.join_date,
+        isActive: row.is_active,
+        referralCount: row.referral_count,
+        fixflowCustomerId: row.fixflow_customer_id,
+        suspendedAt: row.suspended_at,
+        suspensionReason: row.suspension_reason,
+        referralCode: row.referral_code,
+        referredBy: row.referred_by
+      };
+    } catch (error) {
+      logger.error('Error fetching customer by referral code:', error);
+      throw new Error('Failed to fetch customer by referral code');
+    }
+  }
+
   async createCustomer(customer: CustomerData): Promise<void> {
     try {
       const query = `
         INSERT INTO customers (
-          address, name, email, phone, tier, lifetime_earnings,
+          address, wallet_address, name, email, phone, tier, lifetime_earnings,
           daily_earnings, monthly_earnings,
-          last_earned_date, join_date, is_active, referral_count,
-          fixflow_customer_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+          last_earned_date, is_active, referral_count
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       `;
       
       await this.pool.query(query, [
         customer.address.toLowerCase(),
+        customer.address.toLowerCase(), // wallet_address is same as address
         customer.name,
         customer.email,
         customer.phone,
@@ -64,10 +101,8 @@ export class CustomerRepository extends BaseRepository {
         customer.dailyEarnings,
         customer.monthlyEarnings,
         customer.lastEarnedDate,
-        customer.joinDate,
         customer.isActive,
-        customer.referralCount,
-        customer.fixflowCustomerId
+        customer.referralCount
       ]);
       
       logger.info('Customer created successfully', { address: customer.address });
@@ -98,7 +133,8 @@ export class CustomerRepository extends BaseRepository {
         referralCount: 'referral_count',
         fixflowCustomerId: 'fixflow_customer_id',
         suspendedAt: 'suspended_at',
-        suspensionReason: 'suspension_reason'
+        suspensionReason: 'suspension_reason',
+        referredBy: 'referred_by'
       };
 
       for (const [key, value] of Object.entries(updates)) {
@@ -229,7 +265,9 @@ export class CustomerRepository extends BaseRepository {
         referralCount: row.referral_count,
         fixflowCustomerId: row.fixflow_customer_id,
         suspendedAt: row.suspended_at,
-        suspensionReason: row.suspension_reason
+        suspensionReason: row.suspension_reason,
+        referralCode: row.referral_code,
+        referredBy: row.referred_by
       }));
 
       const totalPages = Math.ceil(totalItems / filters.limit);
@@ -270,7 +308,9 @@ export class CustomerRepository extends BaseRepository {
         referralCount: row.referral_count,
         fixflowCustomerId: row.fixflow_customer_id,
         suspendedAt: row.suspended_at,
-        suspensionReason: row.suspension_reason
+        suspensionReason: row.suspension_reason,
+        referralCode: row.referral_code,
+        referredBy: row.referred_by
       }));
     } catch (error) {
       logger.error('Error getting customers by tier:', error);

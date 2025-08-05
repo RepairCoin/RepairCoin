@@ -12,6 +12,7 @@ import { TierManager } from '../../../contracts/TierManager';
 import { logger } from '../../../utils/logger';
 import { RoleValidator } from '../../../utils/roleValidator';
 import { validateShopRoleConflict } from '../../../middleware/roleConflictValidator';
+import { ReferralService } from '../../../services/ReferralService';
 
 interface ShopData {
   shopId: string;
@@ -48,6 +49,7 @@ router.use('/tier-bonus', tierBonusRoutes);
 // Lazy loading helpers
 let tokenMinter: TokenMinter | null = null;
 let tierManager: TierManager | null = null;
+let referralService: ReferralService | null = null;
 
 const getTokenMinter = (): TokenMinter => {
   if (!tokenMinter) {
@@ -61,6 +63,13 @@ const getTierManager = (): TierManager => {
     tierManager = new TierManager();
   }
   return tierManager;
+};
+
+const getReferralService = (): ReferralService => {
+  if (!referralService) {
+    referralService = new ReferralService();
+  }
+  return referralService;
 };
 
 // Get all active shops (public endpoint)
@@ -1072,6 +1081,29 @@ router.post('/:shopId/issue-reward',
 
       // Tier update is already handled in updateCustomerAfterEarning
 
+      // Check if this completes a referral (first repair for referred customer)
+      let referralCompleted = false;
+      let referralMessage = '';
+      try {
+        const referralResult = await getReferralService().completeReferralOnFirstRepair(
+          customerAddress,
+          shopId,
+          repairAmount
+        );
+        referralCompleted = referralResult.referralCompleted || false;
+        if (referralCompleted) {
+          referralMessage = 'Referral bonus distributed! Referrer received 25 RCN, customer received additional 10 RCN.';
+          logger.info('Referral completed on first repair', {
+            customerAddress,
+            shopId,
+            repairAmount
+          });
+        }
+      } catch (referralError) {
+        // Log error but don't fail the repair reward
+        logger.error('Error checking referral completion:', referralError);
+      }
+
       logger.info('Reward issued successfully', {
         shopId,
         customerAddress,
@@ -1079,7 +1111,8 @@ router.post('/:shopId/issue-reward',
         baseReward,
         tierBonus: skipTierBonus ? 0 : tierBonus,
         totalReward: actualTokensMinted,
-        txHash: mintResult.transactionHash || ''
+        txHash: mintResult.transactionHash || '',
+        referralCompleted
       });
 
       res.json({
@@ -1090,7 +1123,9 @@ router.post('/:shopId/issue-reward',
           totalReward: actualTokensMinted,
           txHash: mintResult.transactionHash || '',
           customerNewBalance: customer.lifetimeEarnings + actualTokensMinted,
-          shopNewBalance: shopBalance - actualTokensMinted
+          shopNewBalance: shopBalance - actualTokensMinted,
+          referralCompleted,
+          referralMessage
         }
       });
 

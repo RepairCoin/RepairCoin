@@ -81,125 +81,71 @@ export class ReferralService {
     refereeData: any
   ): Promise<{ success: boolean; message: string }> {
     try {
-      // Validate referral code
-      const referral = await this.referralRepository.getReferralByCode(referralCode);
-      if (!referral) {
+      // Find the referrer by their referral code in customers table
+      const referrer = await this.customerRepository.getCustomerByReferralCode(referralCode);
+      if (!referrer) {
         return { 
           success: false, 
-          message: 'Invalid or expired referral code' 
-        };
-      }
-
-      // Check if referee already exists
-      const existingCustomer = await this.customerRepository.getCustomer(refereeAddress);
-      if (existingCustomer) {
-        return { 
-          success: false, 
-          message: 'Customer already registered' 
+          message: 'Invalid referral code' 
         };
       }
 
       // Check if referrer is trying to refer themselves
-      if (referral.referrerAddress.toLowerCase() === refereeAddress.toLowerCase()) {
+      if (referrer.address.toLowerCase() === refereeAddress.toLowerCase()) {
         return { 
           success: false, 
           message: 'Cannot refer yourself' 
         };
       }
 
-      // Create referee customer with referral link
-      await this.customerRepository.createCustomer({
-        ...refereeData,
-        address: refereeAddress,
-        referredBy: referral.referrerAddress
-      });
-
-      // Process referral rewards
-      const transactionId = uuidv4();
-      
-      // Mint 25 RCN to referrer
-      await this.tokenService.mintTokens(
-        referral.referrerAddress,
-        25,
-        'Referral bonus for bringing new customer'
-      );
-
-      // Record referrer's RCN source
-      await this.referralRepository.recordRcnSource({
-        customerAddress: referral.referrerAddress,
-        sourceType: 'referral_bonus',
-        amount: 25,
-        transactionId,
-        isRedeemable: true,
-        metadata: {
-          refereeAddress,
-          referralCode
-        }
-      });
-
-      // Mint 10 RCN to referee
-      await this.tokenService.mintTokens(
-        refereeAddress,
-        10,
-        'Welcome bonus for joining via referral'
-      );
-
-      // Record referee's RCN source
-      await this.referralRepository.recordRcnSource({
-        customerAddress: refereeAddress,
-        sourceType: 'referral_bonus',
-        amount: 10,
-        transactionId,
-        isRedeemable: true,
-        metadata: {
-          referrerAddress: referral.referrerAddress,
-          referralCode
-        }
-      });
-
-      // Complete the referral
-      await this.referralRepository.completeReferral(
-        referralCode,
-        refereeAddress,
-        transactionId
-      );
-
-      // Update referrer's referral count
-      const referrer = await this.customerRepository.getCustomer(referral.referrerAddress);
-      if (referrer) {
-        await this.customerRepository.updateCustomer(referral.referrerAddress, {
-          referralCount: (referrer.referralCount || 0) + 1
+      // Update the customer's referred_by field
+      const existingCustomer = await this.customerRepository.getCustomer(refereeAddress);
+      if (existingCustomer && !existingCustomer.referredBy) {
+        await this.customerRepository.updateCustomer(refereeAddress, {
+          referredBy: referrer.address
         });
       }
 
-      // Emit event
+      // Create PENDING referral record in referrals table
+      const referral = await this.referralRepository.createReferral(referrer.address);
+      
+      // Update the referral with referee address but keep status as pending
+      await this.referralRepository.updateReferral(referral.id, {
+        refereeAddress,
+        metadata: {
+          referralCode,
+          referrerAddress: referrer.address,
+          refereeAddress,
+          registeredAt: new Date().toISOString(),
+          awaitingFirstRepair: true
+        }
+      });
+
+      // Emit event for pending referral
       await eventBus.publish({
-        type: 'referral.completed',
+        type: 'referral.pending',
         aggregateId: referralCode,
         data: {
           referralCode,
-          referrerAddress: referral.referrerAddress,
+          referrerAddress: referrer.address,
           refereeAddress,
-          transactionId,
-          rewards: {
-            referrer: 25,
-            referee: 10
-          }
+          referralId: referral.id
         },
         timestamp: new Date(),
         source: 'ReferralService',
         version: 1
       });
 
-      logger.info('Referral processed successfully', {
+      logger.info('Referral recorded as pending (awaiting first repair)', {
         referralCode,
-        referrerAddress: referral.referrerAddress,
-        refereeAddress
+        referrerAddress: referrer.address,
+        refereeAddress,
+        referralId: referral.id
       });
 
       return { 
         success: true, 
-        message: 'Referral processed successfully' 
+        message: 'Referral recorded successfully. Rewards will be distributed after first repair completion.' 
       };
     } catch (error) {
       logger.error('Error processing referral:', error);
@@ -210,15 +156,24 @@ export class ReferralService {
   async getReferralStats(customerAddress?: string): Promise<any> {
     try {
       if (customerAddress) {
-        // Get individual customer stats
+        // Get customer to check their referral count
+        const customer = await this.customerRepository.getCustomer(customerAddress);
+        if (!customer) {
+          throw new Error('Customer not found');
+        }
+        
+        // Get referral records from referrals table
         const referrals = await this.referralRepository.getCustomerReferrals(customerAddress);
         const successful = referrals.filter(r => r.status === 'completed');
         
+        // Use the referral count from customer record as the source of truth
+        const successfulCount = customer.referralCount || 0;
+        
         return {
-          totalReferrals: referrals.length,
-          successfulReferrals: successful.length,
+          totalReferrals: Math.max(referrals.length, successfulCount),
+          successfulReferrals: successfulCount,
           pendingReferrals: referrals.filter(r => r.status === 'pending').length,
-          totalEarned: successful.length * 25,
+          totalEarned: successfulCount * 25,
           referrals: referrals.slice(0, 10) // Last 10 referrals
         };
       } else {
@@ -258,6 +213,156 @@ export class ReferralService {
       };
     } catch (error) {
       logger.error('Error getting customer RCN breakdown:', error);
+      throw error;
+    }
+  }
+
+  async completeReferralOnFirstRepair(
+    customerAddress: string,
+    shopId: string,
+    repairAmount: number
+  ): Promise<{ success: boolean; message: string; referralCompleted?: boolean }> {
+    try {
+      // Check if customer was referred
+      const customer = await this.customerRepository.getCustomer(customerAddress);
+      if (!customer || !customer.referredBy) {
+        return { 
+          success: true, 
+          message: 'Customer was not referred',
+          referralCompleted: false
+        };
+      }
+
+      // Check if this is the customer's first repair
+      const transactions = await this.transactionRepository.getTransactionsByCustomer(customerAddress, 100);
+      const repairCount = transactions.filter(t => t.type === 'mint' && t.shopId !== 'admin_system').length;
+      
+      if (repairCount > 1) {
+        // Not the first repair
+        return { 
+          success: true, 
+          message: 'Not the first repair',
+          referralCompleted: false
+        };
+      }
+
+      // Find pending referral for this customer
+      const referrals = await this.referralRepository.getCustomerReferrals(customer.referredBy);
+      const pendingReferral = referrals.find(
+        r => r.status === 'pending' && 
+        r.refereeAddress?.toLowerCase() === customerAddress.toLowerCase()
+      );
+
+      if (!pendingReferral) {
+        logger.warn('No pending referral found for referred customer', {
+          customerAddress,
+          referredBy: customer.referredBy
+        });
+        return { 
+          success: false, 
+          message: 'No pending referral found',
+          referralCompleted: false
+        };
+      }
+
+      // Now distribute the rewards
+      const transactionId = uuidv4();
+      
+      // Mint 25 RCN to referrer
+      await this.tokenService.mintTokens(
+        customer.referredBy,
+        25,
+        'Referral bonus - referred customer completed first repair'
+      );
+
+      // Record referrer's RCN source
+      await this.referralRepository.recordRcnSource({
+        customerAddress: customer.referredBy,
+        sourceType: 'referral_bonus',
+        amount: 25,
+        transactionId,
+        isRedeemable: true,
+        metadata: {
+          refereeAddress: customerAddress,
+          referralCode: pendingReferral.referralCode,
+          firstRepairShop: shopId,
+          firstRepairAmount: repairAmount
+        }
+      });
+
+      // Mint 10 RCN to referee (in addition to repair reward)
+      await this.tokenService.mintTokens(
+        customerAddress,
+        10,
+        'Referral bonus - first repair completed'
+      );
+
+      // Record referee's RCN source
+      await this.referralRepository.recordRcnSource({
+        customerAddress: customerAddress,
+        sourceType: 'referral_bonus',
+        amount: 10,
+        transactionId,
+        isRedeemable: true,
+        metadata: {
+          referrerAddress: customer.referredBy,
+          referralCode: pendingReferral.referralCode,
+          firstRepairShop: shopId,
+          firstRepairAmount: repairAmount
+        }
+      });
+
+      // Mark referral as completed
+      await this.referralRepository.completeReferral(
+        pendingReferral.referralCode,
+        customerAddress,
+        transactionId
+      );
+
+      // Update referrer's referral count
+      const referrer = await this.customerRepository.getCustomer(customer.referredBy);
+      if (referrer) {
+        await this.customerRepository.updateCustomer(customer.referredBy, {
+          referralCount: (referrer.referralCount || 0) + 1
+        });
+      }
+
+      // Emit event
+      await eventBus.publish({
+        type: 'referral.completed',
+        aggregateId: pendingReferral.referralCode,
+        data: {
+          referralCode: pendingReferral.referralCode,
+          referrerAddress: customer.referredBy,
+          refereeAddress: customerAddress,
+          transactionId,
+          firstRepairShop: shopId,
+          firstRepairAmount: repairAmount,
+          rewards: {
+            referrer: 25,
+            referee: 10
+          }
+        },
+        timestamp: new Date(),
+        source: 'ReferralService',
+        version: 1
+      });
+
+      logger.info('Referral completed on first repair', {
+        referralCode: pendingReferral.referralCode,
+        referrerAddress: customer.referredBy,
+        refereeAddress: customerAddress,
+        shopId,
+        repairAmount
+      });
+
+      return { 
+        success: true, 
+        message: 'Referral rewards distributed successfully',
+        referralCompleted: true
+      };
+    } catch (error) {
+      logger.error('Error completing referral on first repair:', error);
       throw error;
     }
   }

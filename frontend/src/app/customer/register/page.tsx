@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { createThirdwebClient } from "thirdweb";
 import { useAuth } from "../../../hooks/useAuth";
@@ -14,9 +14,10 @@ const client = createThirdwebClient({
 });
 
 export default function CustomerRegistration() {
-  const account = "fwbkfjweflkwefkwejflwkejflkwj"
+  const account = useActiveAccount();
   const { refreshProfile } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -26,6 +27,17 @@ export default function CustomerRegistration() {
     email: "",
     referralCode: "",
   });
+
+  // Get referral code from URL if present
+  useEffect(() => {
+    const refCode = searchParams.get('ref');
+    if (refCode) {
+      setFormData(prev => ({
+        ...prev,
+        referralCode: refCode
+      }));
+    }
+  }, [searchParams]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -220,7 +232,7 @@ export default function CustomerRegistration() {
                     className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   <p className="text-xs text-gray-300 mt-2">
-                    Get bonus tokens if you were referred by some
+                    You'll receive 10 RCN bonus after completing your first repair!
                   </p>
                 </div>
                 {/* Submit Button */}

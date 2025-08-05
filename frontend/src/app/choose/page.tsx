@@ -468,7 +468,7 @@ export default function ChoosePage() {
                             />
                           </svg>
                           <span className="text-gray-300">
-                            Purchase RCN at $1 per token
+                            Purchase RCN at $0.10 per token
                           </span>
                         </div>
                         <div className="flex items-center gap-3">

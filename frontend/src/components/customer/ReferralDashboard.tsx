@@ -24,11 +24,13 @@ interface ReferralData {
     totalBalance: number;
     earnedBalance: number;
     marketBalance: number;
-    redeemableBalance: number;
+    earningHistory?: {
+      fromRepairs: number;
+      fromReferrals: number;
+      fromBonuses: number;
+      fromTierBonuses: number;
+    };
     homeShop?: string;
-    breakdownByShop: { [shopId: string]: number };
-    breakdownByType: { [type: string]: number };
-    crossShopLimit: number;
   };
 }
 
@@ -51,42 +53,45 @@ export function ReferralDashboard() {
     try {
       setLoading(true);
       
-      // Fetch referral stats and RCN breakdown using wallet address
-      const [statsResponse, breakdownResponse] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/referrals/stats/${account.address}`),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/referrals/rcn-breakdown/${account.address}`)
-      ]);
+      // First get customer data to get referral info
+      const customerResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/customers/${account.address}`
+      );
+      
+      if (!customerResponse.ok) {
+        throw new Error('Failed to load customer data');
+      }
+      
+      const customerData = await customerResponse.json();
+      const customer = customerData.data.customer || customerData.data;
+      
+      // Get earned balance breakdown
+      const breakdownResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/tokens/earned-balance/${account.address}`
+      );
 
-      if (statsResponse.ok && breakdownResponse.ok) {
-        const statsData = await statsResponse.json();
+      if (breakdownResponse.ok) {
         const breakdownData = await breakdownResponse.json();
         
-        // Check if we have a referral code
-        let referralCode = statsData.data.referralCode;
-        let referralLink = '';
+        // Use customer's referral code
+        const referralCode = customer.referralCode || customer.referral_code;
+        const referralLink = referralCode ? 
+          `${window.location.origin}/customer/register?ref=${referralCode}` : '';
         
-        if (!referralCode) {
-          // Generate referral code if not exists
-          const generateResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/referrals/generate/${account.address}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          });
-          
-          if (generateResponse.ok) {
-            const generateData = await generateResponse.json();
-            referralCode = generateData.data.referralCode;
-            referralLink = generateData.data.referralLink;
-          }
-        } else {
-          referralLink = `${process.env.NEXT_PUBLIC_FRONTEND_URL || window.location.origin}/register?ref=${referralCode}`;
-        }
+        // Mock referral stats from customer data
+        const stats = {
+          totalReferrals: customer.referralCount || 0,
+          successfulReferrals: customer.referralCount || 0,
+          pendingReferrals: 0,
+          totalEarned: (customer.referralCount || 0) * 25, // 25 RCN per referral
+          referralCode: referralCode,
+          referrals: [] // Empty array for now
+        };
         
         setReferralData({
-          referralCode,
+          referralCode: referralCode || 'Generating...',
           referralLink,
-          stats: statsData.data,
+          stats,
           rcnBreakdown: breakdownData.data
         });
       }
@@ -154,7 +159,7 @@ export function ReferralDashboard() {
       <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl shadow-xl p-8 text-white">
         <h2 className="text-3xl font-bold mb-2">Your Referral Program</h2>
         <p className="text-lg opacity-90 mb-6">
-          Earn 25 RCN for each friend who joins! They get 10 RCN as a welcome bonus.
+          Earn 25 RCN when your referral completes their first repair! They'll get 10 RCN bonus too.
         </p>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -243,20 +248,20 @@ export function ReferralDashboard() {
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Total Balance:</span>
-                <span className="font-bold text-lg">{referralData.rcnBreakdown.totalBalance.toFixed(2)} RCN</span>
+                <span className="font-bold text-lg">{(referralData.rcnBreakdown?.totalBalance || 0).toFixed(2)} RCN</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Earned (Redeemable):</span>
-                <span className="font-bold text-green-600">{referralData.rcnBreakdown.earnedBalance.toFixed(2)} RCN</span>
+                <span className="font-bold text-green-600">{(referralData.rcnBreakdown?.earnedBalance || 0).toFixed(2)} RCN</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Market Bought:</span>
-                <span className="font-bold text-gray-500">{referralData.rcnBreakdown.marketBalance.toFixed(2)} RCN</span>
+                <span className="font-bold text-gray-500">{(referralData.rcnBreakdown?.marketBalance || 0).toFixed(2)} RCN</span>
               </div>
               <div className="border-t pt-3 mt-3">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Cross-Shop Limit (20%):</span>
-                  <span className="font-bold text-blue-600">{referralData.rcnBreakdown.crossShopLimit.toFixed(2)} RCN</span>
+                  <span className="font-bold text-blue-600">{(referralData.rcnBreakdown?.earnedBalance ? (referralData.rcnBreakdown.earnedBalance * 0.2) : 0).toFixed(2)} RCN</span>
                 </div>
               </div>
             </div>
@@ -265,7 +270,7 @@ export function ReferralDashboard() {
           <div>
             <h4 className="font-semibold text-gray-700 mb-4">Earnings by Type</h4>
             <div className="space-y-3">
-              {Object.entries(referralData.rcnBreakdown.breakdownByType).map(([type, amount]) => (
+              {referralData.rcnBreakdown?.earningHistory && Object.entries(referralData.rcnBreakdown.earningHistory).map(([type, amount]) => (
                 <div key={type} className="flex justify-between items-center">
                   <span className="text-gray-600 capitalize">{type.replace(/_/g, ' ')}:</span>
                   <span className="font-bold">{amount} RCN</span>
@@ -275,7 +280,7 @@ export function ReferralDashboard() {
           </div>
         </div>
         
-        {referralData.rcnBreakdown.homeShop && (
+        {referralData.rcnBreakdown?.homeShop && (
           <div className="mt-6 p-4 bg-blue-50 rounded-lg">
             <p className="text-sm text-blue-800">
               <span className="font-semibold">Home Shop:</span> {referralData.rcnBreakdown.homeShop}
@@ -287,7 +292,7 @@ export function ReferralDashboard() {
       </div>
 
       {/* Recent Referrals */}
-      {referralData.stats.referrals.length > 0 && (
+      {referralData.stats.referrals && referralData.stats.referrals.length > 0 && (
         <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
           <h3 className="text-2xl font-bold text-gray-900 mb-6">Recent Referrals</h3>
           <div className="overflow-x-auto">

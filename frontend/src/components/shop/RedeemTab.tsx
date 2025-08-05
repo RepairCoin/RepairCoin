@@ -243,7 +243,7 @@ export const RedeemTab: React.FC<RedeemTabProps> = ({ shopId, onRedemptionComple
               <RuleCard
                 icon="💵"
                 title="Redemption Value"
-                description="Each RCN token is worth $1.00 USD when redeemed at participating shops."
+                description="Each RCN token is worth $0.10 USD when redeemed at participating shops."
               />
             </div>
           </div>

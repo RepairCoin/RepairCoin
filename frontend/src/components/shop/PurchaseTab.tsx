@@ -64,7 +64,7 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
               <p className="text-sm text-gray-500 mt-2">
-                Total cost: ${(purchaseAmount * 1).toFixed(2)} USD
+                Total cost: ${(purchaseAmount * 0.10).toFixed(2)} USD
               </p>
             </div>
 
