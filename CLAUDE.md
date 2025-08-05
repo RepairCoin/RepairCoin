@@ -192,6 +192,15 @@ The API uses Swagger/OpenAPI documentation:
 - Daily limit: 40 RCN (excluding bonuses)
 - Monthly limit: 500 RCN (excluding bonuses)
 
+### Referral System
+
+**Referral Rewards** (Updated August 5, 2025):
+- **Referrer Reward**: 25 RCN - distributed after referee completes first repair
+- **Referee Bonus**: 10 RCN - added to first repair reward
+- **Qualification**: Rewards only distributed after referred customer completes a qualifying repair service
+- **Tracking**: Referrals stored as "pending" until first repair completion
+- **Integration**: Automatic reward distribution via shop's issue-reward endpoint
+
 ### Role Exclusivity System
 
 **Key Principle**: Each wallet address can only be registered as ONE role - shop, customer, or admin. This prevents conflicts and ensures clear identity management.
@@ -511,6 +520,24 @@ If you see "parseUnits was not found" errors:
 - **Database Column Fixes**: Corrected SQL queries to use proper column names (purchased_rcn_balance, total_cost, payment_reference)
 - **Token Minting**: Minted full 1 billion RCN supply to match business requirements (previously only had 20 RCN)
 - **Wallet Requirements Documentation**: Created comprehensive guide for production wallet setup and multi-sig requirements
+
+### August 5, 2025 Development Session - Referral System Fixes & Requirements Update
+- **Referral Tracking Fix**: Fixed issue where successful referrals were showing as 0
+  - Added `getCustomerByReferralCode` method to CustomerRepository
+  - Fixed `processReferral` to look up referral codes in customers table
+  - Properly increment referrer's `referral_count` field
+  - Added `referredBy` field to CustomerData interface
+- **RCN Breakdown Fix**: Resolved case sensitivity issue causing zero balances
+  - Updated all ReferralRepository methods to normalize addresses to lowercase
+  - Fixed `/api/tokens/earned-balance/:address` endpoint
+- **Referral System Refactoring**: Updated to meet business requirements
+  - Changed from immediate rewards to repair-completion requirement
+  - Modified `processReferral` to create pending referrals only
+  - Implemented `completeReferralOnFirstRepair` method
+  - Integrated referral completion check into shop's issue-reward endpoint
+  - Updated frontend messaging to reflect new flow
+- **Wallet Detection**: Investigated and confirmed wallet detection service working correctly
+- **Documentation**: Updated README files and consolidated documentation
 
 ### API Documentation
 If Swagger doesn't load, check that `ENABLE_SWAGGER=true` in environment variables.

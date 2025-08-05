@@ -144,6 +144,45 @@ FROM cross_shop_verifications
 ORDER BY created_at DESC;
 ```
 
+#### 7. **referrals** table (Added August 5, 2025)
+```sql
+-- View all referrals
+SELECT 
+  referral_code,
+  referrer_address,
+  referee_address,
+  status,
+  created_at,
+  completed_at
+FROM referrals 
+ORDER BY created_at DESC;
+
+-- View pending referrals awaiting first repair
+SELECT * FROM referrals WHERE status = 'pending';
+
+-- View completed referrals
+SELECT * FROM referrals WHERE status = 'completed';
+```
+
+#### 8. **customer_rcn_sources** table
+```sql
+-- View customer RCN earning sources
+SELECT 
+  customer_address,
+  source_type,
+  source_shop_id,
+  amount,
+  is_redeemable,
+  earned_at
+FROM customer_rcn_sources 
+ORDER BY earned_at DESC;
+
+-- View referral bonuses
+SELECT * FROM customer_rcn_sources 
+WHERE source_type = 'referral_bonus'
+ORDER BY earned_at DESC;
+```
+
 ### Useful Queries
 
 #### Find a specific user by wallet address:
@@ -181,6 +220,51 @@ SELECT
 -- Shops in specific city
 SELECT shop_id, name, address, location FROM shops 
 WHERE location->>'city' = 'New York' AND active = true;
+```
+
+#### Referral System Queries (Updated August 5, 2025):
+```sql
+-- View customers with successful referrals
+SELECT 
+  c.address,
+  c.name,
+  c.referral_code,
+  c.referral_count,
+  c.referred_by
+FROM customers c
+WHERE c.referral_count > 0
+ORDER BY c.referral_count DESC;
+
+-- Check referral chain for a customer
+SELECT 
+  c1.address as customer,
+  c1.referral_code as their_code,
+  c1.referred_by as referred_by_address,
+  c2.name as referred_by_name,
+  c2.referral_code as referrer_code
+FROM customers c1
+LEFT JOIN customers c2 ON c2.address = c1.referred_by
+WHERE c1.referred_by IS NOT NULL;
+
+-- View pending vs completed referrals
+SELECT 
+  status,
+  COUNT(*) as count,
+  SUM(CASE WHEN status = 'completed' THEN 35 ELSE 0 END) as tokens_distributed
+FROM referrals
+GROUP BY status;
+
+-- Customer RCN breakdown by source
+SELECT 
+  customer_address,
+  SUM(CASE WHEN source_type = 'shop_repair' THEN amount ELSE 0 END) as from_repairs,
+  SUM(CASE WHEN source_type = 'referral_bonus' THEN amount ELSE 0 END) as from_referrals,
+  SUM(CASE WHEN source_type = 'tier_bonus' THEN amount ELSE 0 END) as from_tier_bonus,
+  SUM(amount) as total_earned
+FROM customer_rcn_sources
+WHERE is_redeemable = true
+GROUP BY customer_address
+ORDER BY total_earned DESC;
 ```
 
 ### Database Schema Creation
