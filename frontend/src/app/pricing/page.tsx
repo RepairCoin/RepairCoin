@@ -5,11 +5,11 @@ import CommunityBanner from "@/components/CommunityBanner";
 export default function PricingPage() {
   return (
     <main>  
-      <RewardYourCustomer techBgImage="/tech-bg.png" />
-      <LoyaltyTier techBgImage="/tech-bg.png" />
+      <RewardYourCustomer techBgImage="/img/tech-bg.png" />
+      <LoyaltyTier techBgImage="/img/tech-bg.png" />
       <CommunityBanner 
-        communityBannerBgImage="/community-chain.png"
-        bannerChainImage="/banner-chain.png"
+        communityBannerBgImage="/img/community-chain.png"
+        bannerChainImage="/img/banner-chain.png"
       />
     </main>
   );

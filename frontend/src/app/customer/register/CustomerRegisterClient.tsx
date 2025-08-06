@@ -168,7 +168,7 @@ export default function CustomerRegisterClient() {
     <div
       className="min-h-screen pb-10 pt-36 bg-[#0D0D0D]"
       style={{
-        backgroundImage: `url('/dashboard-bg.png')`,
+        backgroundImage: `url('/img/dashboard-bg.png')`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
@@ -177,7 +177,7 @@ export default function CustomerRegisterClient() {
       <div className="max-w-screen-2xl w-[70%] mx-auto">
         {/* Header */}
         <div className="w-full mx-auto bg-black/70 rounded-2xl overflow-hidden mb-12">
-          <img src="/cus-reg-banner.png" alt="" className="w-full h-full" />
+          <img src="/img/cus-reg-banner.png" alt="" className="w-full h-full" />
         </div>
 
         {/* Registration Form */}
@@ -290,7 +290,7 @@ export default function CustomerRegisterClient() {
         </div>
 
         <div className="w-full mx-auto bg-black/70 rounded-2xl overflow-hidden my-12">
-          <img src="/cus-reg-benefits.png" alt="" className="w-full h-full" />
+          <img src="/img/cus-reg-benefits.png" alt="" className="w-full h-full" />
         </div>
 
         {/* Back to Home */}

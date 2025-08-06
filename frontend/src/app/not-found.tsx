@@ -10,7 +10,7 @@ export default function NotFound() {
   return (
     <div 
       className="relative h-screen md:h-[70vh] xl:h-screen w-full bg-[#0D0D0D]"
-      style={{ backgroundImage: `url(/tech-bg.png)` }}
+      style={{ backgroundImage: `url(/img/tech-bg.png)` }}
     >
       <Section>
         <div className="w-full flex flex-col items-center gap-6">

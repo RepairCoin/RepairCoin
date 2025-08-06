@@ -32,21 +32,21 @@ const OurStory: React.FC<any> = () => {
       <div className="w-full lg:w-2/3 flex gap-4">
         <div className="rounded-2xl overflow-hidden flex-1">
           <img
-            src="/story1.png"
+            src="/img/story1.png"
             alt="Repair shop owner working"
             className="w-full h-48 object-cover"
           />
         </div>
         <div className="rounded-2xl overflow-hidden flex-1">
           <img
-            src="/story2.png"
+            src="/img/story2.png"
             alt="Shop owner with tools"
             className="w-full h-48 object-cover"
           />
         </div>
         <div className="rounded-2xl overflow-hidden flex-1">
           <img
-            src="/story3.png"
+            src="/img/story3.png"
             alt="Repair shop interior"
             className="w-full h-48 object-cover"
           />

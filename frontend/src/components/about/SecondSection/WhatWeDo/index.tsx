@@ -15,7 +15,7 @@ const WhatWeDo: React.FC<any> = () => {
       <div className="w-full grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
         <div className="rounded-2xl overflow-hidden flex-1 flex flex-col gap-6">
           <img
-            src="/whatWeDo1.png"
+            src="/img/whatWeDo1.png"
             alt="Repair shop owner working"
             className="w-full object-cover"
           />
@@ -23,7 +23,7 @@ const WhatWeDo: React.FC<any> = () => {
         </div>
         <div className="rounded-2xl overflow-hidden flex-1 flex flex-col gap-6">
           <img
-            src="/whatWeDo4.png"
+            src="/img/whatWeDo4.png"
             alt="Shop owner with tools"
             className="w-full object-cover"
           />
@@ -31,7 +31,7 @@ const WhatWeDo: React.FC<any> = () => {
         </div>
         <div className="rounded-2xl overflow-hidden flex-1 flex flex-col gap-6">
           <img
-            src="/whatWeDo3.png"
+            src="/img/whatWeDo3.png"
             alt="Repair shop interior"
             className="w-full object-cover"
           />  
@@ -39,7 +39,7 @@ const WhatWeDo: React.FC<any> = () => {
         </div>
         <div className="rounded-2xl overflow-hidden flex-1 flex flex-col gap-6">
           <img
-            src="/whatWeDo2.png"
+            src="/img/whatWeDo2.png"
             alt="Repair shop interior"
             className="w-full object-cover"
           />

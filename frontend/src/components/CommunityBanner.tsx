@@ -30,7 +30,7 @@ const CommunityBanner: React.FC<CommunityBannerProps> = ({
                 <div className="flex flex-col space-x-3 mb-8">
                   <div>
                     <img
-                      src="/community-logo.png"
+                      src="/img/community-logo.png"
                       alt="RepairCoin Logo"
                       className="h-10 w-auto"
                     />
@@ -56,7 +56,7 @@ const CommunityBanner: React.FC<CommunityBannerProps> = ({
               {/* Right Column - Placeholder for Image/Illustration */}
               <div className="flex items-center justify-center">
                 <div className="relative w-full h-64 md:h-80 rounded-xl flex items-center justify-center">
-                  <img src="/people.png" alt="Community Banner" />
+                  <img src="/img/people.png" alt="Community Banner" />
                 </div>
               </div>
             </div>
@@ -67,7 +67,7 @@ const CommunityBanner: React.FC<CommunityBannerProps> = ({
       {/* Mobile View - Hidden on desktop/tablet */}
       <div className="md:hidden w-full h-[60vh] relative">
         <img
-          src="/community-mobile-banner.png"
+          src="/img/community-mobile-banner.png"
           alt="Join the RepairCoin Community"
           className="w-full h-full object-cover"
         />

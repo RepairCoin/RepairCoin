@@ -4,7 +4,7 @@ const ThirdSection: React.FC<any> = () => {
   return (
     <div
       className="w-full md:pt-10 xl:py-40 bg-[#0D0D0D]"
-      style={{ backgroundImage: `url(/mission-vision-chain.png)` }}
+      style={{ backgroundImage: `url(/img/mission-vision-chain.png)` }}
     >
       <Section>
         <div className="w-full flex flex-col justify-between items-center gap-24">

@@ -295,7 +295,7 @@ export default function CustomerDashboard() {
       <div
         className="min-h-screen py-8 bg-[#0D0D0D]"
         style={{ 
-          backgroundImage: `url('/cus-dash-chain.png')`,
+          backgroundImage: `url('/img/cus-dash-chain.png')`,
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
@@ -308,7 +308,7 @@ export default function CustomerDashboard() {
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-yellow-400">
                 <img
-                  src="/avatar1.png"
+                  src="/img/avatar1.png"
                   alt="User Avatar"
                   className="w-full h-full object-cover"
                   onError={(e) => {
@@ -652,7 +652,7 @@ export default function CustomerDashboard() {
           <div
             className="rounded-2xl p-6 shadow-lg"
             style={{
-              backgroundImage: `url(/tier-benefits.png)`,
+              backgroundImage: `url(/img/tier-benefits.png)`,
               backgroundSize: "cover",
             }}
           >
@@ -691,7 +691,7 @@ export default function CustomerDashboard() {
           <div
             className="flex rounded-2xl shadow-lg"
             style={{
-              backgroundImage: `url(/tier-benefits.png)`,
+              backgroundImage: `url(/img/tier-benefits.png)`,
               backgroundSize: "cover",
             }}
           >
@@ -791,7 +791,7 @@ export default function CustomerDashboard() {
 
             <div className="flex-1 flex justify-center items-center">
               <img
-                src="customer-avatar2.png"
+                src="/img/customer-avatar2.png"
                 className="w-full h-full object-cover"
               />
             </div>
@@ -843,7 +843,7 @@ export default function CustomerDashboard() {
         <div 
           className="my-36 bg-gradient-to-b from-[#1A1A1A] to-[#2A2A2A] rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow"
           style={{
-            backgroundImage: `url('/cus-how-to-earn.png')`,
+            backgroundImage: `url('/img/cus-how-to-earn.png')`,
             backgroundSize: "cover",
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",
@@ -857,7 +857,7 @@ export default function CustomerDashboard() {
             <div className="rounded-2xl p-6">
               <div className="w-full h-48 mb-4 flex items-center justify-center overflow-hidden rounded-2xl">
                 <img
-                  src="/story1.png"
+                  src="/img/story1.png"
                   alt="Refer Friends"
                   className="w-full h-full object-contain"
                 />
@@ -875,7 +875,7 @@ export default function CustomerDashboard() {
             <div className="rounded-2xl p-6">
               <div className="w-full h-48 mb-4 flex items-center justify-center overflow-hidden rounded-2xl">
                 <img
-                  src="/whatWeDo3.png"
+                  src="/img/whatWeDo3.png"
                   alt="Complete Repairs"
                   className="w-full h-full object-contain"
                 />
@@ -893,7 +893,7 @@ export default function CustomerDashboard() {
             <div className="rounded-2xl p-6">
               <div className="w-full h-48 mb-4 flex items-center justify-center overflow-hidden rounded-2xl">
                 <img
-                  src="/customer-avatar.png"
+                  src="/img/customer-avatar.png"
                   alt="Upgrade Your Tier"
                   className="w-full h-full object-contain"
                 />

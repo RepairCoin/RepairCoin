@@ -61,7 +61,7 @@ const Header: React.FC = () => {
               {/* Logo */}
               <a href="/" className="flex items-center">
                 <div className="flex items-center">
-                  <img src="/nav-logo.png" alt="" />
+                  <img src="/img/nav-logo.png" alt="" />
                 </div>
               </a>
 
@@ -132,7 +132,7 @@ const Header: React.FC = () => {
                   account?.address && !isLoading ? (
                     <div className="flex justify-center items-center">
                       <div className="flex bg-white items-center w-12 h-12 border-2 p-1 border-gray-500 rounded-full space-x-2">
-                        <img src="/avatar1.png" className="w-full h-full rounded-full" alt="" />
+                        <img src="/img/avatar1.png" className="w-full h-full rounded-full" alt="" />
                       </div>
                       <p className="text-gray-300 hover:text-white px-3 py-2 text-sm font-medium transition-colors duration-200">
                         {(() => {
@@ -271,7 +271,7 @@ const Header: React.FC = () => {
               {/* Right Content - Character Illustrations */}
               <div className="flex-1 relative h-64 md:h-80">
                 <img
-                  src="/connect-modal.png"
+                  src="/img/connect-modal.png"
                   alt="RepairCoin Characters"
                   className="absolute inset-0 w-full h-full object-contain"
                 />

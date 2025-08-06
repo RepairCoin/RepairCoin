@@ -10,8 +10,8 @@ export default function About() {
       <SecondSection />
       <ThirdSection />
       <CommunityBanner 
-        communityBannerBgImage="/community-chain.png"
-        bannerChainImage="/banner-chain.png"
+        communityBannerBgImage="/img/community-chain.png"
+        bannerChainImage="/img/banner-chain.png"
       />
     </main>
   );

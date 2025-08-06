@@ -148,7 +148,7 @@ export default function ChoosePage() {
     <div
       className="min-h-screen pb-10 pt-36 bg-[#0D0D0D]"
       style={{
-        backgroundImage: `url('/dashboard-bg.png')`,
+        backgroundImage: `url('/img/dashboard-bg.png')`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
@@ -264,7 +264,7 @@ export default function ChoosePage() {
                   <div className="relative w-full bg-[#1C1C1C] overflow-hidden">
                     <div className="w-full pt-[56.25%] relative">
                       <img
-                        src="/choose-avatar1.png"
+                        src="/img/choose-avatar1.png"
                         alt="Customer"
                         className="absolute top-0 left-0 w-full h-full object-cover"
                         loading="lazy"
@@ -468,7 +468,7 @@ export default function ChoosePage() {
                     <div className="relative w-full bg-[#1C1C1C] overflow-hidden">
                       <div className="w-full pt-[56.25%] relative">
                         <img
-                          src="/choose-avatar2.png"
+                          src="/img/choose-avatar2.png"
                           alt="Customer"
                           className="absolute top-0 left-0 w-full h-full object-cover"
                           loading="lazy"
@@ -556,7 +556,7 @@ export default function ChoosePage() {
         <div
           className="my-28 bg-gradient-to-b from-[#1A1A1A] to-[#2A2A2A] rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow"
           style={{
-            backgroundImage: `url('/cus-how-to-earn.png')`,
+            backgroundImage: `url('/img/cus-how-to-earn.png')`,
             backgroundSize: "cover",
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",
@@ -570,7 +570,7 @@ export default function ChoosePage() {
             <div className="rounded-2xl p-6">
               <div className="w-full h-48 mb-4 flex items-center justify-center overflow-hidden rounded-2xl">
                 <img
-                  src="/story1.png"
+                  src="/img/story1.png"
                   alt="Refer Friends"
                   className="w-full h-full object-contain"
                 />
@@ -587,7 +587,7 @@ export default function ChoosePage() {
             <div className="rounded-2xl p-6">
               <div className="w-full h-48 mb-4 flex items-center justify-center overflow-hidden rounded-2xl">
                 <img
-                  src="/whatWeDo3.png"
+                  src="/img/whatWeDo3.png"
                   alt="Complete Repairs"
                   className="w-full h-full object-contain"
                 />
@@ -604,7 +604,7 @@ export default function ChoosePage() {
             <div className="rounded-2xl p-6">
               <div className="w-full h-48 mb-4 flex items-center justify-center overflow-hidden rounded-2xl">
                 <img
-                  src="/customer-avatar.png"
+                  src="/img/customer-avatar.png"
                   alt="Upgrade Your Tier"
                   className="w-full h-full object-contain"
                 />

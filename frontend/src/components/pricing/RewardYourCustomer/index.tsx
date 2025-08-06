@@ -20,7 +20,7 @@ const tiers = [
       "Lorem ipsum dolor sit amet",
       "Lorem ipsum dolor sit amet",
     ],
-    character: "/pr1.png", // You'll need to add this image
+    character: "/img/pr1.png", // You'll need to add this image
   },
   {
     name: "Silver Partner",
@@ -36,7 +36,7 @@ const tiers = [
       "Lorem ipsum dolor sit amet",
       "Lorem ipsum dolor sit amet",
     ],
-    character: "/pr2.png", // You'll need to add this image
+    character: "/img/pr2.png", // You'll need to add this image
   },
   {
     name: "Gold Partner",
@@ -51,7 +51,7 @@ const tiers = [
       "Lorem ipsum dolor sit amet",
       "Lorem ipsum dolor sit amet",
     ],
-    character: "/pr3.png", // You'll need to add this image
+    character: "/img/pr3.png", // You'll need to add this image
   },
 ];
 
