@@ -48,11 +48,11 @@ export class CustomerController {
   async updateCustomer(req: Request, res: Response) {
     try {
       const { address } = req.params;
-      const { email, phone } = req.body;
+      const { name, email, phone } = req.body;
       
       const result = await this.customerService.updateCustomer(
         address,
-        { email, phone },
+        { name, email, phone },
         req.user?.address,
         req.user?.role
       );

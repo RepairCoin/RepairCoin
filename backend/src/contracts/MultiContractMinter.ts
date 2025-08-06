@@ -1,9 +1,11 @@
 // Example of multi-contract setup
-import { createThirdwebClient, getContract } from "thirdweb";
+import { createThirdwebClient, getContract, readContract, prepareContractCall, sendTransaction } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
+import { privateKeyToAccount } from "thirdweb/wallets";
 
 export class MultiContractMinter {
   private client: any;
+  private account: any;
   private tokenContract: any;
   private tierContract: any;
   private shopContract: any;
@@ -13,6 +15,11 @@ export class MultiContractMinter {
     this.client = createThirdwebClient({
       clientId: process.env.THIRDWEB_CLIENT_ID!,
       secretKey: process.env.THIRDWEB_SECRET_KEY!,
+    });
+
+    this.account = privateKeyToAccount({
+      client: this.client,
+      privateKey: process.env.PRIVATE_KEY!,
     });
 
     // Initialize all contracts
@@ -53,20 +60,30 @@ export class MultiContractMinter {
 
   // Example: Register shop in ShopManager contract
   async registerShop(shopId: string, walletAddress: string) {
-    const tx = await sendTransaction({
+    const transaction = prepareContractCall({
       contract: this.shopContract,
       method: "function registerShop(string shopId, address wallet)",
       params: [shopId, walletAddress]
+    });
+    
+    const tx = await sendTransaction({
+      transaction,
+      account: this.account
     });
     return tx;
   }
 
   // Example: Treasury auto-mints tokens
   async triggerAutoMint(customerAddress: string, repairAmount: number) {
-    const tx = await sendTransaction({
+    const transaction = prepareContractCall({
       contract: this.treasuryContract,
       method: "function processRepairReward(address customer, uint256 amount)",
       params: [customerAddress, BigInt(repairAmount)]
+    });
+    
+    const tx = await sendTransaction({
+      transaction,
+      account: this.account
     });
     return tx;
   }

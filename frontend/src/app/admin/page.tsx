@@ -6,6 +6,7 @@ import { createThirdwebClient } from "thirdweb";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useAuth } from '../../hooks/useAuth';
+import { toast, Toaster } from 'react-hot-toast';
 
 // Import our new components
 import { OverviewTab } from '@/components/admin/OverviewTab';
@@ -92,14 +93,16 @@ export default function AdminDashboard() {
   }, [account]);
 
   // Generate JWT token for admin authentication
-  const generateAdminToken = async (): Promise<string | null> => {
+  const generateAdminToken = async (forceRefresh: boolean = false): Promise<string | null> => {
     if (!account?.address) return null;
     
-    // Check if we already have a token stored
-    const storedToken = localStorage.getItem('adminAuthToken');
-    if (storedToken) {
-      // TODO: Add token expiry check
-      return storedToken;
+    // Check if we already have a token stored (unless forcing refresh)
+    if (!forceRefresh) {
+      const storedToken = localStorage.getItem('adminAuthToken');
+      if (storedToken) {
+        // TODO: Add token expiry check
+        return storedToken;
+      }
     }
     
     try {
@@ -145,14 +148,33 @@ export default function AdminDashboard() {
       }
 
       // Fetch platform statistics
-      const statsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/stats`, {
+      let statsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/stats`, {
         headers: {
           'Authorization': `Bearer ${adminToken}`
         }
       });
+      
+      // If unauthorized, try refreshing the token
+      if (statsResponse.status === 401 || statsResponse.status === 403) {
+        console.log('Token expired or invalid, refreshing...');
+        localStorage.removeItem('adminAuthToken');
+        sessionStorage.removeItem('adminAuthToken');
+        const newToken = await generateAdminToken(true);
+        if (newToken) {
+          statsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/stats`, {
+            headers: {
+              'Authorization': `Bearer ${newToken}`
+            }
+          });
+        }
+      }
+      
       if (statsResponse.ok) {
         const statsData = await statsResponse.json();
-        setStats(statsData.data);
+        console.log('Stats data:', statsData);
+        setStats(statsData.data || statsData);
+      } else {
+        console.error('Failed to fetch stats:', statsResponse.status, await statsResponse.text());
       }
 
       // Fetch customers
@@ -174,7 +196,10 @@ export default function AdminDashboard() {
       });
       if (shopsResponse.ok) {
         const shopsData = await shopsResponse.json();
+        console.log('Shops data:', shopsData);
         setShops(shopsData.data?.shops || []);
+      } else {
+        console.error('Failed to fetch shops:', shopsResponse.status, await shopsResponse.text());
       }
 
       // Fetch pending shops
@@ -347,6 +372,37 @@ export default function AdminDashboard() {
     alert(`Reject functionality for shop ${shopId} coming soon`);
   };
 
+  const mintShopBalance = async (shopId: string) => {
+    try {
+      const adminToken = await generateAdminToken();
+      if (!adminToken) {
+        throw new Error('Failed to authenticate as admin');
+      }
+      
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/shops/${shopId}/mint-balance`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${adminToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to mint balance');
+      }
+
+      const result = await response.json();
+      toast.success(result.message || 'Balance minted successfully');
+      
+      // Refresh shops data
+      loadDashboardData();
+    } catch (error) {
+      console.error('Error minting balance:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to mint balance');
+    }
+  };
+
   // Tab navigation buttons
   const tabs = [
     { id: 'overview', label: 'Overview', icon: '📊' },
@@ -393,7 +449,9 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-100">
+    <>
+      <Toaster position="top-right" />
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-100">
       <nav className="bg-white shadow-lg border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -401,6 +459,16 @@ export default function AdminDashboard() {
               ⚡ RepairCoin Admin
             </h1>
             <div className="flex items-center gap-4">
+              <button
+                onClick={() => {
+                  localStorage.removeItem('adminAuthToken');
+                  sessionStorage.removeItem('adminAuthToken');
+                  loadDashboardData();
+                }}
+                className="text-sm bg-indigo-600 text-white px-3 py-1 rounded hover:bg-indigo-700"
+              >
+                Refresh Data
+              </button>
               <span className="text-sm text-gray-600">Welcome, Admin</span>
               <ConnectButton client={client} />
             </div>
@@ -474,6 +542,7 @@ export default function AdminDashboard() {
             onSuspendShop={suspendShop}
             onUnsuspendShop={unsuspendShop}
             onEditShop={(shop) => alert(`Edit functionality for ${shop.name} coming soon`)}
+            onMintBalance={mintShopBalance}
             onRefresh={loadDashboardData}
           />
         )}
@@ -540,5 +609,6 @@ export default function AdminDashboard() {
         )}
       </div>
     </div>
+    </>
   );
 }

@@ -49,7 +49,7 @@ export class AdminService {
   private tokenMinter: TokenMinter | null = null;
   private tierManager: TierManager | null = null;
 
-  private getTokenMinter(): TokenMinter {
+  private getTokenMinterInstance(): TokenMinter {
     if (!this.tokenMinter) {
       this.tokenMinter = new TokenMinter();
     }
@@ -77,7 +77,7 @@ export class AdminService {
       // Get blockchain stats
       let totalSupply = 0;
       try {
-        const contractStats = await this.getTokenMinter().getContractStats();
+        const contractStats = await this.getTokenMinterInstance().getContractStats();
         if (contractStats && contractStats.totalSupplyReadable > 0) {
           totalSupply = contractStats.totalSupplyReadable;
         }
@@ -91,7 +91,7 @@ export class AdminService {
         tokensIssuedToday: await this.getTokensIssuedToday()
       };
 
-      return {
+      const stats = {
         totalCustomers,
         totalShops,
         totalTransactions,
@@ -101,6 +101,8 @@ export class AdminService {
         totalTokensInCirculation: totalTokensIssued,
         recentActivity
       };
+
+      return stats;
     } catch (error) {
       logger.error('Error getting platform statistics:', error);
       throw new Error('Failed to retrieve platform statistics');
@@ -1110,6 +1112,76 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
       };
     } catch (error) {
       logger.error('Error rejecting unsuspend request:', error);
+      throw error;
+    }
+  }
+
+  async mintShopBalance(shopId: string) {
+    try {
+      // Get shop data
+      const shop = await shopRepository.getShop(shopId);
+      if (!shop) {
+        throw new Error('Shop not found');
+      }
+
+      // Check if shop has unminted balance
+      const unmintedBalance = shop.purchasedRcnBalance || 0;
+      if (unmintedBalance <= 0) {
+        throw new Error('No balance to mint');
+      }
+
+      // Get shop wallet address
+      const shopWallet = await shopRepository.getShopByWallet(shop.walletAddress);
+      if (!shopWallet) {
+        throw new Error('Shop wallet not found');
+      }
+
+      // Transfer tokens from admin wallet to shop wallet
+      const tokenMinter = new TokenMinter();
+      const transferResult = await tokenMinter.batchTransferTokens([{
+        address: shop.walletAddress,
+        amount: unmintedBalance,
+        reason: `Transferring purchased RCN balance to shop ${shopId}`
+      }]);
+      
+      const result = transferResult[0]; // Get first result from batch
+
+      if (!result || !result.success) {
+        throw new Error(`Transfer failed: ${result?.error || 'Unknown error'}`);
+      }
+
+      // Reset the shop's purchased balance to 0 after successful transfer
+      await shopRepository.updateShop(shopId, {
+        purchasedRcnBalance: 0
+      });
+      
+      logger.info('Shop balance transferred and reset', { 
+        shopId, 
+        amount: unmintedBalance,
+        walletAddress: shop.walletAddress
+      });
+
+      // Update shop's minted status (optional - you might want to track this)
+      logger.info('Shop balance minted successfully', { 
+        shopId, 
+        amount: unmintedBalance,
+        transactionHash: result.transactionHash,
+        walletAddress: shop.walletAddress
+      });
+
+      return {
+        success: true,
+        message: `Successfully transferred ${unmintedBalance} RCN to shop wallet`,
+        data: {
+          shopId,
+          shopName: shop.name,
+          amountTransferred: unmintedBalance,
+          walletAddress: shop.walletAddress,
+          transactionHash: result.transactionHash
+        }
+      };
+    } catch (error) {
+      logger.error('Error transferring shop balance:', error);
       throw error;
     }
   }

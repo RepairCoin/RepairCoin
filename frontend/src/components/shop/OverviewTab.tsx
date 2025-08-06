@@ -27,12 +27,14 @@ interface PurchaseHistory {
 interface OverviewTabProps {
   shopData: ShopData | null;
   purchases: PurchaseHistory[];
+  blockchainBalance?: number;
 }
 
-export const OverviewTab: React.FC<OverviewTabProps> = ({ shopData, purchases }) => {
+export const OverviewTab: React.FC<OverviewTabProps> = ({ shopData, purchases, blockchainBalance = 0 }) => {
   if (!shopData) {
     return <div>Loading shop data...</div>;
   }
+
 
   return (
     <div className="space-y-8">
@@ -40,7 +42,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ shopData, purchases })
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="RCN Balance"
-          value={(Number(shopData.purchasedRcnBalance) || 0).toFixed(2)}
+          value={blockchainBalance.toFixed(2)}
           subtitle="Available for bonuses"
           color="green"
           icon="💰"
@@ -71,7 +73,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ shopData, purchases })
       {/* Status Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <StatusCard shopData={shopData} />
-        <BalanceAlertCard balance={shopData.purchasedRcnBalance || 0} />
+        <BalanceAlertCard balance={blockchainBalance} />
       </div>
 
       {/* Recent Purchase History */}

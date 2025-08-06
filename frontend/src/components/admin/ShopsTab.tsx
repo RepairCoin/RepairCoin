@@ -1,7 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SuspendShopModal, UnsuspendShopModal } from '../ConfirmationModal';
+import { getContract, readContract } from 'thirdweb';
+import { baseSepolia } from 'thirdweb/chains';
+import { createThirdwebClient } from 'thirdweb';
+
+const client = createThirdwebClient({
+  clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "",
+});
 
 interface Shop {
   shopId: string;
@@ -14,6 +21,8 @@ interface Shop {
   crossShopEnabled?: boolean;
   cross_shop_enabled?: boolean;
   purchasedRcnBalance?: number;
+  walletAddress?: string;
+  walletBalance?: number;
   email?: string;
   phone?: string;
   joinDate?: string;
@@ -26,6 +35,7 @@ interface ShopsTabProps {
   onSuspendShop: (shopId: string) => Promise<void>;
   onUnsuspendShop: (shopId: string) => Promise<void>;
   onEditShop?: (shop: Shop) => void;
+  onMintBalance?: (shopId: string) => Promise<void>;
   onRefresh: () => void;
 }
 
@@ -35,6 +45,7 @@ export const ShopsTab: React.FC<ShopsTabProps> = ({
   onSuspendShop,
   onUnsuspendShop,
   onEditShop,
+  onMintBalance,
   onRefresh
 }) => {
   const [suspendModal, setSuspendModal] = useState<{ isOpen: boolean; shop: Shop | null }>({
@@ -46,6 +57,44 @@ export const ShopsTab: React.FC<ShopsTabProps> = ({
     shop: null
   });
   const [isProcessing, setIsProcessing] = useState(false);
+  const [shopBalances, setShopBalances] = useState<Record<string, number>>({});
+
+  // Fetch wallet balances for all shops
+  useEffect(() => {
+    const fetchBalances = async () => {
+      const contract = getContract({
+        client,
+        chain: baseSepolia,
+        address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`,
+      });
+
+      const balances: Record<string, number> = {};
+      
+      for (const shop of shops) {
+        if (shop.walletAddress) {
+          try {
+            const balance = await readContract({
+              contract,
+              method: "function balanceOf(address account) view returns (uint256)",
+              params: [shop.walletAddress as `0x${string}`],
+            });
+            
+            // Convert from BigInt to number and from wei to RCN
+            balances[shop.shopId] = Number(balance) / 10**18;
+          } catch (error) {
+            console.error(`Error fetching balance for shop ${shop.shopId}:`, error);
+            balances[shop.shopId] = 0;
+          }
+        }
+      }
+      
+      setShopBalances(balances);
+    };
+
+    if (shops.length > 0) {
+      fetchBalances();
+    }
+  }, [shops]);
 
   const handleSuspend = async () => {
     if (!suspendModal.shop) return;
@@ -89,6 +138,21 @@ export const ShopsTab: React.FC<ShopsTabProps> = ({
     }
   };
 
+  const handleMintBalance = async (shopId: string) => {
+    if (!onMintBalance) return;
+    
+    setIsProcessing(true);
+    try {
+      await onMintBalance(shopId);
+      onRefresh();
+    } catch (error) {
+      console.error('Error minting balance:', error);
+      alert(`Failed to mint balance: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <>
       <div className="bg-white rounded-2xl shadow-xl border border-gray-100">
@@ -109,7 +173,10 @@ export const ShopsTab: React.FC<ShopsTabProps> = ({
                   Tokens Issued
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  RCN Balance
+                  Purchased Balance
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Wallet Balance
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Cross-Shop
@@ -148,6 +215,9 @@ export const ShopsTab: React.FC<ShopsTabProps> = ({
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {(shop.purchasedRcnBalance || 0).toFixed(2)} RCN
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {shopBalances[shop.shopId] !== undefined ? `${shopBalances[shop.shopId].toFixed(2)} RCN` : 'Loading...'}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                       (shop.crossShopEnabled || shop.cross_shop_enabled) 
@@ -172,6 +242,16 @@ export const ShopsTab: React.FC<ShopsTabProps> = ({
                           className="text-green-600 hover:text-green-900 disabled:opacity-50"
                         >
                           Verify
+                        </button>
+                      )}
+                      {shop.purchasedRcnBalance && shop.purchasedRcnBalance > 0 && (
+                        <button 
+                          onClick={() => handleMintBalance(shop.shopId)}
+                          disabled={isProcessing}
+                          className="text-blue-600 hover:text-blue-900 disabled:opacity-50"
+                          title={`Mint ${shop.purchasedRcnBalance} RCN to blockchain`}
+                        >
+                          Mint to Chain
                         </button>
                       )}
                       {shop.active ? (

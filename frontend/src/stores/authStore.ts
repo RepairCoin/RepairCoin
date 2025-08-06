@@ -11,6 +11,7 @@ export interface UserProfile {
   tier?: 'bronze' | 'silver' | 'gold';
   shopId?: string;
   registrationDate?: string;
+  token?: string;
 }
 
 interface AuthState {
@@ -143,6 +144,26 @@ export const useAuthStore = create<AuthState>()(
         
         try {
           const profile = await get().fetchUserProfile(account.address);
+          
+          // Get JWT token
+          try {
+            const tokenResponse = await fetch(`${API_URL}/auth/token`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ address: account.address })
+            });
+            
+            if (tokenResponse.ok) {
+              const tokenData = await tokenResponse.json();
+              if (profile && tokenData.token) {
+                profile.token = tokenData.token;
+              }
+            }
+          } catch (tokenError) {
+            console.error('Error fetching token:', tokenError);
+            // Continue without token
+          }
+          
           setUserProfile(profile);
         } catch (error) {
           console.error('Login error:', error);

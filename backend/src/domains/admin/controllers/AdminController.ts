@@ -289,6 +289,24 @@ export class AdminController {
     }
   }
 
+  async mintShopBalance(req: Request, res: Response) {
+    try {
+      const { shopId } = req.params;
+      
+      const result = await this.adminService.mintShopBalance(shopId);
+      
+      ResponseHelper.success(res, result, 'Shop balance minted successfully');
+    } catch (error: any) {
+      if (error.message === 'Shop not found') {
+        ResponseHelper.error(res, error.message, 404);
+      } else if (error.message === 'No balance to mint') {
+        ResponseHelper.error(res, error.message, 400);
+      } else {
+        ResponseHelper.error(res, error.message, 500);
+      }
+    }
+  }
+
   async getUnsuspendRequests(req: Request, res: Response) {
     try {
       const { status = 'pending', entityType } = req.query;

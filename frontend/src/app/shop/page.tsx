@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
-import { createThirdwebClient } from "thirdweb";
+import { createThirdwebClient, getContract, readContract } from "thirdweb";
+import { baseSepolia } from "thirdweb/chains";
 import ThirdwebPayment from '../../components/ThirdwebPayment';
 
 // Import our new components
@@ -62,6 +63,7 @@ export default function ShopDashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'purchase' | 'bonuses' | 'analytics' | 'redeem' | 'issue-rewards' | 'customers' | 'lookup' | 'transactions' | 'settings'>('overview');
+  const [blockchainBalance, setBlockchainBalance] = useState<number>(0);
   
   // Purchase form state
   const [purchaseAmount, setPurchaseAmount] = useState<number>(1);
@@ -127,6 +129,29 @@ export default function ShopDashboard() {
             if (tierResponse.ok) {
               const tierResult = await tierResponse.json();
               setTierStats(tierResult.data);
+            }
+
+            // Fetch blockchain balance
+            if (shopResult.data.walletAddress) {
+              try {
+                const contract = getContract({
+                  client,
+                  chain: baseSepolia,
+                  address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`,
+                });
+                
+                const balance = await readContract({
+                  contract,
+                  method: "function balanceOf(address account) view returns (uint256)",
+                  params: [shopResult.data.walletAddress as `0x${string}`],
+                });
+                
+                const rcnBalance = Number(balance) / 10**18;
+                setBlockchainBalance(rcnBalance);
+              } catch (error) {
+                console.error('Error fetching blockchain balance:', error);
+                setBlockchainBalance(0);
+              }
             }
           }
         } else {
@@ -405,7 +430,7 @@ export default function ShopDashboard() {
 
         {/* Tab Content */}
         {activeTab === 'overview' && (
-          <OverviewTab shopData={shopData} purchases={purchases} />
+          <OverviewTab shopData={shopData} purchases={purchases} blockchainBalance={blockchainBalance} />
         )}
 
         {activeTab === 'purchase' && (

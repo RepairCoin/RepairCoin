@@ -209,6 +209,68 @@ export class CustomerRepository extends BaseRepository {
     }
   }
 
+  async updateCustomerProfile(
+    address: string,
+    updates: {
+      name?: string;
+      email?: string;
+      phone?: string;
+    }
+  ): Promise<void> {
+    try {
+      const setClause: string[] = [];
+      const params: any[] = [];
+      let paramCount = 0;
+
+      // Build dynamic SET clause based on provided fields
+      if (updates.name !== undefined) {
+        paramCount++;
+        setClause.push(`name = $${paramCount}`);
+        params.push(updates.name);
+      }
+
+      if (updates.email !== undefined) {
+        paramCount++;
+        setClause.push(`email = $${paramCount}`);
+        params.push(updates.email);
+      }
+
+      if (updates.phone !== undefined) {
+        paramCount++;
+        setClause.push(`phone = $${paramCount}`);
+        params.push(updates.phone);
+      }
+
+      // Always update the updated_at timestamp
+      setClause.push('updated_at = NOW()');
+
+      if (setClause.length === 1) {
+        // Only updated_at, nothing else to update
+        return;
+      }
+
+      paramCount++;
+      params.push(address.toLowerCase());
+
+      const query = `
+        UPDATE customers 
+        SET ${setClause.join(', ')}
+        WHERE address = $${paramCount}
+      `;
+
+      const result = await this.pool.query(query, params);
+      
+      if (result.rowCount === 0) {
+        throw new Error('Customer not found');
+      }
+
+      logger.info('Customer profile updated', { address, updates });
+    } catch (error) {
+      logger.error('Error updating customer profile:', error);
+      throw new Error('Failed to update customer profile');
+    }
+  }
+
   async getCustomersPaginated(
     filters: CustomerFilters & { page: number; limit: number }
   ): Promise<PaginatedResult<CustomerData>> {

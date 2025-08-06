@@ -43,8 +43,10 @@ export const useAuth = () => {
     
     // Auth state
     userProfile,
+    user: userProfile, // Alias for backward compatibility
     isAuthenticated,
     isLoading,
+    loading: isLoading, // Alias for backward compatibility
     error,
     
     // User type helpers

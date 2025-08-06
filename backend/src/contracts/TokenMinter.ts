@@ -601,4 +601,79 @@ async unpauseContract(): Promise<MintResult> {
     
     return results;
   }
+
+  // Transfer tokens from one address to another
+  async transferTokens(toAddress: string, amount: number, reason: string): Promise<MintResult> {
+    try {
+      console.log(`💸 Transferring ${amount} RCN to ${toAddress}`);
+      console.log(`📝 Reason: ${reason}`);
+
+      const contract = await this.getContract();
+      
+      // Prepare transfer transaction
+      const transaction = prepareContractCall({
+        contract,
+        method: "transfer" as any,
+        params: [toAddress, BigInt(amount) * BigInt(10 ** 18)] // Convert to wei
+      });
+
+      // Send the transaction from the admin wallet
+      const result = await sendTransaction({
+        transaction,
+        account: this.account,
+      });
+
+      console.log(`✅ Transfer successful! TxHash: ${result.transactionHash}`);
+
+      return {
+        success: true,
+        message: `Successfully transferred ${amount} RCN`,
+        transactionHash: result.transactionHash,
+        tokensToMint: amount
+      };
+    } catch (error: any) {
+      console.error("❌ Transfer failed:", error);
+      return {
+        success: false,
+        error: `Transfer failed: ${error.message}`
+      };
+    }
+  }
+
+  // Batch transfer tokens to multiple recipients
+  async batchTransferTokens(recipients: Array<{address: string, amount: number, reason: string}>): Promise<MintResult[]> {
+    console.log(`🔄 Batch transferring to ${recipients.length} recipients...`);
+    
+    const results: MintResult[] = [];
+    
+    for (const recipient of recipients) {
+      try {
+        const result = await this.transferTokens(recipient.address, recipient.amount, recipient.reason);
+        results.push(result);
+        
+        // Small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (error: any) {
+        results.push({
+          success: false,
+          error: `Batch transfer failed for ${recipient.address}: ${error.message}`
+        });
+      }
+    }
+    
+    const successful = results.filter(r => r.success).length;
+    console.log(`✅ Batch transfer complete: ${successful}/${recipients.length} successful`);
+    
+    return results;
+  }
+}
+
+// Singleton instance
+let tokenMinterInstance: TokenMinter | null = null;
+
+export function getTokenMinter(): TokenMinter {
+  if (!tokenMinterInstance) {
+    tokenMinterInstance = new TokenMinter();
+  }
+  return tokenMinterInstance;
 }

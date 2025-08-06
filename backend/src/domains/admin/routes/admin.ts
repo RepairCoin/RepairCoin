@@ -103,6 +103,11 @@ router.post('/shops/:shopId/verify',
   asyncHandler(adminController.verifyShop.bind(adminController))
 );
 
+// Mint shop's purchased RCN balance to blockchain
+router.post('/shops/:shopId/mint-balance',
+  asyncHandler(adminController.mintShopBalance.bind(adminController))
+);
+
 // Unsuspend requests management
 router.get('/unsuspend-requests',
   asyncHandler(adminController.getUnsuspendRequests.bind(adminController))

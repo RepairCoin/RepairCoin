@@ -14,6 +14,7 @@ import { CustomerService } from '../services/CustomerService';
 
 // Import new route modules
 import crossShopRoutes from './crossShop';
+import exportDataRoutes from './exportData';
 
 const router = Router();
 
@@ -24,13 +25,7 @@ router.use('/cross-shop', crossShopRoutes);
 const customerService = new CustomerService();
 const customerController = new CustomerController(customerService);
 
-// Get customer by wallet address
-router.get('/:address', 
-  validateEthereumAddress('address'),
-  asyncHandler(customerController.getCustomer.bind(customerController))
-);
-
-// Register new customer
+// Register new customer (specific route first)
 router.post('/register',
   validateRequired(['walletAddress']),
   validateEthereumAddress('walletAddress'),
@@ -39,12 +34,17 @@ router.post('/register',
   asyncHandler(customerController.registerCustomer.bind(customerController))
 );
 
+// Get customer by wallet address (dynamic route last)
+router.get('/:address', 
+  validateEthereumAddress('address'),
+  asyncHandler(customerController.getCustomer.bind(customerController))
+);
+
 // Update customer information
 router.put('/:address',
   authMiddleware,
   requireRole(['admin', 'customer']),
   validateEthereumAddress('address'),
-  validateEmail('email'),
   asyncHandler(customerController.updateCustomer.bind(customerController))
 );
 
@@ -87,6 +87,9 @@ router.get('/tier/:tierLevel',
   requireRole(['admin']),
   asyncHandler(customerController.getCustomersByTier.bind(customerController))
 );
+
+// Register export routes (must be before /:address route)
+router.use('/', exportDataRoutes);
 
 // Deactivate customer (admin only)
 router.post('/:address/deactivate',

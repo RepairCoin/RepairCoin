@@ -15,6 +15,7 @@ export interface CustomerRegistrationData {
 }
 
 export interface CustomerUpdateData {
+  name?: string;
   email?: string;
   phone?: string;
 }
@@ -157,21 +158,31 @@ export class CustomerService {
         throw new Error('Can only update your own customer data');
       }
 
-      // Update customer
-      const customerUpdates: Partial<CustomerData> = {};
-      if (updates.email !== undefined) customerUpdates.email = updates.email;
-      if (updates.phone !== undefined) customerUpdates.phone = updates.phone;
+      // Update customer profile using the new method
+      const profileUpdates: {
+        name?: string;
+        email?: string;
+        phone?: string;
+      } = {};
 
-      await customerRepository.updateCustomer(address, customerUpdates);
+      if (updates.name !== undefined) profileUpdates.name = updates.name;
+      if (updates.email !== undefined) profileUpdates.email = updates.email;
+      if (updates.phone !== undefined) profileUpdates.phone = updates.phone;
+
+      await customerRepository.updateCustomerProfile(address, profileUpdates);
+
+      // Get updated customer data to return
+      const updatedCustomer = await customerRepository.getCustomer(address);
 
       logger.info('Customer updated', {
         address,
         updatedBy: requestingUserAddress,
-        updates: customerUpdates
+        updates: profileUpdates
       });
 
       return {
-        message: 'Customer updated successfully'
+        message: 'Customer updated successfully',
+        customer: updatedCustomer
       };
     } catch (error) {
       logger.error('Customer update error:', error);

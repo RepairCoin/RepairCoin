@@ -7,6 +7,91 @@ import { generateToken } from '../middleware/auth';
 const router = Router();
 
 /**
+ * Generate JWT token for authenticated users
+ * POST /api/auth/token
+ */
+router.post('/token', async (req, res) => {
+  try {
+    const { address } = req.body;
+
+    if (!address) {
+      return res.status(400).json({
+        error: 'Wallet address is required'
+      });
+    }
+
+    const normalizedAddress = address.toLowerCase();
+    let userType: string | null = null;
+    let userData: any = null;
+
+    // Check admin addresses first
+    const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
+    if (adminAddresses.includes(normalizedAddress)) {
+      userType = 'admin';
+      userData = {
+        address: normalizedAddress,
+        role: 'admin'
+      };
+    } else {
+      // Check if user is a customer
+      try {
+        const customer = await customerRepository.getCustomer(normalizedAddress);
+        if (customer) {
+          userType = 'customer';
+          userData = {
+            address: customer.address,
+            role: 'customer'
+          };
+        }
+      } catch (error) {
+        // Continue to check shop
+      }
+
+      if (!userType) {
+        // Check if user is a shop
+        try {
+          const allShops = await shopRepository.getShopsPaginated({ active: true, page: 1, limit: 1000 });
+          const shop = allShops.items.find(s => s.walletAddress?.toLowerCase() === normalizedAddress);
+          
+          if (shop) {
+            userType = 'shop';
+            userData = {
+              address: shop.walletAddress,
+              shopId: shop.shopId,
+              role: 'shop'
+            };
+          }
+        } catch (error) {
+          // Shop not found
+        }
+      }
+    }
+
+    if (!userType || !userData) {
+      return res.status(404).json({
+        error: 'User not found'
+      });
+    }
+
+    // Generate JWT token
+    const token = generateToken(userData);
+
+    return res.json({
+      success: true,
+      token,
+      userType,
+      address: normalizedAddress
+    });
+
+  } catch (error) {
+    logger.error('Error generating token:', error);
+    return res.status(500).json({
+      error: 'Internal server error'
+    });
+  }
+});
+
+/**
  * Check if a user exists and return their type and basic info
  * POST /api/auth/check-user
  */

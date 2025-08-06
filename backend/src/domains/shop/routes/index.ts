@@ -199,14 +199,18 @@ router.get('/wallet/:address',
           name: shop.name,
           address: shop.address,
           phone: shop.phone,
+          email: shop.email,
+          walletAddress: shop.walletAddress,
           verified: shop.verified,
+          active: shop.active,
           crossShopEnabled: shop.crossShopEnabled,
           location: shop.location,
           joinDate: shop.joinDate,
           // Include balance information for display
           purchasedRcnBalance: shop.purchasedRcnBalance,
           totalRcnPurchased: shop.totalRcnPurchased,
-          totalTokensIssued: shop.totalTokensIssued
+          totalTokensIssued: shop.totalTokensIssued,
+          totalRedemptions: shop.totalRedemptions
         };
       }
 
