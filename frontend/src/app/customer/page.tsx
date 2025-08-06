@@ -216,33 +216,33 @@ export default function CustomerDashboard() {
   }, [tokenBalance, balanceLoading]);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!account?.address && !isAuthenticated) {
       router.push('/');
     }
-  }, [isAuthenticated]);
+  }, [account?.address, isAuthenticated]);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your dashboard...</p>
-        </div>
-      </div>
-    );
-  }
+  // if (isLoading) {
+  //   return (
+  //     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+  //       <div className="text-center">
+  //         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+  //         <p className="text-gray-600">Loading your dashboard...</p>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
-  if (!customerData && !loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100 text-center">
-          <div className="text-6xl mb-6">⚠️</div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Loading Customer Data</h1>
-          <p className="text-gray-600">Please wait while we load your information...</p>
-        </div>
-      </div>
-    );
-  }
+  // if (!customerData && !loading) {
+  //   return (
+  //     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+  //       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100 text-center">
+  //         <div className="text-6xl mb-6">⚠️</div>
+  //         <h1 className="text-2xl font-bold text-gray-900 mb-4">Loading Customer Data</h1>
+  //         <p className="text-gray-600">Please wait while we load your information...</p>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   // Check if customer is suspended
   if (customerData && !customerData.isActive) {
