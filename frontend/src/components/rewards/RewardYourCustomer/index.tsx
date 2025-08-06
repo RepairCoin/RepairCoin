@@ -81,7 +81,7 @@ const RewardYourCustomer: React.FC<RewardYourCustomerProps> = ({
                 </p>
               </div>
 
-              {/* Pricing Cards */}
+              {/* Rewards Cards */}
               <div className="w-full max-w-[1200px] flex flex-col justify-center">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
                   {tiers.map((tier, index) => (

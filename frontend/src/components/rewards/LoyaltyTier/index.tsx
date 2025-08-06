@@ -111,7 +111,7 @@ const RewardYourCustomer: React.FC<RewardYourCustomerProps> = ({
                 </p>
               </div>
 
-              {/* Pricing Cards */}
+              {/* Rewards Cards */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-6xl mx-auto">
                 {tierData.map((tier) => (
                   <div key={tier.name} className="w-full flex flex-col items-center rounded-2xl">

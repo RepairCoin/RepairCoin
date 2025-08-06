@@ -1,8 +1,8 @@
-import RewardYourCustomer from "@/components/pricing/RewardYourCustomer";
-import LoyaltyTier from "@/components/pricing/LoyaltyTier";
+import RewardYourCustomer from "@/components/rewards/RewardYourCustomer";
+import LoyaltyTier from "@/components/rewards/LoyaltyTier";
 import CommunityBanner from "@/components/CommunityBanner";
 
-export default function PricingPage() {
+export default function RewardsPage() {
   return (
     <main>  
       <RewardYourCustomer techBgImage="/img/tech-bg.png" />
