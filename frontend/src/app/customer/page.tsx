@@ -25,6 +25,7 @@ const contract = getContract({
 
 interface CustomerData {
   address: string;
+  email: string;
   name?: string;
   tier: "BRONZE" | "SILVER" | "GOLD";
   lifetimeEarnings: number;
@@ -68,11 +69,11 @@ export default function CustomerDashboard() {
   const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'referrals' | 'approvals'>('overview');
 
   // Read token balance from contract
-  const { data: tokenBalance, isLoading: balanceLoading } = useReadContract({
-    contract,
-    method: "function balanceOf(address) view returns (uint256)",
-    params: account?.address ? [account.address] : undefined,
-  });
+  // const { data: tokenBalance, isLoading: balanceLoading } = useReadContract({
+  //   contract,
+  //   method: "function balanceOf(address) view returns (uint256)",
+  //   params: account?.address ? [account.address] : undefined,
+  // });
 
   const fetchCustomerData = async () => {
     if (!account?.address) return;
