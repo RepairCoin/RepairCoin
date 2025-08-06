@@ -3,6 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { ConnectButton } from "thirdweb/react";
+import { createThirdwebClient } from "thirdweb";
+const client = createThirdwebClient({
+  clientId:
+    process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID ||
+    "1969ac335e07ba13ad0f8d1a1de4f6ab",
+});
 
 export default function ChoosePage() {
   const { account, isAuthenticated, isLoading, userType, userProfile } =
@@ -108,6 +115,29 @@ export default function ChoosePage() {
               Loading RepairCoin...
             </h2>
             <p className="text-gray-600">Checking your authentication status</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!account) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+          <div className="text-center">
+            <div className="text-6xl mb-6">🏪</div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">
+              Choose your role
+            </h1>
+            <p className="text-gray-600 mb-8">
+              Connect your wallet to choose your role
+            </p>
+            <ConnectButton
+              client={client}
+              theme="light"
+              connectModal={{ size: "wide" }}
+            />
           </div>
         </div>
       </div>

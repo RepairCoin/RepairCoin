@@ -30,11 +30,11 @@ export default function CustomerRegisterClient() {
 
   // Get referral code from URL if present
   useEffect(() => {
-    const refCode = searchParams.get('ref');
+    const refCode = searchParams.get("ref");
     if (refCode) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        referralCode: refCode
+        referralCode: refCode,
       }));
     }
   }, [searchParams]);
@@ -141,6 +141,29 @@ export default function CustomerRegisterClient() {
     }
   };
 
+  if (!account) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+          <div className="text-center">
+            <div className="text-6xl mb-6">👤</div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">
+              Customer Registration
+            </h1>
+            <p className="text-gray-600 mb-8">
+              Connect your wallet to register as a customer
+            </p>
+            <ConnectButton
+              client={client}
+              theme="light"
+              connectModal={{ size: "wide" }}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className="min-h-screen pb-10 pt-36 bg-[#0D0D0D]"
@@ -153,9 +176,7 @@ export default function CustomerRegisterClient() {
     >
       <div className="max-w-screen-2xl w-[70%] mx-auto">
         {/* Header */}
-        <div
-          className="w-full mx-auto bg-black/70 rounded-2xl overflow-hidden mb-12"
-        >
+        <div className="w-full mx-auto bg-black/70 rounded-2xl overflow-hidden mb-12">
           <img src="/cus-reg-banner.png" alt="" className="w-full h-full" />
         </div>
 
@@ -211,7 +232,8 @@ export default function CustomerRegisterClient() {
                     className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   <p className="text-xs text-gray-300 mt-2">
-                    You'll receive 10 RCN bonus after completing your first repair!
+                    You'll receive 10 RCN bonus after completing your first
+                    repair!
                   </p>
                 </div>
                 {/* Submit Button */}
@@ -267,9 +289,7 @@ export default function CustomerRegisterClient() {
           )}
         </div>
 
-        <div
-          className="w-full mx-auto bg-black/70 rounded-2xl overflow-hidden my-12"
-        >
+        <div className="w-full mx-auto bg-black/70 rounded-2xl overflow-hidden my-12">
           <img src="/cus-reg-benefits.png" alt="" className="w-full h-full" />
         </div>
 
@@ -278,7 +298,7 @@ export default function CustomerRegisterClient() {
           <button
             onClick={() => router.push("/choose")}
             className="w-[200px] mx-auto  px-8 py-4 bg-[#FFCC00] text-black font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition duration-200 transform hover:scale-105"
-            >
+          >
             ← Back to Home
           </button>
         </div>
