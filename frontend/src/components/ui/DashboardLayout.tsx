@@ -6,11 +6,15 @@ import Sidebar from "./Sidebar";
 interface DashboardLayoutProps {
   children: React.ReactNode;
   userRole?: "customer" | "shop" | "admin";
+  activeTab?: string;
+  onTabChange?: (tab: string) => void;
 }
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ 
   children, 
-  userRole = "customer" 
+  userRole = "customer",
+  activeTab,
+  onTabChange
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -24,6 +28,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         isOpen={isSidebarOpen} 
         onToggle={toggleSidebar}
         userRole={userRole}
+        activeTab={activeTab}
+        onTabChange={onTabChange}
       />
       
       {/* Main Content Area */}
