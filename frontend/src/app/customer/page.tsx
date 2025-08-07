@@ -296,7 +296,7 @@ export default function CustomerDashboard() {
       <div
         className="min-h-screen py-8 bg-[#0D0D0D]"
         style={{ 
-          backgroundImage: `url('/img/cus-dash-chain.png')`,
+          backgroundImage: `url('/img/dashboard-bg.png')`,
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
