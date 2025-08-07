@@ -263,30 +263,30 @@ const RecentPurchasesCard: React.FC<{ purchases: PurchaseHistory[] }> = ({
   const recentPurchases = purchases.slice(0, 5);
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
-      <h3 className="text-lg font-bold text-gray-900 mb-4">
+    <div className="bg-[#212121] rounded-2xl shadow-xl p-6">
+      <h3 className="text-2xl font-bold text-[#FFCC00] mb-4">
         Recent RCN Purchases
       </h3>
       {recentPurchases.length === 0 ? (
-        <p className="text-gray-500 text-center py-8">No purchases yet</p>
+        <p className="text-gray-400 text-center py-8">No purchases yet</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead>
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                   Date
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                   Amount
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                   Cost
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                   Method
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                   Status
                 </th>
               </tr>
