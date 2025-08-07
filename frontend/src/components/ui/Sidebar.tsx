@@ -17,6 +17,19 @@ import {
   Menu,
   X,
 } from "lucide-react";
+import { 
+  IssueRewardsIcon, 
+  RedeemIcon, 
+  OverviewIcon,
+  CustomerIcon,
+  LookupIcon,
+  BuyRcnIcon,
+  TransactionIcon,
+  BonusesIcon,
+  AnalyticsIcon,
+  SettingsIcon,
+  LogoutIcon
+} from "../icon";
 
 interface SidebarItem {
   title: string;
@@ -102,55 +115,55 @@ const Sidebar: React.FC<SidebarProps> = ({
         {
           title: "Overview",
           href: "/shop?tab=overview",
-          icon: <LayoutGrid className="w-5 h-5" />,
+          icon: <OverviewIcon width={24} height={24} />,
           tabId: "overview",
         },
         {
           title: "Issue Rewards",
           href: "/shop?tab=issue-rewards",
-          icon: <Gift className="w-5 h-5" />,
+          icon: <IssueRewardsIcon width={24} height={24} />,
           tabId: "issue-rewards",
         },
         {
           title: "Redeem",
           href: "/shop?tab=redeem",
-          icon: <DollarSign className="w-5 h-5" />,
+          icon: <RedeemIcon width={24} height={24} />,
           tabId: "redeem",
         },
         {
           title: "Customers",
           href: "/shop?tab=customers",
-          icon: <Users className="w-5 h-5" />,
+          icon: <CustomerIcon width={24} height={24} />,
           tabId: "customers",
         },
         {
           title: "Lookup",
           href: "/shop?tab=lookup",
-          icon: <CreditCard className="w-5 h-5" />,
+          icon: <LookupIcon width={24} height={24} />,
           tabId: "lookup",
         },
         {
           title: "Buy RCN",
           href: "/shop?tab=purchase",
-          icon: <TrendingUp className="w-5 h-5" />,
+          icon: <BuyRcnIcon width={24} height={24} />,
           tabId: "purchase",
         },
         {
           title: "Transactions",
           href: "/shop?tab=transactions",
-          icon: <Receipt className="w-5 h-5" />,
+          icon: <TransactionIcon width={24} height={24} />,
           tabId: "transactions",
         },
         {
           title: "Bonuses",
           href: "/shop?tab=bonuses",
-          icon: <Gift className="w-5 h-5" />,
+          icon: <BonusesIcon width={24} height={24} />,
           tabId: "bonuses",
         },
         {
           title: "Analytics",
           href: "/shop?tab=analytics",
-          icon: <BarChart3 className="w-5 h-5" />,
+          icon: <AnalyticsIcon width={24} height={24} />,
           tabId: "analytics",
         },
       ];
@@ -208,12 +221,12 @@ const Sidebar: React.FC<SidebarProps> = ({
     {
       title: "Settings",
       href: `/${userRole}/settings`,
-      icon: <Settings className="w-5 h-5" />,
+      icon: <SettingsIcon width={24} height={24} />,
     },
     {
       title: "Logout",
       href: "/logout",
-      icon: <LogOut className="w-5 h-5" />,
+      icon: <LogoutIcon width={24} height={24} />,
     },
   ];
 
@@ -248,12 +261,11 @@ const Sidebar: React.FC<SidebarProps> = ({
           {/* Logo/Brand */}
           <div className="p-6 border-b border-gray-800">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center">
-                <span className="text-gray-900 font-bold text-sm">RC</span>
-              </div>
-              <span className="text-xl font-bold text-yellow-400">
-                RepairCoin
-              </span>
+              <img
+                src="/img/nav-logo.png"
+                alt="RepairCoin Logo"
+                className="w-auto"
+              />
             </Link>
           </div>
 
