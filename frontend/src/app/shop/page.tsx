@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { createThirdwebClient, getContract, readContract } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
+import { useSearchParams } from 'next/navigation';
+import DashboardLayout from "@/components/ui/DashboardLayout";
 import ThirdwebPayment from '../../components/ThirdwebPayment';
 
 // Import our new components
@@ -56,7 +58,11 @@ interface TierBonusStats {
 }
 
 export default function ShopDashboard() {
-  const account = useActiveAccount();
+  // const account = useActiveAccount();
+  const account = {
+    address: "0x7890123456789012345678901234567890123456"
+  };
+  const searchParams = useSearchParams();
   const [shopData, setShopData] = useState<ShopData | null>(null);
   const [purchases, setPurchases] = useState<PurchaseHistory[]>([]);
   const [tierStats, setTierStats] = useState<TierBonusStats | null>(null);
@@ -73,6 +79,14 @@ export default function ShopDashboard() {
   // Payment flow state
   const [currentPurchaseId, setCurrentPurchaseId] = useState<string | null>(null);
   const [showPayment, setShowPayment] = useState(false);
+
+  useEffect(() => {
+    // Set active tab from URL query param
+    const tab = searchParams.get('tab');
+    if (tab) {
+      setActiveTab(tab as any); 
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (account?.address) {
@@ -245,301 +259,283 @@ export default function ShopDashboard() {
     setCurrentPurchaseId(null);
   };
 
-  // Not connected state
-  if (!account) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-          <div className="text-center">
-            <div className="text-6xl mb-6">🏪</div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">Shop Dashboard</h1>
-            <p className="text-gray-600 mb-8">
-              Connect your shop wallet to access the dashboard
-            </p>
-            <ConnectButton 
-              client={client}
-              theme="light"
-              connectModal={{ size: "wide" }}
-            />
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // // Not connected state
+  // if (!account) {
+  //   return (
+  //     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
+  //       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+  //         <div className="text-center">
+  //           <div className="text-6xl mb-6">🏪</div>
+  //           <h1 className="text-3xl font-bold text-gray-900 mb-4">Shop Dashboard</h1>
+  //           <p className="text-gray-600 mb-8">
+  //             Connect your shop wallet to access the dashboard
+  //           </p>
+  //           <ConnectButton 
+  //             client={client}
+  //             theme="light"
+  //             connectModal={{ size: "wide" }}
+  //           />
+  //         </div>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
-  // Loading state
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
-        <div className="max-w-md w-full mx-auto p-6">
-          <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-            <div className="text-center">
-              <div className="text-4xl mb-4">🏪</div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">Loading your shop...</h2>
-              <div className="animate-pulse space-y-4">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mx-auto"></div>
-                <div className="h-8 bg-gray-200 rounded w-1/2 mx-auto"></div>
-                <div className="space-y-3">
-                  <div className="h-4 bg-gray-200 rounded"></div>
-                  <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // // Loading state
+  // if (loading) {
+  //   return (
+  //     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
+  //       <div className="max-w-md w-full mx-auto p-6">
+  //         <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+  //           <div className="text-center">
+  //             <div className="text-4xl mb-4">🏪</div>
+  //             <h2 className="text-xl font-semibold text-gray-900 mb-6">Loading your shop...</h2>
+  //             <div className="animate-pulse space-y-4">
+  //               <div className="h-4 bg-gray-200 rounded w-3/4 mx-auto"></div>
+  //               <div className="h-8 bg-gray-200 rounded w-1/2 mx-auto"></div>
+  //               <div className="space-y-3">
+  //                 <div className="h-4 bg-gray-200 rounded"></div>
+  //                 <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+  //               </div>
+  //             </div>
+  //           </div>
+  //         </div>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
-  // Error state (shop not found)
-  if (error && !shopData) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-          <div className="text-center">
-            <div className="text-red-500 text-4xl mb-4">🚫</div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">Shop Not Found</h3>
-            <p className="text-gray-600 mb-6">{error}</p>
-            <a 
-              href="/shop/register"
-              className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-3 px-4 rounded-xl transition duration-200 transform hover:scale-105 inline-block"
-            >
-              Register Shop
-            </a>
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <ConnectButton 
-                client={client}
-                theme="light"
-                connectModal={{ size: "compact" }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // // Error state (shop not found)
+  // if (error && !shopData) {
+  //   return (
+  //     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
+  //       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+  //         <div className="text-center">
+  //           <div className="text-red-500 text-4xl mb-4">🚫</div>
+  //           <h3 className="text-xl font-semibold text-gray-900 mb-4">Shop Not Found</h3>
+  //           <p className="text-gray-600 mb-6">{error}</p>
+  //           <a 
+  //             href="/shop/register"
+  //             className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-3 px-4 rounded-xl transition duration-200 transform hover:scale-105 inline-block"
+  //           >
+  //             Register Shop
+  //           </a>
+  //           <div className="mt-6 pt-6 border-t border-gray-200">
+  //             <ConnectButton 
+  //               client={client}
+  //               theme="light"
+  //               connectModal={{ size: "compact" }}
+  //             />
+  //           </div>
+  //         </div>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
-  // Pending application state
-  if (shopData && !shopData.verified && !shopData.active) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-          <div className="text-center">
-            <div className="text-yellow-500 text-4xl mb-4">⏳</div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">Application Pending</h3>
-            <p className="text-gray-600 mb-6">
-              Your shop registration has been submitted and is awaiting admin verification. 
-              You'll be able to access the full dashboard once approved.
-            </p>
+  // // Pending application state
+  // if (shopData && !shopData.verified && !shopData.active) {
+  //   return (
+  //     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
+  //       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+  //         <div className="text-center">
+  //           <div className="text-yellow-500 text-4xl mb-4">⏳</div>
+  //           <h3 className="text-xl font-semibold text-gray-900 mb-4">Application Pending</h3>
+  //           <p className="text-gray-600 mb-6">
+  //             Your shop registration has been submitted and is awaiting admin verification. 
+  //             You'll be able to access the full dashboard once approved.
+  //           </p>
             
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Shop Name:</span>
-                <span className="font-medium text-gray-900">{shopData.name}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm mt-2">
-                <span className="text-gray-600">Shop ID:</span>
-                <span className="font-medium text-gray-900">{shopData.shopId}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm mt-2">
-                <span className="text-gray-600">Status:</span>
-                <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-                  Pending Verification
-                </span>
-              </div>
-            </div>
+  //           <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
+  //             <div className="flex items-center justify-between text-sm">
+  //               <span className="text-gray-600">Shop Name:</span>
+  //               <span className="font-medium text-gray-900">{shopData.name}</span>
+  //             </div>
+  //             <div className="flex items-center justify-between text-sm mt-2">
+  //               <span className="text-gray-600">Shop ID:</span>
+  //               <span className="font-medium text-gray-900">{shopData.shopId}</span>
+  //             </div>
+  //             <div className="flex items-center justify-between text-sm mt-2">
+  //               <span className="text-gray-600">Status:</span>
+  //               <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+  //                 Pending Verification
+  //               </span>
+  //             </div>
+  //           </div>
 
-            <div className="text-sm text-gray-500 mb-6">
-              <p>What happens next:</p>
-              <ul className="mt-2 text-left space-y-1">
-                <li>• Admin reviews your application</li>
-                <li>• Shop verification process</li>
-                <li>• Dashboard access granted</li>
-                <li>• RCN purchasing enabled</li>
-              </ul>
-            </div>
+  //           <div className="text-sm text-gray-500 mb-6">
+  //             <p>What happens next:</p>
+  //             <ul className="mt-2 text-left space-y-1">
+  //               <li>• Admin reviews your application</li>
+  //               <li>• Shop verification process</li>
+  //               <li>• Dashboard access granted</li>
+  //               <li>• RCN purchasing enabled</li>
+  //             </ul>
+  //           </div>
 
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <ConnectButton 
-                client={client}
-                theme="light"
-                connectModal={{ size: "compact" }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  //           <div className="mt-6 pt-6 border-t border-gray-200">
+  //             <ConnectButton 
+  //               client={client}
+  //               theme="light"
+  //               connectModal={{ size: "compact" }}
+  //             />
+  //           </div>
+  //         </div>
+  //       </div>
+  //     </div>
+  //   );
+  // }
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab as any);
+  };
 
   // Main dashboard
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="bg-white rounded-2xl shadow-xl p-6 mb-8 border border-gray-100">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="text-2xl">🏪</div>
-                <h1 className="text-2xl font-bold text-gray-900">{shopData?.name || 'Shop Dashboard'}</h1>
-                {shopData?.verified && (
-                  <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                    ✓ Verified
-                  </span>
-                )}
-              </div>
-              <p className="text-gray-500 text-sm font-mono bg-gray-50 px-3 py-1 rounded-lg">
-                {account.address?.slice(0, 6)}...{account.address?.slice(-4)}
-              </p>
-            </div>
-            <div className="mt-4 sm:mt-0">
-              <ConnectButton 
-                client={client}
-                theme="light"
-                connectModal={{ size: "compact" }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Navigation Tabs */}
-        <div className="bg-white rounded-2xl shadow-xl p-2 mb-8 border border-gray-100">
-          <div className="flex flex-wrap gap-1">
-            {[
-              { id: 'overview', label: 'Overview', icon: '📊' },
-              { id: 'issue-rewards', label: 'Issue Rewards', icon: '🎁' },
-              { id: 'redeem', label: 'Redeem', icon: '💸' },
-              { id: 'customers', label: 'Customers', icon: '👥' },
-              { id: 'lookup', label: 'Lookup', icon: '🔍' },
-              { id: 'purchase', label: 'Buy RCN', icon: '💰' },
-              { id: 'transactions', label: 'Transactions', icon: '📋' },
-              { id: 'bonuses', label: 'Bonuses', icon: '🏆' },
-              { id: 'analytics', label: 'Analytics', icon: '📈' },
-              { id: 'settings', label: 'Settings', icon: '⚙️' }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-colors ${
-                  activeTab === tab.id
-                    ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <span>{tab.icon}</span>
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Tab Content */}
-        {activeTab === 'overview' && (
-          <OverviewTab shopData={shopData} purchases={purchases} blockchainBalance={blockchainBalance} />
-        )}
-
-        {activeTab === 'purchase' && (
-          <PurchaseTab
-            purchaseAmount={purchaseAmount}
-            setPurchaseAmount={setPurchaseAmount}
-            paymentMethod={paymentMethod}
-            setPaymentMethod={setPaymentMethod}
-            purchasing={purchasing}
-            purchases={purchases}
-            onInitiatePurchase={initiatePurchase}
-          />
-        )}
-
-        {activeTab === 'bonuses' && (
-          <BonusesTab tierStats={tierStats} shopData={shopData} />
-        )}
-
-        {activeTab === 'analytics' && (
-          <AnalyticsTab 
-            shopData={shopData} 
-            tierStats={tierStats} 
-            purchases={purchases} 
-          />
-        )}
-
-        {activeTab === 'redeem' && shopData && (
-          <RedeemTabV2 
-            shopId={shopData.shopId} 
-            onRedemptionComplete={loadShopData}
-          />
-        )}
-
-        {activeTab === 'issue-rewards' && shopData && (
-          <IssueRewardsTab 
-            shopId={shopData.shopId}
-            shopData={{
-              ...shopData,
-              purchasedRcnBalance: blockchainBalance // Use blockchain balance for tier bonus calculations
-            }}
-            onRewardIssued={loadShopData}
-          />
-        )}
-
-        {activeTab === 'customers' && shopData && (
-          <CustomersTab shopId={shopData.shopId} />
-        )}
-
-        {activeTab === 'lookup' && shopData && (
-          <CustomerLookupTab shopId={shopData.shopId} />
-        )}
-
-        {activeTab === 'transactions' && shopData && (
-          <TransactionsTab shopId={shopData.shopId} />
-        )}
-
-        {activeTab === 'settings' && shopData && (
-          <SettingsTab 
-            shopId={shopData.shopId}
-            shopData={shopData}
-            onSettingsUpdate={loadShopData}
-          />
-        )}
-
-        {/* Error Display */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mt-6">
-            <div className="flex">
-              <div className="text-red-400 text-2xl mr-3">⚠️</div>
+    <DashboardLayout userRole="shop" activeTab={activeTab} onTabChange={handleTabChange}>
+      <div
+        className="min-h-screen py-8 bg-[#0D0D0D]"
+        style={{
+          backgroundImage: `url('/img/dashboard-bg.png')`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
+      >
+        <div className="max-w-screen-2xl w-[96%] mx-auto">
+          {/* Header */}
+          {/* <div className="bg-gray-800 bg-opacity-90 rounded-lg border border-gray-700 p-6 mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h3 className="text-sm font-medium text-red-800">Error</h3>
-                <div className="mt-2 text-sm text-red-700">{error}</div>
+                <div className="flex items-center gap-3 mb-2">
+                  <h1 className="text-3xl font-bold text-white">{shopData?.name || 'Shop Dashboard'}</h1>
+                  {shopData?.verified && (
+                    <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-900 text-blue-300">
+                      ✓ Verified
+                    </span>
+                  )}
+                </div>
+                <p className="text-gray-400 text-sm font-mono">
+                  {account.address?.slice(0, 6)}...{account.address?.slice(-4)}
+                </p>
+              </div>
+              <div className="mt-4 sm:mt-0">
+                <ConnectButton 
+                  client={client}
+                  theme="dark"
+                  connectModal={{ size: "compact" }}
+                />
               </div>
             </div>
-          </div>
-        )}
+          </div> */}
 
-        {/* Payment Modal */}
-        {showPayment && currentPurchaseId && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="max-w-md w-full">
-              <ThirdwebPayment
-                purchaseId={currentPurchaseId}
-                amount={purchaseAmount}
-                totalCost={purchaseAmount * 0.10} // $0.10 per RCN
-                onSuccess={handlePaymentSuccess}
-                onError={handlePaymentError}
-                onCancel={cancelPayment}
-              />
-              
-              {/* Cancel Button */}
-              <div className="mt-4 text-center">
-                <button
-                  onClick={cancelPayment}
-                  className="text-gray-500 hover:text-gray-700 text-sm"
-                >
-                  Cancel Payment
-                </button>
+          {/* Tab Content */}
+          {activeTab === 'overview' && (
+            <OverviewTab shopData={shopData} purchases={purchases} blockchainBalance={blockchainBalance} />
+          )}
+
+          {activeTab === 'purchase' && (
+            <PurchaseTab
+              purchaseAmount={purchaseAmount}
+              setPurchaseAmount={setPurchaseAmount}
+              paymentMethod={paymentMethod}
+              setPaymentMethod={setPaymentMethod}
+              purchasing={purchasing}
+              purchases={purchases}
+              onInitiatePurchase={initiatePurchase}
+            />
+          )}
+
+          {activeTab === 'bonuses' && (
+            <BonusesTab tierStats={tierStats} shopData={shopData} />
+          )}
+
+          {activeTab === 'analytics' && (
+            <AnalyticsTab 
+              shopData={shopData} 
+              tierStats={tierStats} 
+              purchases={purchases} 
+            />
+          )}
+
+          {activeTab === 'redeem' && shopData && (
+            <RedeemTabV2 
+              shopId={shopData.shopId} 
+              onRedemptionComplete={loadShopData}
+            />
+          )}
+
+          {activeTab === 'issue-rewards' && shopData && (
+            <IssueRewardsTab 
+              shopId={shopData.shopId}
+              shopData={{
+                ...shopData,
+                purchasedRcnBalance: blockchainBalance // Use blockchain balance for tier bonus calculations
+              }}
+              onRewardIssued={loadShopData}
+            />
+          )}
+
+          {activeTab === 'customers' && shopData && (
+            <CustomersTab shopId={shopData.shopId} />
+          )}
+
+          {activeTab === 'lookup' && shopData && (
+            <CustomerLookupTab shopId={shopData.shopId} />
+          )}
+
+          {activeTab === 'transactions' && shopData && (
+            <TransactionsTab shopId={shopData.shopId} />
+          )}
+
+          {activeTab === 'settings' && shopData && (
+            <SettingsTab 
+              shopId={shopData.shopId}
+              shopData={shopData}
+              onSettingsUpdate={loadShopData}
+            />
+          )}
+
+          {/* Error Display */}
+          {error && (
+            <div className="bg-red-900 bg-opacity-90 border border-red-700 rounded-lg p-4 mt-6">
+              <div className="flex">
+                <div className="text-red-400 text-2xl mr-3">⚠️</div>
+                <div>
+                  <h3 className="text-sm font-medium text-red-300">Error</h3>
+                  <div className="mt-2 text-sm text-red-200">{error}</div>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {/* Payment Modal */}
+          {showPayment && currentPurchaseId && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="max-w-md w-full">
+                <ThirdwebPayment
+                  purchaseId={currentPurchaseId}
+                  amount={purchaseAmount}
+                  totalCost={purchaseAmount * 0.10} // $0.10 per RCN
+                  onSuccess={handlePaymentSuccess}
+                  onError={handlePaymentError}
+                  onCancel={cancelPayment}
+                />
+                
+                {/* Cancel Button */}
+                <div className="mt-4 text-center">
+                  <button
+                    onClick={cancelPayment}
+                    className="text-gray-400 hover:text-gray-300 text-sm"
+                  >
+                    Cancel Payment
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </DashboardLayout>
   );
 }

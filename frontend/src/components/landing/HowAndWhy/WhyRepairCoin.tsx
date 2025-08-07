@@ -21,24 +21,24 @@ const WhyRepairCoin: React.FC<any> = () => {
               title: "Get Rewarded for What You’re Already Doing",
               description:
                 "Every time you repair your phone, laptop, or device at a partner shop, you earn RepairCoin — a crypto token with real-world value.",
-              icon: <img src="/reward.png" alt="Repair" />,
+              icon: <img src="/img/reward.png" alt="Repair" />,
             },
             {
               title: "Loyalty That Pays You Back",
               description: "Unlike generic points or coupons, RepairCoin is a blockchain-backed token that can grow in value, be traded, or used for discounts and perks.",
-              icon: <img src="/loyalty.png" alt="Earn" />,
+              icon: <img src="/img/loyalty.png" alt="Earn" />,
             },
             {
               title: "Support Local. Earn Global.",
               description:
                 "When you use RepairCoin, you’re not just earning crypto — you’re empowering local repair businesses while tapping into a global digital economy.",
-              icon: <img src="/repair.png" alt="Redeem" />,
+              icon: <img src="/img/repair.png" alt="Redeem" />,
             },
             {
               title: "Sustainable & Smart Choice",
               description:
                 "Choosing to repair your devices instead of replacing them helps the planet. RepairCoin rewards eco-conscious behavior with smart, tech-forward incentives that benefit everyone.",
-              icon: <img src="/sustain.png" alt="Redeem" />,
+              icon: <img src="/img/sustain.png" alt="Redeem" />,
             },
           ].map((step, index) => (
             <div key={index} className="w-full h-full">

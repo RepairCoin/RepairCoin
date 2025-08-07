@@ -53,7 +53,7 @@ const Footer = () => {
               <div className="flex flex-col items-center md:items-start space-x-3 mb-8">
                 <div>
                   <img
-                    src="/community-logo.png"
+                    src="/img/community-logo.png"
                     alt="RepairCoin Logo"
                     className="h-10 w-auto"
                   />

@@ -11,25 +11,25 @@ export default function LandingPage() {
   return (
     <main>
       <WalletAwareHero
-        backgroundImage="/hero-bg.png"  
-        techBgImage="/tech-bg.png"
-        hero1BgImage="/hero1-bg.png"  
+        backgroundImage="/img/hero-bg.png"  
+        techBgImage="/img/tech-bg.png"
+        hero1BgImage="/img/hero1-bg.png"  
       />
       <HowAndWhy 
-        techBgImage="/tech-bg.png"
+        techBgImage="/img/tech-bg.png"
       />
       <FindARepairCoin 
-        chainBgImage="/chain.png"
+        chainBgImage="/img/chain.png"
       />
       <SuccessStories 
-        successStoriesBgImage="/success-stories-bg.png"
+        successStoriesBgImage="/img/success-stories-bg.png"
       />
       <LatestNews 
-        latestNewsBgImage="/success-stories-bg.png"
+        latestNewsBgImage="/img/success-stories-bg.png"
       />
       <CommunityBanner 
-        communityBannerBgImage="/community-chain.png"
-        bannerChainImage="/banner-chain.png"
+        communityBannerBgImage="/img/community-chain.png"
+        bannerChainImage="/img/banner-chain.png"
       />
     </main>
   );

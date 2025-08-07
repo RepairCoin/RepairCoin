@@ -6,7 +6,7 @@ const Hero: React.FC<any> = () => {
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{
-          backgroundImage: `url(/about-bg.png)`,
+          backgroundImage: `url(/img/about-bg.png)`,
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",

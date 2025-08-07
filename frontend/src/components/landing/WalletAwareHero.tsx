@@ -161,15 +161,23 @@ export const WalletAwareHero: React.FC<WalletAwareHeroProps> = ({
                   }}
                   connectButton={{
                     label: "Connect Wallet to Get Started",
-                    className: "bg-[#FFCC00] text-black py-2 xl:py-4 px-4 xl:px-6 rounded-full font-semibold text-sm md:text-base text-center hover:bg-yellow-400 transition-colors"
-                  }}
+                      style: {
+                        backgroundColor: "#F7CC00",
+                        color: "#111827",
+                        fontWeight: "600",
+                        borderRadius: "10px",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        padding: "0.75rem 2rem",
+                        boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+                      }                  }}
                 />
               )}
             </div>
             
             {/* Status Messages */}
             {account && !isDetecting && !isRegistered && (
-              <div className='mt-6 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg'>
+              <div className='mt-6 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg w-1/3'>
                 <p className='text-blue-200 text-sm'>
                   <span className='font-semibold'>New wallet detected!</span> Click "Get Started" to choose how you want to participate in RepairCoin.
                 </p>

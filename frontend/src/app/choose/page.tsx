@@ -3,6 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { ConnectButton } from "thirdweb/react";
+import { createThirdwebClient } from "thirdweb";
+const client = createThirdwebClient({
+  clientId:
+    process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID ||
+    "1969ac335e07ba13ad0f8d1a1de4f6ab",
+});
 
 export default function ChoosePage() {
   const { account, isAuthenticated, isLoading, userType, userProfile } =
@@ -114,11 +121,34 @@ export default function ChoosePage() {
     );
   }
 
+  if (!account) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+          <div className="text-center">
+            <div className="text-6xl mb-6">🏪</div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">
+              Choose your role
+            </h1>
+            <p className="text-gray-600 mb-8">
+              Connect your wallet to choose your role
+            </p>
+            <ConnectButton
+              client={client}
+              theme="light"
+              connectModal={{ size: "wide" }}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className="min-h-screen pb-10 pt-36 bg-[#0D0D0D]"
       style={{
-        backgroundImage: `url('/dashboard-bg.png')`,
+        backgroundImage: `url('/img/dashboard-bg.png')`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
@@ -234,7 +264,7 @@ export default function ChoosePage() {
                   <div className="relative w-full bg-[#1C1C1C] overflow-hidden">
                     <div className="w-full pt-[56.25%] relative">
                       <img
-                        src="/choose-avatar1.png"
+                        src="/img/choose-avatar1.png"
                         alt="Customer"
                         className="absolute top-0 left-0 w-full h-full object-cover"
                         loading="lazy"
@@ -438,7 +468,7 @@ export default function ChoosePage() {
                     <div className="relative w-full bg-[#1C1C1C] overflow-hidden">
                       <div className="w-full pt-[56.25%] relative">
                         <img
-                          src="/choose-avatar2.png"
+                          src="/img/choose-avatar2.png"
                           alt="Customer"
                           className="absolute top-0 left-0 w-full h-full object-cover"
                           loading="lazy"
@@ -526,7 +556,7 @@ export default function ChoosePage() {
         <div
           className="my-28 bg-gradient-to-b from-[#1A1A1A] to-[#2A2A2A] rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow"
           style={{
-            backgroundImage: `url('/cus-how-to-earn.png')`,
+            backgroundImage: `url('/img/cus-how-to-earn.png')`,
             backgroundSize: "cover",
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",
@@ -540,7 +570,7 @@ export default function ChoosePage() {
             <div className="rounded-2xl p-6">
               <div className="w-full h-48 mb-4 flex items-center justify-center overflow-hidden rounded-2xl">
                 <img
-                  src="/story1.png"
+                  src="/img/story1.png"
                   alt="Refer Friends"
                   className="w-full h-full object-contain"
                 />
@@ -557,7 +587,7 @@ export default function ChoosePage() {
             <div className="rounded-2xl p-6">
               <div className="w-full h-48 mb-4 flex items-center justify-center overflow-hidden rounded-2xl">
                 <img
-                  src="/whatWeDo3.png"
+                  src="/img/whatWeDo3.png"
                   alt="Complete Repairs"
                   className="w-full h-full object-contain"
                 />
@@ -574,7 +604,7 @@ export default function ChoosePage() {
             <div className="rounded-2xl p-6">
               <div className="w-full h-48 mb-4 flex items-center justify-center overflow-hidden rounded-2xl">
                 <img
-                  src="/customer-avatar.png"
+                  src="/img/customer-avatar.png"
                   alt="Upgrade Your Tier"
                   className="w-full h-full object-contain"
                 />

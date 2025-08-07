@@ -60,21 +60,21 @@ const LatestNews: React.FC<LatestNewsProps> = ({ latestNewsBgImage }) => {
                     <div className="w-full max-w-7xl">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
                             <NewsCard 
-                                imageSrc="/bitcoin.png"
+                                imageSrc="/img/bitcoin.png"
                                 imageAlt="Bitcoin"
                                 title="RepairCoin Ecosystem Update"
                                 description="Latest developments and updates in the RepairCoin ecosystem and community initiatives."
                                 date="July 15, 2025"
                             />
                             <NewsCard 
-                                imageSrc="/shop.png"
+                                imageSrc="/img/shop.png"
                                 imageAlt="Shop"
                                 title="Partnership Announcement"
                                 description="Exciting new partnership with leading tech companies to expand RepairCoin's reach."
                                 date="July 5, 2025"
                             />
                             <NewsCard 
-                                imageSrc="/phone.png"
+                                imageSrc="/img/phone.png"
                                 imageAlt="Phone"
                                 title="Community Event Recap"
                                 description="Highlights from our recent community meetup and future roadmap discussion."

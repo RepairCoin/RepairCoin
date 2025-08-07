@@ -61,7 +61,7 @@ const Header: React.FC = () => {
               {/* Logo */}
               <a href="/" className="flex items-center">
                 <div className="flex items-center">
-                  <img src="/nav-logo.png" alt="" />
+                  <img src="/img/nav-logo.png" alt="" />
                 </div>
               </a>
 
@@ -114,7 +114,7 @@ const Header: React.FC = () => {
                 {/* Navigation Links */}
                 <nav className="flex items-center">
                   <ul className="flex space-x-6">
-                    {["Pricing", "About"].map((item) => (
+                    {["Rewards", "About"].map((item) => (
                       <li key={item}>
                         <a
                           href={`${item.toLowerCase()}`}
@@ -131,15 +131,10 @@ const Header: React.FC = () => {
                 {
                   account?.address && !isLoading ? (
                     <div className="flex justify-center items-center">
-                      <div className="flex bg-white items-center w-12 h-12 border-2 p-1 border-gray-500 rounded-full space-x-2">
-                        <img src="/avatar1.png" className="w-full h-full rounded-full" alt="" />
-                      </div>
-                      <p className="text-gray-300 hover:text-white px-3 py-2 text-sm font-medium transition-colors duration-200">
-                        {(() => {
-                          const text = "fewfeqhfffwfgweghwei";
-                          return text.length > 7 ? text.substring(0, 11) + "..." : text;
-                        })()}
-                      </p>
+                      <ConnectButton 
+                        client={client}
+                        connectModal={{ size: "wide" }}
+                      />
                     </div>
                   ) : (
                     <div className="flex items-center space-x-4">
@@ -162,7 +157,7 @@ const Header: React.FC = () => {
                 <div className="px-4 py-4 space-y-4">
                   {/* Navigation Links */}
                   <nav className="flex flex-col items-center space-y-3">
-                    {["Overview", "Features", "Pricing", "About"].map(
+                    {["Overview", "Features", "Rewards", "About"].map(
                       (item) => (
                         <a
                           key={`mobile-${item}`}
@@ -271,7 +266,7 @@ const Header: React.FC = () => {
               {/* Right Content - Character Illustrations */}
               <div className="flex-1 relative h-64 md:h-80">
                 <img
-                  src="/connect-modal.png"
+                  src="/img/connect-modal.png"
                   alt="RepairCoin Characters"
                   className="absolute inset-0 w-full h-full object-contain"
                 />

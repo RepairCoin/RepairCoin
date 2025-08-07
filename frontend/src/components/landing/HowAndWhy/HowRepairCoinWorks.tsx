@@ -44,18 +44,18 @@ const HowRepairCoinWorks: React.FC<any> = () => {
             title: "Repair",
             description:
               "Visit a participating repair shop for your phone, device or avail any repair services.",
-            icon: <img src="/repair.png" alt="" />,
+            icon: <img src="/img/repair.png" alt="" />,
           },
           {
             title: "Earn",
             description: "Receive RepairCoin as a reward for every repair.",
-            icon: <img src="/redeem.png" alt="" />,
+            icon: <img src="/img/redeem.png" alt="" />,
           },
           {
             title: "Redeem",
             description:
               "Receive exciting rewards from our system. Trade other currencies from the market.",
-            icon: <img src="/earn.png" alt="" />,
+            icon: <img src="/img/earn.png" alt="" />,
           },
         ].map((step, index, array) => (
           <React.Fragment key={index}>

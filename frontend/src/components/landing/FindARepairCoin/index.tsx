@@ -31,7 +31,7 @@ const FindARepairCoin: React.FC<FindARepairCoinProps> = ({ chainBgImage }) => {
             </button>
           </div>
           <div className="absolute left-1/2 md:left-auto md:translate-x-0 md:translate-y-0 md:static w-1/2 flex flex-col items-center justify-center">
-            <img src="/gps.png" alt="" />
+            <img src="/img/gps.png" alt="" />
           </div>
         </div>
       </Section>
