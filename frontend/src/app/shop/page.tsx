@@ -402,9 +402,9 @@ export default function ShopDashboard() {
           backgroundRepeat: "no-repeat",
         }}
       >
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-screen-2xl w-[96%] mx-auto">
           {/* Header */}
-          <div className="bg-gray-800 bg-opacity-90 rounded-lg border border-gray-700 p-6 mb-8">
+          {/* <div className="bg-gray-800 bg-opacity-90 rounded-lg border border-gray-700 p-6 mb-8">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="flex items-center gap-3 mb-2">
@@ -427,7 +427,7 @@ export default function ShopDashboard() {
                 />
               </div>
             </div>
-          </div>
+          </div> */}
 
           {/* Tab Content */}
           {activeTab === 'overview' && (
