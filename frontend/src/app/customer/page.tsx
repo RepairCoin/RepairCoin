@@ -8,6 +8,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { SimpleUnsuspendModal } from '../../components/SimpleUnsuspendModal';
 import { ReferralDashboard } from '../../components/customer/ReferralDashboard';
+import { RedemptionApprovals } from '../../components/customer/RedemptionApprovals';
 import { Toaster } from 'react-hot-toast';
 
 const client = createThirdwebClient({
@@ -64,7 +65,7 @@ export default function CustomerDashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showUnsuspendModal, setShowUnsuspendModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'referrals'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'referrals' | 'approvals'>('overview');
 
   // Read token balance from contract
   const { data: tokenBalance, isLoading: balanceLoading } = useReadContract({
@@ -99,6 +100,32 @@ export default function CustomerDashboard() {
         // Customer not found - they need to register
         router.push("/customer/register");
         return;
+      }
+
+      // Authenticate customer to get JWT token
+      try {
+        const authResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/auth/customer`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ address: account.address }),
+          }
+        );
+
+        if (authResponse.ok) {
+          const authResult = await authResponse.json();
+          // Store token for future requests
+          localStorage.setItem('customerAuthToken', authResult.token);
+          sessionStorage.setItem('customerAuthToken', authResult.token);
+          console.log('Customer authenticated successfully');
+        } else {
+          console.error('Customer auth failed:', authResponse.status);
+        }
+      } catch (authError) {
+        console.error('Customer authentication error:', authError);
       }
 
       // Fetch earned balance data
@@ -178,6 +205,14 @@ export default function CustomerDashboard() {
       fetchCustomerData();
     }
   }, [account?.address]);
+
+  // Update blockchain balance when contract read completes
+  useEffect(() => {
+    if (tokenBalance && !balanceLoading) {
+      const formattedBalance = parseFloat(formatBalance(tokenBalance));
+      setBlockchainBalance(formattedBalance);
+    }
+  }, [tokenBalance, balanceLoading]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -360,6 +395,16 @@ export default function CustomerDashboard() {
             >
               Referrals
             </button>
+            <button
+              onClick={() => setActiveTab('approvals')}
+              className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
+                activeTab === 'approvals'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              Approvals
+            </button>
           </div>
         </div>
 
@@ -375,9 +420,7 @@ export default function CustomerDashboard() {
                 RCN Balance
               </p>
               <p className="text-white text-2xl font-bold">
-                {earnedBalanceData?.totalBalance > 0 
-                  ? earnedBalanceData.totalBalance
-                  : blockchainBalance}{" "}
+                {blockchainBalance || 0}{" "}
                 RCN
               </p>
               {earnedBalanceData && earnedBalanceData.marketBalance > 0 && (
@@ -637,9 +680,7 @@ export default function CustomerDashboard() {
                   Current Balance:
                 </span>
                 <span className="font-bold text-yellow-400">
-                  {earnedBalanceData?.totalBalance > 0 
-                    ? earnedBalanceData.totalBalance
-                    : blockchainBalance}{" "}
+                  {blockchainBalance || 0}{" "}
                   RCN
                 </span>
               </div>
@@ -914,6 +955,11 @@ export default function CustomerDashboard() {
         {/* Referrals Tab */}
         {activeTab === 'referrals' && (
           <ReferralDashboard />
+        )}
+
+        {/* Approvals Tab */}
+        {activeTab === 'approvals' && (
+          <RedemptionApprovals />
         )}
       </div>
     </div>

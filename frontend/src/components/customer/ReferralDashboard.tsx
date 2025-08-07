@@ -1,8 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useActiveAccount } from 'thirdweb/react';
+import { useActiveAccount, useReadContract } from 'thirdweb/react';
+import { getContract, createThirdwebClient } from 'thirdweb';
+import { baseSepolia } from 'thirdweb/chains';
 import { toast } from 'react-hot-toast';
+
+const client = createThirdwebClient({
+  clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "1969ac335e07ba13ad0f8d1a1de4f6ab",
+});
+
+const contract = getContract({
+  client,
+  chain: baseSepolia,
+  address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS!,
+});
 
 interface ReferralData {
   referralCode: string;
@@ -40,12 +52,33 @@ export function ReferralDashboard() {
   const [loading, setLoading] = useState(true);
   const [copying, setCopying] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [blockchainBalance, setBlockchainBalance] = useState<number>(0);
+
+  // Read token balance from contract
+  const { data: tokenBalance, isLoading: balanceLoading } = useReadContract({
+    contract,
+    method: "function balanceOf(address) view returns (uint256)",
+    params: account?.address ? [account.address] : undefined,
+  });
+
+  const formatBalance = (balance: bigint | undefined): string => {
+    if (!balance) return "0";
+    return (Number(balance) / 1e18).toFixed(2);
+  };
 
   useEffect(() => {
     if (account?.address) {
       loadReferralData();
     }
   }, [account?.address]);
+
+  // Update blockchain balance when contract read completes
+  useEffect(() => {
+    if (tokenBalance && !balanceLoading) {
+      const formattedBalance = parseFloat(formatBalance(tokenBalance));
+      setBlockchainBalance(formattedBalance);
+    }
+  }, [tokenBalance, balanceLoading]);
 
   const loadReferralData = async () => {
     if (!account?.address) return;
@@ -248,7 +281,7 @@ export function ReferralDashboard() {
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Total Balance:</span>
-                <span className="font-bold text-lg">{(referralData.rcnBreakdown?.totalBalance || 0).toFixed(2)} RCN</span>
+                <span className="font-bold text-lg">{blockchainBalance.toFixed(2)} RCN</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Earned (Redeemable):</span>

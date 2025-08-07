@@ -28,8 +28,8 @@ export class CustomerRepository extends BaseRepository {
         lifetimeEarnings: parseFloat(row.lifetime_earnings),
         dailyEarnings: parseFloat(row.daily_earnings || 0),
         monthlyEarnings: parseFloat(row.monthly_earnings),
-        lastEarnedDate: row.last_earned_date,
-        joinDate: row.join_date,
+        lastEarnedDate: row.last_earned_date ? new Date(row.last_earned_date).toISOString() : new Date().toISOString(),
+        joinDate: row.join_date ? new Date(row.join_date).toISOString() : new Date().toISOString(),
         isActive: row.is_active,
         referralCount: row.referral_count,
         fixflowCustomerId: row.fixflow_customer_id,
@@ -64,8 +64,8 @@ export class CustomerRepository extends BaseRepository {
         lifetimeEarnings: parseFloat(row.lifetime_earnings),
         dailyEarnings: parseFloat(row.daily_earnings || 0),
         monthlyEarnings: parseFloat(row.monthly_earnings),
-        lastEarnedDate: row.last_earned_date,
-        joinDate: row.join_date,
+        lastEarnedDate: row.last_earned_date ? new Date(row.last_earned_date).toISOString() : new Date().toISOString(),
+        joinDate: row.join_date ? new Date(row.join_date).toISOString() : new Date().toISOString(),
         isActive: row.is_active,
         referralCount: row.referral_count,
         fixflowCustomerId: row.fixflow_customer_id,
@@ -172,20 +172,66 @@ export class CustomerRepository extends BaseRepository {
     newTier: TierLevel
   ): Promise<void> {
     try {
-      const query = `
-        UPDATE customers 
-        SET 
-          lifetime_earnings = lifetime_earnings + $1,
-          daily_earnings = daily_earnings + $1,
-          monthly_earnings = monthly_earnings + $1,
-          tier = $2,
-          last_earned_date = NOW(),
-          updated_at = NOW()
-        WHERE address = $3
-      `;
+      // First get the customer to check if we need to reset daily/monthly earnings
+      const customer = await this.getCustomer(address);
+      if (!customer) {
+        throw new Error('Customer not found');
+      }
+      
+      const today = new Date().toISOString().split('T')[0];
+      const customerLastEarnedDateOnly = customer.lastEarnedDate.split('T')[0];
+      const currentDate = new Date();
+      const lastEarnedDate = new Date(customer.lastEarnedDate);
+      
+      // Determine if we need to reset daily/monthly earnings
+      const isNewDay = customerLastEarnedDateOnly !== today;
+      const isNewMonth = (currentDate.getMonth() !== lastEarnedDate.getMonth() || 
+                         currentDate.getFullYear() !== lastEarnedDate.getFullYear());
+      
+      let query: string;
+      if (isNewDay && isNewMonth) {
+        // Reset both daily and monthly
+        query = `
+          UPDATE customers 
+          SET 
+            lifetime_earnings = lifetime_earnings + $1,
+            daily_earnings = $1,
+            monthly_earnings = $1,
+            tier = $2,
+            last_earned_date = NOW(),
+            updated_at = NOW()
+          WHERE address = $3
+        `;
+      } else if (isNewDay) {
+        // Reset only daily
+        query = `
+          UPDATE customers 
+          SET 
+            lifetime_earnings = lifetime_earnings + $1,
+            daily_earnings = $1,
+            monthly_earnings = monthly_earnings + $1,
+            tier = $2,
+            last_earned_date = NOW(),
+            updated_at = NOW()
+          WHERE address = $3
+        `;
+      } else {
+        // No reset needed
+        query = `
+          UPDATE customers 
+          SET 
+            lifetime_earnings = lifetime_earnings + $1,
+            daily_earnings = daily_earnings + $1,
+            monthly_earnings = monthly_earnings + $1,
+            tier = $2,
+            last_earned_date = NOW(),
+            updated_at = NOW()
+          WHERE address = $3
+        `;
+      }
       
       await this.pool.query(query, [amount, newTier, address.toLowerCase()]);
-      logger.info('Customer earnings updated', { address, amount, newTier });
+      logger.info('Customer earnings updated', { address, amount, newTier, isNewDay, isNewMonth });
     } catch (error) {
       logger.error('Error updating customer earnings:', error);
       throw new Error('Failed to update customer earnings');
@@ -321,8 +367,8 @@ export class CustomerRepository extends BaseRepository {
         lifetimeEarnings: parseFloat(row.lifetime_earnings),
         dailyEarnings: parseFloat(row.daily_earnings || 0),
         monthlyEarnings: parseFloat(row.monthly_earnings),
-        lastEarnedDate: row.last_earned_date,
-        joinDate: row.join_date,
+        lastEarnedDate: row.last_earned_date ? new Date(row.last_earned_date).toISOString() : new Date().toISOString(),
+        joinDate: row.join_date ? new Date(row.join_date).toISOString() : new Date().toISOString(),
         isActive: row.is_active,
         referralCount: row.referral_count,
         fixflowCustomerId: row.fixflow_customer_id,

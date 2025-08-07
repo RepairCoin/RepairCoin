@@ -430,6 +430,75 @@ router.post('/admin', async (req, res) => {
 });
 
 /**
+ * Generate customer JWT token
+ * POST /api/auth/customer
+ */
+router.post('/customer', async (req, res) => {
+  try {
+    const { address } = req.body;
+
+    if (!address) {
+      return res.status(400).json({
+        error: 'Wallet address is required'
+      });
+    }
+
+    const normalizedAddress = address.toLowerCase();
+
+    // Check if address belongs to a customer
+    try {
+      const customer = await customerRepository.getCustomer(normalizedAddress);
+      
+      if (!customer) {
+        return res.status(403).json({
+          error: 'Address not associated with a customer'
+        });
+      }
+
+      if (!customer.isActive) {
+        return res.status(403).json({
+          error: 'Customer account is not active'
+        });
+      }
+
+      // Generate JWT token for customer
+      const token = generateToken({
+        address: normalizedAddress,
+        role: 'customer'
+      });
+
+      res.json({
+        success: true,
+        token,
+        user: {
+          id: customer.address,
+          address: customer.address,
+          walletAddress: customer.address,
+          name: customer.name || 'Customer',
+          role: 'customer',
+          tier: customer.tier,
+          active: customer.isActive,
+          createdAt: customer.joinDate
+        }
+      });
+
+    } catch (error) {
+      logger.error('Customer authentication error:', error);
+      return res.status(403).json({
+        error: 'Authentication failed'
+      });
+    }
+
+  } catch (error) {
+    logger.error('Customer auth error:', error);
+    return res.status(500).json({
+      error: 'Internal server error',
+      message: 'Error authenticating customer'
+    });
+  }
+});
+
+/**
  * Generate shop JWT token
  * POST /api/auth/shop
  */

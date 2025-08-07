@@ -534,4 +534,92 @@ export class ShopRepository extends BaseRepository {
       throw new Error('Failed to get shop transactions');
     }
   }
+
+  async getShopCustomers(
+    shopId: string,
+    options: { page: number; limit: number; search?: string }
+  ): Promise<{
+    customers: Array<{
+      address: string;
+      name?: string;
+      tier: string;
+      lifetime_earnings: number;
+      last_transaction_date?: string;
+      total_transactions: number;
+    }>;
+    totalItems: number;
+    totalPages: number;
+    currentPage: number;
+  }> {
+    try {
+      const { page, limit, search } = options;
+      const offset = this.getPaginationOffset(page, limit);
+
+      // Build query to get customers who have earned from this shop
+      let whereClause = 'WHERE t.shop_id = $1';
+      let params: any[] = [shopId];
+      let paramCount = 1;
+
+      if (search) {
+        paramCount++;
+        whereClause += ` AND (LOWER(c.wallet_address) LIKE LOWER($${paramCount}) OR LOWER(c.name) LIKE LOWER($${paramCount}))`;
+        params.push(`%${search}%`);
+      }
+
+      // Get total count
+      const countQuery = `
+        SELECT COUNT(DISTINCT t.customer_address) as count
+        FROM transactions t
+        LEFT JOIN customers c ON c.wallet_address = t.customer_address
+        ${whereClause} AND t.type = 'mint'
+      `;
+      const countResult = await this.pool.query(countQuery, params);
+      const totalItems = parseInt(countResult.rows[0].count);
+
+      // Get paginated customer list with their details
+      paramCount++;
+      params.push(limit);
+      paramCount++;
+      params.push(offset);
+
+      const query = `
+        SELECT 
+          t.customer_address as address,
+          c.name,
+          COALESCE(c.tier, 'BRONZE') as tier,
+          SUM(t.amount) as lifetime_earnings,
+          MAX(t.timestamp) as last_transaction_date,
+          COUNT(t.id) as total_transactions
+        FROM transactions t
+        LEFT JOIN customers c ON c.wallet_address = t.customer_address
+        ${whereClause} AND t.type = 'mint'
+        GROUP BY t.customer_address, c.name, c.tier
+        ORDER BY SUM(t.amount) DESC
+        LIMIT $${paramCount - 1} OFFSET $${paramCount}
+      `;
+
+      const result = await this.pool.query(query, params);
+      
+      const customers = result.rows.map(row => ({
+        address: row.address,
+        name: row.name,
+        tier: row.tier,
+        lifetime_earnings: parseFloat(row.lifetime_earnings || 0),
+        last_transaction_date: row.last_transaction_date,
+        total_transactions: parseInt(row.total_transactions || 0)
+      }));
+
+      const totalPages = Math.ceil(totalItems / limit);
+
+      return {
+        customers,
+        totalItems,
+        totalPages,
+        currentPage: page
+      };
+    } catch (error) {
+      logger.error('Error getting shop customers:', error);
+      throw new Error('Failed to get shop customers');
+    }
+  }
 }

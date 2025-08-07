@@ -12,6 +12,8 @@ interface IssueRewardsTabProps {
   onRewardIssued: () => void;
 }
 
+type RepairType = 'small' | 'large';
+
 interface CustomerInfo {
   tier: 'BRONZE' | 'SILVER' | 'GOLD';
   lifetimeEarnings: number;
@@ -21,18 +23,21 @@ interface CustomerInfo {
 
 export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({ shopId, shopData, onRewardIssued }) => {
   const [customerAddress, setCustomerAddress] = useState('');
-  const [repairAmount, setRepairAmount] = useState<number>(0);
+  const [repairType, setRepairType] = useState<RepairType>('small');
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [fetchingCustomer, setFetchingCustomer] = useState(false);
 
-  // Calculate rewards based on repair amount
+  // Calculate rewards based on repair type
   const calculateBaseReward = () => {
-    if (repairAmount < 50) return 0;
-    if (repairAmount < 100) return 10;
-    return 25;
+    return repairType === 'large' ? 25 : 10;
+  };
+  
+  // Get repair amount for API call
+  const getRepairAmount = () => {
+    return repairType === 'large' ? 100 : 75; // Use 75 for small repairs (middle of $50-99 range)
   };
 
   const getTierBonus = (tier: string) => {
@@ -45,11 +50,11 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({ shopId, shopDa
   };
 
   const baseReward = calculateBaseReward();
-  const tierBonus = customerInfo && repairAmount >= 50 ? getTierBonus(customerInfo.tier) : 0;
+  const tierBonus = customerInfo ? getTierBonus(customerInfo.tier) : 0;
   const totalReward = baseReward + tierBonus;
 
-  // Check if shop has sufficient balance for tier bonus
-  const hasSufficientBalance = (shopData?.purchasedRcnBalance || 0) >= tierBonus;
+  // Check if shop has sufficient balance for total reward (base + tier bonus)
+  const hasSufficientBalance = (shopData?.purchasedRcnBalance || 0) >= totalReward;
 
   // Fetch customer info when address changes
   useEffect(() => {
@@ -99,13 +104,13 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({ shopId, shopDa
   };
 
   const issueReward = async () => {
-    if (!customerAddress || repairAmount < 50) {
-      setError('Please enter a valid customer address and repair amount (minimum $50)');
+    if (!customerAddress) {
+      setError('Please enter a valid customer address');
       return;
     }
 
-    if (!hasSufficientBalance && tierBonus > 0) {
-      setError(`Insufficient RCN balance for tier bonus. Need ${tierBonus} RCN but only have ${shopData?.purchasedRcnBalance || 0} RCN`);
+    if (!hasSufficientBalance) {
+      setError(`Insufficient RCN balance. Need ${totalReward} RCN but only have ${shopData?.purchasedRcnBalance || 0} RCN`);
       return;
     }
 
@@ -117,17 +122,14 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({ shopId, shopDa
       // Get auth token
       const authToken = localStorage.getItem('shopAuthToken') || sessionStorage.getItem('shopAuthToken');
       
-      console.log('Auth token found:', !!authToken);
-      
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
       
       if (authToken) {
         headers['Authorization'] = `Bearer ${authToken}`;
-        console.log('Authorization header set');
       } else {
-        console.error('No auth token found in storage');
+        throw new Error('No authentication token found. Please refresh the page and try again.');
       }
       
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/issue-reward`, {
@@ -135,8 +137,8 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({ shopId, shopDa
         headers,
         body: JSON.stringify({
           customerAddress,
-          repairAmount,
-          skipTierBonus: !hasSufficientBalance // Skip tier bonus if insufficient balance
+          repairAmount: getRepairAmount(),
+          skipTierBonus: false // Always include tier bonus in total calculation
         }),
       });
 
@@ -151,14 +153,18 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({ shopId, shopDa
       
       // Reset form
       setCustomerAddress('');
-      setRepairAmount(0);
+      setRepairType('small');
       setCustomerInfo(null);
       
       // Notify parent to refresh data
       onRewardIssued();
     } catch (err) {
       console.error('Error issuing reward:', err);
-      setError(err instanceof Error ? err.message : 'Failed to issue reward');
+      if (err instanceof Error && err.message.includes('Failed to fetch')) {
+        setError('Network error. Please check your connection and try again. If the problem persists, try refreshing the page.');
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to issue reward');
+      }
     } finally {
       setProcessing(false);
     }
@@ -212,48 +218,64 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({ shopId, shopDa
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Repair Amount (USD)
+                Repair Type
               </label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={repairAmount || ''}
-                onChange={(e) => setRepairAmount(parseFloat(e.target.value) || 0)}
-                placeholder="Enter repair amount"
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              />
-              <p className="text-sm text-gray-500 mt-2">
-                Minimum $50 to earn rewards
-              </p>
+              <div className="space-y-3">
+                <label className="flex items-center p-4 border border-gray-300 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
+                  <input
+                    type="radio"
+                    name="repairType"
+                    value="small"
+                    checked={repairType === 'small'}
+                    onChange={(e) => setRepairType(e.target.value as RepairType)}
+                    className="mr-3 text-green-600 focus:ring-green-500"
+                  />
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900">Small Repair</div>
+                    <div className="text-sm text-gray-500">$50 - $99 (10 RCN base reward)</div>
+                  </div>
+                </label>
+                <label className="flex items-center p-4 border border-gray-300 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
+                  <input
+                    type="radio"
+                    name="repairType"
+                    value="large"
+                    checked={repairType === 'large'}
+                    onChange={(e) => setRepairType(e.target.value as RepairType)}
+                    className="mr-3 text-green-600 focus:ring-green-500"
+                  />
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900">Large Repair</div>
+                    <div className="text-sm text-gray-500">$100+ (25 RCN base reward)</div>
+                  </div>
+                </label>
+              </div>
             </div>
 
             {/* Reward Calculation */}
-            {repairAmount > 0 && (
-              <div className="bg-gray-50 rounded-xl p-4 space-y-2">
-                <h3 className="font-semibold text-gray-900">Reward Calculation</h3>
-                <div className="text-sm space-y-1">
+            <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+              <h3 className="font-semibold text-gray-900">Reward Calculation</h3>
+              <div className="text-sm space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Base Reward:</span>
+                  <span className="font-medium">{baseReward} RCN</span>
+                </div>
+                {customerInfo && (
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Base Reward:</span>
-                    <span className="font-medium">{baseReward} RCN</span>
+                    <span className="text-gray-600">
+                      {customerInfo.tier} Tier Bonus:
+                    </span>
+                    <span className={`font-medium ${!hasSufficientBalance ? 'text-red-600 line-through' : ''}`}>
+                      +{tierBonus} RCN
+                    </span>
                   </div>
-                  {customerInfo && repairAmount >= 50 && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">
-                        {customerInfo.tier} Tier Bonus:
-                      </span>
-                      <span className={`font-medium ${!hasSufficientBalance ? 'text-red-600 line-through' : ''}`}>
-                        +{tierBonus} RCN
-                      </span>
-                    </div>
-                  )}
-                  <div className="border-t pt-1 flex justify-between font-semibold">
-                    <span>Total Reward:</span>
-                    <span className="text-green-600">{totalReward} RCN</span>
-                  </div>
+                )}
+                <div className="border-t pt-1 flex justify-between font-semibold">
+                  <span>Total Reward:</span>
+                  <span className="text-green-600">{totalReward} RCN</span>
                 </div>
               </div>
-            )}
+            </div>
 
             {/* Customer Info */}
             {customerInfo && (
@@ -302,18 +324,18 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({ shopId, shopDa
             )}
 
             {/* Balance Warning */}
-            {!hasSufficientBalance && tierBonus > 0 && (
+            {!hasSufficientBalance && totalReward > 0 && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
                 <h4 className="text-sm font-medium text-yellow-800 mb-1">Low RCN Balance</h4>
                 <p className="text-sm text-yellow-700">
-                  Your shop doesn't have enough RCN for the tier bonus. Only base reward will be issued.
+                  Your shop doesn't have enough RCN to issue this reward. Purchase more RCN or reduce the repair amount.
                 </p>
               </div>
             )}
 
             <button
               onClick={issueReward}
-              disabled={processing || !customerAddress || repairAmount < 50 || !canIssueReward}
+              disabled={processing || !customerAddress || !canIssueReward}
               className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-4 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition duration-200 transform hover:scale-105"
             >
               {processing ? 'Issuing Reward...' : `Issue ${totalReward} RCN Reward`}

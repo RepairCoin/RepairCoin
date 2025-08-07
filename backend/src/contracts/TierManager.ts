@@ -147,9 +147,10 @@ export class TierManager {
   // Check if customer can earn more tokens today (40 RCN daily limit)
   canEarnToday(customer: CustomerData, tokensToEarn: number): boolean {
     const today = new Date().toISOString().split('T')[0];
+    const customerLastEarnedDate = customer.lastEarnedDate.split('T')[0];
     
     // Reset daily earnings if it's a new day
-    if (customer.lastEarnedDate !== today) {
+    if (customerLastEarnedDate !== today) {
       return tokensToEarn <= this.EARNING_LIMITS.daily;
     }
     
@@ -180,9 +181,10 @@ export class TierManager {
     const today = new Date().toISOString().split('T')[0];
     const currentDate = new Date();
     const lastEarnedDate = new Date(customer.lastEarnedDate);
+    const customerLastEarnedDateOnly = customer.lastEarnedDate.split('T')[0];
     
     // Reset daily earnings if new day
-    const dailyEarnings = (customer.lastEarnedDate === today) 
+    const dailyEarnings = (customerLastEarnedDateOnly === today) 
       ? customer.dailyEarnings + tokensEarned 
       : tokensEarned;
     
@@ -240,9 +242,10 @@ export class TierManager {
     const today = new Date().toISOString().split('T')[0];
     const currentDate = new Date();
     const lastEarnedDate = new Date(customer.lastEarnedDate);
+    const customerLastEarnedDateOnly = customer.lastEarnedDate.split('T')[0];
     
     // Calculate remaining daily capacity
-    const dailyUsed = (customer.lastEarnedDate === today) ? customer.dailyEarnings : 0;
+    const dailyUsed = (customerLastEarnedDateOnly === today) ? customer.dailyEarnings : 0;
     const dailyRemaining = Math.max(0, this.EARNING_LIMITS.daily - dailyUsed);
     
     // Calculate remaining monthly capacity

@@ -610,10 +610,10 @@ async unpauseContract(): Promise<MintResult> {
 
       const contract = await this.getContract();
       
-      // Prepare transfer transaction
+      // Prepare transfer transaction with proper ERC20 function signature
       const transaction = prepareContractCall({
         contract,
-        method: "transfer" as any,
+        method: "function transfer(address to, uint256 amount) returns (bool)",
         params: [toAddress, BigInt(amount) * BigInt(10 ** 18)] // Convert to wei
       });
 

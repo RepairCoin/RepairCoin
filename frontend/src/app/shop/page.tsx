@@ -11,7 +11,7 @@ import { OverviewTab } from '@/components/shop/OverviewTab';
 import { PurchaseTab } from '@/components/shop/PurchaseTab';
 import { BonusesTab } from '@/components/shop/BonusesTab';
 import { AnalyticsTab } from '@/components/shop/AnalyticsTab';
-import { RedeemTab } from '@/components/shop/RedeemTab';
+import { RedeemTabV2 } from '@/components/shop/RedeemTabV2';
 import { IssueRewardsTab } from '@/components/shop/IssueRewardsTab';
 import { CustomerLookupTab } from '@/components/shop/CustomerLookupTab';
 import { SettingsTab } from '@/components/shop/SettingsTab';
@@ -101,9 +101,15 @@ export default function ShopDashboard() {
         // Store token for future requests
         localStorage.setItem('shopAuthToken', authResult.token);
         sessionStorage.setItem('shopAuthToken', authResult.token);
+        console.log('Shop authenticated successfully');
       } else if (authResponse.status === 403) {
         const errorData = await authResponse.json();
         setError(errorData.error || 'Shop authentication failed');
+        setLoading(false);
+        return;
+      } else {
+        console.error('Shop auth failed:', authResponse.status);
+        setError('Authentication failed. Please try again.');
         setLoading(false);
         return;
       }
@@ -458,7 +464,7 @@ export default function ShopDashboard() {
         )}
 
         {activeTab === 'redeem' && shopData && (
-          <RedeemTab 
+          <RedeemTabV2 
             shopId={shopData.shopId} 
             onRedemptionComplete={loadShopData}
           />
@@ -467,7 +473,10 @@ export default function ShopDashboard() {
         {activeTab === 'issue-rewards' && shopData && (
           <IssueRewardsTab 
             shopId={shopData.shopId}
-            shopData={shopData}
+            shopData={{
+              ...shopData,
+              purchasedRcnBalance: blockchainBalance // Use blockchain balance for tier bonus calculations
+            }}
             onRewardIssued={loadShopData}
           />
         )}

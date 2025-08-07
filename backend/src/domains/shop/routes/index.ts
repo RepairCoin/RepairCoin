@@ -54,6 +54,8 @@ let referralService: ReferralService | null = null;
 const getTokenMinter = (): TokenMinter => {
   if (!tokenMinter) {
     tokenMinter = new TokenMinter();
+    console.log('Created new TokenMinter instance:', tokenMinter);
+    console.log('transferTokens method exists?', typeof tokenMinter.transferTokens);
   }
   return tokenMinter;
 };
@@ -707,7 +709,15 @@ router.post('/:shopId/redeem',
   async (req: Request, res: Response) => {
     try {
       const { shopId } = req.params;
-      const { customerAddress, amount, notes } = req.body;
+      const { customerAddress, amount, notes, sessionId } = req.body;
+
+      // NEW: Require session for redemption
+      if (!sessionId) {
+        return res.status(400).json({
+          success: false,
+          error: 'Session ID is required. Customer must approve redemption first.'
+        });
+      }
       
       const shop = await shopRepository.getShop(shopId);
       if (!shop) {
@@ -729,6 +739,23 @@ router.post('/:shopId/redeem',
         return res.status(404).json({
           success: false,
           error: 'Customer not found'
+        });
+      }
+
+      // NEW: Validate and consume redemption session
+      const { redemptionSessionService } = await import('../../token/services/RedemptionSessionService');
+      try {
+        const session = await redemptionSessionService.validateAndConsumeSession(sessionId, shopId, amount);
+        logger.info('Redemption session validated', {
+          sessionId,
+          customerAddress: session.customerAddress,
+          shopId,
+          amount
+        });
+      } catch (sessionError) {
+        return res.status(400).json({
+          success: false,
+          error: sessionError instanceof Error ? sessionError.message : 'Invalid or expired session'
         });
       }
 
@@ -847,6 +874,48 @@ router.post('/:shopId/redeem',
       res.status(500).json({
         success: false,
         error: 'Failed to process redemption'
+      });
+    }
+  }
+);
+
+// Get customers who have earned from this shop
+router.get('/:shopId/customers',
+  requireShopOrAdmin,
+  requireShopOwnership,
+  async (req: Request, res: Response) => {
+    try {
+      const { shopId } = req.params;
+      const { page = 1, limit = 50, search = '' } = req.query;
+      
+      const shop = await shopRepository.getShop(shopId);
+      if (!shop) {
+        return res.status(404).json({
+          success: false,
+          error: 'Shop not found'
+        });
+      }
+
+      // Get customers who have earned from this shop
+      const customers = await shopRepository.getShopCustomers(
+        shopId,
+        {
+          page: Number(page),
+          limit: Number(limit),
+          search: search as string
+        }
+      );
+
+      res.json({
+        success: true,
+        data: customers
+      });
+
+    } catch (error) {
+      logger.error('Get shop customers error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get shop customers'
       });
     }
   }
@@ -973,12 +1042,38 @@ router.post('/:shopId/issue-reward',
         });
       }
 
-      const customer = await customerRepository.getCustomer(customerAddress);
+      let customer = await customerRepository.getCustomer(customerAddress);
       if (!customer) {
-        return res.status(404).json({
-          success: false,
-          error: 'Customer not found'
-        });
+        // Create new customer if they don't exist
+        try {
+          await customerRepository.createCustomer({
+            address: customerAddress.toLowerCase(),
+            name: '',
+            email: '',
+            tier: 'BRONZE',
+            lifetimeEarnings: 0,
+            dailyEarnings: 0,
+            monthlyEarnings: 0,
+            referralCount: 0,
+            referralCode: `REF_${customerAddress.slice(-8).toUpperCase()}`,
+            joinDate: new Date().toISOString(),
+            lastEarnedDate: new Date().toISOString(),
+            isActive: true
+          });
+          
+          customer = await customerRepository.getCustomer(customerAddress);
+          if (!customer) {
+            throw new Error('Failed to create customer');
+          }
+          
+          logger.info('Created new customer for reward', { customerAddress });
+        } catch (createError) {
+          logger.error('Failed to create customer:', createError);
+          return res.status(500).json({
+            success: false,
+            error: 'Failed to create customer account'
+          });
+        }
       }
 
       if (!customer.isActive) {
@@ -1016,8 +1111,20 @@ router.post('/:shopId/issue-reward',
       }
       const totalReward = skipTierBonus ? baseReward : baseReward + tierBonus;
 
-      // Check shop has sufficient balance
-      const shopBalance = shop.purchasedRcnBalance || 0;
+      // Check shop has sufficient balance on blockchain
+      let shopBalance = 0;
+      try {
+        const tokenMinter = getTokenMinter();
+        const blockchainBalance = await tokenMinter.getCustomerBalance(shop.walletAddress);
+        shopBalance = blockchainBalance || 0;
+      } catch (error) {
+        logger.error('Error fetching shop blockchain balance:', error);
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to check shop balance'
+        });
+      }
+      
       if (shopBalance < totalReward) {
         return res.status(400).json({
           success: false,
@@ -1035,63 +1142,83 @@ router.post('/:shopId/issue-reward',
       const dailyLimit = 40;
       const monthlyLimit = 500;
       
-      if (customer.dailyEarnings + baseReward > dailyLimit) {
+      // Check if it's a new day and reset daily earnings accordingly
+      const today = new Date().toISOString().split('T')[0];
+      const customerLastEarnedDateOnly = customer.lastEarnedDate ? customer.lastEarnedDate.split('T')[0] : '';
+      const effectiveDailyEarnings = (customerLastEarnedDateOnly === today) ? customer.dailyEarnings : 0;
+      
+      if (effectiveDailyEarnings + baseReward > dailyLimit) {
         return res.status(400).json({
           success: false,
           error: 'Customer daily earning limit exceeded',
           data: {
             dailyLimit,
-            currentDaily: customer.dailyEarnings,
+            currentDaily: effectiveDailyEarnings,
             attempted: baseReward
           }
         });
       }
 
-      if (customer.monthlyEarnings + baseReward > monthlyLimit) {
+      // Check if it's a new month and reset monthly earnings accordingly
+      const currentDate = new Date();
+      const lastEarnedDate = new Date(customer.lastEarnedDate);
+      const sameMonth = (currentDate.getMonth() === lastEarnedDate.getMonth() && 
+                        currentDate.getFullYear() === lastEarnedDate.getFullYear());
+      const effectiveMonthlyEarnings = sameMonth ? customer.monthlyEarnings : 0;
+      
+      if (effectiveMonthlyEarnings + baseReward > monthlyLimit) {
         return res.status(400).json({
           success: false,
           error: 'Customer monthly earning limit exceeded',
           data: {
             monthlyLimit,
-            currentMonthly: customer.monthlyEarnings,
+            currentMonthly: effectiveMonthlyEarnings,
             attempted: baseReward
           }
         });
       }
 
-      // Process the reward using mintRepairTokens
+      // Process the reward - Shop transfers their RCN to customer
+      // For now, we'll use the admin wallet to transfer on behalf of the shop
+      // In production, this would be done via shop's own wallet or smart contract
       const tokenMinter = getTokenMinter();
-      const mintResult = await tokenMinter.mintRepairTokens(
-        customerAddress,
-        repairAmount,
-        shop.shopId,
-        customer
-      );
-
-      if (!mintResult.success) {
-        return res.status(400).json({
+      let transactionHash = '';
+      
+      try {
+        // Transfer tokens from admin wallet to customer
+        // The transferTokens method expects: toAddress, amount, reason
+        const transferResult = await tokenMinter.transferTokens(
+          customerAddress,
+          totalReward,
+          `Repair reward from ${shop.name} - $${repairAmount} repair`
+        );
+        
+        if (!transferResult.success) {
+          throw new Error(transferResult.error || 'Transfer failed');
+        }
+        
+        transactionHash = transferResult.transactionHash || '';
+      } catch (transferError) {
+        logger.error('Token transfer error:', transferError);
+        return res.status(500).json({
           success: false,
-          error: mintResult.message || 'Failed to mint tokens'
+          error: 'Failed to transfer reward tokens'
         });
       }
 
-      // The actual tokens minted (includes tier bonus already)
-      const actualTokensMinted = mintResult.tokensToMint || totalReward;
-
-      // Update shop balance
+      // Update shop statistics (no balance update needed as it's on blockchain)
       await shopRepository.updateShop(shopId, {
-        purchasedRcnBalance: shopBalance - actualTokensMinted,
-        totalTokensIssued: (shop.totalTokensIssued || 0) + actualTokensMinted
+        totalTokensIssued: (shop.totalTokensIssued || 0) + totalReward
       });
 
       // Calculate new tier after earning
-      const updatedLifetimeEarnings = customer.lifetimeEarnings + actualTokensMinted;
+      const updatedLifetimeEarnings = customer.lifetimeEarnings + totalReward;
       const newTier = getTierManager().calculateTier(updatedLifetimeEarnings);
       
       // Update customer earnings using the correct method
       await customerRepository.updateCustomerAfterEarning(
         customerAddress,
-        actualTokensMinted,
+        totalReward,
         newTier
       );
 
@@ -1101,9 +1228,9 @@ router.post('/:shopId/issue-reward',
         type: 'mint',
         customerAddress,
         shopId,
-        amount: actualTokensMinted,
+        amount: totalReward,
         reason: `Repair reward - $${repairAmount} repair`,
-        transactionHash: mintResult.transactionHash,
+        transactionHash: transactionHash,
         timestamp: new Date().toISOString(),
         status: 'confirmed',
         metadata: {
@@ -1144,8 +1271,8 @@ router.post('/:shopId/issue-reward',
         repairAmount,
         baseReward,
         tierBonus: skipTierBonus ? 0 : tierBonus,
-        totalReward: actualTokensMinted,
-        txHash: mintResult.transactionHash || '',
+        totalReward: totalReward,
+        txHash: transactionHash,
         referralCompleted
       });
 
@@ -1154,10 +1281,10 @@ router.post('/:shopId/issue-reward',
         data: {
           baseReward,
           tierBonus: skipTierBonus ? 0 : tierBonus,
-          totalReward: actualTokensMinted,
-          txHash: mintResult.transactionHash || '',
-          customerNewBalance: customer.lifetimeEarnings + actualTokensMinted,
-          shopNewBalance: shopBalance - actualTokensMinted,
+          totalReward: totalReward,
+          txHash: transactionHash,
+          customerNewBalance: customer.lifetimeEarnings + totalReward,
+          shopNewBalance: shopBalance - totalReward,
           referralCompleted,
           referralMessage
         }
