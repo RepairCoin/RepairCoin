@@ -30,7 +30,7 @@ interface OverviewTabProps {
   blockchainBalance?: number;
 }
 
-export const OverviewTab: React.FC<OverviewTabProps> = ({ shopData, purchases, blockchainBalance = 0 }) => {
+export const  OverviewTab: React.FC<OverviewTabProps> = ({ shopData, purchases, blockchainBalance = 0 }) => {
   if (!shopData) {
     return <div>Loading shop data...</div>;
   }
@@ -99,7 +99,15 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, color, icon
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
+    <div 
+      className="bg-white rounded-2xl shadow-xl p-6"
+      style={{ 
+        backgroundImage: `url('/img/stat-card.png')`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-medium text-gray-500">{title}</p>

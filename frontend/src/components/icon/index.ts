@@ -9,6 +9,10 @@ import BonusesIcon from "./BonusesIcon";
 import AnalyticsIcon from "./AnalyticsIcon";
 import SettingsIcon from "./SettingsIcon";
 import LogoutIcon from "./LogoutIcon";
+import WalletIcon from "./WalletIcon";
+import TrophyIcon from "./TrophyIcon";
+import RepairsIcon from "./RepairsIcon";
+import CheckShieldIcon from "./CheckShieldIcon";
 
 export {
     OverviewIcon,
@@ -21,5 +25,9 @@ export {
     BonusesIcon,
     AnalyticsIcon,
     SettingsIcon,
-    LogoutIcon
+    LogoutIcon,
+    WalletIcon,
+    TrophyIcon,
+    RepairsIcon,
+    CheckShieldIcon
 }
