@@ -13,6 +13,10 @@ import WalletIcon from "./WalletIcon";
 import TrophyIcon from "./TrophyIcon";
 import RepairsIcon from "./RepairsIcon";
 import CheckShieldIcon from "./CheckShieldIcon";
+import GroupHeadIcon from "./GroupHeadIcon";
+import MailCheckIcon from "./MailCheckIcon";
+import ThreeDotsIcon from "./ThreeDotsIcon";
+import DbIcon from "./DbIcon";
 
 export {
     OverviewIcon,
@@ -29,5 +33,9 @@ export {
     WalletIcon,
     TrophyIcon,
     RepairsIcon,
-    CheckShieldIcon
+    CheckShieldIcon,
+    GroupHeadIcon,
+    MailCheckIcon,
+    ThreeDotsIcon,
+    DbIcon
 }
