@@ -1,6 +1,14 @@
 "use client";
 
 import Section from "@/components/Section";
+import { ConnectButton } from "thirdweb/react";
+import { createThirdwebClient } from "thirdweb";
+
+const client = createThirdwebClient({
+  clientId:
+    process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID ||
+    "1969ac335e07ba13ad0f8d1a1de4f6ab",
+});
 
 interface CommunityBannerProps {
   communityBannerBgImage: string;
@@ -48,9 +56,28 @@ const CommunityBanner: React.FC<CommunityBannerProps> = ({
                 </p>
 
                 {/* CTA Button */}
-                <button className="bg-[#FFCC00] hover:bg-yellow-400 text-gray-900 font-semibold px-8 py-3 rounded-full transition-all duration-300 transform hover:scale-105 w-max">
-                  Sign Up Now <span className="ml-2 text-sm md:text-lg">→</span>
-                </button>
+                <ConnectButton
+                  client={client}
+                  connectModal={{
+                    size: "compact",
+                    title: "Connect to RepairCoin",
+                  }}
+                  connectButton={{
+                    label: "Get Started",
+                    style: {
+                      width: "100px",
+                      backgroundColor: "#F7CC00",
+                      color: "#111827",
+                      fontWeight: "600",
+                      borderRadius: "100px",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      padding: "0.75rem 2rem",
+                      boxShadow:
+                        "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+                    },
+                  }}
+                />
               </div>
 
               {/* Right Column - Placeholder for Image/Illustration */}
@@ -72,9 +99,28 @@ const CommunityBanner: React.FC<CommunityBannerProps> = ({
           className="w-full h-full object-cover"
         />
         <div className="absolute bottom-24 left-4">
-          <button className="bg-[#FFCC00] hover:bg-yellow-400 text-gray-900 text-sm font-semibold px-4 py-3 rounded-full transition-all duration-300 transform hover:scale-105">
-            Sign Up Now <span className="ml-2">→</span>
-          </button>
+          <ConnectButton
+            client={client}
+            connectModal={{
+              size: "compact",
+              title: "Connect to RepairCoin",
+            }}
+            connectButton={{
+              label: "Get Started",
+              style: {
+                width: "100px",
+                backgroundColor: "#F7CC00",
+                color: "#111827",
+                fontWeight: "600",
+                borderRadius: "100px",
+                justifyContent: "center",
+                alignItems: "center",
+                padding: "0.75rem 2rem",
+                boxShadow:
+                  "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+              },
+            }}
+          />
         </div>
       </div>
     </div>

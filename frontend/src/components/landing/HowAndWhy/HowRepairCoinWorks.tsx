@@ -32,10 +32,10 @@ const HowRepairCoinWorks: React.FC<any> = () => {
         <p className="md:text-5xl text-3xl text-center font-bold text-white tracking-wide">
           How RepairCoin Works
         </p>
-        <p className="text-white text-xs md:text-base mb-6 xl:w-1/3 md:w-2/4 text-center tracking-wide">
-          Amet minim mollit non deserunt ullamco est sit aliqua dolor do amet
-          sint. Velit officia consequat duis enim velit mollit. Exercitation
-          veniam consequat sunt nostrud amet.
+        <p className="text-white text-xs md:text-base mb-6 xl:w-1/2 md:w-2/4 text-center tracking-wide">
+          RepairCoin rewards customers for choosing repair over replacement. 
+          Get repairs at participating shops, earn RCN tokens, and use them 
+          for discounts on future services across our growing network of repair businesses.
         </p>
       </div>
       <div className="flex w-full  flex-col md:flex-row items-center justify-center md:gap-8 gap-2 mt-12">

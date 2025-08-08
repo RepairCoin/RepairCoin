@@ -26,9 +26,9 @@ const FindARepairCoin: React.FC<FindARepairCoinProps> = ({ chainBgImage }) => {
                 instantly — no extra steps needed.
               </p>
             </div>
-            <button className="bg-[#FFCC00] text-black py-2 md:py-4 px-4 md:px-6 rounded-full font-semibold text-sm md:text-base text-center w-[200px] md:w-[250px] xl:w-1/3">
+            {/* <button className="bg-[#FFCC00] text-black py-2 md:py-4 px-4 md:px-6 rounded-full font-semibold text-sm md:text-base text-center w-[200px] md:w-[250px] xl:w-1/3">
               Search Shops <span className="ml-2 text-sm md:text-lg">→</span>
-            </button>
+            </button> */}
           </div>
           <div className="absolute left-1/2 md:left-auto md:translate-x-0 md:translate-y-0 md:static w-1/2 flex flex-col items-center justify-center">
             <img src="/img/gps.png" alt="" />

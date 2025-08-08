@@ -24,9 +24,9 @@ export default function LandingPage() {
       <SuccessStories 
         successStoriesBgImage="/img/success-stories-bg.png"
       />
-      <LatestNews 
+      {/* <LatestNews 
         latestNewsBgImage="/img/success-stories-bg.png"
-      />
+      /> */}
       <CommunityBanner 
         communityBannerBgImage="/img/community-chain.png"
         bannerChainImage="/img/banner-chain.png"
