@@ -299,7 +299,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({ shopId, shopDa
                   <div className="flex justify-between">
                     <span className="text-blue-700">Daily Earnings:</span>
                     <span className={`font-medium ${!dailyLimit.withinLimit ? 'text-red-600' : ''}`}>
-                      {customerInfo.dailyEarnings} / 40 RCN
+                      {customerInfo.dailyEarnings} / 50 RCN
                     </span>
                   </div>
                   <div className="flex justify-between">

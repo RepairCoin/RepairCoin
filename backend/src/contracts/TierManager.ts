@@ -49,7 +49,7 @@ export class TierManager {
   
   // Business rules constants
   private readonly EARNING_LIMITS: EarningLimits = {
-    daily: 40,      // 40 RCN per day max
+    daily: 50,      // 50 RCN per day max
     monthly: 500,   // 500 RCN per month max
     perTransaction: 25  // 25 RCN max per single transaction
   };
