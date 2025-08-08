@@ -16,6 +16,7 @@ import {
   RepairsIcon,
   CheckShieldIcon,
 } from "../../components/icon";
+import DashboardLayout from "@/components/ui/DashboardLayout";
 
 const client = createThirdwebClient({
   clientId:
@@ -208,6 +209,10 @@ export default function CustomerRegisterClient() {
     }
   };
 
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab as any);
+  };
+
   // Fetch customer data
   useEffect(() => {
     if (account?.address) {
@@ -276,7 +281,7 @@ export default function CustomerRegisterClient() {
   }
 
   return (
-    <>
+    <DashboardLayout userRole="customer" activeTab={activeTab} onTabChange={handleTabChange}>
       <Toaster position="top-right" />
       <div
         className="min-h-screen py-8 bg-[#0D0D0D]"
@@ -289,40 +294,14 @@ export default function CustomerRegisterClient() {
       >
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
-          <div className="relative p-6 mb-8">
+          <div className="relative my-8">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-yellow-400">
-                  <img
-                    src="/img/avatar1.png"
-                    alt="User Avatar"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.src = "/default-avatar.png";
-                    }}
-                  />
-                </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-white">
-                    Welcome back,{" "}
-                    {customerData?.name?.split(" ")[0] || "Customer"}
+                  <h1 className="text-2xl font-bold text-[#FFCC00]">
+                    Welcome back {customerData?.name?.split(" ")[0] || "Customer"}!
                   </h1>
                   <p className="text-gray-400 flex items-center gap-2">
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"
-                      />
-                    </svg>
                     {customerData?.email ||
                       account?.address ||
                       "user@example.com"}
@@ -330,82 +309,11 @@ export default function CustomerRegisterClient() {
                 </div>
               </div>
               <div className="mt-4 sm:mt-0 flex items-center gap-3">
-                <button
-                  onClick={() => router.push("/customer/settings")}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                  </svg>
-                  Settings
-                </button>
                 <ConnectButton
                   client={client}
                   connectModal={{ size: "compact" }}
                 />
               </div>
-            </div>
-          </div>
-
-          {/* Tab Navigation */}
-          <div className="bg-white rounded-2xl shadow-xl p-2 mb-8 border border-gray-100">
-            <div className="flex space-x-2">
-              <button
-                onClick={() => setActiveTab("overview")}
-                className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
-                  activeTab === "overview"
-                    ? "bg-blue-600 text-white"
-                    : "text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                Overview
-              </button>
-              <button
-                onClick={() => setActiveTab("transactions")}
-                className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
-                  activeTab === "transactions"
-                    ? "bg-blue-600 text-white"
-                    : "text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                Transactions
-              </button>
-              <button
-                onClick={() => setActiveTab("referrals")}
-                className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
-                  activeTab === "referrals"
-                    ? "bg-blue-600 text-white"
-                    : "text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                Referrals
-              </button>
-              <button
-                onClick={() => setActiveTab("approvals")}
-                className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
-                  activeTab === "approvals"
-                    ? "bg-blue-600 text-white"
-                    : "text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                Approvals
-              </button>
             </div>
           </div>
 
@@ -621,7 +529,7 @@ export default function CustomerRegisterClient() {
 
               {/* How to Earn More RepairCoin Section */}
               <div
-                className="my-36 bg-gradient-to-b from-[#1A1A1A] to-[#2A2A2A] rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow"
+                className="my-20 bg-gradient-to-b from-[#1A1A1A] to-[#2A2A2A] rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow"
                 style={{
                   backgroundImage: `url('/img/cus-how-to-earn.png')`,
                   backgroundSize: "cover",
@@ -751,6 +659,6 @@ export default function CustomerRegisterClient() {
           {activeTab === "approvals" && <RedemptionApprovals />}
         </div>
       </div>
-    </>
+    </DashboardLayout>
   );
 }

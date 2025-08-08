@@ -66,46 +66,29 @@ const Sidebar: React.FC<SidebarProps> = ({
 
     if (userRole === "customer") {
       return [
-        ...commonItems,
         {
-          title: "Issue Rewards",
-          href: "/customer/rewards",
-          icon: <Receipt className="w-5 h-5" />,
-        },
-        {
-          title: "Redeem",
-          href: "/customer/redeem",
-          icon: <DollarSign className="w-5 h-5" />,
-        },
-        {
-          title: "Customers",
-          href: "/customer/list",
-          icon: <Users className="w-5 h-5" />,
-        },
-        {
-          title: "Lookup",
-          href: "/customer/lookup",
-          icon: <CreditCard className="w-5 h-5" />,
-        },
-        {
-          title: "Buy RCN",
-          href: "/customer/buy",
-          icon: <TrendingUp className="w-5 h-5" />,
+          title: "Overview",
+          href: "/customer",
+          icon: <LayoutGrid className="w-5 h-5" />,
+          tabId: "overview",
         },
         {
           title: "Transactions",
-          href: "/customer/transactions",
-          icon: <BarChart3 className="w-5 h-5" />,
+          href: "/customer?tab=transactions",
+          icon: <DollarSign className="w-5 h-5" />,
+          tabId: "transactions",
         },
         {
-          title: "Bonuses",
-          href: "/customer/bonuses",
-          icon: <Gift className="w-5 h-5" />,
+          title: "Referrals",
+          href: "/customer?tab=referrals",
+          icon: <Users className="w-5 h-5" />,
+          tabId: "referrals",
         },
         {
-          title: "Analytics",
-          href: "/customer/analytics",
-          icon: <BarChart3 className="w-5 h-5" />,
+          title: "Approvals",
+          href: "/customer?tab=approvals",
+          icon: <Users className="w-5 h-5" />,
+          tabId: "approvals",
         },
       ];
     }
@@ -273,14 +256,14 @@ const Sidebar: React.FC<SidebarProps> = ({
           <nav className="flex-1 overflow-y-auto py-4">
             <ul className="space-y-1 px-3">
               {menuItems.map((item) => {
-                const isActive = userRole === "shop" && item.tabId
+                const isActive = (userRole === "shop" || userRole === "customer") && item.tabId
                   ? activeTab === item.tabId
                   : pathname === item.href ||
                     (item.href !== `/${userRole}` &&
                       pathname.startsWith(item.href));
 
                 const handleClick = (e: React.MouseEvent) => {
-                  if (userRole === "shop" && item.tabId && onTabChange) {
+                  if ((userRole === "shop" || userRole === "customer") && item.tabId && onTabChange) {
                     e.preventDefault();
                     onTabChange(item.tabId);
                   }
