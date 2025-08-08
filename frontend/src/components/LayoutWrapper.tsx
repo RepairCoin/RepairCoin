@@ -9,7 +9,7 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
 
   return (
     <>
-      {/* {!isAuthenticated && <Header />} */}
+      {!isAuthenticated && <Header />}
       {children}
       {!isAuthenticated && <Footer />}
     </>
