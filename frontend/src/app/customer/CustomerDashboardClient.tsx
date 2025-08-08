@@ -233,7 +233,7 @@ export default function CustomerRegisterClient() {
       router.push("/");
     }
   }, [account?.address, isAuthenticated]);
-  
+
   // Check if customer is suspended
   if (customerData && !customerData.isActive) {
     return (
@@ -281,7 +281,11 @@ export default function CustomerRegisterClient() {
   }
 
   return (
-    <DashboardLayout userRole="customer" activeTab={activeTab} onTabChange={handleTabChange}>
+    <DashboardLayout
+      userRole="customer"
+      activeTab={activeTab}
+      onTabChange={handleTabChange}
+    >
       <Toaster position="top-right" />
       <div
         className="min-h-screen py-8 bg-[#0D0D0D]"
@@ -299,7 +303,8 @@ export default function CustomerRegisterClient() {
               <div className="flex items-center gap-4">
                 <div>
                   <h1 className="text-2xl font-bold text-[#FFCC00]">
-                    Welcome back {customerData?.name?.split(" ")[0] || "Customer"}!
+                    Welcome back{" "}
+                    {customerData?.name?.split(" ")[0] || "Customer"}!
                   </h1>
                   <p className="text-gray-400 flex items-center gap-2">
                     {customerData?.email ||
@@ -601,54 +606,72 @@ export default function CustomerRegisterClient() {
 
           {/* Transactions Tab */}
           {activeTab === "transactions" && (
-            <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                Transaction History
-              </h2>
-              {loading ? (
-                <div className="animate-pulse space-y-4">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="h-16 bg-gray-200 rounded-lg"></div>
-                  ))}
-                </div>
-              ) : transactions.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="text-5xl mb-4">📋</div>
-                  <p className="text-gray-500">No transactions yet</p>
-                  <p className="text-sm text-gray-400 mt-2">
-                    Start earning RCN by visiting participating repair shops!
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {transactions.map((transaction) => (
-                    <div
-                      key={transaction.id}
-                      className="flex justify-between items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
-                    >
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-900">
-                          {transaction.description}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          {transaction.shopName && `${transaction.shopName} • `}
-                          {new Date(transaction.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
+            <div className="bg-[#212121] rounded-3xl">
+              <div
+                className="w-full px-8 py-4 text-white rounded-t-3xl"
+                style={{
+                  backgroundImage: `url('/img/cust-ref-widget3.png')`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                  backgroundRepeat: "no-repeat",
+                }}
+              >
+                <p className="text-xl text-gray-800 font-bold">
+                  Transaction History
+                </p>
+              </div>
+              <div>
+                {loading ? (
+                  <div className="animate-pulse space-y-4">
+                    {[...Array(5)].map((_, i) => (
                       <div
-                        className={`font-bold ${
-                          transaction.type === "redeemed"
-                            ? "text-red-600"
-                            : "text-green-600"
-                        }`}
+                        key={i}
+                        className="h-16 bg-gray-200 rounded-lg"
+                      ></div>
+                    ))}
+                  </div>
+                ) : transactions.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="text-5xl mb-4">📋</div>
+                    <p className="text-gray-500">No transactions yet</p>
+                    <p className="text-sm text-gray-400 mt-2">
+                      Start earning RCN by visiting participating repair shops!
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {transactions.map((transaction) => (
+                      <div
+                        key={transaction.id}
+                        className="flex justify-between items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
                       >
-                        {transaction.type === "redeemed" ? "-" : "+"}
-                        {transaction.amount} RCN
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">
+                            {transaction.description}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {transaction.shopName &&
+                              `${transaction.shopName} • `}
+                            {new Date(
+                              transaction.createdAt
+                            ).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div
+                          className={`font-bold ${
+                            transaction.type === "redeemed"
+                              ? "text-red-600"
+                              : "text-green-600"
+                          }`}
+                        >
+                          {transaction.type === "redeemed" ? "-" : "+"}
+                          {transaction.amount} RCN
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
