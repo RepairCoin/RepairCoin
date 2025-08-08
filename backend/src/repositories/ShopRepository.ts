@@ -18,7 +18,13 @@ interface ShopData {
   joinDate: string;
   lastActivity: string;
   fixflowShopId?: string;
-  location?: string;
+  location?: string | {
+    city?: string;
+    state?: string;
+    zipCode?: string;
+    lat?: number;
+    lng?: number;
+  };
   suspendedAt?: string;
   suspensionReason?: string;
   verifiedAt?: string;
@@ -75,15 +81,16 @@ export class ShopRepository extends BaseRepository {
     }
   }
 
-  async createShop(shop: ShopData): Promise<{ id: string }> {
+  async createShop(shop: ShopData & { location?: any }): Promise<{ id: string }> {
     try {
       const query = `
         INSERT INTO shops (
           shop_id, name, address, phone, email, wallet_address,
           reimbursement_address, verified, active, cross_shop_enabled,
           total_tokens_issued, total_redemptions, total_reimbursements,
-          join_date, last_activity, fixflow_shop_id, location
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+          join_date, last_activity, fixflow_shop_id, 
+          location_city, location_state, location_zip_code, location_lat, location_lng
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
         RETURNING shop_id
       `;
       
@@ -104,7 +111,11 @@ export class ShopRepository extends BaseRepository {
         shop.joinDate || new Date().toISOString(),
         shop.lastActivity || new Date().toISOString(),
         shop.fixflowShopId,
-        shop.location ? JSON.stringify(shop.location) : null
+        typeof shop.location === 'object' ? shop.location?.city : null,
+        typeof shop.location === 'object' ? shop.location?.state : null,
+        typeof shop.location === 'object' ? shop.location?.zipCode : null,
+        typeof shop.location === 'object' ? shop.location?.lat : null,
+        typeof shop.location === 'object' ? shop.location?.lng : null
       ];
       
       const result = await this.pool.query(query, values);
