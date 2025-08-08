@@ -50,9 +50,10 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({ shopId, onRedemptionComp
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Load shop customers on mount
+  // Load shop customers and check for pending sessions on mount
   useEffect(() => {
     loadShopCustomers();
+    checkForPendingSessions();
   }, [shopId]);
 
   const loadShopCustomers = async () => {
@@ -79,6 +80,49 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({ shopId, onRedemptionComp
       console.error('Error loading shop customers:', err);
     } finally {
       setLoadingCustomers(false);
+    }
+  };
+
+  // Check for existing pending sessions for this shop
+  const checkForPendingSessions = async () => {
+    try {
+      const authToken = localStorage.getItem('shopAuthToken') || sessionStorage.getItem('shopAuthToken');
+      if (!authToken) {
+        return;
+      }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/pending-sessions`,
+        {
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        const pendingSessions = result.data?.sessions || [];
+        
+        // If there's a pending session, restore it
+        if (pendingSessions.length > 0) {
+          const latestSession = pendingSessions[0]; // Get the most recent
+          setCurrentSession({
+            sessionId: latestSession.sessionId,
+            customerAddress: latestSession.customerAddress,
+            amount: latestSession.maxAmount,
+            status: latestSession.status,
+            expiresAt: latestSession.expiresAt
+          });
+          setSessionStatus('waiting');
+          setCustomerAddress(latestSession.customerAddress);
+          setRedeemAmount(latestSession.maxAmount);
+          
+          console.log('Restored pending session:', latestSession);
+        }
+      }
+    } catch (err) {
+      console.error('Error checking for pending sessions:', err);
     }
   };
 

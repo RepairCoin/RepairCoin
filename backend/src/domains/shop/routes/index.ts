@@ -5,7 +5,8 @@ import { validateRequired, validateEthereumAddress, validateEmail, validateNumer
 import { 
   shopRepository, 
   customerRepository, 
-  transactionRepository 
+  transactionRepository,
+  redemptionSessionRepository 
 } from '../../../repositories';
 import { TokenMinter } from '../../../contracts/TokenMinter';
 import { TierManager } from '../../../contracts/TierManager';
@@ -916,6 +917,41 @@ router.get('/:shopId/customers',
       res.status(500).json({
         success: false,
         error: 'Failed to get shop customers'
+      });
+    }
+  }
+);
+
+// Get pending redemption sessions for a shop
+router.get('/:shopId/pending-sessions',
+  requireShopOrAdmin,
+  requireShopOwnership,
+  async (req: Request, res: Response) => {
+    try {
+      const { shopId } = req.params;
+      
+      // Get all pending sessions for this shop
+      const sessions = await redemptionSessionRepository.getShopPendingSessions(shopId);
+
+      res.json({
+        success: true,
+        data: {
+          sessions: sessions.map(session => ({
+            sessionId: session.sessionId,
+            customerAddress: session.customerAddress,
+            maxAmount: session.maxAmount,
+            status: session.status,
+            createdAt: session.createdAt,
+            expiresAt: session.expiresAt
+          }))
+        }
+      });
+
+    } catch (error) {
+      logger.error('Get pending sessions error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get pending sessions'
       });
     }
   }

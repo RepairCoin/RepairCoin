@@ -215,6 +215,24 @@ export class RedemptionSessionRepository extends BaseRepository {
     }
   }
 
+  async getShopPendingSessions(shopId: string): Promise<RedemptionSessionData[]> {
+    try {
+      const query = `
+        SELECT * FROM redemption_sessions 
+        WHERE shop_id = $1 
+        AND status = 'pending'
+        AND expires_at > NOW()
+        ORDER BY created_at DESC
+      `;
+      
+      const result = await this.pool.query(query, [shopId]);
+      return result.rows.map(row => this.mapRowToSession(row));
+    } catch (error) {
+      logger.error('Error getting shop pending sessions:', error);
+      throw new Error('Failed to get shop pending sessions');
+    }
+  }
+
   private mapRowToSession(row: any): RedemptionSessionData {
     return {
       sessionId: row.session_id,
