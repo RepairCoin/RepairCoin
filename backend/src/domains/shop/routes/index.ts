@@ -32,7 +32,13 @@ interface ShopData {
   joinDate: string;
   lastActivity: string;
   fixflowShopId?: string;
-  location?: string;
+  location?: string | {
+    city?: string;
+    state?: string;
+    zipCode?: string;
+    lat?: number;
+    lng?: number;
+  };
   purchasedRcnBalance?: number;
   totalRcnPurchased?: number;
 }
@@ -249,7 +255,16 @@ router.post('/register',
         walletAddress,
         reimbursementAddress,
         fixflowShopId,
-        location
+        location,
+        firstName,
+        lastName,
+        city,
+        country,
+        companySize,
+        monthlyRevenue,
+        website,
+        referral,
+        acceptTerms
       } = req.body;
 
       // Check if shop already exists
@@ -271,8 +286,17 @@ router.post('/register',
         });
       }
 
+      // Merge location data from both root level and nested location object
+      const mergedLocation = {
+        city: city || location?.city,
+        state: location?.state,
+        zipCode: location?.zipCode,
+        lat: location?.lat,
+        lng: location?.lng
+      };
+
       // Create new shop data
-      const newShop: ShopData = {
+      const newShop = {
         shopId,
         name,
         address,
@@ -289,7 +313,7 @@ router.post('/register',
         joinDate: new Date().toISOString(),
         lastActivity: new Date().toISOString(),
         fixflowShopId,
-        location
+        location: mergedLocation
       };
 
       await shopRepository.createShop(newShop);
