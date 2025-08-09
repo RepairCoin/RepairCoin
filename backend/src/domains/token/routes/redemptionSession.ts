@@ -196,7 +196,7 @@ router.post('/approve',
   validateRequired(['sessionId', 'signature']),
   async (req: Request, res: Response) => {
     try {
-      const { sessionId, signature } = req.body;
+      const { sessionId, signature, transactionHash } = req.body;
       const customerAddress = req.user?.address;
 
       if (!customerAddress) {
@@ -209,7 +209,8 @@ router.post('/approve',
       const session = await redemptionSessionService.approveSession({
         sessionId,
         customerAddress,
-        signature
+        signature,
+        transactionHash // Pass burn transaction hash if provided
       });
 
       res.json({
@@ -217,7 +218,9 @@ router.post('/approve',
         data: {
           sessionId: session.sessionId,
           status: session.status,
-          message: 'Redemption approved. Shop can now process the transaction.'
+          message: transactionHash 
+            ? 'Redemption approved with token burn. Shop can now process the transaction.'
+            : 'Redemption approved. Shop can now process the transaction.'
         }
       });
 

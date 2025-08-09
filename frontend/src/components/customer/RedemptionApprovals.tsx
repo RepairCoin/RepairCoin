@@ -2,8 +2,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { useActiveAccount } from 'thirdweb/react';
-import { CheckCircle, XCircle, Clock, QrCode } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, QrCode, Flame } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { getContract, prepareContractCall, sendTransaction } from "thirdweb";
+import { baseSepolia } from "thirdweb/chains";
+import { createThirdwebClient } from "thirdweb";
+
+const client = createThirdwebClient({
+  clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "1969ac335e07ba13ad0f8d1a1de4f6ab",
+});
+
+const BURN_ADDRESS = '0x000000000000000000000000000000000000dEaD';
 
 interface RedemptionSession {
   sessionId: string;
@@ -12,6 +21,15 @@ interface RedemptionSession {
   status: string;
   createdAt: string;
   expiresAt: string;
+  burnTransactionHash?: string; // Track if tokens have been burned
+}
+
+interface BurnStatus {
+  [sessionId: string]: {
+    burning: boolean;
+    burned: boolean;
+    transactionHash?: string;
+  };
 }
 
 export function RedemptionApprovals() {
@@ -20,6 +38,7 @@ export function RedemptionApprovals() {
   const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
+  const [burnStatus, setBurnStatus] = useState<BurnStatus>({});
 
   // For QR generation
   const [showQRGenerator, setShowQRGenerator] = useState(false);
@@ -66,7 +85,72 @@ export function RedemptionApprovals() {
     }
   };
 
-  const approveSession = async (sessionId: string) => {
+  const burnTokens = async (sessionId: string, amount: number) => {
+    if (!account) {
+      toast.error('Please connect your wallet');
+      return;
+    }
+
+    setBurnStatus(prev => ({
+      ...prev,
+      [sessionId]: { burning: true, burned: false }
+    }));
+
+    try {
+      // Get the RepairCoin contract
+      const contract = getContract({
+        client,
+        chain: baseSepolia,
+        address: process.env.NEXT_PUBLIC_REPAIRCOIN_CONTRACT_ADDRESS || '0xd92ced7c3f4D8E42C05A4c558F37dA6DC731d5f5'
+      });
+
+      // Prepare the transfer to burn address
+      const transaction = prepareContractCall({
+        contract,
+        method: "function transfer(address to, uint256 amount) returns (bool)",
+        params: [BURN_ADDRESS, BigInt(amount) * BigInt(10 ** 18)] // Convert to wei
+      });
+
+      // Send the transaction from customer's wallet
+      const result = await sendTransaction({
+        transaction,
+        account: account
+      });
+
+      console.log('Burn transaction sent:', result.transactionHash);
+      
+      // Update burn status
+      setBurnStatus(prev => ({
+        ...prev,
+        [sessionId]: { 
+          burning: false, 
+          burned: true,
+          transactionHash: result.transactionHash
+        }
+      }));
+
+      toast.success(`Burned ${amount} RCN successfully!`);
+      return result.transactionHash;
+
+    } catch (error: any) {
+      console.error('Error burning tokens:', error);
+      setBurnStatus(prev => ({
+        ...prev,
+        [sessionId]: { burning: false, burned: false }
+      }));
+      
+      if (error.message?.includes('User rejected')) {
+        toast.error('Transaction cancelled');
+      } else if (error.message?.includes('insufficient')) {
+        toast.error('Insufficient RCN balance');
+      } else {
+        toast.error('Failed to burn tokens');
+      }
+      throw error;
+    }
+  };
+
+  const approveSession = async (sessionId: string, transactionHash?: string) => {
     setProcessing(sessionId);
     
     try {
@@ -74,7 +158,8 @@ export function RedemptionApprovals() {
       const message = JSON.stringify({
         action: 'approve_redemption',
         sessionId,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        burnTransactionHash: transactionHash
       });
       
       // Simulate wallet signature (in production, use actual wallet signing)
@@ -88,7 +173,11 @@ export function RedemptionApprovals() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('customerAuthToken') || ''}`
           },
-          body: JSON.stringify({ sessionId, signature })
+          body: JSON.stringify({ 
+            sessionId, 
+            signature,
+            transactionHash // Include burn transaction hash if provided
+          })
         }
       );
 
@@ -313,16 +402,39 @@ export function RedemptionApprovals() {
                   
                   {session.status === 'pending' && (
                     <div className="flex gap-2">
-                      <button
-                        onClick={() => approveSession(session.sessionId)}
-                        disabled={processing === session.sessionId}
-                        className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm"
-                      >
-                        Approve
-                      </button>
+                      {!burnStatus[session.sessionId]?.burned ? (
+                        <button
+                          onClick={() => burnTokens(session.sessionId, session.amount)}
+                          disabled={processing === session.sessionId || burnStatus[session.sessionId]?.burning}
+                          className="px-3 py-1 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 text-sm flex items-center gap-1"
+                        >
+                          {burnStatus[session.sessionId]?.burning ? (
+                            <>
+                              <span className="animate-spin">⏳</span> Burning...
+                            </>
+                          ) : (
+                            <>
+                              <Flame className="w-4 h-4" /> Burn {session.amount} RCN
+                            </>
+                          )}
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => approveSession(session.sessionId, burnStatus[session.sessionId]?.transactionHash)}
+                            disabled={processing === session.sessionId}
+                            className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm"
+                          >
+                            Approve
+                          </button>
+                          <span className="text-xs text-green-600 flex items-center">
+                            <CheckCircle className="w-3 h-3 mr-1" /> Burned
+                          </span>
+                        </>
+                      )}
                       <button
                         onClick={() => rejectSession(session.sessionId)}
-                        disabled={processing === session.sessionId}
+                        disabled={processing === session.sessionId || burnStatus[session.sessionId]?.burning}
                         className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm"
                       >
                         Reject

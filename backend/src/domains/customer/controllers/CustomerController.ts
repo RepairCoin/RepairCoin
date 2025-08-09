@@ -45,6 +45,22 @@ export class CustomerController {
     }
   }
 
+  async listCustomers(req: Request, res: Response) {
+    try {
+      const { page = 1, limit = 100, search = '' } = req.query;
+      
+      const result = await this.customerService.listCustomers({
+        page: Number(page),
+        limit: Number(limit),
+        search: search as string
+      });
+      
+      ResponseHelper.success(res, result);
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message, 500);
+    }
+  }
+
   async updateCustomer(req: Request, res: Response) {
     try {
       const { address } = req.params;

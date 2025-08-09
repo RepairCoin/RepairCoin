@@ -34,6 +34,13 @@ router.post('/register',
   asyncHandler(customerController.registerCustomer.bind(customerController))
 );
 
+// List all customers (for shops to select from)
+router.get('/',
+  authMiddleware,
+  requireRole(['admin', 'shop']),
+  asyncHandler(customerController.listCustomers.bind(customerController))
+);
+
 // Get customer by wallet address (dynamic route last)
 router.get('/:address', 
   validateEthereumAddress('address'),

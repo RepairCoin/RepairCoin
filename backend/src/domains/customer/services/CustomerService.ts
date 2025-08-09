@@ -34,6 +34,12 @@ export interface CustomerAnalyticsResult {
   earningTrend: Array<{ date: string; amount: number }>;
 }
 
+export interface ListCustomersParams {
+  page: number;
+  limit: number;
+  search?: string;
+}
+
 export class CustomerService {
   private tokenMinter: TokenMinter | null = null;
   private tierManager: TierManager | null = null;
@@ -85,6 +91,45 @@ export class CustomerService {
       };
     } catch (error) {
       logger.error('Error getting customer details:', error);
+      throw error;
+    }
+  }
+
+  async listCustomers(params: ListCustomersParams) {
+    try {
+      const { page, limit, search } = params;
+      const offset = (page - 1) * limit;
+      
+      // Get customers from repository with pagination and search
+      const customers = await customerRepository.getAllCustomers(limit, offset, search);
+      
+      // Transform customers to include additional data if needed
+      const transformedCustomers = customers.map(customer => ({
+        address: customer.address,
+        name: customer.name || customer.email || 'Unnamed Customer',
+        email: customer.email,
+        tier: customer.tier,
+        lifetimeEarnings: customer.lifetimeEarnings,
+        currentBalance: 0, // This would need to be fetched from blockchain
+        isActive: customer.isActive,
+        joinDate: customer.joinDate,
+        lastEarnedDate: customer.lastEarnedDate
+      }));
+      
+      // Get total count for pagination
+      const totalCount = await customerRepository.getCustomerCount(search);
+      
+      return {
+        customers: transformedCustomers,
+        pagination: {
+          page,
+          limit,
+          total: totalCount,
+          totalPages: Math.ceil(totalCount / limit)
+        }
+      };
+    } catch (error) {
+      logger.error('Error listing customers:', error);
       throw error;
     }
   }

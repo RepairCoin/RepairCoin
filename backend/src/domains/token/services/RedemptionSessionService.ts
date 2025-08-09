@@ -27,6 +27,7 @@ export interface ApproveSessionParams {
   sessionId: string;
   customerAddress: string;
   signature: string;
+  transactionHash?: string; // Optional: hash of transfer transaction if customer transferred tokens
 }
 
 export class RedemptionSessionService {
@@ -142,7 +143,7 @@ export class RedemptionSessionService {
    * Customer approves a redemption session
    */
   async approveSession(params: ApproveSessionParams): Promise<RedemptionSession> {
-    const { sessionId, customerAddress, signature } = params;
+    const { sessionId, customerAddress, signature, transactionHash } = params;
 
     const session = await redemptionSessionRepository.getSession(sessionId);
     if (!session) {
@@ -179,11 +180,20 @@ export class RedemptionSessionService {
     session.status = 'approved';
     session.approvedAt = new Date();
     session.signature = signature;
+    
+    // Store transaction hash if provided (indicates customer transferred tokens)
+    if (transactionHash) {
+      session.metadata = {
+        ...session.metadata,
+        transferTransactionHash: transactionHash
+      };
+    }
 
     logger.info('Redemption session approved', {
       sessionId,
       customerAddress,
-      shopId: session.shopId
+      shopId: session.shopId,
+      hasTransferTx: !!transactionHash
     });
 
     return session;

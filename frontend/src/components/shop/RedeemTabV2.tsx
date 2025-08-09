@@ -8,6 +8,16 @@ interface RedeemTabProps {
   onRedemptionComplete: () => void;
 }
 
+interface RedemptionTransaction {
+  id: string;
+  customerAddress: string;
+  customerName?: string;
+  amount: number;
+  timestamp: string;
+  status: 'confirmed' | 'pending' | 'failed';
+  transactionHash?: string;
+}
+
 interface RedemptionSession {
   sessionId: string;
   customerAddress: string;
@@ -41,6 +51,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({ shopId, onRedemptionComp
   const [redeemAmount, setRedeemAmount] = useState<number>(0);
   const [currentSession, setCurrentSession] = useState<RedemptionSession | null>(null);
   const [sessionStatus, setSessionStatus] = useState<'idle' | 'creating' | 'waiting' | 'processing'>('idle');
+  const [showingAllCustomers, setShowingAllCustomers] = useState(false);
   
   // QR scan flow states
   const [qrCode, setQrCode] = useState('');
@@ -49,17 +60,28 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({ shopId, onRedemptionComp
   // Common states
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  
+  // Transaction history states
+  const [transactions, setTransactions] = useState<RedemptionTransaction[]>([]);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   // Load shop customers and check for pending sessions on mount
   useEffect(() => {
     loadShopCustomers();
-    checkForPendingSessions();
+    loadRedemptionHistory();
+    // Add a small delay to ensure auth token is available
+    setTimeout(() => {
+      checkForPendingSessions();
+    }, 100);
   }, [shopId]);
 
   const loadShopCustomers = async () => {
     setLoadingCustomers(true);
     try {
       const authToken = localStorage.getItem('shopAuthToken') || sessionStorage.getItem('shopAuthToken');
+      
+      // First try to load shop-specific customers
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/customers?limit=100`,
         {
@@ -71,26 +93,136 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({ shopId, onRedemptionComp
 
       if (response.ok) {
         const result = await response.json();
-        console.log('Loaded shop customers:', result.data.customers);
-        setShopCustomers(result.data.customers || []);
+        const shopCustomers = result.data.customers || [];
+        console.log('Loaded shop customers:', shopCustomers);
+        
+        // If no shop-specific customers, load all customers from the system
+        if (shopCustomers.length === 0) {
+          console.log('No shop-specific customers found, loading all customers...');
+          const allCustomersResponse = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/customers?limit=100`,
+            {
+              headers: {
+                'Authorization': authToken ? `Bearer ${authToken}` : ''
+              }
+            }
+          );
+          
+          if (allCustomersResponse.ok) {
+            const allCustomersResult = await allCustomersResponse.json();
+            const allCustomers = allCustomersResult.data?.customers || [];
+            console.log('Loaded all customers:', allCustomers);
+            
+            // Transform the customer data to match the expected format
+            const transformedCustomers = allCustomers.map((customer: any) => ({
+              address: customer.address,
+              name: customer.name || customer.email || 'Unnamed Customer',
+              tier: customer.tier || 'BRONZE',
+              lifetime_earnings: customer.lifetimeEarnings || 0,
+              last_transaction_date: customer.lastEarnedDate,
+              total_transactions: 0 // This might not be available in the general customer data
+            }));
+            
+            setShopCustomers(transformedCustomers);
+            setShowingAllCustomers(true);
+          } else {
+            console.error('Failed to load all customers:', allCustomersResponse.status);
+            setShopCustomers([]);
+          }
+        } else {
+          setShopCustomers(shopCustomers);
+          setShowingAllCustomers(false);
+        }
       } else {
-        console.error('Failed to load customers:', response.status);
+        console.error('Failed to load shop customers:', response.status);
+        // Try to load all customers as fallback
+        const allCustomersResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/customers?limit=100`,
+          {
+            headers: {
+              'Authorization': authToken ? `Bearer ${authToken}` : ''
+            }
+          }
+        );
+        
+        if (allCustomersResponse.ok) {
+          const allCustomersResult = await allCustomersResponse.json();
+          const allCustomers = allCustomersResult.data?.customers || [];
+          console.log('Loaded all customers as fallback:', allCustomers);
+          
+          // Transform the customer data to match the expected format
+          const transformedCustomers = allCustomers.map((customer: any) => ({
+            address: customer.address,
+            name: customer.name || customer.email || 'Unnamed Customer',
+            tier: customer.tier || 'BRONZE',
+            lifetime_earnings: customer.lifetimeEarnings || 0,
+            last_transaction_date: customer.lastEarnedDate,
+            total_transactions: 0
+          }));
+          
+          setShopCustomers(transformedCustomers);
+          setShowingAllCustomers(true);
+        }
       }
     } catch (err) {
-      console.error('Error loading shop customers:', err);
+      console.error('Error loading customers:', err);
+      setShopCustomers([]);
     } finally {
       setLoadingCustomers(false);
     }
   };
 
+  const loadRedemptionHistory = async () => {
+    setLoadingTransactions(true);
+    try {
+      const authToken = localStorage.getItem('shopAuthToken') || sessionStorage.getItem('shopAuthToken');
+      
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/transactions?type=redeem&limit=20`,
+        {
+          headers: {
+            'Authorization': authToken ? `Bearer ${authToken}` : ''
+          }
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        const redemptions = result.data?.transactions || [];
+        
+        // Transform transactions to match our interface
+        const transformedTransactions = redemptions.map((tx: any) => ({
+          id: tx.id,
+          customerAddress: tx.customerAddress,
+          customerName: tx.customerName || 'Unknown Customer',
+          amount: tx.amount,
+          timestamp: tx.timestamp,
+          status: tx.status || 'confirmed',
+          transactionHash: tx.transactionHash
+        }));
+        
+        setTransactions(transformedTransactions);
+      } else {
+        console.error('Failed to load redemption history:', response.status);
+      }
+    } catch (err) {
+      console.error('Error loading redemption history:', err);
+    } finally {
+      setLoadingTransactions(false);
+    }
+  };
+
   // Check for existing pending sessions for this shop
   const checkForPendingSessions = async () => {
+    console.log('Checking for pending sessions for shop:', shopId);
     try {
       const authToken = localStorage.getItem('shopAuthToken') || sessionStorage.getItem('shopAuthToken');
       if (!authToken) {
+        console.log('No auth token found, skipping pending sessions check');
         return;
       }
 
+      console.log('Fetching pending sessions...');
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/pending-sessions`,
         {
@@ -100,9 +232,11 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({ shopId, onRedemptionComp
         }
       );
 
+      console.log('Pending sessions response status:', response.status);
       if (response.ok) {
         const result = await response.json();
         const pendingSessions = result.data?.sessions || [];
+        console.log('Found pending sessions:', pendingSessions);
         
         // If there's a pending session, restore it
         if (pendingSessions.length > 0) {
@@ -117,9 +251,15 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({ shopId, onRedemptionComp
           setSessionStatus('waiting');
           setCustomerAddress(latestSession.customerAddress);
           setRedeemAmount(latestSession.maxAmount);
+          // Ensure we're on the two-factor flow when restoring a session
+          setFlow('two-factor');
           
-          console.log('Restored pending session:', latestSession);
+          console.log('Successfully restored pending session:', latestSession);
+        } else {
+          console.log('No pending sessions found');
         }
+      } else {
+        console.error('Failed to fetch pending sessions:', response.status, response.statusText);
       }
     } catch (err) {
       console.error('Error checking for pending sessions:', err);
@@ -134,10 +274,14 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({ shopId, onRedemptionComp
 
   // Filter customers based on search
   const filteredCustomers = shopCustomers.filter(customer => {
-    const searchLower = customerSearch.toLowerCase();
+    if (!customerSearch.trim()) return true; // Show all if no search term
+    
+    const searchLower = customerSearch.toLowerCase().trim();
     const nameMatch = customer.name && customer.name.toLowerCase().includes(searchLower);
     const addressMatch = customer.address.toLowerCase().includes(searchLower);
-    return nameMatch || addressMatch;
+    const emailMatch = customer.name && customer.name.toLowerCase().includes(searchLower); // name might contain email
+    
+    return nameMatch || addressMatch || emailMatch;
   });
 
   // Poll for session status updates
@@ -147,7 +291,12 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({ shopId, onRedemptionComp
         try {
           // In a real app, this would be a WebSocket connection
           // For now, we'll simulate checking session status
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tokens/redemption-session/status/${currentSession.sessionId}`);
+          const authToken = localStorage.getItem('shopAuthToken') || sessionStorage.getItem('shopAuthToken');
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tokens/redemption-session/status/${currentSession.sessionId}`, {
+            headers: {
+              'Authorization': authToken ? `Bearer ${authToken}` : ''
+            }
+          });
           if (response.ok) {
             const result = await response.json();
             if (result.data.status === 'approved') {
@@ -208,14 +357,16 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({ shopId, onRedemptionComp
       }
 
       const result = await response.json();
-      setCurrentSession({
+      const newSession = {
         sessionId: result.data.sessionId,
         customerAddress: finalAddress,
         amount: redeemAmount,
         status: 'pending',
         expiresAt: result.data.expiresAt
-      });
+      };
+      setCurrentSession(newSession);
       setSessionStatus('waiting');
+      console.log('Created new redemption session:', newSession);
       
     } catch (err) {
       console.error('Session creation error:', err);
@@ -258,6 +409,9 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({ shopId, onRedemptionComp
       setCurrentSession(null);
       setSessionStatus('idle');
       setCustomerSearch('');
+      
+      // Reload transaction history
+      await loadRedemptionHistory();
       
       // Notify parent
       onRedemptionComplete();
@@ -427,8 +581,13 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({ shopId, onRedemptionComp
               {customerInputMode === 'select' ? (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Home-Grown Customer
+                    {showingAllCustomers ? 'Select Customer (All Customers)' : 'Select Home-Grown Customer'}
                   </label>
+                  {showingAllCustomers && (
+                    <p className="text-xs text-gray-500 mb-2">
+                      Showing all customers in the system. Home-grown customers will be shown when available.
+                    </p>
+                  )}
                   <input
                     type="text"
                     value={customerSearch}
@@ -446,7 +605,11 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({ shopId, onRedemptionComp
                     <div className="text-center py-4 text-gray-500">Loading customers...</div>
                   ) : filteredCustomers.length === 0 ? (
                     <div className="text-center py-4 text-gray-500">
-                      {shopCustomers.length === 0 ? 'No customers found' : 'No matching customers'}
+                      {shopCustomers.length === 0 
+                        ? 'No customers found in the system' 
+                        : customerSearch.trim() 
+                          ? 'No matching customers found' 
+                          : 'No customers to display'}
                     </div>
                   ) : (
                     <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-xl">
@@ -558,15 +721,36 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({ shopId, onRedemptionComp
                   Time remaining: {getTimeRemaining(currentSession.expiresAt)}
                 </p>
               </div>
-              <button
-                onClick={() => {
-                  setSessionStatus('idle');
-                  setCurrentSession(null);
-                }}
-                className="text-red-600 hover:text-red-700 font-medium"
-              >
-                Cancel Request
-              </button>
+              
+              {/* New Security Process Info */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-left max-w-md mx-auto">
+                <p className="text-sm text-blue-800 font-medium mb-2">
+                  🔒 Enhanced Security Process:
+                </p>
+                <ol className="text-xs text-blue-700 space-y-1 list-decimal list-inside">
+                  <li>Customer must burn {currentSession.amount} RCN tokens</li>
+                  <li>After burning, customer approves the redemption</li>
+                  <li>This ensures tokens are permanently removed from circulation</li>
+                </ol>
+              </div>
+              
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={() => {
+                    setSessionStatus('idle');
+                    setCurrentSession(null);
+                  }}
+                  className="text-red-600 hover:text-red-700 font-medium"
+                >
+                  Cancel Request
+                </button>
+                <button
+                  onClick={checkForPendingSessions}
+                  className="text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Refresh Status
+                </button>
+              </div>
             </div>
           )}
 
@@ -645,15 +829,22 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({ shopId, onRedemptionComp
             <div className="flex items-start gap-3">
               <span className="font-bold">3.</span>
               <div>
-                <p className="font-semibold">Customer Approves</p>
-                <p>Customer reviews details and approves the redemption</p>
+                <p className="font-semibold">Customer Burns Tokens</p>
+                <p>Customer sends tokens to burn address (0x000...dEaD)</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
               <span className="font-bold">4.</span>
               <div>
-                <p className="font-semibold">Automatic Processing</p>
-                <p>System processes redemption and burns tokens</p>
+                <p className="font-semibold">Customer Approves</p>
+                <p>After burning, customer approves the redemption</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="font-bold">5.</span>
+              <div>
+                <p className="font-semibold">Shop Completes</p>
+                <p>Shop finalizes the redemption and transaction is recorded</p>
               </div>
             </div>
           </div>
@@ -708,6 +899,55 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({ shopId, onRedemptionComp
           </div>
         </div>
       )}
+
+      {/* Transaction History */}
+      <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-bold text-gray-900">Recent Redemptions</h2>
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+          >
+            {showHistory ? 'Hide' : 'Show'} History
+          </button>
+        </div>
+        
+        {showHistory && (
+          <div>
+            {loadingTransactions ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading redemption history...</p>
+              </div>
+            ) : transactions.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-500">No redemptions yet</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {transactions.map((tx) => (
+                  <div key={tx.id} className="bg-gray-50 rounded-lg p-4 flex justify-between items-center">
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {tx.customerName || `${tx.customerAddress.slice(0, 6)}...${tx.customerAddress.slice(-4)}`}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {new Date(tx.timestamp).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-red-600">-{tx.amount} RCN</p>
+                      <p className="text-xs text-gray-500">
+                        {tx.status === 'confirmed' ? '✓ Confirmed' : tx.status}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

@@ -135,6 +135,15 @@ router.post('/maintenance/archive-transactions',
   asyncHandler(adminController.archiveTransactions.bind(adminController))
 );
 
+// Manual redemption processing (temporary for testing)
+// TODO: Implement processManualRedemption in AdminController
+// router.post('/process-redemption',
+//   validateRequired(['customerAddress', 'shopId', 'amount']),
+//   validateEthereumAddress('customerAddress'),
+//   validateNumeric('amount', 0.1, 1000),
+//   asyncHandler(adminController.processManualRedemption.bind(adminController))
+// );
+
 // Treasury management routes
 router.use('', treasuryRoutes);
 

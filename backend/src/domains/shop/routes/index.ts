@@ -386,6 +386,7 @@ router.put('/:shopId',
 
 // Get shop analytics
 router.get('/:shopId/analytics',
+  authMiddleware,
   requireShopOrAdmin,
   requireShopOwnership,
   async (req: Request, res: Response) => {
@@ -427,6 +428,7 @@ router.get('/:shopId/analytics',
 
 // Get shop transactions
 router.get('/:shopId/transactions',
+  authMiddleware,
   requireShopOrAdmin,
   requireShopOwnership,
   async (req: Request, res: Response) => {
@@ -702,6 +704,7 @@ router.get('/:shopId/dashboard',
 
 // Process token redemption at shop
 router.post('/:shopId/redeem',
+  authMiddleware,
   requireShopOrAdmin,
   requireShopOwnership,
   validateRequired(['customerAddress', 'amount']),
@@ -846,6 +849,9 @@ router.post('/:shopId/redeem',
         lastActivity: new Date().toISOString()
       });
 
+      // Update customer redemption total
+      await customerRepository.updateCustomerAfterRedemption(customerAddress, amount);
+
       logger.info('Token redemption processed', {
         shopId,
         customerAddress,
@@ -882,6 +888,7 @@ router.post('/:shopId/redeem',
 
 // Get customers who have earned from this shop
 router.get('/:shopId/customers',
+  authMiddleware,
   requireShopOrAdmin,
   requireShopOwnership,
   async (req: Request, res: Response) => {
@@ -924,6 +931,7 @@ router.get('/:shopId/customers',
 
 // Get pending redemption sessions for a shop
 router.get('/:shopId/pending-sessions',
+  authMiddleware,
   requireShopOrAdmin,
   requireShopOwnership,
   async (req: Request, res: Response) => {

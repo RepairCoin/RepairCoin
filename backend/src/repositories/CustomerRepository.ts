@@ -8,6 +8,78 @@ export interface CustomerFilters {
 }
 
 export class CustomerRepository extends BaseRepository {
+  async getAllCustomers(limit: number, offset: number, search?: string): Promise<CustomerData[]> {
+    try {
+      let query = `
+        SELECT * FROM customers 
+        WHERE 1=1
+      `;
+      const params: any[] = [];
+      
+      if (search) {
+        query += ` AND (
+          LOWER(address) LIKE LOWER($${params.length + 1}) OR 
+          LOWER(email) LIKE LOWER($${params.length + 1}) OR 
+          LOWER(name) LIKE LOWER($${params.length + 1})
+        )`;
+        params.push(`%${search}%`);
+      }
+      
+      query += ` ORDER BY join_date DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+      params.push(limit, offset);
+      
+      const result = await this.pool.query(query, params);
+      
+      return result.rows.map(row => ({
+        address: row.address,
+        name: row.name,
+        email: row.email,
+        phone: row.phone,
+        tier: row.tier,
+        lifetimeEarnings: parseFloat(row.lifetime_earnings),
+        dailyEarnings: parseFloat(row.daily_earnings || 0),
+        monthlyEarnings: parseFloat(row.monthly_earnings),
+        lastEarnedDate: row.last_earned_date ? new Date(row.last_earned_date).toISOString() : new Date().toISOString(),
+        joinDate: row.join_date ? new Date(row.join_date).toISOString() : new Date().toISOString(),
+        isActive: row.is_active,
+        referralCount: row.referral_count,
+        fixflowCustomerId: row.fixflow_customer_id,
+        suspendedAt: row.suspended_at,
+        suspensionReason: row.suspension_reason,
+        referralCode: row.referral_code,
+        referredBy: row.referred_by
+      }));
+    } catch (error) {
+      logger.error('Error fetching all customers:', error);
+      throw new Error('Failed to fetch customers');
+    }
+  }
+
+  async getCustomerCount(search?: string): Promise<number> {
+    try {
+      let query = `
+        SELECT COUNT(*) as count FROM customers 
+        WHERE 1=1
+      `;
+      const params: any[] = [];
+      
+      if (search) {
+        query += ` AND (
+          LOWER(address) LIKE LOWER($${params.length + 1}) OR 
+          LOWER(email) LIKE LOWER($${params.length + 1}) OR 
+          LOWER(name) LIKE LOWER($${params.length + 1})
+        )`;
+        params.push(`%${search}%`);
+      }
+      
+      const result = await this.pool.query(query, params);
+      return parseInt(result.rows[0].count);
+    } catch (error) {
+      logger.error('Error counting customers:', error);
+      throw new Error('Failed to count customers');
+    }
+  }
+
   async getCustomer(address: string): Promise<CustomerData | null> {
     try {
       const query = 'SELECT * FROM customers WHERE address = $1';
@@ -166,6 +238,26 @@ export class CustomerRepository extends BaseRepository {
     }
   }
 
+  async updateCustomerAfterRedemption(
+    address: string,
+    amount: number
+  ): Promise<void> {
+    try {
+      const query = `
+        UPDATE customers 
+        SET total_redemptions = COALESCE(total_redemptions, 0) + $1,
+            updated_at = NOW()
+        WHERE address = $2
+      `;
+      
+      await this.pool.query(query, [amount, address.toLowerCase()]);
+      logger.info('Customer redemption recorded', { address, amount });
+    } catch (error) {
+      logger.error('Error updating customer redemption:', error);
+      throw new Error('Failed to update customer redemption');
+    }
+  }
+
   async updateCustomerAfterEarning(
     address: string, 
     amount: number, 
@@ -235,23 +327,6 @@ export class CustomerRepository extends BaseRepository {
     } catch (error) {
       logger.error('Error updating customer earnings:', error);
       throw new Error('Failed to update customer earnings');
-    }
-  }
-
-  async updateCustomerAfterRedemption(address: string, amount: number): Promise<void> {
-    try {
-      const query = `
-        UPDATE customers 
-        SET 
-          updated_at = NOW()
-        WHERE address = $1
-      `;
-      
-      await this.pool.query(query, [address.toLowerCase()]);
-      logger.info('Customer redemption updated', { address, amount });
-    } catch (error) {
-      logger.error('Error updating customer redemption:', error);
-      throw new Error('Failed to update customer redemption');
     }
   }
 
