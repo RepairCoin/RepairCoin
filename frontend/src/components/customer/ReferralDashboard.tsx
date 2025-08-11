@@ -67,7 +67,7 @@ export function ReferralDashboard() {
   const { data: tokenBalance, isLoading: balanceLoading } = useReadContract({
     contract,
     method: "function balanceOf(address) view returns (uint256)",
-    params: account?.address ? [account.address] : undefined,
+    params: account?.address ? [account.address] : [''],
   });
 
   const formatBalance = (balance: bigint | undefined): string => {
@@ -299,7 +299,15 @@ export function ReferralDashboard() {
 
       {/* Referral Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-gradient-to-r from-black to-[#3C3C3C] rounded-2xl px-6 py-4 shadow-lg flex justify-between items-center">
+        <div
+          className="bg-gradient-to-r from-black to-[#3C3C3C] rounded-2xl px-6 py-4 shadow-lg flex justify-between items-center"
+          style={{
+            backgroundImage: `url('/img/stat-card.png')`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+          }}
+        >
           <div>
             <p className="text-yellow-400 text-sm font-medium mb-1">
               Total Referrals
@@ -313,7 +321,15 @@ export function ReferralDashboard() {
           </div>
         </div>
 
-        <div className="bg-gradient-to-r from-black to-[#3C3C3C] rounded-2xl px-6 py-4 shadow-lg flex justify-between items-center">
+        <div
+          className="bg-gradient-to-r from-black to-[#3C3C3C] rounded-2xl px-6 py-4 shadow-lg flex justify-between items-center"
+          style={{
+            backgroundImage: `url('/img/stat-card.png')`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+          }}
+        >
           <div>
             <p className="text-yellow-400 text-sm font-medium mb-1">
               Successful
@@ -327,7 +343,15 @@ export function ReferralDashboard() {
           </div>
         </div>
 
-        <div className="bg-gradient-to-r from-black to-[#3C3C3C] rounded-2xl px-6 py-4 shadow-lg flex justify-between items-center">
+        <div
+          className="bg-gradient-to-r from-black to-[#3C3C3C] rounded-2xl px-6 py-4 shadow-lg flex justify-between items-center"
+          style={{
+            backgroundImage: `url('/img/stat-card.png')`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+          }}
+        >
           <div>
             <p className="text-yellow-400 text-sm font-medium mb-1">Pending</p>
             <p className="text-white text-2xl font-bold">
@@ -339,7 +363,15 @@ export function ReferralDashboard() {
           </div>
         </div>
 
-        <div className="bg-gradient-to-r from-black to-[#3C3C3C] rounded-2xl px-6 py-4 shadow-lg flex justify-between items-center">
+        <div
+          className="bg-gradient-to-r from-black to-[#3C3C3C] rounded-2xl px-6 py-4 shadow-lg flex justify-between items-center"
+          style={{
+            backgroundImage: `url('/img/stat-card.png')`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+          }}
+        >
           <div>
             <p className="text-yellow-400 text-sm font-medium mb-1">
               Total Earned
