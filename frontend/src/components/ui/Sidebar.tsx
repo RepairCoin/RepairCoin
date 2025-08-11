@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -16,6 +16,8 @@ import {
   LogOut,
   Menu,
   X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { 
   IssueRewardsIcon, 
@@ -44,6 +46,7 @@ interface SidebarProps {
   userRole?: "customer" | "shop" | "admin";
   activeTab?: string;
   onTabChange?: (tab: string) => void;
+  onCollapseChange?: (collapsed: boolean) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -52,8 +55,16 @@ const Sidebar: React.FC<SidebarProps> = ({
   userRole = "customer",
   activeTab,
   onTabChange,
+  onCollapseChange,
 }) => {
   const pathname = usePathname();
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const handleCollapseToggle = () => {
+    const newCollapsed = !isCollapsed;
+    setIsCollapsed(newCollapsed);
+    onCollapseChange?.(newCollapsed);
+  };
 
   const getMenuItems = (): SidebarItem[] => {
     const commonItems: SidebarItem[] = [
@@ -235,21 +246,39 @@ const Sidebar: React.FC<SidebarProps> = ({
       <aside
         className={`
           fixed left-0 top-0 h-full bg-[#101010] text-white z-40
-          transition-transform duration-300 ease-in-out
+          transition-all duration-300 ease-in-out
           ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
-          w-64 border-r border-gray-800
+          ${isCollapsed ? "w-20" : "w-64"} border-r border-gray-800
         `}
       >
         <div className="flex flex-col h-full">
-          {/* Logo/Brand */}
-          <div className="p-6 border-b border-gray-800">
-            <Link href="/" className="flex items-center space-x-2">
-              <img
-                src="/img/nav-logo.png"
-                alt="RepairCoin Logo"
-                className="w-auto"
-              />
-            </Link>
+          {/* Logo/Brand with Collapse Button */}
+          <div className="relative p-6 border-b border-gray-800">
+            <div className="flex items-center space-x-2">
+              {!isCollapsed && (
+                <img
+                  src="/img/nav-logo.png"
+                  alt="RepairCoin Logo"
+                  className="w-auto"
+                />
+              )}
+              {isCollapsed && (
+                <div className="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center">
+                  <span className="text-black font-bold text-sm">RC</span>
+                </div>
+              )}
+            </div>
+            {/* Collapse Toggle Button - Only visible on desktop */}
+            <button
+              onClick={handleCollapseToggle}
+              className="hidden lg:flex absolute -right-3 top-1/2 -translate-y-1/2 bg-gray-900 hover:bg-gray-800 text-yellow-400 rounded-full p-1.5 shadow-lg border border-gray-700 transition-colors"
+            >
+              {isCollapsed ? (
+                <ChevronRight className="w-4 h-4" />
+              ) : (
+                <ChevronLeft className="w-4 h-4" />
+              )}
+            </button>
           </div>
 
           {/* Main Navigation */}
@@ -275,7 +304,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                       href={item.href}
                       onClick={handleClick}
                       className={`
-                        flex items-center space-x-3 px-4 py-3 rounded-lg
+                        flex items-center ${isCollapsed ? "justify-center" : "space-x-3"} px-4 py-3 rounded-lg
                         transition-colors duration-200
                         ${
                           isActive
@@ -283,11 +312,15 @@ const Sidebar: React.FC<SidebarProps> = ({
                             : "text-gray-300 hover:bg-gray-800 hover:text-white"
                         }
                       `}
+                      title={isCollapsed ? item.title : undefined}
                     >
-                      {React.cloneElement(item.icon as React.ReactElement, {
-                        className: `w-5 h-5 ${isActive ? "text-gray-900" : ""}`,
-                      })}
-                      <span>{item.title}</span>
+                      {React.isValidElement(item.icon) 
+                        ? React.cloneElement(item.icon as React.ReactElement<any>, {
+                            className: `w-5 h-5 ${isActive ? "text-gray-900" : ""}`
+                          })
+                        : item.icon
+                      }
+                      {!isCollapsed && <span>{item.title}</span>}
                     </Link>
                   </li>
                 );
@@ -316,7 +349,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                       href={item.href}
                       onClick={handleClick}
                       className={`
-                        flex items-center space-x-3 px-4 py-3 rounded-lg
+                        flex items-center ${isCollapsed ? "justify-center" : "space-x-3"} px-4 py-3 rounded-lg
                         transition-colors duration-200
                         ${
                           isActive
@@ -324,11 +357,15 @@ const Sidebar: React.FC<SidebarProps> = ({
                             : "text-gray-300 hover:bg-gray-800 hover:text-white"
                         }
                       `}
+                      title={isCollapsed ? item.title : undefined}
                     >
-                      {React.cloneElement(item.icon as React.ReactElement, {
-                        className: `w-5 h-5 ${isActive ? "text-gray-900" : ""}`,
-                      })}
-                      <span>{item.title}</span>
+                      {React.isValidElement(item.icon) 
+                        ? React.cloneElement(item.icon as React.ReactElement<any>, {
+                            className: `w-5 h-5 ${isActive ? "text-gray-900" : ""}`
+                          })
+                        : item.icon
+                      }
+                      {!isCollapsed && <span>{item.title}</span>}
                     </Link>
                   </li>
                 );

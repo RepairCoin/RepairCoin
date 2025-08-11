@@ -17,9 +17,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   onTabChange
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
+  };
+
+  const handleCollapseChange = (collapsed: boolean) => {
+    setIsSidebarCollapsed(collapsed);
   };
 
   return (
@@ -30,12 +35,13 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         userRole={userRole}
         activeTab={activeTab}
         onTabChange={onTabChange}
+        onCollapseChange={handleCollapseChange}
       />
       
       {/* Main Content Area */}
       <div className={`
         transition-all duration-300 ease-in-out
-        lg:ml-64
+        ${isSidebarCollapsed ? "lg:ml-20" : "lg:ml-64"}
       `}>
         <main>
           {children}
