@@ -155,19 +155,21 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       {/* Earnings Overview - Responsive */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
         {/* Token Summary Card */}
-        <div
-          className="rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-lg"
-          style={{
-            backgroundImage: `url(/img/tier-benefits.png)`,
-            backgroundSize: "cover",
-          }}
-        >
-          <div className="flex justify-between items-start mb-4 sm:mb-6">
-            <h3 className="text-yellow-400 text-base sm:text-lg font-bold">
+        <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
+          <div
+            className="w-full px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
+            style={{
+              backgroundImage: `url('/img/cust-ref-widget3.png')`,
+              backgroundSize: "cover",
+              backgroundPosition: "right",
+              backgroundRepeat: "no-repeat",
+            }}
+          >
+            <p className="text-lg sm:text-xl text-gray-800 font-bold">
               Token Summary
-            </h3>
+            </p>
           </div>
-          <div className="space-y-3 sm:space-y-4">
+          <div className="space-y-3 sm:space-y-4 px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
             <div className="flex justify-between items-center">
               <span className="text-gray-300 text-sm sm:text-base">
                 Tokens Earned:
@@ -197,19 +199,21 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         </div>
 
         {/* Tier Benefits Card */}
-        <div
-          className="flex flex-col sm:flex-row rounded-xl sm:rounded-2xl shadow-lg overflow-hidden"
-          style={{
-            backgroundImage: `url(/img/tier-benefits.png)`,
-            backgroundSize: "cover",
-          }}
-        >
-          <div className="flex-1 p-4 sm:p-6">
-            <div className="flex justify-between items-start mb-4 sm:mb-6">
-              <h3 className="text-yellow-400 text-base sm:text-lg font-bold">
-                Tier Benefits
-              </h3>
-            </div>
+        <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
+          <div
+            className="w-full px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
+            style={{
+              backgroundImage: `url('/img/cust-ref-widget3.png')`,
+              backgroundSize: "cover",
+              backgroundPosition: "right",
+              backgroundRepeat: "no-repeat",
+            }}
+          >
+            <p className="text-lg sm:text-xl text-gray-800 font-bold">
+              Tier Benefits
+            </p>
+          </div>
+          <div className="flex-1 p-4 sm:p-6 px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
             <div className="space-y-2 sm:space-y-3">
               <div className="flex items-center gap-2 sm:gap-3">
                 <div className="flex-shrink-0">
@@ -252,14 +256,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 </span>
               </div>
             </div>
-          </div>
-
-          <div className="h-32 sm:h-auto sm:flex-1 flex justify-center items-center p-4 sm:p-0">
-            <img
-              src="/img/customer-avatar2.png"
-              className="h-full sm:w-full sm:h-full object-contain sm:object-cover"
-              alt="Customer Avatar"
-            />
           </div>
         </div>
       </div>
@@ -320,7 +316,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-8">
           {/* Refer Friends Card */}
-          <div className="rounded-xl sm:rounded-2xl p-4 sm:p-6 bg-black/20 backdrop-blur-sm">
+          <div className="rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 md:bg-black/20 backdrop-blur-sm">
             <div className="w-full h-32 sm:h-40 lg:h-48 mb-3 sm:mb-4 flex items-center justify-center overflow-hidden rounded-xl sm:rounded-2xl">
               <img
                 src="/img/story1.png"
@@ -338,7 +334,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </div>
 
           {/* Complete Repairs Card */}
-          <div className="rounded-xl sm:rounded-2xl p-4 sm:p-6 bg-black/20 backdrop-blur-sm">
+          <div className="rounded-xl sm:rounded-2xl p-4 sm:p-6 md:bg-black/20 backdrop-blur-sm">
             <div className="w-full h-32 sm:h-40 lg:h-48 mb-3 sm:mb-4 flex items-center justify-center overflow-hidden rounded-xl sm:rounded-2xl">
               <img
                 src="/img/whatWeDo3.png"
@@ -356,7 +352,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </div>
 
           {/* Upgrade Your Tier Card */}
-          <div className="rounded-xl sm:rounded-2xl p-4 sm:p-6 bg-black/20 backdrop-blur-sm sm:col-span-2 lg:col-span-1">
+          <div className="rounded-xl sm:rounded-2xl p-4 sm:p-6 md:bg-black/20 backdrop-blur-sm sm:col-span-2 lg:col-span-1">
             <div className="w-full h-32 sm:h-40 lg:h-48 mb-3 sm:mb-4 flex items-center justify-center overflow-hidden rounded-xl sm:rounded-2xl">
               <img
                 src="/img/customer-avatar.png"
