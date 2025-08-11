@@ -229,9 +229,9 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* Mobile Menu Toggle */}
       <button
         onClick={onToggle}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-gray-900 text-yellow-400 hover:bg-gray-800"
+        className="lg:hidden fixed top-3 left-3 sm:top-4 sm:left-4 z-50 p-1.5 sm:p-2 rounded-lg bg-gray-900 text-yellow-400 hover:bg-gray-800"
       >
-        {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        {isOpen ? <X className="w-5 h-5 sm:w-6 sm:h-6" /> : <Menu className="w-5 h-5 sm:w-6 sm:h-6" />}
       </button>
 
       {/* Overlay for mobile */}
@@ -253,7 +253,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       >
         <div className="flex flex-col h-full">
           {/* Logo/Brand with Collapse Button */}
-          <div className="relative p-6 border-b border-gray-800">
+          <div className="relative p-4 sm:p-6 border-b border-gray-800">
             <div className="flex items-center space-x-2">
               {!isCollapsed && (
                 <img
@@ -263,27 +263,27 @@ const Sidebar: React.FC<SidebarProps> = ({
                 />
               )}
               {isCollapsed && (
-                <div className="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center">
-                  <span className="text-black font-bold text-sm">RC</span>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-yellow-400 rounded-full flex items-center justify-center">
+                  <span className="text-black font-bold text-xs sm:text-sm">RC</span>
                 </div>
               )}
             </div>
             {/* Collapse Toggle Button - Only visible on desktop */}
             <button
               onClick={handleCollapseToggle}
-              className="hidden lg:flex absolute -right-3 top-1/2 -translate-y-1/2 bg-gray-900 hover:bg-gray-800 text-yellow-400 rounded-full p-1.5 shadow-lg border border-gray-700 transition-colors"
+              className="hidden lg:flex absolute -right-3 top-1/2 -translate-y-1/2 bg-gray-900 hover:bg-gray-800 text-yellow-400 rounded-full p-1 sm:p-1.5 shadow-lg border border-gray-700 transition-colors"
             >
               {isCollapsed ? (
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
               ) : (
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4" />
               )}
             </button>
           </div>
 
           {/* Main Navigation */}
-          <nav className="flex-1 overflow-y-auto py-4">
-            <ul className="space-y-1 px-3">
+          <nav className="flex-1 overflow-y-auto py-3 sm:py-4">
+            <ul className="space-y-1 px-2 sm:px-3">
               {menuItems.map((item) => {
                 const isActive = (userRole === "shop" || userRole === "customer") && item.tabId
                   ? activeTab === item.tabId
@@ -304,7 +304,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                       href={item.href}
                       onClick={handleClick}
                       className={`
-                        flex items-center ${isCollapsed ? "justify-center" : "space-x-3"} px-4 py-3 rounded-lg
+                        flex items-center ${isCollapsed ? "justify-center" : "space-x-3"} px-3 sm:px-4 py-2 sm:py-3 rounded-lg
                         transition-colors duration-200
                         ${
                           isActive
@@ -316,11 +316,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                     >
                       {React.isValidElement(item.icon) 
                         ? React.cloneElement(item.icon as React.ReactElement<any>, {
-                            className: `w-5 h-5 ${isActive ? "text-gray-900" : ""}`
+                            className: `w-4 h-4 sm:w-5 sm:h-5 ${isActive ? "text-gray-900" : ""}`
                           })
                         : item.icon
                       }
-                      {!isCollapsed && <span>{item.title}</span>}
+                      {!isCollapsed && <span className="text-sm sm:text-base">{item.title}</span>}
                     </Link>
                   </li>
                 );
@@ -329,7 +329,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </nav>
 
           {/* Bottom Navigation */}
-          <div className="border-t border-gray-800 p-4">
+          <div className="border-t border-gray-800 p-3 sm:p-4">
             <ul className="space-y-1">
               {bottomMenuItems.map((item) => {
                 const isActive = userRole === "shop" && item.tabId
@@ -349,7 +349,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                       href={item.href}
                       onClick={handleClick}
                       className={`
-                        flex items-center ${isCollapsed ? "justify-center" : "space-x-3"} px-4 py-3 rounded-lg
+                        flex items-center ${isCollapsed ? "justify-center" : "space-x-3"} px-3 sm:px-4 py-2 sm:py-3 rounded-lg
                         transition-colors duration-200
                         ${
                           isActive
@@ -361,11 +361,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                     >
                       {React.isValidElement(item.icon) 
                         ? React.cloneElement(item.icon as React.ReactElement<any>, {
-                            className: `w-5 h-5 ${isActive ? "text-gray-900" : ""}`
+                            className: `w-4 h-4 sm:w-5 sm:h-5 ${isActive ? "text-gray-900" : ""}`
                           })
                         : item.icon
                       }
-                      {!isCollapsed && <span>{item.title}</span>}
+                      {!isCollapsed && <span className="text-sm sm:text-base">{item.title}</span>}
                     </Link>
                   </li>
                 );

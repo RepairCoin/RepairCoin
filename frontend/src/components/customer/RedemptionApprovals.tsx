@@ -294,7 +294,7 @@ export function RedemptionApprovals() {
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
           <div className="flex items-center">
             <Clock className="w-5 h-5 text-yellow-600 mr-3" />
-            <p className="text-yellow-800 font-medium">
+            <p className="text-sm sm:text-base text-yellow-800 font-medium">
               You have {pendingCount} pending redemption request{pendingCount > 1 ? 's' : ''}
             </p>
           </div>
@@ -303,7 +303,7 @@ export function RedemptionApprovals() {
 
       {/* Quick Actions */}
       <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
-        <h3 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h3>
+        <h3 className="text-base sm:text-lg md:text-xl font-bold text-gray-900 mb-4">Quick Actions</h3>
         <button
           onClick={() => setShowQRGenerator(!showQRGenerator)}
           className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
@@ -316,7 +316,7 @@ export function RedemptionApprovals() {
       {/* QR Generator */}
       {showQRGenerator && (
         <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">Generate Redemption QR Code</h3>
+          <h3 className="text-base sm:text-lg md:text-xl font-bold text-gray-900 mb-4">Generate Redemption QR Code</h3>
           
           <div className="space-y-4">
             <div>
@@ -370,10 +370,10 @@ export function RedemptionApprovals() {
 
       {/* Redemption Sessions */}
       <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
-        <h3 className="text-xl font-bold text-gray-900 mb-4">Redemption Requests</h3>
+        <h3 className="text-base sm:text-lg md:text-xl font-bold text-gray-900 mb-4">Redemption Requests</h3>
         
         {sessions.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">No redemption requests</p>
+          <p className="text-sm sm:text-base text-gray-500 text-center py-8">No redemption requests</p>
         ) : (
           <div className="space-y-4">
             {sessions.map((session) => (
@@ -387,14 +387,14 @@ export function RedemptionApprovals() {
               >
                 <div className="flex justify-between items-start">
                   <div>
-                    <h4 className="font-semibold text-gray-900">
+                    <h4 className="font-semibold text-sm sm:text-base text-gray-900">
                       {session.amount} RCN at {session.shopId}
                     </h4>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="text-xs sm:text-sm text-gray-600 mt-1">
                       Requested: {new Date(session.createdAt).toLocaleString()}
                     </p>
                     {session.status === 'pending' && (
-                      <p className="text-sm text-yellow-700 mt-1">
+                      <p className="text-xs sm:text-sm text-yellow-700 mt-1">
                         Expires in: {getTimeRemaining(session.expiresAt)}
                       </p>
                     )}
@@ -406,7 +406,7 @@ export function RedemptionApprovals() {
                         <button
                           onClick={() => burnTokens(session.sessionId, session.amount)}
                           disabled={processing === session.sessionId || burnStatus[session.sessionId]?.burning}
-                          className="px-3 py-1 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 text-sm flex items-center gap-1"
+                          className="px-2 sm:px-3 py-1 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 text-xs sm:text-sm flex items-center gap-1"
                         >
                           {burnStatus[session.sessionId]?.burning ? (
                             <>
@@ -423,7 +423,7 @@ export function RedemptionApprovals() {
                           <button
                             onClick={() => approveSession(session.sessionId, burnStatus[session.sessionId]?.transactionHash)}
                             disabled={processing === session.sessionId}
-                            className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm"
+                            className="px-2 sm:px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-xs sm:text-sm"
                           >
                             Approve
                           </button>
@@ -435,7 +435,7 @@ export function RedemptionApprovals() {
                       <button
                         onClick={() => rejectSession(session.sessionId)}
                         disabled={processing === session.sessionId || burnStatus[session.sessionId]?.burning}
-                        className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm"
+                        className="px-2 sm:px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-xs sm:text-sm"
                       >
                         Reject
                       </button>
@@ -451,7 +451,7 @@ export function RedemptionApprovals() {
                   )}
                   
                   {session.status === 'used' && (
-                    <span className="text-sm text-gray-500">Completed</span>
+                    <span className="text-xs sm:text-sm text-gray-500">Completed</span>
                   )}
                 </div>
               </div>

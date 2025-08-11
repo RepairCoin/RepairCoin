@@ -203,7 +203,7 @@ export function ReferralDashboard() {
       {/* Referral Code Section */}
       <div className="bg-[#212121] rounded-3xl">
         <div
-          className="w-full px-8 py-4 text-white rounded-t-3xl"
+          className="w-full px-4 md:px-8 py-4 text-white rounded-t-3xl"
           style={{
             backgroundImage: `url('/img/cust-ref-widget3.png')`,
             backgroundSize: "cover",
@@ -211,17 +211,17 @@ export function ReferralDashboard() {
             backgroundRepeat: "no-repeat",
           }}
         >
-          <p className="text-xl text-gray-800 font-bold">
+          <p className="text-base sm:text-lg md:text-xl text-gray-800 font-bold">
             Your Referral Program
           </p>
         </div>
-        <div className="w-full p-8 text-white">
-          <p className="text-base opacity-90 mb-6">
+        <div className="w-full p-4 md:p-8 text-white">
+          <p className="text-sm opacity-90 mb-6">
             Earn 25 RCN when your referral completes their first repair! They'll
             get 10 RCN bonus too.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-20">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-20">
             <div
               className="rounded-xl p-6 pb-20"
               style={{
@@ -231,11 +231,11 @@ export function ReferralDashboard() {
                 backgroundRepeat: "no-repeat",
               }}
             >
-              <p className="text-lg text-[#FFCC00] opacity-90 mb-2">
+              <p className="text-sm sm:text-base md:text-lg text-[#FFCC00] opacity-90 mb-2">
                 Your Referral Code
               </p>
               <div className="flex items-center gap-2">
-                <p className="text-4xl font-mono font-bold">
+                <p className="text-2xl sm:text-3xl md:text-4xl font-mono font-bold">
                   {referralData.referralCode}
                 </p>
                 <button
@@ -269,7 +269,7 @@ export function ReferralDashboard() {
                 backgroundRepeat: "no-repeat",
               }}
             >
-              <p className="text-lg text-[#FFCC00] opacity-90 mb-2">
+              <p className="text-sm sm:text-base md:text-lg text-[#FFCC00] opacity-90 mb-2">
                 Share Your Link
               </p>
               <button
@@ -312,7 +312,7 @@ export function ReferralDashboard() {
             <p className="text-yellow-400 text-sm font-medium mb-1">
               Total Referrals
             </p>
-            <p className="text-white text-2xl font-bold">
+            <p className="text-white text-lg sm:text-xl md:text-2xl font-bold">
               {referralData.stats.totalReferrals}
             </p>
           </div>
@@ -334,7 +334,7 @@ export function ReferralDashboard() {
             <p className="text-yellow-400 text-sm font-medium mb-1">
               Successful
             </p>
-            <p className="text-white text-2xl font-bold">
+            <p className="text-white text-lg sm:text-xl md:text-2xl font-bold">
               {referralData.stats.successfulReferrals}
             </p>
           </div>
@@ -354,7 +354,7 @@ export function ReferralDashboard() {
         >
           <div>
             <p className="text-yellow-400 text-sm font-medium mb-1">Pending</p>
-            <p className="text-white text-2xl font-bold">
+            <p className="text-white text-lg sm:text-xl md:text-2xl font-bold">
               {referralData.stats.pendingReferrals}
             </p>
           </div>
@@ -376,7 +376,7 @@ export function ReferralDashboard() {
             <p className="text-yellow-400 text-sm font-medium mb-1">
               Total Earned
             </p>
-            <p className="text-white text-2xl font-bold">
+            <p className="text-white text-lg sm:text-xl md:text-2xl font-bold">
               {referralData.stats.totalEarned}
             </p>
           </div>
@@ -397,18 +397,18 @@ export function ReferralDashboard() {
             backgroundRepeat: "no-repeat",
           }}
         >
-          <p className="text-xl text-gray-800 font-bold">Your RCN Breakdown</p>
+          <p className="text-base sm:text-lg md:text-xl text-gray-800 font-bold">Your RCN Breakdown</p>
         </div>
         <div className="w-full p-8 text-white">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             <div>
-              <p className="text-lg text-white font-bold opacity-90 mb-2">
+              <p className="text-sm sm:text-base md:text-lg text-white font-bold opacity-90 mb-2">
                 Balance Overview
               </p>
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-200">Total Balance:</span>
-                  <span className="font-bold text-lg">
+                  <span className="font-bold text-sm sm:text-base md:text-lg">
                     {blockchainBalance.toFixed(2)} RCN
                   </span>
                 </div>
@@ -444,7 +444,7 @@ export function ReferralDashboard() {
             </div>
 
             <div>
-              <p className="text-lg text-white font-bold opacity-90 mb-2">
+              <p className="text-sm sm:text-base md:text-lg text-white font-bold opacity-90 mb-2">
                 Earnings by Type
               </p>
               <div className="space-y-3">
@@ -485,7 +485,7 @@ export function ReferralDashboard() {
       {referralData.stats.referrals &&
         referralData.stats.referrals.length > 0 && (
           <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-            <h3 className="text-2xl font-bold text-gray-900 mb-6">
+            <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 mb-6">
               Recent Referrals
             </h3>
             <div className="overflow-x-auto">
