@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { SuspendShopModal, UnsuspendShopModal } from '../ConfirmationModal';
+import { EditShopModal } from './EditShopModal';
 import { getContract, readContract } from 'thirdweb';
 import { baseSepolia } from 'thirdweb/chains';
 import { createThirdwebClient } from 'thirdweb';
@@ -37,6 +38,7 @@ interface ShopsTabProps {
   onEditShop?: (shop: Shop) => void;
   onMintBalance?: (shopId: string) => Promise<void>;
   onRefresh: () => void;
+  generateAdminToken?: () => Promise<string | null>;
 }
 
 export const ShopsTab: React.FC<ShopsTabProps> = ({
@@ -46,13 +48,18 @@ export const ShopsTab: React.FC<ShopsTabProps> = ({
   onUnsuspendShop,
   onEditShop,
   onMintBalance,
-  onRefresh
+  onRefresh,
+  generateAdminToken
 }) => {
   const [suspendModal, setSuspendModal] = useState<{ isOpen: boolean; shop: Shop | null }>({
     isOpen: false,
     shop: null
   });
   const [unsuspendModal, setUnsuspendModal] = useState<{ isOpen: boolean; shop: Shop | null }>({
+    isOpen: false,
+    shop: null
+  });
+  const [editModal, setEditModal] = useState<{ isOpen: boolean; shop: Shop | null }>({
     isOpen: false,
     shop: null
   });
@@ -230,7 +237,7 @@ export const ShopsTab: React.FC<ShopsTabProps> = ({
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex flex-wrap gap-2">
                       <button 
-                        onClick={() => onEditShop?.(shop)}
+                        onClick={() => setEditModal({ isOpen: true, shop })}
                         className="text-indigo-600 hover:text-indigo-900"
                       >
                         Edit
@@ -298,6 +305,16 @@ export const ShopsTab: React.FC<ShopsTabProps> = ({
           shopName={unsuspendModal.shop.name}
           shopId={unsuspendModal.shop.shopId}
           isLoading={isProcessing}
+        />
+      )}
+
+      {editModal.shop && generateAdminToken && (
+        <EditShopModal
+          isOpen={editModal.isOpen}
+          onClose={() => setEditModal({ isOpen: false, shop: null })}
+          shop={editModal.shop}
+          generateAdminToken={generateAdminToken}
+          onRefresh={onRefresh}
         />
       )}
     </>

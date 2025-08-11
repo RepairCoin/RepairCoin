@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { authManager } from '@/utils/auth';
+import { toast } from 'react-hot-toast';
 
 interface Customer {
   address: string;
@@ -14,9 +16,10 @@ interface Customer {
 
 interface CustomersTabProps {
   shopId: string;
+  shopToken?: string;
 }
 
-export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
+export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId, shopToken }) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -25,14 +28,31 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
 
   useEffect(() => {
     loadCustomers();
-  }, [shopId]);
+  }, [shopId, shopToken]);
 
   const loadCustomers = async () => {
     setLoading(true);
     
     try {
-      // Try to fetch shop-specific customers
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/customers`);
+      // Get shop token from props or auth manager
+      const token = shopToken || authManager.getToken('shop');
+      
+      if (!token) {
+        toast.error('Please authenticate to view customers');
+        setCustomers([]);
+        setLoading(false);
+        return;
+      }
+
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+
+      // Try to fetch shop-specific customers with auth
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/customers?limit=100`, {
+        headers
+      });
       
       if (response.ok) {
         const result = await response.json();
@@ -49,46 +69,19 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
         }));
         
         setCustomers(transformedCustomers);
+      } else if (response.status === 401) {
+        // Token expired or invalid
+        authManager.clearToken('shop');
+        toast.error('Session expired. Please sign in again.');
+        setCustomers([]);
       } else {
-        // Alternative: fetch from earnings history
-        const earningsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tokens/shop-earnings/${shopId}`);
-        
-        if (earningsResponse.ok) {
-          const earningsResult = await earningsResponse.json();
-          const earningsData = earningsResult.data?.customers || [];
-          
-          // Get customer details for each address
-          const customerPromises = earningsData.map(async (earning: any) => {
-            try {
-              const customerResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/customers/${earning.customer_address}`);
-              if (customerResponse.ok) {
-                const customerResult = await customerResponse.json();
-                const customer = customerResult.data;
-                return {
-                  address: earning.customer_address,
-                  name: customer?.name,
-                  tier: customer?.tier || 'BRONZE',
-                  lifetimeEarnings: earning.total_earned || 0,
-                  lastTransactionDate: earning.last_earned_date,
-                  totalTransactions: earning.transaction_count || 0,
-                  isRegular: (earning.transaction_count || 0) >= 5
-                };
-              }
-            } catch (error) {
-              console.error('Error fetching customer details:', error);
-            }
-            return null;
-          });
-          
-          const customers = await Promise.all(customerPromises);
-          const validCustomers = customers.filter(c => c !== null);
-          setCustomers(validCustomers);
-        } else {
-          setCustomers([]);
-        }
+        // Try alternative endpoint if shop customers endpoint fails
+        console.warn('Shop customers endpoint failed, trying alternative...');
+        setCustomers([]);
       }
     } catch (error) {
       console.error('Error loading customers:', error);
+      toast.error('Failed to load customers');
       setCustomers([]);
     } finally {
       setLoading(false);

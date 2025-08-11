@@ -477,7 +477,10 @@ export default function ShopDashboard() {
           )}
 
           {activeTab === 'customers' && shopData && (
-            <CustomersTab shopId={shopData.shopId} />
+            <CustomersTab 
+              shopId={shopData.shopId} 
+              shopToken={localStorage.getItem('shopAuthToken') || sessionStorage.getItem('shopAuthToken') || undefined}
+            />
           )}
 
           {activeTab === 'lookup' && shopData && (

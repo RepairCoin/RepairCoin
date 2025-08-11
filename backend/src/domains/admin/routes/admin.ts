@@ -11,6 +11,7 @@ import { AdminController } from '../controllers/AdminController';
 import { AdminService } from '../services/AdminService';
 import treasuryRoutes from './treasury';
 import analyticsRoutes from './analytics';
+import customerRoutes from './customers';
 
 const router = Router();
 
@@ -149,5 +150,8 @@ router.use('', treasuryRoutes);
 
 // Analytics routes
 router.use('/analytics', analyticsRoutes);
+
+// Customer management routes
+router.use('/customers', customerRoutes);
 
 export default router;

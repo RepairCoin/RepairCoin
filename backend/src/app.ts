@@ -33,6 +33,7 @@ import referralRoutes from './routes/referral';
 import { metricsMiddleware } from './utils/metrics';
 import { generalCache } from './utils/cache';
 import { requestIdMiddleware } from './middleware/errorHandler';
+import { errorTrackingMiddleware, getErrorSummary, clearErrorMetrics, monitorErrors } from './middleware/errorTracking';
 
 class RepairCoinApp {
   public app = express();
@@ -127,6 +128,9 @@ class RepairCoinApp {
     if (metricsMiddleware) {
       this.app.use(metricsMiddleware);
     }
+    
+    // Add error tracking middleware
+    this.app.use(errorTrackingMiddleware);
   }
 
   private async setupDomains(): Promise<void> {
@@ -175,6 +179,10 @@ class RepairCoinApp {
         }
       });
     });
+    
+    // Error tracking routes
+    this.app.get('/api/errors/summary', getErrorSummary);
+    this.app.delete('/api/errors/clear', clearErrorMetrics);
 
     this.app.get('/api/system/info', (req, res) => {
       res.json({
@@ -288,6 +296,10 @@ class RepairCoinApp {
       // Start monitoring service
       monitoringService.startMonitoring(30); // Run checks every 30 minutes
       logger.info(`🔍 Monitoring service started`);
+      
+      // Start error monitoring
+      monitorErrors();
+      logger.info(`🚨 Error monitoring started`);
     });
   }
 }

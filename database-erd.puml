@@ -1,0 +1,237 @@
+@startuml RepairCoin_Database_ERD
+!define ENTITY(entityName) class entityName << (E,#FFAAAA) >>
+!define TABLE(tableName) class tableName << (T,#AAFFAA) >>
+!define PRIMARY_KEY(x) <u>x</u>
+!define FOREIGN_KEY(x) <i>x</i>
+
+skinparam class {
+    BackgroundColor<<E>> LightYellow
+    BackgroundColor<<T>> LightBlue
+    BorderColor Black
+    ArrowColor Black
+}
+
+title RepairCoin Database Entity Relationship Diagram
+
+ENTITY(customers) {
+    PRIMARY_KEY(address): VARCHAR(42)
+    --
+    name: VARCHAR(255)
+    email: VARCHAR(255)
+    phone: VARCHAR(20)
+    tier: ENUM('BRONZE','SILVER','GOLD')
+    lifetime_earnings: DECIMAL(18,2)
+    daily_earnings: DECIMAL(18,2)
+    monthly_earnings: DECIMAL(18,2)
+    last_earned_date: DATE
+    referral_code: VARCHAR(10) UNIQUE
+    FOREIGN_KEY(referred_by): VARCHAR(10)
+    FOREIGN_KEY(home_shop_id): VARCHAR(50)
+    referral_count: INTEGER
+    is_active: BOOLEAN
+    suspended_at: TIMESTAMP
+    suspension_reason: TEXT
+    join_date: TIMESTAMP
+    updated_at: TIMESTAMP
+}
+
+ENTITY(shops) {
+    PRIMARY_KEY(shop_id): VARCHAR(50)
+    --
+    name: VARCHAR(255)
+    address: TEXT
+    phone: VARCHAR(20)
+    email: VARCHAR(255)
+    wallet_address: VARCHAR(42) UNIQUE
+    reimbursement_address: VARCHAR(42)
+    verified: BOOLEAN
+    active: BOOLEAN
+    cross_shop_enabled: BOOLEAN
+    purchased_rcn_balance: DECIMAL(18,2)
+    total_rcn_purchased: DECIMAL(18,2)
+    last_purchase_date: TIMESTAMP
+    total_tokens_issued: DECIMAL(18,2)
+    total_redemptions: INTEGER
+    total_reimbursements: DECIMAL(18,2)
+    location_lat: DECIMAL(10,8)
+    location_lng: DECIMAL(11,8)
+    location_city: VARCHAR(100)
+    location_state: VARCHAR(100)
+    location_zip_code: VARCHAR(20)
+    join_date: TIMESTAMP
+    verified_date: TIMESTAMP
+    updated_at: TIMESTAMP
+}
+
+ENTITY(transactions) {
+    PRIMARY_KEY(id): UUID
+    --
+    type: ENUM('mint','redeem','transfer','tier_bonus','shop_purchase')
+    FOREIGN_KEY(customer_address): VARCHAR(42)
+    FOREIGN_KEY(shop_id): VARCHAR(50)
+    FOREIGN_KEY(redemption_shop_id): VARCHAR(50)
+    amount: DECIMAL(18,2)
+    base_amount: DECIMAL(18,2)
+    tier_bonus_amount: DECIMAL(18,2)
+    transaction_hash: VARCHAR(66)
+    block_number: BIGINT
+    status: ENUM('pending','confirmed','failed')
+    notes: TEXT
+    token_source: ENUM('earned','purchased','tier_bonus')
+    is_cross_shop: BOOLEAN
+    created_at: TIMESTAMP
+    confirmed_at: TIMESTAMP
+}
+
+ENTITY(referrals) {
+    PRIMARY_KEY(id): UUID
+    --
+    FOREIGN_KEY(referral_code): VARCHAR(10)
+    FOREIGN_KEY(referrer_address): VARCHAR(42)
+    FOREIGN_KEY(referee_address): VARCHAR(42)
+    status: ENUM('pending','completed','expired')
+    reward_amount: DECIMAL(18,2)
+    reward_transaction_id: VARCHAR(255)
+    created_at: TIMESTAMP
+    completed_at: TIMESTAMP
+    expires_at: TIMESTAMP
+}
+
+ENTITY(customer_rcn_sources) {
+    PRIMARY_KEY(id): UUID
+    --
+    FOREIGN_KEY(customer_address): VARCHAR(42)
+    FOREIGN_KEY(source_shop_id): VARCHAR(50)
+    source_type: ENUM('shop_repair','referral_bonus','tier_bonus','promotion','market_purchase')
+    amount: DECIMAL(18,2)
+    transaction_id: VARCHAR(255)
+    description: TEXT
+    is_redeemable: BOOLEAN
+    created_at: TIMESTAMP
+}
+
+ENTITY(shop_rcn_purchases) {
+    PRIMARY_KEY(id): UUID
+    --
+    FOREIGN_KEY(shop_id): VARCHAR(50)
+    amount: DECIMAL(18,2)
+    price_per_rcn: DECIMAL(18,4)
+    total_cost: DECIMAL(18,2)
+    transaction_hash: VARCHAR(66)
+    payment_method: ENUM('crypto','bank_transfer','credit_card')
+    payment_reference: VARCHAR(255)
+    status: ENUM('pending','completed','failed')
+    created_at: TIMESTAMP
+    completed_at: TIMESTAMP
+}
+
+TABLE(webhook_logs) {
+    PRIMARY_KEY(id): UUID
+    --
+    source: ENUM('fixflow','admin','customer')
+    event: VARCHAR(100)
+    payload: JSONB
+    processed: BOOLEAN
+    result: JSONB
+    retry_count: INTEGER
+    FOREIGN_KEY(related_shop_id): VARCHAR(50)
+    FOREIGN_KEY(related_customer_address): VARCHAR(42)
+    created_at: TIMESTAMP
+    processed_at: TIMESTAMP
+}
+
+TABLE(redemption_sessions) {
+    PRIMARY_KEY(id): UUID
+    --
+    session_id: VARCHAR(255) UNIQUE
+    FOREIGN_KEY(customer_address): VARCHAR(42)
+    FOREIGN_KEY(shop_id): VARCHAR(50)
+    max_amount: DECIMAL(18,2)
+    status: ENUM('pending','approved','rejected','expired','used')
+    qr_code: TEXT
+    signature: TEXT
+    amount_used: DECIMAL(18,2)
+    transaction_id: VARCHAR(255)
+    created_at: TIMESTAMP
+    expires_at: TIMESTAMP
+    used_at: TIMESTAMP
+}
+
+TABLE(admin_treasury) {
+    PRIMARY_KEY(id): INTEGER
+    --
+    total_supply: DECIMAL(18,2)
+    available_supply: DECIMAL(18,2)
+    total_sold: DECIMAL(18,2)
+    total_revenue: DECIMAL(18,2)
+    last_updated: TIMESTAMP
+}
+
+TABLE(admin_activity_logs) {
+    PRIMARY_KEY(id): UUID
+    --
+    admin_address: VARCHAR(42)
+    action_type: VARCHAR(50)
+    entity_type: VARCHAR(50)
+    entity_id: VARCHAR(255)
+    old_values: JSONB
+    new_values: JSONB
+    ip_address: VARCHAR(45)
+    user_agent: TEXT
+    metadata: JSONB
+    created_at: TIMESTAMP
+}
+
+TABLE(admin_alerts) {
+    PRIMARY_KEY(id): UUID
+    --
+    alert_type: ENUM('system','security','business','compliance')
+    severity: ENUM('low','medium','high','critical')
+    title: VARCHAR(255)
+    message: TEXT
+    metadata: JSONB
+    is_read: BOOLEAN
+    is_resolved: BOOLEAN
+    read_by: VARCHAR(42)
+    resolved_by: VARCHAR(42)
+    created_at: TIMESTAMP
+    read_at: TIMESTAMP
+    resolved_at: TIMESTAMP
+}
+
+TABLE(unsuspend_requests) {
+    PRIMARY_KEY(id): UUID
+    --
+    entity_type: ENUM('customer','shop')
+    entity_id: VARCHAR(255)
+    reason: TEXT
+    status: ENUM('pending','approved','rejected')
+    reviewed_by: VARCHAR(42)
+    review_notes: TEXT
+    created_at: TIMESTAMP
+    reviewed_at: TIMESTAMP
+}
+
+' Relationships
+customers ||--o{ transactions : "has many"
+customers ||--o{ referrals : "referrer"
+customers ||--o{ referrals : "referee"
+customers ||--o{ customer_rcn_sources : "earns from"
+customers ||--o{ redemption_sessions : "creates"
+customers ||--o{ unsuspend_requests : "requests"
+customers }o--|| shops : "home shop"
+
+shops ||--o{ transactions : "processes"
+shops ||--o{ transactions : "redemption shop"
+shops ||--o{ shop_rcn_purchases : "purchases RCN"
+shops ||--o{ customer_rcn_sources : "source of RCN"
+shops ||--o{ redemption_sessions : "approves"
+shops ||--o{ unsuspend_requests : "requests"
+
+referrals }o--|| customers : "refers to"
+webhook_logs }o--o| shops : "related to"
+webhook_logs }o--o| customers : "related to"
+admin_activity_logs }o--o| customers : "affects"
+admin_activity_logs }o--o| shops : "affects"
+
+@enduml

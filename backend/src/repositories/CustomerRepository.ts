@@ -25,7 +25,7 @@ export class CustomerRepository extends BaseRepository {
         params.push(`%${search}%`);
       }
       
-      query += ` ORDER BY join_date DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+      query += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
       params.push(limit, offset);
       
       const result = await this.pool.query(query, params);
@@ -40,7 +40,7 @@ export class CustomerRepository extends BaseRepository {
         dailyEarnings: parseFloat(row.daily_earnings || 0),
         monthlyEarnings: parseFloat(row.monthly_earnings),
         lastEarnedDate: row.last_earned_date ? new Date(row.last_earned_date).toISOString() : new Date().toISOString(),
-        joinDate: row.join_date ? new Date(row.join_date).toISOString() : new Date().toISOString(),
+        joinDate: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
         isActive: row.is_active,
         referralCount: row.referral_count,
         fixflowCustomerId: row.fixflow_customer_id,
@@ -101,7 +101,7 @@ export class CustomerRepository extends BaseRepository {
         dailyEarnings: parseFloat(row.daily_earnings || 0),
         monthlyEarnings: parseFloat(row.monthly_earnings),
         lastEarnedDate: row.last_earned_date ? new Date(row.last_earned_date).toISOString() : new Date().toISOString(),
-        joinDate: row.join_date ? new Date(row.join_date).toISOString() : new Date().toISOString(),
+        joinDate: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
         isActive: row.is_active,
         referralCount: row.referral_count,
         fixflowCustomerId: row.fixflow_customer_id,
@@ -137,7 +137,7 @@ export class CustomerRepository extends BaseRepository {
         dailyEarnings: parseFloat(row.daily_earnings || 0),
         monthlyEarnings: parseFloat(row.monthly_earnings),
         lastEarnedDate: row.last_earned_date ? new Date(row.last_earned_date).toISOString() : new Date().toISOString(),
-        joinDate: row.join_date ? new Date(row.join_date).toISOString() : new Date().toISOString(),
+        joinDate: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
         isActive: row.is_active,
         referralCount: row.referral_count,
         fixflowCustomerId: row.fixflow_customer_id,
@@ -443,7 +443,7 @@ export class CustomerRepository extends BaseRepository {
         dailyEarnings: parseFloat(row.daily_earnings || 0),
         monthlyEarnings: parseFloat(row.monthly_earnings),
         lastEarnedDate: row.last_earned_date ? new Date(row.last_earned_date).toISOString() : new Date().toISOString(),
-        joinDate: row.join_date ? new Date(row.join_date).toISOString() : new Date().toISOString(),
+        joinDate: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
         isActive: row.is_active,
         referralCount: row.referral_count,
         fixflowCustomerId: row.fixflow_customer_id,

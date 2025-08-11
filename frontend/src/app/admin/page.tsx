@@ -7,10 +7,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from "@/components/ui/button";
 import { useAuth } from '../../hooks/useAuth';
 import { toast, Toaster } from 'react-hot-toast';
+import { authManager } from '@/utils/auth';
 
 // Import our new components
 import { OverviewTab } from '@/components/admin/OverviewTab';
 import { CustomersTab } from '@/components/admin/CustomersTab';
+import { CustomersTabEnhanced } from '@/components/admin/CustomersTabEnhanced';
 import { ShopsTab } from '@/components/admin/ShopsTab';
 import { ShopApplicationsTab } from '@/components/admin/ShopApplicationsTab';
 import { TreasuryTab } from '@/components/admin/TreasuryTab';
@@ -70,6 +72,7 @@ export default function AdminDashboard() {
   const [shops, setShops] = useState<Shop[]>([]);
   const [pendingShops, setPendingShops] = useState<Shop[]>([]);
   const [activeTab, setActiveTab] = useState('overview');
+  const [useEnhancedCustomers, setUseEnhancedCustomers] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
   // Check admin status
@@ -98,9 +101,8 @@ export default function AdminDashboard() {
     
     // Check if we already have a token stored (unless forcing refresh)
     if (!forceRefresh) {
-      const storedToken = localStorage.getItem('adminAuthToken');
+      const storedToken = authManager.getToken('admin');
       if (storedToken) {
-        // TODO: Add token expiry check
         return storedToken;
       }
     }
@@ -120,14 +122,19 @@ export default function AdminDashboard() {
         const data = await response.json();
         const token = data.token;
         if (token) {
-          // Store token for future use
-          localStorage.setItem('adminAuthToken', token);
-          sessionStorage.setItem('adminAuthToken', token);
+          // Store token using authManager
+          authManager.setToken('admin', token, 24); // 24 hour expiry
+          toast.success('Admin authenticated successfully');
           return token;
         }
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || 'Admin authentication failed');
+        console.error('Admin auth failed:', errorData);
       }
     } catch (error) {
       console.error('Failed to generate admin token:', error);
+      toast.error('Network error during authentication');
     }
     
     return null;
@@ -157,8 +164,7 @@ export default function AdminDashboard() {
       // If unauthorized, try refreshing the token
       if (statsResponse.status === 401 || statsResponse.status === 403) {
         console.log('Token expired or invalid, refreshing...');
-        localStorage.removeItem('adminAuthToken');
-        sessionStorage.removeItem('adminAuthToken');
+        authManager.clearToken('admin');
         const newToken = await generateAdminToken(true);
         if (newToken) {
           statsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/stats`, {
@@ -166,6 +172,10 @@ export default function AdminDashboard() {
               'Authorization': `Bearer ${newToken}`
             }
           });
+        } else {
+          setError('Failed to authenticate as admin. Please check your wallet address.');
+          setLoading(false);
+          return;
         }
       }
       
@@ -460,10 +470,12 @@ export default function AdminDashboard() {
             </h1>
             <div className="flex items-center gap-4">
               <button
-                onClick={() => {
-                  localStorage.removeItem('adminAuthToken');
-                  sessionStorage.removeItem('adminAuthToken');
-                  loadDashboardData();
+                onClick={async () => {
+                  authManager.clearToken('admin');
+                  const newToken = await generateAdminToken(true);
+                  if (newToken) {
+                    loadDashboardData();
+                  }
                 }}
                 className="text-sm bg-indigo-600 text-white px-3 py-1 rounded hover:bg-indigo-700"
               >
@@ -526,13 +538,31 @@ export default function AdminDashboard() {
         )}
 
         {activeTab === 'customers' && (
-          <CustomersTab
-            customers={customers}
-            onMintTokens={mintTokensToCustomer}
-            onSuspendCustomer={suspendCustomer}
-            onUnsuspendCustomer={unsuspendCustomer}
-            onRefresh={loadDashboardData}
-          />
+          <>
+            <div className="mb-4 flex justify-end">
+              <button
+                onClick={() => setUseEnhancedCustomers(!useEnhancedCustomers)}
+                className="text-sm text-indigo-600 hover:text-indigo-800"
+              >
+                Switch to {useEnhancedCustomers ? 'Simple' : 'Enhanced'} View
+              </button>
+            </div>
+            {useEnhancedCustomers ? (
+              <CustomersTabEnhanced
+                generateAdminToken={generateAdminToken}
+                onMintTokens={mintTokensToCustomer}
+                onRefresh={loadDashboardData}
+              />
+            ) : (
+              <CustomersTab
+                customers={customers}
+                onMintTokens={mintTokensToCustomer}
+                onSuspendCustomer={suspendCustomer}
+                onUnsuspendCustomer={unsuspendCustomer}
+                onRefresh={loadDashboardData}
+              />
+            )}
+          </>
         )}
 
         {activeTab === 'shops' && (
@@ -541,9 +571,10 @@ export default function AdminDashboard() {
             onVerifyShop={verifyShop}
             onSuspendShop={suspendShop}
             onUnsuspendShop={unsuspendShop}
-            onEditShop={(shop) => alert(`Edit functionality for ${shop.name} coming soon`)}
+            onEditShop={(shop) => console.log('Edit shop:', shop)}
             onMintBalance={mintShopBalance}
             onRefresh={loadDashboardData}
+            generateAdminToken={generateAdminToken}
           />
         )}
 
