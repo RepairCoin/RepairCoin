@@ -81,7 +81,7 @@ export default function CustomerRegisterClient() {
   const { data: tokenBalance, isLoading: balanceLoading } = useReadContract({
     contract,
     method: "function balanceOf(address) view returns (uint256)",
-    params: account?.address ? [account.address] : undefined,
+    params: account?.address ? [account.address] : [''],
   });
 
   const fetchCustomerData = async () => {
