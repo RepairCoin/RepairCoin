@@ -23,7 +23,7 @@ const CommunityBanner: React.FC<CommunityBannerProps> = ({
     <div className="w-full bg-[#0D0D0D]">
       {/* Desktop/Tablet View - Hidden on mobile */}
       <div
-        className="hidden md:block w-full h-full xl:h-[80vh] px-4 items-center justify-center"
+        className="hidden md:block w-full h-full xl:h-[60vh] px-4 items-center justify-center"
         style={{ backgroundImage: `url(${communityBannerBgImage})` }}
       >
         <Section>

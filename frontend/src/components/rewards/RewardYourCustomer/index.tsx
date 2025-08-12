@@ -9,49 +9,52 @@ interface RewardYourCustomerProps {
 const tiers = [
   {
     name: "Bronze Partner",
-    subtitle: "Just sign up & start rewarding",
+    subtitle: "Quick Start Program",
     color: "from-amber-600 to-amber-700",
     bgColor: "bg-gradient-to-b from-[#CE8946] to-[#543700]",
     buttonColor: "bg-amber-600 hover:bg-amber-700",
     perks: [
-      "Lorem ipsum dolor sit amet",
-      "Lorem ipsum dolor sit amet",
-      "Lorem ipsum dolor sit amet",
-      "Lorem ipsum dolor sit amet",
-      "Lorem ipsum dolor sit amet",
+      "Buy RCN at $0.10, customers redeem at $1.00 value",
+      "Issue 10 RCN for small repairs ($50-99)",
+      "Issue 25 RCN for large repairs ($100+)",
+      "Automated +10/+20/+30 tier bonuses",
+      "Real-time dashboard with QR scanning",
+      "Join 20% cross-shop redemption network",
+      "Track referrals and customer lifetime value",
     ],
-    character: "/img/pr1.png", // You'll need to add this image
+    character: "/img/reward-1.png", // You'll need to add this image
   },
   {
     name: "Silver Partner",
-    subtitle: "20+ Customer Redemptions",
+    subtitle: "Growth Accelerator",
     color: "from-gray-400 to-gray-500",
     bgColor: "bg-gradient-to-b from-[#D9D9D9] to-[#E2E8F0]",
     buttonColor: "bg-gray-600 hover:bg-gray-700",
     featured: true,
     perks: [
-      "Lorem ipsum dolor sit amet",
-      "Lorem ipsum dolor sit amet",
-      "Lorem ipsum dolor sit amet",
-      "Lorem ipsum dolor sit amet",
-      "Lorem ipsum dolor sit amet",
+      "5% discount on bulk RCN purchases (1000+ tokens)",
+      "Featured shop status in customer app",
+      "Custom promotional campaigns (2x/3x reward events)",
+      "Advanced analytics: retention, CLV, redemption patterns",
+      "Priority customer support response",
+      "Co-marketing opportunities with RepairCoin",
     ],
-    character: "/img/pr2.png", // You'll need to add this image
+    character: "/img/reward-2.png", // You'll need to add this image
   },
   {
     name: "Gold Partner",
-    subtitle: "50+ Customer Redemptions",
+    subtitle: "Premium Partnership",
     color: "from-yellow-500 to-yellow-600",
     bgColor: "bg-gradient-to-b from-[#EFBF04] to-[#FFD700]",
     buttonColor: "bg-yellow-600 hover:bg-yellow-700",
     perks: [
-      "Lorem ipsum dolor sit amet",
-      "Lorem ipsum dolor sit amet",
-      "Lorem ipsum dolor sit amet",
-      "Lorem ipsum dolor sit amet",
-      "Lorem ipsum dolor sit amet",
+      "10% discount on all RCN purchases",
+      "Custom reward rules and tier configurations",
+      "Dedicated account manager",
+      "Quarterly strategy sessions with leadership",
+      "Case study and PR opportunities",
     ],
-    character: "/img/pr3.png", // You'll need to add this image
+    character: "/img/reward-3.png", // You'll need to add this image
   },
 ];
 
@@ -87,9 +90,15 @@ const RewardYourCustomer: React.FC<RewardYourCustomerProps> = ({
                   {tiers.map((tier, index) => (
                     <div
                       key={tier.name}
-                      className={`relative rounded-2xl p-8 ${tier.bgColor} shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 ${
+                      className={`relative rounded-2xl p-8 h-[100vh] ${tier.bgColor} shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 ${
                         tier.featured ? "md:scale-105" : ""
                       }`}
+                      style={{ 
+                        backgroundImage: `url(${tier.character})`, 
+                        backgroundSize: "cover",
+                        backgroundPosition: "bottom",
+                        backgroundRepeat: "no-repeat"
+                      }}
                     >
                       {/* Card Header */}
                       <div className="text-start mb-6">
@@ -124,16 +133,6 @@ const RewardYourCustomer: React.FC<RewardYourCustomerProps> = ({
                             </li>
                           ))}
                         </ul>
-                      </div>
-
-                      {/* Character Image */}
-                      <div className="relative h-48 mb-6">
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          {/* Placeholder for character image */}
-                          <div className="pb-4">
-                            <img src={tier.character} alt="" />
-                          </div>
-                        </div>
                       </div>
 
                       {/* CTA Button */}

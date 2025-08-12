@@ -21,15 +21,16 @@ interface TierData {
 const tierData: TierData[] = [
   {
     name: "Bronze Tier",
-    level: "Entry Level",
-    requirement: "Free upon sign-up",
-    featuresPrefix: "What you get:",
+    level: "Welcome Rewards",
+    requirement: "0-199 Lifetime RCN",
+    featuresPrefix: "Your Benefits:",
     features: [
-      "Access to RepairCoin Wallet",
-      "Earn RepairCoins on Repair transactions",
-      "Redeem Rewards at participating shops",
-      "Notifications and Reminders",
-      "Standard Multiplier",
+      "Earn 10-25 RCN per repair service",
+      "+10 RCN automatic bonus on every transaction",
+      "$1 redemption value at your home shop",
+      "20% balance usable at partner shops",
+      "Instant mobile wallet activation",
+      "Real-time transaction notifications",
     ],
     gradient: "bg-[#CE8946]",
     textColor: "text-white",
@@ -38,15 +39,16 @@ const tierData: TierData[] = [
   },
   {
     name: "Silver Tier",
-    level: "Middle Level",
-    requirement: "Earn & Hold 250 Coins",
-    featuresPrefix: "All free features, plus:",
+    level: "Loyalty Champion",
+    requirement: "200-999 Lifetime RCN",
+    featuresPrefix: "All Bronze benefits, plus:",
     features: [
-      "1.1x Multiplier",
-      "Early Access to giveaways",
-      "Birthday Bonus",
-      "Access to exclusive promos",
-      "Monthly Lucky draws",
+      "+20 RCN automatic bonus per repair",
+      "Priority service booking at shops",
+      "Exclusive seasonal promotions (2x rewards)",
+      "Birthday month: 50 RCN bonus gift",
+      "Referral rewards: 25 RCN per success",
+      "Monthly prize draws for free services",
     ],
     gradient: "bg-[#E2E8F0]",
     textColor: "text-gray-900",
@@ -55,15 +57,17 @@ const tierData: TierData[] = [
   },
   {
     name: "Gold Tier",
-    level: "High Level",
-    requirement: "Earn or Hold 1,000 Coins",
-    featuresPrefix: "All starter features, plus:",
+    level: "VIP Elite Status",
+    requirement: "1,000+ Lifetime RCN",
+    featuresPrefix: "All Silver benefits, plus:",
     features: [
-      "1.5x Multiplier",
-      "Exclusive Discounts and Purchases",
-      "Birthday Bonus",
-      "Free Checkup and Diagnostics",
-      "Weekly Lucky Draws",
+      "+30 RCN automatic bonus per repair",
+      "Free annual device health check ($50 value)",
+      "VIP customer support hotline",
+      "Exclusive partner discounts (10-20% off)",
+      "Quarterly bonus rewards (100 RCN)",
+      "Extended warranty options at partner shops",
+      "Early access to new shop locations",
     ],
     gradient: "bg-[#FFD700]",
     textColor: "text-gray-900",
@@ -114,10 +118,15 @@ const RewardYourCustomer: React.FC<RewardYourCustomerProps> = ({
               {/* Rewards Cards */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-6xl mx-auto">
                 {tierData.map((tier) => (
-                  <div key={tier.name} className="w-full flex flex-col items-center rounded-2xl">
-                    <div className={`${tier.gradient} w-full flex flex-col items-center rounded-t-2xl p-2`}/>
+                  <div
+                    key={tier.name}
+                    className="w-full flex flex-col items-center rounded-2xl"
+                  >
                     <div
-                      className={`bg-white p-8 ${tier.textColor} w-full rounded-b-2xl`}
+                      className={`${tier.gradient} w-full flex flex-col items-center rounded-t-2xl p-2`}
+                    />
+                    <div
+                      className={`bg-white p-8 h-full ${tier.textColor} w-full rounded-b-2xl`}
                     >
                       <div className="mb-6">
                         <h3 className="text-2xl text-black font-bold mb-1">
