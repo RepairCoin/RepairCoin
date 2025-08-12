@@ -7,6 +7,7 @@ import { toast } from "react-hot-toast";
 import { getContract, prepareContractCall, sendTransaction } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
 import { createThirdwebClient } from "thirdweb";
+import { QRCodeModal } from "../QRCodeModal";
 
 const client = createThirdwebClient({
   clientId:
@@ -43,10 +44,10 @@ export function RedemptionApprovals() {
   const [burnStatus, setBurnStatus] = useState<BurnStatus>({});
 
   // For QR generation
-  const [showQRGenerator, setShowQRGenerator] = useState(false);
   const [qrShopId, setQrShopId] = useState("");
   const [qrAmount, setQrAmount] = useState(0);
   const [generatedQR, setGeneratedQR] = useState<string | null>(null);
+  const [showQRModal, setShowQRModal] = useState(false);
 
   useEffect(() => {
     if (account?.address) {
@@ -266,6 +267,7 @@ export function RedemptionApprovals() {
       if (response.ok) {
         const result = await response.json();
         setGeneratedQR(result.data.qrCode);
+        setShowQRModal(true);
         toast.success("QR code generated! Show this to the shop.");
       } else {
         const error = await response.json();
@@ -405,20 +407,6 @@ export function RedemptionApprovals() {
             </svg>
             Generate QR Code
           </button>
-
-          {generatedQR && (
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-600 mb-2">
-                QR Code Data (expires in 60 seconds):
-              </p>
-              <div className="bg-white p-3 rounded border border-gray-200 break-all font-mono text-xs">
-                {generatedQR}
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                Show this to the shop for instant redemption
-              </p>
-            </div>
-          )}
         </div>
       </div>
 
@@ -544,6 +532,17 @@ export function RedemptionApprovals() {
           </div>
         )}
       </div>
+
+      {/* QR Code Modal */}
+      {generatedQR && (
+        <QRCodeModal
+          isOpen={showQRModal}
+          onClose={() => setShowQRModal(false)}
+          qrData={generatedQR}
+          title="Redemption QR Code"
+          description={`Redeem ${qrAmount} RCN at ${qrShopId}`}
+        />
+      )}
     </div>
   );
 }
