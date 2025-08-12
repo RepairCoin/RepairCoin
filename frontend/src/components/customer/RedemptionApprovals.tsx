@@ -42,6 +42,10 @@ export function RedemptionApprovals() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
   const [burnStatus, setBurnStatus] = useState<BurnStatus>({});
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   // For QR generation
   const [qrShopId, setQrShopId] = useState("");
@@ -291,6 +295,19 @@ export function RedemptionApprovals() {
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   };
 
+  // Calculate pagination
+  const totalPages = Math.ceil(sessions.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedSessions = sessions.slice(startIndex, endIndex);
+
+  // Reset to page 1 if current page exceeds total pages (after data update)
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [totalPages, currentPage]);
+
   if (loading) {
     return (
       <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
@@ -422,7 +439,7 @@ export function RedemptionApprovals() {
           }}
         >
           <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
-            Generate Redemption QR Code
+            Redemption Requests
           </p>
         </div>
 
@@ -432,7 +449,7 @@ export function RedemptionApprovals() {
           </p>
         ) : (
           <div className="flex flex-col w-full p-4 md:p-8 gap-6">
-            {sessions.map((session) => (
+            {paginatedSessions.map((session) => (
               <div
                 key={session.sessionId}
                 className={`p-4 rounded-lg ${
@@ -529,6 +546,75 @@ export function RedemptionApprovals() {
                 </div>
               </div>
             ))}
+            
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center gap-2 mt-6 pb-4">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                >
+                  Previous
+                </button>
+                
+                {/* Page Numbers */}
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                    // Show first page, last page, current page, and pages around current
+                    const shouldShow = 
+                      page === 1 || 
+                      page === totalPages || 
+                      (page >= currentPage - 1 && page <= currentPage + 1);
+                    
+                    // Show ellipsis for gaps
+                    const showEllipsisBefore = 
+                      page === currentPage - 1 && 
+                      currentPage > 3;
+                    
+                    const showEllipsisAfter = 
+                      page === currentPage + 1 && 
+                      currentPage < totalPages - 2;
+                    
+                    if (!shouldShow) return null;
+                    
+                    return (
+                      <React.Fragment key={page}>
+                        {showEllipsisBefore && (
+                          <span className="text-gray-500 px-1">...</span>
+                        )}
+                        <button
+                          onClick={() => setCurrentPage(page)}
+                          className={`px-3 py-1 rounded-lg text-sm transition-colors ${
+                            currentPage === page
+                              ? "bg-[#FFCC00] text-black font-semibold"
+                              : "bg-gray-600 text-white hover:bg-gray-700"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                        {showEllipsisAfter && (
+                          <span className="text-gray-500 px-1">...</span>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+                
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                >
+                  Next
+                </button>
+                
+                {/* Item count display */}
+                <span className="text-gray-500 text-xs ml-2">
+                  ({startIndex + 1}-{Math.min(endIndex, sessions.length)} of {sessions.length})
+                </span>
+              </div>
+            )}
           </div>
         )}
       </div>
