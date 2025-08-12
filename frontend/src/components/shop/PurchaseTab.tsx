@@ -48,11 +48,11 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Purchase Form */}
         <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Purchase RCN Tokens</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Buy Distribution Credits</h2>
           <div className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Amount (minimum 1 RCN)
+                Amount of Credits (minimum 1)
               </label>
               <input
                 type="number"
@@ -96,16 +96,16 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
               disabled={purchasing || purchaseAmount < 1}
               className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-4 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition duration-200 transform hover:scale-105"
             >
-              {purchasing ? 'Initiating Purchase...' : `Buy ${purchaseAmount} RCN with ${paymentMethod.toUpperCase()}`}
+              {purchasing ? 'Initiating Purchase...' : `Buy ${purchaseAmount} Credits with ${paymentMethod.toUpperCase()}`}
             </button>
 
             <InfoCard
-              title="💡 Why Purchase RCN?"
+              title="💡 What are Distribution Credits?"
               items={[
-                'Fund tier bonuses for your customers',
-                'Bronze: +10 RCN, Silver: +20 RCN, Gold: +30 RCN',
-                'Applied to repairs ≥ $50',
-                'Increases customer loyalty and retention'
+                'Credits allow you to issue RCN rewards to customers',
+                '1 Credit = 1 RCN you can distribute',
+                'Used for tier bonuses: Bronze +10, Silver +20, Gold +30',
+                'Credits are NOT blockchain tokens - just distribution rights'
               ]}
             />
 

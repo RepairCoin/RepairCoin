@@ -66,17 +66,15 @@ export class ShopPurchaseService {
       const totalCost = purchaseData.amount * ShopPurchaseService.PRICE_PER_RCN;
 
       // Create purchase record
-      // TODO: Implement createShopPurchase in shopRepository
-      const purchaseResult: CreateResult = { id: 'purchase_' + Date.now() };
-      // await shopRepository.createShopPurchase({
-      //   shopId: purchaseData.shopId,
-      //   amount: purchaseData.amount,
-      //   pricePerRcn: ShopPurchaseService.PRICE_PER_RCN,
-      //   totalCost,
-      //   paymentMethod: purchaseData.paymentMethod,
-      //   paymentReference: purchaseData.paymentReference,
-      //   status: 'pending'
-      // });
+      const purchaseResult = await shopRepository.createShopPurchase({
+        shopId: purchaseData.shopId,
+        amount: purchaseData.amount,
+        pricePerRcn: ShopPurchaseService.PRICE_PER_RCN,
+        totalCost,
+        paymentMethod: purchaseData.paymentMethod,
+        paymentReference: purchaseData.paymentReference,
+        status: 'pending'
+      });
 
       logger.info(`RCN purchase initiated for shop ${purchaseData.shopId}: ${purchaseData.amount} RCN at $${totalCost}`);
 
@@ -99,8 +97,7 @@ export class ShopPurchaseService {
   async completePurchase(purchaseId: string, paymentReference?: string): Promise<PurchaseResponse> {
     try {
       // Complete the purchase and update shop balance
-      // TODO: Implement completeShopPurchase in shopRepository
-      // await shopRepository.completeShopPurchase(purchaseId, paymentReference);
+      await shopRepository.completeShopPurchase(purchaseId, paymentReference);
 
       logger.info(`RCN purchase completed: ${purchaseId}`);
 
@@ -127,14 +124,12 @@ export class ShopPurchaseService {
     totalPages: number;
   }> {
     try {
-      // TODO: Implement getShopPurchaseHistory in shopRepository
-      const result = { items: [], pagination: { totalItems: 0, page: 1, totalPages: 1 } };
-      // await shopRepository.getShopPurchaseHistory(shopId, {
-      //   page,
-      //   limit,
-      //   orderBy: 'created_at',
-      //   orderDirection: 'desc'
-      // });
+      const result = await shopRepository.getShopPurchaseHistory(shopId, {
+        page,
+        limit,
+        orderBy: 'created_at',
+        orderDirection: 'desc'
+      });
 
       // Map snake_case database fields to camelCase for frontend
       const mappedPurchases = result.items.map((purchase: any) => ({

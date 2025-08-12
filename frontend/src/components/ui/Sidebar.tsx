@@ -137,7 +137,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           tabId: "lookup",
         },
         {
-          title: "Buy RCN",
+          title: "Buy Credits",
           href: "/shop?tab=purchase",
           icon: <BuyRcnIcon width={24} height={24} />,
           tabId: "purchase",

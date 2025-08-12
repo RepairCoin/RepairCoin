@@ -7,6 +7,8 @@ import { baseSepolia } from "thirdweb/chains";
 import { useSearchParams } from 'next/navigation';
 import DashboardLayout from "@/components/ui/DashboardLayout";
 import ThirdwebPayment from '../../components/ThirdwebPayment';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 // Import our new components
 import { OverviewTab } from '@/components/shop/OverviewTab';
@@ -76,6 +78,10 @@ export default function ShopDashboardClient() {
   // Payment flow state
   const [currentPurchaseId, setCurrentPurchaseId] = useState<string | null>(null);
   const [showPayment, setShowPayment] = useState(false);
+  
+  // Success modal state
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     // Set active tab from URL query param
@@ -199,6 +205,12 @@ export default function ShopDashboardClient() {
     setError(null);
     
     try {
+      console.log('Initiating purchase:', {
+        shopId: shopData.shopId,
+        amount: purchaseAmount,
+        paymentMethod: paymentMethod
+      });
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/purchase/initiate`, {
         method: 'POST',
         headers: {
@@ -211,21 +223,27 @@ export default function ShopDashboardClient() {
         }),
       });
 
+      const responseData = await response.json();
+      console.log('Purchase initiation response:', { 
+        status: response.status, 
+        data: responseData 
+      });
+
       if (!response.ok) {
-        let errorMessage = 'Purchase initiation failed';
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch (e) {
-          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-        }
+        const errorMessage = responseData.error || `HTTP ${response.status}: ${response.statusText}`;
+        console.error('Purchase initiation failed:', errorMessage);
         throw new Error(errorMessage);
       }
 
-      const result = await response.json();
+      const purchaseId = responseData.data?.purchaseId;
+      if (!purchaseId) {
+        throw new Error('No purchase ID received from server');
+      }
+      
+      console.log('Purchase initiated successfully:', { purchaseId });
       
       // Set up payment flow
-      setCurrentPurchaseId(result.data.purchaseId);
+      setCurrentPurchaseId(purchaseId);
       setShowPayment(true);
       
     } catch (err) {
@@ -240,8 +258,9 @@ export default function ShopDashboardClient() {
     setShowPayment(false);
     setCurrentPurchaseId(null);
     
-    // Show success message
-    alert(`✅ Payment successful! ${purchaseAmount} RCN has been added to your balance.`);
+    // Show success message using custom modal
+    setSuccessMessage(`✅ Payment successful! ${purchaseAmount} distribution credits have been added to your account.`);
+    setShowSuccessModal(true);
     
     // Reload shop data to show updated balance
     await loadShopData();
@@ -531,6 +550,29 @@ export default function ShopDashboardClient() {
               </div>
             </div>
           )}
+
+          {/* Success Modal */}
+          <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="text-2xl text-center">Payment Successful!</DialogTitle>
+                <DialogDescription className="text-center text-lg pt-4">
+                  {successMessage}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex justify-center py-6">
+                <div className="text-6xl animate-bounce">🎉</div>
+              </div>
+              <DialogFooter className="sm:justify-center">
+                <Button 
+                  onClick={() => setShowSuccessModal(false)}
+                  className="bg-green-600 hover:bg-green-700 text-white px-8"
+                >
+                  Continue
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </DashboardLayout>

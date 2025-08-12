@@ -321,6 +321,82 @@ export class TransactionRepository extends BaseRepository {
     }
   }
 
+  async getShopTransactions(
+    shopId: string,
+    filters: {
+      page: number;
+      limit: number;
+      type?: string;
+    }
+  ): Promise<{
+    items: any[];
+    pagination: {
+      page: number;
+      limit: number;
+      totalItems: number;
+      totalPages: number;
+      hasMore: boolean;
+    };
+  }> {
+    try {
+      const offset = (filters.page - 1) * filters.limit;
+      let whereClause = 'WHERE t.shop_id = $1';
+      const params: any[] = [shopId];
+      let paramCount = 1;
+
+      // Add type filter if provided
+      if (filters.type) {
+        paramCount++;
+        if (filters.type === 'rewards') {
+          whereClause += ` AND t.type = 'mint'`;
+        } else if (filters.type === 'redemptions') {
+          whereClause += ` AND t.type = 'redeem'`;
+        } else if (filters.type === 'failed') {
+          whereClause += ` AND t.status = 'failed'`;
+        }
+      }
+
+      // Get total count
+      const countQuery = `
+        SELECT COUNT(*) 
+        FROM transactions t
+        ${whereClause}
+      `;
+      const countResult = await this.pool.query(countQuery, params);
+      const totalItems = parseInt(countResult.rows[0].count);
+
+      // Get paginated results
+      const query = `
+        SELECT 
+          t.*,
+          c.name as customer_name
+        FROM transactions t
+        LEFT JOIN customers c ON t.customer_address = c.address
+        ${whereClause}
+        ORDER BY t.timestamp DESC
+        LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
+      `;
+      params.push(filters.limit, offset);
+      
+      const result = await this.pool.query(query, params);
+      const totalPages = Math.ceil(totalItems / filters.limit);
+
+      return {
+        items: result.rows,
+        pagination: {
+          page: filters.page,
+          limit: filters.limit,
+          totalItems,
+          totalPages,
+          hasMore: filters.page < totalPages
+        }
+      };
+    } catch (error) {
+      logger.error('Error getting shop transactions:', error);
+      throw new Error('Failed to get shop transactions');
+    }
+  }
+
   private mapToTransactionRecord(row: any): TransactionRecord {
     return {
       id: row.id,

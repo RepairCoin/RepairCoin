@@ -21,6 +21,7 @@ import { ActivityLogsTab } from '@/components/admin/ActivityLogsTab';
 import { AnalyticsTab } from '@/components/admin/AnalyticsTab';
 import { UnsuspendRequestsTab } from '@/components/admin/UnsuspendRequestsTab';
 import { CreateAdminTab } from '@/components/admin/CreateAdminTab';
+import { CreateShopTab } from '@/components/admin/CreateShopTab';
 
 const client = createThirdwebClient({
   clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "1969ac335e07ba13ad0f8d1a1de4f6ab",
@@ -124,7 +125,6 @@ export default function AdminDashboard() {
         if (token) {
           // Store token using authManager
           authManager.setToken('admin', token, 24); // 24 hour expiry
-          toast.success('Admin authenticated successfully');
           return token;
         }
       } else {
@@ -626,10 +626,11 @@ export default function AdminDashboard() {
         )}
 
         {activeTab === 'create-shop' && (
-          <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Create New Shop</h2>
-            <p className="text-gray-600">Shop creation functionality coming soon...</p>
-          </div>
+          <CreateShopTab
+            generateAdminToken={generateAdminToken}
+            onError={setError}
+            onSuccess={loadDashboardData}
+          />
         )}
 
         {activeTab === 'unsuspend-requests' && (

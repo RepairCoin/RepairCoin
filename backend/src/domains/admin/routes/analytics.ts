@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { logger } from '../../../utils/logger';
 import { requireAdmin } from '../../../middleware/auth';
-// TODO: Implement analytics methods in repositories
+import { AdminRepository } from '../../../repositories/AdminRepository';
 
 const router = Router();
 
@@ -54,24 +54,40 @@ router.get('/activity-logs', requireAdmin, async (req: Request, res: Response) =
       startDate,
       endDate,
       limit = '50',
-      offset = '0'
+      page = '1'
     } = req.query;
     
-    // TODO: Implement getAdminActivityLogs in repository
-    const logs = { logs: [], total: 0 };
-    // await analyticsRepository.getAdminActivityLogs({
-    //   adminAddress: adminAddress as string,
-    //   actionType: actionType as string,
-    //   entityType: entityType as string,
-    //   startDate: startDate ? new Date(startDate as string) : undefined,
-    //   endDate: endDate ? new Date(endDate as string) : undefined,
-    //   limit: parseInt(limit as string),
-    //   offset: parseInt(offset as string)
-    // });
+    const adminRepository = new AdminRepository();
+    const result = await adminRepository.getAdminActivityLogs({
+      adminAddress: adminAddress as string,
+      actionType: actionType as string,
+      entityType: entityType as string,
+      startDate: startDate as string,
+      endDate: endDate as string,
+      page: parseInt(page as string),
+      limit: parseInt(limit as string)
+    });
+    
+    // Transform the result for the frontend
+    const logs = result.items.map(activity => ({
+      id: activity.id,
+      timestamp: activity.createdAt,
+      adminAddress: activity.adminAddress,
+      action: activity.actionType,
+      description: activity.actionDescription,
+      entityType: activity.entityType,
+      entityId: activity.entityId,
+      metadata: activity.metadata,
+      status: 'completed' // All logged activities are completed
+    }));
     
     res.json({
       success: true,
-      data: logs
+      data: {
+        logs,
+        total: result.pagination.totalItems,
+        pagination: result.pagination
+      }
     });
   } catch (error) {
     logger.error('Error getting activity logs:', error);

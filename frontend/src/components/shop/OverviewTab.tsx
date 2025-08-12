@@ -45,9 +45,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       {/* Shop Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
-          title="RCN Balance"
+          title="Wallet Balance"
           value={blockchainBalance.toFixed(2)}
-          subtitle="Available for bonuses"
+          subtitle="Your RCN tokens"
           color="green"
           icon={<WalletIcon />}
         />
@@ -66,9 +66,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           icon={<WalletIcon />}
         />
         <StatCard
-          title="RCN Purchased"
-          value={(Number(shopData.totalRcnPurchased) || 0).toFixed(2)}
-          subtitle="Total investment"
+          title="Distribution Credits"
+          value={(Number(shopData.purchasedRcnBalance) || 0).toFixed(2)}
+          subtitle="Available to distribute"
           color="orange"
           icon={<WalletIcon />}
         />
@@ -265,7 +265,7 @@ const RecentPurchasesCard: React.FC<{ purchases: PurchaseHistory[] }> = ({
   return (
     <div className="bg-[#212121] rounded-2xl shadow-xl p-6">
       <h3 className="text-2xl font-bold text-[#FFCC00] mb-4">
-        Recent RCN Purchases
+        Recent Credit Purchases
       </h3>
       {recentPurchases.length === 0 ? (
         <p className="text-gray-400 text-center py-8">No purchases yet</p>
@@ -278,7 +278,7 @@ const RecentPurchasesCard: React.FC<{ purchases: PurchaseHistory[] }> = ({
                   Date
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Amount
+                  Credits
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                   Cost
@@ -298,7 +298,7 @@ const RecentPurchasesCard: React.FC<{ purchases: PurchaseHistory[] }> = ({
                     {new Date(purchase.createdAt).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {purchase.amount} RCN
+                    {purchase.amount}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     ${purchase.totalCost?.toFixed(2) || "N/A"}

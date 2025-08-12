@@ -440,6 +440,167 @@ export class ShopRepository extends BaseRepository {
     }
   }
 
+  async createShopPurchase(purchaseData: {
+    shopId: string;
+    amount: number;
+    pricePerRcn: number;
+    totalCost: number;
+    paymentMethod: string;
+    paymentReference?: string;
+    status: string;
+  }): Promise<{ id: string }> {
+    try {
+      const query = `
+        INSERT INTO shop_rcn_purchases (
+          shop_id, amount, price_per_rcn, total_cost, 
+          payment_method, payment_reference, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id
+      `;
+      
+      const values = [
+        purchaseData.shopId,
+        purchaseData.amount,
+        purchaseData.pricePerRcn,
+        purchaseData.totalCost,
+        purchaseData.paymentMethod,
+        purchaseData.paymentReference || null,
+        purchaseData.status
+      ];
+      
+      const result = await this.pool.query(query, values);
+      logger.info('Shop purchase created:', { 
+        id: result.rows[0].id,
+        shopId: purchaseData.shopId,
+        amount: purchaseData.amount,
+        totalCost: purchaseData.totalCost
+      });
+      return { id: result.rows[0].id };
+    } catch (error) {
+      logger.error('Error creating shop purchase:', error);
+      logger.error('Purchase data:', purchaseData);
+      throw error;
+    }
+  }
+
+  async completeShopPurchase(purchaseId: string, paymentReference?: string): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      logger.info('Attempting to complete shop purchase:', { purchaseId, paymentReference });
+
+      // Get purchase details
+      const purchaseQuery = 'SELECT * FROM shop_rcn_purchases WHERE id = $1 AND status = $2';
+      const purchaseResult = await client.query(purchaseQuery, [purchaseId, 'pending']);
+      
+      if (purchaseResult.rows.length === 0) {
+        // Check if purchase exists at all
+        const checkQuery = 'SELECT id, status FROM shop_rcn_purchases WHERE id = $1';
+        const checkResult = await client.query(checkQuery, [purchaseId]);
+        
+        if (checkResult.rows.length === 0) {
+          throw new Error(`Purchase not found: ${purchaseId}`);
+        } else {
+          throw new Error(`Purchase already completed or in status: ${checkResult.rows[0].status}`);
+        }
+      }
+      
+      const purchase = purchaseResult.rows[0];
+      logger.info('Found purchase to complete:', { 
+        shopId: purchase.shop_id, 
+        amount: purchase.amount,
+        totalCost: purchase.total_cost 
+      });
+
+      // Update purchase status
+      const updatePurchaseQuery = `
+        UPDATE shop_rcn_purchases 
+        SET status = 'completed', 
+            payment_reference = COALESCE($2, payment_reference),
+            completed_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+      `;
+      await client.query(updatePurchaseQuery, [purchaseId, paymentReference]);
+
+      // Update shop balance
+      const updateShopQuery = `
+        UPDATE shops 
+        SET purchased_rcn_balance = purchased_rcn_balance + $1,
+            total_rcn_purchased = total_rcn_purchased + $1,
+            last_purchase_date = CURRENT_TIMESTAMP
+        WHERE shop_id = $2
+      `;
+      await client.query(updateShopQuery, [purchase.amount, purchase.shop_id]);
+      
+      logger.info('Shop purchase completed successfully:', { 
+        purchaseId,
+        shopId: purchase.shop_id,
+        amountAdded: purchase.amount
+      });
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      logger.error('Error completing shop purchase:', error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async getShopPurchaseHistory(shopId: string, filters: {
+    page: number;
+    limit: number;
+    orderBy?: string;
+    orderDirection?: 'asc' | 'desc';
+  }): Promise<{
+    items: any[];
+    pagination: {
+      page: number;
+      limit: number;
+      totalItems: number;
+      totalPages: number;
+      hasMore: boolean;
+    };
+  }> {
+    try {
+      const offset = (filters.page - 1) * filters.limit;
+      const orderBy = filters.orderBy || 'created_at';
+      const orderDirection = filters.orderDirection || 'desc';
+
+      // Get total count
+      const countQuery = 'SELECT COUNT(*) FROM shop_rcn_purchases WHERE shop_id = $1';
+      const countResult = await this.pool.query(countQuery, [shopId]);
+      const totalItems = parseInt(countResult.rows[0].count);
+
+      // Get paginated results
+      const query = `
+        SELECT * FROM shop_rcn_purchases 
+        WHERE shop_id = $1
+        ORDER BY ${orderBy} ${orderDirection}
+        LIMIT $2 OFFSET $3
+      `;
+      
+      const result = await this.pool.query(query, [shopId, filters.limit, offset]);
+      const totalPages = Math.ceil(totalItems / filters.limit);
+
+      return {
+        items: result.rows,
+        pagination: {
+          page: filters.page,
+          limit: filters.limit,
+          totalItems,
+          totalPages,
+          hasMore: filters.page < totalPages
+        }
+      };
+    } catch (error) {
+      logger.error('Error getting shop purchase history:', error);
+      throw new Error('Failed to get purchase history');
+    }
+  }
+
   async getShopAnalytics(shopId: string): Promise<{
     totalCustomersServed: number;
     averageTransactionAmount: number;

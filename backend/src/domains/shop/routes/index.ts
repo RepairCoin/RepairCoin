@@ -450,53 +450,7 @@ router.get('/:shopId/analytics',
   }
 );
 
-// Get shop transactions
-router.get('/:shopId/transactions',
-  authMiddleware,
-  requireShopOrAdmin,
-  requireShopOwnership,
-  async (req: Request, res: Response) => {
-    try {
-      const { shopId } = req.params;
-      const { limit = '100', type } = req.query;
-      
-      const shop = await shopRepository.getShop(shopId);
-      if (!shop) {
-        return res.status(404).json({
-          success: false,
-          error: 'Shop not found'
-        });
-      }
-
-      const transactions = await shopRepository.getShopTransactions(shopId, parseInt(limit as string));
-      
-      // Filter by type if specified
-      let filteredTransactions = transactions;
-      if (type && ['mint', 'redeem'].includes(type as string)) {
-        filteredTransactions = transactions.filter(t => t.type === type);
-      }
-
-      res.json({
-        success: true,
-        data: {
-          transactions: filteredTransactions,
-          count: filteredTransactions.length,
-          shop: {
-            shopId: shop.shopId,
-            name: shop.name
-          }
-        }
-      });
-
-    } catch (error: any) {
-      logger.error('Error getting shop transactions:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to retrieve shop transactions'
-      });
-    }
-  }
-);
+// Get shop transactions - REMOVED (duplicate endpoint)
 
 // Enable/disable cross-shop redemption (admin only)
 router.post('/:shopId/cross-shop',
@@ -1363,6 +1317,107 @@ router.post('/:shopId/issue-reward',
       res.status(500).json({
         success: false,
         error: error.message || 'Failed to issue reward'
+      });
+    }
+  }
+);
+
+// Get shop transactions
+router.get('/:shopId/transactions',
+  authMiddleware,
+  requireShopOrAdmin,
+  requireShopOwnership,
+  async (req: Request, res: Response) => {
+    try {
+      const { shopId } = req.params;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const type = req.query.type as string;
+      
+      let allTransactions: any[] = [];
+      
+      // Get regular transactions if not filtering by purchase
+      if (type !== 'purchases') {
+        const transactions = await transactionRepository.getShopTransactions(shopId, {
+          page,
+          limit,
+          type
+        });
+        
+        // Transform to match frontend expectations
+        const transformedTransactions = transactions.items.map((t: any) => ({
+          id: t.id,
+          type: t.type === 'mint' ? 'reward' : t.type === 'redeem' ? 'redemption' : t.type,
+          amount: parseFloat(t.amount),
+          customerAddress: t.customer_address,
+          customerName: t.customer_name,
+          repairAmount: t.metadata?.repairAmount,
+          status: t.status || 'completed',
+          createdAt: t.timestamp || t.created_at,
+          failureReason: t.error_message,
+          is_tier_bonus: t.metadata?.tierBonus > 0
+        }));
+        
+        allTransactions = [...transformedTransactions];
+      }
+      
+      // Get RCN purchases if showing all or purchases
+      if (!type || type === 'all' || type === 'purchases') {
+        const purchaseHistory = await shopRepository.getShopPurchaseHistory(shopId, {
+          page: 1,
+          limit: 100,
+          orderBy: 'created_at',
+          orderDirection: 'desc'
+        });
+        
+        // Transform purchases to match transaction format
+        const purchaseTransactions = purchaseHistory.items.map((p: any) => ({
+          id: p.id,
+          type: 'purchase',
+          amount: parseFloat(p.amount),
+          customerAddress: null,
+          customerName: 'RCN Purchase',
+          repairAmount: null,
+          status: p.status,
+          createdAt: p.created_at,
+          failureReason: null,
+          is_tier_bonus: false,
+          totalCost: parseFloat(p.total_cost),
+          paymentMethod: p.payment_method,
+          paymentReference: p.payment_reference
+        }));
+        
+        allTransactions = [...allTransactions, ...purchaseTransactions];
+      }
+      
+      // Sort all transactions by date
+      allTransactions.sort((a, b) => {
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
+        return dateB - dateA; // Newest first
+      });
+      
+      // Apply pagination
+      const startIndex = (page - 1) * limit;
+      const paginatedTransactions = allTransactions.slice(startIndex, startIndex + limit);
+      const totalItems = allTransactions.length;
+      const totalPages = Math.ceil(totalItems / limit);
+      
+      res.json({
+        success: true,
+        data: {
+          transactions: paginatedTransactions,
+          total: totalItems,
+          totalPages: totalPages,
+          page: page
+        }
+      });
+
+    } catch (error: any) {
+      logger.error('Error getting shop transactions:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve shop transactions'
       });
     }
   }

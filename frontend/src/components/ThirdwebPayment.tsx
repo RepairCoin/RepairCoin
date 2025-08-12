@@ -248,13 +248,24 @@ export default function ThirdwebPayment({
       console.log('Complete purchase response:', { status: response.status, data });
 
       if (!response.ok) {
+        console.error('Purchase completion failed:', {
+          status: response.status,
+          error: data.error,
+          purchaseId,
+          transactionHash
+        });
         throw new Error(data.error || 'Failed to complete purchase');
       }
 
+      console.log('Purchase completed successfully!');
       onSuccess();
     } catch (error) {
       console.error('Error completing purchase:', error);
-      onError('Payment sent but failed to update purchase. Contact support.');
+      console.error('Purchase details:', { purchaseId, transactionHash });
+      
+      // Show more detailed error message
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      onError(`Payment sent but failed to update balance: ${errorMessage}. Purchase ID: ${purchaseId}`);
     }
   };
 

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 
 interface TreasuryData {
   totalSupply: number;
@@ -38,10 +39,11 @@ interface TreasuryData {
 }
 
 interface TreasuryTabProps {
-  onSellRCN: (shopId: string, amount: number) => Promise<void>;
+  generateAdminToken: () => Promise<string | null>;
+  onError: (error: string) => void;
 }
 
-export const TreasuryTab: React.FC<TreasuryTabProps> = ({ onSellRCN }) => {
+export const TreasuryTab: React.FC<TreasuryTabProps> = ({ generateAdminToken, onError }) => {
   const [treasuryData, setTreasuryData] = useState<TreasuryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
@@ -60,19 +62,28 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({ onSellRCN }) => {
   const loadTreasuryData = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('adminAuthToken');
+      const adminToken = await generateAdminToken();
+      if (!adminToken) {
+        onError('Failed to authenticate as admin');
+        return;
+      }
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/treasury`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${adminToken}`
         }
       });
       
       if (response.ok) {
         const result = await response.json();
         setTreasuryData(result.data);
+      } else {
+        const errorData = await response.json();
+        onError(errorData.error || 'Failed to load treasury data');
       }
     } catch (error) {
       console.error('Error loading treasury data:', error);
+      onError('Failed to load treasury data');
     } finally {
       setLoading(false);
     }
@@ -80,16 +91,27 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({ onSellRCN }) => {
 
   const loadShops = async () => {
     try {
-      const token = localStorage.getItem('adminAuthToken');
+      const adminToken = await generateAdminToken();
+      if (!adminToken) {
+        onError('Failed to authenticate as admin');
+        return;
+      }
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/shops?verified=true`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${adminToken}`
         }
       });
       
       if (response.ok) {
         const result = await response.json();
-        setShops(result.data || []);
+        const shopsData = result.data?.shops || result.data || [];
+        setShops(shopsData.map((shop: any) => ({
+          shopId: shop.shop_id || shop.shopId,
+          name: shop.name
+        })));
+      } else {
+        console.error('Failed to load shops:', response.status);
       }
     } catch (error) {
       console.error('Error loading shops:', error);
@@ -99,20 +121,29 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({ onSellRCN }) => {
   const updateTreasuryData = async () => {
     setUpdating(true);
     try {
-      const token = localStorage.getItem('adminAuthToken');
+      const adminToken = await generateAdminToken();
+      if (!adminToken) {
+        onError('Failed to authenticate as admin');
+        return;
+      }
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/treasury/update`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${adminToken}`,
           'Content-Type': 'application/json'
         }
       });
       
       if (response.ok) {
         await loadTreasuryData();
+      } else {
+        const errorData = await response.json();
+        onError(errorData.error || 'Failed to update treasury data');
       }
     } catch (error) {
       console.error('Error updating treasury:', error);
+      onError('Failed to update treasury data');
     } finally {
       setUpdating(false);
     }
@@ -122,13 +153,39 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({ onSellRCN }) => {
     if (!selectedShopId || sellAmount <= 0) return;
     
     try {
-      await onSellRCN(selectedShopId, sellAmount);
-      setShowSellModal(false);
-      setSellAmount(100);
-      setSelectedShopId('');
-      await loadTreasuryData();
+      const adminToken = await generateAdminToken();
+      if (!adminToken) {
+        onError('Failed to authenticate as admin');
+        return;
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/shops/${selectedShopId}/sell-rcn`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${adminToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          amount: sellAmount,
+          pricePerToken: 0.10,
+          paymentMethod: 'manual',
+          paymentReference: `ADMIN-${Date.now()}`
+        })
+      });
+
+      if (response.ok) {
+        toast.success(`Successfully sold ${sellAmount} RCN to shop`);
+        setShowSellModal(false);
+        setSellAmount(100);
+        setSelectedShopId('');
+        await loadTreasuryData();
+      } else {
+        const errorData = await response.json();
+        onError(errorData.error || 'Failed to sell RCN');
+      }
     } catch (error) {
       console.error('Error selling RCN:', error);
+      onError('Failed to sell RCN to shop');
     }
   };
 
@@ -325,7 +382,7 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({ onSellRCN }) => {
                   min="1"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
-                <p className="text-sm text-gray-500 mt-1">Total: {formatCurrency(sellAmount)}</p>
+                <p className="text-sm text-gray-500 mt-1">Total: {formatCurrency(sellAmount * 0.10)}</p>
               </div>
             </div>
 

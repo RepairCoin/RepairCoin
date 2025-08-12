@@ -12,6 +12,8 @@ interface Transaction {
   status: 'completed' | 'failed' | 'pending';
   createdAt: string;
   failureReason?: string;
+  totalCost?: number;
+  paymentMethod?: string;
 }
 
 interface TransactionsTabProps {
@@ -34,27 +36,51 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({ shopId }) => {
     setLoading(true);
     
     try {
+      // Get shop auth token
+      const shopToken = localStorage.getItem('shopAuthToken') || sessionStorage.getItem('shopAuthToken');
+      
+      if (!shopToken) {
+        console.error('No shop authentication token found');
+        setTransactions([]);
+        setLoading(false);
+        return;
+      }
+      
       // Fetch real transaction data
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/transactions?page=${page}&limit=${limit}${filter !== 'all' ? `&type=${filter}` : ''}`
+        , {
+          headers: {
+            'Authorization': `Bearer ${shopToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
       );
 
       if (response.ok) {
         const result = await response.json();
+        console.log('Transactions API response:', result);
         const transactions = result.data?.transactions || [];
         
         // Transform the data to match our interface
-        const transformedTransactions = transactions.map((t: any) => ({
-          id: t.id,
-          type: t.type || (t.transaction_type === 'issue_reward' ? 'reward' : t.transaction_type),
-          amount: t.amount || t.token_amount,
-          customerAddress: t.customer_address || t.recipient_address,
-          customerName: t.customer_name,
-          repairAmount: t.repair_amount,
-          status: t.status || 'completed',
-          createdAt: t.created_at || t.createdAt,
-          failureReason: t.failure_reason || t.error_message
-        }));
+        const transformedTransactions = transactions.map((t: any) => {
+          // Debug log to see what we're getting
+          console.log('Raw transaction data:', t);
+          
+          return {
+            id: t.id,
+            type: t.type || (t.transaction_type === 'issue_reward' ? 'reward' : t.transaction_type),
+            amount: t.amount || t.token_amount,
+            customerAddress: t.customer_address || t.recipient_address,
+            customerName: t.customer_name || t.customerName,
+            repairAmount: t.repair_amount || t.repairAmount,
+            status: t.status || 'completed',
+            createdAt: t.createdAt || t.created_at || t.timestamp,
+            failureReason: t.failure_reason || t.error_message || t.failureReason,
+            totalCost: t.totalCost || t.total_cost,
+            paymentMethod: t.paymentMethod || t.payment_method
+          };
+        });
 
         setTransactions(transformedTransactions);
         setTotalPages(result.data?.totalPages || 1);
@@ -178,7 +204,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({ shopId }) => {
       case 'reward': return 'Reward Issued';
       case 'tier_bonus': return 'Tier Bonus';
       case 'redemption': return 'Customer Redemption';
-      case 'purchase': return 'RCN Purchase';
+      case 'purchase': return 'Credit Purchase';
       default: return type;
     }
   };
@@ -194,6 +220,33 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({ shopId }) => {
 
   const formatAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
+
+  const formatDate = (dateString: string | undefined | null) => {
+    if (!dateString) return 'N/A';
+    
+    try {
+      const date = new Date(dateString);
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid date:', dateString);
+        return 'N/A';
+      }
+      
+      // Format the date in a more readable way
+      const options: Intl.DateTimeFormatOptions = {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      };
+      
+      return date.toLocaleString('en-US', options);
+    } catch (error) {
+      console.error('Error formatting date:', dateString, error);
+      return 'N/A';
+    }
   };
 
   return (
@@ -260,8 +313,14 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({ shopId }) => {
                         {transaction.repairAmount && (
                           <p>Repair Amount: ${transaction.repairAmount}</p>
                         )}
+                        {transaction.type === 'purchase' && transaction.totalCost && (
+                          <p>Total Cost: ${transaction.totalCost.toFixed(2)}</p>
+                        )}
+                        {transaction.type === 'purchase' && transaction.paymentMethod && (
+                          <p>Payment: {transaction.paymentMethod.toUpperCase()}</p>
+                        )}
                         <p className="text-xs text-gray-400 mt-1">
-                          {new Date(transaction.createdAt).toLocaleString()}
+                          {formatDate(transaction.createdAt)}
                         </p>
                       </div>
                       {transaction.failureReason && (
@@ -276,7 +335,9 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({ shopId }) => {
                     <p className={`text-lg font-bold ${
                       transaction.type === 'redemption' ? 'text-red-600' : 'text-green-600'
                     }`}>
-                      {transaction.type === 'redemption' ? '-' : '+'}{transaction.amount} RCN
+                      {transaction.type === 'redemption' ? '-' : '+'}
+                      {transaction.amount} 
+                      {transaction.type === 'purchase' ? ' Credits' : ' RCN'}
                     </p>
                     <span className={`inline-block mt-2 px-2 py-1 rounded-full text-xs font-semibold ${
                       getStatusColor(transaction.status)

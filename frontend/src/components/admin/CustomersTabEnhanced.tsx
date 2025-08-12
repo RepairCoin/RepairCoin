@@ -75,7 +75,6 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
         const result = await response.json();
         console.log('Grouped customers data:', result);
         setData(result.data);
-        toast.success('Customer data loaded successfully');
       } else {
         const errorData = await response.json();
         console.error('Failed to load customers:', errorData);
@@ -127,10 +126,6 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
-  const handleQuickMint = (address: string) => {
-    onMintTokens(address, 100, 'Admin test mint');
-    toast.success('Minted 100 RCN tokens');
-  };
 
   const filterCustomers = (customers: Customer[]) => {
     if (!searchTerm) return customers;
@@ -317,7 +312,6 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Earnings (Shop)</th>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Transactions</th>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Activity</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-200">
@@ -350,17 +344,6 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                                     : 'N/A'
                                   }
                                 </td>
-                                <td className="px-6 py-4">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleQuickMint(customer.address);
-                                    }}
-                                    className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
-                                  >
-                                    Mint 100
-                                  </button>
-                                </td>
                               </tr>
                             ))}
                           </tbody>
@@ -378,7 +361,6 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
       {viewMode === 'all' && (
         <CustomerTable 
           customers={filterCustomers(allCustomers)}
-          onMintTokens={handleQuickMint}
           showShopInfo={false}
         />
       )}
@@ -386,7 +368,6 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
       {viewMode === 'no-shop' && (
         <CustomerTable 
           customers={filterCustomers(data.customersWithoutShops)}
-          onMintTokens={handleQuickMint}
           showShopInfo={false}
           emptyMessage="All customers have shop activity"
         />
@@ -398,10 +379,9 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
 // Reusable customer table component
 const CustomerTable: React.FC<{
   customers: Customer[];
-  onMintTokens: (address: string) => void;
   showShopInfo?: boolean;
   emptyMessage?: string;
-}> = ({ customers, onMintTokens, showShopInfo = false, emptyMessage = 'No customers found' }) => {
+}> = ({ customers, showShopInfo = false, emptyMessage = 'No customers found' }) => {
   const getTierColor = (tier: string) => {
     switch (tier) {
       case 'BRONZE': return 'bg-orange-100 text-orange-800';
@@ -443,9 +423,6 @@ const CustomerTable: React.FC<{
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Join Date
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
               </th>
             </tr>
           </thead>
@@ -489,14 +466,6 @@ const CustomerTable: React.FC<{
                     ? new Date(customer.joinDate).toLocaleDateString()
                     : 'N/A'
                   }
-                </td>
-                <td className="px-6 py-4">
-                  <button
-                    onClick={() => onMintTokens(customer.address)}
-                    className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
-                  >
-                    Mint 100
-                  </button>
                 </td>
               </tr>
             ))}
