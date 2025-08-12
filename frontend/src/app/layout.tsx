@@ -1,11 +1,15 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Poppins } from 'next/font/google'
 import { Providers } from './providers'
 import LayoutWrapper from '@/components/LayoutWrapper'
 import AuthRedirect from '@/components/AuthRedirect'
 import '@/styles/globals.css'
 
-const inter = Inter({ subsets: ['latin'] })
+const poppins = Poppins({ 
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700', '800'],
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: 'RepairCoin - Loyalty Tokens for Repair Shops',
@@ -20,7 +24,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className} suppressHydrationWarning={true}>
+      <body className={poppins.className} suppressHydrationWarning={true}>
         <Providers>
           <AuthRedirect />
           <LayoutWrapper>

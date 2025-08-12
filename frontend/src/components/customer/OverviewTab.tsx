@@ -78,10 +78,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           }}
         >
           <div className="flex-1">
-            <p className="text-yellow-400 text-sm font-medium mb-1">
+            <p className="text-yellow-400 text-sm md:text-base font-medium mb-1">
               RCN Balance
             </p>
-            <p className="text-white text-lg sm:text-xl md:text-2xl font-bold">
+            <p className="text-white text-lg sm:text-xl md:text-2xl font-semibold">
               {blockchainBalance || 0} RCN
             </p>
             {earnedBalanceData && earnedBalanceData.marketBalance > 0 && (
@@ -108,10 +108,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         >
           {" "}
           <div className="flex-1">
-            <p className="text-yellow-400 text-sm font-medium mb-1">
+            <p className="text-yellow-400 text-sm md:text-base font-medium mb-1">
               Your Tier Level
             </p>
-            <p className="text-white text-lg sm:text-xl md:text-2xl font-bold">
+            <p className="text-white text-lg sm:text-xl md:text-2xl font-semibold">
               {customerData?.tier || "SILVER"}
             </p>
             {customerData && customerData.tier !== "GOLD" && (
@@ -139,10 +139,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         >
           {" "}
           <div className="flex-1">
-            <p className="text-yellow-400 text-sm font-medium mb-1">
+            <p className="text-yellow-400 text-sm md:text-base font-medium mb-1">
               Total Repairs
             </p>
-            <p className="text-white text-lg sm:text-xl md:text-2xl font-bold">
+            <p className="text-white text-lg sm:text-xl md:text-2xl font-semibold">
               {customerData?.lifetimeEarnings || 0}
             </p>
           </div>
@@ -165,7 +165,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               backgroundRepeat: "no-repeat",
             }}
           >
-            <p className="text-base sm:text-lg md:text-xl text-gray-800 font-bold">
+            <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
               Token Summary
             </p>
           </div>
@@ -174,7 +174,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               <span className="text-gray-300 text-sm">
                 Tokens Earned:
               </span>
-              <span className="font-bold text-green-500 text-sm">
+              <span className="font-semibold text-green-500 text-sm">
                 {customerData?.lifetimeEarnings || 0} RCN
               </span>
             </div>
@@ -182,7 +182,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               <span className="text-gray-300 text-sm">
                 Tokens Redeemed:
               </span>
-              <span className="font-bold text-red-500 text-sm">
+              <span className="font-semibold text-red-500 text-sm">
                 -{customerData?.totalRedemptions || 0} RCN
               </span>
             </div>
@@ -191,7 +191,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               <span className="text-gray-300 font-medium text-sm">
                 Current Balance:
               </span>
-              <span className="font-bold text-yellow-400 text-sm">
+              <span className="font-semibold text-yellow-400 text-sm">
                 {blockchainBalance || 0} RCN
               </span>
             </div>
@@ -209,7 +209,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               backgroundRepeat: "no-repeat",
             }}
           >
-            <p className="text-base sm:text-lg md:text-xl text-gray-800 font-bold">
+            <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
               Tier Benefits
             </p>
           </div>
@@ -263,7 +263,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       {/* Recent Transactions - Responsive */}
       {transactions.length > 0 && (
         <div className="bg-white rounded-xl sm:rounded-2xl shadow-xl p-4 sm:p-6 lg:p-8 border border-gray-100 mb-6 sm:mb-8">
-          <h2 className="text-base sm:text-lg md:text-xl font-bold text-gray-900 mb-4 sm:mb-6">
+          <h2 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900 mb-4 sm:mb-6">
             Recent Transactions
           </h2>
           <div className="space-y-2 sm:space-y-3">
@@ -286,7 +286,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   </p>
                 </div>
                 <div
-                  className={`font-bold text-sm ${
+                  className={`font-semibold text-sm ${
                     transaction.type === "redeemed"
                       ? "text-red-600"
                       : "text-green-600"
@@ -311,7 +311,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           backgroundRepeat: "no-repeat",
         }}
       >
-        <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl tracking-wide font-bold text-white my-4 sm:my-6 text-center px-2">
+        <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl tracking-wide font-semibold text-white my-4 sm:my-6 text-center px-2">
           How to Earn More RepairCoin
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-8">
@@ -327,7 +327,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <h3 className="text-[#FFCC00] text-sm sm:text-base md:text-lg font-semibold mb-2 text-center tracking-wide">
               Refer Friends
             </h3>
-            <p className="text-gray-300 text-xs sm:text-sm tracking-wide text-center">
+            <p className="text-gray-300 text-xs tracking-wide text-center">
               Earn 25 RCN for each successful referral. New customers get 10 RCN
               bonus. No limit on referrals.
             </p>
@@ -345,7 +345,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <h3 className="text-[#FFCC00] text-sm sm:text-base md:text-lg font-semibold mb-2 text-center tracking-wide">
               Complete Repairs
             </h3>
-            <p className="text-gray-300 text-xs sm:text-sm tracking-wide text-center">
+            <p className="text-gray-300 text-xs tracking-wide text-center">
               Earn 10 RCN for $50-99 repairs. Earn 25 RCN for $100+ repairs.
               Plus tier bonuses!
             </p>
@@ -363,7 +363,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <h3 className="text-[#FFCC00] text-sm sm:text-base md:text-lg font-semibold mb-2 text-center tracking-wide">
               Upgrade Your Tier
             </h3>
-            <p className="text-gray-300 text-xs sm:text-sm tracking-wide text-center">
+            <p className="text-gray-300 text-xs tracking-wide text-center">
               Bronze: 0-99 RCN Earned. Silver: 100-499 RCN Earned. Gold: 500+
               RCN Earned.
             </p>

@@ -339,11 +339,11 @@ export function RedemptionApprovals() {
             backgroundRepeat: "no-repeat",
           }}
         >
-          <p className="text-lg md:text-xl text-gray-900 font-bold">
+          <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
             Generate Redemption QR Code
           </p>
         </div>
-        <div className="flex flex-col w-2/3 p-8 gap-6">
+        <div className="flex flex-col w-2/3 p-4 md:p-8 gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Shop ID
@@ -421,7 +421,7 @@ export function RedemptionApprovals() {
             backgroundRepeat: "no-repeat",
           }}
         >
-          <p className="text-lg md:text-xl text-gray-900 font-bold">
+          <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
             Generate Redemption QR Code
           </p>
         </div>
@@ -431,7 +431,7 @@ export function RedemptionApprovals() {
             No redemption requests
           </p>
         ) : (
-          <div className="flex flex-col w-full p-8 gap-6">
+          <div className="flex flex-col w-full p-4 md:p-8 gap-6">
             {sessions.map((session) => (
               <div
                 key={session.sessionId}

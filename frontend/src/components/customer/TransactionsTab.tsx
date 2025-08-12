@@ -32,7 +32,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
           backgroundRepeat: "no-repeat",
         }}
       >
-        <p className="text-lg sm:text-xl text-gray-800 font-bold">
+        <p className="text-lg md:text-xl text-gray-900 font-semibold">
           Transaction History
         </p>
       </div>

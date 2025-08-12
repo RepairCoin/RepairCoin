@@ -176,7 +176,7 @@ export function ReferralDashboard() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+      <div className="bg-[#212121] rounded-2xl shadow-xl p-8 border border-gray-100">
         <div className="animate-pulse">
           <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
           <div className="space-y-4">
@@ -211,12 +211,12 @@ export function ReferralDashboard() {
             backgroundRepeat: "no-repeat",
           }}
         >
-          <p className="text-base sm:text-lg md:text-xl text-gray-800 font-bold">
+          <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
             Your Referral Program
           </p>
         </div>
         <div className="w-full p-4 md:p-8 text-white">
-          <p className="text-sm opacity-90 mb-6">
+          <p className="text-xs md:text-sm opacity-90 mb-6">
             Earn 25 RCN when your referral completes their first repair! They'll
             get 10 RCN bonus too.
           </p>
@@ -235,7 +235,7 @@ export function ReferralDashboard() {
                 Your Referral Code
               </p>
               <div className="flex items-center gap-2">
-                <p className="text-2xl sm:text-3xl md:text-4xl font-mono font-bold">
+                <p className="text-2xl sm:text-3xl md:text-4xl font-mono font-semibold">
                   {referralData.referralCode}
                 </p>
                 <button
@@ -309,10 +309,10 @@ export function ReferralDashboard() {
           }}
         >
           <div>
-            <p className="text-yellow-400 text-sm font-medium mb-1">
+            <p className="text-yellow-400 text-sm md:text-base font-medium mb-1">
               Total Referrals
             </p>
-            <p className="text-white text-lg sm:text-xl md:text-2xl font-bold">
+            <p className="text-white text-lg sm:text-xl md:text-2xl font-semibold">
               {referralData.stats.totalReferrals}
             </p>
           </div>
@@ -331,10 +331,10 @@ export function ReferralDashboard() {
           }}
         >
           <div>
-            <p className="text-yellow-400 text-sm font-medium mb-1">
+            <p className="text-yellow-400 text-sm md:text-base font-medium mb-1">
               Successful
             </p>
-            <p className="text-white text-lg sm:text-xl md:text-2xl font-bold">
+            <p className="text-white text-lg sm:text-xl md:text-2xl font-semibold">
               {referralData.stats.successfulReferrals}
             </p>
           </div>
@@ -353,8 +353,8 @@ export function ReferralDashboard() {
           }}
         >
           <div>
-            <p className="text-yellow-400 text-sm font-medium mb-1">Pending</p>
-            <p className="text-white text-lg sm:text-xl md:text-2xl font-bold">
+            <p className="text-yellow-400 text-sm md:text-base font-medium mb-1">Pending</p>
+            <p className="text-white text-lg sm:text-xl md:text-2xl font-semibold">
               {referralData.stats.pendingReferrals}
             </p>
           </div>
@@ -373,10 +373,10 @@ export function ReferralDashboard() {
           }}
         >
           <div>
-            <p className="text-yellow-400 text-sm font-medium mb-1">
+            <p className="text-yellow-400 text-sm md:text-base font-medium mb-1">
               Total Earned
             </p>
-            <p className="text-white text-lg sm:text-xl md:text-2xl font-bold">
+            <p className="text-white text-lg sm:text-xl md:text-2xl font-semibold">
               {referralData.stats.totalEarned}
             </p>
           </div>
@@ -389,7 +389,7 @@ export function ReferralDashboard() {
       {/* RCN Balance Breakdown */}
       <div className="bg-[#212121] rounded-3xl">
         <div
-          className="w-full px-8 py-4 text-white rounded-t-3xl"
+          className="w-full px-4 md:px-8 py-4 text-white rounded-t-3xl"
           style={{
             backgroundImage: `url('/img/cust-ref-widget3.png')`,
             backgroundSize: "cover",
@@ -397,41 +397,41 @@ export function ReferralDashboard() {
             backgroundRepeat: "no-repeat",
           }}
         >
-          <p className="text-base sm:text-lg md:text-xl text-gray-800 font-bold">Your RCN Breakdown</p>
+          <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">Your RCN Breakdown</p>
         </div>
-        <div className="w-full p-8 text-white">
+        <div className="w-full p-4 md:p-8 text-white">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             <div>
-              <p className="text-sm sm:text-base md:text-lg text-white font-bold opacity-90 mb-2">
+              <p className="text-sm md:text-lg text-white font-semibold opacity-90 mb-2">
                 Balance Overview
               </p>
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-200">Total Balance:</span>
-                  <span className="font-bold text-sm sm:text-base md:text-lg">
+                  <span className="text-gray-200 text-xs md:text-sm">Total Balance:</span>
+                  <span className="font-semibold text-xs md:text-sm">
                     {blockchainBalance.toFixed(2)} RCN
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-200">Earned (Redeemable):</span>
-                  <span className="font-bold text-green-600">
+                  <span className="text-gray-200 text-xs md:text-sm">Earned (Redeemable):</span>
+                  <span className="font-semibold text-green-600 text-xs md:text-sm">
                     {(referralData.rcnBreakdown?.earnedBalance || 0).toFixed(2)}{" "}
                     RCN
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-200">Market Bought:</span>
-                  <span className="font-bold text-gray-500">
+                  <span className="text-gray-200 text-xs md:text-sm">Market Bought:</span>
+                  <span className="font-semibold text-gray-500 text-xs md:text-sm">
                     {(referralData.rcnBreakdown?.marketBalance || 0).toFixed(2)}{" "}
                     RCN
                   </span>
                 </div>
                 <div className="border-t pt-3 mt-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-200">
+                    <span className="text-gray-200 text-xs md:text-sm">
                       Cross-Shop Limit (20%):
                     </span>
-                    <span className="font-bold text-[#FFCC00]">
+                    <span className="font-semibold text-[#FFCC00] text-xs md:text-sm">
                       {(referralData.rcnBreakdown?.earnedBalance
                         ? referralData.rcnBreakdown.earnedBalance * 0.2
                         : 0
@@ -444,7 +444,7 @@ export function ReferralDashboard() {
             </div>
 
             <div>
-              <p className="text-sm sm:text-base md:text-lg text-white font-bold opacity-90 mb-2">
+              <p className="text-sm md:text-lg text-white font-semibold opacity-90 mb-2">
                 Earnings by Type
               </p>
               <div className="space-y-3">
@@ -455,10 +455,10 @@ export function ReferralDashboard() {
                         key={type}
                         className="flex justify-between items-center"
                       >
-                        <span className="text-gray-200 capitalize">
-                          {type.replace(/_/g, " ")}:
+                        <span className="text-gray-200 capitalize text-xs md:text-sm">
+                          {type}:
                         </span>
-                        <span className="font-bold">{amount} RCN</span>
+                        <span className="font-semibold text-xs md:text-sm">{amount} RCN</span>
                       </div>
                     )
                   )}
@@ -470,7 +470,7 @@ export function ReferralDashboard() {
         {referralData.rcnBreakdown?.homeShop && (
           <div className="mt-2 px-8 py-4 bg-[#212121] rounded-b-3xl">
             <p className="text-sm text-white">
-              <span className="font-bold">Home Shop:</span>{" "}
+              <span className="font-semibold">Home Shop:</span>{" "}
               {referralData.rcnBreakdown.homeShop}
               <br />
               <span className="text-xs">
@@ -485,7 +485,7 @@ export function ReferralDashboard() {
       {referralData.stats.referrals &&
         referralData.stats.referrals.length > 0 && (
           <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-            <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 mb-6">
+            <h3 className="text-lg sm:text-xl md:text-2xl font-semibold text-gray-900 mb-6">
               Recent Referrals
             </h3>
             <div className="overflow-x-auto">
