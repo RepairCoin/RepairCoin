@@ -103,11 +103,11 @@ const RewardYourCustomer: React.FC<RewardYourCustomerProps> = ({
           <div className="w-full flex flex-col items-center gap-6">
             <div className="w-full flex flex-col justify-center items-center gap-20">
               {/* Header */}
-              <div className="flex flex-col w-2/3 items-center md:gap-6 gap-4">
-                <p className="md:text-5xl text-3xl text-center font-bold text-white tracking-wide">
+              <div className="flex flex-col md:w-1/2 items-center md:gap-6 gap-4">
+                <p className="md:text-5xl text-2xl text-center font-bold text-white tracking-wide">
                   Loyalty Tier for our Friends
                 </p>
-                <p className="text-[#FFCC00] text-center text-sm md:text-lg tracking-wide">
+                <p className="text-[#FFCC00] text-center text-base md:text-lg tracking-wide">
                   Every time you repair a device, you earn RepairCoin and unlock
                   collectible coins that mark your loyalty tier. These coins
                   symbolize your status and unlock real-world perks at partner
@@ -129,22 +129,22 @@ const RewardYourCustomer: React.FC<RewardYourCustomerProps> = ({
                       className={`bg-white p-8 h-full ${tier.textColor} w-full rounded-b-2xl`}
                     >
                       <div className="mb-6">
-                        <h3 className="text-2xl text-black font-bold mb-1">
+                        <h3 className="text-xl md:text-2xl text-black font-bold mb-1">
                           {tier.name}
                         </h3>
-                        <p className={`${tier.subtitleColor} text-sm`}>
+                        <p className={`${tier.subtitleColor} text-sm md:text-base`}>
                           {tier.level}
                         </p>
                       </div>
 
                       <div className="mb-6">
-                        <p className="text-xl text-black font-semibold">
+                        <p className="text-base md:text-xl text-black font-semibold">
                           {tier.requirement}
                         </p>
                       </div>
 
                       <div>
-                        <p className={`text-base mb-4 ${tier.prefixColor}`}>
+                        <p className={`text-sm md:text-base mb-4 ${tier.prefixColor}`}>
                           {tier.featuresPrefix}
                         </p>
                         <ul className="space-y-3">

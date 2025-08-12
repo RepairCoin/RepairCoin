@@ -63,7 +63,7 @@ const RewardYourCustomer: React.FC<RewardYourCustomerProps> = ({
 }) => {
   return (
     <div
-      className="w-full pt-10 bg-[#0D0D0D]"
+      className="w-full pt-20 md:pt-10 bg-[#0D0D0D]"
       style={{ backgroundImage: `url(${techBgImage})` }}
     >
       <Section>
@@ -71,14 +71,14 @@ const RewardYourCustomer: React.FC<RewardYourCustomerProps> = ({
           <div className="w-full flex flex-col items-center gap-6">
             <div className="w-full flex flex-col justify-center items-center gap-20">
               {/* Header */}
-              <div className="flex flex-col w-1/2 items-center md:gap-6 gap-4">
-                <p className="text-[#FFCC00] text-sm md:text-lg tracking-wide">
+              <div className="flex flex-col md:w-1/2 items-center md:gap-6 gap-4">
+                <p className="text-[#FFCC00] text-base md:text-lg tracking-wide">
                   Partner with RepairCoin. Power Up Your Shop.
                 </p>
-                <p className="md:text-5xl text-3xl text-center font-bold text-white tracking-wide">
+                <p className="md:text-5xl text-2xl text-center font-bold text-white tracking-wide">
                   Reward your customers. Grow your business.
                 </p>
-                <p className="text-white text-xs md:text-base mb-6 text-center tracking-wide">
+                <p className="text-white text-sm md:text-base mb-6 text-center tracking-wide">
                   With RepairCoin, your shop stands out, earns loyalty, and
                   joins a growing network of future-ready service providers.
                 </p>
@@ -102,15 +102,15 @@ const RewardYourCustomer: React.FC<RewardYourCustomerProps> = ({
                     >
                       {/* Card Header */}
                       <div className="text-start mb-6">
-                        <h3 className={`text-2xl font-bold text-black mb-2`}>
+                        <h3 className={`text-xl md:text-2xl font-bold text-black mb-2`}>
                           {tier.name}
                         </h3>
-                        <p className="text-sm text-gray-800">{tier.subtitle}</p>
+                        <p className="text-sm md:text-base text-gray-800">{tier.subtitle}</p>
                       </div>
 
                       {/* Perks Section */}
                       <div className="mb-8">
-                        <h4 className="font-semibold text-gray-900 mb-4">
+                        <h4 className="font-semibold text-base md:text-lg text-gray-900 mb-4">
                           Perks
                         </h4>
                         <ul className="space-y-3">
