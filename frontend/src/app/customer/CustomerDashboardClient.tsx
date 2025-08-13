@@ -11,6 +11,7 @@ import { ReferralDashboard } from "../../components/customer/ReferralDashboard";
 import { RedemptionApprovals } from "../../components/customer/RedemptionApprovals";
 import { OverviewTab } from "../../components/customer/OverviewTab";
 import { TransactionsTab } from "../../components/customer/TransactionsTab";
+import { SettingsTab } from "../../components/customer/SettingsTab";
 import { Toaster } from "react-hot-toast";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 
@@ -30,6 +31,8 @@ interface CustomerData {
   address: string;
   email: string;
   name?: string;
+  phone?: string;
+  referralCode?: string;
   tier: "BRONZE" | "SILVER" | "GOLD";
   lifetimeEarnings: number;
   currentBalance: number;
@@ -40,6 +43,8 @@ interface CustomerData {
   suspensionReason?: string;
   lastEarnedDate?: string;
   joinDate: string;
+  notificationsEnabled?: boolean;
+  twoFactorEnabled?: boolean;
 }
 
 interface EarnedBalanceData {
@@ -70,7 +75,7 @@ export default function CustomerRegisterClient() {
   const [error, setError] = useState<string | null>(null);
   const [showUnsuspendModal, setShowUnsuspendModal] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    "overview" | "transactions" | "referrals" | "approvals"
+    "overview" | "transactions" | "referrals" | "approvals" | "settings"
   >("overview");
 
   // Read token balance from contract
@@ -300,6 +305,14 @@ export default function CustomerRegisterClient() {
 
           {/* Approvals Tab */}
           {activeTab === "approvals" && <RedemptionApprovals />}
+
+          {/* Settings Tab */}
+          {activeTab === "settings" && (
+            <SettingsTab 
+              customerData={customerData}
+              onUpdateCustomer={fetchCustomerData}
+            />
+          )}
         </div>
       </div>
     </DashboardLayout>

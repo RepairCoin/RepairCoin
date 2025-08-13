@@ -211,10 +211,22 @@ const Sidebar: React.FC<SidebarProps> = ({
       href: "/logout",
       icon: <LogOut className="w-5 h-5" />,
     },
+  ] : userRole === "customer" ? [
+    {
+      title: "Settings",
+      href: "/customer?tab=settings",
+      icon: <SettingsIcon width={24} height={24} />,
+      tabId: "settings",
+    },
+    {
+      title: "Logout",
+      href: "/logout",
+      icon: <LogoutIcon width={24} height={24} />,
+    }
   ] : [
     {
       title: "Settings",
-      href: `/${userRole}/settings`,
+      href: `/${userRole}?tab=settings`,
       icon: <SettingsIcon width={24} height={24} />,
     },
     {
@@ -332,12 +344,12 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div className="border-t border-gray-800 p-3 sm:p-4">
             <ul className="space-y-1">
               {bottomMenuItems.map((item) => {
-                const isActive = userRole === "shop" && item.tabId
+                const isActive = (userRole === "shop" || userRole === "customer") && item.tabId
                   ? activeTab === item.tabId
                   : pathname === item.href;
 
                 const handleClick = (e: React.MouseEvent) => {
-                  if (userRole === "shop" && item.tabId && onTabChange) {
+                  if ((userRole === "shop" || userRole === "customer") && item.tabId && onTabChange) {
                     e.preventDefault();
                     onTabChange(item.tabId);
                   }
