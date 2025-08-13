@@ -20,7 +20,7 @@ const FindARepairCoin: React.FC<FindARepairCoinProps> = ({ chainBgImage }) => {
               <p className="md:text-5xl text-3xl font-bold text-white mb-6">
                 Find a RepairCoin Partner Near You
               </p>
-              <p className="text-white text-xs md:text-base mb-10">
+              <p className="text-white text-sm md:text-base mb-10">
                 Looking to earn RepairCoin?  Just search for a trusted repair
                 shop near you.  Get your device fixed and earn crypto rewards
                 instantly — no extra steps needed.

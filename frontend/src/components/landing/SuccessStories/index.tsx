@@ -45,7 +45,7 @@ const SuccessStories: React.FC<SuccessStoriesProps> = ({
             <p className="text-2xl md:text-4xl xl:text-5xl font-bold text-white mb-6 text-center">
             Success Stories from the RepairCoin Network
             </p>
-            <p className="text-[#FFCC00] text-sm md:text-sm xl:text-lg mb-10 text-center">
+            <p className="text-[#FFCC00] text-base xl:text-lg mb-10 text-center">
             Explore how shops are growing and customers are earning through RepairCoin.
             </p>
           </div>

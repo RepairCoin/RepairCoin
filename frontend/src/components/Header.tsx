@@ -153,16 +153,16 @@ const Header: React.FC = () => {
 
             {/* Mobile Navigation */}
             {isMenuOpen && (
-              <div className="lg:hidden" id="mobile-menu">
+              <div className="lg:hidden bg-white" id="mobile-menu">
                 <div className="px-4 py-4 space-y-4">
                   {/* Navigation Links */}
                   <nav className="flex flex-col items-center space-y-3">
-                    {["Overview", "Features", "Rewards", "About"].map(
+                    {["Rewards", "About"].map(
                       (item) => (
                         <a
                           key={`mobile-${item}`}
-                          href={`#${item.toLowerCase()}`}
-                          className="w-full text-center px-4 py-3 text-base font-medium text-gray-300 hover:text-white hover:bg-gray-700/50 rounded-lg transition-colors duration-200"
+                          href={`${item.toLowerCase()}`}
+                          className="w-full text-center px-4 py-3 text-base font-medium text-black hover:text-white hover:bg-gray-900/50 rounded-lg transition-colors duration-200"
                           onClick={() => setIsMenuOpen(false)}
                         >
                           {item}
@@ -176,16 +176,10 @@ const Header: React.FC = () => {
                     <button
                       onClick={() => setIsModalOpen(true)}
                       disabled={isLoading}
-                      className="w-full px-4 py-3 text-base font-medium text-center text-white hover:bg-gray-700/50 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                      className="w-full px-4 py-3 text-base font-medium text-center text-black bg-[#F7CC00] hover:bg-gray-700/50 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                     >
                       {isLoading ? <Spinner className="w-5 h-5" /> : "Log In"}
                     </button>
-                    <a
-                      href="#"
-                      className="w-full px-4 py-3 text-base font-medium text-center text-gray-900 bg-yellow-400 hover:bg-yellow-500 rounded-full border border-white transition-all duration-200 hover:shadow-lg hover:shadow-yellow-500/20"
-                    >
-                      Sign Up
-                    </a>
                   </div>
                 </div>
               </div>

@@ -56,28 +56,30 @@ const CommunityBanner: React.FC<CommunityBannerProps> = ({
                 </p>
 
                 {/* CTA Button */}
-                <ConnectButton
-                  client={client}
-                  connectModal={{
-                    size: "compact",
-                    title: "Connect to RepairCoin",
-                  }}
-                  connectButton={{
-                    label: "Get Started",
-                    style: {
-                      width: "100px",
-                      backgroundColor: "#F7CC00",
-                      color: "#111827",
-                      fontWeight: "600",
-                      borderRadius: "100px",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      padding: "0.75rem 2rem",
-                      boxShadow:
-                        "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
-                    },
-                  }}
-                />
+                <div className="w-fit">
+                  <ConnectButton
+                    client={client}
+                    connectModal={{
+                      size: "compact",
+                      title: "Connect to RepairCoin",
+                    }}
+                    connectButton={{
+                      label: "Get Started",
+                      style: {
+                        minWidth: "150px",
+                        backgroundColor: "#F7CC00",
+                        color: "#111827",
+                        fontWeight: "600",
+                        borderRadius: "100px",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        padding: "0.75rem 2rem",
+                        boxShadow:
+                          "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+                      },
+                    }}
+                  />
+                </div>
               </div>
 
               {/* Right Column - Placeholder for Image/Illustration */}
@@ -98,7 +100,7 @@ const CommunityBanner: React.FC<CommunityBannerProps> = ({
           alt="Join the RepairCoin Community"
           className="w-full h-full object-cover"
         />
-        <div className="absolute bottom-24 left-4">
+        <div className="absolute bottom-24 left-4 right-4 max-w-[150px]">
           <ConnectButton
             client={client}
             connectModal={{
@@ -108,16 +110,14 @@ const CommunityBanner: React.FC<CommunityBannerProps> = ({
             connectButton={{
               label: "Get Started",
               style: {
-                width: "100px",
+                width: "100%",
                 backgroundColor: "#F7CC00",
                 color: "#111827",
                 fontWeight: "600",
                 borderRadius: "100px",
                 justifyContent: "center",
                 alignItems: "center",
-                padding: "0.75rem 2rem",
-                boxShadow:
-                  "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+                padding: "1rem 1.5rem",
               },
             }}
           />

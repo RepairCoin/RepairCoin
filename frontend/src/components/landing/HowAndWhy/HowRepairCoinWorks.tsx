@@ -26,19 +26,19 @@ const HowRepairCoinWorks: React.FC<any> = () => {
   return (
     <div className="w-full flex flex-col items-center gap-6">
       <div className="w-full flex flex-col  items-center md:gap-6 gap-4">
-        <p className="text-[#FFCC00] text-sm md:text-lg tracking-wide">
+        <p className="text-[#FFCC00] text-base md:text-lg tracking-wide">
           Fix it. Earn it. Power the Repair Economy.
         </p>
         <p className="md:text-5xl text-3xl text-center font-bold text-white tracking-wide">
           How RepairCoin Works
         </p>
-        <p className="text-white text-xs md:text-base mb-6 xl:w-1/2 md:w-2/4 text-center tracking-wide">
+        <p className="text-white text-sm md:text-base mb-6 xl:w-1/2 md:w-2/4 text-center tracking-wide">
           RepairCoin rewards customers for choosing repair over replacement. 
           Get repairs at participating shops, earn RCN tokens, and use them 
           for discounts on future services across our growing network of repair businesses.
         </p>
       </div>
-      <div className="flex w-full  flex-col md:flex-row items-center justify-center md:gap-8 gap-2 mt-12">
+      <div className="flex w-full  flex-col md:flex-row items-center justify-center md:gap-8 gap-2 md:mt-12">
         {[
           {
             title: "Repair",
@@ -67,12 +67,11 @@ const HowRepairCoinWorks: React.FC<any> = () => {
               />
             </div>
             {index < array.length - 1 && (
-              <div className="md:border-1 border-0 rounded-full p-2">
+              <div className="md:border-1 border-0 rounded-full py-1">
                 {/* Mobile: Show SVG */}
                 <div className="md:hidden">
                   <svg
-                    width="60"
-                    height="60"
+                    className="w-10 h-10"
                     viewBox="0 0 60 60"
                     fill="none"
                     xmlns="http://www.w3.org/2000/svg"

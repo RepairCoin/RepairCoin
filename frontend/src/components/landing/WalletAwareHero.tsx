@@ -113,13 +113,13 @@ export const WalletAwareHero: React.FC<WalletAwareHeroProps> = ({
         <Section>
           <div className='flex w-full flex-col'>
             <div className='md:w-1/2'>
-              <p className='text-[#FFCC00] text-sm md:text-sm xl:text-lg mb-6'>
+              <p className='text-[#FFCC00] text-base md:text-lg xl:text-lg mb-6'>
                 THE REPAIR INDUSTRY'S LOYALTY TOKEN
               </p>
               <p className='text-2xl md:text-4xl xl:text-5xl font-bold text-white mb-6'>
                 Reward your Repairs with RepairCoin
               </p>
-              <p className='text-white text-xs md:text-sm xl:text-base mb-10'>
+              <p className='text-white text-sm md:text-base xl:text-base mb-10'>
                 Join the revolution in device repair loyalty. Earn RCN tokens for every repair, 
                 enjoy tier-based bonuses, and redeem across our network of participating shops.
               </p>
@@ -161,16 +161,18 @@ export const WalletAwareHero: React.FC<WalletAwareHeroProps> = ({
                   }}
                   connectButton={{
                     label: "Connect Wallet to Get Started",
-                      style: {
-                        backgroundColor: "#F7CC00",
-                        color: "#111827",
-                        fontWeight: "600",
-                        borderRadius: "10px",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        padding: "0.75rem 2rem",
-                        boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
-                      }                  }}
+                    style: {
+                      backgroundColor: "#F7CC00",
+                      color: "#111827",
+                      fontWeight: "600",
+                      borderRadius: "10px",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      fontSize: "14px",
+                      padding: "1rem",
+                      boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+                    }                  
+                  }}
                 />
               )}
             </div>
