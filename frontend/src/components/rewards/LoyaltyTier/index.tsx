@@ -101,7 +101,7 @@ const RewardYourCustomer: React.FC<RewardYourCustomerProps> = ({
       <Section>
         <div className="w-full flex flex-col justify-between items-center py-8 xl:py-20 gap-34">
           <div className="w-full flex flex-col items-center gap-6">
-            <div className="w-full flex flex-col justify-center items-center gap-20">
+            <div className="w-full flex flex-col justify-center items-center gap-16 md:gap-20">
               {/* Header */}
               <div className="flex flex-col md:w-1/2 items-center md:gap-6 gap-4">
                 <p className="md:text-5xl text-2xl text-center font-bold text-white tracking-wide">
