@@ -2,22 +2,22 @@ const OurStory: React.FC<any> = () => {
   return (
     <div className="w-full flex gap-14 justify-between items-center py-8 xl:py-20">
       {/* Left Content */}
-      <div className="w-full lg:w-1/3 space-y-6">
+      <div className="w-full lg:w-1/3 space-y-6 mt-10 md:mt-0">
         <div>
-          <h2 className="text-5xl font-bold text-white mb-2">Our Story</h2>
-          <p className="text-[#FFCC00] text-lg">
+          <p className="text-3xl md:text-5xl font-bold text-white mb-2">Our Story</p>
+          <p className="text-[#FFCC00] text-base md:text-lg">
             Repairing Devices. Rewarding Loyalty.
           </p>
         </div>
 
         <div className="space-y-4 text-gray-300">
-          <p>
+          <p className="text-sm md:text-base">
             As a repair shop owner, I noticed something missing— customers were
             happy with the fix, but there was no lasting connection. I wanted to
             change that.
           </p>
 
-          <p>
+          <p className="text-sm md:text-base">
             So I created{" "}
             <span className="text-[#FFCC00] font-semibold">RepairCoin</span>
             —a way to reward every repair and build loyalty through real value.
@@ -29,7 +29,7 @@ const OurStory: React.FC<any> = () => {
       </div>
 
       {/* Right Content - Images with Flexbox */}
-      <div className="w-full lg:w-2/3 flex gap-4">
+      <div className="hidden w-full lg:w-2/3 md:flex gap-4">
         <div className="rounded-2xl overflow-hidden flex-1">
           <img
             src="/img/story1.png"
