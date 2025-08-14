@@ -22,6 +22,7 @@ import { AnalyticsTab } from '@/components/admin/AnalyticsTab';
 import { UnsuspendRequestsTab } from '@/components/admin/UnsuspendRequestsTab';
 import { CreateAdminTab } from '@/components/admin/CreateAdminTab';
 import { CreateShopTab } from '@/components/admin/CreateShopTab';
+import { ShopReviewModal } from '@/components/admin/ShopReviewModal';
 
 const client = createThirdwebClient({
   clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "1969ac335e07ba13ad0f8d1a1de4f6ab",
@@ -62,6 +63,8 @@ interface Shop {
   phone?: string;
   joinDate?: string;
   join_date?: string;
+  suspended_at?: string;
+  suspension_reason?: string;
 }
 
 export default function AdminDashboard() {
@@ -72,6 +75,11 @@ export default function AdminDashboard() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [shops, setShops] = useState<Shop[]>([]);
   const [pendingShops, setPendingShops] = useState<Shop[]>([]);
+  const [rejectedShops, setRejectedShops] = useState<Shop[]>([]);
+  const [reviewModal, setReviewModal] = useState<{ isOpen: boolean; shop: any | null }>({
+    isOpen: false,
+    shop: null
+  });
   const [activeTab, setActiveTab] = useState('overview');
   const [useEnhancedCustomers, setUseEnhancedCustomers] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -212,15 +220,22 @@ export default function AdminDashboard() {
         console.error('Failed to fetch shops:', shopsResponse.status, await shopsResponse.text());
       }
 
-      // Fetch pending shops
-      const pendingResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/shops?verified=false`, {
+      // Fetch all unverified shops (both pending and rejected)
+      const unverifiedResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/shops?verified=false&active=all`, {
         headers: {
           'Authorization': `Bearer ${adminToken}`
         }
       });
-      if (pendingResponse.ok) {
-        const pendingData = await pendingResponse.json();
-        setPendingShops(pendingData.data?.shops || []);
+      if (unverifiedResponse.ok) {
+        const unverifiedData = await unverifiedResponse.json();
+        const allUnverifiedShops = unverifiedData.data?.shops || [];
+        
+        // Separate pending (not suspended) and rejected (suspended) shops
+        const pending = allUnverifiedShops.filter((shop: any) => !shop.suspended_at);
+        const rejected = allUnverifiedShops.filter((shop: any) => shop.suspended_at);
+        
+        setPendingShops(pending);
+        setRejectedShops(rejected);
       }
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -358,28 +373,81 @@ export default function AdminDashboard() {
   };
 
   const approveShop = async (shopId: string) => {
-    const adminToken = await generateAdminToken();
-    if (!adminToken) throw new Error('Failed to authenticate');
+    try {
+      const adminToken = await generateAdminToken();
+      if (!adminToken) throw new Error('Failed to authenticate');
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/shops/${shopId}/approve`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${adminToken}`
-      },
-    });
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/shops/${shopId}/approve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
+        },
+      });
 
-    if (!response.ok) {
-      throw new Error('Failed to approve shop');
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Approve shop error:', errorData);
+        throw new Error(errorData.error || 'Failed to approve shop');
+      }
+
+      // Refresh the data after approval
+      await loadDashboardData();
+      toast.success(`Shop ${shopId} approved successfully!`);
+    } catch (error: any) {
+      console.error('Error approving shop:', error);
+      toast.error(error.message || 'Failed to approve shop');
     }
   };
 
   const reviewShop = (shopId: string) => {
-    alert(`Review functionality for shop ${shopId} coming soon`);
+    const shop = pendingShops.find(s => (s.shopId || s.shop_id) === shopId);
+    if (shop) {
+      setReviewModal({ isOpen: true, shop });
+    }
   };
 
-  const openRejectModal = (shopId: string) => {
-    alert(`Reject functionality for shop ${shopId} coming soon`);
+  const rejectShop = async (shopId: string, reason?: string) => {
+    console.log('Rejecting shop:', shopId);
+    try {
+      const adminToken = await generateAdminToken();
+      if (!adminToken) throw new Error('Failed to authenticate');
+
+      // Since there's no reject endpoint, we'll use suspend for unverified shops
+      // This effectively "rejects" the application
+      const url = `${process.env.NEXT_PUBLIC_API_URL}/admin/shops/${shopId}/suspend`;
+      console.log('Suspend URL:', url);
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({ 
+          reason: `Application Rejected: ${reason || 'Does not meet requirements'}` 
+        })
+      });
+
+      console.log('Suspend response status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Reject shop error:', errorData);
+        throw new Error(errorData.error || 'Failed to reject shop');
+      }
+
+      const responseData = await response.json();
+      console.log('Suspend response data:', responseData);
+
+      // Refresh the data after rejection
+      await loadDashboardData();
+      toast.success(`Shop application rejected successfully!`);
+    } catch (error: any) {
+      console.error('Error rejecting shop:', error);
+      toast.error(error.message || 'Failed to reject shop');
+      throw error; // Re-throw to handle in the UI
+    }
   };
 
   const mintShopBalance = async (shopId: string) => {
@@ -581,9 +649,10 @@ export default function AdminDashboard() {
         {activeTab === 'shop-applications' && (
           <ShopApplicationsTab
             pendingShops={pendingShops}
+            rejectedShops={rejectedShops}
             onApproveShop={approveShop}
             onReviewShop={reviewShop}
-            onRejectShop={openRejectModal}
+            onRejectShop={rejectShop}
             onRefresh={loadDashboardData}
           />
         )}
@@ -641,6 +710,21 @@ export default function AdminDashboard() {
         )}
       </div>
     </div>
+
+    {/* Shop Review Modal */}
+    <ShopReviewModal
+      isOpen={reviewModal.isOpen}
+      onClose={() => setReviewModal({ isOpen: false, shop: null })}
+      shop={reviewModal.shop}
+      onApprove={(shopId) => {
+        approveShop(shopId);
+        setReviewModal({ isOpen: false, shop: null });
+      }}
+      onReject={(shopId) => {
+        rejectShop(shopId);
+        setReviewModal({ isOpen: false, shop: null });
+      }}
+    />
     </>
   );
 }

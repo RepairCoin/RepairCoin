@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useActiveAccount, ConnectButton } from 'thirdweb/react';
 import { createThirdwebClient } from 'thirdweb';
 import { useWalletDetection } from '../../hooks/useWalletDetection';
+import { DualAuthConnect } from '../auth/DualAuthConnect';
 import Section from '../Section';
 
 interface WalletAwareHeroProps {
@@ -25,6 +26,8 @@ export const WalletAwareHero: React.FC<WalletAwareHeroProps> = ({
   const router = useRouter();
   const account = useActiveAccount();
   const { walletType, isRegistered, isDetecting } = useWalletDetection();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMethod, setAuthMethod] = useState<string>('wallet');
 
   // Auto-route registered users
   useEffect(() => {
@@ -153,27 +156,12 @@ export const WalletAwareHero: React.FC<WalletAwareHeroProps> = ({
                   )}
                 </>
               ) : (
-                <ConnectButton 
-                  client={client}
-                  connectModal={{
-                    size: "compact",
-                    title: "Connect to RepairCoin"
-                  }}
-                  connectButton={{
-                    label: "Connect Wallet to Get Started",
-                    style: {
-                      backgroundColor: "#F7CC00",
-                      color: "#111827",
-                      fontWeight: "600",
-                      borderRadius: "10px",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      fontSize: "14px",
-                      padding: "1rem",
-                      boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
-                    }                  
-                  }}
-                />
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className='bg-[#FFCC00] text-black py-2 xl:py-4 px-4 xl:px-6 rounded-full font-semibold text-sm md:text-base text-center shadow-lg hover:bg-yellow-500 transition-colors'
+                >
+                  Get Started <span className='ml-2 text-sm md:text-base xl:text-lg'>→</span>
+                </button>
               )}
             </div>
             
@@ -188,6 +176,38 @@ export const WalletAwareHero: React.FC<WalletAwareHeroProps> = ({
           </div>
         </Section>
       </div>
+
+      {/* Auth Modal */}
+      {showAuthModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 relative animate-fadeIn">
+            <button
+              onClick={() => setShowAuthModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            
+            <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+              Welcome to RepairCoin
+            </h2>
+            
+            <DualAuthConnect
+              onConnect={(address, method) => {
+                console.log('Connected:', address, 'via', method);
+                setAuthMethod(method);
+                setShowAuthModal(false);
+                // Let the existing wallet detection flow handle routing
+              }}
+              onError={(error) => {
+                console.error('Connection error:', error);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

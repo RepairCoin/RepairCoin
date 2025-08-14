@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { createThirdwebClient } from "thirdweb";
 import { useAuth } from "../../../hooks/useAuth";
+import { useAuthMethod } from "@/contexts/AuthMethodContext";
 import CommunityBanner from "@/components/CommunityBanner";
 
 const client = createThirdwebClient({
@@ -16,6 +17,7 @@ const client = createThirdwebClient({
 export default function CustomerRegisterClient() {
   const account = useActiveAccount();
   const { refreshProfile } = useAuth();
+  const { authMethod, walletType } = useAuthMethod();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
@@ -59,6 +61,8 @@ export default function CustomerRegisterClient() {
       const registrationData = {
         ...formData,
         walletAddress: account.address,
+        walletType: walletType || 'external',
+        authMethod: authMethod || 'wallet',
       };
 
       const response = await fetch(

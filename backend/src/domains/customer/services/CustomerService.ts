@@ -12,6 +12,8 @@ export interface CustomerRegistrationData {
   phone?: string;
   fixflowCustomerId?: string;
   referralCode?: string;
+  walletType?: 'embedded' | 'external';
+  authMethod?: 'wallet' | 'email' | 'google' | 'apple';
 }
 
 export interface CustomerUpdateData {
@@ -152,7 +154,14 @@ export class CustomerService {
         data.fixflowCustomerId
       );
 
-      await customerRepository.createCustomer(newCustomer);
+      // Add wallet type and auth method
+      const customerWithWalletInfo = {
+        ...newCustomer,
+        wallet_type: data.walletType || 'external',
+        auth_method: data.authMethod || 'wallet'
+      };
+
+      await customerRepository.createCustomer(customerWithWalletInfo);
 
       // Process referral if code provided
       if (data.referralCode) {

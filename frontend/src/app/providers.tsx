@@ -4,15 +4,17 @@
 import { ThirdwebProvider } from "thirdweb/react";
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from '@/providers/AuthProvider';
+import { AuthMethodProvider } from '@/contexts/AuthMethodContext';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ErrorBoundary>
       <ThirdwebProvider>
-        <AuthProvider>
-          {children}
-          <Toaster
+        <AuthMethodProvider>
+          <AuthProvider>
+            {children}
+            <Toaster
             position="top-right"
             toastOptions={{
               duration: 4000,
@@ -32,7 +34,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
               },
             }}
           />
-        </AuthProvider>
+          </AuthProvider>
+        </AuthMethodProvider>
       </ThirdwebProvider>
     </ErrorBoundary>
   );

@@ -22,14 +22,24 @@ export class CustomerController {
 
   async registerCustomer(req: Request, res: Response) {
     try {
-      const { walletAddress, email, phone, fixflowCustomerId, referralCode } = req.body;
+      const { 
+        walletAddress, 
+        email, 
+        phone, 
+        fixflowCustomerId, 
+        referralCode,
+        walletType = 'external',
+        authMethod = 'wallet' 
+      } = req.body;
       
       const result = await this.customerService.registerCustomer({
         walletAddress,
         email,
         phone,
         fixflowCustomerId,
-        referralCode
+        referralCode,
+        walletType,
+        authMethod
       });
       
       ResponseHelper.created(res, result, 'Customer registered successfully');

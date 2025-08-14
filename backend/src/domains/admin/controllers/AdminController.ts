@@ -37,8 +37,8 @@ export class AdminController {
       const { active = 'true', verified = 'true' } = req.query;
       
       const result = await this.adminService.getShops({
-        active: active === 'true',
-        verified: verified === 'true'
+        active: active === 'all' ? undefined : active === 'true',
+        verified: verified === 'all' ? undefined : verified === 'true'
       });
       
       ResponseHelper.success(res, result);
