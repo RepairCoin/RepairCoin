@@ -10,49 +10,80 @@ const client = createThirdwebClient({
     "1969ac335e07ba13ad0f8d1a1de4f6ab",
 });
 
-interface CommunityBannerProps {
-  communityBannerBgImage: string;
+interface RewardsBannerProps {
+  RewardsBannerBgImage: string;
   bannerChainImage: string;
+  activeTab?: "shop" | "customer";
 }
 
-const CommunityBanner: React.FC<CommunityBannerProps> = ({
-  communityBannerBgImage,
+interface BannerData {
+  header: string;
+  subHeader: string;
+  img: string;
+}
+
+const bannerShopData: BannerData = {
+  header: "Boost loyalty. Grow revenue. Stand out.",
+  subHeader:
+    "Give RCN rewards for every service — from gadget and car repairs to tires, barbershops, and nail salons. Bring in new customers and keep them coming back.",
+  img: "/img/rewards-people-2.png",
+};
+
+const bannerCustomerData: BannerData = {
+  header: "Join the Growing Community!",
+  subHeader:
+    "From phone repairs to car service, tires, barbershops, and nail salons — every visit earns you RCN. Save more and enjoy exclusive perks at participating shops.",
+  img: "/img/people.png",
+};
+
+const RewardsBanner: React.FC<RewardsBannerProps> = ({
+  RewardsBannerBgImage,
   bannerChainImage,
+  activeTab,
 }) => {
   return (
     <div className="w-full bg-[#0D0D0D]">
       {/* Desktop/Tablet View - Hidden on mobile */}
       <div
         className="hidden md:block w-full h-full xl:h-[60vh] px-4 items-center justify-center"
-        style={{ backgroundImage: `url(${communityBannerBgImage})` }}
+        style={{ backgroundImage: `url(${RewardsBannerBgImage})` }}
       >
         <Section>
           <div
             className="w-full mx-auto bg-black/70 rounded-2xl overflow-hidden"
-            style={{ backgroundImage: `url(${bannerChainImage})` }}
+            style={{
+              backgroundImage: `url(${bannerChainImage})`,
+              backgroundSize: "cover",
+              backgroundPosition: "right",
+              backgroundRepeat: "no-repeat",
+            }}
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 px-8 pt-12">
+            <div className="grid grid-cols-3 gap-8">
               {/* Left Column - Content */}
-              <div className="flex flex-col justify-between pb-12">
-                {/* Logo and Tagline */}
-                <div className="flex flex-col space-x-3 mb-8">
-                  <div>
-                    <img
-                      src="/img/community-logo.png"
-                      alt="RepairCoin Logo"
-                      className="h-10 w-auto"
-                    />
-                  </div>
-                  <span className="text-[#FFCC00] text-sm font-medium">
-                    The Repair Industry's Loyalty Coin
-                  </span>
+              <div className="flex flex-col justify-center items-center">
+                <div>
+                  <img
+                    src="/img/community-logo.png"
+                    alt="RepairCoin Logo"
+                    className="h-10 w-auto"
+                  />
                 </div>
-
+                <span className="text-[#FFCC00] text-sm font-medium">
+                  The Repair Industry's Loyalty Coin
+                </span>
+              </div>
+              {/* Center Column - Content */}
+              <div className="flex flex-col justify-between py-4">
                 {/* Main Heading */}
-                <p className="text-xl md:text-3xl font-bold text-white leading-tight">
-                  Join the Growing Community!{" "}
-                  <span className="text-[#FFCC00]">Earning</span> while
-                  repairing.
+                <p className="text-lg md:text-xl font-bold text-[#FFCC00] leading-tight mb-2">
+                  {activeTab === "shop"
+                    ? bannerShopData.header
+                    : bannerCustomerData.header}
+                </p>
+                <p className="text-white text-sm md:text-base mb-6 tracking-wide">
+                  {activeTab === "shop"
+                    ? bannerShopData.subHeader
+                    : bannerCustomerData.subHeader}
                 </p>
 
                 {/* CTA Button */}
@@ -83,10 +114,16 @@ const CommunityBanner: React.FC<CommunityBannerProps> = ({
               </div>
 
               {/* Right Column - Placeholder for Image/Illustration */}
-              <div className="flex items-center justify-center">
-                <div className="relative w-full h-64 md:h-80 rounded-xl flex items-center justify-center">
-                  <img src="/img/people.png" alt="Community Banner" />
-                </div>
+              <div className="relative flex items-end justify-end h-full">
+                <img
+                  src={
+                    activeTab === "shop"
+                      ? "/img/rewards-people-2.png"
+                      : "/img/people.png"
+                  }
+                  alt="Community Banner"
+                  className="w-auto h-full max-h-[400px] object-contain object-bottom"
+                />
               </div>
             </div>
           </div>
@@ -127,4 +164,4 @@ const CommunityBanner: React.FC<CommunityBannerProps> = ({
   );
 };
 
-export default CommunityBanner;
+export default RewardsBanner;

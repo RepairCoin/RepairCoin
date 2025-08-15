@@ -1,7 +1,7 @@
 "use client";
 
 import RewardYourCustomer from "@/components/rewards/RewardYourCustomer";
-import CommunityBanner from "@/components/CommunityBanner";
+import RewardsBanner from "@/components/rewards/RewardsBanner";
 import { useState } from "react";
 
 export default function RewardsPage() {
@@ -10,8 +10,8 @@ export default function RewardsPage() {
   return (
     <main>  
       <RewardYourCustomer techBgImage="/img/tech-bg.png" activeTab={activeTab} setActiveTab={setActiveTab} />
-      <CommunityBanner 
-        communityBannerBgImage="/img/community-chain.png"
+      <RewardsBanner 
+        RewardsBannerBgImage="/img/community-chain.png"
         bannerChainImage="/img/rewards-banner-1.png"
         activeTab={activeTab}
       />
