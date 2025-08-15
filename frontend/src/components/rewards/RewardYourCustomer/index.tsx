@@ -6,6 +6,8 @@ import { TierCard } from "./TierCard";
 
 interface RewardYourCustomerProps {
   techBgImage: string;
+  activeTab: "shop" | "customer";
+  setActiveTab: (tab: "shop" | "customer") => void;
 }
 
 interface TierData {
@@ -151,9 +153,10 @@ const tierCustomerData: TierData[] = [
 ];
 
 const RewardYourCustomer: React.FC<RewardYourCustomerProps> = ({
+  activeTab,
+  setActiveTab,
   techBgImage,
 }) => {
-  const [activeTab, setActiveTab] = useState<"shop" | "customer">("shop");
 
   return (
     <div
