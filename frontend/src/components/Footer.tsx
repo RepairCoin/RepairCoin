@@ -1,7 +1,4 @@
-"use client";
 
-import Image from "next/image";
-import Link from "next/link";
 import Section from "./Section";
 
 const Footer = () => {
@@ -42,6 +39,25 @@ const Footer = () => {
     { name: "Bitcoin", icon: "/bitcoin.svg" },
   ];
 
+  const socialLinks = [
+    {
+      name: "twitter",
+      link: "https://x.com/Repaircoin2025",
+    },
+    {
+      name: "facebook",
+      link: "https://web.facebook.com/repaircoin/",
+    },
+    {
+      name: "instagram",
+      link: "#",
+    },
+    {
+      name: "linkedIn",
+      link: "#",
+    },
+  ]
+
   return (
     <footer className="bg-[#0D0D0D] text-gray-300">
       <Section>
@@ -67,22 +83,22 @@ const Footer = () => {
                 promos!{" "}
               </p>
               <div className="flex space-x-4 justify-center md:justify-start">
-                {["twitter", "facebook", "instagram", "linkedin"].map(
+                {socialLinks.map(
                   (social) => (
                     <a
-                      key={social}
-                      href="#"
+                      key={social.name}
+                      href={social.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="text-gray-400 hover:text-[#FFCC00] transition-colors"
-                      aria-label={social}
                     >
-                      <span className="sr-only">{social}</span>
-                      <div className="w-10 h-10 rounded-full  flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center">
                         <span className="text-xl">
-                          {social === "twitter"
+                          {social.name === "twitter"
                             ? "𝕏"
-                            : social === "facebook"
+                            : social.name === "facebook"
                             ? "f"
-                            : social === "instagram"
+                            : social.name === "instagram"
                             ? "📸"
                             : "in"}
                         </span>
