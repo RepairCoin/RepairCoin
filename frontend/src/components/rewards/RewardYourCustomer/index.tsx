@@ -4,6 +4,15 @@ import { useState } from "react";
 import Section from "@/components/Section";
 import { TierCard } from "./TierCard";
 
+import { ConnectButton } from "thirdweb/react";
+import { createThirdwebClient } from "thirdweb";
+
+const client = createThirdwebClient({
+  clientId:
+    process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID ||
+    "1969ac335e07ba13ad0f8d1a1de4f6ab",
+});
+
 interface RewardYourCustomerProps {
   techBgImage: string;
   activeTab: "shop" | "customer";
@@ -197,6 +206,31 @@ const RewardYourCustomer: React.FC<RewardYourCustomerProps> = ({
                   </p>
                 </div>
               )}
+
+              <div className="w-full flex justify-center">
+                <ConnectButton
+                  client={client}
+                  connectModal={{
+                    size: "compact",
+                    title: "Connect to RepairCoin",
+                  }}
+                  connectButton={{
+                    label: "Get Started",
+                    style: {
+                      minWidth: "150px",
+                      backgroundColor: "#F7CC00",
+                      color: "#111827",
+                      fontWeight: "600",
+                      borderRadius: "100px",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      padding: "0.75rem 2rem",
+                      boxShadow:
+                        "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+                    },
+                  }}
+                />
+              </div>
 
               <div className="w-full flex items-center justify-center gap-10">
                 <button
