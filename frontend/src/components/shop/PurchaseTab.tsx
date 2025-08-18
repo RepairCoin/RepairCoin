@@ -111,27 +111,6 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
             >
               {purchasing ? 'Initiating Purchase...' : `Buy ${purchaseAmount} Credits with ${paymentMethod.toUpperCase()}`}
             </button>
-
-            <InfoCard
-              title="💡 What are Distribution Credits?"
-              items={[
-                'Credits allow you to issue RCN rewards to customers',
-                '1 Credit = 1 RCN you can distribute',
-                'Used for tier bonuses: Bronze +10, Silver +20, Gold +30',
-                'Credits are NOT blockchain tokens - just distribution rights'
-              ]}
-            />
-
-            <InfoCard
-              title="🚀 Live Crypto Payments"
-              description={
-                <>
-                  <strong>Base Sepolia Testnet:</strong> Pay with real USDC or ETH on Base testnet.
-                  <br />
-                  Transactions are processed on-chain via Thirdweb.
-                </>
-              }
-            />
           </div>
         </div>
 

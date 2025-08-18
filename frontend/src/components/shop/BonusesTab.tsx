@@ -80,7 +80,7 @@ export const BonusesTab: React.FC<BonusesTabProps> = ({ tierStats, shopData }) =
       </div>
 
       {/* How Tier Bonuses Work */}
-      <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+      {/* <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
         <h3 className="text-2xl font-bold text-gray-900 mb-6">How Tier Bonuses Work</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <InfoSection
@@ -104,10 +104,10 @@ export const BonusesTab: React.FC<BonusesTabProps> = ({ tierStats, shopData }) =
             itemColor="blue"
           />
         </div>
-      </div>
+      </div> */}
 
       {/* Bonus Requirements */}
-      <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+      {/* <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
         <h3 className="text-2xl font-bold text-gray-900 mb-6">Customer Tier Requirements</h3>
         <div className="space-y-4">
           <TierRequirement
@@ -132,7 +132,7 @@ export const BonusesTab: React.FC<BonusesTabProps> = ({ tierStats, shopData }) =
             color="yellow"
           />
         </div>
-      </div>
+      </div> */}
     </div>
   );
 };
