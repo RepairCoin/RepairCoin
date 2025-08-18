@@ -1,4 +1,5 @@
 // backend/src/app.ts - Updated with all domains including Admin
+// Deploy trigger: Added uuid dependency
 import dotenv from 'dotenv';
 
 // Load environment variables FIRST - look in root directory
