@@ -109,21 +109,32 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({ shopId }) 
   return (
     <div className="space-y-8">
       {/* Search Form */}
-      <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Customer Lookup</h2>
-        
-        <div className="flex gap-4">
+      <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
+        <div
+          className="w-full px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
+          style={{
+            backgroundImage: `url('/img/cust-ref-widget3.png')`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+          }}
+        >
+          <p className="text-lg md:text-xl text-gray-900 font-semibold">
+            Customer Lookup
+          </p>
+        </div>
+        <div className="w-full flex gap-12 p-4 md:p-8 text-white">
           <input
             type="text"
             value={searchAddress}
             onChange={(e) => setSearchAddress(e.target.value)}
             placeholder="Enter customer wallet address (0x...)"
-            className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-3xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
           <button
             onClick={lookupCustomer}
             disabled={loading || !searchAddress}
-            className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition duration-200"
+            className="px-8 py-3 bg-[#FFCC00] hover:bg-yellow-500 text-black font-bold rounded-3xl disabled:opacity-50 disabled:cursor-not-allowed transition duration-200"
           >
             {loading ? 'Searching...' : 'Search'}
           </button>
@@ -147,68 +158,90 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({ shopId }) 
       {customerData && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Basic Information */}
-          <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-            <h3 className="text-xl font-bold text-gray-900 mb-6">Customer Information</h3>
-            
-            <div className="space-y-4">
+          <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
+            <div
+              className="w-full px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
+              style={{
+                backgroundImage: `url('/img/cust-ref-widget3.png')`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                backgroundRepeat: "no-repeat",
+              }}
+            >
+              <p className="text-lg md:text-xl text-gray-900 font-semibold">
+                Customer Information
+              </p>
+            </div>
+
+            <div className="w-full flex flex-col gap-4 p-4 md:p-8 text-white">
               <InfoRow label="Wallet Address" value={customerData.address} mono />
               {customerData.name && <InfoRow label="Name" value={customerData.name} />}
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">Tier Status</span>
+                <span className="text-gray-100">Tier Status</span>
                 <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getTierColor(customerData.tier)}`}>
                   {customerData.tier}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">Account Status</span>
-                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                  customerData.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                }`}>
+                <span className="text-gray-100">Account Status</span>
+                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${customerData.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
                   {customerData.isActive ? 'Active' : 'Suspended'}
                 </span>
               </div>
               <InfoRow label="Lifetime Earnings" value={`${customerData.lifetimeEarnings} RCN`} />
               {customerData.lastEarnedDate && (
-                <InfoRow 
-                  label="Last Earned" 
-                  value={new Date(customerData.lastEarnedDate).toLocaleDateString()} 
+                <InfoRow
+                  label="Last Earned"
+                  value={new Date(customerData.lastEarnedDate).toLocaleDateString()}
                 />
               )}
             </div>
           </div>
 
           {/* Balance Information */}
-          <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-            <h3 className="text-xl font-bold text-gray-900 mb-6">Balance Details</h3>
-            
-            <div className="space-y-4">
-              <BalanceRow 
-                label="Earned Balance" 
-                value={customerData.earnedBalance} 
+          <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
+            <div
+              className="w-full px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
+              style={{
+                backgroundImage: `url('/img/cust-ref-widget3.png')`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                backgroundRepeat: "no-repeat",
+              }}
+            >
+              <p className="text-lg md:text-xl text-gray-900 font-semibold">
+                Balance Details
+              </p>
+            </div>
+
+            <div className="w-full flex flex-col gap-4 p-4 md:p-8 text-white">
+              <BalanceRow
+                label="Earned Balance"
+                value={customerData.earnedBalance}
                 subtext="Redeemable at shops"
                 color="green"
               />
-              <BalanceRow 
-                label="Market Balance" 
-                value={customerData.marketBalance} 
+              <BalanceRow
+                label="Market Balance"
+                value={customerData.marketBalance}
                 subtext="Not redeemable"
                 color="red"
               />
               <div className="border-t pt-4">
-                <BalanceRow 
-                  label="Total Balance" 
-                  value={customerData.totalBalance} 
+                <BalanceRow
+                  label="Total Balance"
+                  value={customerData.totalBalance}
                   subtext="On blockchain"
                   color="blue"
                 />
               </div>
             </div>
 
-            <div className={`mt-6 p-4 rounded-xl ${
-              customerData.homeShopId === shopId 
-                ? 'bg-green-50 border border-green-200' 
-                : 'bg-yellow-50 border border-yellow-200'
-            }`}>
+            <div className={`mt-6 p-4 rounded-xl ${customerData.homeShopId === shopId
+              ? 'bg-green-50 border border-green-200'
+              : 'bg-yellow-50 border border-yellow-200'
+              }`}>
               <h4 className="font-semibold text-gray-900 mb-2">
                 {customerData.homeShopId === shopId ? '🏠 Home Shop Customer' : '🔄 Cross-Shop Customer'}
               </h4>
@@ -216,7 +249,7 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({ shopId }) 
                 Max redeemable at your shop: <span className="font-bold">{getMaxRedeemable()} RCN</span>
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                {customerData.homeShopId === shopId 
+                {customerData.homeShopId === shopId
                   ? '100% of earned balance can be redeemed'
                   : '20% of earned balance can be redeemed (cross-shop limit)'}
               </p>
@@ -224,11 +257,23 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({ shopId }) 
           </div>
 
           {/* Earning Sources */}
-          <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 lg:col-span-2">
-            <h3 className="text-xl font-bold text-gray-900 mb-6">Earnings by Shop</h3>
-            
+          <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden lg:col-span-2">
+            <div
+              className="w-full px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
+              style={{
+                backgroundImage: `url('/img/cust-ref-widget3.png')`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                backgroundRepeat: "no-repeat",
+              }}
+            >
+              <p className="text-lg md:text-xl text-gray-900 font-semibold">
+                Earning Sources
+              </p>
+            </div>
+
             {Object.keys(customerData.earningsByShop).length > 0 ? (
-              <div className="space-y-3">
+              <div className="w-full flex flex-col gap-4 p-4 md:p-8 text-white">
                 {Object.entries(customerData.earningsByShop)
                   .sort(([, a], [, b]) => b - a)
                   .map(([shop, amount]) => (
@@ -269,8 +314,8 @@ interface InfoRowProps {
 const InfoRow: React.FC<InfoRowProps> = ({ label, value, mono }) => {
   return (
     <div className="flex justify-between items-center">
-      <span className="text-gray-600">{label}</span>
-      <span className={`font-medium text-gray-900 ${mono ? 'font-mono text-sm' : ''}`}>
+      <span className="text-gray-100">{label}</span>
+      <span className={`font-medium text-gray-400 ${mono ? 'font-mono text-sm' : ''}`}>
         {mono && value.length > 20 ? `${value.slice(0, 6)}...${value.slice(-4)}` : value}
       </span>
     </div>
@@ -294,10 +339,10 @@ const BalanceRow: React.FC<BalanceRowProps> = ({ label, value, subtext, color })
   return (
     <div className="flex justify-between items-start">
       <div>
-        <p className="text-gray-600">{label}</p>
+        <p className="text-gray-100">{label}</p>
         <p className="text-xs text-gray-400">{subtext}</p>
       </div>
-      <p className={`text-2xl font-bold ${colorClasses[color]}`}>{value} RCN</p>
+      <p className={`text-2xl font-semibold text-lg ${colorClasses[color]}`}>{value} RCN</p>
     </div>
   );
 };
