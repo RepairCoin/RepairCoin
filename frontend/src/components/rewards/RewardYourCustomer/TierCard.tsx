@@ -1,11 +1,3 @@
-import { ConnectButton } from "thirdweb/react";
-import { createThirdwebClient } from "thirdweb";
-
-const client = createThirdwebClient({
-  clientId:
-    process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID ||
-    "1969ac335e07ba13ad0f8d1a1de4f6ab",
-});
 
 const CheckIcon = () => (
   <svg
@@ -44,7 +36,7 @@ export const TierCard = ({ tierData }: { tierData: any }) => {
             <p className="text-sm text-gray-900">{tier.subName}</p>
           </div>
           <div
-            className={`bg-[#212121] flex flex-col justify-between gap-8 p-8 h-full ${tier.textColor} w-full rounded-b-2xl`}
+            className={`bg-[#212121] p-8 h-full ${tier.textColor} w-full rounded-b-2xl`}
           >
             <div className="flex flex-col gap-4">
               {tier.header && (
@@ -67,30 +59,6 @@ export const TierCard = ({ tierData }: { tierData: any }) => {
                   </li>
                 ))}
               </ul>
-            </div>
-            <div className="w-full flex justify-center">
-              <ConnectButton
-                client={client}
-                connectModal={{
-                  size: "compact",
-                  title: "Connect to RepairCoin",
-                }}
-                connectButton={{
-                  label: "Get Started",
-                  style: {
-                    minWidth: "150px",
-                    backgroundColor: "#F7CC00",
-                    color: "#111827",
-                    fontWeight: "600",
-                    borderRadius: "100px",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    padding: "0.75rem 2rem",
-                    boxShadow:
-                      "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
-                  },
-                }}
-              />
             </div>
           </div>
         </div>

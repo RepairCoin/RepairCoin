@@ -3,9 +3,11 @@
 import { useState } from "react";
 import Section from "@/components/Section";
 import { TierCard } from "./TierCard";
-
-import { ConnectButton } from "thirdweb/react";
+import { useRouter } from 'next/navigation';
+import { DualAuthConnect } from '@/components/auth/DualAuthConnect';
+import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { createThirdwebClient } from "thirdweb";
+import { useWalletDetection } from '@/hooks/useWalletDetection';
 
 const client = createThirdwebClient({
   clientId:
@@ -166,6 +168,37 @@ const RewardYourCustomer: React.FC<RewardYourCustomerProps> = ({
   setActiveTab,
   techBgImage,
 }) => {
+  const router = useRouter();
+  const account = useActiveAccount();
+  const { walletType, isRegistered, isDetecting } = useWalletDetection();
+
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMethod, setAuthMethod] = useState<string>('wallet');
+
+  const handleGetStarted = () => {
+    if (!account) {
+      // If no wallet connected, the ConnectButton will handle it
+      return;
+    }
+
+    if (isRegistered) {
+      // Already registered, route to appropriate dashboard
+      switch (walletType) {
+        case 'admin':
+          router.push('/admin');
+          break;
+        case 'shop':
+          router.push('/shop');
+          break;
+        case 'customer':
+          router.push('/customer');
+          break;
+      }
+    } else {
+      // New wallet, go to choose page
+      router.push('/choose');
+    }
+  };
 
   return (
     <div
@@ -196,7 +229,7 @@ const RewardYourCustomer: React.FC<RewardYourCustomerProps> = ({
                     Start Earning, Start Saving
                   </p>
                   <p className="md:text-5xl text-2xl text-center font-bold text-white tracking-wide">
-                    Begin Your Journey Every Repair Earns You More
+                    Begin Your Journey Every Repair Earns You More
                   </p>
                   <p className="text-white text-sm md:text-base mb-6 text-center tracking-wide">
                     Every time you repair a device, you earn RepairCoin and
@@ -207,49 +240,49 @@ const RewardYourCustomer: React.FC<RewardYourCustomerProps> = ({
                 </div>
               )}
 
-              <div className="w-full flex justify-center">
-                <ConnectButton
-                  client={client}
-                  connectModal={{
-                    size: "compact",
-                    title: "Connect to RepairCoin",
-                  }}
-                  connectButton={{
-                    label: "Get Started",
-                    style: {
-                      minWidth: "150px",
-                      backgroundColor: "#F7CC00",
-                      color: "#111827",
-                      fontWeight: "600",
-                      borderRadius: "100px",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      padding: "0.75rem 2rem",
-                      boxShadow:
-                        "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
-                    },
-                  }}
-                />
+              <div className='flex flex-row gap-6 pt-4 items-center'>
+                {account ? (
+                  <>
+                    <button
+                      onClick={handleGetStarted}
+                      disabled={isDetecting}
+                      className='bg-[#FFCC00] text-black py-2 xl:py-4 px-4 xl:px-6 rounded-full font-semibold text-sm md:text-base text-center disabled:opacity-50 disabled:cursor-not-allowed'
+                    >
+                      {isDetecting ? (
+                        <>Detecting Wallet...</>
+                      ) : isRegistered ? (
+                        <>Go to Dashboard <span className='ml-2 text-sm md:text-base xl:text-lg'>→</span></>
+                      ) : (
+                        <>Get Started <span className='ml-2 text-sm md:text-base xl:text-lg'>→</span></>
+                      )}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setShowAuthModal(true)}
+                    className='bg-[#FFCC00] text-black py-2 xl:py-2 px-4 xl:px-6 rounded-full font-semibold text-sm md:text-lg text-center shadow-lg hover:bg-yellow-500 transition-colors'
+                  >
+                    Get Started
+                  </button>
+                )}
               </div>
 
               <div className="w-full flex items-center justify-center gap-10">
                 <button
                   onClick={() => setActiveTab("shop")}
-                  className={`border-2 font-semibold text-sm md:text-lg px-12 py-2 rounded-3xl transition-colors ${
-                    activeTab === "shop"
-                      ? "bg-yellow-400 text-black border-yellow-400"
-                      : "bg-[#979797] text-gray-300 border-[#979797]"
-                  }`}
+                  className={`border-2 font-semibold text-sm md:text-lg px-12 py-2 rounded-3xl transition-colors ${activeTab === "shop"
+                    ? "bg-yellow-400 text-black border-yellow-400"
+                    : "bg-[#979797] text-gray-300 border-[#979797]"
+                    }`}
                 >
                   Shops
                 </button>
                 <button
                   onClick={() => setActiveTab("customer")}
-                  className={`border-2 font-semibold text-sm md:text-lg px-8 py-2 rounded-3xl transition-colors ${
-                    activeTab === "customer"
-                      ? "bg-yellow-400 text-black border-yellow-400"
-                      : "bg-[#979797] text-gray-300 border-[#979797]"
-                  }`}
+                  className={`border-2 font-semibold text-sm md:text-lg px-8 py-2 rounded-3xl transition-colors ${activeTab === "customer"
+                    ? "bg-yellow-400 text-black border-yellow-400"
+                    : "bg-[#979797] text-gray-300 border-[#979797]"
+                    }`}
                 >
                   Customers
                 </button>
@@ -265,6 +298,37 @@ const RewardYourCustomer: React.FC<RewardYourCustomerProps> = ({
           </div>
         </div>
       </Section>
+      {/* Auth Modal */}
+      {showAuthModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 relative animate-fadeIn">
+            <button
+              onClick={() => setShowAuthModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+              Welcome to RepairCoin
+            </h2>
+
+            <DualAuthConnect
+              onConnect={(address, method) => {
+                console.log('Connected:', address, 'via', method);
+                setAuthMethod(method);
+                setShowAuthModal(false);
+                // Let the existing wallet detection flow handle routing
+              }}
+              onError={(error) => {
+                console.error('Connection error:', error);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

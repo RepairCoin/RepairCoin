@@ -138,14 +138,24 @@ export function DualAuthConnect({ onConnect, onError }: DualAuthConnectProps) {
       </div>
 
       {/* Connect Button */}
-      <div className="space-y-4">
+      <div className="space-y-4 w-full">
         {!account ? (
           <ConnectButton
             client={client}
             wallets={wallets}
             connectButton={{
               label: authMethod === 'email' ? "Continue with Email" : "Connect Wallet",
-              className: "w-full !bg-yellow-400 !text-gray-900 !rounded-lg !font-medium hover:!bg-yellow-500 !py-3"
+              className: "!bg-[#F7CC00] hover:!bg-[#E5BB00] !text-gray-900 !justify-center !w-full !font-semibold !px-8 !py-3 !rounded-full !inline-flex !items-center !gap-3 !transition-all !duration-200 !shadow-lg hover:!shadow-xl !border-none",
+              style: {
+                backgroundColor: "#F7CC00",
+                color: "#111827",
+                borderRadius: "9999px",
+                fontWeight: "600",
+                width: "100%",
+                justifyContent: "center",
+                padding: "0.75rem 2rem",
+                boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+              }
             }}
             connectModal={{
               size: "compact",
@@ -159,30 +169,6 @@ export function DualAuthConnect({ onConnect, onError }: DualAuthConnectProps) {
             <p className="text-sm text-green-600 mt-1">{account.address}</p>
           </div>
         )}
-
-        {/* Benefits Section */}
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-          <h4 className="text-sm font-medium text-blue-900 mb-2">
-            {authMethod === 'email' ? '✨ Benefits of Email Login:' : '🔒 Benefits of Wallet Login:'}
-          </h4>
-          <ul className="text-xs text-blue-700 space-y-1">
-            {authMethod === 'email' ? (
-              <>
-                <li>• No wallet setup required</li>
-                <li>• Get started in seconds</li>
-                <li>• Secure wallet created for you</li>
-                <li>• Can export to MetaMask later</li>
-              </>
-            ) : (
-              <>
-                <li>• Full control of your funds</li>
-                <li>• Use existing wallet balance</li>
-                <li>• Compatible with all Web3 services</li>
-                <li>• Maximum security and privacy</li>
-              </>
-            )}
-          </ul>
-        </div>
       </div>
     </div>
   );
