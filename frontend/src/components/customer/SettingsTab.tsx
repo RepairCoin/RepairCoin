@@ -229,89 +229,9 @@ export function SettingsTab({
       </div>
 
       <div className="w-full flex flex-col md:flex-row gap-8">
-        {/* Referral Settings */}
-        <div className="bg-[#212121] w-full md:w-1/2 rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
-          <div
-            className="w-full flex justify-between items-center px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
-            style={{
-              backgroundImage: `url('/img/cust-ref-widget3.png')`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              backgroundRepeat: "no-repeat",
-            }}
-          >
-            <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
-              Referral Settings
-            </p>
-          </div>
-
-          <div className="space-y-3 sm:space-y-4 px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
-            <div>
-              <label className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
-                Your Referral Code
-              </label>
-              <div className="flex gap-4">
-                <input
-                  type="text"
-                  value={customerData?.referralCode || "Not available"}
-                  disabled
-                  className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-not-allowed"
-                />
-                {customerData?.referralCode && (
-                  <button
-                    onClick={() =>
-                      copyToClipboard(
-                        customerData.referralCode!,
-                        "Referral code"
-                      )
-                    }
-                    className="text-xs sm:text-sm px-8 bg-[#FFCC00] text-black rounded-3xl font-medium hover:bg-yellow-500 transition-colors"
-                  >
-                    Copy
-                  </button>
-                )}
-              </div>
-              <p className="text-xs sm:text-sm text-gray-500 mt-2">
-                Share this code with friends to earn 25 RCN when they complete
-                their first repair!
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
-                Referral Link
-              </label>
-              <div className="flex gap-4">
-                <input
-                  type="text"
-                  value={
-                    customerData?.referralCode
-                      ? `${window.location.origin}/register?ref=${customerData.referralCode}`
-                      : "Not available"
-                  }
-                  disabled
-                  className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-not-allowed"
-                />
-                {customerData?.referralCode && (
-                  <button
-                    onClick={() =>
-                      copyToClipboard(
-                        `${window.location.origin}/register?ref=${customerData.referralCode}`,
-                        "Referral link"
-                      )
-                    }
-                    className="text-xs sm:text-sm px-8 bg-[#FFCC00] text-black rounded-3xl font-medium hover:bg-yellow-500 transition-colors"
-                  >
-                    Copy
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
 
         {/* Notification Preferences */}
-        <div className="bg-[#212121] w-full md:w-1/2 rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
+        <div className="bg-[#212121] w-full rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
           <div
             className="w-full flex justify-between items-center px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
             style={{
@@ -340,34 +260,6 @@ export function SettingsTab({
                 checked={formData.notificationsEnabled}
                 onChange={handleInputChange}
                 className="w-5 h-5 text-[#FFCC00] bg-gray-700 border-gray-600 rounded focus:ring-[#FFCC00]"
-              />
-            </label>
-
-            <label className="flex items-center justify-between">
-              <div>
-                <p className="text-white font-medium">Push Notifications</p>
-                <p className="text-xs sm:text-sm text-gray-400">
-                  Get instant alerts on your device
-                </p>
-              </div>
-              <input
-                type="checkbox"
-                disabled
-                className="w-5 h-5 text-gray-500 bg-gray-700 border-gray-600 rounded cursor-not-allowed opacity-50"
-              />
-            </label>
-
-            <label className="flex items-center justify-between">
-              <div>
-                <p className="text-white font-medium">SMS Notifications</p>
-                <p className="text-xs sm:text-sm text-gray-400">
-                  Receive text messages for important updates
-                </p>
-              </div>
-              <input
-                type="checkbox"
-                disabled
-                className="w-5 h-5 text-gray-500 bg-gray-700 border-gray-600 rounded cursor-not-allowed opacity-50"
               />
             </label>
           </div>
