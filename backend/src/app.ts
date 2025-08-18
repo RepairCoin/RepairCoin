@@ -80,6 +80,8 @@ class RepairCoinApp {
           'http://localhost:3001', 
           'http://localhost:3002',
           'http://localhost:3003',
+          'https://repaircoin.ai',
+          'https://www.repaircoin.ai',
           process.env.FRONTEND_URL
         ].filter(Boolean);
         
@@ -89,7 +91,12 @@ class RepairCoinApp {
         if (allowedOrigins.includes(origin)) {
           callback(null, true);
         } else {
-          callback(null, true); // Allow all origins in development
+          // In production, only allow specified origins
+          if (process.env.NODE_ENV === 'production') {
+            callback(new Error('Not allowed by CORS'));
+          } else {
+            callback(null, true); // Allow all origins in development
+          }
         }
       },
       credentials: true,
