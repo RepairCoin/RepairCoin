@@ -149,8 +149,14 @@ export default function CustomerRegisterClient() {
       }
 
       // Fetch recent transactions
+      const customerToken = localStorage.getItem("customerAuthToken");
       const transactionsResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/customers/${account.address}/transactions?limit=10`
+        `${process.env.NEXT_PUBLIC_API_URL}/customers/${account.address}/transactions?limit=10`,
+        {
+          headers: {
+            ...(customerToken ? { Authorization: `Bearer ${customerToken}` } : {}),
+          },
+        }
       );
       if (transactionsResponse.ok) {
         const transactionsResult = await transactionsResponse.json();

@@ -1221,6 +1221,67 @@ specs.paths = {
         }
       }
     }
+  },
+  
+  // Shop Wallet Detection Endpoint
+  '/api/shops/wallet/{address}': {
+    get: {
+      tags: ['Shops'],
+      summary: 'Get shop by wallet address',
+      description: 'Retrieve shop information by wallet address. This endpoint is used for wallet detection to determine if an address is registered as a shop.',
+      parameters: [
+        {
+          in: 'path',
+          name: 'address',
+          required: true,
+          schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+          description: 'Shop Ethereum wallet address',
+          example: '0x7890123456789012345678901234567890123456'
+        }
+      ],
+      responses: {
+        '200': {
+          description: 'Shop details retrieved successfully',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  data: {
+                    type: 'object',
+                    properties: {
+                      shopId: { type: 'string', example: 'shop001' },
+                      name: { type: 'string', example: 'Fix It Right Electronics' },
+                      address: { type: 'string', example: '123 Main St, Tech City, TC 12345' },
+                      phone: { type: 'string', example: '+1-555-0123' },
+                      email: { type: 'string', example: 'contact@fixitright.com' },
+                      walletAddress: { type: 'string', example: '0x7890123456789012345678901234567890123456' },
+                      verified: { type: 'boolean', example: true },
+                      active: { type: 'boolean', example: true },
+                      crossShopEnabled: { type: 'boolean', example: true },
+                      joinDate: { type: 'string', format: 'date-time', example: '2025-07-01T00:00:00.000Z' },
+                      purchasedRcnBalance: { type: 'number', example: 5000 },
+                      totalRcnPurchased: { type: 'number', example: 10000 },
+                      totalTokensIssued: { type: 'number', example: 2500 },
+                      totalRedemptions: { type: 'number', example: 1500 }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        '400': {
+          description: 'Invalid wallet address format',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } }
+        },
+        '404': {
+          description: 'Shop not found',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } }
+        }
+      }
+    }
   }
 };
 

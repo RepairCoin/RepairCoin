@@ -1161,7 +1161,7 @@ router.post('/:shopId/issue-reward',
       }
 
       // Check customer daily/monthly limits
-      const dailyLimit = 40;
+      const dailyLimit = 50;
       const monthlyLimit = 500;
       
       // Check if it's a new day and reset daily earnings accordingly

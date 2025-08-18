@@ -81,7 +81,7 @@ export class TierManager {
       BRONZE: {
         tier: "BRONZE",
         multiplier: 1,
-        maxDailyEarnings: 40,
+        maxDailyEarnings: 50,
         maxMonthlyEarnings: 500,
         specialRewards: ["Access to seasonal promotions"],
         crossShopRedemptionLimit: 10,

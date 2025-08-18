@@ -12,6 +12,7 @@ import morgan from 'morgan';
 import { Config } from './config';
 import { logger } from './utils/logger';
 import { setupSwagger } from './docs/swagger';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
 // Domain imports
 import { domainRegistry } from './domains/DomainRegistry';
@@ -108,6 +109,24 @@ class RepairCoinApp {
     
     // Add request ID middleware
     this.app.use(requestIdMiddleware);
+    
+    // Add request timeout middleware (30 seconds)
+    this.app.use((req, res, next) => {
+      // Set timeout for all requests
+      req.setTimeout(30000, () => {
+        logger.error('Request timeout', {
+          method: req.method,
+          path: req.path,
+          ip: req.ip
+        });
+        res.status(408).json({
+          success: false,
+          error: 'Request timeout',
+          code: 'REQUEST_TIMEOUT'
+        });
+      });
+      next();
+    });
     
     // Manual OPTIONS handler as fallback
     this.app.options('*', (req, res) => {
@@ -229,16 +248,11 @@ class RepairCoinApp {
   }
 
   private setupErrorHandling(): void {
-    // Global error handler
-    this.app.use((error: any, req: any, res: any, next: any) => {
-      logger.error('Global error handler:', error);
-      
-      res.status(error.statusCode || 500).json({
-        success: false,
-        error: error.message || 'Internal server error',
-        ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
-      });
-    });
+    // 404 handler should be before error handler
+    this.app.use(notFoundHandler);
+    
+    // Use the comprehensive error handler from errorHandler.ts
+    this.app.use(errorHandler);
     
     // Unhandled promise rejections
     process.on('unhandledRejection', (reason, promise) => {

@@ -189,7 +189,7 @@ The API uses Swagger/OpenAPI documentation:
 **Earning Structure**:
 - Small repairs ($50-$99): 10 RCN base + tier bonus
 - Large repairs ($100+): 25 RCN base + tier bonus
-- Daily limit: 40 RCN (excluding bonuses)
+- Daily limit: 50 RCN (excluding bonuses)
 - Monthly limit: 500 RCN (excluding bonuses)
 
 ### Referral System
@@ -232,6 +232,63 @@ All registration endpoints return HTTP 409 (Conflict) with a `conflictingRole` f
 - `RoleValidator` utility (`/backend/src/utils/roleValidator.ts`) - Central role validation logic
 - Role conflict middleware (`/backend/src/middleware/roleConflictValidator.ts`) - Reusable validation
 - Database methods check wallet addresses across all tables
+
+### Wallet Detection System
+
+**Overview**: Automatically detects wallet registration status and routes users to appropriate dashboards or registration flows.
+
+**Frontend Components**:
+
+**1. WalletAwareHero Component** (`/frontend/src/components/landing/WalletAwareHero.tsx`):
+- Main entry point on landing page for wallet-aware UI
+- Uses `useWalletDetection()` hook to check wallet status
+- Auto-routes registered users to dashboards (admin/shop/customer)
+- Shows dynamic button states: "Detecting Wallet...", "Go to Dashboard →", or "Get Started →"
+- Displays registration status: "Registered as: Administrator/Repair Shop/Customer"
+
+**2. useWalletDetection Hook** (`/frontend/src/hooks/useWalletDetection.tsx`):
+- Core detection logic managing wallet state
+- Monitors wallet connection changes via Thirdweb's `useActiveAccount()`
+- Calls `WalletDetectionService.detectWalletType()` on wallet connection
+- Provides `refetch()` method for manual re-detection
+- Supports auto-routing to dashboards when enabled
+
+**3. WalletDetectionService** (`/frontend/src/services/walletDetectionService.ts`):
+- Singleton service for API integration
+- Detection process:
+  1. Check admin addresses (environment variable)
+  2. Check customer registration (`GET /api/customers/{address}`)
+  3. Check shop registration (`GET /api/shops/wallet/{address}`)
+  4. Return `unknown` if not registered
+- Includes `checkRoleConflicts()` method for registration validation
+- Returns: `{ type: 'customer'|'shop'|'admin'|'unknown', isRegistered: boolean, route: string, data?: any }`
+
+**Backend API Endpoints**:
+
+**1. Customer Detection**: `GET /api/customers/:address`
+- Public endpoint for wallet detection (no auth required)
+- Returns customer profile data or 404
+- Validates Ethereum address format
+
+**2. Shop Detection**: `GET /api/shops/wallet/:address`
+- Finds shop by wallet address (not shop ID)
+- Returns full data for admin/owner, limited data for others
+- Includes verification status and RCN balance
+- Returns 404 if not found
+
+**Detection Flow**:
+1. User connects wallet on landing page
+2. `WalletAwareHero` component detects connection
+3. `useWalletDetection` hook triggers detection
+4. `WalletDetectionService` checks all roles in order
+5. Component updates UI based on registration status
+6. Auto-routes to dashboard if registered
+
+**Error Handling**:
+- Graceful degradation when APIs unavailable
+- Shows "unknown" status on detection failure
+- Maintains user on landing page during errors
+- All addresses normalized to lowercase for consistency
 
 ### Admin Dashboard API Endpoints
 
