@@ -47,9 +47,22 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
     <div className="space-y-8">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Purchase Form */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Buy Distribution Credits</h2>
-          <div className="space-y-6">
+        <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
+          <div
+            className="w-full px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
+            style={{
+              backgroundImage: `url('/img/cust-ref-widget3.png')`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              backgroundRepeat: "no-repeat",
+            }}
+          >
+            <p className="text-lg md:text-xl text-gray-900 font-semibold">
+              Customer Information
+            </p>
+          </div>
+
+          <div className="w-full flex flex-col gap-4 p-4 md:p-8 text-white">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Amount of Credits (minimum 1)
@@ -80,7 +93,7 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
                   selected={paymentMethod === 'usdc'}
                   onClick={() => setPaymentMethod('usdc')}
                 />
-                
+
                 <PaymentMethodButton
                   method="eth"
                   label="ETH"
@@ -123,9 +136,22 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
         </div>
 
         {/* Purchase History */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-          <h3 className="text-xl font-bold text-gray-900 mb-6">Recent Purchases</h3>
-          <div className="space-y-4">
+        <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
+          <div
+            className="w-full px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
+            style={{
+              backgroundImage: `url('/img/cust-ref-widget3.png')`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              backgroundRepeat: "no-repeat",
+            }}
+          >
+            <p className="text-lg md:text-xl text-gray-900 font-semibold">
+              Customer Information
+            </p>
+          </div>
+
+          <div className="w-full flex flex-col gap-4 p-4 md:p-8 text-white">
             {purchases.length > 0 ? (
               purchases.slice(0, 5).map((purchase) => (
                 <PurchaseCard
@@ -162,11 +188,10 @@ const PaymentMethodButton: React.FC<PaymentMethodButtonProps> = ({
     <button
       type="button"
       onClick={onClick}
-      className={`p-4 rounded-xl border-2 transition-colors ${
-        selected 
-          ? 'border-green-500 bg-green-50 text-green-900' 
+      className={`p-4 rounded-xl border-2 transition-colors ${selected
+          ? 'border-green-500 bg-green-50 text-green-900'
           : 'border-gray-200 hover:border-gray-300'
-      }`}
+        }`}
     >
       <div className="font-medium">{label}</div>
       <div className="text-sm text-gray-500">{description}</div>

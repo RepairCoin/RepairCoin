@@ -15,6 +15,11 @@ export const metadata: Metadata = {
   title: 'RepairCoin - Loyalty Tokens for Repair Shops',
   description: 'Earn RepairCoin tokens for repairs and redeem them at participating shops',
   keywords: ['blockchain', 'loyalty', 'tokens', 'repair', 'cryptocurrency'],
+  icons: {
+    icon: '/img/favicon-logo.png',
+    shortcut: '/img/favicon-logo.png',
+    apple: '/img/favicon-logo.png',
+  },
 }
 
 export default function RootLayout({
