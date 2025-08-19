@@ -107,197 +107,348 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({ shopId }) 
   };
 
   return (
-    <div className="space-y-8">
-      {/* Search Form */}
-      <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
-        <div
-          className="w-full px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
-          style={{
-            backgroundImage: `url('/img/cust-ref-widget3.png')`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-          }}
-        >
-          <p className="text-lg md:text-xl text-gray-900 font-semibold">
-            Customer Lookup
-          </p>
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-white mb-2">Customer Lookup</h1>
+        <p className="text-gray-400">Search and verify customer information</p>
+      </div>
+
+      {/* Search Section */}
+      <div className="bg-gradient-to-br from-[#1C1C1C] to-[#252525] rounded-2xl p-6 border border-gray-800 mb-8">
+        <div className="flex items-center mb-4">
+          <div className="w-10 h-10 bg-[#FFCC00] bg-opacity-20 rounded-lg flex items-center justify-center mr-3">
+            <svg className="w-5 h-5 text-[#FFCC00]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-white">Search Customer</h2>
         </div>
-        <div className="w-full flex gap-12 p-4 md:p-8 text-white">
-          <input
-            type="text"
-            value={searchAddress}
-            onChange={(e) => setSearchAddress(e.target.value)}
-            placeholder="Enter customer wallet address (0x...)"
-            className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-3xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
+        
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              value={searchAddress}
+              onChange={(e) => setSearchAddress(e.target.value)}
+              placeholder="Enter wallet address (0x...)"
+              onKeyPress={(e) => e.key === 'Enter' && lookupCustomer()}
+              className="w-full px-4 py-3 pl-12 bg-[#0D0D0D] border border-gray-700 text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent transition-all placeholder-gray-500"
+            />
+            <svg className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+          </div>
           <button
             onClick={lookupCustomer}
             disabled={loading || !searchAddress}
-            className="px-8 py-3 bg-[#FFCC00] hover:bg-yellow-500 text-black font-bold rounded-3xl disabled:opacity-50 disabled:cursor-not-allowed transition duration-200"
+            className="px-8 py-3 bg-gradient-to-r from-[#FFCC00] to-[#FFA500] text-black font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow-lg hover:shadow-yellow-500/25 transform hover:scale-105 flex items-center justify-center gap-2"
           >
-            {loading ? 'Searching...' : 'Search'}
+            {loading ? (
+              <>
+                <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Searching...
+              </>
+            ) : (
+              <>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                Search
+              </>
+            )}
           </button>
         </div>
       </div>
 
       {/* Error Display */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-          <div className="flex">
-            <div className="text-red-400 text-xl mr-3">⚠️</div>
-            <div>
-              <h3 className="text-sm font-medium text-red-800">Error</h3>
-              <div className="mt-1 text-sm text-red-700">{error}</div>
-            </div>
+        <div className="bg-red-900 bg-opacity-20 border border-red-500 rounded-xl p-4 mb-8">
+          <div className="flex items-center">
+            <svg className="w-5 h-5 text-red-500 mr-3" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+            <p className="text-red-400">{error}</p>
           </div>
         </div>
       )}
 
       {/* Customer Details */}
       {customerData && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Basic Information */}
-          <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
-            <div
-              className="w-full px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
-              style={{
-                backgroundImage: `url('/img/cust-ref-widget3.png')`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-                backgroundRepeat: "no-repeat",
-              }}
-            >
-              <p className="text-lg md:text-xl text-gray-900 font-semibold">
-                Customer Information
-              </p>
-            </div>
-
-            <div className="w-full flex flex-col gap-4 p-4 md:p-8 text-white">
-              <InfoRow label="Wallet Address" value={customerData.address} mono />
-              {customerData.name && <InfoRow label="Name" value={customerData.name} />}
-              <div className="flex justify-between items-center">
-                <span className="text-gray-100">Tier Status</span>
-                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getTierColor(customerData.tier)}`}>
-                  {customerData.tier}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-100">Account Status</span>
-                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${customerData.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+        <div className="animate-fadeIn">
+          {/* Quick Summary Card */}
+          <div className="bg-gradient-to-r from-[#FFCC00] to-[#FFA500] rounded-2xl p-6 mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-black text-opacity-70 text-sm">Customer Status</p>
+                <h3 className="text-2xl font-bold text-black mb-1">
+                  {customerData.name || 'Anonymous Customer'}
+                </h3>
+                <div className="flex items-center gap-3">
+                  <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${
+                    customerData.tier === 'GOLD'
+                      ? 'bg-black bg-opacity-20 text-black'
+                      : customerData.tier === 'SILVER'
+                      ? 'bg-white bg-opacity-30 text-black'
+                      : 'bg-orange-900 bg-opacity-30 text-black'
                   }`}>
-                  {customerData.isActive ? 'Active' : 'Suspended'}
-                </span>
+                    {customerData.tier === 'GOLD' && '👑'} {customerData.tier} TIER
+                  </div>
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${
+                    customerData.isActive 
+                      ? 'bg-green-900 bg-opacity-30 text-black' 
+                      : 'bg-red-900 bg-opacity-30 text-black'
+                  }`}>
+                    {customerData.isActive ? '✓ Active' : '✗ Suspended'}
+                  </span>
+                </div>
               </div>
-              <InfoRow label="Lifetime Earnings" value={`${customerData.lifetimeEarnings} RCN`} />
-              {customerData.lastEarnedDate && (
-                <InfoRow
-                  label="Last Earned"
-                  value={new Date(customerData.lastEarnedDate).toLocaleDateString()}
-                />
-              )}
+              <div className="text-right">
+                <p className="text-black text-opacity-70 text-sm">Max Redeemable</p>
+                <p className="text-3xl font-bold text-black">{getMaxRedeemable()}</p>
+                <p className="text-black text-opacity-70 text-sm">RCN</p>
+              </div>
             </div>
           </div>
 
-          {/* Balance Information */}
-          <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
-            <div
-              className="w-full px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
-              style={{
-                backgroundImage: `url('/img/cust-ref-widget3.png')`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-                backgroundRepeat: "no-repeat",
-              }}
-            >
-              <p className="text-lg md:text-xl text-gray-900 font-semibold">
-                Balance Details
-              </p>
-            </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Customer Profile Card */}
+            <div className="bg-gradient-to-br from-[#1C1C1C] to-[#252525] rounded-2xl border border-gray-800 overflow-hidden">
+              <div className="p-6">
+                <div className="flex items-center mb-4">
+                  <div className="w-10 h-10 bg-[#FFCC00] bg-opacity-20 rounded-lg flex items-center justify-center mr-3">
+                    <svg className="w-5 h-5 text-[#FFCC00]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-white">Profile</h3>
+                </div>
 
-            <div className="w-full flex flex-col gap-4 p-4 md:p-8 text-white">
-              <BalanceRow
-                label="Earned Balance"
-                value={customerData.earnedBalance}
-                subtext="Redeemable at shops"
-                color="green"
-              />
-              <BalanceRow
-                label="Market Balance"
-                value={customerData.marketBalance}
-                subtext="Not redeemable"
-                color="red"
-              />
-              <div className="border-t pt-4">
-                <BalanceRow
-                  label="Total Balance"
-                  value={customerData.totalBalance}
-                  subtext="On blockchain"
-                  color="blue"
-                />
-              </div>
-            </div>
-
-            <div className={`mt-6 p-4 rounded-xl ${customerData.homeShopId === shopId
-              ? 'bg-green-50 border border-green-200'
-              : 'bg-yellow-50 border border-yellow-200'
-              }`}>
-              <h4 className="font-semibold text-gray-900 mb-2">
-                {customerData.homeShopId === shopId ? '🏠 Home Shop Customer' : '🔄 Cross-Shop Customer'}
-              </h4>
-              <p className="text-sm text-gray-700">
-                Max redeemable at your shop: <span className="font-bold">{getMaxRedeemable()} RCN</span>
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                {customerData.homeShopId === shopId
-                  ? '100% of earned balance can be redeemed'
-                  : '20% of earned balance can be redeemed (cross-shop limit)'}
-              </p>
-            </div>
-          </div>
-
-          {/* Earning Sources */}
-          <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden lg:col-span-2">
-            <div
-              className="w-full px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
-              style={{
-                backgroundImage: `url('/img/cust-ref-widget3.png')`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-                backgroundRepeat: "no-repeat",
-              }}
-            >
-              <p className="text-lg md:text-xl text-gray-900 font-semibold">
-                Earning Sources
-              </p>
-            </div>
-
-            {Object.keys(customerData.earningsByShop).length > 0 ? (
-              <div className="w-full flex flex-col gap-4 p-4 md:p-8 text-white">
-                {Object.entries(customerData.earningsByShop)
-                  .sort(([, a], [, b]) => b - a)
-                  .map(([shop, amount]) => (
-                    <div key={shop} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                      <div>
-                        <span className="font-medium text-gray-900">{shop}</span>
-                        {shop === shopId && (
-                          <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                            Your Shop
-                          </span>
-                        )}
-                        {shop === customerData.homeShopId && (
-                          <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                            Home Shop
-                          </span>
-                        )}
-                      </div>
-                      <span className="font-semibold text-gray-900">{amount} RCN</span>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-gray-400 text-xs mb-1">Wallet Address</p>
+                    <div className="flex items-center gap-2">
+                      <code className="text-white text-sm font-mono bg-[#0D0D0D] px-2 py-1 rounded">
+                        {customerData.address.slice(0, 6)}...{customerData.address.slice(-4)}
+                      </code>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(customerData.address)}
+                        className="text-gray-400 hover:text-[#FFCC00] transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                        </svg>
+                      </button>
                     </div>
-                  ))}
+                  </div>
+
+                  <div>
+                    <p className="text-gray-400 text-xs mb-1">Lifetime Earnings</p>
+                    <p className="text-2xl font-bold text-[#FFCC00]">{customerData.lifetimeEarnings} RCN</p>
+                  </div>
+
+                  {customerData.lastEarnedDate && (
+                    <div>
+                      <p className="text-gray-400 text-xs mb-1">Last Activity</p>
+                      <p className="text-white text-sm">
+                        {new Date(customerData.lastEarnedDate).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="pt-4 border-t border-gray-700">
+                    <div className={`rounded-xl p-3 ${
+                      customerData.homeShopId === shopId
+                        ? 'bg-gradient-to-r from-green-500/20 to-green-600/20 border border-green-500/50'
+                        : 'bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/50'
+                    }`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            customerData.homeShopId === shopId 
+                              ? 'bg-green-500/30' 
+                              : 'bg-yellow-500/30'
+                          }`}>
+                            {customerData.homeShopId === shopId ? (
+                              <svg className="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                              </svg>
+                            ) : (
+                              <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </div>
+                          <div>
+                            <p className={`text-sm font-bold ${
+                              customerData.homeShopId === shopId 
+                                ? 'text-green-400' 
+                                : 'text-yellow-400'
+                            }`}>
+                              {customerData.homeShopId === shopId ? 'Home Customer' : 'Cross-Shop'}
+                            </p>
+                            <p className={`text-xs ${
+                              customerData.homeShopId === shopId 
+                                ? 'text-green-300' 
+                                : 'text-yellow-300'
+                            }`}>
+                              {customerData.homeShopId === shopId 
+                                ? '100% redeemable' 
+                                : '20% limit'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className={`text-right ${
+                          customerData.homeShopId === shopId 
+                            ? 'text-green-400' 
+                            : 'text-yellow-400'
+                        }`}>
+                          <p className="text-xs font-medium">Max</p>
+                          <p className="text-sm font-bold">{getMaxRedeemable()}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-            ) : (
-              <p className="text-gray-500 text-center py-8">No earning history available</p>
-            )}
+            </div>
+
+            {/* Balance Breakdown Card */}
+            <div className="bg-gradient-to-br from-[#1C1C1C] to-[#252525] rounded-2xl border border-gray-800 overflow-hidden">
+              <div className="p-6">
+                <div className="flex items-center mb-4">
+                  <div className="w-10 h-10 bg-[#FFCC00] bg-opacity-20 rounded-lg flex items-center justify-center mr-3">
+                    <svg className="w-5 h-5 text-[#FFCC00]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-white">Balances</h3>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Earned Balance */}
+                  <div className="p-3 bg-green-900 bg-opacity-20 rounded-lg border border-green-500 border-opacity-30">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-green-400 text-xs font-medium">Earned Balance</p>
+                        <p className="text-gray-400 text-xs mt-1">Redeemable</p>
+                      </div>
+                      <p className="text-green-400 text-xl font-bold">{customerData.earnedBalance}</p>
+                    </div>
+                  </div>
+
+                  {/* Market Balance */}
+                  <div className="p-3 bg-red-900 bg-opacity-20 rounded-lg border border-red-500 border-opacity-30">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-red-400 text-xs font-medium">Market Balance</p>
+                        <p className="text-gray-400 text-xs mt-1">Not redeemable</p>
+                      </div>
+                      <p className="text-red-400 text-xl font-bold">{customerData.marketBalance}</p>
+                    </div>
+                  </div>
+
+                  {/* Total Balance */}
+                  <div className="pt-4 border-t border-gray-700">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="text-white text-sm font-medium">Total Balance</p>
+                        <p className="text-gray-400 text-xs">On blockchain</p>
+                      </div>
+                      <p className="text-[#FFCC00] text-2xl font-bold">{customerData.totalBalance}</p>
+                    </div>
+                  </div>
+
+                  {/* Visual Balance Bar */}
+                  <div className="pt-2">
+                    <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+                      <div className="h-full flex">
+                        <div 
+                          className="bg-green-500 h-full"
+                          style={{ width: customerData.totalBalance > 0 ? `${(customerData.earnedBalance / customerData.totalBalance) * 100}%` : '0%' }}
+                        />
+                        <div 
+                          className="bg-red-500 h-full"
+                          style={{ width: customerData.totalBalance > 0 ? `${(customerData.marketBalance / customerData.totalBalance) * 100}%` : '0%' }}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-between text-xs mt-1">
+                      <span className="text-green-400">{customerData.totalBalance > 0 ? Math.round((customerData.earnedBalance / customerData.totalBalance) * 100) : 0}% Earned</span>
+                      <span className="text-red-400">{customerData.totalBalance > 0 ? Math.round((customerData.marketBalance / customerData.totalBalance) * 100) : 0}% Market</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Earning Sources Card */}
+            <div className="bg-gradient-to-br from-[#1C1C1C] to-[#252525] rounded-2xl border border-gray-800 overflow-hidden">
+              <div className="p-6">
+                <div className="flex items-center mb-4">
+                  <div className="w-10 h-10 bg-[#FFCC00] bg-opacity-20 rounded-lg flex items-center justify-center mr-3">
+                    <svg className="w-5 h-5 text-[#FFCC00]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-white">Earning Sources</h3>
+                </div>
+
+                {Object.keys(customerData.earningsByShop).length > 0 ? (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {Object.entries(customerData.earningsByShop)
+                      .sort(([, a], [, b]) => b - a)
+                      .map(([shop, amount], index) => (
+                        <div key={shop} className="flex items-center justify-between p-3 bg-[#0D0D0D] rounded-lg hover:bg-opacity-70 transition-all">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                              index === 0 ? 'bg-[#FFCC00] text-black' :
+                              index === 1 ? 'bg-gray-400 text-black' :
+                              index === 2 ? 'bg-orange-500 text-white' :
+                              'bg-gray-600 text-white'
+                            }`}>
+                              {index + 1}
+                            </div>
+                            <div>
+                              <p className="text-white text-sm font-medium">{shop}</p>
+                              <div className="flex gap-1 mt-1">
+                                {shop === shopId && (
+                                  <span className="text-xs bg-blue-900 bg-opacity-30 text-blue-400 px-2 py-0.5 rounded">
+                                    Your Shop
+                                  </span>
+                                )}
+                                {shop === customerData.homeShopId && (
+                                  <span className="text-xs bg-green-900 bg-opacity-30 text-green-400 px-2 py-0.5 rounded">
+                                    Home
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[#FFCC00] font-bold">{amount}</p>
+                            <p className="text-gray-500 text-xs">RCN</p>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <svg className="w-12 h-12 text-gray-600 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                    </svg>
+                    <p className="text-gray-500 text-sm">No earning history</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
