@@ -17,7 +17,7 @@
     "test:ci": "jest --ci --coverage --maxWorkers=2",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
-    "clean": "rimraf dist",
+    "clean": "rm -rf dist || true",
     "prebuild": "npm run clean",
     "postbuild": "cp package.json dist/",
     "typecheck": "tsc --noEmit",
