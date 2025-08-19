@@ -30,7 +30,8 @@
     "postinstall": "echo 'Development server: npm run dev' && echo 'API Documentation: npm run docs:open'",
     "db:init": "node scripts/init-db.js",
     "db:init:prod": "NODE_ENV=production node scripts/init-db.js",
-    "db:test": "node scripts/init-db-simple.js"
+    "db:test": "node scripts/init-db-simple.js",
+    "db:check": "node scripts/check-db.js"
   },
   "keywords": [
     "blockchain",
