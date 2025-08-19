@@ -29,7 +29,8 @@
     "dev:docs": "concurrently \"npm run dev\" \"sleep 5 && npm run docs:open\"",
     "postinstall": "echo 'Development server: npm run dev' && echo 'API Documentation: npm run docs:open'",
     "db:init": "node scripts/init-db.js",
-    "db:init:prod": "NODE_ENV=production node scripts/init-db.js"
+    "db:init:prod": "NODE_ENV=production node scripts/init-db.js",
+    "db:test": "node scripts/init-db-simple.js"
   },
   "keywords": [
     "blockchain",
