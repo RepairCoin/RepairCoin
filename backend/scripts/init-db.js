@@ -12,8 +12,20 @@ async function initDatabase() {
     try {
         console.log('Connecting to database...');
         
-        // Read and execute init.sql
-        const initSql = fs.readFileSync(path.join(__dirname, '../src/database/init.sql'), 'utf8');
+        // First, try to grant permissions (this might fail if not superuser)
+        try {
+            await pool.query('GRANT CREATE ON SCHEMA public TO CURRENT_USER');
+            await pool.query('GRANT ALL ON SCHEMA public TO CURRENT_USER');
+        } catch (err) {
+            console.log('Note: Could not grant permissions (this is normal if not superuser)');
+        }
+        
+        // Read init.sql and remove CREATE EXTENSION line
+        let initSql = fs.readFileSync(path.join(__dirname, '../src/database/init.sql'), 'utf8');
+        
+        // Remove CREATE EXTENSION line which requires superuser
+        initSql = initSql.replace(/CREATE EXTENSION[^;]+;/g, '-- CREATE EXTENSION skipped (requires superuser)');
+        
         console.log('Executing init.sql...');
         await pool.query(initSql);
         console.log('✅ Base schema created');
