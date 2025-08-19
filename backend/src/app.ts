@@ -30,6 +30,7 @@ import healthRoutes from './routes/health';
 import metricsRoutes from './routes/metrics';
 import authRoutes from './routes/auth';
 import referralRoutes from './routes/referral';
+import setupRoutes from './routes/setup';
 
 // Middleware imports
 import { metricsMiddleware } from './utils/metrics';
@@ -179,6 +180,9 @@ class RepairCoinApp {
   private setupRoutes(): void {
     // Health check (always first)
     this.app.use('/api/health', healthRoutes);
+    
+    // Setup routes (TEMPORARY - REMOVE AFTER USE)
+    this.app.use('/api/setup', setupRoutes);
     
     // Authentication routes
     this.app.use('/api/auth', authRoutes);
