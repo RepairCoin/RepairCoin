@@ -396,32 +396,6 @@ export default function ShopDashboardClient() {
         }}
       >
         <div className="max-w-screen-2xl w-[96%] mx-auto">
-          {/* Header */}
-          <div className="bg-gray-800 bg-opacity-90 rounded-lg border border-gray-700 p-6 mb-8">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <h1 className="text-3xl font-bold text-white">{shopData?.name || 'Shop Dashboard'}</h1>
-                  {shopData?.verified && (
-                    <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-900 text-blue-300">
-                      ✓ Verified
-                    </span>
-                  )}
-                </div>
-                <p className="text-gray-400 text-sm font-mono">
-                  {account.address?.slice(0, 6)}...{account.address?.slice(-4)}
-                </p>
-              </div>
-              <div className="mt-4 sm:mt-0">
-                <ConnectButton 
-                  client={client}
-                  theme="dark"
-                  connectModal={{ size: "compact" }}
-                />
-              </div>
-            </div>
-          </div>
-
           {/* Tab Content */}
           {activeTab === 'overview' && (
             <OverviewTab shopData={shopData} purchases={purchases} blockchainBalance={blockchainBalance} />
