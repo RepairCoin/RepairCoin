@@ -907,6 +907,42 @@ router.get('/:shopId/customers',
   }
 );
 
+// Get customer growth statistics
+router.get('/:shopId/customer-growth',
+  authMiddleware,
+  requireShopOrAdmin,
+  requireShopOwnership,
+  async (req: Request, res: Response) => {
+    try {
+      const { shopId } = req.params;
+      const { period = '7d' } = req.query; // 7d, 30d, 90d
+      
+      const shop = await shopRepository.getShop(shopId);
+      if (!shop) {
+        return res.status(404).json({
+          success: false,
+          error: 'Shop not found'
+        });
+      }
+
+      // Calculate growth statistics
+      const growthStats = await shopRepository.getCustomerGrowthStats(shopId, period as string);
+
+      res.json({
+        success: true,
+        data: growthStats
+      });
+
+    } catch (error) {
+      logger.error('Get customer growth stats error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get customer growth statistics'
+      });
+    }
+  }
+);
+
 // Get pending redemption sessions for a shop
 router.get('/:shopId/pending-sessions',
   authMiddleware,

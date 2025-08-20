@@ -794,4 +794,155 @@ export class ShopRepository extends BaseRepository {
       throw new Error('Failed to get shop customers');
     }
   }
+
+  async getCustomerGrowthStats(shopId: string, period: string = '7d'): Promise<{
+    totalCustomers: number;
+    newCustomers: number;
+    growthPercentage: number;
+    regularCustomers: number;
+    regularGrowthPercentage: number;
+    activeCustomers: number;
+    activeGrowthPercentage: number;
+    averageEarningsPerCustomer: number;
+    avgEarningsGrowthPercentage: number;
+    periodLabel: string;
+  }> {
+    try {
+      // Parse period to get days
+      const periodDays = period === '30d' ? 30 : period === '90d' ? 90 : 7;
+      const periodLabel = period === '30d' ? 'last 30 days' : period === '90d' ? 'last 90 days' : 'last 7 days';
+      
+      const now = new Date();
+      const periodStart = new Date(now.getTime() - periodDays * 24 * 60 * 60 * 1000);
+      const previousPeriodStart = new Date(periodStart.getTime() - periodDays * 24 * 60 * 60 * 1000);
+
+      // Get current total customers
+      const totalCustomersQuery = `
+        SELECT COUNT(DISTINCT customer_address) as count
+        FROM transactions
+        WHERE shop_id = $1 AND type = 'mint'
+      `;
+      const totalResult = await this.pool.query(totalCustomersQuery, [shopId]);
+      const totalCustomers = parseInt(totalResult.rows[0].count || 0);
+
+      // Get new customers in current period
+      const newCustomersQuery = `
+        SELECT COUNT(DISTINCT customer_address) as count
+        FROM transactions
+        WHERE shop_id = $1 
+          AND type = 'mint'
+          AND customer_address IN (
+            SELECT customer_address 
+            FROM transactions 
+            WHERE shop_id = $1 AND type = 'mint'
+            GROUP BY customer_address
+            HAVING MIN(created_at) >= $2
+          )
+      `;
+      const newResult = await this.pool.query(newCustomersQuery, [shopId, periodStart]);
+      const newCustomers = parseInt(newResult.rows[0].count || 0);
+
+      // Get new customers in previous period for growth calculation
+      const prevNewCustomersQuery = `
+        SELECT COUNT(DISTINCT customer_address) as count
+        FROM transactions
+        WHERE shop_id = $1 
+          AND type = 'mint'
+          AND customer_address IN (
+            SELECT customer_address 
+            FROM transactions 
+            WHERE shop_id = $1 AND type = 'mint'
+            GROUP BY customer_address
+            HAVING MIN(created_at) >= $2 AND MIN(created_at) < $3
+          )
+      `;
+      const prevNewResult = await this.pool.query(prevNewCustomersQuery, [shopId, previousPeriodStart, periodStart]);
+      const prevNewCustomers = parseInt(prevNewResult.rows[0].count || 0);
+
+      // Calculate growth percentage
+      const growthPercentage = prevNewCustomers > 0 
+        ? Math.round(((newCustomers - prevNewCustomers) / prevNewCustomers) * 100)
+        : newCustomers > 0 ? 100 : 0;
+
+      // Get regular customers (5+ transactions)
+      const regularCustomersQuery = `
+        SELECT 
+          COUNT(DISTINCT CASE WHEN transaction_count >= 5 THEN customer_address END) as regular_current,
+          COUNT(DISTINCT customer_address) as total_current
+        FROM (
+          SELECT customer_address, COUNT(*) as transaction_count
+          FROM transactions
+          WHERE shop_id = $1 AND type = 'mint' AND created_at >= $2
+          GROUP BY customer_address
+        ) t
+      `;
+      const regularResult = await this.pool.query(regularCustomersQuery, [shopId, periodStart]);
+      const regularCustomers = parseInt(regularResult.rows[0].regular_current || 0);
+
+      // Get previous period regular customers for growth
+      const prevRegularResult = await this.pool.query(regularCustomersQuery, [shopId, previousPeriodStart]);
+      const prevRegularCustomers = parseInt(prevRegularResult.rows[0].regular_current || 0);
+      
+      const regularGrowthPercentage = prevRegularCustomers > 0 
+        ? Math.round(((regularCustomers - prevRegularCustomers) / prevRegularCustomers) * 100)
+        : regularCustomers > 0 ? 100 : 0;
+
+      // Get active customers in current period (made transaction in last week)
+      const activeCustomersQuery = `
+        SELECT COUNT(DISTINCT customer_address) as count
+        FROM transactions
+        WHERE shop_id = $1 
+          AND type = 'mint'
+          AND created_at >= $2
+      `;
+      const activeResult = await this.pool.query(activeCustomersQuery, [shopId, new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)]);
+      const activeCustomers = parseInt(activeResult.rows[0].count || 0);
+
+      // Get previous period active customers
+      const prevActiveResult = await this.pool.query(activeCustomersQuery, [shopId, new Date(periodStart.getTime() - 7 * 24 * 60 * 60 * 1000)]);
+      const prevActiveCustomers = parseInt(prevActiveResult.rows[0].count || 0);
+      
+      const activeGrowthPercentage = prevActiveCustomers > 0 
+        ? Math.round(((activeCustomers - prevActiveCustomers) / prevActiveCustomers) * 100)
+        : activeCustomers > 0 ? 100 : 0;
+
+      // Get average earnings per customer
+      const avgEarningsQuery = `
+        SELECT 
+          COALESCE(AVG(customer_earnings), 0) as avg_earnings
+        FROM (
+          SELECT customer_address, SUM(amount) as customer_earnings
+          FROM transactions
+          WHERE shop_id = $1 AND type = 'mint' AND created_at >= $2
+          GROUP BY customer_address
+        ) t
+      `;
+      const avgResult = await this.pool.query(avgEarningsQuery, [shopId, periodStart]);
+      const averageEarningsPerCustomer = Math.round(parseFloat(avgResult.rows[0].avg_earnings || 0));
+
+      // Get previous period average earnings
+      const prevAvgResult = await this.pool.query(avgEarningsQuery, [shopId, previousPeriodStart]);
+      const prevAvgEarnings = Math.round(parseFloat(prevAvgResult.rows[0].avg_earnings || 0));
+      
+      const avgEarningsGrowthPercentage = prevAvgEarnings > 0 
+        ? Math.round(((averageEarningsPerCustomer - prevAvgEarnings) / prevAvgEarnings) * 100)
+        : averageEarningsPerCustomer > 0 ? 100 : 0;
+
+      return {
+        totalCustomers,
+        newCustomers,
+        growthPercentage,
+        regularCustomers,
+        regularGrowthPercentage,
+        activeCustomers,
+        activeGrowthPercentage,
+        averageEarningsPerCustomer,
+        avgEarningsGrowthPercentage,
+        periodLabel
+      };
+    } catch (error) {
+      logger.error('Error getting customer growth stats:', error);
+      throw new Error('Failed to get customer growth statistics');
+    }
+  }
 }
