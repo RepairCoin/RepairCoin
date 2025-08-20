@@ -45,7 +45,7 @@ router.get('/grouped-by-shop',
           t.shop_id,
           t.customer_address,
           SUM(t.amount) as total_earned,
-          MAX(t.timestamp) as last_transaction,
+          MAX(t.created_at) as last_transaction,
           COUNT(*) as transaction_count
         FROM transactions t
         WHERE t.type = 'mint'
