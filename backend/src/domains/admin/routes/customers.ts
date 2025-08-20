@@ -18,13 +18,20 @@ router.get('/grouped-by-shop',
       const shopRepo = new ShopRepository();
 
       // Create a pool for direct queries
-      const pool = new Pool({
-        host: process.env.DB_HOST || 'localhost',
-        port: parseInt(process.env.DB_PORT || '5432'),
-        database: process.env.DB_NAME || 'repaircoin',
-        user: process.env.DB_USER || 'repaircoin',
-        password: process.env.DB_PASSWORD || 'repaircoin123',
-      });
+      const pool = process.env.DATABASE_URL 
+        ? new Pool({
+            connectionString: process.env.DATABASE_URL,
+            ssl: process.env.NODE_ENV === 'production' ? {
+              rejectUnauthorized: false
+            } : false,
+          })
+        : new Pool({
+            host: process.env.DB_HOST || 'localhost',
+            port: parseInt(process.env.DB_PORT || '5432'),
+            database: process.env.DB_NAME || 'repaircoin',
+            user: process.env.DB_USER || 'repaircoin',
+            password: process.env.DB_PASSWORD || 'repaircoin123',
+          });
 
       // Get all shops
       const shopsResult = await pool.query('SELECT * FROM shops WHERE active = true AND verified = true ORDER BY name');
@@ -147,13 +154,20 @@ router.get('/without-shops',
       const transactionRepo = new TransactionRepository();
 
       // Create a pool for direct queries
-      const pool = new Pool({
-        host: process.env.DB_HOST || 'localhost',
-        port: parseInt(process.env.DB_PORT || '5432'),
-        database: process.env.DB_NAME || 'repaircoin',
-        user: process.env.DB_USER || 'repaircoin',
-        password: process.env.DB_PASSWORD || 'repaircoin123',
-      });
+      const pool = process.env.DATABASE_URL 
+        ? new Pool({
+            connectionString: process.env.DATABASE_URL,
+            ssl: process.env.NODE_ENV === 'production' ? {
+              rejectUnauthorized: false
+            } : false,
+          })
+        : new Pool({
+            host: process.env.DB_HOST || 'localhost',
+            port: parseInt(process.env.DB_PORT || '5432'),
+            database: process.env.DB_NAME || 'repaircoin',
+            user: process.env.DB_USER || 'repaircoin',
+            password: process.env.DB_PASSWORD || 'repaircoin123',
+          });
 
       // Get customers who have never earned from any shop
       const query = `
