@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Poppins } from 'next/font/google'
+import { Toaster } from 'react-hot-toast'
 import { Providers } from './providers'
 import LayoutWrapper from '@/components/LayoutWrapper'
 import AuthRedirect from '@/components/AuthRedirect'
@@ -31,6 +32,25 @@ export default function RootLayout({
     <html lang="en">
       <body className={poppins.className} suppressHydrationWarning={true}>
         <Providers>
+          <Toaster 
+            position="top-right"
+            reverseOrder={false}
+            toastOptions={{
+              duration: 4000,
+              success: {
+                iconTheme: {
+                  primary: '#FFCC00',
+                  secondary: '#1C1C1C',
+                },
+              },
+              error: {
+                iconTheme: {
+                  primary: '#EF4444',
+                  secondary: '#fff',
+                },
+              },
+            }}
+          />
           <AuthRedirect />
           <LayoutWrapper>
             {children}
