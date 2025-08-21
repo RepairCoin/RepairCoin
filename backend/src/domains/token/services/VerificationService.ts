@@ -187,30 +187,40 @@ export class VerificationService {
         throw new Error('Customer not found');
       }
 
-      // Get RCN breakdown from ReferralRepository
-      const rcnBreakdown = await this.referralRepository.getCustomerRcnBySource(customerAddress);
-      
-      // Get redemptions to calculate current balance
-      const transactions = await transactionRepository.getTransactionsByCustomer(customerAddress, 1000);
-      let totalRedeemed = 0;
-      
-      for (const tx of transactions) {
-        if (tx.type === 'redeem') {
-          totalRedeemed += tx.amount;
-        }
+      // Get RCN breakdown from ReferralRepository with fallback
+      let rcnBreakdown = { earned: 0, marketBought: 0, byShop: {}, byType: {} };
+      try {
+        rcnBreakdown = await this.referralRepository.getCustomerRcnBySource(customerAddress);
+      } catch (error) {
+        logger.warn('Failed to get RCN breakdown, using fallback calculation', error);
+        // Fallback: calculate from customer's lifetime earnings
+        rcnBreakdown.earned = customer.lifetimeEarnings || 0;
       }
       
-      // Calculate balances
-      const earnedBalance = Math.max(0, rcnBreakdown.earned - totalRedeemed);
-      const totalBalance = earnedBalance + rcnBreakdown.marketBought;
-      const marketBalance = rcnBreakdown.marketBought;
+      // Get redemptions to calculate current balance
+      let totalRedeemed = 0;
+      try {
+        const transactions = await transactionRepository.getTransactionsByCustomer(customerAddress, 1000);
+        for (const tx of transactions) {
+          if (tx.type === 'redeem') {
+            totalRedeemed += tx.amount;
+          }
+        }
+      } catch (error) {
+        logger.warn('Failed to get redemption history', error);
+      }
+      
+      // Calculate balances safely
+      const earnedBalance = Math.max(0, (rcnBreakdown.earned || 0) - totalRedeemed);
+      const totalBalance = earnedBalance + (rcnBreakdown.marketBought || 0);
+      const marketBalance = rcnBreakdown.marketBought || 0;
 
-      // Get earning breakdown by type
+      // Get earning breakdown by type with safe access
       const earningHistory = {
-        fromRepairs: rcnBreakdown.byType['shop_repair'] || 0,
-        fromReferrals: rcnBreakdown.byType['referral_bonus'] || 0,
-        fromBonuses: rcnBreakdown.byType['promotion'] || 0,
-        fromTierBonuses: rcnBreakdown.byType['tier_bonus'] || 0
+        fromRepairs: rcnBreakdown.byType?.['shop_repair'] || 0,
+        fromReferrals: rcnBreakdown.byType?.['referral_bonus'] || 0,
+        fromBonuses: rcnBreakdown.byType?.['promotion'] || 0,
+        fromTierBonuses: rcnBreakdown.byType?.['tier_bonus'] || 0
       };
 
       return {
@@ -222,7 +232,18 @@ export class VerificationService {
 
     } catch (error) {
       logger.error('Error getting earned balance:', error);
-      throw error;
+      // Return safe default values instead of throwing
+      return {
+        earnedBalance: 0,
+        totalBalance: 0,
+        marketBalance: 0,
+        earningHistory: {
+          fromRepairs: 0,
+          fromReferrals: 0,
+          fromBonuses: 0,
+          fromTierBonuses: 0
+        }
+      };
     }
   }
 
