@@ -37,6 +37,7 @@ interface AuthState {
   logout: () => void;
   refreshProfile: () => Promise<void>;
   checkUserExists: (address: string) => Promise<{ exists: boolean; type?: string; data?: any }>;
+  fetchUserProfile: (address: string) => Promise<UserProfile | null>;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
@@ -188,15 +189,24 @@ export const useAuthStore = create<AuthState>()(
       
       // Logout function
       logout: () => {
+        // Clear auth state
         set({ 
+          account: null,
           userProfile: null,
           isAuthenticated: false,
           userType: null,
           isAdmin: false,
           isShop: false,
           isCustomer: false,
-          error: null
+          error: null,
+          isLoading: false
         }, false, 'logout');
+        
+        // Clear any stored data
+        if (typeof window !== 'undefined') {
+          localStorage.clear();
+          sessionStorage.clear();
+        }
       },
       
       // Refresh profile

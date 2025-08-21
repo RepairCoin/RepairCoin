@@ -34,6 +34,12 @@ export const useAuth = () => {
       // Auto-logout when account is disconnected
       logout();
       useAuthStore.getState().setAccount(null);
+      
+      // Clear any stored tokens or session data
+      if (typeof window !== 'undefined') {
+        localStorage.clear();
+        sessionStorage.clear();
+      }
     }
   }, [account?.address, login, logout]);
 

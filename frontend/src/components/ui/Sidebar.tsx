@@ -2,16 +2,15 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useActiveWallet, useDisconnect } from "thirdweb/react";
+import { useAuthStore } from "@/stores/authStore";
 import {
   LayoutGrid,
   Receipt,
   DollarSign,
   Users,
   Settings,
-  CreditCard,
-  TrendingUp,
-  Gift,
   BarChart3,
   LogOut,
   Menu,
@@ -58,12 +57,29 @@ const Sidebar: React.FC<SidebarProps> = ({
   onCollapseChange,
 }) => {
   const pathname = usePathname();
+  const router = useRouter();
+  const wallet = useActiveWallet();
+  const { disconnect } = useDisconnect();
+  const logout = useAuthStore((state) => state.logout);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const handleCollapseToggle = () => {
     const newCollapsed = !isCollapsed;
     setIsCollapsed(newCollapsed);
     onCollapseChange?.(newCollapsed);
+  };
+
+  const handleLogout = async () => {
+    // Clear auth store state
+    logout();
+    
+    // Disconnect wallet
+    if (wallet && disconnect) {
+      await disconnect(wallet);
+    }
+    
+    // Redirect to home page
+    router.push("/");
   };
 
   const getMenuItems = (): SidebarItem[] => {
@@ -304,7 +320,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                       pathname.startsWith(item.href));
 
                 const handleClick = (e: React.MouseEvent) => {
-                  if ((userRole === "shop" || userRole === "customer") && item.tabId && onTabChange) {
+                  if (item.href === "/logout") {
+                    e.preventDefault();
+                    handleLogout();
+                  } else if ((userRole === "shop" || userRole === "customer") && item.tabId && onTabChange) {
                     e.preventDefault();
                     onTabChange(item.tabId);
                   }
@@ -349,7 +368,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                   : pathname === item.href;
 
                 const handleClick = (e: React.MouseEvent) => {
-                  if ((userRole === "shop" || userRole === "customer") && item.tabId && onTabChange) {
+                  if (item.href === "/logout") {
+                    e.preventDefault();
+                    handleLogout();
+                  } else if ((userRole === "shop" || userRole === "customer") && item.tabId && onTabChange) {
                     e.preventDefault();
                     onTabChange(item.tabId);
                   }
