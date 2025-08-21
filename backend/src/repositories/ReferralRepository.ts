@@ -311,6 +311,67 @@ export class ReferralRepository extends BaseRepository {
     byType: { [type: string]: number };
   }> {
     try {
+      // First check if the table exists
+      const tableCheck = await this.pool.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'customer_rcn_sources'
+        );
+      `);
+      
+      if (!tableCheck.rows[0].exists) {
+        // Fallback: calculate from transactions table
+        logger.warn('customer_rcn_sources table not found, using fallback calculation');
+        
+        const transactionQuery = `
+          SELECT 
+            t.type,
+            t.shop_id,
+            t.reason,
+            SUM(t.amount) as total_amount
+          FROM transactions t
+          WHERE t.customer_address = $1
+          AND t.status = 'confirmed'
+          AND t.type IN ('mint', 'tier_bonus')
+          GROUP BY t.type, t.shop_id, t.reason
+        `;
+        
+        const txResult = await this.pool.query(transactionQuery, [customerAddress.toLowerCase()]);
+        
+        let earned = 0;
+        const byShop: { [shopId: string]: number } = {};
+        const byType: { [type: string]: number } = {};
+        
+        txResult.rows.forEach(row => {
+          const amount = parseFloat(row.total_amount);
+          earned += amount;
+          
+          // Group by shop
+          if (row.shop_id) {
+            byShop[row.shop_id] = (byShop[row.shop_id] || 0) + amount;
+          }
+          
+          // Group by type based on reason
+          let sourceType = 'shop_repair';
+          if (row.reason && row.reason.toLowerCase().includes('referral')) {
+            sourceType = 'referral_bonus';
+          } else if (row.type === 'tier_bonus') {
+            sourceType = 'tier_bonus';
+          }
+          
+          byType[sourceType] = (byType[sourceType] || 0) + amount;
+        });
+        
+        return {
+          earned,
+          marketBought: 0, // No market purchases in transactions table
+          byShop,
+          byType
+        };
+      }
+      
+      // Table exists, use normal query
       const query = `
         SELECT 
           source_type,

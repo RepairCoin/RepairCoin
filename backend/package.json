@@ -22,6 +22,7 @@
     "postbuild": "cp package.json dist/",
     "typecheck": "tsc --noEmit",
     "healthcheck": "curl http://localhost:3000/api/health",
+    "migrate": "node scripts/run-migration.js",
     "docs": "echo 'API Documentation available at: http://localhost:3000/api-docs'",
     "docs:open": "open http://localhost:3000/api-docs || start http://localhost:3000/api-docs",
     "docs:json": "curl http://localhost:3000/api-docs.json",
