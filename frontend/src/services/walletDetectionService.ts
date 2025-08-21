@@ -41,31 +41,38 @@ export class WalletDetectionService {
       const customerResponse = await fetch(`${this.apiUrl}/customers/${address}`);
       if (customerResponse.ok) {
         const customerData = await customerResponse.json();
+        console.log(`✅ Wallet ${address} detected as registered customer`);
         return { 
           type: 'customer', 
           isRegistered: true, 
           route: '/customer',
           data: customerData.data
         };
+      } else if (customerResponse.status === 404) {
+        console.log(`ℹ️ Wallet ${address} not found in customers (this is normal for new users)`);
       }
 
       // Check if shop
       const shopResponse = await fetch(`${this.apiUrl}/shops/wallet/${address}`);
       if (shopResponse.ok) {
         const shopData = await shopResponse.json();
+        console.log(`✅ Wallet ${address} detected as registered shop`);
         return { 
           type: 'shop', 
           isRegistered: true, 
           route: '/shop',
           data: shopData.data
         };
+      } else if (shopResponse.status === 404) {
+        console.log(`ℹ️ Wallet ${address} not found in shops (this is normal for new users)`);
       }
 
       // Unknown wallet - not registered anywhere
+      console.log(`ℹ️ Wallet ${address} is not registered yet - showing registration options`);
       return { type: 'unknown', isRegistered: false, route: '/choose' };
 
     } catch (error) {
-      console.error('Error detecting wallet type:', error);
+      console.error('❌ Unexpected error detecting wallet type:', error);
       return { type: 'unknown', isRegistered: false, route: '/choose' };
     }
   }

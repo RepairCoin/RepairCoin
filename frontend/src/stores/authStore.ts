@@ -94,11 +94,17 @@ export const useAuthStore = create<AuthState>()(
           if (response.ok) {
             const data = await response.json();
             return { exists: true, type: data.type, data: data.user };
+          } else if (response.status === 404) {
+            // This is expected for new users - not an error
+            console.log(`ℹ️ User check: Wallet ${address} not registered yet`);
+            return { exists: false };
           } else {
+            // Actual error
+            console.error(`❌ User check failed with status: ${response.status}`);
             return { exists: false };
           }
         } catch (error) {
-          console.error('Error checking user:', error);
+          console.error('❌ Network error checking user:', error);
           return { exists: false };
         }
       },
@@ -146,22 +152,29 @@ export const useAuthStore = create<AuthState>()(
           const profile = await get().fetchUserProfile(account.address);
           
           // Get JWT token
-          try {
-            const tokenResponse = await fetch(`${API_URL}/auth/token`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ address: account.address })
-            });
-            
-            if (tokenResponse.ok) {
-              const tokenData = await tokenResponse.json();
-              if (profile && tokenData.token) {
-                profile.token = tokenData.token;
+          if (profile) {
+            try {
+              const tokenResponse = await fetch(`${API_URL}/auth/token`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ address: account.address })
+              });
+              
+              if (tokenResponse.ok) {
+                const tokenData = await tokenResponse.json();
+                if (tokenData.token) {
+                  profile.token = tokenData.token;
+                  console.log('✅ Authentication token obtained successfully');
+                }
+              } else if (tokenResponse.status === 404) {
+                console.log('ℹ️ Token generation skipped - user not registered');
+              } else {
+                console.warn(`⚠️ Token generation failed with status: ${tokenResponse.status}`);
               }
+            } catch (tokenError) {
+              console.error('❌ Network error fetching token:', tokenError);
+              // Continue without token
             }
-          } catch (tokenError) {
-            console.error('Error fetching token:', tokenError);
-            // Continue without token
           }
           
           setUserProfile(profile);
