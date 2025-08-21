@@ -311,16 +311,24 @@ export class ReferralRepository extends BaseRepository {
     byType: { [type: string]: number };
   }> {
     try {
-      // First check if the table exists
-      const tableCheck = await this.pool.query(`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables 
-          WHERE table_schema = 'public' 
-          AND table_name = 'customer_rcn_sources'
-        );
-      `);
+      let useTableFallback = false;
       
-      if (!tableCheck.rows[0].exists) {
+      // Try to query the table directly first
+      try {
+        const testQuery = await this.pool.query(
+          'SELECT 1 FROM customer_rcn_sources LIMIT 1'
+        );
+      } catch (tableError: any) {
+        if (tableError.code === '42P01') { // Table does not exist
+          useTableFallback = true;
+        } else {
+          // Some other error, try fallback anyway
+          logger.error('Error checking customer_rcn_sources table:', tableError);
+          useTableFallback = true;
+        }
+      }
+      
+      if (useTableFallback) {
         // Fallback: calculate from transactions table
         logger.warn('customer_rcn_sources table not found, using fallback calculation');
         
@@ -331,17 +339,28 @@ export class ReferralRepository extends BaseRepository {
             t.reason,
             SUM(t.amount) as total_amount
           FROM transactions t
-          WHERE t.customer_address = $1
+          WHERE LOWER(t.customer_address) = LOWER($1)
           AND t.status = 'confirmed'
           AND t.type IN ('mint', 'tier_bonus')
           GROUP BY t.type, t.shop_id, t.reason
         `;
         
-        const txResult = await this.pool.query(transactionQuery, [customerAddress.toLowerCase()]);
+        const txResult = await this.pool.query(transactionQuery, [customerAddress]);
         
         let earned = 0;
         const byShop: { [shopId: string]: number } = {};
         const byType: { [type: string]: number } = {};
+        
+        // Handle case where customer has no transactions
+        if (!txResult.rows || txResult.rows.length === 0) {
+          logger.info(`No transactions found for customer ${customerAddress}`);
+          return {
+            earned: 0,
+            marketBought: 0,
+            byShop: {},
+            byType: {}
+          };
+        }
         
         txResult.rows.forEach(row => {
           const amount = parseFloat(row.total_amount);
@@ -409,7 +428,13 @@ export class ReferralRepository extends BaseRepository {
       return { earned, marketBought, byShop, byType };
     } catch (error) {
       logger.error('Error getting customer RCN by source:', error);
-      throw new Error('Failed to get customer RCN by source');
+      // Return empty result instead of throwing
+      return {
+        earned: 0,
+        marketBought: 0,
+        byShop: {},
+        byType: {}
+      };
     }
   }
 
