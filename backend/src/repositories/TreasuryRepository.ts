@@ -27,9 +27,9 @@ export class TreasuryRepository extends BaseRepository {
     try {
       const query = `
         INSERT INTO shop_rcn_purchases (
-          id, shop_id, purchase_amount, amount_paid,
-          price_per_token, payment_method, payment_details,
-          status, purchased_at, completed_at
+          id, shop_id, amount, total_cost,
+          price_per_rcn, payment_method, payment_reference,
+          status, created_at, completed_at
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       `;
       
@@ -40,7 +40,7 @@ export class TreasuryRepository extends BaseRepository {
         purchase.amountPaid,
         purchase.pricePerToken,
         purchase.paymentMethod,
-        JSON.stringify(purchase.paymentDetails || {}),
+        purchase.paymentDetails?.reference || null,
         purchase.status,
         purchase.purchasedAt,
         purchase.completedAt
@@ -67,14 +67,11 @@ export class TreasuryRepository extends BaseRepository {
         UPDATE shop_rcn_purchases 
         SET status = $1, 
             completed_at = NOW(),
-            payment_details = payment_details || $2,
-            updated_at = NOW()
+            payment_reference = COALESCE($2, payment_reference)
         WHERE id = $3
       `;
       
-      const paymentUpdate = transactionHash ? 
-        JSON.stringify({ transactionHash }) : 
-        '{}';
+      const paymentUpdate = transactionHash || null;
       
       await this.pool.query(query, [status, paymentUpdate, purchaseId]);
       
@@ -105,13 +102,13 @@ export class TreasuryRepository extends BaseRepository {
       return result.rows.map(row => ({
         id: row.id,
         shopId: row.shop_id,
-        purchaseAmount: parseFloat(row.purchase_amount),
-        amountPaid: parseFloat(row.amount_paid),
-        pricePerToken: parseFloat(row.price_per_token),
+        purchaseAmount: parseFloat(row.amount),
+        amountPaid: parseFloat(row.total_cost),
+        pricePerToken: parseFloat(row.price_per_rcn),
         paymentMethod: row.payment_method,
-        paymentDetails: row.payment_details,
+        paymentDetails: row.payment_reference ? { reference: row.payment_reference } : {},
         status: row.status,
-        purchasedAt: row.purchased_at,
+        purchasedAt: row.created_at,
         completedAt: row.completed_at
       }));
     } catch (error) {
@@ -126,7 +123,7 @@ export class TreasuryRepository extends BaseRepository {
         SELECT 
           COALESCE(SUM(
             CASE 
-              WHEN status = 'completed' THEN purchase_amount 
+              WHEN status = 'completed' THEN amount 
               ELSE 0 
             END
           ), 0) as purchased_balance
@@ -153,9 +150,9 @@ export class TreasuryRepository extends BaseRepository {
         ),
         shop_purchase_stats AS (
           SELECT 
-            COALESCE(SUM(purchase_amount), 0) as total_sold,
-            COALESCE(SUM(amount_paid), 0) as total_revenue,
-            COALESCE(AVG(price_per_token), 0.10) as avg_price
+            COALESCE(SUM(amount), 0) as total_sold,
+            COALESCE(SUM(total_cost), 0) as total_revenue,
+            COALESCE(AVG(price_per_rcn), 0.10) as avg_price
           FROM shop_rcn_purchases
           WHERE status = 'completed'
         )
@@ -198,14 +195,14 @@ export class TreasuryRepository extends BaseRepository {
     try {
       const query = `
         SELECT 
-          DATE(purchased_at) as date,
-          SUM(amount_paid) as revenue,
+          DATE(created_at) as date,
+          SUM(total_cost) as revenue,
           COUNT(*) as purchases
         FROM shop_rcn_purchases
         WHERE status = 'completed'
-        AND purchased_at >= $1
-        AND purchased_at <= $2
-        GROUP BY DATE(purchased_at)
+        AND created_at >= $1
+        AND created_at <= $2
+        GROUP BY DATE(created_at)
         ORDER BY date
       `;
       
