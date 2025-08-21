@@ -446,7 +446,7 @@ export default function ShopRegistration() {
                 Personal Information
               </p>
               <div className="flex flex-col gap-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-24">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       First Name <span className="text-[#FFCC00]">*</span>
@@ -477,7 +477,7 @@ export default function ShopRegistration() {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-24">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Phone Number <span className="text-[#FFCC00]">*</span>
@@ -516,7 +516,7 @@ export default function ShopRegistration() {
                 Business Information
               </p>
               <div className="flex flex-col gap-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-24">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Shop ID <span className="text-[#FFCC00]">*</span>
@@ -549,7 +549,7 @@ export default function ShopRegistration() {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-24">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Company Size <span className="text-[#FFCC00]">*</span>
@@ -597,7 +597,7 @@ export default function ShopRegistration() {
                     </Select>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-24">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Website URL
@@ -612,7 +612,7 @@ export default function ShopRegistration() {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-24">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Referral (Optional)
@@ -639,7 +639,7 @@ export default function ShopRegistration() {
                 Address Information
               </p>
               <div className="flex flex-col gap-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-24">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Street Address <span className="text-[#FFCC00]">*</span>
@@ -655,7 +655,7 @@ export default function ShopRegistration() {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-24">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       City <span className="text-[#FFCC00]">*</span>
@@ -703,7 +703,7 @@ export default function ShopRegistration() {
               <p className="text-lg font-bold text-[#FFCC00] mb-4">
                 Wallet Information
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-24">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Connected Wallet
@@ -744,7 +744,7 @@ export default function ShopRegistration() {
                 Additional Information (Optional)
               </p>
               <div className="flex flex-col gap-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-24">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       FixFlow Shop ID (Optional)
@@ -762,7 +762,7 @@ export default function ShopRegistration() {
                     </p>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-24">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       State/Province

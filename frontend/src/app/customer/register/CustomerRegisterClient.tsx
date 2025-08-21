@@ -192,7 +192,7 @@ export default function CustomerRegisterClient() {
               <p className="text-lg font-bold text-[#FFCC00] mb-4">
                 Personal Information
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-24">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                 <div>
                   <input
                     type="text"
@@ -225,7 +225,7 @@ export default function CustomerRegisterClient() {
               <p className="text-lg font-bold text-[#FFCC00] mb-4">
                 Referral (Optional)
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-24">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                 <div>
                   <input
                     type="text"
