@@ -204,7 +204,6 @@ export const useAuthStore = create<AuthState>()(
         
         // Clear any stored data
         if (typeof window !== 'undefined') {
-          localStorage.clear();
           sessionStorage.clear();
         }
       },

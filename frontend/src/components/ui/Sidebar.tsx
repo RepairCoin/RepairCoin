@@ -76,6 +76,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     // Disconnect wallet
     if (wallet && disconnect) {
       await disconnect(wallet);
+      localStorage.clear();
     }
     
     // Redirect to home page

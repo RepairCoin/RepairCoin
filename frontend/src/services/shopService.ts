@@ -22,7 +22,7 @@ export class ShopService {
             hasApplication: true,
             status: shop.verified ? "verified" : "pending",
             shopName: shop.name,
-            shopId: shop.shop_id,
+            shopId: shop.shopId,
           };
         }
       }

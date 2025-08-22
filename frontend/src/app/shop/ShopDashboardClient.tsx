@@ -21,6 +21,7 @@ import { CustomerLookupTab } from '@/components/shop/CustomerLookupTab';
 import { SettingsTab } from '@/components/shop/SettingsTab';
 import { TransactionsTab } from '@/components/shop/TransactionsTab';
 import { CustomersTab } from '@/components/shop/CustomersTab';
+import { useShopRegistration } from '@/hooks/useShopRegistration';
 
 const client = createThirdwebClient({
   clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "1969ac335e07ba13ad0f8d1a1de4f6ab",
@@ -62,6 +63,9 @@ interface TierBonusStats {
 export default function ShopDashboardClient() {
   const account = useActiveAccount();
   const searchParams = useSearchParams();
+  const {
+    existingApplication,
+  } = useShopRegistration();
   const [shopData, setShopData] = useState<ShopData | null>(null);
   const [purchases, setPurchases] = useState<PurchaseHistory[]>([]);
   const [tierStats, setTierStats] = useState<TierBonusStats | null>(null);
@@ -275,33 +279,10 @@ export default function ShopDashboardClient() {
     setCurrentPurchaseId(null);
   };
 
-  // Not connected state
-  if (!account) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-          <div className="text-center">
-            <div className="text-6xl mb-6">🏪</div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">Shop Dashboard</h1>
-            <p className="text-gray-600 mb-8">
-              Connect your shop wallet to access the dashboard
-            </p>
-            <ConnectButton 
-              client={client}
-              theme="light"
-              connectModal={{ size: "wide" }}
-            />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-
   // Error state (shop not found)
   if (error && !shopData) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
+      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] py-32">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
           <div className="text-center">
             <div className="text-red-500 text-4xl mb-4">🚫</div>
@@ -326,10 +307,31 @@ export default function ShopDashboardClient() {
     );
   }
 
-  // Pending application state
-  if (shopData && !shopData.verified && !shopData.active) {
+  // Not connected state
+  if (!account) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
+      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] py-32">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+          <div className="text-center">
+            <div className="text-6xl mb-6">🏪</div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">Shop Dashboard</h1>
+            <p className="text-gray-600 mb-8">
+              Connect your shop wallet to access the dashboard
+            </p>
+            <ConnectButton 
+              client={client}
+              theme="light"
+              connectModal={{ size: "wide" }}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (existingApplication.hasApplication) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] py-32">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
           <div className="text-center">
             <div className="text-yellow-500 text-4xl mb-4">⏳</div>
@@ -342,11 +344,11 @@ export default function ShopDashboardClient() {
             <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-600">Shop Name:</span>
-                <span className="font-medium text-gray-900">{shopData.name}</span>
+                <span className="font-medium text-gray-900">{existingApplication.shopName}</span>
               </div>
               <div className="flex items-center justify-between text-sm mt-2">
                 <span className="text-gray-600">Shop ID:</span>
-                <span className="font-medium text-gray-900">{shopData.shopId}</span>
+                <span className="font-medium text-gray-900">{existingApplication.shopId}</span>
               </div>
               <div className="flex items-center justify-between text-sm mt-2">
                 <span className="text-gray-600">Status:</span>

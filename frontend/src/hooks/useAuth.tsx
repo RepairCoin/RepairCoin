@@ -37,7 +37,6 @@ export const useAuth = () => {
       
       // Clear any stored tokens or session data
       if (typeof window !== 'undefined') {
-        localStorage.clear();
         sessionStorage.clear();
       }
     }
