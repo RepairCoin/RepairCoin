@@ -77,7 +77,7 @@ export const FormField: React.FC<FormFieldProps> = ({
           onChange={onChange}
           placeholder={placeholder}
           disabled={disabled}
-          className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className={`w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
           required={required}
         />
       )}

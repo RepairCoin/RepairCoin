@@ -199,6 +199,7 @@ export const ShopRegistrationForm: React.FC<ShopRegistrationFormProps> = ({
             value={formData.reimbursementAddress}
             onChange={onChange}
             placeholder="0x... (defaults to connected wallet)"
+            disabled
           />
           <FormField
             label="Fixflow Shop ID"
