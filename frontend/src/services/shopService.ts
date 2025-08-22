@@ -39,24 +39,28 @@ export class ShopService {
    */
   static async registerShop(walletAddress: string, formData: ShopRegistrationFormData) {
     const registrationData = {
-      walletAddress,
       shopId: formData.shopId,
       name: formData.name,
-      email: formData.email,
       firstName: formData.firstName,
       lastName: formData.lastName,
+      email: formData.email,
       phone: formData.phone,
       address: formData.address,
       city: formData.city,
       country: formData.country,
-      location: formData.location,
       companySize: formData.companySize,
       monthlyRevenue: formData.monthlyRevenue,
-      website: formData.website || undefined,
-      referral: formData.referral || undefined,
-      reimbursementAddress: formData.reimbursementAddress || walletAddress,
-      fixflowShopId: formData.fixflowShopId || formData.shopId,
-      acceptTerms: formData.acceptTerms,  // Added acceptTerms field
+      website: formData.website,
+      referral: formData.referral,
+      reimbursementAddress: formData.reimbursementAddress,
+      fixflowShopId: formData.fixflowShopId,
+      location:{
+         city: formData.location.city,
+         state: formData.location.state,
+         zipCode: formData.location.zipCode
+      },
+      acceptTerms: formData.acceptTerms,
+      walletAddress: walletAddress
     };
 
     console.log("Submitting shop registration:", registrationData);
