@@ -82,7 +82,7 @@ export default function CustomerRegisterClient() {
   const { data: tokenBalance, isLoading: balanceLoading } = useReadContract({
     contract,
     method: "function balanceOf(address) view returns (uint256)",
-    params: account?.address ? [account.address] : [''],
+    params: account?.address ? [account.address] : [""],
   });
 
   const fetchCustomerData = async () => {
@@ -108,9 +108,7 @@ export default function CustomerRegisterClient() {
           setBlockchainBalance(customerResult.data.blockchainBalance);
         }
       } else if (customerResponse.status === 404) {
-        // Customer not found - they need to register
-        router.push("/customer/register");
-        return;
+        setError('Address not associated with a customer account.');
       }
 
       // Authenticate customer to get JWT token
@@ -133,10 +131,10 @@ export default function CustomerRegisterClient() {
           sessionStorage.setItem("customerAuthToken", authResult.token);
           console.log("Customer authenticated successfully");
         } else {
-          console.error("Customer auth failed:", authResponse.status);
+          console.log("Customer auth failed:", authResponse.status);
         }
       } catch (authError) {
-        console.error("Customer authentication error:", authError);
+        console.log("Customer authentication error:", authError);
       }
 
       // Fetch earned balance data
@@ -154,7 +152,9 @@ export default function CustomerRegisterClient() {
         `${process.env.NEXT_PUBLIC_API_URL}/customers/${account.address}/transactions?limit=10`,
         {
           headers: {
-            ...(customerToken ? { Authorization: `Bearer ${customerToken}` } : {}),
+            ...(customerToken
+              ? { Authorization: `Bearer ${customerToken}` }
+              : {}),
           },
         }
       );
@@ -163,7 +163,7 @@ export default function CustomerRegisterClient() {
         setTransactions(transactionsResult.data?.transactions || []);
       }
     } catch (err) {
-      console.error("Error fetching customer data:", err);
+      console.log("Error fetching customer data:", err);
       setError("Failed to load customer data");
     } finally {
       setLoading(false);
@@ -194,11 +194,59 @@ export default function CustomerRegisterClient() {
     }
   }, [tokenBalance, balanceLoading]);
 
-  useEffect(() => {
-    if (!account?.address && !isAuthenticated) {
-      router.push("/");
-    }
-  }, [account?.address, isAuthenticated]);
+  // Error state (shop not found)
+  if (error && !customerData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] py-32">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+          <div className="text-center">
+            <div className="text-red-500 text-4xl mb-4">🚫</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">
+              Customer Not Found
+            </h3>
+            <p className="text-gray-600 mb-6">{error}</p>
+            <a 
+              href="/customer/register"
+              className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-3 px-4 rounded-xl transition duration-200 transform hover:scale-105 inline-block"
+            >
+              Register Customer
+            </a>
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <ConnectButton
+                client={client}
+                theme="light"
+                connectModal={{ size: "compact" }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Not connected state
+  if (!account) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] py-32">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+          <div className="text-center">
+            <div className="text-6xl mb-6">🏪</div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">
+              Customer Dashboard
+            </h1>
+            <p className="text-gray-600 mb-8">
+              Connect your shop wallet to access the dashboard
+            </p>
+            <ConnectButton
+              client={client}
+              theme="light"
+              connectModal={{ size: "wide" }}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Check if customer is suspended
   if (customerData && !customerData.isActive) {
@@ -300,10 +348,7 @@ export default function CustomerRegisterClient() {
 
           {/* Transactions Tab */}
           {activeTab === "transactions" && (
-            <TransactionsTab
-              transactions={transactions}
-              loading={loading}
-            />
+            <TransactionsTab transactions={transactions} loading={loading} />
           )}
 
           {/* Referrals Tab */}
@@ -314,7 +359,7 @@ export default function CustomerRegisterClient() {
 
           {/* Settings Tab */}
           {activeTab === "settings" && (
-            <SettingsTab 
+            <SettingsTab
               customerData={customerData}
               onUpdateCustomer={fetchCustomerData}
             />
