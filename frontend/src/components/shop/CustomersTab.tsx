@@ -555,7 +555,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId, shopToken })
           <h3 className="text-lg font-semibold text-white">Engagement Insights</h3>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-[#0D0D0D] rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm text-gray-400">Retention Rate</span>
@@ -566,37 +566,6 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId, shopToken })
             </p>
             <p className="text-xs text-gray-500">Customers with 5+ transactions</p>
           </div>
-
-          <div className="bg-[#0D0D0D] rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-gray-400">Tier Distribution</span>
-              <Trophy className="w-4 h-4 text-yellow-400" />
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="flex-1 bg-gray-700 rounded-full h-2 overflow-hidden">
-                <div className="h-full flex">
-                  <div 
-                    className="bg-gradient-to-r from-orange-500 to-orange-600"
-                    style={{ width: `${customers.length > 0 ? (customers.filter(c => c.tier === 'BRONZE').length / customers.length) * 100 : 0}%` }}
-                  />
-                  <div 
-                    className="bg-gradient-to-r from-gray-400 to-gray-500"
-                    style={{ width: `${customers.length > 0 ? (customers.filter(c => c.tier === 'SILVER').length / customers.length) * 100 : 0}%` }}
-                  />
-                  <div 
-                    className="bg-gradient-to-r from-yellow-500 to-yellow-600"
-                    style={{ width: `${customers.length > 0 ? (customers.filter(c => c.tier === 'GOLD').length / customers.length) * 100 : 0}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center justify-between mt-2 text-xs">
-              <span className="text-orange-400">Bronze</span>
-              <span className="text-gray-400">Silver</span>
-              <span className="text-yellow-400">Gold</span>
-            </div>
-          </div>
-
           <div className="bg-[#0D0D0D] rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm text-gray-400">Avg. Transaction Value</span>

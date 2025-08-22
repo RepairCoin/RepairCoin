@@ -365,26 +365,6 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({ shopId }) 
                       <p className="text-[#FFCC00] text-2xl font-bold">{customerData.totalBalance}</p>
                     </div>
                   </div>
-
-                  {/* Visual Balance Bar */}
-                  <div className="pt-2">
-                    <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
-                      <div className="h-full flex">
-                        <div 
-                          className="bg-green-500 h-full"
-                          style={{ width: customerData.totalBalance > 0 ? `${(customerData.earnedBalance / customerData.totalBalance) * 100}%` : '0%' }}
-                        />
-                        <div 
-                          className="bg-red-500 h-full"
-                          style={{ width: customerData.totalBalance > 0 ? `${(customerData.marketBalance / customerData.totalBalance) * 100}%` : '0%' }}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex justify-between text-xs mt-1">
-                      <span className="text-green-400">{customerData.totalBalance > 0 ? Math.round((customerData.earnedBalance / customerData.totalBalance) * 100) : 0}% Earned</span>
-                      <span className="text-red-400">{customerData.totalBalance > 0 ? Math.round((customerData.marketBalance / customerData.totalBalance) * 100) : 0}% Market</span>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
