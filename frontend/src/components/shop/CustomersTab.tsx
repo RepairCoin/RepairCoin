@@ -545,39 +545,6 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId, shopToken })
           </div>
         </div>
       )}
-
-      {/* Engagement Insights */}
-      <div className="mt-8 bg-gradient-to-br from-[#1C1C1C] to-[#252525] rounded-2xl p-6 border border-gray-800">
-        <div className="flex items-center mb-4">
-          <div className="w-10 h-10 bg-[#FFCC00] bg-opacity-20 rounded-lg flex items-center justify-center mr-3">
-            <Sparkles className="w-5 h-5 text-[#FFCC00]" />
-          </div>
-          <h3 className="text-lg font-semibold text-white">Engagement Insights</h3>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-[#0D0D0D] rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-gray-400">Retention Rate</span>
-              <TrendingUp className="w-4 h-4 text-green-400" />
-            </div>
-            <p className="text-2xl font-bold text-white mb-1">
-              {customers.length > 0 ? Math.round((regularCustomers / customers.length) * 100) : 0}%
-            </p>
-            <p className="text-xs text-gray-500">Customers with 5+ transactions</p>
-          </div>
-          <div className="bg-[#0D0D0D] rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-gray-400">Avg. Transaction Value</span>
-              <Target className="w-4 h-4 text-purple-400" />
-            </div>
-            <p className="text-2xl font-bold text-white mb-1">
-              {totalTransactions > 0 ? Math.round(totalEarnings / totalTransactions) : 0} RCN
-            </p>
-            <p className="text-xs text-gray-500">Per transaction</p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };
