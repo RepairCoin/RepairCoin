@@ -17,6 +17,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import { 
   IssueRewardsIcon, 
@@ -37,6 +38,7 @@ interface SidebarItem {
   href: string;
   icon: React.ReactNode;
   tabId?: string;
+  subItems?: SidebarItem[];
 }
 
 interface SidebarProps {
@@ -62,6 +64,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const { disconnect } = useDisconnect();
   const logout = useAuthStore((state) => state.logout);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
 
   const handleCollapseToggle = () => {
     const newCollapsed = !isCollapsed;
@@ -69,13 +72,13 @@ const Sidebar: React.FC<SidebarProps> = ({
     onCollapseChange?.(newCollapsed);
   };
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     // Clear auth store state
     logout();
     
     // Disconnect wallet
     if (wallet && disconnect) {
-      await disconnect(wallet);
+      disconnect(wallet);
       localStorage.clear();
     }
     
@@ -164,6 +167,38 @@ const Sidebar: React.FC<SidebarProps> = ({
           href: "/shop?tab=transactions",
           icon: <TransactionIcon width={24} height={24} />,
           tabId: "transactions",
+          subItems: [
+            {
+              title: "All Transactions",
+              href: "/shop?tab=transactions&filter=all",
+              icon: <span className="text-xs">📊</span>,
+              tabId: "transactions-all",
+            },
+            {
+              title: "Rewards",
+              href: "/shop?tab=transactions&filter=rewards",
+              icon: <span className="text-xs">🎁</span>,
+              tabId: "transactions-rewards",
+            },
+            {
+              title: "Redemptions",
+              href: "/shop?tab=transactions&filter=redemptions",
+              icon: <span className="text-xs">💸</span>,
+              tabId: "transactions-redemptions",
+            },
+            {
+              title: "Purchases",
+              href: "/shop?tab=transactions&filter=purchases",
+              icon: <span className="text-xs">💰</span>,
+              tabId: "transactions-purchases",
+            },
+            {
+              title: "Failed",
+              href: "/shop?tab=transactions&filter=failed",
+              icon: <span className="text-xs">⚠️</span>,
+              tabId: "transactions-failed",
+            },
+          ],
         },
         {
           title: "Bonuses",
@@ -314,7 +349,10 @@ const Sidebar: React.FC<SidebarProps> = ({
           <nav className="flex-1 overflow-y-auto py-3 sm:py-4">
             <ul className="space-y-1 px-2 sm:px-3">
               {menuItems.map((item) => {
-                const isActive = (userRole === "shop" || userRole === "customer") && item.tabId
+                const hasSubItems = item.subItems && item.subItems.length > 0;
+                const isExpanded = expandedItems.includes(item.tabId || item.href);
+                const hasActiveSubItem = hasSubItems && item.subItems?.some(sub => activeTab === sub.tabId);
+                const isDirectlyActive = (userRole === "shop" || userRole === "customer") && item.tabId
                   ? activeTab === item.tabId
                   : pathname === item.href ||
                     (item.href !== `/${userRole}` &&
@@ -324,6 +362,18 @@ const Sidebar: React.FC<SidebarProps> = ({
                   if (item.href === "/logout") {
                     e.preventDefault();
                     handleLogout();
+                  } else if (hasSubItems) {
+                    e.preventDefault();
+                    const itemId = item.tabId || item.href;
+                    setExpandedItems(prev =>
+                      prev.includes(itemId)
+                        ? prev.filter(id => id !== itemId)
+                        : [...prev, itemId]
+                    );
+                    // Still navigate to main tab when clicking parent
+                    if ((userRole === "shop" || userRole === "customer") && item.tabId && onTabChange) {
+                      onTabChange(item.tabId);
+                    }
                   } else if ((userRole === "shop" || userRole === "customer") && item.tabId && onTabChange) {
                     e.preventDefault();
                     onTabChange(item.tabId);
@@ -336,24 +386,78 @@ const Sidebar: React.FC<SidebarProps> = ({
                       href={item.href}
                       onClick={handleClick}
                       className={`
-                        flex items-center ${isCollapsed ? "justify-center" : "space-x-3"} px-3 sm:px-4 py-2 sm:py-3 rounded-lg
+                        flex items-center ${isCollapsed ? "justify-center" : "justify-between"} px-3 sm:px-4 py-2 sm:py-3 rounded-lg
                         transition-colors duration-200
                         ${
-                          isActive
+                          isDirectlyActive
                             ? "bg-yellow-400 text-gray-900 font-medium"
+                            : hasActiveSubItem
+                            ? "bg-gray-800 text-yellow-400 font-medium border border-yellow-400 border-opacity-30"
                             : "text-gray-300 hover:bg-gray-800 hover:text-white"
                         }
                       `}
                       title={isCollapsed ? item.title : undefined}
                     >
-                      {React.isValidElement(item.icon) 
-                        ? React.cloneElement(item.icon as React.ReactElement<any>, {
-                            className: `w-4 h-4 sm:w-5 sm:h-5 ${isActive ? "text-gray-900" : ""}`
-                          })
-                        : item.icon
-                      }
-                      {!isCollapsed && <span className="text-sm sm:text-base">{item.title}</span>}
+                      <div className={`flex items-center ${isCollapsed ? "" : "space-x-3"}`}>
+                        {React.isValidElement(item.icon) 
+                          ? React.cloneElement(item.icon as React.ReactElement<any>, {
+                              className: `w-4 h-4 sm:w-5 sm:h-5 ${
+                                isDirectlyActive ? "text-gray-900" : hasActiveSubItem ? "text-yellow-400" : ""
+                              }`
+                            })
+                          : item.icon
+                        }
+                        {!isCollapsed && <span className="text-sm sm:text-base">{item.title}</span>}
+                      </div>
+                      {!isCollapsed && hasSubItems && (
+                        <ChevronDown 
+                          className={`w-4 h-4 transition-transform duration-200 ${
+                            isExpanded ? "rotate-180" : ""
+                          } ${
+                            isDirectlyActive ? "text-gray-900" : hasActiveSubItem ? "text-yellow-400" : "text-gray-400"
+                          }`}
+                        />
+                      )}
                     </Link>
+                    
+                    {/* Sub Items */}
+                    {!isCollapsed && hasSubItems && isExpanded && (
+                      <ul className="mt-1 ml-4 space-y-1">
+                        {item.subItems?.map((subItem) => {
+                          const subIsActive = (userRole === "shop" || userRole === "customer") && subItem.tabId
+                            ? activeTab === subItem.tabId
+                            : pathname === subItem.href;
+
+                          const handleSubClick = (e: React.MouseEvent) => {
+                            if ((userRole === "shop" || userRole === "customer") && subItem.tabId && onTabChange) {
+                              e.preventDefault();
+                              onTabChange(subItem.tabId);
+                            }
+                          };
+
+                          return (
+                            <li key={subItem.href}>
+                              <Link
+                                href={subItem.href}
+                                onClick={handleSubClick}
+                                className={`
+                                  flex items-center space-x-2 px-3 py-2 rounded-lg
+                                  transition-colors duration-200 text-sm
+                                  ${
+                                    subIsActive
+                                      ? "bg-yellow-400 text-gray-900 font-medium"
+                                      : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                                  }
+                                `}
+                              >
+                                <span className={subIsActive ? "text-gray-900" : ""}>{subItem.icon}</span>
+                                <span>{subItem.title}</span>
+                              </Link>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
                   </li>
                 );
               })}
