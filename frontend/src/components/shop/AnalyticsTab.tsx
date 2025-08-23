@@ -59,15 +59,21 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ shopData, tierStats,
   const bonusesRemaining = Math.floor((shopData?.purchasedRcnBalance || 0) / avgBonusAmount);
 
   return (
-    <div className="space-y-8">
+    <div className="max-w-7xl mx-auto px-4 py-8">
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <MetricCard
           title="Total Revenue"
           value={`$${totalRevenue.toFixed(2)}`}
           subtitle="From RCN purchases"
           trend={`${revenueGrowth >= 0 ? '+' : ''}${revenueGrowth.toFixed(1)}%`}
           trendUp={revenueGrowth >= 0}
+          icon={
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
+            </svg>
+          }
         />
         <MetricCard
           title="Average Purchase"
@@ -75,6 +81,11 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ shopData, tierStats,
           subtitle="Per transaction"
           trend={`${avgPurchaseGrowth >= 0 ? '+' : ''}${avgPurchaseGrowth.toFixed(1)}%`}
           trendUp={avgPurchaseGrowth >= 0}
+          icon={
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M5 2a2 2 0 00-2 2v14l3.5-2 3.5 2 3.5-2 3.5 2V4a2 2 0 00-2-2H5zm2.5 3a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm6.207.293a1 1 0 00-1.414 0l-6 6a1 1 0 101.414 1.414l6-6a1 1 0 000-1.414zM12.5 10a1.5 1.5 0 100 3 1.5 1.5 0 000-3z" clipRule="evenodd" />
+            </svg>
+          }
         />
         <MetricCard
           title="Success Rate"
@@ -82,6 +93,11 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ shopData, tierStats,
           subtitle="Payment completion"
           trend={successRate === 100 ? '100%' : `${successRate > 95 ? '+' : '-'}${(100 - successRate).toFixed(1)}%`}
           trendUp={successRate > 95}
+          icon={
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+          }
         />
         <MetricCard
           title="Token Efficiency"
@@ -89,14 +105,31 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ shopData, tierStats,
           subtitle="Tokens issued vs purchased"
           trend={efficiencyRatio > 80 ? 'Optimal' : 'Good'}
           trendUp={efficiencyRatio > 50}
+          icon={
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+            </svg>
+          }
         />
       </div>
 
       {/* Monthly Performance Chart */}
-      <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-        <h3 className="text-2xl font-bold text-gray-900 mb-6">Monthly Performance</h3>
+      <div className="bg-gradient-to-br from-[#1C1C1C] to-[#252525] rounded-2xl p-8 border border-gray-800 mb-8">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-2xl font-bold text-white">Monthly Performance</h3>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-[#FFCC00] rounded-full"></div>
+              <span className="text-sm text-gray-400">Revenue</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              <span className="text-sm text-gray-400">Purchases</span>
+            </div>
+          </div>
+        </div>
         {monthlyData.some(m => m.revenue > 0) ? (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {monthlyData.map((month) => (
               <MonthlyBar
                 key={month.name}
@@ -109,18 +142,22 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ shopData, tierStats,
           </div>
         ) : (
           <div className="text-center py-12">
-            <div className="text-4xl mb-4">📊</div>
-            <p className="text-gray-500">No purchase data yet</p>
-            <p className="text-sm text-gray-400 mt-2">Start purchasing RCN to see your performance metrics</p>
+            <div className="w-20 h-20 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-10 h-10 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            </div>
+            <p className="text-gray-400 text-lg font-medium">No purchase data yet</p>
+            <p className="text-sm text-gray-500 mt-2">Start purchasing RCN to see your performance metrics</p>
           </div>
         )}
       </div>
 
       {/* Customer Engagement */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         {/* Tier Distribution */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-          <h3 className="text-xl font-bold text-gray-900 mb-6">Customer Tier Distribution</h3>
+        <div className="bg-gradient-to-br from-[#1C1C1C] to-[#252525] rounded-2xl p-8 border border-gray-800">
+          <h3 className="text-xl font-bold text-white mb-6">Customer Tier Distribution</h3>
           <div className="space-y-4">
             {tierDistribution.map((tier) => (
               <TierDistributionBar
@@ -131,12 +168,23 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ shopData, tierStats,
                 color={tier.color}
               />
             ))}
+            {tierDistribution.every(t => t.count === 0) && (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+                <p className="text-gray-400 font-medium">No tier data yet</p>
+                <p className="text-sm text-gray-500 mt-1">Start issuing rewards to see tier distribution</p>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Token Flow */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-          <h3 className="text-xl font-bold text-gray-900 mb-6">Token Flow Analysis</h3>
+        <div className="bg-gradient-to-br from-[#1C1C1C] to-[#252525] rounded-2xl p-8 border border-gray-800">
+          <h3 className="text-xl font-bold text-white mb-6">Token Flow Analysis</h3>
           <div className="space-y-4">
             <FlowItem
               label="RCN Purchased"
@@ -158,7 +206,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ shopData, tierStats,
               value={shopData?.totalRedemptions || 0}
               type="in"
             />
-            <div className="pt-4 border-t border-gray-200">
+            <div className="pt-4 border-t border-gray-700">
               <FlowItem
                 label="Current Balance"
                 value={shopData?.purchasedRcnBalance || 0}
@@ -166,52 +214,6 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ shopData, tierStats,
               />
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Insights and Recommendations */}
-      <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-        <h3 className="text-2xl font-bold text-gray-900 mb-6">Insights & Recommendations</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <InsightCard
-            icon="💡"
-            title="Balance Optimization"
-            description={`Your current RCN balance can cover approximately ${bonusesRemaining} more tier bonuses. ${
-              bonusesRemaining < 50 ? 'Consider purchasing more RCN to maintain smooth operations.' : 
-              'Your balance is healthy for current operations.'
-            }`}
-            priority={bonusesRemaining < 50 ? "high" : "low"}
-          />
-          <InsightCard
-            icon="📈"
-            title="Customer Tier Analysis"
-            description={`${
-              tierDistribution[2]?.percentage > 15 ? 
-                `Gold tier customers represent ${tierDistribution[2].percentage.toFixed(0)}% of your base. Excellent retention!` :
-                `Focus on upgrading customers to higher tiers. Currently ${tierDistribution[0].percentage.toFixed(0)}% are Bronze tier.`
-            }`}
-            priority={tierDistribution[2]?.percentage > 15 ? "low" : "medium"}
-          />
-          <InsightCard
-            icon="🎯"
-            title="Token Efficiency"
-            description={`You're issuing ${efficiencyRatio.toFixed(0)}% of purchased tokens. ${
-              efficiencyRatio > 80 ? 'This shows excellent customer engagement!' :
-              efficiencyRatio > 50 ? 'Good balance between rewards and reserves.' :
-              'Consider increasing customer engagement activities.'
-            }`}
-            priority={efficiencyRatio > 80 ? "low" : efficiencyRatio > 50 ? "medium" : "high"}
-          />
-          <InsightCard
-            icon="🔄"
-            title="Purchase Performance"
-            description={`Average purchase size is ${averagePurchaseSize.toFixed(0)} RCN with ${successRate.toFixed(0)}% success rate. ${
-              completedPurchases.length > 0 ? 
-                `Last purchase: ${new Date(completedPurchases[completedPurchases.length - 1].createdAt).toLocaleDateString()}.` :
-                'No purchases recorded yet.'
-            }`}
-            priority={completedPurchases.length === 0 ? "high" : "medium"}
-          />
         </div>
       </div>
     </div>
@@ -224,16 +226,24 @@ interface MetricCardProps {
   subtitle: string;
   trend: string;
   trendUp: boolean;
+  icon?: React.ReactNode;
 }
 
-const MetricCard: React.FC<MetricCardProps> = ({ title, value, subtitle, trend, trendUp }) => {
+const MetricCard: React.FC<MetricCardProps> = ({ title, value, subtitle, trend, trendUp, icon }) => {
   return (
-    <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
-      <p className="text-sm font-medium text-gray-500">{title}</p>
-      <p className="text-3xl font-bold text-gray-900 mt-2">{value}</p>
+    <div className="bg-gradient-to-br from-[#1C1C1C] to-[#252525] rounded-2xl p-6 border border-gray-800 hover:border-gray-700 transition-all">
+      <div className="flex items-start justify-between mb-4">
+        <p className="text-sm font-medium text-gray-400">{title}</p>
+        {icon && (
+          <div className="text-[#FFCC00] opacity-50">
+            {icon}
+          </div>
+        )}
+      </div>
+      <p className="text-3xl font-bold text-white mb-1">{value}</p>
       <div className="flex items-center justify-between mt-4">
-        <p className="text-xs text-gray-400">{subtitle}</p>
-        <span className={`text-sm font-medium ${trendUp ? 'text-green-600' : 'text-red-600'}`}>
+        <p className="text-xs text-gray-500">{subtitle}</p>
+        <span className={`text-sm font-medium ${trendUp ? 'text-green-500' : 'text-red-500'}`}>
           {trendUp ? '↑' : '↓'} {trend}
         </span>
       </div>
@@ -254,15 +264,15 @@ const MonthlyBar: React.FC<MonthlyBarProps> = ({ month, purchases, revenue, maxR
   return (
     <div>
       <div className="flex justify-between items-center mb-2">
-        <span className="text-sm font-medium text-gray-700">{month}</span>
+        <span className="text-sm font-medium text-gray-300">{month}</span>
         <div className="text-right">
-          <span className="text-sm font-semibold text-gray-900">${revenue.toFixed(0)}</span>
+          <span className="text-sm font-semibold text-white">${revenue.toFixed(0)}</span>
           <span className="text-xs text-gray-500 ml-2">({purchases} purchases)</span>
         </div>
       </div>
-      <div className="w-full bg-gray-200 rounded-full h-2">
+      <div className="w-full bg-gray-800 rounded-full h-2">
         <div 
-          className="bg-gradient-to-r from-green-500 to-emerald-500 h-2 rounded-full transition-all duration-500"
+          className="bg-gradient-to-r from-[#FFCC00] to-yellow-500 h-2 rounded-full transition-all duration-500"
           style={{ width: `${percentage}%` }}
         />
       </div>
@@ -279,21 +289,30 @@ interface TierDistributionBarProps {
 
 const TierDistributionBar: React.FC<TierDistributionBarProps> = ({ tier, percentage, count, color }) => {
   const colorClasses = {
-    orange: 'from-orange-400 to-orange-600',
-    gray: 'from-gray-400 to-gray-600',
-    yellow: 'from-yellow-400 to-yellow-600',
+    orange: 'from-orange-500 to-orange-600',
+    gray: 'from-gray-400 to-gray-500',
+    yellow: 'from-[#FFCC00] to-yellow-500',
+  };
+
+  const tierIcons = {
+    'Bronze': '🥉',
+    'Silver': '🥈',
+    'Gold': '🥇',
   };
 
   return (
     <div>
       <div className="flex justify-between items-center mb-2">
-        <span className="text-sm font-medium text-gray-700">{tier}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-lg">{tierIcons[tier as keyof typeof tierIcons] || ''}</span>
+          <span className="text-sm font-medium text-gray-300">{tier}</span>
+        </div>
         <div className="text-right">
-          <span className="text-sm font-semibold text-gray-900">{percentage.toFixed(1)}%</span>
+          <span className="text-sm font-semibold text-white">{percentage.toFixed(1)}%</span>
           <span className="text-xs text-gray-500 ml-2">({count} customers)</span>
         </div>
       </div>
-      <div className="w-full bg-gray-200 rounded-full h-2">
+      <div className="w-full bg-gray-800 rounded-full h-2">
         <div 
           className={`bg-gradient-to-r ${colorClasses[color as keyof typeof colorClasses]} h-2 rounded-full transition-all duration-500`}
           style={{ width: `${percentage}%` }}
@@ -311,9 +330,15 @@ interface FlowItemProps {
 
 const FlowItem: React.FC<FlowItemProps> = ({ label, value, type }) => {
   const colors = {
-    in: 'text-green-600',
-    out: 'text-red-600',
-    balance: 'text-blue-600',
+    in: 'text-green-500',
+    out: 'text-red-500',
+    balance: 'text-[#FFCC00]',
+  };
+
+  const bgColors = {
+    in: 'bg-green-500',
+    out: 'bg-red-500',
+    balance: 'bg-[#FFCC00]',
   };
 
   const icons = {
@@ -323,10 +348,12 @@ const FlowItem: React.FC<FlowItemProps> = ({ label, value, type }) => {
   };
 
   return (
-    <div className="flex justify-between items-center">
-      <span className="text-gray-600">{label}</span>
-      <div className="flex items-center">
-        <span className={`${colors[type]} text-lg mr-2`}>{icons[type]}</span>
+    <div className="flex justify-between items-center p-3 rounded-lg hover:bg-gray-800 hover:bg-opacity-30 transition-all">
+      <span className="text-gray-400">{label}</span>
+      <div className="flex items-center gap-3">
+        <div className={`w-8 h-8 ${bgColors[type]} bg-opacity-20 rounded-lg flex items-center justify-center`}>
+          <span className={`${colors[type]} text-lg font-bold`}>{icons[type]}</span>
+        </div>
         <span className={`font-semibold ${colors[type]}`}>{value.toFixed(0)} RCN</span>
       </div>
     </div>
@@ -342,18 +369,29 @@ interface InsightCardProps {
 
 const InsightCard: React.FC<InsightCardProps> = ({ icon, title, description, priority }) => {
   const priorityColors = {
-    low: 'border-gray-200 bg-gray-50',
-    medium: 'border-yellow-200 bg-yellow-50',
-    high: 'border-green-200 bg-green-50',
+    low: 'border-gray-700 bg-gray-800 bg-opacity-30',
+    medium: 'border-yellow-800 bg-yellow-900 bg-opacity-20',
+    high: 'border-red-800 bg-red-900 bg-opacity-20',
+  };
+
+  const priorityBadges = {
+    low: { text: 'Low Priority', color: 'text-gray-400 bg-gray-800' },
+    medium: { text: 'Medium Priority', color: 'text-yellow-400 bg-yellow-900' },
+    high: { text: 'High Priority', color: 'text-red-400 bg-red-900' },
   };
 
   return (
-    <div className={`p-6 rounded-xl border ${priorityColors[priority]}`}>
+    <div className={`p-6 rounded-xl border-2 ${priorityColors[priority]} hover:border-opacity-80 transition-all`}>
       <div className="flex items-start">
-        <span className="text-2xl mr-3">{icon}</span>
-        <div>
-          <h4 className="font-semibold text-gray-900 mb-2">{title}</h4>
-          <p className="text-sm text-gray-600">{description}</p>
+        <div className="text-3xl mr-4 mt-1">{icon}</div>
+        <div className="flex-1">
+          <div className="flex items-start justify-between mb-2">
+            <h4 className="font-semibold text-white text-lg">{title}</h4>
+            <span className={`text-xs px-2 py-1 rounded-full ${priorityBadges[priority].color} bg-opacity-30`}>
+              {priorityBadges[priority].text}
+            </span>
+          </div>
+          <p className="text-sm text-gray-400 leading-relaxed">{description}</p>
         </div>
       </div>
     </div>
