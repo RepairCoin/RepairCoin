@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CreditCard,
   DollarSign,
@@ -64,6 +64,19 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
 }) => {
   const [showAllHistory, setShowAllHistory] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<any>(null);
+
+  // Check for selected plan from plans page
+  useEffect(() => {
+    const planData = sessionStorage.getItem('selectedPlan');
+    if (planData) {
+      const plan = JSON.parse(planData);
+      setSelectedPlan(plan);
+      setPurchaseAmount(plan.rcnTokens);
+      // Clear the session storage after using it
+      sessionStorage.removeItem('selectedPlan');
+    }
+  }, [setPurchaseAmount]);
 
   // Quick purchase amounts
   const quickAmounts = [100, 500, 1000, 5000, 10000];
@@ -144,6 +157,33 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
               </div>
 
               <div className="p-6 space-y-6">
+                {/* Plan Selection Notice */}
+                {selectedPlan && (
+                  <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-xl p-4 mb-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Gift className="w-5 h-5 text-green-400" />
+                        <div>
+                          <p className="text-sm font-semibold text-green-400">
+                            {selectedPlan.planName} Plan Selected
+                          </p>
+                          <p className="text-xs text-gray-300 mt-1">
+                            Complete your purchase to activate your plan
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-bold text-white">
+                          {selectedPlan.rcnTokens.toLocaleString()} RCN
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          ${selectedPlan.price}/month
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* How it Works - Info Icon with Tooltip */}
                 <div className="relative">
                   <button

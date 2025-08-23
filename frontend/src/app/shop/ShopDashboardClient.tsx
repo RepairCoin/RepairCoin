@@ -346,19 +346,20 @@ export default function ShopDashboardClient() {
     );
   }
 
+  // With auto-approval, this condition should rarely occur
+  // Only if there's a data loading issue
   if (existingApplication.hasApplication && !shopData) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] py-32">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
           <div className="text-center">
-            <div className="text-yellow-500 text-4xl mb-4">⏳</div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">Application Pending</h3>
+            <div className="text-blue-500 text-4xl mb-4">🔄</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">Loading Shop Data</h3>
             <p className="text-gray-600 mb-6">
-              Your shop registration has been submitted and is awaiting admin verification. 
-              You'll be able to access the full dashboard once approved.
+              Please wait while we load your shop information...
             </p>
             
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-600">Shop Name:</span>
                 <span className="font-medium text-gray-900">{existingApplication.shopName}</span>
@@ -369,21 +370,18 @@ export default function ShopDashboardClient() {
               </div>
               <div className="flex items-center justify-between text-sm mt-2">
                 <span className="text-gray-600">Status:</span>
-                <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-                  Pending Verification
+                <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                  Active
                 </span>
               </div>
             </div>
 
-            <div className="text-sm text-gray-500 mb-6">
-              <p>What happens next:</p>
-              <ul className="mt-2 text-left space-y-1">
-                <li>• Admin reviews your application</li>
-                <li>• Shop verification process</li>
-                <li>• Dashboard access granted</li>
-                <li>• RCN purchasing enabled</li>
-              </ul>
-            </div>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200"
+            >
+              Refresh Page
+            </button>
 
             <div className="mt-6 pt-6 border-t border-gray-200">
               <ConnectButton 

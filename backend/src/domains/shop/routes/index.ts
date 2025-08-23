@@ -295,7 +295,7 @@ router.post('/register',
         lng: location?.lng
       };
 
-      // Create new shop data
+      // Create new shop data - AUTO-APPROVED for immediate access to plans
       const newShop = {
         shopId,
         name,
@@ -304,8 +304,8 @@ router.post('/register',
         email,
         walletAddress: walletAddress.toLowerCase(),
         reimbursementAddress: reimbursementAddress || walletAddress.toLowerCase(),
-        verified: false, // Requires admin approval
-        active: false,   // Activated after verification
+        verified: true,  // AUTO-APPROVED for immediate access
+        active: true,    // AUTO-ACTIVATED for immediate use
         crossShopEnabled: false, // Default to false, can be enabled later
         totalTokensIssued: 0,
         totalRedemptions: 0,
@@ -327,12 +327,13 @@ router.post('/register',
 
       res.status(201).json({
         success: true,
-        message: 'Shop registered successfully. Awaiting admin verification.',
+        message: 'Shop registered and approved successfully! You can now purchase RCN.',
         data: {
           shopId: newShop.shopId,
           name: newShop.name,
           verified: newShop.verified,
-          active: newShop.active
+          active: newShop.active,
+          autoApproved: true
         }
       });
 

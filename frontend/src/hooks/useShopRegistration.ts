@@ -106,7 +106,7 @@ export const useShopRegistration = () => {
         ShopService.registerShop(account.address, formData),
         {
           loading: 'Registering your shop...',
-          success: 'Shop registration submitted successfully! 🎉',
+          success: 'Shop registered and approved! 🎉',
           error: (err) => {
             console.error("Registration failed:", err);
             return err?.message || 'Failed to register shop';
@@ -116,14 +116,19 @@ export const useShopRegistration = () => {
       
       console.log("Registration successful:", result);
       
-      // Show additional success message
-      toast.success("Your application is pending approval. Redirecting to dashboard...", {
+      // Save shop ID for the plans page
+      if (result?.data?.shopId) {
+        localStorage.setItem('recentlyRegisteredShopId', result.data.shopId);
+      }
+      
+      // Show additional success message for auto-approved shops
+      toast.success("Your shop is approved! Redirecting to choose your plan...", {
         duration: 3000,
       });
       
-      // Redirect after 2 seconds
+      // Redirect to plans page after 2 seconds
       setTimeout(() => {
-        router.push("/shop");
+        router.push("/shop/plans");
       }, 2000);
     } catch (err) {
       // Error is already handled by toast.promise
