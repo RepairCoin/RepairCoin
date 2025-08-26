@@ -118,7 +118,7 @@ export class CustomerRepository extends BaseRepository {
 
   async getCustomerByReferralCode(referralCode: string): Promise<CustomerData | null> {
     try {
-      const query = 'SELECT * FROM customers WHERE referral_code = $1';
+      const query = 'SELECT * FROM customers WHERE UPPER(referral_code) = UPPER($1)';
       const result = await this.pool.query(query, [referralCode]);
       
       if (result.rows.length === 0) {
