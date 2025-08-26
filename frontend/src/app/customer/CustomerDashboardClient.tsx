@@ -311,31 +311,6 @@ export default function CustomerRegisterClient() {
         }}
       >
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header */}
-          <div className="relative my-8">
-            <div className="flex md:flex-row md:items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div>
-                  <p className="text-lg md:text-2xl font-bold text-[#FFCC00]">
-                    Welcome back{" "}
-                    {customerData?.name?.split(" ")[0] || "Customer"}!
-                  </p>
-                  <p className="text-gray-400 text-sm md:text-base flex items-center gap-2">
-                    {customerData?.email ||
-                      account?.address ||
-                      "user@example.com"}
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4 sm:mt-0 flex items-center gap-3">
-                <ConnectButton
-                  client={client}
-                  connectModal={{ size: "compact" }}
-                />
-              </div>
-            </div>
-          </div>
-
           {/* Tab Content */}
           {activeTab === "overview" && (
             <OverviewTab
