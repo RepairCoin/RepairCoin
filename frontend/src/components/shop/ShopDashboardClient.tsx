@@ -6,21 +6,21 @@ import { createThirdwebClient, getContract, readContract } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
 import { useSearchParams } from 'next/navigation';
 import DashboardLayout from "@/components/ui/DashboardLayout";
-import ThirdwebPayment from '../../components/ThirdwebPayment';
+import ThirdwebPayment from '../ThirdwebPayment';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
 // Import our new components
-import { OverviewTab } from '@/components/shop/OverviewTab';
-import { PurchaseTab } from '@/components/shop/PurchaseTab';
-import { BonusesTab } from '@/components/shop/BonusesTab';
-import { AnalyticsTab } from '@/components/shop/AnalyticsTab';
-import { RedeemTabV2 } from '@/components/shop/RedeemTabV2';
-import { IssueRewardsTab } from '@/components/shop/IssueRewardsTab';
-import { CustomerLookupTab } from '@/components/shop/CustomerLookupTab';
-import { SettingsTab } from '@/components/shop/SettingsTab';
-import { TransactionsTab } from '@/components/shop/TransactionsTab';
-import { CustomersTab } from '@/components/shop/CustomersTab';
+import { OverviewTab } from '@/components/shop/tabs/OverviewTab';
+import { PurchaseTab } from '@/components/shop/tabs/PurchaseTab';
+import { BonusesTab } from '@/components/shop/tabs/BonusesTab';
+import { AnalyticsTab } from '@/components/shop/tabs/AnalyticsTab';
+import { RedeemTabV2 } from '@/components/shop/tabs/RedeemTabV2';
+import { IssueRewardsTab } from '@/components/shop/tabs/IssueRewardsTab';
+import { CustomerLookupTab } from '@/components/shop/tabs/CustomerLookupTab';
+import { SettingsTab } from '@/components/shop/tabs/SettingsTab';
+import { TransactionsTab } from '@/components/shop/tabs/TransactionsTab';
+import { CustomersTab } from '@/components/shop/tabs/CustomersTab';
 import { useShopRegistration } from '@/hooks/useShopRegistration';
 
 const client = createThirdwebClient({
