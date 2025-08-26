@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { WalletIcon } from "../icon/index";
+import { WalletIcon } from "../../icon/index";
 
 interface ShopData {
   shopId: string;
