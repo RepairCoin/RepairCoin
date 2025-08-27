@@ -12,6 +12,7 @@ import { CustomersTab } from "@/components/admin/CustomersTab";
 import { CustomersTabEnhanced } from "@/components/admin/CustomersTabEnhanced";
 import { ShopsTab } from "@/components/admin/ShopsTab";
 import { ShopApplicationsTab } from "@/components/admin/ShopApplicationsTab";
+import { ShopsManagementTab } from "@/components/admin/ShopsManagementTab";
 import { TreasuryTab } from "@/components/admin/TreasuryTab";
 import { TransactionsTab } from "@/components/admin/TransactionsTab";
 import { ActivityLogsTab } from "@/components/admin/ActivityLogsTab";
@@ -653,6 +654,24 @@ export default function AdminDashboardClient() {
             />
           )}
 
+          {/* New Combined Shop Management Tab */}
+          {activeTab === "shops-management" && (
+            <ShopsManagementTab
+              activeShops={shops}
+              pendingShops={pendingShops}
+              rejectedShops={rejectedShops}
+              onApproveShop={approveShop}
+              onRejectShop={rejectShop}
+              onVerifyShop={verifyShop}
+              onSuspendShop={suspendShop}
+              onUnsuspendShop={unsuspendShop}
+              onMintBalance={mintShopBalance}
+              onRefresh={loadDashboardData}
+              generateAdminToken={generateAdminToken}
+            />
+          )}
+
+          {/* Keep old tabs for backward compatibility - can be removed later */}
           {activeTab === "shops" && (
             <ShopsTab
               shops={shops}

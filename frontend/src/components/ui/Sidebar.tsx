@@ -230,16 +230,10 @@ const Sidebar: React.FC<SidebarProps> = ({
           tabId: "customers",
         },
         {
-          title: "Active Shops",
-          href: "/admin?tab=shops",
+          title: "Shops",
+          href: "/admin?tab=shops-management",
           icon: <span className="text-xl">🏪</span>,
-          tabId: "shops",
-        },
-        {
-          title: "Shop Applications",
-          href: "/admin?tab=shop-applications",
-          icon: <span className="text-xl">📝</span>,
-          tabId: "shop-applications",
+          tabId: "shops-management",
         },
         {
           title: "Treasury",
