@@ -516,4 +516,113 @@ export class CustomerRepository extends BaseRepository {
       throw new Error('Failed to reset monthly earnings');
     }
   }
+
+  async getCustomersRegisteredBetween(startDate: string, endDate: string): Promise<CustomerData[]> {
+    try {
+      const query = `
+        SELECT 
+          address,
+          name,
+          email,
+          tier,
+          lifetime_earnings,
+          daily_earnings,
+          monthly_earnings,
+          referral_code,
+          referred_by,
+          referral_count,
+          is_active,
+          suspended_at,
+          suspension_reason,
+          created_at,
+          updated_at,
+          last_earned_date
+        FROM customers 
+        WHERE created_at >= $1 AND created_at < $2
+        ORDER BY created_at DESC
+      `;
+      
+      const result = await this.pool.query(query, [startDate, endDate]);
+      return result.rows.map(row => this.mapRowToCustomer(row));
+    } catch (error) {
+      logger.error('Error getting customers registered between dates:', error);
+      throw new Error('Failed to get customers registered between dates');
+    }
+  }
+
+  async getTopCustomersByEarnings(limit: number = 5): Promise<CustomerData[]> {
+    try {
+      const query = `
+        SELECT 
+          address,
+          name,
+          email,
+          tier,
+          lifetime_earnings,
+          daily_earnings,
+          monthly_earnings,
+          referral_code,
+          referred_by,
+          referral_count,
+          is_active,
+          suspended_at,
+          suspension_reason,
+          created_at,
+          updated_at,
+          last_earned_date
+        FROM customers 
+        WHERE is_active = true
+        ORDER BY lifetime_earnings DESC
+        LIMIT $1
+      `;
+      
+      const result = await this.pool.query(query, [limit]);
+      return result.rows.map(row => this.mapRowToCustomer(row));
+    } catch (error) {
+      logger.error('Error getting top customers by earnings:', error);
+      throw new Error('Failed to get top customers by earnings');
+    }
+  }
+
+  async getCustomerBalance(address: string): Promise<number> {
+    try {
+      // For now, return lifetime earnings as balance
+      // In production, this would query blockchain or token balance
+      const query = `
+        SELECT lifetime_earnings 
+        FROM customers 
+        WHERE LOWER(address) = LOWER($1)
+      `;
+      
+      const result = await this.pool.query(query, [address]);
+      if (result.rows.length > 0) {
+        return result.rows[0].lifetime_earnings || 0;
+      }
+      return 0;
+    } catch (error) {
+      logger.error('Error getting customer balance:', error);
+      return 0;
+    }
+  }
+
+  private mapRowToCustomer(row: any): CustomerData {
+    return {
+      address: row.address,
+      name: row.name,
+      email: row.email,
+      tier: row.tier as TierLevel,
+      lifetimeEarnings: row.lifetime_earnings || 0,
+      dailyEarnings: row.daily_earnings || 0,
+      monthlyEarnings: row.monthly_earnings || 0,
+      referralCode: row.referral_code,
+      referredBy: row.referred_by,
+      referralCount: row.referral_count || 0,
+      isActive: row.is_active ?? true,
+      suspendedAt: row.suspended_at,
+      suspensionReason: row.suspension_reason,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      lastEarnedDate: row.last_earned_date
+    };
+  }
 }

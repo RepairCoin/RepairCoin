@@ -397,6 +397,25 @@ export class TransactionRepository extends BaseRepository {
     }
   }
 
+  async getTransactionsBetween(startDate: string, endDate: string): Promise<any[]> {
+    try {
+      const query = `
+        SELECT * FROM transactions 
+        WHERE timestamp >= $1 AND timestamp < $2
+        ORDER BY timestamp DESC
+      `;
+      
+      const result = await this.pool.query(query, [startDate, endDate]);
+      return result.rows.map(row => ({
+        ...this.mapToTransactionRecord(row),
+        createdAt: row.timestamp // Add createdAt for compatibility
+      }));
+    } catch (error) {
+      logger.error('Error getting transactions between dates:', error);
+      throw new Error('Failed to get transactions between dates');
+    }
+  }
+
   private mapToTransactionRecord(row: any): TransactionRecord {
     return {
       id: row.id,

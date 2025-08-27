@@ -707,6 +707,21 @@ export class ShopRepository extends BaseRepository {
     }
   }
 
+  async getAllShops(): Promise<ShopData[]> {
+    try {
+      const query = `
+        SELECT * FROM shops
+        ORDER BY created_at DESC
+      `;
+      
+      const result = await this.pool.query(query);
+      return result.rows.map(row => this.mapRowToShop(row));
+    } catch (error) {
+      logger.error('Error getting all shops:', error);
+      throw new Error('Failed to get all shops');
+    }
+  }
+
   async getShopCustomers(
     shopId: string,
     options: { page: number; limit: number; search?: string }
@@ -793,6 +808,34 @@ export class ShopRepository extends BaseRepository {
       logger.error('Error getting shop customers:', error);
       throw new Error('Failed to get shop customers');
     }
+  }
+
+  private mapRowToShop(row: any): ShopData {
+    return {
+      shopId: row.shop_id,
+      name: row.name,
+      walletAddress: row.wallet_address,
+      email: row.email,
+      phone: row.phone,
+      website: row.website,
+      streetAddress: row.street_address,
+      city: row.city,
+      country: row.country,
+      postalCode: row.postal_code,
+      companySize: row.company_size,
+      monthlyRevenue: row.monthly_revenue,
+      purchasedRcnBalance: row.purchased_rcn_balance || 0,
+      referredBy: row.referred_by,
+      role: row.role,
+      firstName: row.first_name,
+      lastName: row.last_name,
+      verified: row.verified ?? false,
+      active: row.active ?? true,
+      joinDate: row.created_at,
+      crossShopEnabled: row.cross_shop_enabled ?? false,
+      suspendedAt: row.suspended_at,
+      suspensionReason: row.suspension_reason
+    };
   }
 
   async getCustomerGrowthStats(shopId: string, period: string = '7d'): Promise<{
