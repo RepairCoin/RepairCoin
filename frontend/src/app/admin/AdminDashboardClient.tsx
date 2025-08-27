@@ -556,8 +556,6 @@ export default function AdminDashboardClient() {
     }
   };
 
-
-
   const handleTabChange = (tab: string) => {
     setActiveTab(tab as any);
   };
@@ -603,46 +601,27 @@ export default function AdminDashboardClient() {
   }
 
   return (
-    <DashboardLayout 
-      userRole="admin" 
-      activeTab={activeTab} 
+    <DashboardLayout
+      userRole="admin"
+      activeTab={activeTab}
       onTabChange={handleTabChange}
     >
       <Toaster position="top-right" />
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-100">
-        <nav className="bg-white shadow-lg border-b border-gray-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                ⚡ RepairCoin Admin
-              </h1>
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={async () => {
-                    authManager.clearToken("admin");
-                    const newToken = await generateAdminToken(true);
-                    if (newToken) {
-                      loadDashboardData();
-                    }
-                  }}
-                  className="text-sm bg-indigo-600 text-white px-3 py-1 rounded hover:bg-indigo-700"
-                >
-                  Refresh Data
-                </button>
-                <span className="text-sm text-gray-600">Welcome, Admin</span>
-                <ConnectButton client={client} />
-              </div>
-            </div>
-          </div>
-        </nav>
-
+      <div
+        className="min-h-screen py-8 bg-[#0D0D0D]"
+        style={{
+          backgroundImage: `url('/img/dashboard-bg.png')`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {error && (
             <div className="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
               {error}
             </div>
           )}
-
 
           {/* Tab Content */}
           {activeTab === "overview" && (
