@@ -217,31 +217,71 @@ const Sidebar: React.FC<SidebarProps> = ({
 
     if (userRole === "admin") {
       return [
-        ...commonItems,
         {
-          title: "Customers",
-          href: "/admin/customers",
-          icon: <Users className="w-5 h-5" />,
+          title: "Overview",
+          href: "/admin?tab=overview",
+          icon: <span className="text-xl">📊</span>,
+          tabId: "overview",
         },
         {
-          title: "Shops",
-          href: "/admin/shops",
-          icon: <Receipt className="w-5 h-5" />,
+          title: "Customers",
+          href: "/admin?tab=customers",
+          icon: <span className="text-xl">👥</span>,
+          tabId: "customers",
+        },
+        {
+          title: "Active Shops",
+          href: "/admin?tab=shops",
+          icon: <span className="text-xl">🏪</span>,
+          tabId: "shops",
+        },
+        {
+          title: "Shop Applications",
+          href: "/admin?tab=shop-applications",
+          icon: <span className="text-xl">📝</span>,
+          tabId: "shop-applications",
         },
         {
           title: "Treasury",
-          href: "/admin/treasury",
-          icon: <DollarSign className="w-5 h-5" />,
+          href: "/admin?tab=treasury",
+          icon: <span className="text-xl">💰</span>,
+          tabId: "treasury",
         },
         {
           title: "Transactions",
-          href: "/admin/transactions",
-          icon: <BarChart3 className="w-5 h-5" />,
+          href: "/admin?tab=transactions",
+          icon: <span className="text-xl">💸</span>,
+          tabId: "transactions",
+        },
+        {
+          title: "Create Admin",
+          href: "/admin?tab=create-admin",
+          icon: <span className="text-xl">👤</span>,
+          tabId: "create-admin",
+        },
+        {
+          title: "Activity Logs",
+          href: "/admin?tab=activity-logs",
+          icon: <span className="text-xl">📋</span>,
+          tabId: "activity-logs",
         },
         {
           title: "Analytics",
-          href: "/admin/analytics",
-          icon: <BarChart3 className="w-5 h-5" />,
+          href: "/admin?tab=analytics",
+          icon: <span className="text-xl">📈</span>,
+          tabId: "analytics",
+        },
+        {
+          title: "Create Shop",
+          href: "/admin?tab=create-shop",
+          icon: <span className="text-xl">🏪</span>,
+          tabId: "create-shop",
+        },
+        {
+          title: "Unsuspend Requests",
+          href: "/admin?tab=unsuspend-requests",
+          icon: <span className="text-xl">🔓</span>,
+          tabId: "unsuspend-requests",
         },
       ];
     }
@@ -352,7 +392,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 const hasSubItems = item.subItems && item.subItems.length > 0;
                 const isExpanded = expandedItems.includes(item.tabId || item.href);
                 const hasActiveSubItem = hasSubItems && item.subItems?.some(sub => activeTab === sub.tabId);
-                const isDirectlyActive = (userRole === "shop" || userRole === "customer") && item.tabId
+                const isDirectlyActive = (userRole === "shop" || userRole === "customer" || userRole === "admin") && item.tabId
                   ? activeTab === item.tabId
                   : pathname === item.href ||
                     (item.href !== `/${userRole}` &&
@@ -371,10 +411,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                         : [...prev, itemId]
                     );
                     // Still navigate to main tab when clicking parent
-                    if ((userRole === "shop" || userRole === "customer") && item.tabId && onTabChange) {
+                    if ((userRole === "shop" || userRole === "customer" || userRole === "admin") && item.tabId && onTabChange) {
                       onTabChange(item.tabId);
                     }
-                  } else if ((userRole === "shop" || userRole === "customer") && item.tabId && onTabChange) {
+                  } else if ((userRole === "shop" || userRole === "customer" || userRole === "admin") && item.tabId && onTabChange) {
                     e.preventDefault();
                     onTabChange(item.tabId);
                   }
@@ -424,12 +464,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                     {!isCollapsed && hasSubItems && isExpanded && (
                       <ul className="mt-1 ml-4 space-y-1">
                         {item.subItems?.map((subItem) => {
-                          const subIsActive = (userRole === "shop" || userRole === "customer") && subItem.tabId
+                          const subIsActive = (userRole === "shop" || userRole === "customer" || userRole === "admin") && subItem.tabId
                             ? activeTab === subItem.tabId
                             : pathname === subItem.href;
 
                           const handleSubClick = (e: React.MouseEvent) => {
-                            if ((userRole === "shop" || userRole === "customer") && subItem.tabId && onTabChange) {
+                            if ((userRole === "shop" || userRole === "customer" || userRole === "admin") && subItem.tabId && onTabChange) {
                               e.preventDefault();
                               onTabChange(subItem.tabId);
                             }
@@ -468,7 +508,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div className="border-t border-gray-800 p-3 sm:p-4">
             <ul className="space-y-1">
               {bottomMenuItems.map((item) => {
-                const isActive = (userRole === "shop" || userRole === "customer") && item.tabId
+                const isActive = (userRole === "shop" || userRole === "customer" || userRole === "admin") && item.tabId
                   ? activeTab === item.tabId
                   : pathname === item.href;
 
@@ -476,7 +516,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   if (item.href === "/logout") {
                     e.preventDefault();
                     handleLogout();
-                  } else if ((userRole === "shop" || userRole === "customer") && item.tabId && onTabChange) {
+                  } else if ((userRole === "shop" || userRole === "customer" || userRole === "admin") && item.tabId && onTabChange) {
                     e.preventDefault();
                     onTabChange(item.tabId);
                   }
