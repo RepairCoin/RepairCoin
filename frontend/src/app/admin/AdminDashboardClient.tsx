@@ -646,31 +646,11 @@ export default function AdminDashboardClient() {
           )}
 
           {activeTab === "customers" && (
-            <>
-              <div className="mb-4 flex justify-end">
-                <button
-                  onClick={() => setUseEnhancedCustomers(!useEnhancedCustomers)}
-                  className="text-sm text-indigo-600 hover:text-indigo-800"
-                >
-                  Switch to {useEnhancedCustomers ? "Simple" : "Enhanced"} View
-                </button>
-              </div>
-              {useEnhancedCustomers ? (
-                <CustomersTabEnhanced
-                  generateAdminToken={generateAdminToken}
-                  onMintTokens={mintTokensToCustomer}
-                  onRefresh={loadDashboardData}
-                />
-              ) : (
-                <CustomersTab
-                  customers={customers}
-                  onMintTokens={mintTokensToCustomer}
-                  onSuspendCustomer={suspendCustomer}
-                  onUnsuspendCustomer={unsuspendCustomer}
-                  onRefresh={loadDashboardData}
-                />
-              )}
-            </>
+            <CustomersTabEnhanced
+              generateAdminToken={generateAdminToken}
+              onMintTokens={mintTokensToCustomer}
+              onRefresh={loadDashboardData}
+            />
           )}
 
           {activeTab === "shops" && (
