@@ -1,17 +1,13 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { toast } from 'react-hot-toast';
-import { 
-  Users,
+import React, { useState, useEffect } from "react";
+import { toast } from "react-hot-toast";
+import {
   Store,
-  UserX,
   Search,
   ChevronRight,
-  RefreshCw,
   Download,
   Award,
-  TrendingUp,
   Calendar,
   Coins,
   Activity,
@@ -23,22 +19,18 @@ import {
   Phone,
   Hash,
   Layers,
-  Maximize2,
-  Minimize2,
   Grid3X3,
-  List,
   UserCheck,
-  Package,
-  ArrowUpDown,
-  Star
-} from 'lucide-react';
+  Star,
+} from "lucide-react";
+import { DashboardHeader } from "@/components/ui/DashboardHeader";
 
 interface Customer {
   address: string;
   name?: string;
   email?: string;
   phone?: string;
-  tier: 'BRONZE' | 'SILVER' | 'GOLD';
+  tier: "BRONZE" | "SILVER" | "GOLD";
   lifetimeEarnings: number;
   monthlyEarnings?: number;
   lastTransactionDate?: string;
@@ -76,20 +68,25 @@ interface CustomersTabEnhancedProps {
 export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
   generateAdminToken,
   onMintTokens,
-  onRefresh
 }) => {
   const [data, setData] = useState<GroupedCustomersData | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedShops, setExpandedShops] = useState<Set<string>>(new Set());
-  const [viewMode, setViewMode] = useState<'grouped' | 'all' | 'no-shop'>('grouped');
-  const [displayMode, setDisplayMode] = useState<'table' | 'grid'>('table');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedTier, setSelectedTier] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'earnings' | 'transactions' | 'date' | 'name'>('earnings');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [viewMode, setViewMode] = useState<"grouped" | "all" | "no-shop">(
+    "grouped"
+  );
+  const [displayMode] = useState<"table" | "grid">("table");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedTier, setSelectedTier] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<
+    "earnings" | "transactions" | "date" | "name"
+  >("earnings");
+  const [sortOrder] = useState<"asc" | "desc">("desc");
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
+    null
+  );
   const [mintAmount, setMintAmount] = useState(100);
-  const [mintReason, setMintReason] = useState('Admin bonus');
+  const [mintReason, setMintReason] = useState("Admin bonus");
 
   useEffect(() => {
     loadCustomersData();
@@ -97,38 +94,41 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
 
   const loadCustomersData = async () => {
     setLoading(true);
-    
+
     try {
       const adminToken = await generateAdminToken();
       if (!adminToken) {
-        toast.error('Failed to authenticate as admin');
+        toast.error("Failed to authenticate as admin");
         setLoading(false);
         return;
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/customers/grouped-by-shop`, {
-        headers: {
-          'Authorization': `Bearer ${adminToken}`,
-          'Content-Type': 'application/json'
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/customers/grouped-by-shop`,
+        {
+          headers: {
+            Authorization: `Bearer ${adminToken}`,
+            "Content-Type": "application/json",
+          },
         }
-      });
+      );
 
       if (response.ok) {
         const result = await response.json();
         setData(result.data);
-        toast.success('Customer data loaded successfully');
+        toast.success("Customer data loaded successfully");
       } else {
         const errorData = await response.json();
-        console.error('Failed to load customers:', errorData);
-        toast.error(errorData.error || 'Failed to load customer data');
-        
+        console.error("Failed to load customers:", errorData);
+        toast.error(errorData.error || "Failed to load customer data");
+
         if (response.status === 401) {
-          toast.error('Session expired. Please refresh the page.');
+          toast.error("Session expired. Please refresh the page.");
         }
       }
     } catch (error) {
-      console.error('Error loading grouped customers:', error);
-      toast.error('Network error while loading customer data');
+      console.error("Error loading grouped customers:", error);
+      toast.error("Network error while loading customer data");
     } finally {
       setLoading(false);
     }
@@ -144,31 +144,29 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
     setExpandedShops(newExpanded);
   };
 
-  const expandAll = () => {
-    if (data) {
-      setExpandedShops(new Set(data.shopsWithCustomers.map(s => s.shopId)));
-    }
-  };
-
-  const collapseAll = () => {
-    setExpandedShops(new Set());
-  };
-
   const getTierIcon = (tier: string) => {
     switch (tier) {
-      case 'GOLD': return <Award className="w-4 h-4" />;
-      case 'SILVER': return <Star className="w-4 h-4" />;
-      case 'BRONZE': return <Award className="w-4 h-4" />;
-      default: return null;
+      case "GOLD":
+        return <Award className="w-4 h-4" />;
+      case "SILVER":
+        return <Star className="w-4 h-4" />;
+      case "BRONZE":
+        return <Award className="w-4 h-4" />;
+      default:
+        return null;
     }
   };
 
   const getTierColor = (tier: string) => {
     switch (tier) {
-      case 'BRONZE': return 'bg-orange-500/10 text-orange-400 border-orange-500/20';
-      case 'SILVER': return 'bg-gray-300/10 text-gray-300 border-gray-300/20';
-      case 'GOLD': return 'bg-yellow-400/10 text-yellow-400 border-yellow-400/20';
-      default: return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
+      case "BRONZE":
+        return "bg-orange-500/10 text-orange-400 border-orange-500/20";
+      case "SILVER":
+        return "bg-gray-300/10 text-gray-300 border-gray-300/20";
+      case "GOLD":
+        return "bg-yellow-400/10 text-yellow-400 border-yellow-400/20";
+      default:
+        return "bg-gray-500/10 text-gray-400 border-gray-500/20";
     }
   };
 
@@ -178,108 +176,104 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
 
   const filterCustomers = (customers: Customer[]) => {
     let filtered = [...customers];
-    
+
     // Search filter
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(c => 
-        c.address.toLowerCase().includes(term) ||
-        c.name?.toLowerCase().includes(term) ||
-        c.email?.toLowerCase().includes(term) ||
-        c.referralCode?.toLowerCase().includes(term)
+      filtered = filtered.filter(
+        (c) =>
+          c.address.toLowerCase().includes(term) ||
+          c.name?.toLowerCase().includes(term) ||
+          c.email?.toLowerCase().includes(term) ||
+          c.referralCode?.toLowerCase().includes(term)
       );
     }
-    
+
     // Tier filter
-    if (selectedTier !== 'all') {
-      filtered = filtered.filter(c => c.tier === selectedTier);
+    if (selectedTier !== "all") {
+      filtered = filtered.filter((c) => c.tier === selectedTier);
     }
-    
+
     // Sort
     filtered.sort((a, b) => {
       let comparison = 0;
       switch (sortBy) {
-        case 'earnings':
+        case "earnings":
           comparison = a.lifetimeEarnings - b.lifetimeEarnings;
           break;
-        case 'transactions':
+        case "transactions":
           comparison = (a.totalTransactions || 0) - (b.totalTransactions || 0);
           break;
-        case 'date':
-          comparison = new Date(a.lastTransactionDate || 0).getTime() - new Date(b.lastTransactionDate || 0).getTime();
+        case "date":
+          comparison =
+            new Date(a.lastTransactionDate || 0).getTime() -
+            new Date(b.lastTransactionDate || 0).getTime();
           break;
-        case 'name':
-          comparison = (a.name || '').localeCompare(b.name || '');
+        case "name":
+          comparison = (a.name || "").localeCompare(b.name || "");
           break;
       }
-      return sortOrder === 'asc' ? comparison : -comparison;
+      return sortOrder === "asc" ? comparison : -comparison;
     });
-    
+
     return filtered;
   };
-
-  const stats = useMemo(() => {
-    if (!data) return null;
-    
-    const totalEarnings = [
-      ...data.shopsWithCustomers.flatMap(s => s.customers),
-      ...data.customersWithoutShops
-    ].reduce((sum, c) => sum + c.lifetimeEarnings, 0);
-    
-    const avgEarnings = data.totalCustomers > 0 ? totalEarnings / data.totalCustomers : 0;
-    const activeCustomers = [
-      ...data.shopsWithCustomers.flatMap(s => s.customers),
-      ...data.customersWithoutShops
-    ].filter(c => c.isActive).length;
-    
-    return {
-      totalEarnings,
-      avgEarnings,
-      activeCustomers,
-      conversionRate: data.totalCustomers > 0 ? (data.totalCustomersWithShops / data.totalCustomers * 100) : 0
-    };
-  }, [data]);
 
   const handleMintTokens = () => {
     if (selectedCustomer) {
       onMintTokens(selectedCustomer.address, mintAmount, mintReason);
-      toast.success(`Minted ${mintAmount} RCN to ${selectedCustomer.name || formatAddress(selectedCustomer.address)}`);
-      setShowCustomerModal(false);
+      toast.success(
+        `Minted ${mintAmount} RCN to ${
+          selectedCustomer.name || formatAddress(selectedCustomer.address)
+        }`
+      );
       setSelectedCustomer(null);
     }
   };
 
   const exportToCSV = () => {
     if (!data) return;
-    
+
     const allCustomers = [
-      ...data.shopsWithCustomers.flatMap(shop => 
-        shop.customers.map(c => ({ ...c, shopName: shop.shopName }))
+      ...data.shopsWithCustomers.flatMap((shop) =>
+        shop.customers.map((c) => ({ ...c, shopName: shop.shopName }))
       ),
-      ...data.customersWithoutShops.map(c => ({ ...c, shopName: 'No Shop' }))
+      ...data.customersWithoutShops.map((c) => ({ ...c, shopName: "No Shop" })),
     ];
-    
-    const headers = ['Name', 'Address', 'Email', 'Shop', 'Tier', 'Lifetime Earnings', 'Total Transactions', 'Status', 'Last Activity'];
-    const rows = allCustomers.map(c => [
-      c.name || 'Anonymous',
+
+    const headers = [
+      "Name",
+      "Address",
+      "Email",
+      "Shop",
+      "Tier",
+      "Lifetime Earnings",
+      "Total Transactions",
+      "Status",
+      "Last Activity",
+    ];
+    const rows = allCustomers.map((c) => [
+      c.name || "Anonymous",
       c.address,
-      c.email || '',
+      c.email || "",
       c.shopName,
       c.tier,
       c.lifetimeEarnings.toString(),
       (c.totalTransactions || 0).toString(),
-      c.isActive ? 'Active' : 'Suspended',
-      c.lastTransactionDate || 'N/A'
+      c.isActive ? "Active" : "Suspended",
+      c.lastTransactionDate || "N/A",
     ]);
-    
-    const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+
+    const csvContent = [headers, ...rows]
+      .map((row) => row.join(","))
+      .join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    link.download = `customers_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `customers_${new Date().toISOString().split("T")[0]}.csv`;
     link.click();
-    toast.success('Customer data exported successfully');
+    toast.success("Customer data exported successfully");
   };
 
   if (loading) {
@@ -309,65 +303,55 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
   }
 
   const allCustomers = [
-    ...data.shopsWithCustomers.flatMap(shop => shop.customers),
-    ...data.customersWithoutShops
+    ...data.shopsWithCustomers.flatMap((shop) => shop.customers),
+    ...data.customersWithoutShops,
   ];
 
   return (
     <div className="space-y-6">
+      {/* Header */}
+      <DashboardHeader
+        title="Customer Management"
+        subtitle="Comprehensive customer insights and management"
+        icon={UserCheck}
+      />
       {/* Main Content Card */}
       <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700/50">
-        {/* Header */}
-        <div className="p-6 border-b border-gray-700/50">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                <UserCheck className="w-7 h-7 text-yellow-400" />
-                Enhanced Customer Management
-              </h2>
-              <p className="text-gray-400 text-sm mt-1">Comprehensive customer insights and management</p>
-            </div>
-            
-            <div className="flex flex-wrap gap-3">
-              <button
-                onClick={exportToCSV}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors flex items-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                Export CSV
-              </button>
-            </div>
-          </div>
-        </div>
-
         {/* Controls */}
         <div className="p-6 border-b border-gray-700/50 space-y-4">
           {/* View Mode Tabs */}
-          <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
             <div className="flex gap-2">
               <button
-                onClick={() => setViewMode('grouped')}
+                onClick={() => setViewMode("grouped")}
                 className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                  viewMode === 'grouped' 
-                    ? 'bg-yellow-500 text-gray-900' 
-                    : 'bg-gray-700/50 text-gray-300 hover:bg-gray-600'
+                  viewMode === "grouped"
+                    ? "bg-yellow-500 text-gray-900"
+                    : "bg-gray-700/50 text-gray-300 hover:bg-gray-600"
                 }`}
               >
                 <Layers className="w-4 h-4 inline mr-2" />
                 Grouped by Shop
               </button>
               <button
-                onClick={() => setViewMode('all')}
+                onClick={() => setViewMode("all")}
                 className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                  viewMode === 'all' 
-                    ? 'bg-yellow-500 text-gray-900' 
-                    : 'bg-gray-700/50 text-gray-300 hover:bg-gray-600'
+                  viewMode === "all"
+                    ? "bg-yellow-500 text-gray-900"
+                    : "bg-gray-700/50 text-gray-300 hover:bg-gray-600"
                 }`}
               >
                 <Grid3X3 className="w-4 h-4 inline mr-2" />
                 All Customers
               </button>
             </div>
+            <button
+              onClick={exportToCSV}
+              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Export CSV
+            </button>
           </div>
 
           {/* Search and Filters */}
@@ -382,7 +366,7 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                 className="w-full pl-10 pr-4 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-yellow-400"
               />
             </div>
-            
+
             <div className="flex gap-3">
               <select
                 value={selectedTier}
@@ -411,35 +395,47 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
 
         {/* Content */}
         <div className="p-6">
-          {viewMode === 'grouped' && (
+          {viewMode === "grouped" && (
             <div className="space-y-4">
-              {data.shopsWithCustomers.map(shop => {
+              {data.shopsWithCustomers.map((shop) => {
                 const isExpanded = expandedShops.has(shop.shopId);
                 const filteredCustomers = filterCustomers(shop.customers);
-                
+
                 if (searchTerm && filteredCustomers.length === 0) return null;
-                
+
                 return (
-                  <div key={shop.shopId} className="bg-gray-900/50 rounded-xl border border-gray-700/50 overflow-hidden">
-                    <div 
+                  <div
+                    key={shop.shopId}
+                    className="bg-gray-900/50 rounded-xl border border-gray-700/50 overflow-hidden"
+                  >
+                    <div
                       className="p-6 cursor-pointer hover:bg-gray-800/50 transition-all"
                       onClick={() => toggleShopExpansion(shop.shopId)}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                          <div className={`transform transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
+                          <div
+                            className={`transform transition-transform duration-200 ${
+                              isExpanded ? "rotate-90" : ""
+                            }`}
+                          >
                             <ChevronRight className="w-6 h-6 text-yellow-400" />
                           </div>
                           <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
                             <Store className="w-6 h-6 text-white" />
                           </div>
                           <div>
-                            <h3 className="text-xl font-bold text-white">{shop.shopName}</h3>
+                            <h3 className="text-xl font-bold text-white">
+                              {shop.shopName}
+                            </h3>
                             <div className="flex items-center gap-4 mt-1">
-                              <span className="text-sm text-gray-400">ID: {shop.shopId}</span>
+                              <span className="text-sm text-gray-400">
+                                ID: {shop.shopId}
+                              </span>
                               {shop.avgCustomerValue && (
                                 <span className="text-sm text-gray-400">
-                                  Avg Value: {shop.avgCustomerValue.toFixed(0)} RCN
+                                  Avg Value: {shop.avgCustomerValue.toFixed(0)}{" "}
+                                  RCN
                                 </span>
                               )}
                             </div>
@@ -448,31 +444,37 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                         <div className="flex items-center gap-6">
                           <div className="text-center">
                             <div className="text-2xl font-bold text-yellow-400">
-                              {searchTerm ? filteredCustomers.length : shop.totalCustomers}
+                              {searchTerm
+                                ? filteredCustomers.length
+                                : shop.totalCustomers}
                             </div>
-                            <div className="text-xs text-gray-400">Customers</div>
+                            <div className="text-xs text-gray-400">
+                              Customers
+                            </div>
                           </div>
                           {shop.shopRevenue && (
                             <div className="text-center">
                               <div className="text-2xl font-bold text-green-400">
                                 {shop.shopRevenue.toFixed(0)}
                               </div>
-                              <div className="text-xs text-gray-400">Total RCN</div>
+                              <div className="text-xs text-gray-400">
+                                Total RCN
+                              </div>
                             </div>
                           )}
                         </div>
                       </div>
                     </div>
-                    
+
                     {isExpanded && (
                       <div className="border-t border-gray-700/50">
-                        {displayMode === 'table' ? (
-                          <CustomerTable 
+                        {displayMode === "table" ? (
+                          <CustomerTable
                             customers={filteredCustomers}
                             onSelectCustomer={setSelectedCustomer}
                           />
                         ) : (
-                          <CustomerGrid 
+                          <CustomerGrid
                             customers={filteredCustomers}
                             onSelectCustomer={setSelectedCustomer}
                           />
@@ -485,35 +487,33 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
             </div>
           )}
 
-          {viewMode === 'all' && (
-            displayMode === 'table' ? (
-              <CustomerTable 
+          {viewMode === "all" &&
+            (displayMode === "table" ? (
+              <CustomerTable
                 customers={filterCustomers(allCustomers)}
                 onSelectCustomer={setSelectedCustomer}
               />
             ) : (
-              <CustomerGrid 
+              <CustomerGrid
                 customers={filterCustomers(allCustomers)}
                 onSelectCustomer={setSelectedCustomer}
               />
-            )
-          )}
+            ))}
 
-          {viewMode === 'no-shop' && (
-            displayMode === 'table' ? (
-              <CustomerTable 
+          {viewMode === "no-shop" &&
+            (displayMode === "table" ? (
+              <CustomerTable
                 customers={filterCustomers(data.customersWithoutShops)}
                 onSelectCustomer={setSelectedCustomer}
                 emptyMessage="All customers have shop activity"
               />
             ) : (
-              <CustomerGrid 
+              <CustomerGrid
                 customers={filterCustomers(data.customersWithoutShops)}
                 onSelectCustomer={setSelectedCustomer}
                 emptyMessage="All customers have shop activity"
               />
-            )
-          )}
+            ))}
         </div>
       </div>
 
@@ -522,7 +522,9 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-gray-800 rounded-xl p-6 max-w-2xl w-full mx-4 border border-gray-700 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start mb-6">
-              <h3 className="text-2xl font-bold text-white">Customer Details</h3>
+              <h3 className="text-2xl font-bold text-white">
+                Customer Details
+              </h3>
               <button
                 onClick={() => setSelectedCustomer(null)}
                 className="text-gray-400 hover:text-white"
@@ -534,27 +536,37 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
             <div className="space-y-6">
               <div className="flex items-start gap-4">
                 <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-2xl">
-                  {(selectedCustomer.name || 'A')[0].toUpperCase()}
+                  {(selectedCustomer.name || "A")[0].toUpperCase()}
                 </div>
                 <div className="flex-1">
                   <h4 className="text-xl font-bold text-white">
-                    {selectedCustomer.name || 'Anonymous Customer'}
+                    {selectedCustomer.name || "Anonymous Customer"}
                   </h4>
                   <p className="text-sm text-gray-400 font-mono mb-2">
                     {selectedCustomer.address}
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${getTierColor(selectedCustomer.tier)}`}>
+                    <span
+                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${getTierColor(
+                        selectedCustomer.tier
+                      )}`}
+                    >
                       {getTierIcon(selectedCustomer.tier)}
                       {selectedCustomer.tier} TIER
                     </span>
-                    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${
-                      selectedCustomer.isActive 
-                        ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                        : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                    }`}>
-                      {selectedCustomer.isActive ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                      {selectedCustomer.isActive ? 'Active' : 'Suspended'}
+                    <span
+                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${
+                        selectedCustomer.isActive
+                          ? "bg-green-500/10 text-green-400 border border-green-500/20"
+                          : "bg-red-500/10 text-red-400 border border-red-500/20"
+                      }`}
+                    >
+                      {selectedCustomer.isActive ? (
+                        <CheckCircle className="w-3 h-3" />
+                      ) : (
+                        <XCircle className="w-3 h-3" />
+                      )}
+                      {selectedCustomer.isActive ? "Active" : "Suspended"}
                     </span>
                   </div>
                 </div>
@@ -562,12 +574,20 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-gray-900/50 rounded-lg p-4">
-                  <p className="text-sm text-gray-400 mb-1">Lifetime Earnings</p>
-                  <p className="text-2xl font-bold text-yellow-400">{selectedCustomer.lifetimeEarnings} RCN</p>
+                  <p className="text-sm text-gray-400 mb-1">
+                    Lifetime Earnings
+                  </p>
+                  <p className="text-2xl font-bold text-yellow-400">
+                    {selectedCustomer.lifetimeEarnings} RCN
+                  </p>
                 </div>
                 <div className="bg-gray-900/50 rounded-lg p-4">
-                  <p className="text-sm text-gray-400 mb-1">Total Transactions</p>
-                  <p className="text-2xl font-bold text-blue-400">{selectedCustomer.totalTransactions || 0}</p>
+                  <p className="text-sm text-gray-400 mb-1">
+                    Total Transactions
+                  </p>
+                  <p className="text-2xl font-bold text-blue-400">
+                    {selectedCustomer.totalTransactions || 0}
+                  </p>
                 </div>
               </div>
 
@@ -593,31 +613,47 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                 {selectedCustomer.joinDate && (
                   <div className="flex items-center gap-3 text-gray-300">
                     <Calendar className="w-4 h-4 text-gray-400" />
-                    <span>Joined: {new Date(selectedCustomer.joinDate).toLocaleDateString()}</span>
+                    <span>
+                      Joined:{" "}
+                      {new Date(selectedCustomer.joinDate).toLocaleDateString()}
+                    </span>
                   </div>
                 )}
                 {selectedCustomer.lastTransactionDate && (
                   <div className="flex items-center gap-3 text-gray-300">
                     <Activity className="w-4 h-4 text-gray-400" />
-                    <span>Last Activity: {new Date(selectedCustomer.lastTransactionDate).toLocaleDateString()}</span>
+                    <span>
+                      Last Activity:{" "}
+                      {new Date(
+                        selectedCustomer.lastTransactionDate
+                      ).toLocaleDateString()}
+                    </span>
                   </div>
                 )}
               </div>
 
               <div className="border-t border-gray-700 pt-4">
-                <h5 className="text-lg font-semibold text-white mb-4">Mint Tokens</h5>
+                <h5 className="text-lg font-semibold text-white mb-4">
+                  Mint Tokens
+                </h5>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Amount (RCN)</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Amount (RCN)
+                    </label>
                     <input
                       type="number"
                       value={mintAmount}
-                      onChange={(e) => setMintAmount(parseInt(e.target.value) || 0)}
+                      onChange={(e) =>
+                        setMintAmount(parseInt(e.target.value) || 0)
+                      }
                       className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Reason</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Reason
+                    </label>
                     <input
                       type="text"
                       value={mintReason}
@@ -647,22 +683,30 @@ const CustomerTable: React.FC<{
   customers: Customer[];
   onSelectCustomer?: (customer: Customer) => void;
   emptyMessage?: string;
-}> = ({ customers, onSelectCustomer, emptyMessage = 'No customers found' }) => {
+}> = ({ customers, onSelectCustomer, emptyMessage = "No customers found" }) => {
   const getTierColor = (tier: string) => {
     switch (tier) {
-      case 'BRONZE': return 'bg-orange-500/10 text-orange-400 border-orange-500/20';
-      case 'SILVER': return 'bg-gray-300/10 text-gray-300 border-gray-300/20';
-      case 'GOLD': return 'bg-yellow-400/10 text-yellow-400 border-yellow-400/20';
-      default: return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
+      case "BRONZE":
+        return "bg-orange-500/10 text-orange-400 border-orange-500/20";
+      case "SILVER":
+        return "bg-gray-300/10 text-gray-300 border-gray-300/20";
+      case "GOLD":
+        return "bg-yellow-400/10 text-yellow-400 border-yellow-400/20";
+      default:
+        return "bg-gray-500/10 text-gray-400 border-gray-500/20";
     }
   };
 
   const getTierIcon = (tier: string) => {
     switch (tier) {
-      case 'GOLD': return <Award className="w-4 h-4" />;
-      case 'SILVER': return <Star className="w-4 h-4" />;
-      case 'BRONZE': return <Award className="w-4 h-4" />;
-      default: return null;
+      case "GOLD":
+        return <Award className="w-4 h-4" />;
+      case "SILVER":
+        return <Star className="w-4 h-4" />;
+      case "BRONZE":
+        return <Award className="w-4 h-4" />;
+      default:
+        return null;
     }
   };
 
@@ -684,60 +728,98 @@ const CustomerTable: React.FC<{
       <table className="w-full">
         <thead>
           <tr className="border-b border-gray-700/50">
-            <th className="text-left p-4 text-gray-400 font-medium text-sm">Customer</th>
-            <th className="text-left p-4 text-gray-400 font-medium text-sm">Tier</th>
-            <th className="text-left p-4 text-gray-400 font-medium text-sm">Earnings</th>
-            <th className="text-left p-4 text-gray-400 font-medium text-sm">Transactions</th>
-            <th className="text-left p-4 text-gray-400 font-medium text-sm">Status</th>
-            <th className="text-left p-4 text-gray-400 font-medium text-sm">Last Activity</th>
-            <th className="text-left p-4 text-gray-400 font-medium text-sm">Actions</th>
+            <th className="text-left p-4 text-gray-400 font-medium text-sm">
+              Customer
+            </th>
+            <th className="text-left p-4 text-gray-400 font-medium text-sm">
+              Tier
+            </th>
+            <th className="text-left p-4 text-gray-400 font-medium text-sm">
+              Earnings
+            </th>
+            <th className="text-left p-4 text-gray-400 font-medium text-sm">
+              Transactions
+            </th>
+            <th className="text-left p-4 text-gray-400 font-medium text-sm">
+              Status
+            </th>
+            <th className="text-left p-4 text-gray-400 font-medium text-sm">
+              Last Activity
+            </th>
+            <th className="text-left p-4 text-gray-400 font-medium text-sm">
+              Actions
+            </th>
           </tr>
         </thead>
         <tbody>
           {customers.map((customer) => (
-            <tr key={customer.address} className="border-b border-gray-700/30 hover:bg-gray-700/20 transition-colors">
+            <tr
+              key={customer.address}
+              className="border-b border-gray-700/30 hover:bg-gray-700/20 transition-colors"
+            >
               <td className="p-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
-                    {(customer.name || 'A')[0].toUpperCase()}
+                    {(customer.name || "A")[0].toUpperCase()}
                   </div>
                   <div>
-                    <div className="font-medium text-white">{customer.name || 'Anonymous'}</div>
-                    <div className="text-xs text-gray-400 font-mono">{formatAddress(customer.address)}</div>
+                    <div className="font-medium text-white">
+                      {customer.name || "Anonymous"}
+                    </div>
+                    <div className="text-xs text-gray-400 font-mono">
+                      {formatAddress(customer.address)}
+                    </div>
                     {customer.referralCode && (
-                      <div className="text-xs text-blue-400">Ref: {customer.referralCode}</div>
+                      <div className="text-xs text-blue-400">
+                        Ref: {customer.referralCode}
+                      </div>
                     )}
                   </div>
                 </div>
               </td>
               <td className="p-4">
-                <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${getTierColor(customer.tier)}`}>
+                <span
+                  className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${getTierColor(
+                    customer.tier
+                  )}`}
+                >
                   {getTierIcon(customer.tier)}
                   {customer.tier}
                 </span>
               </td>
               <td className="p-4">
-                <div className="text-white font-medium">{customer.lifetimeEarnings} RCN</div>
+                <div className="text-white font-medium">
+                  {customer.lifetimeEarnings} RCN
+                </div>
                 {customer.monthlyEarnings !== undefined && (
-                  <div className="text-xs text-gray-400">Monthly: {customer.monthlyEarnings} RCN</div>
+                  <div className="text-xs text-gray-400">
+                    Monthly: {customer.monthlyEarnings} RCN
+                  </div>
                 )}
               </td>
-              <td className="p-4 text-gray-300">{customer.totalTransactions || 0}</td>
+              <td className="p-4 text-gray-300">
+                {customer.totalTransactions || 0}
+              </td>
               <td className="p-4">
-                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-                  customer.isActive 
-                    ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                    : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                }`}>
-                  {customer.isActive ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                  {customer.isActive ? 'Active' : 'Suspended'}
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                    customer.isActive
+                      ? "bg-green-500/10 text-green-400 border border-green-500/20"
+                      : "bg-red-500/10 text-red-400 border border-red-500/20"
+                  }`}
+                >
+                  {customer.isActive ? (
+                    <CheckCircle className="w-3 h-3" />
+                  ) : (
+                    <XCircle className="w-3 h-3" />
+                  )}
+                  {customer.isActive ? "Active" : "Suspended"}
                 </span>
               </td>
               <td className="p-4 text-gray-400 text-sm">
-                {customer.lastTransactionDate 
+                {customer.lastTransactionDate
                   ? new Date(customer.lastTransactionDate).toLocaleDateString()
-                  : 'N/A'
-                }
+                  : "N/A"}
               </td>
               <td className="p-4">
                 <button
@@ -761,13 +843,17 @@ const CustomerGrid: React.FC<{
   customers: Customer[];
   onSelectCustomer?: (customer: Customer) => void;
   emptyMessage?: string;
-}> = ({ customers, onSelectCustomer, emptyMessage = 'No customers found' }) => {
+}> = ({ customers, onSelectCustomer, emptyMessage = "No customers found" }) => {
   const getTierColor = (tier: string) => {
     switch (tier) {
-      case 'BRONZE': return 'from-orange-500 to-orange-600';
-      case 'SILVER': return 'from-gray-400 to-gray-500';
-      case 'GOLD': return 'from-yellow-400 to-yellow-500';
-      default: return 'from-gray-500 to-gray-600';
+      case "BRONZE":
+        return "from-orange-500 to-orange-600";
+      case "SILVER":
+        return "from-gray-400 to-gray-500";
+      case "GOLD":
+        return "from-yellow-400 to-yellow-500";
+      default:
+        return "from-gray-500 to-gray-600";
     }
   };
 
@@ -790,28 +876,36 @@ const CustomerGrid: React.FC<{
         >
           <div className="flex items-start justify-between mb-3">
             <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">
-              {(customer.name || 'A')[0].toUpperCase()}
+              {(customer.name || "A")[0].toUpperCase()}
             </div>
-            <span className={`px-2 py-1 rounded-full text-xs font-medium bg-gradient-to-r ${getTierColor(customer.tier)} text-white`}>
+            <span
+              className={`px-2 py-1 rounded-full text-xs font-medium bg-gradient-to-r ${getTierColor(
+                customer.tier
+              )} text-white`}
+            >
               {customer.tier}
             </span>
           </div>
-          
+
           <h4 className="font-medium text-white mb-1">
-            {customer.name || 'Anonymous'}
+            {customer.name || "Anonymous"}
           </h4>
           <p className="text-xs text-gray-400 font-mono mb-3">
             {customer.address.slice(0, 10)}...{customer.address.slice(-8)}
           </p>
-          
+
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-gray-400">Earnings</span>
-              <span className="text-yellow-400 font-medium">{customer.lifetimeEarnings} RCN</span>
+              <span className="text-yellow-400 font-medium">
+                {customer.lifetimeEarnings} RCN
+              </span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-400">Transactions</span>
-              <span className="text-white">{customer.totalTransactions || 0}</span>
+              <span className="text-white">
+                {customer.totalTransactions || 0}
+              </span>
             </div>
             {customer.isActive ? (
               <div className="flex items-center gap-1 text-green-400 text-xs">
@@ -827,32 +921,6 @@ const CustomerGrid: React.FC<{
           </div>
         </div>
       ))}
-    </div>
-  );
-};
-
-// Stat Card Component
-const StatCard = ({ title, value, subtitle, icon, color }: any) => {
-  const colorClasses: any = {
-    blue: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-    green: 'bg-green-500/10 text-green-400 border-green-500/20',
-    yellow: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
-    purple: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-    orange: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
-  };
-
-  return (
-    <div className={`p-4 rounded-xl border ${colorClasses[color]} bg-gray-800/50 backdrop-blur-sm`}>
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-gray-400 text-sm mb-1">{title}</p>
-          <p className="text-2xl font-bold text-white">{typeof value === 'number' ? value.toLocaleString() : value}</p>
-          {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
-        </div>
-        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${colorClasses[color]}`}>
-          {icon}
-        </div>
-      </div>
     </div>
   );
 };

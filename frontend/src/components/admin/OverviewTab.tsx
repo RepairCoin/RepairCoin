@@ -7,6 +7,7 @@ import {
   DollarSign,
   Sparkles
 } from 'lucide-react';
+import { DashboardHeader } from '@/components/ui/DashboardHeader';
 
 interface PlatformStats {
   totalCustomers: number;
@@ -73,17 +74,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   return (
     <div className="space-y-6 p-6">
       {/* Header Section */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-            <div className="w-12 h-12 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-xl flex items-center justify-center">
-              <Sparkles className="w-7 h-7 text-white" />
-            </div>
-            Dashboard Overview
-          </h1>
-          <p className="text-gray-400 mt-1">Welcome back! Here's what's happening today</p>
-        </div>
-      </div>
+      <DashboardHeader 
+        title="Dashboard Overview"
+        subtitle="Welcome back! Here's what's happening today"
+        icon={Sparkles}
+      />
 
       {/* Key Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
