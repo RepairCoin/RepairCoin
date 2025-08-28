@@ -23,11 +23,13 @@ import {
   ShieldOff,
   Send,
   Filter,
+  Plus,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/ui/DashboardHeader";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { EditShopModal } from "./EditShopModal";
 import { ShopReviewModal } from "./ShopReviewModal";
+import { AddShopModal } from "./AddShopModal";
 
 interface Shop {
   shopId: string;
@@ -103,6 +105,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
   }>({ isOpen: false, shop: null });
   const [isProcessing, setIsProcessing] = useState(false);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [showAddShopModal, setShowAddShopModal] = useState(false);
 
   // Close dropdown when clicking outside
   React.useEffect(() => {
@@ -629,6 +632,16 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
               />
             </div>
             
+            {/* Add Shop Button */}
+            <button
+              onClick={() => setShowAddShopModal(true)}
+              className="px-4 py-2 bg-gradient-to-r bg-[#FFCC00] text-black border border-blue-400/30 rounded-lg transition-all flex items-center gap-2 shadow-lg"
+              title="Add new shop"
+            >
+              <Plus className="inline sm:hidden w-5 h-5 text-black" />
+              <span className="hidden sm:inline">Add Shop</span>
+            </button>
+            
             {/* Filter Dropdown */}
             <div className="relative filter-dropdown-container">
               <button
@@ -733,6 +746,19 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
               );
             }
             setReviewModal({ isOpen: false, shop: null });
+          }}
+        />
+      )}
+
+      {/* Add Shop Modal */}
+      {generateAdminToken && (
+        <AddShopModal
+          isOpen={showAddShopModal}
+          onClose={() => setShowAddShopModal(false)}
+          generateAdminToken={generateAdminToken}
+          onSuccess={() => {
+            onRefresh();
+            setShowAddShopModal(false);
           }}
         />
       )}

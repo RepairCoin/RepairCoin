@@ -19,7 +19,6 @@ import { ActivityLogsTab } from "@/components/admin/ActivityLogsTab";
 import { AnalyticsTab } from "@/components/admin/AnalyticsTab";
 import { UnsuspendRequestsTab } from "@/components/admin/UnsuspendRequestsTab";
 import { CreateAdminTab } from "@/components/admin/CreateAdminTab";
-import { CreateShopTab } from "@/components/admin/CreateShopTab";
 import { ShopReviewModal } from "@/components/admin/ShopReviewModal";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 
@@ -294,6 +293,7 @@ export default function AdminDashboardClient() {
       loadDashboardData();
     }
   }, [isAdmin]);
+
 
   // Action handlers
   const mintTokensToCustomer = async (
@@ -730,14 +730,6 @@ export default function AdminDashboardClient() {
             <AnalyticsTab
               generateAdminToken={generateAdminToken}
               onError={setError}
-            />
-          )}
-
-          {activeTab === "create-shop" && (
-            <CreateShopTab
-              generateAdminToken={generateAdminToken}
-              onError={setError}
-              onSuccess={loadDashboardData}
             />
           )}
 
