@@ -266,7 +266,6 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
       if (response.ok) {
         const result = await response.json();
         setData(result.data);
-        toast.success("Customer data loaded successfully");
       } else {
         const errorData = await response.json();
         console.error("Failed to load customers:", errorData);
