@@ -491,13 +491,13 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                 All Customers
               </button>
             </div>
-            <button
+            {/* <button
               onClick={exportToCSV}
               className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors flex items-center gap-2"
             >
               <Download className="w-4 h-4" />
               Export CSV
-            </button>
+            </button> */}
           </div>
 
           {/* Search and Filters */}
