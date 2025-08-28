@@ -19,7 +19,6 @@ import { RedeemTabV2 } from '@/components/shop/tabs/RedeemTabV2';
 import { IssueRewardsTab } from '@/components/shop/tabs/IssueRewardsTab';
 import { CustomerLookupTab } from '@/components/shop/tabs/CustomerLookupTab';
 import { SettingsTab } from '@/components/shop/tabs/SettingsTab';
-import { TransactionsTab } from '@/components/shop/tabs/TransactionsTab';
 import { CustomersTab } from '@/components/shop/tabs/CustomersTab';
 import { useShopRegistration } from '@/hooks/useShopRegistration';
 
@@ -72,7 +71,6 @@ export default function ShopDashboardClient() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('overview');
-  const [transactionFilter, setTransactionFilter] = useState<'all' | 'rewards' | 'redemptions' | 'purchases' | 'failed'>('all');
   const [blockchainBalance, setBlockchainBalance] = useState<number>(0);
   
   // Purchase form state
@@ -91,24 +89,9 @@ export default function ShopDashboardClient() {
   useEffect(() => {
     // Set active tab from URL query param
     const tab = searchParams.get('tab');
-    const filter = searchParams.get('filter');
     
     if (tab) {
-      // If it's a transactions tab with a filter, set the full sub-tab ID
-      if (tab === 'transactions' && filter && filter !== 'all') {
-        setActiveTab(`transactions-${filter}`);
-        setTransactionFilter(filter as any);
-      } else if (tab.startsWith('transactions-')) {
-        // Handle direct sub-tab URLs
-        setActiveTab(tab);
-        const filterType = tab.replace('transactions-', '') as any;
-        setTransactionFilter(filterType);
-      } else {
-        setActiveTab(tab);
-        if (tab === 'transactions') {
-          setTransactionFilter('all');
-        }
-      }
+      setActiveTab(tab);
     }
   }, [searchParams]);
 
@@ -399,31 +382,13 @@ export default function ShopDashboardClient() {
   }
 
   const handleTabChange = (tab: string) => {
-    // Handle sub-tab navigation for transactions
-    if (tab.startsWith('transactions-')) {
-      setActiveTab(tab); // Keep the full sub-tab ID for sidebar to detect active state
-      const filterType = tab.replace('transactions-', '') as any;
-      setTransactionFilter(filterType);
-      
-      // Update URL with filter
-      const url = new URL(window.location.href);
-      url.searchParams.set('tab', 'transactions');
-      url.searchParams.set('filter', filterType);
-      window.history.pushState({}, '', url);
-    } else {
-      setActiveTab(tab);
-      
-      // Reset filter if switching away from transactions
-      if (tab !== 'transactions') {
-        setTransactionFilter('all');
-      }
-      
-      // Update URL
-      const url = new URL(window.location.href);
-      url.searchParams.set('tab', tab);
-      url.searchParams.delete('filter');
-      window.history.pushState({}, '', url);
-    }
+    setActiveTab(tab);
+    
+    // Update URL
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', tab);
+    url.searchParams.delete('filter');
+    window.history.pushState({}, '', url);
   };
 
   // Main dashboard
@@ -494,12 +459,6 @@ export default function ShopDashboardClient() {
             <CustomerLookupTab shopId={shopData.shopId} />
           )}
 
-          {(activeTab === 'transactions' || activeTab.startsWith('transactions-')) && shopData && (
-            <TransactionsTab 
-              shopId={shopData.shopId} 
-              initialFilter={transactionFilter}
-            />
-          )}
 
           {activeTab === 'settings' && shopData && (
             <SettingsTab 

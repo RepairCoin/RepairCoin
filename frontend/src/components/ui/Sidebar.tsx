@@ -163,44 +163,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           tabId: "purchase",
         },
         {
-          title: "Transactions",
-          href: "/shop?tab=transactions",
-          icon: <TransactionIcon width={24} height={24} />,
-          tabId: "transactions",
-          subItems: [
-            {
-              title: "All Transactions",
-              href: "/shop?tab=transactions&filter=all",
-              icon: <span className="text-xs">📊</span>,
-              tabId: "transactions-all",
-            },
-            {
-              title: "Rewards",
-              href: "/shop?tab=transactions&filter=rewards",
-              icon: <span className="text-xs">🎁</span>,
-              tabId: "transactions-rewards",
-            },
-            {
-              title: "Redemptions",
-              href: "/shop?tab=transactions&filter=redemptions",
-              icon: <span className="text-xs">💸</span>,
-              tabId: "transactions-redemptions",
-            },
-            {
-              title: "Purchases",
-              href: "/shop?tab=transactions&filter=purchases",
-              icon: <span className="text-xs">💰</span>,
-              tabId: "transactions-purchases",
-            },
-            {
-              title: "Failed",
-              href: "/shop?tab=transactions&filter=failed",
-              icon: <span className="text-xs">⚠️</span>,
-              tabId: "transactions-failed",
-            },
-          ],
-        },
-        {
           title: "Bonuses",
           href: "/shop?tab=bonuses",
           icon: <BonusesIcon width={24} height={24} />,

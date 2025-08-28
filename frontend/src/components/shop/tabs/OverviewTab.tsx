@@ -1,7 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { WalletIcon } from "../../icon/index";
+import { DataTable, Column } from "@/components/ui/DataTable";
+import { Filter, ChevronDown } from "lucide-react";
 
 interface ShopData {
   shopId: string;
@@ -31,11 +33,97 @@ interface OverviewTabProps {
   blockchainBalance?: number;
 }
 
+// Purchase columns for DataTable
+const purchaseColumns: Column<PurchaseHistory>[] = [
+  {
+    key: 'date',
+    header: 'Date',
+    sortable: true,
+    accessor: (purchase) => (
+      <span className="text-sm text-gray-300">
+        {new Date(purchase.createdAt).toLocaleDateString()}
+      </span>
+    ),
+  },
+  {
+    key: 'amount',
+    header: 'Credits',
+    sortable: true,
+    accessor: (purchase) => (
+      <span className="text-sm font-semibold text-yellow-400">
+        {purchase.amount} RCN
+      </span>
+    ),
+  },
+  {
+    key: 'cost',
+    header: 'Cost',
+    sortable: true,
+    accessor: (purchase) => (
+      <span className="text-sm text-gray-300">
+        ${purchase.totalCost?.toFixed(2) || "N/A"}
+      </span>
+    ),
+  },
+  {
+    key: 'method',
+    header: 'Payment Method',
+    accessor: (purchase) => (
+      <span className="text-sm text-gray-300">
+        {purchase.paymentMethod.toUpperCase()}
+      </span>
+    ),
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    accessor: (purchase) => {
+      const statusColors = {
+        completed: 'bg-green-500/10 text-green-400',
+        pending: 'bg-yellow-500/10 text-yellow-400',
+        failed: 'bg-red-500/10 text-red-400',
+      };
+      
+      return (
+        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+          statusColors[purchase.status as keyof typeof statusColors] || statusColors.pending
+        }`}>
+          {purchase.status}
+        </span>
+      );
+    },
+  },
+];
+
 export const OverviewTab: React.FC<OverviewTabProps> = ({
   shopData,
   purchases,
   blockchainBalance = 0,
 }) => {
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [filter, setFilter] = useState<'all' | 'completed' | 'pending' | 'failed'>('all');
+
+  // Filter purchases based on selected filter
+  const filteredPurchases = purchases.filter(purchase => {
+    if (filter === 'all') return true;
+    return purchase.status === filter;
+  });
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.filter-dropdown-container')) {
+        setShowFilterDropdown(false);
+      }
+    };
+
+    if (showFilterDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showFilterDropdown]);
+
   if (!shopData) {
     return <div>Loading shop data...</div>;
   }
@@ -80,8 +168,65 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         <BalanceAlertCard balance={blockchainBalance} />
       </div>
 
-      {/* Recent Purchase History */}
-      <RecentPurchasesCard purchases={purchases} />
+      {/* Recent Credit Purchases with DataTable */}
+      <div className="bg-[#212121] rounded-2xl shadow-xl p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-2xl font-bold text-[#FFCC00]">Recent Credit Purchases</h3>
+          
+          {/* Filter Dropdown */}
+          <div className="relative filter-dropdown-container">
+            <button
+              onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+              className="px-4 py-2 bg-gray-700/50 text-gray-300 border border-gray-600 rounded-lg hover:bg-gray-600 transition-colors flex items-center gap-2"
+              title="Filter purchases"
+            >
+              <Filter className="w-5 h-5" />
+              <span className="hidden sm:inline capitalize">
+                {filter === 'all' ? 'All' : filter}
+              </span>
+              <ChevronDown className={`w-4 h-4 transition-transform ${showFilterDropdown ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {/* Dropdown Menu */}
+            {showFilterDropdown && (
+              <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-10">
+                {(['all', 'completed', 'pending', 'failed'] as const).map((filterOption) => (
+                  <button
+                    key={filterOption}
+                    onClick={() => {
+                      setFilter(filterOption);
+                      setShowFilterDropdown(false);
+                    }}
+                    className={`w-full text-left px-4 py-2 text-sm transition-colors ${
+                      filter === filterOption
+                        ? 'bg-yellow-500/20 text-yellow-400'
+                        : 'text-gray-300 hover:bg-gray-700'
+                    } ${filterOption === 'all' ? 'rounded-t-lg' : ''} ${filterOption === 'failed' ? 'rounded-b-lg' : ''}`}
+                  >
+                    <span className="capitalize">{filterOption}</span>
+                    {filter === filterOption && <span className="ml-2">✓</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <DataTable
+          data={filteredPurchases}
+          columns={purchaseColumns}
+          keyExtractor={(purchase) => purchase.id}
+          loading={false}
+          loadingRows={5}
+          emptyMessage="No purchases yet"
+          className=""
+          headerClassName="bg-gray-800/50"
+          rowClassName={(purchase) => 
+            purchase.status === 'failed' ? 'bg-red-900/10' : ''
+          }
+        />
+      </div>
+
     </div>
   );
 };
@@ -98,7 +243,6 @@ const StatCard: React.FC<StatCardProps> = ({
   title,
   value,
   subtitle,
-  color,
   icon,
 }) => {
   return (
@@ -257,74 +401,4 @@ const BalanceAlertCard: React.FC<{ balance: number }> = ({ balance }) => {
   );
 };
 
-const RecentPurchasesCard: React.FC<{ purchases: PurchaseHistory[] }> = ({
-  purchases,
-}) => {
-  const recentPurchases = purchases.slice(0, 5);
-
-  return (
-    <div className="bg-[#212121] rounded-2xl shadow-xl p-6">
-      <h3 className="text-2xl font-bold text-[#FFCC00] mb-4">
-        Recent Credit Purchases
-      </h3>
-      {recentPurchases.length === 0 ? (
-        <p className="text-gray-400 text-center py-8">No purchases yet</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead>
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Date
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Credits
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Cost
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Method
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {recentPurchases.map((purchase) => (
-                <tr key={purchase.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {new Date(purchase.createdAt).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {purchase.amount}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ${purchase.totalCost?.toFixed(2) || "N/A"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {purchase.paymentMethod.toUpperCase()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        purchase.status === "completed"
-                          ? "bg-green-100 text-green-800"
-                          : purchase.status === "pending"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      {purchase.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-};
+// RecentPurchasesCard component removed - replaced with DataTable
