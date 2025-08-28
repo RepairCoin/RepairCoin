@@ -24,6 +24,7 @@ import {
   Star,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/ui/DashboardHeader";
+import { DataTable, Column } from "@/components/ui/DataTable";
 
 interface Customer {
   address: string;
@@ -87,6 +88,155 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
   );
   const [mintAmount, setMintAmount] = useState(100);
   const [mintReason, setMintReason] = useState("Admin bonus");
+
+  // Define table columns for customers
+  const customerColumns: Column<Customer>[] = [
+    {
+      key: "customer",
+      header: "Customer",
+      sortable: true,
+      accessor: (customer) => (
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold">
+            {(customer.name || "A")[0].toUpperCase()}
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-white">
+              {customer.name || "Anonymous"}
+            </p>
+            <p className="text-xs text-gray-400 font-mono">
+              {formatAddress(customer.address)}
+            </p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "tier",
+      header: "Tier",
+      sortable: true,
+      accessor: (customer) => (
+        <span
+          className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${getTierColor(
+            customer.tier
+          )}`}
+        >
+          {getTierIcon(customer.tier)}
+          {customer.tier}
+        </span>
+      ),
+    },
+    {
+      key: "earnings",
+      header: "Lifetime Earnings",
+      sortable: true,
+      accessor: (customer) => (
+        <div className="text-sm">
+          <p className="text-yellow-400 font-semibold">
+            {customer.lifetimeEarnings.toLocaleString()} RCN
+          </p>
+          {customer.monthlyEarnings && (
+            <p className="text-xs text-gray-400">
+              Monthly: {customer.monthlyEarnings} RCN
+            </p>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "activity",
+      header: "Activity",
+      sortable: true,
+      accessor: (customer) => (
+        <div className="text-sm">
+          <p className="text-gray-300">
+            {customer.totalTransactions || 0} transactions
+          </p>
+          {customer.lastTransactionDate && (
+            <p className="text-xs text-gray-400">
+              Last:{" "}
+              {new Date(customer.lastTransactionDate).toLocaleDateString()}
+            </p>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "referrals",
+      header: "Referrals",
+      accessor: (customer) => (
+        <div className="text-sm">
+          {customer.referralCode && (
+            <>
+              <p className="text-gray-300 font-mono text-xs">
+                {customer.referralCode}
+              </p>
+              <p className="text-xs text-gray-400">
+                {customer.referralCount || 0} referrals
+              </p>
+            </>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      accessor: (customer) => (
+        <span
+          className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${
+            customer.isActive
+              ? "bg-green-500/10 text-green-400 border border-green-500/20"
+              : "bg-red-500/10 text-red-400 border border-red-500/20"
+          }`}
+        >
+          {customer.isActive ? (
+            <CheckCircle className="w-3 h-3" />
+          ) : (
+            <XCircle className="w-3 h-3" />
+          )}
+          {customer.isActive ? "Active" : "Suspended"}
+        </span>
+      ),
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      accessor: (customer) => (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedCustomer(customer);
+            }}
+            className="p-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors"
+            title="View Details"
+          >
+            <Eye className="w-4 h-4" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleQuickMint(customer.address);
+            }}
+            className="p-1.5 bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 rounded-lg hover:bg-yellow-500/20 transition-colors"
+            title="Mint 100 RCN"
+          >
+            <Coins className="w-4 h-4" />
+          </button>
+        </div>
+      ),
+    },
+  ];
+
+  const formatAddress = (address: string) => {
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
+
+  const handleQuickMint = (address: string) => {
+    onMintTokens(address, 100, "Quick admin bonus");
+    toast.success(`Minted 100 RCN to ${formatAddress(address)}`);
+  };
 
   useEffect(() => {
     loadCustomersData();
@@ -168,10 +318,6 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
       default:
         return "bg-gray-500/10 text-gray-400 border-gray-500/20";
     }
-  };
-
-  const formatAddress = (address: string) => {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
   const filterCustomers = (customers: Customer[]) => {
@@ -467,11 +613,16 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                     </div>
 
                     {isExpanded && (
-                      <div className="border-t border-gray-700/50">
+                      <div className="border-t border-gray-700/50 p-4">
                         {displayMode === "table" ? (
-                          <CustomerTable
-                            customers={filteredCustomers}
-                            onSelectCustomer={setSelectedCustomer}
+                          <DataTable
+                            data={filteredCustomers}
+                            columns={customerColumns}
+                            keyExtractor={(customer) => customer.address}
+                            emptyMessage="No customers found"
+                            emptyIcon={
+                              <AlertCircle className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+                            }
                           />
                         ) : (
                           <CustomerGrid
@@ -489,9 +640,14 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
 
           {viewMode === "all" &&
             (displayMode === "table" ? (
-              <CustomerTable
-                customers={filterCustomers(allCustomers)}
-                onSelectCustomer={setSelectedCustomer}
+              <DataTable
+                data={filterCustomers(allCustomers)}
+                columns={customerColumns}
+                keyExtractor={(customer) => customer.address}
+                emptyMessage="No customers found"
+                emptyIcon={
+                  <AlertCircle className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+                }
               />
             ) : (
               <CustomerGrid
@@ -502,10 +658,14 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
 
           {viewMode === "no-shop" &&
             (displayMode === "table" ? (
-              <CustomerTable
-                customers={filterCustomers(data.customersWithoutShops)}
-                onSelectCustomer={setSelectedCustomer}
+              <DataTable
+                data={filterCustomers(data.customersWithoutShops)}
+                columns={customerColumns}
+                keyExtractor={(customer) => customer.address}
                 emptyMessage="All customers have shop activity"
+                emptyIcon={
+                  <AlertCircle className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+                }
               />
             ) : (
               <CustomerGrid
@@ -679,164 +839,6 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
 };
 
 // Customer Table Component
-const CustomerTable: React.FC<{
-  customers: Customer[];
-  onSelectCustomer?: (customer: Customer) => void;
-  emptyMessage?: string;
-}> = ({ customers, onSelectCustomer, emptyMessage = "No customers found" }) => {
-  const getTierColor = (tier: string) => {
-    switch (tier) {
-      case "BRONZE":
-        return "bg-orange-500/10 text-orange-400 border-orange-500/20";
-      case "SILVER":
-        return "bg-gray-300/10 text-gray-300 border-gray-300/20";
-      case "GOLD":
-        return "bg-yellow-400/10 text-yellow-400 border-yellow-400/20";
-      default:
-        return "bg-gray-500/10 text-gray-400 border-gray-500/20";
-    }
-  };
-
-  const getTierIcon = (tier: string) => {
-    switch (tier) {
-      case "GOLD":
-        return <Award className="w-4 h-4" />;
-      case "SILVER":
-        return <Star className="w-4 h-4" />;
-      case "BRONZE":
-        return <Award className="w-4 h-4" />;
-      default:
-        return null;
-    }
-  };
-
-  const formatAddress = (address: string) => {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
-
-  if (customers.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <AlertCircle className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-        <p className="text-gray-400">{emptyMessage}</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead>
-          <tr className="border-b border-gray-700/50">
-            <th className="text-left p-4 text-gray-400 font-medium text-sm">
-              Customer
-            </th>
-            <th className="text-left p-4 text-gray-400 font-medium text-sm">
-              Tier
-            </th>
-            <th className="text-left p-4 text-gray-400 font-medium text-sm">
-              Earnings
-            </th>
-            <th className="text-left p-4 text-gray-400 font-medium text-sm">
-              Transactions
-            </th>
-            <th className="text-left p-4 text-gray-400 font-medium text-sm">
-              Status
-            </th>
-            <th className="text-left p-4 text-gray-400 font-medium text-sm">
-              Last Activity
-            </th>
-            <th className="text-left p-4 text-gray-400 font-medium text-sm">
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {customers.map((customer) => (
-            <tr
-              key={customer.address}
-              className="border-b border-gray-700/30 hover:bg-gray-700/20 transition-colors"
-            >
-              <td className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
-                    {(customer.name || "A")[0].toUpperCase()}
-                  </div>
-                  <div>
-                    <div className="font-medium text-white">
-                      {customer.name || "Anonymous"}
-                    </div>
-                    <div className="text-xs text-gray-400 font-mono">
-                      {formatAddress(customer.address)}
-                    </div>
-                    {customer.referralCode && (
-                      <div className="text-xs text-blue-400">
-                        Ref: {customer.referralCode}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </td>
-              <td className="p-4">
-                <span
-                  className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${getTierColor(
-                    customer.tier
-                  )}`}
-                >
-                  {getTierIcon(customer.tier)}
-                  {customer.tier}
-                </span>
-              </td>
-              <td className="p-4">
-                <div className="text-white font-medium">
-                  {customer.lifetimeEarnings} RCN
-                </div>
-                {customer.monthlyEarnings !== undefined && (
-                  <div className="text-xs text-gray-400">
-                    Monthly: {customer.monthlyEarnings} RCN
-                  </div>
-                )}
-              </td>
-              <td className="p-4 text-gray-300">
-                {customer.totalTransactions || 0}
-              </td>
-              <td className="p-4">
-                <span
-                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-                    customer.isActive
-                      ? "bg-green-500/10 text-green-400 border border-green-500/20"
-                      : "bg-red-500/10 text-red-400 border border-red-500/20"
-                  }`}
-                >
-                  {customer.isActive ? (
-                    <CheckCircle className="w-3 h-3" />
-                  ) : (
-                    <XCircle className="w-3 h-3" />
-                  )}
-                  {customer.isActive ? "Active" : "Suspended"}
-                </span>
-              </td>
-              <td className="p-4 text-gray-400 text-sm">
-                {customer.lastTransactionDate
-                  ? new Date(customer.lastTransactionDate).toLocaleDateString()
-                  : "N/A"}
-              </td>
-              <td className="p-4">
-                <button
-                  onClick={() => onSelectCustomer?.(customer)}
-                  className="p-2 hover:bg-gray-700 rounded-lg transition-colors group"
-                  title="View Details"
-                >
-                  <Eye className="w-4 h-4 text-gray-400 group-hover:text-yellow-400" />
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-};
 
 // Customer Grid Component
 const CustomerGrid: React.FC<{
