@@ -25,6 +25,7 @@ import {
   Filter,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/ui/DashboardHeader";
+import { DataTable, Column } from "@/components/ui/DataTable";
 import { EditShopModal } from "./EditShopModal";
 import { ShopReviewModal } from "./ShopReviewModal";
 
@@ -101,7 +102,6 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     shop: Shop | null;
   }>({ isOpen: false, shop: null });
   const [isProcessing, setIsProcessing] = useState(false);
-  const [expandedShopId, setExpandedShopId] = useState<string | null>(null);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
 
   // Close dropdown when clicking outside
@@ -246,6 +246,316 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     }
   };
 
+  // Define table columns
+  const columns: Column<Shop & { status: string }>[] = [
+    {
+      key: "shop",
+      header: "Shop",
+      sortable: true,
+      accessor: (shop) => {
+        const shopId = shop.shopId || shop.shop_id || "";
+        return (
+          <div className="flex items-center gap-3">
+            <div
+              className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0 ${
+                shop.status === "active"
+                  ? shop.verified
+                    ? "bg-gradient-to-br from-green-500/20 to-emerald-500/20 border border-green-500/30"
+                    : "bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border border-blue-500/30"
+                  : shop.status === "pending"
+                  ? "bg-gradient-to-br from-yellow-500/20 to-amber-500/20 border border-yellow-500/30"
+                  : "bg-gradient-to-br from-red-500/20 to-pink-500/20 border border-red-500/30"
+              }`}
+            >
+              {shop.status === "active"
+                ? shop.verified
+                  ? "✓"
+                  : "🏪"
+                : shop.status === "pending"
+                ? "⏳"
+                : "❌"}
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-white">{shop.name}</p>
+              <p className="text-xs text-gray-400 font-mono">{shopId}</p>
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      key: "status",
+      header: "Status",
+      accessor: (shop) => getStatusBadge(shop),
+    },
+    {
+      key: "contact",
+      header: "Contact",
+      sortable: true,
+      accessor: (shop) => (
+        <div className="text-xs">
+          <p
+            className="text-gray-300 truncate max-w-[150px]"
+            title={shop.email || "Not provided"}
+          >
+            {shop.email || "No email"}
+          </p>
+          <p className="text-gray-400">{shop.phone || "No phone"}</p>
+        </div>
+      ),
+    },
+    {
+      key: "wallet",
+      header: "Wallet",
+      accessor: (shop) => {
+        const walletAddr = shop.walletAddress || shop.wallet_address;
+        return (
+          <p className="text-xs text-gray-300 font-mono">
+            {walletAddr ? formatAddress(walletAddr) : "Not set"}
+          </p>
+        );
+      },
+    },
+    {
+      key: "tokens",
+      header: "Tokens",
+      sortable: true,
+      accessor: (shop) => (
+        <div className="text-xs">
+          <p className="text-yellow-400 font-semibold">
+            {(shop.totalTokensIssued || 0).toLocaleString()} RCN
+          </p>
+          {shop.purchasedRcnBalance && shop.purchasedRcnBalance > 0 && (
+            <p className="text-gray-400">Balance: {shop.purchasedRcnBalance}</p>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "joined",
+      header: "Joined",
+      sortable: true,
+      accessor: (shop) => (
+        <p className="text-xs text-gray-300">
+          {formatDate(shop.joinDate || shop.join_date)}
+        </p>
+      ),
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      accessor: (shop) => {
+        const shopId = shop.shopId || shop.shop_id || "";
+        return (
+          <div className="flex items-center gap-2">
+            {shop.status === "pending" && (
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAction(
+                      () => onApproveShop(shopId),
+                      "Shop approved successfully"
+                    );
+                  }}
+                  disabled={isProcessing}
+                  className="p-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors disabled:opacity-50"
+                  title="Approve"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setReviewModal({ isOpen: true, shop });
+                  }}
+                  className="p-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors"
+                  title="Review"
+                >
+                  <Eye className="w-4 h-4" />
+                </button>
+                {onRejectShop && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAction(
+                        () =>
+                          onRejectShop(shopId, "Does not meet requirements"),
+                        "Shop rejected"
+                      );
+                    }}
+                    disabled={isProcessing}
+                    className="p-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                    title="Reject"
+                  >
+                    <XCircle className="w-4 h-4" />
+                  </button>
+                )}
+              </>
+            )}
+
+            {shop.status === "active" && (
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditModal({ isOpen: true, shop });
+                  }}
+                  className="p-1.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-lg hover:bg-indigo-500/20 transition-colors"
+                  title="Edit"
+                >
+                  <Edit className="w-4 h-4" />
+                </button>
+                {!shop.verified && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAction(
+                        () => onVerifyShop(shopId),
+                        "Shop verified successfully"
+                      );
+                    }}
+                    disabled={isProcessing}
+                    className="p-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors disabled:opacity-50"
+                    title="Verify"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                  </button>
+                )}
+                {shop.active ? (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAction(
+                        () => onSuspendShop(shopId),
+                        "Shop suspended"
+                      );
+                    }}
+                    disabled={isProcessing}
+                    className="p-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                    title="Suspend"
+                  >
+                    <ShieldOff className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAction(
+                        () => onUnsuspendShop(shopId),
+                        "Shop unsuspended"
+                      );
+                    }}
+                    disabled={isProcessing}
+                    className="p-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors disabled:opacity-50"
+                    title="Unsuspend"
+                  >
+                    <Power className="w-4 h-4" />
+                  </button>
+                )}
+              </>
+            )}
+
+            {shop.status === "rejected" && (
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setReviewModal({ isOpen: true, shop });
+                  }}
+                  className="p-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors"
+                  title="View"
+                >
+                  <Eye className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAction(
+                      () => onApproveShop(shopId),
+                      "Shop reconsidered and approved"
+                    );
+                  }}
+                  disabled={isProcessing}
+                  className="p-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors disabled:opacity-50"
+                  title="Reconsider"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              </>
+            )}
+          </div>
+        );
+      },
+    },
+  ];
+
+  // Render expanded content
+  const renderExpandedContent = (shop: Shop & { status: string }) => {
+    const shopId = shop.shopId || shop.shop_id || "";
+    return (
+      <div className="p-4">
+        {/* Additional Details */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <div>
+            <p className="text-xs text-gray-500 mb-1">Address</p>
+            <p className="text-sm text-gray-300">{shop.address || "Not provided"}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 mb-1">City</p>
+            <p className="text-sm text-gray-300">{shop.city || "Not provided"}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 mb-1">Country</p>
+            <p className="text-sm text-gray-300">{shop.country || "Not provided"}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 mb-1">Website</p>
+            <p className="text-sm text-gray-300">{shop.website || "Not provided"}</p>
+          </div>
+        </div>
+
+        {/* Suspension/Rejection Reason */}
+        {shop.suspension_reason && (
+          <div className="mb-4 p-3 bg-gradient-to-r from-red-500/10 to-pink-500/10 border border-red-500/20 rounded-lg">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-medium text-red-400 mb-1">
+                  Reason for {shop.status === "rejected" ? "Rejection" : "Suspension"}
+                </p>
+                <p className="text-xs text-gray-300">{shop.suspension_reason}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Additional Actions */}
+        <div className="flex flex-wrap gap-2">
+          {shop.status === "active" &&
+            shop.purchasedRcnBalance &&
+            shop.purchasedRcnBalance > 0 &&
+            onMintBalance && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAction(
+                    () => onMintBalance(shopId),
+                    "Tokens minted to blockchain"
+                  );
+                }}
+                disabled={isProcessing}
+                className="px-3 py-1.5 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 text-yellow-400 border border-yellow-500/30 rounded-lg hover:from-yellow-500/30 hover:to-orange-500/30 transition-all text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+              >
+                <Send className="w-4 h-4" />
+                Mint {shop.purchasedRcnBalance} RCN to Blockchain
+              </button>
+            )}
+        </div>
+      </div>
+    );
+  };
+
   const exportToCSV = () => {
     const headers = [
       "Shop Name",
@@ -378,403 +688,17 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
           </div>
         </div>
 
-        {/* Shop List - Table Format */}
+        {/* Shop List - DataTable */}
         <div className="p-6">
-          {filteredShops.length === 0 ? (
-            <div className="text-center py-12">
-              <AlertCircle className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-              <p className="text-gray-400">
-                No shops found matching your criteria
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-700/50">
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">
-                      Shop
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">
-                      Status
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">
-                      Contact
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">
-                      Wallet
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">
-                      Tokens
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">
-                      Joined
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">
-                      Actions
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-400"/>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredShops.map((shop) => {
-                    const shopId = shop.shopId || shop.shop_id || "";
-                    const isExpanded = expandedShopId === shopId;
-                    const walletAddr =
-                      shop.walletAddress || shop.wallet_address;
-
-                    return (
-                      <React.Fragment key={shopId}>
-                        <tr
-                          className={`border-b border-gray-700/30 hover:bg-gray-800/30 transition-colors cursor-pointer ${
-                            isExpanded ? "bg-gray-800/40" : ""
-                          }`}
-                          onClick={() =>
-                            setExpandedShopId(isExpanded ? null : shopId)
-                          }
-                        >
-                          {/* Shop Name & ID */}
-                          <td className="py-4 px-4">
-                            <div className="flex items-center gap-3">
-                              <div
-                                className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0 ${
-                                  shop.status === "active"
-                                    ? shop.verified
-                                      ? "bg-gradient-to-br from-green-500/20 to-emerald-500/20 border border-green-500/30"
-                                      : "bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border border-blue-500/30"
-                                    : shop.status === "pending"
-                                    ? "bg-gradient-to-br from-yellow-500/20 to-amber-500/20 border border-yellow-500/30"
-                                    : "bg-gradient-to-br from-red-500/20 to-pink-500/20 border border-red-500/30"
-                                }`}
-                              >
-                                {shop.status === "active"
-                                  ? shop.verified
-                                    ? "✓"
-                                    : "🏪"
-                                  : shop.status === "pending"
-                                  ? "⏳"
-                                  : "❌"}
-                              </div>
-                              <div>
-                                <p className="text-sm font-semibold text-white">
-                                  {shop.name}
-                                </p>
-                                <p className="text-xs text-gray-400 font-mono">
-                                  {shopId}
-                                </p>
-                              </div>
-                            </div>
-                          </td>
-
-                          {/* Status */}
-                          <td className="py-4 px-4">{getStatusBadge(shop)}</td>
-
-                          {/* Contact */}
-                          <td className="py-4 px-4">
-                            <div className="text-xs">
-                              <p
-                                className="text-gray-300 truncate max-w-[150px]"
-                                title={shop.email || "Not provided"}
-                              >
-                                {shop.email || "No email"}
-                              </p>
-                              <p className="text-gray-400">
-                                {shop.phone || "No phone"}
-                              </p>
-                            </div>
-                          </td>
-
-                          {/* Wallet */}
-                          <td className="py-4 px-4">
-                            <p className="text-xs text-gray-300 font-mono">
-                              {walletAddr
-                                ? formatAddress(walletAddr)
-                                : "Not set"}
-                            </p>
-                          </td>
-
-                          {/* Tokens */}
-                          <td className="py-4 px-4">
-                            <div className="text-xs">
-                              <p className="text-yellow-400 font-semibold">
-                                {(shop.totalTokensIssued || 0).toLocaleString()}{" "}
-                                RCN
-                              </p>
-                              {shop.purchasedRcnBalance &&
-                                shop.purchasedRcnBalance > 0 && (
-                                  <p className="text-gray-400">
-                                    Balance: {shop.purchasedRcnBalance}
-                                  </p>
-                                )}
-                            </div>
-                          </td>
-
-                          {/* Joined Date */}
-                          <td className="py-4 px-4">
-                            <p className="text-xs text-gray-300">
-                              {formatDate(shop.joinDate || shop.join_date)}
-                            </p>
-                          </td>
-
-                          {/* Actions */}
-                          <td className="py-4 px-4">
-                            <div className="flex items-center gap-2">
-                              {shop.status === "pending" && (
-                                <>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleAction(
-                                        () => onApproveShop(shopId),
-                                        "Shop approved successfully"
-                                      );
-                                    }}
-                                    disabled={isProcessing}
-                                    className="p-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors disabled:opacity-50"
-                                    title="Approve"
-                                  >
-                                    <CheckCircle className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setReviewModal({ isOpen: true, shop });
-                                    }}
-                                    className="p-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors"
-                                    title="Review"
-                                  >
-                                    <Eye className="w-4 h-4" />
-                                  </button>
-                                  {onRejectShop && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleAction(
-                                          () =>
-                                            onRejectShop(
-                                              shopId,
-                                              "Does not meet requirements"
-                                            ),
-                                          "Shop rejected"
-                                        );
-                                      }}
-                                      disabled={isProcessing}
-                                      className="p-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors disabled:opacity-50"
-                                      title="Reject"
-                                    >
-                                      <XCircle className="w-4 h-4" />
-                                    </button>
-                                  )}
-                                </>
-                              )}
-
-                              {shop.status === "active" && (
-                                <>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setEditModal({ isOpen: true, shop });
-                                    }}
-                                    className="p-1.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-lg hover:bg-indigo-500/20 transition-colors"
-                                    title="Edit"
-                                  >
-                                    <Edit className="w-4 h-4" />
-                                  </button>
-                                  {!shop.verified && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleAction(
-                                          () => onVerifyShop(shopId),
-                                          "Shop verified successfully"
-                                        );
-                                      }}
-                                      disabled={isProcessing}
-                                      className="p-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors disabled:opacity-50"
-                                      title="Verify"
-                                    >
-                                      <ShieldCheck className="w-4 h-4" />
-                                    </button>
-                                  )}
-                                  {shop.active ? (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleAction(
-                                          () => onSuspendShop(shopId),
-                                          "Shop suspended"
-                                        );
-                                      }}
-                                      disabled={isProcessing}
-                                      className="p-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors disabled:opacity-50"
-                                      title="Suspend"
-                                    >
-                                      <ShieldOff className="w-4 h-4" />
-                                    </button>
-                                  ) : (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleAction(
-                                          () => onUnsuspendShop(shopId),
-                                          "Shop unsuspended"
-                                        );
-                                      }}
-                                      disabled={isProcessing}
-                                      className="p-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors disabled:opacity-50"
-                                      title="Unsuspend"
-                                    >
-                                      <Power className="w-4 h-4" />
-                                    </button>
-                                  )}
-                                </>
-                              )}
-
-                              {shop.status === "rejected" && (
-                                <>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setReviewModal({ isOpen: true, shop });
-                                    }}
-                                    className="p-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors"
-                                    title="View"
-                                  >
-                                    <Eye className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleAction(
-                                        () => onApproveShop(shopId),
-                                        "Shop reconsidered and approved"
-                                      );
-                                    }}
-                                    disabled={isProcessing}
-                                    className="p-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors disabled:opacity-50"
-                                    title="Reconsider"
-                                  >
-                                    <RefreshCw className="w-4 h-4" />
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                          <td>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setExpandedShopId(isExpanded ? null : shopId);
-                              }}
-                              className="p-1.5 bg-gray-700/30 text-gray-400 border border-gray-600/30 rounded-lg hover:bg-gray-700/50 transition-colors"
-                              title={isExpanded ? "Collapse" : "Expand"}
-                            >
-                              <ChevronDown
-                                className={`w-4 h-4 transition-transform ${
-                                  isExpanded ? "rotate-180" : ""
-                                }`}
-                              />
-                            </button>
-                          </td>
-                        </tr>
-
-                        {/* Expanded Details Row */}
-                        {isExpanded && (
-                          <tr>
-                            <td colSpan={8} className="p-0">
-                              <div className="bg-gray-800/20 border-b border-gray-700/30">
-                                <div className="p-4">
-                                  {/* Additional Details */}
-                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                                    <div>
-                                      <p className="text-xs text-gray-500 mb-1">
-                                        Address
-                                      </p>
-                                      <p className="text-sm text-gray-300">
-                                        {shop.address || "Not provided"}
-                                      </p>
-                                    </div>
-                                    <div>
-                                      <p className="text-xs text-gray-500 mb-1">
-                                        City
-                                      </p>
-                                      <p className="text-sm text-gray-300">
-                                        {shop.city || "Not provided"}
-                                      </p>
-                                    </div>
-                                    <div>
-                                      <p className="text-xs text-gray-500 mb-1">
-                                        Country
-                                      </p>
-                                      <p className="text-sm text-gray-300">
-                                        {shop.country || "Not provided"}
-                                      </p>
-                                    </div>
-                                    <div>
-                                      <p className="text-xs text-gray-500 mb-1">
-                                        Website
-                                      </p>
-                                      <p className="text-sm text-gray-300">
-                                        {shop.website || "Not provided"}
-                                      </p>
-                                    </div>
-                                  </div>
-
-                                  {/* Suspension/Rejection Reason */}
-                                  {shop.suspension_reason && (
-                                    <div className="mb-4 p-3 bg-gradient-to-r from-red-500/10 to-pink-500/10 border border-red-500/20 rounded-lg">
-                                      <div className="flex items-start gap-2">
-                                        <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                                        <div>
-                                          <p className="text-xs font-medium text-red-400 mb-1">
-                                            Reason for{" "}
-                                            {shop.status === "rejected"
-                                              ? "Rejection"
-                                              : "Suspension"}
-                                          </p>
-                                          <p className="text-xs text-gray-300">
-                                            {shop.suspension_reason}
-                                          </p>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {/* Additional Actions */}
-                                  <div className="flex flex-wrap gap-2">
-                                    {shop.status === "active" &&
-                                      shop.purchasedRcnBalance &&
-                                      shop.purchasedRcnBalance > 0 &&
-                                      onMintBalance && (
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleAction(
-                                              () => onMintBalance(shopId),
-                                              "Tokens minted to blockchain"
-                                            );
-                                          }}
-                                          disabled={isProcessing}
-                                          className="px-3 py-1.5 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 text-yellow-400 border border-yellow-500/30 rounded-lg hover:from-yellow-500/30 hover:to-orange-500/30 transition-all text-sm font-medium disabled:opacity-50 flex items-center gap-2"
-                                        >
-                                          <Send className="w-4 h-4" />
-                                          Mint {shop.purchasedRcnBalance} RCN to
-                                          Blockchain
-                                        </button>
-                                      )}
-                                  </div>
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <DataTable
+            data={filteredShops}
+            columns={columns}
+            keyExtractor={(shop) => shop.shopId || shop.shop_id || ""}
+            expandable={true}
+            renderExpandedContent={renderExpandedContent}
+            emptyMessage="No shops found matching your criteria"
+            emptyIcon={<AlertCircle className="w-12 h-12 text-gray-500 mx-auto mb-4" />}
+          />
         </div>
       </div>
 
