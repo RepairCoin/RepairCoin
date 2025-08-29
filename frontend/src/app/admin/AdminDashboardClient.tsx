@@ -15,7 +15,6 @@ import { ShopApplicationsTab } from "@/components/admin/ShopApplicationsTab";
 import { ShopsManagementTab } from "@/components/admin/ShopsManagementTab";
 import { TreasuryTab } from "@/components/admin/TreasuryTab";
 import { TransactionsTab } from "@/components/admin/TransactionsTab";
-import { ActivityLogsTab } from "@/components/admin/ActivityLogsTab";
 import { AnalyticsTab } from "@/components/admin/AnalyticsTab";
 import { UnsuspendRequestsTab } from "@/components/admin/UnsuspendRequestsTab";
 import { CreateAdminTab } from "@/components/admin/CreateAdminTab";
@@ -630,6 +629,7 @@ export default function AdminDashboardClient() {
               stats={stats}
               pendingShopsCount={pendingShops.length}
               loading={loading}
+              generateAdminToken={generateAdminToken}
               onQuickAction={(action) => {
                 switch (action) {
                   case "mint":
@@ -716,13 +716,6 @@ export default function AdminDashboardClient() {
               generateAdminToken={generateAdminToken}
               onError={setError}
               onSuccess={loadDashboardData}
-            />
-          )}
-
-          {activeTab === "activity-logs" && (
-            <ActivityLogsTab
-              generateAdminToken={generateAdminToken}
-              onError={setError}
             />
           )}
 
