@@ -186,6 +186,12 @@ const Sidebar: React.FC<SidebarProps> = ({
           tabId: "overview",
         },
         {
+          title: "Admins",
+          href: "/admin?tab=admins",
+          icon: <span className="text-xl">🛡️</span>,
+          tabId: "admins",
+        },
+        {
           title: "Customers",
           href: "/admin?tab=customers",
           icon: <span className="text-xl">👥</span>,
@@ -208,12 +214,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           href: "/admin?tab=transactions",
           icon: <span className="text-xl">💸</span>,
           tabId: "transactions",
-        },
-        {
-          title: "Create Admin",
-          href: "/admin?tab=create-admin",
-          icon: <span className="text-xl">👤</span>,
-          tabId: "create-admin",
         },
         {
           title: "Analytics",

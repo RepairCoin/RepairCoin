@@ -8,6 +8,7 @@ import { authManager } from "@/utils/auth";
 
 // Import our new components
 import { OverviewTab } from "@/components/admin/OverviewTab";
+import { AdminsTab } from "@/components/admin/AdminsTab";
 import { CustomersTab } from "@/components/admin/CustomersTab";
 import { CustomersTabEnhanced } from "@/components/admin/CustomersTabEnhanced";
 import { ShopsTab } from "@/components/admin/ShopsTab";
@@ -706,6 +707,13 @@ export default function AdminDashboardClient() {
 
           {activeTab === "transactions" && (
             <TransactionsTab
+              generateAdminToken={generateAdminToken}
+              onError={setError}
+            />
+          )}
+
+          {activeTab === "admins" && (
+            <AdminsTab
               generateAdminToken={generateAdminToken}
               onError={setError}
             />
