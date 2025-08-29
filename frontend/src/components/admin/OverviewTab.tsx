@@ -8,6 +8,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { DashboardHeader } from '@/components/ui/DashboardHeader';
+import { DataTable, Column } from '@/components/ui/DataTable';
 
 interface PlatformStats {
   totalCustomers: number;
@@ -149,75 +150,93 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           <h2 className="text-xl font-bold text-white">Recent Activity</h2>
           <p className="text-gray-400 text-sm mt-1">Latest admin actions and system events</p>
         </div>
-        <div className="overflow-x-auto">
-          {logsLoading ? (
-            <div className="p-8 text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-400"></div>
-              <p className="mt-3 text-gray-400">Loading activity logs...</p>
-            </div>
-          ) : (
-            <table className="min-w-full divide-y divide-gray-700/50">
-              <thead className="bg-gray-900/30">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Time</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Admin</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Action</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Details</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-700/30">
-                {activityLogs.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                      <div className="text-4xl mb-2">📋</div>
-                      <p>No recent activity</p>
-                    </td>
-                  </tr>
-                ) : (
-                  activityLogs.map((log, index) => (
-                    <tr key={log.id || index} className="hover:bg-gray-800/30">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                        {new Date(log.timestamp || log.createdAt || Date.now()).toLocaleString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-300 font-mono">
-                          {log.adminAddress ? `${log.adminAddress.slice(0, 6)}...${log.adminAddress.slice(-4)}` : 'System'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-900/50 text-blue-400 border border-blue-700/50">
-                          {log.action}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-300 max-w-md truncate">
-                        {log.details || log.description || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          log.status === 'success' 
-                            ? 'bg-green-900/50 text-green-400 border border-green-700/50' 
-                            : log.status === 'failed'
-                            ? 'bg-red-900/50 text-red-400 border border-red-700/50'
-                            : 'bg-gray-800/50 text-gray-400 border border-gray-700/50'
-                        }`}>
-                          {log.status || 'completed'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          )}
-        </div>
+        <ActivityLogsTable logs={activityLogs} loading={logsLoading} />
       </div>
     </div>
+  );
+};
+
+// Activity Logs Table Component
+const ActivityLogsTable: React.FC<{ logs: ActivityLog[]; loading: boolean }> = ({ logs, loading }) => {
+  const columns: Column<ActivityLog>[] = [
+    {
+      key: 'time',
+      header: 'TIME',
+      accessor: (log) => (
+        <span className="text-sm text-gray-300">
+          {new Date(log.timestamp || log.createdAt || Date.now()).toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          })}
+        </span>
+      ),
+      sortable: true,
+      headerClassName: 'uppercase text-xs tracking-wider'
+    },
+    {
+      key: 'admin',
+      header: 'ADMIN',
+      accessor: (log) => (
+        <div className="text-sm text-gray-300 font-mono">
+          {log.adminAddress ? `${log.adminAddress.slice(0, 6)}...${log.adminAddress.slice(-4)}` : 'System'}
+        </div>
+      ),
+      headerClassName: 'uppercase text-xs tracking-wider'
+    },
+    {
+      key: 'action',
+      header: 'ACTION',
+      accessor: (log) => (
+        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-900/50 text-blue-400 border border-blue-700/50">
+          {log.action}
+        </span>
+      ),
+      sortable: true,
+      headerClassName: 'uppercase text-xs tracking-wider'
+    },
+    {
+      key: 'details',
+      header: 'DETAILS',
+      accessor: (log) => (
+        <span className="text-sm text-gray-300 block truncate max-w-md">
+          {log.details || log.description || '-'}
+        </span>
+      ),
+      headerClassName: 'uppercase text-xs tracking-wider'
+    },
+    {
+      key: 'status',
+      header: 'STATUS',
+      accessor: (log) => (
+        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+          log.status === 'success' 
+            ? 'bg-green-900/50 text-green-400 border border-green-700/50' 
+            : log.status === 'failed'
+            ? 'bg-red-900/50 text-red-400 border border-red-700/50'
+            : 'bg-gray-800/50 text-gray-400 border border-gray-700/50'
+        }`}>
+          {log.status || 'completed'}
+        </span>
+      ),
+      sortable: true,
+      headerClassName: 'uppercase text-xs tracking-wider'
+    }
+  ];
+
+  return (
+    <DataTable
+      data={logs}
+      columns={columns}
+      keyExtractor={(log) => String(log.id || Math.random())}
+      loading={loading}
+      loadingRows={3}
+      emptyMessage="No recent activity"
+      emptyIcon={<div className="text-4xl mb-2">📋</div>}
+      headerClassName="bg-gray-900/30"
+      className="text-gray-300"
+    />
   );
 };
 
