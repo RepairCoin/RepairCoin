@@ -216,12 +216,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           tabId: "create-admin",
         },
         {
-          title: "Activity Logs",
-          href: "/admin?tab=activity-logs",
-          icon: <span className="text-xl">📋</span>,
-          tabId: "activity-logs",
-        },
-        {
           title: "Analytics",
           href: "/admin?tab=analytics",
           icon: <span className="text-xl">📈</span>,
