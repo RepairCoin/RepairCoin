@@ -177,10 +177,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           <div className="relative filter-dropdown-container">
             <button
               onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-              className="px-4 py-2 bg-gray-700/50 text-gray-300 border border-gray-600 rounded-lg hover:bg-gray-600 transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-[#FFCC00] rounded-lg transition-colors flex items-center gap-2"
               title="Filter purchases"
             >
-              <Filter className="w-5 h-5" />
               <span className="hidden sm:inline capitalize">
                 {filter === 'all' ? 'All' : filter}
               </span>
@@ -220,7 +219,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           loadingRows={5}
           emptyMessage="No purchases yet"
           className=""
-          headerClassName="bg-gray-800/50"
+          headerClassName="bg-[#3D3D3D]"
           rowClassName={(purchase) => 
             purchase.status === 'failed' ? 'bg-red-900/10' : ''
           }
