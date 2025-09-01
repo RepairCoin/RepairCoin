@@ -210,12 +210,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           tabId: "treasury",
         },
         {
-          title: "Transactions",
-          href: "/admin?tab=transactions",
-          icon: <span className="text-xl">💸</span>,
-          tabId: "transactions",
-        },
-        {
           title: "Analytics",
           href: "/admin?tab=analytics",
           icon: <span className="text-xl">📈</span>,

@@ -15,7 +15,6 @@ import { ShopsTab } from "@/components/admin/ShopsTab";
 import { ShopApplicationsTab } from "@/components/admin/ShopApplicationsTab";
 import { ShopsManagementTab } from "@/components/admin/ShopsManagementTab";
 import { TreasuryTab } from "@/components/admin/TreasuryTab";
-import { TransactionsTab } from "@/components/admin/TransactionsTab";
 import { AnalyticsTab } from "@/components/admin/AnalyticsTab";
 // UnsuspendRequestsTab removed - functionality integrated into Shop and Customer tabs
 import { CreateAdminTab } from "@/components/admin/CreateAdminTab";
@@ -714,13 +713,6 @@ export default function AdminDashboardClient() {
           {/* Other tabs - TODO: Create components for these */}
           {activeTab === "treasury" && (
             <TreasuryTab
-              generateAdminToken={generateAdminToken}
-              onError={setError}
-            />
-          )}
-
-          {activeTab === "transactions" && (
-            <TransactionsTab
               generateAdminToken={generateAdminToken}
               onError={setError}
             />
