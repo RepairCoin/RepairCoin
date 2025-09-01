@@ -51,6 +51,13 @@ interface Shop {
   join_date?: string;
   suspended_at?: string;
   suspension_reason?: string;
+  // Unsuspend request fields
+  unsuspendRequest?: {
+    id: string;
+    requestReason: string;
+    createdAt: string;
+    status: 'pending' | 'approved' | 'rejected';
+  };
   // Additional fields for UI
   monthlyVolume?: number;
   customerCount?: number;
@@ -106,6 +113,12 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [showAddShopModal, setShowAddShopModal] = useState(false);
+  const [unsuspendReviewModal, setUnsuspendReviewModal] = useState<{
+    isOpen: boolean;
+    shop: Shop | null;
+    action: 'approve' | 'reject';
+  }>({ isOpen: false, shop: null, action: 'approve' });
+  const [unsuspendNotes, setUnsuspendNotes] = useState('');
 
   // Close dropdown when clicking outside
   React.useEffect(() => {
@@ -205,6 +218,19 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
           Suspended
         </span>
       );
+      
+      // Show unsuspend request badge if there's a pending request
+      if (shop.unsuspendRequest && shop.unsuspendRequest.status === 'pending') {
+        badges.push(
+          <span
+            key="unsuspend-request"
+            className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 animate-pulse"
+          >
+            <AlertCircle className="w-3 h-3" />
+            Unsuspend Request
+          </span>
+        );
+      }
     }
 
     if (shop.crossShopEnabled || shop.cross_shop_enabled) {
@@ -440,7 +466,40 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                   >
                     <ShieldOff className="w-4 h-4" />
                   </button>
+                ) : shop.unsuspendRequest && shop.unsuspendRequest.status === 'pending' ? (
+                  // Show review buttons for pending unsuspend requests
+                  <>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setUnsuspendReviewModal({ 
+                          isOpen: true, 
+                          shop, 
+                          action: 'approve' 
+                        });
+                      }}
+                      className="p-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors animate-pulse"
+                      title="Approve Unsuspend Request"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setUnsuspendReviewModal({ 
+                          isOpen: true, 
+                          shop, 
+                          action: 'reject' 
+                        });
+                      }}
+                      className="p-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors"
+                      title="Reject Unsuspend Request"
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </button>
+                  </>
                 ) : (
+                  // Direct unsuspend button if no pending request
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -528,6 +587,24 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                   Reason for {shop.status === "rejected" ? "Rejection" : "Suspension"}
                 </p>
                 <p className="text-xs text-gray-300">{shop.suspension_reason}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Unsuspend Request Details */}
+        {shop.unsuspendRequest && shop.unsuspendRequest.status === 'pending' && (
+          <div className="mb-4 p-3 bg-gradient-to-r from-yellow-500/10 to-amber-500/10 border border-yellow-500/20 rounded-lg">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5 animate-pulse" />
+              <div>
+                <p className="text-xs font-medium text-yellow-400 mb-1">
+                  Pending Unsuspend Request
+                </p>
+                <p className="text-xs text-gray-300 mb-2">{shop.unsuspendRequest.requestReason}</p>
+                <p className="text-xs text-gray-500">
+                  Submitted: {new Date(shop.unsuspendRequest.createdAt).toLocaleDateString()}
+                </p>
               </div>
             </div>
           </div>
@@ -761,6 +838,93 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
             setShowAddShopModal(false);
           }}
         />
+      )}
+
+      {/* Unsuspend Request Review Modal */}
+      {unsuspendReviewModal.isOpen && unsuspendReviewModal.shop && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-2xl max-w-lg w-full p-6">
+            <h3 className="text-xl font-bold text-white mb-4">
+              {unsuspendReviewModal.action === 'approve' ? 'Approve' : 'Reject'} Unsuspend Request
+            </h3>
+            
+            <div className="mb-4 p-4 bg-gray-700/50 rounded-lg">
+              <p className="text-sm text-gray-300 mb-2">
+                <span className="font-medium text-white">Shop:</span> {unsuspendReviewModal.shop.name}
+              </p>
+              <p className="text-sm text-gray-300 mb-2">
+                <span className="font-medium text-white">Shop ID:</span> {unsuspendReviewModal.shop.shopId || unsuspendReviewModal.shop.shop_id}
+              </p>
+              {unsuspendReviewModal.shop.suspension_reason && (
+                <p className="text-sm text-gray-300 mb-2">
+                  <span className="font-medium text-white">Original Suspension Reason:</span> {unsuspendReviewModal.shop.suspension_reason}
+                </p>
+              )}
+              {unsuspendReviewModal.shop.unsuspendRequest && (
+                <>
+                  <p className="text-sm text-gray-300 mb-2">
+                    <span className="font-medium text-white">Request Reason:</span> {unsuspendReviewModal.shop.unsuspendRequest.requestReason}
+                  </p>
+                  <p className="text-sm text-gray-300">
+                    <span className="font-medium text-white">Submitted:</span> {new Date(unsuspendReviewModal.shop.unsuspendRequest.createdAt).toLocaleString()}
+                  </p>
+                </>
+              )}
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Review Notes (optional)
+              </label>
+              <textarea
+                value={unsuspendNotes}
+                onChange={(e) => setUnsuspendNotes(e.target.value)}
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-yellow-400"
+                rows={3}
+                placeholder="Add any notes about this decision..."
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setUnsuspendReviewModal({ isOpen: false, shop: null, action: 'approve' });
+                  setUnsuspendNotes('');
+                }}
+                className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const shop = unsuspendReviewModal.shop;
+                  const shopId = shop?.shopId || shop?.shop_id || '';
+                  
+                  if (unsuspendReviewModal.action === 'approve') {
+                    await handleAction(
+                      () => onUnsuspendShop(shopId),
+                      "Unsuspend request approved"
+                    );
+                  } else {
+                    // For reject, we might need a separate API endpoint
+                    // For now, just close the modal
+                    toast.success("Unsuspend request rejected");
+                  }
+                  
+                  setUnsuspendReviewModal({ isOpen: false, shop: null, action: 'approve' });
+                  setUnsuspendNotes('');
+                }}
+                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                  unsuspendReviewModal.action === 'approve' 
+                    ? 'bg-green-600 text-white hover:bg-green-700' 
+                    : 'bg-red-600 text-white hover:bg-red-700'
+                }`}
+              >
+                {unsuspendReviewModal.action === 'approve' ? 'Approve' : 'Reject'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

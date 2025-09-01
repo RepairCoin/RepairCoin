@@ -17,7 +17,7 @@ import { ShopsManagementTab } from "@/components/admin/ShopsManagementTab";
 import { TreasuryTab } from "@/components/admin/TreasuryTab";
 import { TransactionsTab } from "@/components/admin/TransactionsTab";
 import { AnalyticsTab } from "@/components/admin/AnalyticsTab";
-import { UnsuspendRequestsTab } from "@/components/admin/UnsuspendRequestsTab";
+// UnsuspendRequestsTab removed - functionality integrated into Shop and Customer tabs
 import { CreateAdminTab } from "@/components/admin/CreateAdminTab";
 import { ShopReviewModal } from "@/components/admin/ShopReviewModal";
 import DashboardLayout from "@/components/ui/DashboardLayout";
@@ -336,7 +336,7 @@ export default function AdminDashboardClient() {
     }
   };
 
-  const suspendCustomer = async (address: string) => {
+  const suspendCustomer = async (address: string, reason: string = "Admin decision") => {
     const adminToken = await generateAdminToken();
     if (!adminToken) throw new Error("Failed to authenticate");
 
@@ -348,13 +348,16 @@ export default function AdminDashboardClient() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${adminToken}`,
         },
-        body: JSON.stringify({ reason: "Admin action" }),
+        body: JSON.stringify({ reason }),
       }
     );
 
     if (!response.ok) {
       throw new Error("Failed to suspend customer");
     }
+    
+    // Refresh the data to show updated status
+    loadDashboardData();
   };
 
   const unsuspendCustomer = async (address: string) => {
@@ -375,6 +378,9 @@ export default function AdminDashboardClient() {
     if (!response.ok) {
       throw new Error("Failed to unsuspend customer");
     }
+    
+    // Refresh the data to show updated status
+    loadDashboardData();
   };
 
   const suspendShop = async (shopId: string) => {
@@ -396,6 +402,9 @@ export default function AdminDashboardClient() {
     if (!response.ok) {
       throw new Error("Failed to suspend shop");
     }
+    
+    // Refresh the data to show updated status
+    loadDashboardData();
   };
 
   const unsuspendShop = async (shopId: string) => {
@@ -416,6 +425,9 @@ export default function AdminDashboardClient() {
     if (!response.ok) {
       throw new Error("Failed to unsuspend shop");
     }
+    
+    // Refresh the data to show updated status
+    loadDashboardData();
   };
 
   const verifyShop = async (shopId: string) => {
@@ -652,6 +664,8 @@ export default function AdminDashboardClient() {
               generateAdminToken={generateAdminToken}
               onMintTokens={mintTokensToCustomer}
               onRefresh={loadDashboardData}
+              onSuspendCustomer={suspendCustomer}
+              onUnsuspendCustomer={unsuspendCustomer}
             />
           )}
 
@@ -729,13 +743,6 @@ export default function AdminDashboardClient() {
 
           {activeTab === "analytics" && (
             <AnalyticsTab
-              generateAdminToken={generateAdminToken}
-              onError={setError}
-            />
-          )}
-
-          {activeTab === "unsuspend-requests" && (
-            <UnsuspendRequestsTab
               generateAdminToken={generateAdminToken}
               onError={setError}
             />

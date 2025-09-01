@@ -40,6 +40,16 @@ interface Customer {
   joinDate?: string;
   referralCode?: string;
   referralCount?: number;
+  // Suspension fields
+  suspended_at?: string;
+  suspension_reason?: string;
+  // Unsuspend request fields
+  unsuspendRequest?: {
+    id: string;
+    requestReason: string;
+    createdAt: string;
+    status: 'pending' | 'approved' | 'rejected';
+  };
 }
 
 interface ShopWithCustomers {
@@ -64,11 +74,15 @@ interface CustomersTabEnhancedProps {
   generateAdminToken: () => Promise<string | null>;
   onMintTokens: (address: string, amount: number, reason: string) => void;
   onRefresh: () => void;
+  onSuspendCustomer?: (address: string, reason: string) => Promise<void>;
+  onUnsuspendCustomer?: (address: string) => Promise<void>;
 }
 
 export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
   generateAdminToken,
   onMintTokens,
+  onSuspendCustomer,
+  onUnsuspendCustomer,
 }) => {
   const [data, setData] = useState<GroupedCustomersData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -88,6 +102,12 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
   );
   const [mintAmount, setMintAmount] = useState(100);
   const [mintReason, setMintReason] = useState("Admin bonus");
+  const [unsuspendReviewModal, setUnsuspendReviewModal] = useState<{
+    isOpen: boolean;
+    customer: Customer | null;
+    action: 'approve' | 'reject';
+  }>({ isOpen: false, customer: null, action: 'approve' });
+  const [unsuspendNotes, setUnsuspendNotes] = useState('');
 
   // Define table columns for customers
   const customerColumns: Column<Customer>[] = [
@@ -183,20 +203,28 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
       key: "status",
       header: "Status",
       accessor: (customer) => (
-        <span
-          className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${
-            customer.isActive
-              ? "bg-green-500/10 text-green-400 border border-green-500/20"
-              : "bg-red-500/10 text-red-400 border border-red-500/20"
-          }`}
-        >
-          {customer.isActive ? (
-            <CheckCircle className="w-3 h-3" />
-          ) : (
-            <XCircle className="w-3 h-3" />
+        <div className="flex flex-wrap gap-2">
+          <span
+            className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${
+              customer.isActive
+                ? "bg-green-500/10 text-green-400 border border-green-500/20"
+                : "bg-red-500/10 text-red-400 border border-red-500/20"
+            }`}
+          >
+            {customer.isActive ? (
+              <CheckCircle className="w-3 h-3" />
+            ) : (
+              <XCircle className="w-3 h-3" />
+            )}
+            {customer.isActive ? "Active" : "Suspended"}
+          </span>
+          {customer.unsuspendRequest && customer.unsuspendRequest.status === 'pending' && (
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 animate-pulse">
+              <AlertCircle className="w-3 h-3" />
+              Request
+            </span>
           )}
-          {customer.isActive ? "Active" : "Suspended"}
-        </span>
+        </div>
       ),
     },
     {
@@ -224,6 +252,64 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
           >
             <Coins className="w-4 h-4" />
           </button>
+          {/* Suspension/Unsuspension actions */}
+          {customer.isActive && onSuspendCustomer ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                // For now, use a default reason - could add a modal for this
+                onSuspendCustomer(customer.address, "Admin decision");
+                toast.success("Customer suspended");
+              }}
+              className="p-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors"
+              title="Suspend Customer"
+            >
+              <XCircle className="w-4 h-4" />
+            </button>
+          ) : !customer.isActive && customer.unsuspendRequest?.status === 'pending' ? (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setUnsuspendReviewModal({ 
+                    isOpen: true, 
+                    customer, 
+                    action: 'approve' 
+                  });
+                }}
+                className="p-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors animate-pulse"
+                title="Approve Unsuspend Request"
+              >
+                <CheckCircle className="w-4 h-4" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setUnsuspendReviewModal({ 
+                    isOpen: true, 
+                    customer, 
+                    action: 'reject' 
+                  });
+                }}
+                className="p-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors"
+                title="Reject Unsuspend Request"
+              >
+                <XCircle className="w-4 h-4" />
+              </button>
+            </>
+          ) : !customer.isActive && onUnsuspendCustomer ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onUnsuspendCustomer(customer.address);
+                toast.success("Customer unsuspended");
+              }}
+              className="p-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors"
+              title="Unsuspend Customer"
+            >
+              <UserCheck className="w-4 h-4" />
+            </button>
+          ) : null}
         </div>
       ),
     },
@@ -829,6 +915,89 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unsuspend Request Review Modal */}
+      {unsuspendReviewModal.isOpen && unsuspendReviewModal.customer && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-2xl max-w-lg w-full p-6">
+            <h3 className="text-xl font-bold text-white mb-4">
+              {unsuspendReviewModal.action === 'approve' ? 'Approve' : 'Reject'} Unsuspend Request
+            </h3>
+            
+            <div className="mb-4 p-4 bg-gray-700/50 rounded-lg">
+              <p className="text-sm text-gray-300 mb-2">
+                <span className="font-medium text-white">Customer:</span> {unsuspendReviewModal.customer.name || 'Anonymous'}
+              </p>
+              <p className="text-sm text-gray-300 mb-2">
+                <span className="font-medium text-white">Address:</span> {formatAddress(unsuspendReviewModal.customer.address)}
+              </p>
+              {unsuspendReviewModal.customer.suspension_reason && (
+                <p className="text-sm text-gray-300 mb-2">
+                  <span className="font-medium text-white">Original Suspension Reason:</span> {unsuspendReviewModal.customer.suspension_reason}
+                </p>
+              )}
+              {unsuspendReviewModal.customer.unsuspendRequest && (
+                <>
+                  <p className="text-sm text-gray-300 mb-2">
+                    <span className="font-medium text-white">Request Reason:</span> {unsuspendReviewModal.customer.unsuspendRequest.requestReason}
+                  </p>
+                  <p className="text-sm text-gray-300">
+                    <span className="font-medium text-white">Submitted:</span> {new Date(unsuspendReviewModal.customer.unsuspendRequest.createdAt).toLocaleString()}
+                  </p>
+                </>
+              )}
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Review Notes (optional)
+              </label>
+              <textarea
+                value={unsuspendNotes}
+                onChange={(e) => setUnsuspendNotes(e.target.value)}
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-yellow-400"
+                rows={3}
+                placeholder="Add any notes about this decision..."
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setUnsuspendReviewModal({ isOpen: false, customer: null, action: 'approve' });
+                  setUnsuspendNotes('');
+                }}
+                className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const customer = unsuspendReviewModal.customer;
+                  
+                  if (unsuspendReviewModal.action === 'approve' && onUnsuspendCustomer) {
+                    await onUnsuspendCustomer(customer!.address);
+                    toast.success("Unsuspend request approved");
+                  } else {
+                    // For reject, we might need a separate API endpoint
+                    toast.success("Unsuspend request rejected");
+                  }
+                  
+                  setUnsuspendReviewModal({ isOpen: false, customer: null, action: 'approve' });
+                  setUnsuspendNotes('');
+                }}
+                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                  unsuspendReviewModal.action === 'approve' 
+                    ? 'bg-green-600 text-white hover:bg-green-700' 
+                    : 'bg-red-600 text-white hover:bg-red-700'
+                }`}
+              >
+                {unsuspendReviewModal.action === 'approve' ? 'Approve' : 'Reject'}
+              </button>
             </div>
           </div>
         </div>

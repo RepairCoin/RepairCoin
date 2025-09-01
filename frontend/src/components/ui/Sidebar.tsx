@@ -221,12 +221,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           icon: <span className="text-xl">📈</span>,
           tabId: "analytics",
         },
-        {
-          title: "Unsuspend Requests",
-          href: "/admin?tab=unsuspend-requests",
-          icon: <span className="text-xl">🔓</span>,
-          tabId: "unsuspend-requests",
-        },
       ];
     }
 
