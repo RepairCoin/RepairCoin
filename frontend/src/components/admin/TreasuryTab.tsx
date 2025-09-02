@@ -4,12 +4,14 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 
 interface TreasuryData {
-  totalSupply: number;
-  availableSupply: number;
+  totalSupply: number | string;
+  availableSupply: number | string;
   totalSold: number;
   totalRevenue: number;
   percentageSold: string;
   lastUpdated: string;
+  circulatingSupply?: number;
+  mintedRewards?: number;
   topBuyers: Array<{
     shopId?: string;
     shop_id?: string;
@@ -250,13 +252,21 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({ generateAdminToken, on
           <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200">
             <div className="text-3xl mb-2">💎</div>
             <p className="text-sm text-gray-600 mb-1">Total Supply</p>
-            <p className="text-2xl font-bold text-gray-900">{formatNumber(treasuryData.totalSupply)} RCN</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {typeof treasuryData.totalSupply === 'string' 
+                ? treasuryData.totalSupply 
+                : formatNumber(treasuryData.totalSupply)} RCN
+            </p>
           </div>
 
           <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 border border-green-200">
             <div className="text-3xl mb-2">🏦</div>
             <p className="text-sm text-gray-600 mb-1">Available in Treasury</p>
-            <p className="text-2xl font-bold text-gray-900">{formatNumber(treasuryData.availableSupply)} RCN</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {typeof treasuryData.availableSupply === 'string' 
+                ? treasuryData.availableSupply 
+                : formatNumber(treasuryData.availableSupply)} RCN
+            </p>
           </div>
 
           <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border border-purple-200">

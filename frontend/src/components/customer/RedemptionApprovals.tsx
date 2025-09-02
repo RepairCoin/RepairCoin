@@ -113,8 +113,9 @@ export function RedemptionApprovals() {
         client,
         chain: baseSepolia,
         address:
+          process.env.NEXT_PUBLIC_RCN_CONTRACT_ADDRESS ||
           process.env.NEXT_PUBLIC_REPAIRCOIN_CONTRACT_ADDRESS ||
-          "0xd92ced7c3f4D8E42C05A4c558F37dA6DC731d5f5",
+          "0xBFE793d78B6B83859b528F191bd6F2b8555D951C",
       });
 
       // Prepare the transfer to burn address

@@ -165,7 +165,7 @@ export const RedeemTab: React.FC<RedeemTabProps> = ({ shopId, onRedemptionComple
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
               <p className="text-sm text-gray-500 mt-2">
-                Value: ${redeemAmount} USD
+                Value: ${(redeemAmount * 0.10).toFixed(2)} USD
               </p>
             </div>
 

@@ -81,11 +81,13 @@ docker exec -it repaircoin-db psql -U repaircoin -d repaircoin
 - **Containerization**: Docker + Docker Compose
 
 ### Business Model Overview
+- **Token Type**: Pure utility token for loyalty rewards (no trading or speculation)
+- **Token Supply**: Unlimited minting capability (no max cap)
 - **Revenue Model**: Shops purchase RCN tokens directly from RepairCoin admin at $0.10 per RCN
 - **Token Distribution**: Shops distribute earned RCN to customers as loyalty rewards
-- **Redemption Value**: 1 RCN = $1.00 USD guaranteed within shop network
-- **Cross-Shop Network**: Customers can use 20% of their balance at other participating shops
-- **Market Protection**: Only earned RCN (not market-bought) can be redeemed at shops
+- **Redemption Value**: 1 RCN = $0.10 USD guaranteed redemption value at all participating shops
+- **Cross-Shop Network**: Customers can use 20% of their earned balance at other participating shops
+- **Anti-Arbitrage**: No public trading; tokens flow only from Admin → Shops → Customers → Burned on redemption
 
 ### Domain-Driven Architecture
 The backend uses an enhanced domain-driven architecture with the following structure:
@@ -150,10 +152,11 @@ Each domain follows the pattern:
 - **SDK**: Thirdweb v5 for token operations
 - **Network**: Base Sepolia testnet
 - **Token Economics**: 
-  - Fixed supply: 1 billion RCN tokens
+  - Supply Model: Unlimited minting capability (no max cap)
   - Shop purchase price: $0.10 per RCN (fixed)
-  - Open market price: Floating (independent of shop redemption value)
-  - Anti-arbitrage: Centralized verification prevents market-bought tokens from shop redemption
+  - Customer redemption value: $0.10 per RCN (fixed)
+  - No public trading: Tokens cannot be bought/sold on exchanges
+  - Token flow: Admin → Shops → Customers → Burned on redemption
 
 ## Environment Configuration
 
@@ -571,12 +574,12 @@ If you see "parseUnits was not found" errors:
 - **Treasury Management Tab**: Added admin dashboard tab for RCN token sales tracking
   - `GET /api/admin/treasury` - Get current treasury statistics
   - `POST /api/admin/treasury/update` - Update treasury after RCN sales
-  - Treasury shows total supply (1B), total sold to shops, available balance, and revenue
+  - Treasury shows total minted, total sold to shops, and revenue (no longer shows "available balance" due to unlimited supply)
 - **Treasury Calculation Fix**: Updated to use `shop_rcn_purchases` table instead of empty `transactions` table
 - **CORS Configuration**: Fixed CORS policy blocking frontend requests from different ports
 - **Database Column Fixes**: Corrected SQL queries to use proper column names (purchased_rcn_balance, total_cost, payment_reference)
-- **Token Minting**: Minted full 1 billion RCN supply to match business requirements (previously only had 20 RCN)
-- **Wallet Requirements Documentation**: Created comprehensive guide for production wallet setup and multi-sig requirements
+- **Token Supply Model**: Transitioned from fixed 1 billion supply to unlimited minting model
+- **Wallet Requirements Documentation**: Created comprehensive guide for production wallet setup
 
 ### August 5, 2025 Development Session - Referral System Fixes & Requirements Update
 - **Referral Tracking Fix**: Fixed issue where successful referrals were showing as 0
@@ -635,18 +638,15 @@ If Swagger doesn't load, check that `ENABLE_SWAGGER=true` in environment variabl
 Based on RepairCoin Requirements v1.1, the following features need to be implemented:
 
 ### 1. Multi-Signature Wallet Setup (CRITICAL - Before Production)
-**Status**: ⚠️ Not Started - Currently all 1B tokens in single wallet
+**Status**: ⚠️ Updated for unlimited supply model
 **Priority**: CRITICAL
 **Requirements**:
-- Deploy 3 multi-sig wallets (Customer Rewards, Business Operations, Team/Investor)
+- Deploy multi-sig wallet for admin minting control
 - Configure Safe (Gnosis Safe) on Base network
-- Distribute tokens according to official allocation:
-  - 400M RCN to Customer Rewards Pool (2-of-3 multi-sig)
-  - 200M RCN to Business Operations Fund (3-of-5 multi-sig)
-  - 400M RCN to Team & Investor Allocation (vesting contract)
-- Add authorized signers (Miguel, Zeff, FixFlow Co-founder, Security Dev, Cold Storage)
-- Test multi-sig approval workflows
-- **Reference**: See `/WALLET-REQUIREMENTS.md` for complete implementation guide
+- Multi-sig controls minting authority (not token distribution)
+- Add authorized signers for minting approval
+- Test multi-sig approval workflows for minting operations
+- **Note**: No longer needed for token distribution since supply is unlimited
 
 ### 2. Customer Mobile App
 **Status**: 🔴 Not Started
@@ -701,14 +701,9 @@ Based on RepairCoin Requirements v1.1, the following features need to be impleme
 - Contact and support information
 
 ### 6. Liquidity Management
-**Status**: 🔴 Not Started
-**Priority**: HIGH (Before Public Launch)
-**Requirements**:
-- Deploy 50M RCN to DEX liquidity pools
-- Set up liquidity provision on Base mainnet
-- Configure automated market making
-- Monitor and manage liquidity depth
-- Implement liquidity incentives
+**Status**: ❌ Not Applicable
+**Priority**: N/A
+**Note**: RCN is a pure utility token with no public trading. Liquidity pools are not needed since tokens can only be obtained through shops and redeemed for services.
 
 ### 7. Analytics Dashboard
 **Status**: 🟢 Enhanced Implementation

@@ -2,25 +2,42 @@
 
 ## What is RepairCoin?
 
-RepairCoin is the first tokenized rewards ecosystem designed for the global gadget and robotics repair industry. Powered by FixFlow.ai, it lets customers earn and redeem digital tokens for services while enabling shops to participate in a modern Web3 economy.
+RepairCoin is a dual-token ecosystem revolutionizing the repair industry through blockchain-based loyalty rewards (RCN) and decentralized governance (RCG). Powered by FixFlow.ai, it creates a transparent, cross-shop rewards network where customers earn tokens for repairs and shops benefit from tiered pricing based on their governance token holdings.
 
 ---
 
 ## 🌍 Mission
 
-To revolutionize customer loyalty and retention in the repair industry by introducing a Web3-powered reward system that replaces traditional coupons and discount codes with blockchain-based tokens.
+To build the first community-governed loyalty ecosystem for the repair industry, where shops with higher RCG stakes receive better RCN pricing, creating aligned incentives between platform success and participant rewards.
 
 ---
 
 ## 💡 Key Features
 
-- **ERC-20 Token on Base Network** - Secure, scalable blockchain infrastructure
-- **Real-world Utility** - Tokens tied directly to in-store repair services
-- **Tiered Rewards System** - Bronze, Silver, Gold tiers with increasing benefits
+### Dual-Token Architecture
+- **RCN (RepairCoin)** - Unlimited supply utility token for loyalty rewards
+- **RCG (RepairCoin Governance)** - Limited 100M supply governance token
+
+### For Customers
+- **Fixed Value Rewards** - 1 RCN = $0.10 USD redemption value (no volatility)
+- **Tiered Rewards System** - Bronze, Silver, Gold tiers with +10/+20/+30 RCN bonuses
 - **Smart Referral System** - 25 RCN for referrer, 10 RCN for referee (after first repair)
-- **Cross-Shop Network** - Use earned tokens across participating repair shops
-- **Anti-Arbitrage Protection** - Only earned tokens can be redeemed at shops
-- **Shop RCN Management** - Shops purchase RCN at $0.10 per token for customer rewards
+- **Cross-Shop Network** - Use 20% of earned tokens at any participating shop
+- **No Trading Complexity** - Pure utility token, not available on exchanges
+
+### For Shops
+- **RCG-Based Tier Pricing**:
+  - Standard (10K-49K RCG): $0.10 per RCN
+  - Premium (50K-199K RCG): $0.08 per RCN (20% discount)
+  - Elite (200K+ RCG): $0.06 per RCN (40% discount)
+- **Governance Participation** - Vote on platform parameters via RCG holdings
+- **Revenue Sharing** - 10% of RCN sales distributed to RCG stakers
+
+### Platform Features
+- **Unlimited RCN Minting** - No supply cap ensures continuous operations
+- **Burn on Redemption** - Tokens destroyed when used, creating natural scarcity
+- **DAO Governance** - RCG holders control earning rates, limits, and parameters
+- **Anti-Fraud Protection** - Daily/monthly limits and pattern monitoring
 
 ---
 
@@ -108,29 +125,43 @@ cd frontend && npm run dev
 
 ---
 
-## 🔐 Current Tokenomics
+## 🔐 Token Economics
 
-### Token Distribution
-- **Total Supply**: 1 Billion RCN
-- **Shop Purchase Price**: $0.10 per RCN
-- **In-Store Redemption**: 1 RCN = $1.00 value
+### RCN (RepairCoin) - Utility Token
+- **Supply Model**: Unlimited minting capability
+- **Fixed Value**: 1 RCN = $0.10 USD at all shops
+- **Token Flow**: Admin → Shops → Customers → Burned
+- **No Trading**: Internal ecosystem only, not on exchanges
 
-### Earning Structure
+### RCG (RepairCoin Governance) - Governance Token
+- **Total Supply**: 100 Million RCG (fixed)
+- **Purpose**: Platform governance and shop tier benefits
+- **Minimum Stake**: 10,000 RCG to become partner shop
+- **Lock Period**: 6 months minimum after activation
+
+### Customer Earning Structure
 - **Small Repairs ($50-$99)**: 10 RCN base + tier bonus
 - **Large Repairs ($100+)**: 25 RCN base + tier bonus
 - **Referral Rewards**: 25 RCN (referrer) + 10 RCN (referee) after first repair
-- **Daily Limit**: 40 RCN (excluding bonuses)
-- **Monthly Limit**: 500 RCN (excluding bonuses)
+- **Daily Limit**: 50 RCN per customer
+- **Monthly Limit**: 500 RCN per customer
 
-### Tier System
-- **Bronze** (0-199 RCN): +10 RCN bonus per repair
-- **Silver** (200-999 RCN): +20 RCN bonus per repair
-- **Gold** (1000+ RCN): +30 RCN bonus per repair
+### Customer Tier System
+- **Bronze** (0-199 RCN lifetime): +10 RCN bonus per repair
+- **Silver** (200-999 RCN lifetime): +20 RCN bonus per repair
+- **Gold** (1000+ RCN lifetime): +30 RCN bonus per repair
 
-### Redemption Rules
-- **Home Shop**: 100% of earned balance
-- **Cross-Shop**: 20% of earned balance
-- **Market-Bought Tokens**: Cannot be redeemed at shops
+### Shop Tier System (RCG-Based)
+| Tier | RCG Required | RCN Price | Investment | Benefits |
+|------|--------------|-----------|------------|----------|
+| Standard | 10K-49K | $0.10 | ~$5,000 | Basic platform access |
+| Premium | 50K-199K | $0.08 | ~$25,000 | Advanced analytics, priority support |
+| Elite | 200K+ | $0.06 | ~$100,000 | VIP status, dedicated account manager |
+
+### Revenue Distribution
+- **Platform Operations**: 80% (development, infrastructure, support)
+- **RCG Stakers**: 10% (weekly USDC rewards)
+- **DAO Treasury**: 10% (community-controlled funds)
 
 ---
 
@@ -200,46 +231,79 @@ cd backend && npm run dev:docs
 
 ---
 
-## 🤝 B2B Value for Repair Shops
+## 🤝 Value Propositions
 
+### For Repair Shops
+- **Lower Token Costs** - Up to 40% discount based on RCG holdings
 - **Customer Loyalty** - Automated rewards for repeat customers
-- **Cross-Shop Network** - Attract customers from other shops
-- **Analytics Dashboard** - Track performance and customer behavior
-- **Marketing Tools** - Built-in referral system and promotions
+- **Cross-Shop Network** - Attract 20% spending from other shops' customers
+- **Governance Rights** - Vote on platform parameters and improvements
+- **Revenue Sharing** - Earn from platform success as RCG staker
 - **FixFlow Integration** - Seamless CRM and repair tracking
+
+### For Customers
+- **No Volatility** - Fixed $0.10 redemption value
+- **Cross-Shop Usage** - Rewards work at any participating shop
+- **Tier Benefits** - Earn more as you progress
+- **Simple Experience** - No crypto knowledge required
+- **Referral Rewards** - Earn by bringing friends
+
+### For RCG Investors
+- **Revenue Share** - 10% of all RCN sales distributed weekly
+- **Governance Control** - Direct platform decisions
+- **Demand Driver** - Shops must stake RCG for benefits
+- **Limited Supply** - Only 100M RCG will ever exist
 
 ---
 
 ## 📝 Recent Updates
+
+### September 1, 2025
+- Transitioned to dual-token model (RCN utility + RCG governance)
+- Updated RCN to unlimited supply with burn mechanism
+- Implemented RCG-based shop tier pricing system
+- Added revenue distribution model for RCG stakers
+- Configured separate Thirdweb projects for each token
 
 ### August 5, 2025
 - Fixed referral tracking to properly increment referral counts
 - Implemented repair-completion requirement for referral rewards
 - Fixed RCN breakdown case sensitivity issues
 - Updated wallet detection service for better user routing
-- Added tier-based redemption limits (Bronze: 10, Silver: 20, Gold: 30 RCN per transaction)
-- Implemented token burning functionality for redemptions
 
 ### July 28, 2025
-- Implemented new business model: shops purchase RCN at $0.10
+- Implemented new business model: shops purchase RCN
 - Added centralized verification system
-- Created tier bonus system
+- Created customer tier bonus system
 - Updated cross-shop redemption to 20% limit
 
 ---
 
-## 🚧 Features Still To Build
+## 🚧 Implementation Roadmap
 
-### 🚨 CRITICAL (Blocking Production)
-1. **Multi-Signature Wallet Setup**
-   - All 1B tokens currently in single wallet (security risk!)
-   - Need 3 multi-sig wallets: Customer Rewards (400M), Business Operations (200M), Team/Investors (400M)
-   - Must implement before handling real funds
+### Phase 1: RCG Foundation (Current - Months 1-3)
+- ✅ Deploy RCG token contract (100M supply)
+- ⏳ Build DAO governance system
+- ⏳ Implement shop tier system
+- ⏳ Create RCG staking platform
 
-2. **Production Infrastructure**
-   - Deploy to Base Mainnet (currently on Sepolia testnet)
-   - Set up monitoring, backups, disaster recovery
-   - Production database and environment separation
+### Phase 2: RCN Integration (Months 4-6)
+- ✅ Deploy RCN token contract (unlimited supply)
+- ⏳ Implement burn mechanism on redemption
+- ⏳ Build tier-based pricing for shops
+- ⏳ Integrate FixFlow CRM webhooks
+
+### Phase 3: Network Launch (Months 7-9)
+- ⏳ Multi-shop deployment with tier benefits
+- ⏳ Cross-shop redemption system activation
+- ⏳ Mobile app launch (iOS/Android)
+- ⏳ Marketing website launch
+
+### Phase 4: Advanced Features (Months 10-12)
+- ⏳ Enhanced analytics dashboard
+- ⏳ Automated marketing integrations
+- ⏳ Advanced fraud detection
+- ⏳ DAO parameter adjustment tools
 
 ### 📱 HIGH Priority (Core Functionality)
 1. **Mobile Applications**
@@ -288,12 +352,36 @@ cd backend && npm run dev:docs
 - Complete backend API with domain-driven architecture
 - Admin dashboard with full platform control
 - Customer and shop registration flows
-- Token minting and distribution system
+- Dual-token system (RCN + RCG contracts deployed)
 - Referral system with repair requirement
-- Centralized verification (earned vs market-bought RCN)
-- Treasury management for shop RCN purchases
-- Tier system with redemption limits
+- Centralized verification for redemptions
+- Treasury management with unlimited minting
+- Customer tier system with bonuses
 - Basic analytics and reporting
+
+---
+
+## 🏛️ Governance Parameters (RCG DAO Controlled)
+
+The following parameters can be adjusted through RCG token holder votes:
+
+### Customer Parameters
+- RepairCoin earning rates (currently 10-25 RCN per repair)
+- Customer tier bonus amounts (currently +10/+20/+30 RCN)
+- Daily earning limit (currently 50 RCN)
+- Monthly earning limit (currently 500 RCN)
+- Referral rewards (currently 25/10 RCN)
+
+### Shop Parameters
+- Cross-shop redemption limit (currently 20%)
+- Minimum RCG stake requirements
+- Shop tier thresholds and benefits
+- Onboarding requirements
+
+### Platform Parameters
+- Revenue distribution (currently 80/10/10 split)
+- DAO treasury allocation
+- Security parameters and limits
 
 ---
 
@@ -315,6 +403,39 @@ cd backend && npm run dev:docs
 
 ---
 
+## 📄 Smart Contracts
+
+### Deployed on Base Sepolia (Testnet)
+- **RCN Contract**: `0xBFE793d78B6B83859b528F191bd6F2b8555D951C`
+- **RCG Contract**: `0x973D8b27E7CD72270F9C07d94381f522bC9D4304`
+
+### Contract Features
+- **RCN**: Unlimited minting, burnable, pausable
+- **RCG**: Fixed 100M supply, governance voting power
+- **Both**: ERC-20 compliant, Thirdweb SDK compatible
+
+---
+
+## 🌐 Ecosystem Flywheel
+
+```
+More shops need RCG → RCG price rises → Better RCN margins for shops →
+Attracts more shops → Higher RCN sales → Better RCG staker yields →
+More RCG investment demand → Cycle accelerates
+```
+
+This creates aligned incentives where:
+- Shops benefit from lower costs as they invest more
+- RCG holders benefit from platform growth
+- Customers benefit from a larger network
+- Platform benefits from sustainable revenue
+
+---
+
 ## 📄 License
 
 This project is proprietary software. All rights reserved.
+
+---
+
+**RepairCoin** - The first community-governed loyalty ecosystem for the repair industry.

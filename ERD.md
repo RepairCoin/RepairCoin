@@ -567,7 +567,7 @@ erDiagram
 
 ### Token Economics
 - Shops purchase RCN at $0.10 per token from admin
-- Customers redeem RCN at $1.00 value within shop network
+- Customers redeem RCN at $0.10 value within shop network
 - Market-purchased RCN cannot be redeemed at shops (anti-arbitrage)
 - Cross-shop redemption limited to 20% of earned balance
 

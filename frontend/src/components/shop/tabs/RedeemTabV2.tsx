@@ -1276,7 +1276,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({ shopId, onRedemptionComp
 
                 {/* Exchange Rate */}
                 <p className="text-center text-xs text-gray-500">
-                  Exchange Rate: 1 RCN = $1.00
+                  Exchange Rate: 1 RCN = $0.10
                 </p>
               </div>
             </div>
