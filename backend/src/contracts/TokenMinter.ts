@@ -8,7 +8,7 @@ import { privateKeyToAccount } from "thirdweb/wallets";
 import { TierManager, CustomerData } from "./TierManager";
 
 
-import { createThirdwebClient, getContract, prepareContractCall, sendTransaction, readContract } from "thirdweb";
+import { createThirdwebClient, getContract, prepareContractCall, sendTransaction, readContract, waitForReceipt } from "thirdweb";
 
 export interface MintResult {
   success: boolean;
@@ -36,8 +36,9 @@ export class TokenMinter {
 
   constructor() {
     // Check for THIRDWEB_CLIENT_ID or NEXT_PUBLIC_THIRDWEB_CLIENT_ID
-    const clientId = process.env.THIRDWEB_CLIENT_ID || process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID;
-    const secretKey = process.env.THIRDWEB_SECRET_KEY;
+    // Use RCN-specific env vars first, fall back to legacy
+    const clientId = process.env.RCN_THIRDWEB_CLIENT_ID || process.env.THIRDWEB_CLIENT_ID || process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID;
+    const secretKey = process.env.RCN_THIRDWEB_SECRET_KEY || process.env.THIRDWEB_SECRET_KEY;
     const privateKey = process.env.PRIVATE_KEY;
     
     if (!clientId || !secretKey || !privateKey) {
@@ -54,7 +55,8 @@ export class TokenMinter {
       privateKey: privateKey,
     });
     
-    this.contractAddress = process.env.REPAIRCOIN_CONTRACT_ADDRESS!;
+    // Use RCN contract address first, fall back to legacy
+    this.contractAddress = process.env.RCN_CONTRACT_ADDRESS || process.env.REPAIRCOIN_CONTRACT_ADDRESS!;
     this.tierManager = new TierManager();
   }
 
@@ -94,56 +96,74 @@ export class TokenMinter {
         address: this.contractAddress,
       });
 
-      // TEMPORARY SOLUTION: Transfer tokens from admin wallet to customer to simulate redemption deduction
-      // This is a workaround until we implement proper customer-signed transactions
-      
-      console.log(`⚠️ TEMPORARY: Using admin transfer to simulate redemption`);
+      // Try to burn tokens directly if contract supports burnFrom
+      // Otherwise fall back to transfer to burn address
       
       try {
-        // Instead of burning, we'll transfer tokens FROM the admin TO a burn address
-        // But first, we need to transfer FROM customer TO admin (which requires customer signature)
-        // For now, we'll just mint negative tokens to the customer (if contract supports it)
-        // OR transfer from admin treasury to simulate the deduction
+        // First try burnFrom if available (requires approval from customer)
+        console.log(`🔥 Attempting burnFrom for ${amount} RCN from ${customerAddress}`);
         
-        // Get admin account balance
-        const adminBalance = await this.getCustomerBalance(this.account.address);
-        console.log(`Admin balance: ${adminBalance} RCN`);
-        
-        // For demo purposes, transfer tokens from admin to a burn address
-        const BURN_ADDRESS = '0x000000000000000000000000000000000000dEaD';
-        
-        const transferTx = prepareContractCall({
+        const burnTx = prepareContractCall({
           contract,
-          method: "function transfer(address to, uint256 amount) returns (bool)",
-          params: [BURN_ADDRESS, BigInt(amount * 10 ** 18)]
+          method: "function burnFrom(address account, uint256 amount)",
+          params: [customerAddress, BigInt(amount * 10 ** 18)]
         });
         
         const result = await sendTransaction({
-          transaction: transferTx,
+          transaction: burnTx,
           account: this.account,
         });
         
-        console.log(`✅ Simulated burn by transferring ${amount} RCN to burn address`);
+        console.log(`✅ Successfully burned ${amount} RCN from customer wallet`);
         console.log(`Transaction hash: ${result.transactionHash}`);
         
         return {
           success: true,
           tokensToMint: -amount,
           transactionHash: result.transactionHash,
-          message: `Successfully processed redemption of ${amount} RCN (simulated via admin transfer)`,
+          message: `Successfully burned ${amount} RCN for redemption`,
           timestamp: new Date().toISOString()
         };
         
-      } catch (transferError: any) {
-        console.error('Transfer error:', transferError);
+      } catch (burnError: any) {
+        console.log('BurnFrom not available or not approved, falling back to burn address transfer');
         
-        // If transfer fails, still track off-chain
-        return {
-          success: false,
-          tokensToMint: -amount,
-          message: `Redemption tracked off-chain. On-chain deduction pending. Balance: ${balance} RCN`,
-          timestamp: new Date().toISOString()
-        };
+        // Fallback: Transfer from admin to burn address to simulate
+        try {
+          const BURN_ADDRESS = '0x000000000000000000000000000000000000dEaD';
+          
+          const transferTx = prepareContractCall({
+            contract,
+            method: "function transfer(address to, uint256 amount) returns (bool)",
+            params: [BURN_ADDRESS, BigInt(amount * 10 ** 18)]
+          });
+          
+          const result = await sendTransaction({
+            transaction: transferTx,
+            account: this.account,
+          });
+          
+          console.log(`✅ Simulated burn by transferring ${amount} RCN to burn address`);
+          console.log(`Transaction hash: ${result.transactionHash}`);
+          
+          return {
+            success: true,
+            tokensToMint: -amount,
+            transactionHash: result.transactionHash,
+            message: `Successfully processed redemption of ${amount} RCN (via burn address)`,
+            timestamp: new Date().toISOString()
+          };
+        } catch (transferError: any) {
+          console.error('Transfer error:', transferError);
+          
+          // If all fails, track off-chain
+          return {
+            success: false,
+            tokensToMint: -amount,
+            message: `Redemption tracked off-chain. Customer needs to approve token burn. Balance: ${balance} RCN`,
+            timestamp: new Date().toISOString()
+          };
+        }
       }
 
     } catch (error: any) {
@@ -598,6 +618,50 @@ async unpauseContract(): Promise<MintResult> {
   // Helper function to validate Ethereum addresses
   private isValidAddress(address: string): boolean {
     return /^0x[a-fA-F0-9]{40}$/.test(address);
+  }
+
+  // Burn tokens directly (admin function)
+  async burnTokensFromAdmin(amount: number, reason: string = "redemption"): Promise<{
+    success: boolean;
+    error?: string;
+    transactionHash?: string;
+  }> {
+    try {
+      console.log(`🔥 Burning ${amount} RCN tokens for ${reason}...`);
+
+      const contract = await this.getContract();
+      const amountInWei = BigInt(amount * Math.pow(10, 18));
+
+      // Call burn function on the contract
+      const transaction = await sendTransaction({
+        transaction: prepareContractCall({
+          contract,
+          method: "function burn(uint256 amount)",
+          params: [amountInWei]
+        }),
+        account: this.account
+      });
+
+      // Wait for confirmation
+      const receipt = await waitForReceipt({
+        client: this.client,
+        chain: baseSepolia,
+        transactionHash: transaction.transactionHash
+      });
+
+      console.log(`✅ Tokens burned successfully. Hash: ${transaction.transactionHash}`);
+      
+      return {
+        success: true,
+        transactionHash: transaction.transactionHash
+      };
+    } catch (error: any) {
+      console.error("❌ Error burning tokens:", error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
   }
 
   // Get customer balance

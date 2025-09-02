@@ -157,11 +157,11 @@ export class TreasuryRepository extends BaseRepository {
           WHERE status = 'completed'
         )
         SELECT 
-          1000000000 as total_supply, -- 1 billion total supply
+          'unlimited'::text as total_supply, -- Unlimited supply per v3.0
           ms.total_minted,
           sps.total_sold,
           sps.total_sold + ms.total_minted as circulating_supply,
-          1000000000 - sps.total_sold as available_supply,
+          'unlimited'::text as available_supply, -- Unlimited availability
           sps.total_revenue,
           sps.avg_price
         FROM minted_stats ms, shop_purchase_stats sps

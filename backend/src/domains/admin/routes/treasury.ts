@@ -54,20 +54,20 @@ router.get('/treasury', verifyAdminToken, async (req: Request, res: Response) =>
         `);
         
         const treasuryData = {
-          totalSupply: 1000000000, // 1 billion default
+          totalSupply: 'unlimited', // Unlimited supply as per v3.0 spec
           totalSold: parseFloat(shopPurchases.rows[0]?.total_sold || '0'),
           totalRevenue: parseFloat(shopPurchases.rows[0]?.total_revenue || '0'),
           lastUpdated: new Date()
         };
         
-        // Get actual total supply from blockchain
-        let actualTotalSupply = treasuryData.totalSupply;
+        // Get actual circulating supply from blockchain
+        let circulatingSupply = 0;
         
         try {
             const contractStats = await getTokenMinter().getContractStats();
             if (contractStats && contractStats.totalSupplyReadable > 0) {
-                actualTotalSupply = contractStats.totalSupplyReadable;
-                console.log('✅ Fetched total supply from blockchain:', actualTotalSupply);
+                circulatingSupply = contractStats.totalSupplyReadable;
+                console.log('✅ Fetched circulating supply from blockchain:', circulatingSupply);
             }
         } catch (error) {
             console.warn('Could not fetch contract stats, using database value:', error);
@@ -111,25 +111,26 @@ router.get('/treasury', verifyAdminToken, async (req: Request, res: Response) =>
         `);
         const recentPurchases = recentPurchasesQuery.rows;
         
-        // Calculate percentage sold based on actual total supply
-        const percentageSold = actualTotalSupply > 0 
-            ? (treasuryData.totalSold / actualTotalSupply) * 100 
+        // With unlimited supply, we can't calculate percentage sold
+        // Instead, show circulating supply info
+        const percentageSold = circulatingSupply > 0 && treasuryData.totalSold > 0
+            ? (treasuryData.totalSold / circulatingSupply) * 100
             : 0;
         
         res.json({
             success: true,
             data: {
-                totalSupply: treasuryData.totalSupply, // Use the treasury supply (1B), not blockchain supply
-                availableSupply: treasuryData.totalSupply - treasuryData.totalSold, // Available from treasury, not blockchain
+                totalSupply: treasuryData.totalSupply, // "unlimited"
+                availableSupply: 'unlimited', // Unlimited minting capability
                 totalSold: treasuryData.totalSold,
                 totalRevenue: treasuryData.totalRevenue,
-                percentageSold: ((treasuryData.totalSold / treasuryData.totalSupply) * 100).toFixed(2),
+                percentageSold: 'N/A', // Can't calculate percentage of infinity
                 lastUpdated: treasuryData.lastUpdated,
                 topBuyers,
                 recentPurchases,
                 // Additional info about blockchain state
-                blockchainTotalSupply: actualTotalSupply,
-                mintedRewards: actualTotalSupply - treasuryData.totalSupply
+                circulatingSupply: circulatingSupply,
+                mintedRewards: circulatingSupply // All minted tokens are rewards
             }
         });
     } catch (error) {
