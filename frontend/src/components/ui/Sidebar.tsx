@@ -48,6 +48,7 @@ interface SidebarProps {
   activeTab?: string;
   onTabChange?: (tab: string) => void;
   onCollapseChange?: (collapsed: boolean) => void;
+  isSuperAdmin?: boolean;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -57,6 +58,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onTabChange,
   onCollapseChange,
+  isSuperAdmin = false,
 }) => {
   const pathname = usePathname();
   const router = useRouter();
@@ -178,19 +180,26 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
 
     if (userRole === "admin") {
-      return [
+      const adminItems = [
         {
           title: "Overview",
           href: "/admin?tab=overview",
           icon: <span className="text-xl">📊</span>,
           tabId: "overview",
         },
-        {
+      ];
+      
+      // Only show Admins tab for super admin
+      if (isSuperAdmin) {
+        adminItems.push({
           title: "Admins",
           href: "/admin?tab=admins",
           icon: <span className="text-xl">🛡️</span>,
           tabId: "admins",
-        },
+        });
+      }
+      
+      adminItems.push(
         {
           title: "Customers",
           href: "/admin?tab=customers",
@@ -214,8 +223,10 @@ const Sidebar: React.FC<SidebarProps> = ({
           href: "/admin?tab=analytics",
           icon: <span className="text-xl">📈</span>,
           tabId: "analytics",
-        },
-      ];
+        }
+      );
+      
+      return adminItems;
     }
 
     return commonItems;

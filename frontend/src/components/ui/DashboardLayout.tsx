@@ -8,13 +8,15 @@ interface DashboardLayoutProps {
   userRole?: "customer" | "shop" | "admin";
   activeTab?: string;
   onTabChange?: (tab: string) => void;
+  isSuperAdmin?: boolean;
 }
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ 
   children, 
   userRole = "customer",
   activeTab,
-  onTabChange
+  onTabChange,
+  isSuperAdmin = false
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -36,6 +38,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         activeTab={activeTab}
         onTabChange={onTabChange}
         onCollapseChange={handleCollapseChange}
+        isSuperAdmin={isSuperAdmin}
       />
       
       {/* Main Content Area */}

@@ -8,7 +8,7 @@ import { authManager } from "@/utils/auth";
 
 // Import our new components
 import { OverviewTab } from "@/components/admin/OverviewTab";
-import { AdminsTab } from "@/components/admin/AdminsTab";
+import AdminsTab from "@/components/admin/AdminsTab";
 import { CustomersTab } from "@/components/admin/CustomersTab";
 import { CustomersTabEnhanced } from "@/components/admin/CustomersTabEnhanced";
 import { ShopsTab } from "@/components/admin/ShopsTab";
@@ -26,6 +26,8 @@ const client = createThirdwebClient({
     process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID ||
     "1969ac335e07ba13ad0f8d1a1de4f6ab",
 });
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
 interface PlatformStats {
   totalCustomers: number;
@@ -89,12 +91,14 @@ export default function AdminDashboardClient() {
   const [activeTab, setActiveTab] = useState("overview");
   const [useEnhancedCustomers, setUseEnhancedCustomers] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   // Check admin status
   useEffect(() => {
     const checkAdminStatus = async () => {
       if (!account?.address) {
         setIsAdmin(false);
+        setIsSuperAdmin(false);
         return;
       }
 
@@ -102,10 +106,22 @@ export default function AdminDashboardClient() {
         const adminAddresses = (process.env.NEXT_PUBLIC_ADMIN_ADDRESSES || "")
           .split(",")
           .map((addr) => addr.toLowerCase().trim());
-        setIsAdmin(adminAddresses.includes(account.address.toLowerCase()));
+        const isAdminUser = adminAddresses.includes(account.address.toLowerCase());
+        setIsAdmin(isAdminUser);
+        
+        // Check if this is the super admin (first address in the list)
+        const isSuperAdminUser = adminAddresses[0] === account.address.toLowerCase();
+        setIsSuperAdmin(isSuperAdminUser);
+        
+        // Also check localStorage for super admin status (set during authentication)
+        const storedSuperAdmin = localStorage.getItem('isSuperAdmin');
+        if (storedSuperAdmin === 'true') {
+          setIsSuperAdmin(true);
+        }
       } catch (error) {
         console.error("Error checking admin status:", error);
         setIsAdmin(false);
+        setIsSuperAdmin(false);
       }
     };
 
@@ -128,7 +144,7 @@ export default function AdminDashboardClient() {
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/auth/admin`,
+        `${API_URL}/auth/admin`,
         {
           method: "POST",
           headers: {
@@ -146,6 +162,16 @@ export default function AdminDashboardClient() {
         if (token) {
           // Store token using authManager
           authManager.setToken("admin", token, 24); // 24 hour expiry
+          
+          // Check if user is super admin
+          if (data.user?.isSuperAdmin) {
+            setIsSuperAdmin(true);
+            localStorage.setItem('isSuperAdmin', 'true');
+          } else {
+            setIsSuperAdmin(false);
+            localStorage.setItem('isSuperAdmin', 'false');
+          }
+          
           return token;
         }
       } else {
@@ -177,7 +203,7 @@ export default function AdminDashboardClient() {
 
       // Fetch platform statistics
       let statsResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/stats`,
+        `${API_URL}/admin/stats`,
         {
           headers: {
             Authorization: `Bearer ${adminToken}`,
@@ -192,7 +218,7 @@ export default function AdminDashboardClient() {
         const newToken = await generateAdminToken(true);
         if (newToken) {
           statsResponse = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/admin/stats`,
+            `${API_URL}/admin/stats`,
             {
               headers: {
                 Authorization: `Bearer ${newToken}`,
@@ -222,7 +248,7 @@ export default function AdminDashboardClient() {
 
       // Fetch customers
       const customersResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/customers?page=1&limit=100`,
+        `${API_URL}/admin/customers?page=1&limit=100`,
         {
           headers: {
             Authorization: `Bearer ${adminToken}`,
@@ -236,7 +262,7 @@ export default function AdminDashboardClient() {
 
       // Fetch shops
       const shopsResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/shops?active=true&verified=true`,
+        `${API_URL}/admin/shops?active=true&verified=true`,
         {
           headers: {
             Authorization: `Bearer ${adminToken}`,
@@ -257,7 +283,7 @@ export default function AdminDashboardClient() {
 
       // Fetch all unverified shops (both pending and rejected)
       const unverifiedResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/shops?verified=false&active=all`,
+        `${API_URL}/admin/shops?verified=false&active=all`,
         {
           headers: {
             Authorization: `Bearer ${adminToken}`,
@@ -308,7 +334,7 @@ export default function AdminDashboardClient() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/mint`,
+        `${API_URL}/admin/mint`,
         {
           method: "POST",
           headers: {
@@ -340,7 +366,7 @@ export default function AdminDashboardClient() {
     if (!adminToken) throw new Error("Failed to authenticate");
 
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/admin/customers/${address}/suspend`,
+      `${API_URL}/admin/customers/${address}/suspend`,
       {
         method: "POST",
         headers: {
@@ -364,7 +390,7 @@ export default function AdminDashboardClient() {
     if (!adminToken) throw new Error("Failed to authenticate");
 
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/admin/customers/${address}/unsuspend`,
+      `${API_URL}/admin/customers/${address}/unsuspend`,
       {
         method: "POST",
         headers: {
@@ -387,7 +413,7 @@ export default function AdminDashboardClient() {
     if (!adminToken) throw new Error("Failed to authenticate");
 
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/admin/shops/${shopId}/suspend`,
+      `${API_URL}/admin/shops/${shopId}/suspend`,
       {
         method: "POST",
         headers: {
@@ -411,7 +437,7 @@ export default function AdminDashboardClient() {
     if (!adminToken) throw new Error("Failed to authenticate");
 
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/admin/shops/${shopId}/unsuspend`,
+      `${API_URL}/admin/shops/${shopId}/unsuspend`,
       {
         method: "POST",
         headers: {
@@ -434,7 +460,7 @@ export default function AdminDashboardClient() {
     if (!adminToken) throw new Error("Failed to authenticate");
 
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/admin/shops/${shopId}/verify`,
+      `${API_URL}/admin/shops/${shopId}/verify`,
       {
         method: "POST",
         headers: {
@@ -455,7 +481,7 @@ export default function AdminDashboardClient() {
       if (!adminToken) throw new Error("Failed to authenticate");
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/shops/${shopId}/approve`,
+        `${API_URL}/admin/shops/${shopId}/approve`,
         {
           method: "POST",
           headers: {
@@ -495,7 +521,7 @@ export default function AdminDashboardClient() {
 
       // Since there's no reject endpoint, we'll use suspend for unverified shops
       // This effectively "rejects" the application
-      const url = `${process.env.NEXT_PUBLIC_API_URL}/admin/shops/${shopId}/suspend`;
+      const url = `${API_URL}/admin/shops/${shopId}/suspend`;
       console.log("Suspend URL:", url);
 
       const response = await fetch(url, {
@@ -540,7 +566,7 @@ export default function AdminDashboardClient() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/shops/${shopId}/mint-balance`,
+        `${API_URL}/admin/shops/${shopId}/mint-balance`,
         {
           method: "POST",
           headers: {
@@ -617,6 +643,7 @@ export default function AdminDashboardClient() {
       userRole="admin"
       activeTab={activeTab}
       onTabChange={handleTabChange}
+      isSuperAdmin={isSuperAdmin}
     >
       <Toaster position="top-right" />
       <div
@@ -719,10 +746,13 @@ export default function AdminDashboardClient() {
           )}
 
           {activeTab === "admins" && (
-            <AdminsTab
-              generateAdminToken={generateAdminToken}
-              onError={setError}
-            />
+            loading ? (
+              <div className="flex justify-center items-center h-64">
+                <div className="text-gray-600">Loading admin management...</div>
+              </div>
+            ) : (
+              <AdminsTab />
+            )
           )}
 
           {activeTab === "create-admin" && (

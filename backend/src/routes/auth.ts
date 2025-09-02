@@ -1,6 +1,6 @@
 // backend/src/routes/auth.ts
 import { Router } from 'express';
-import { customerRepository, shopRepository } from '../repositories';
+import { customerRepository, shopRepository, adminRepository } from '../repositories';
 import { logger } from '../utils/logger';
 import { generateToken } from '../middleware/auth';
 
@@ -24,9 +24,10 @@ router.post('/token', async (req, res) => {
     let userType: string | null = null;
     let userData: any = null;
 
-    // Check admin addresses first
-    const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
-    if (adminAddresses.includes(normalizedAddress)) {
+    // Check admin addresses using database only
+    const adminData = await adminRepository.getAdminByWalletAddress(normalizedAddress);
+    
+    if (adminData) {
       userType = 'admin';
       userData = {
         address: normalizedAddress,
@@ -107,18 +108,54 @@ router.post('/check-user', async (req, res) => {
 
     const normalizedAddress = address.toLowerCase();
 
-    // Check admin addresses first
+    // Check if this is the super admin from .env (first address in ADMIN_ADDRESSES)
     const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
-    if (adminAddresses.includes(normalizedAddress)) {
+    const superAdminAddress = adminAddresses[0]; // First address is super admin
+    const isSuperAdminFromEnv = superAdminAddress === normalizedAddress;
+    
+    // Check admin in database
+    let adminData = await adminRepository.getAdminByWalletAddress(normalizedAddress);
+    
+    // If this is the super admin from .env and not in database, auto-create
+    if (isSuperAdminFromEnv && !adminData) {
+      try {
+        await adminRepository.createAdmin({
+          walletAddress: normalizedAddress,
+          name: 'Super Administrator',
+          permissions: ['all'],
+          isSuperAdmin: true,
+          createdBy: 'system'
+        });
+        adminData = await adminRepository.getAdminByWalletAddress(normalizedAddress);
+        logger.info('Auto-created super admin from env:', normalizedAddress);
+      } catch (error) {
+        logger.error('Failed to auto-create super admin:', error);
+      }
+    }
+    
+    // If admin exists in database or is super admin from env
+    if (adminData) {
+      // Update last login
+      await adminRepository.updateAdminLastLogin(normalizedAddress);
+      
+      // For super admin from env, always ensure they have super admin privileges
+      if (isSuperAdminFromEnv && !adminData.isSuperAdmin) {
+        await adminRepository.updateAdmin(adminData.id.toString(), { isSuperAdmin: true });
+        adminData.isSuperAdmin = true;
+      }
+      
       return res.json({
         type: 'admin',
         user: {
-          id: 'admin_' + normalizedAddress,
+          id: adminData.id.toString(),
           address: normalizedAddress,
           walletAddress: normalizedAddress,
-          name: 'Administrator',
-          active: true,
-          createdAt: new Date().toISOString()
+          name: adminData.name || 'Administrator',
+          email: adminData.email,
+          permissions: isSuperAdminFromEnv ? ['all'] : adminData.permissions,
+          isSuperAdmin: isSuperAdminFromEnv || adminData.isSuperAdmin,
+          active: adminData.isActive,
+          createdAt: adminData.createdAt || new Date().toISOString()
         }
       });
     }
@@ -204,20 +241,26 @@ router.post('/profile', async (req, res) => {
 
     const normalizedAddress = address.toLowerCase();
 
-    // Check admin first
+    // Check if this is the super admin from .env (first address in ADMIN_ADDRESSES)
     const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
-    if (adminAddresses.includes(normalizedAddress)) {
+    const superAdminAddress = adminAddresses[0]; // First address is super admin
+    const isSuperAdminFromEnv = superAdminAddress === normalizedAddress;
+    
+    // Check admin first from database
+    const adminData = await adminRepository.getAdminByWalletAddress(normalizedAddress);
+    if (adminData || isSuperAdminFromEnv) {
       return res.json({
         type: 'admin',
         profile: {
-          id: 'admin_' + normalizedAddress,
+          id: adminData?.id?.toString() || 'super_admin',
           address: normalizedAddress,
           walletAddress: normalizedAddress,
-          name: 'Administrator',
-          email: null,
-          active: true,
-          permissions: ['manage_customers', 'manage_shops', 'manage_admins', 'view_analytics'],
-          createdAt: new Date().toISOString()
+          name: adminData?.name || 'Super Administrator',
+          email: adminData?.email,
+          active: adminData?.isActive !== false,
+          permissions: isSuperAdminFromEnv ? ['all'] : (adminData?.permissions || []),
+          isSuperAdmin: isSuperAdminFromEnv || adminData?.isSuperAdmin,
+          createdAt: adminData?.createdAt || new Date().toISOString()
         }
       });
     }
@@ -392,12 +435,58 @@ router.post('/admin', async (req, res) => {
 
     const normalizedAddress = address.toLowerCase();
 
-    // Check if address is in admin list
+    // Check if this is the super admin from .env (first address in ADMIN_ADDRESSES)
     const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
-    if (!adminAddresses.includes(normalizedAddress)) {
+    const superAdminAddress = adminAddresses[0]; // First address is super admin
+    const isSuperAdminFromEnv = superAdminAddress === normalizedAddress;
+    
+    // Check admin in database
+    let adminData = await adminRepository.getAdminByWalletAddress(normalizedAddress);
+    
+    // If this is the super admin from .env and not in database, auto-create
+    if (isSuperAdminFromEnv && !adminData) {
+      try {
+        await adminRepository.createAdmin({
+          walletAddress: normalizedAddress,
+          name: 'Super Administrator',
+          permissions: ['all'],
+          isSuperAdmin: true,
+          createdBy: 'system'
+        });
+        adminData = await adminRepository.getAdminByWalletAddress(normalizedAddress);
+        logger.info('Auto-created super admin from env:', normalizedAddress);
+      } catch (error) {
+        logger.error('Failed to auto-create super admin:', error);
+        // Even if DB creation fails, allow super admin from env to proceed
+        adminData = {
+          id: 0,
+          walletAddress: normalizedAddress,
+          name: 'Super Administrator',
+          permissions: ['all'],
+          isActive: true,
+          isSuperAdmin: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        } as any;
+      }
+    }
+    
+    // Check if user is authorized
+    if (!adminData && !isSuperAdminFromEnv) {
       return res.status(403).json({
         error: 'Address not authorized as admin'
       });
+    }
+
+    // Update last login if admin exists in DB
+    if (adminData && adminData.id !== 0) {
+      await adminRepository.updateAdminLastLogin(normalizedAddress);
+      
+      // For super admin from env, always ensure they have super admin privileges
+      if (isSuperAdminFromEnv && !adminData.isSuperAdmin) {
+        await adminRepository.updateAdmin(adminData.id.toString(), { isSuperAdmin: true });
+        adminData.isSuperAdmin = true;
+      }
     }
 
     // Generate JWT token for admin
@@ -410,13 +499,16 @@ router.post('/admin', async (req, res) => {
       success: true,
       token,
       user: {
-        id: 'admin_' + normalizedAddress,
+        id: adminData?.id?.toString() || 'super_admin',
         address: normalizedAddress,
         walletAddress: normalizedAddress,
-        name: 'Administrator',
+        name: adminData?.name || 'Super Administrator',
+        email: adminData?.email,
         role: 'admin',
-        active: true,
-        createdAt: new Date().toISOString()
+        permissions: isSuperAdminFromEnv ? ['all'] : (adminData?.permissions || []),
+        isSuperAdmin: isSuperAdminFromEnv || adminData?.isSuperAdmin,
+        active: adminData?.isActive !== false,
+        createdAt: adminData?.createdAt || new Date().toISOString()
       }
     });
 

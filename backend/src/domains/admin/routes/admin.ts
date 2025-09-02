@@ -62,11 +62,47 @@ router.post('/create-shop',
   asyncHandler(adminController.createShop.bind(adminController))
 );
 
-// Admin creation (for super admins)
+// Admin management (for super admins only)
 router.post('/create-admin',
   validateRequired(['walletAddress', 'permissions']),
   validateEthereumAddress('walletAddress'),
   asyncHandler(adminController.createAdmin.bind(adminController))
+);
+
+// Get all admins
+router.get('/admins',
+  asyncHandler(adminController.getAllAdmins.bind(adminController))
+);
+
+// Get specific admin
+router.get('/admins/:adminId',
+  asyncHandler(adminController.getAdmin.bind(adminController))
+);
+
+// Update admin (super admin only)
+router.put('/admins/:adminId',
+  asyncHandler(adminController.updateAdmin.bind(adminController))
+);
+
+// Delete admin (super admin only)
+router.delete('/admins/:adminId',
+  asyncHandler(adminController.deleteAdmin.bind(adminController))
+);
+
+// Update admin permissions (super admin only)
+router.put('/admins/:adminId/permissions',
+  validateRequired(['permissions']),
+  asyncHandler(adminController.updateAdminPermissions.bind(adminController))
+);
+
+// Deactivate admin (super admin only)
+router.post('/admins/:adminId/deactivate',
+  asyncHandler(adminController.deactivateAdmin.bind(adminController))
+);
+
+// Reactivate admin (super admin only)
+router.post('/admins/:adminId/reactivate',
+  asyncHandler(adminController.reactivateAdmin.bind(adminController))
 );
 
 // Shop approval

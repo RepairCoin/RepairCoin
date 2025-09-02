@@ -363,4 +363,174 @@ export class AdminController {
       }
     }
   }
+
+  // Admin Management Methods (Super Admin Only)
+  
+  async getAllAdmins(req: Request, res: Response) {
+    try {
+      // Check if requester is super admin
+      const requesterAddress = req.user?.address;
+      const isSuperAdmin = await this.checkIfSuperAdmin(requesterAddress);
+      
+      if (!isSuperAdmin) {
+        return ResponseHelper.error(res, 'Only super admin can view all admins', 403);
+      }
+      
+      const admins = await this.adminService.getAllAdmins();
+      ResponseHelper.success(res, admins, 'Admins retrieved successfully');
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message);
+    }
+  }
+
+  async getAdmin(req: Request, res: Response) {
+    try {
+      const { adminId } = req.params;
+      
+      // Check if requester is super admin
+      const requesterAddress = req.user?.address;
+      const isSuperAdmin = await this.checkIfSuperAdmin(requesterAddress);
+      
+      if (!isSuperAdmin) {
+        return ResponseHelper.error(res, 'Only super admin can view admin details', 403);
+      }
+      
+      const admin = await this.adminService.getAdminById(adminId);
+      
+      if (!admin) {
+        return ResponseHelper.error(res, 'Admin not found', 404);
+      }
+      
+      ResponseHelper.success(res, admin, 'Admin retrieved successfully');
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message);
+    }
+  }
+
+  async updateAdmin(req: Request, res: Response) {
+    try {
+      const { adminId } = req.params;
+      const updateData = req.body;
+      
+      // Check if requester is super admin
+      const requesterAddress = req.user?.address;
+      const isSuperAdmin = await this.checkIfSuperAdmin(requesterAddress);
+      
+      if (!isSuperAdmin) {
+        return ResponseHelper.error(res, 'Only super admin can update admins', 403);
+      }
+      
+      const result = await this.adminService.updateAdmin(adminId, updateData);
+      ResponseHelper.success(res, result, 'Admin updated successfully');
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message);
+    }
+  }
+
+  async deleteAdmin(req: Request, res: Response) {
+    try {
+      const { adminId } = req.params;
+      
+      // Check if requester is super admin
+      const requesterAddress = req.user?.address;
+      const isSuperAdmin = await this.checkIfSuperAdmin(requesterAddress);
+      
+      if (!isSuperAdmin) {
+        return ResponseHelper.error(res, 'Only super admin can delete admins', 403);
+      }
+      
+      // Prevent deletion of super admin from env
+      const admin = await this.adminService.getAdminById(adminId);
+      const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
+      if (admin?.walletAddress?.toLowerCase() === adminAddresses[0]) {
+        return ResponseHelper.error(res, 'Cannot delete the primary super admin', 400);
+      }
+      
+      await this.adminService.deleteAdmin(adminId);
+      ResponseHelper.success(res, null, 'Admin deleted successfully');
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message);
+    }
+  }
+
+  async updateAdminPermissions(req: Request, res: Response) {
+    try {
+      const { adminId } = req.params;
+      const { permissions } = req.body;
+      
+      // Check if requester is super admin
+      const requesterAddress = req.user?.address;
+      const isSuperAdmin = await this.checkIfSuperAdmin(requesterAddress);
+      
+      if (!isSuperAdmin) {
+        return ResponseHelper.error(res, 'Only super admin can update permissions', 403);
+      }
+      
+      const result = await this.adminService.updateAdminPermissions(adminId, permissions);
+      ResponseHelper.success(res, result, 'Admin permissions updated successfully');
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message);
+    }
+  }
+
+  async deactivateAdmin(req: Request, res: Response) {
+    try {
+      const { adminId } = req.params;
+      
+      // Check if requester is super admin
+      const requesterAddress = req.user?.address;
+      const isSuperAdmin = await this.checkIfSuperAdmin(requesterAddress);
+      
+      if (!isSuperAdmin) {
+        return ResponseHelper.error(res, 'Only super admin can deactivate admins', 403);
+      }
+      
+      // Prevent deactivation of super admin from env
+      const admin = await this.adminService.getAdminById(adminId);
+      const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
+      if (admin?.walletAddress?.toLowerCase() === adminAddresses[0]) {
+        return ResponseHelper.error(res, 'Cannot deactivate the primary super admin', 400);
+      }
+      
+      const result = await this.adminService.deactivateAdmin(adminId);
+      ResponseHelper.success(res, result, 'Admin deactivated successfully');
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message);
+    }
+  }
+
+  async reactivateAdmin(req: Request, res: Response) {
+    try {
+      const { adminId } = req.params;
+      
+      // Check if requester is super admin
+      const requesterAddress = req.user?.address;
+      const isSuperAdmin = await this.checkIfSuperAdmin(requesterAddress);
+      
+      if (!isSuperAdmin) {
+        return ResponseHelper.error(res, 'Only super admin can reactivate admins', 403);
+      }
+      
+      const result = await this.adminService.reactivateAdmin(adminId);
+      ResponseHelper.success(res, result, 'Admin reactivated successfully');
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message);
+    }
+  }
+
+  // Helper method to check if user is super admin
+  private async checkIfSuperAdmin(address?: string): Promise<boolean> {
+    if (!address) return false;
+    
+    // Check if this is the super admin from .env (first address in ADMIN_ADDRESSES)
+    const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
+    const superAdminAddress = adminAddresses[0]; // First address is super admin
+    if (superAdminAddress === address.toLowerCase()) {
+      return true;
+    }
+    
+    // Check if user is super admin in database
+    const admin = await this.adminService.getAdminByWalletAddress(address);
+    return admin?.isSuperAdmin === true;
+  }
 }

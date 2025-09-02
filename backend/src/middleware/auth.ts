@@ -2,7 +2,8 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { logger } from '../utils/logger';
-import { customerRepository, shopRepository } from '../repositories';
+import { customerRepository, shopRepository, adminRepository } from '../repositories';
+import { AdminService } from '../domains/admin/services/AdminService';
 
 interface JWTPayload {
   address: string;
@@ -271,9 +272,9 @@ async function validateUserInDatabase(tokenPayload: JWTPayload): Promise<boolean
   try {
     switch (tokenPayload.role) {
       case 'admin':
-        // Check if address is in admin list (could be environment variable or database)
-        const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
-        return adminAddresses.includes(tokenPayload.address.toLowerCase());
+        // Use AdminService to check admin access (database + env fallback)
+        const adminService = new AdminService();
+        return await adminService.checkAdminAccess(tokenPayload.address);
         
       case 'shop':
         if (!tokenPayload.shopId) return false;
