@@ -191,6 +191,148 @@ const options = {
           }
         },
         
+        // Admin schemas
+        Admin: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'integer',
+              description: 'Admin ID',
+              example: 1
+            },
+            walletAddress: {
+              type: 'string',
+              pattern: '^0x[a-fA-F0-9]{40}$',
+              description: 'Admin wallet address',
+              example: '0xabcd1234567890123456789012345678901234ef'
+            },
+            name: {
+              type: 'string',
+              description: 'Admin name',
+              example: 'John Admin'
+            },
+            permissions: {
+              type: 'array',
+              items: {
+                type: 'string',
+                enum: ['manage_shops', 'manage_customers', 'manage_treasury', 'manage_admins', 'view_analytics', '*']
+              },
+              description: 'Admin permissions array',
+              example: ['manage_shops', 'view_analytics']
+            },
+            isSuperAdmin: {
+              type: 'boolean',
+              description: 'Whether admin has super admin privileges',
+              example: false
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Admin creation date',
+              example: '2024-01-15T10:30:00Z'
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Last update timestamp',
+              example: '2024-01-20T15:45:00Z'
+            }
+          },
+          required: ['walletAddress', 'name', 'permissions']
+        },
+
+        AdminLoginRequest: {
+          type: 'object',
+          required: ['walletAddress'],
+          properties: {
+            walletAddress: {
+              type: 'string',
+              pattern: '^0x[a-fA-F0-9]{40}$',
+              description: 'Admin wallet address',
+              example: '0xabcd1234567890123456789012345678901234ef'
+            }
+          }
+        },
+
+        AdminLoginResponse: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            token: { 
+              type: 'string', 
+              description: 'JWT authentication token',
+              example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+            },
+            admin: {
+              $ref: '#/components/schemas/Admin'
+            },
+            expiresIn: {
+              type: 'string',
+              description: 'Token expiration time',
+              example: '24h'
+            }
+          }
+        },
+
+        PlatformStats: {
+          type: 'object',
+          properties: {
+            totalCustomers: { type: 'integer', example: 1234 },
+            activeCustomers: { type: 'integer', example: 890 },
+            totalShops: { type: 'integer', example: 56 },
+            activeShops: { type: 'integer', example: 45 },
+            verifiedShops: { type: 'integer', example: 40 },
+            pendingShops: { type: 'integer', example: 5 },
+            totalTransactions: { type: 'integer', example: 5678 },
+            totalTokensMinted: { type: 'number', example: 123456.78 },
+            totalTokensRedeemed: { type: 'number', example: 98765.43 },
+            platformRevenue: { type: 'number', example: 12345.67 }
+          }
+        },
+
+        UnsuspendRequest: {
+          type: 'object',
+          properties: {
+            id: { type: 'integer', example: 1 },
+            entityType: {
+              type: 'string',
+              enum: ['customer', 'shop'],
+              example: 'customer'
+            },
+            entityId: {
+              type: 'string',
+              description: 'Customer address or shop ID',
+              example: '0x1234567890123456789012345678901234567890'
+            },
+            reason: {
+              type: 'string',
+              description: 'Reason for unsuspend request',
+              example: 'Issue resolved with customer'
+            },
+            status: {
+              type: 'string',
+              enum: ['pending', 'approved', 'rejected'],
+              example: 'pending'
+            },
+            requestedAt: {
+              type: 'string',
+              format: 'date-time',
+              example: '2024-01-15T10:30:00Z'
+            },
+            processedAt: {
+              type: 'string',
+              format: 'date-time',
+              nullable: true,
+              example: null
+            },
+            processedBy: {
+              type: 'string',
+              nullable: true,
+              example: null
+            }
+          }
+        },
+
         // API Response schemas
         ApiResponse: {
           type: 'object',
@@ -365,6 +507,10 @@ const options = {
         description: 'System health and status endpoints'
       },
       {
+        name: 'Authentication',
+        description: 'Authentication and authorization endpoints for admin users'
+      },
+      {
         name: 'Customers',
         description: 'Customer management and profile endpoints'
       },
@@ -386,7 +532,7 @@ const options = {
       },
       {
         name: 'Admin',
-        description: 'Administrative endpoints (admin access required)'
+        description: 'Administrative endpoints with permission-based access control. Super admin (environment variable) has all permissions, regular admins (database) have specific permissions.'
       },
       {
         name: 'System',
@@ -1079,24 +1225,343 @@ specs.paths = {
     }
   },
   
+  // Authentication Endpoints
+  '/api/auth/admin': {
+    post: {
+      tags: ['Authentication'],
+      summary: 'Admin login',
+      description: 'Authenticate admin user and receive JWT token. Checks both environment variable super admins and database admins.',
+      security: [],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: { $ref: '#/components/schemas/AdminLoginRequest' }
+          }
+        }
+      },
+      responses: {
+        '200': {
+          description: 'Login successful',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/AdminLoginResponse' }
+            }
+          }
+        },
+        '401': { 
+          description: 'Invalid credentials or not an admin',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } }
+        },
+        '400': { 
+          description: 'Invalid wallet address format',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } }
+        }
+      }
+    }
+  },
+
   // Admin Domain Endpoints
   '/api/admin/stats': {
     get: {
       tags: ['Admin'],
       summary: 'Get platform statistics',
-      description: 'Retrieve comprehensive platform metrics (Admin only)',
+      description: 'Retrieve comprehensive platform metrics including customers, shops, transactions, and token circulation',
       security: [{ bearerAuth: [] }],
       responses: {
-        '200': { description: 'Platform statistics retrieved', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
+        '200': {
+          description: 'Platform statistics retrieved',
+          content: {
+            'application/json': {
+              schema: {
+                allOf: [
+                  { $ref: '#/components/schemas/ApiResponse' },
+                  {
+                    type: 'object',
+                    properties: {
+                      data: { $ref: '#/components/schemas/PlatformStats' }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
         '403': { description: 'Admin access required', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
       }
     }
   },
+  
+  '/api/admin/me': {
+    get: {
+      tags: ['Admin'],
+      summary: 'Get current admin profile',
+      description: 'Retrieve current admin user profile with permissions',
+      security: [{ bearerAuth: [] }],
+      responses: {
+        '200': {
+          description: 'Admin profile retrieved',
+          content: {
+            'application/json': {
+              schema: {
+                allOf: [
+                  { $ref: '#/components/schemas/ApiResponse' },
+                  {
+                    type: 'object',
+                    properties: {
+                      data: { $ref: '#/components/schemas/Admin' }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        '401': { description: 'Authentication required', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
+        '403': { description: 'Admin access required', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
+      }
+    }
+  },
+
+  '/api/admin/admins': {
+    get: {
+      tags: ['Admin'],
+      summary: 'Get all admins',
+      description: 'Retrieve list of all admin users (Super admin only)',
+      security: [{ bearerAuth: [] }],
+      responses: {
+        '200': {
+          description: 'Admin list retrieved',
+          content: {
+            'application/json': {
+              schema: {
+                allOf: [
+                  { $ref: '#/components/schemas/ApiResponse' },
+                  {
+                    type: 'object',
+                    properties: {
+                      data: {
+                        type: 'array',
+                        items: { $ref: '#/components/schemas/Admin' }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        '403': { 
+          description: 'Super admin access required',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } }
+        }
+      }
+    }
+  },
+
+  '/api/admin/admins/{adminId}': {
+    get: {
+      tags: ['Admin'],
+      summary: 'Get specific admin',
+      description: 'Retrieve details of a specific admin user',
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          in: 'path',
+          name: 'adminId',
+          required: true,
+          schema: { type: 'integer' },
+          description: 'Admin ID',
+          example: 1
+        }
+      ],
+      responses: {
+        '200': {
+          description: 'Admin details retrieved',
+          content: {
+            'application/json': {
+              schema: {
+                allOf: [
+                  { $ref: '#/components/schemas/ApiResponse' },
+                  {
+                    type: 'object',
+                    properties: {
+                      data: { $ref: '#/components/schemas/Admin' }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        '404': { description: 'Admin not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
+        '403': { description: 'Admin access required', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
+      }
+    },
+    put: {
+      tags: ['Admin'],
+      summary: 'Update admin',
+      description: 'Update admin user details (Super admin only)',
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          in: 'path',
+          name: 'adminId',
+          required: true,
+          schema: { type: 'integer' },
+          description: 'Admin ID'
+        }
+      ],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                name: { type: 'string', example: 'Updated Admin Name' },
+                permissions: {
+                  type: 'array',
+                  items: {
+                    type: 'string',
+                    enum: ['manage_shops', 'manage_customers', 'manage_treasury', 'manage_admins', 'view_analytics']
+                  },
+                  example: ['manage_shops', 'manage_customers']
+                }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        '200': { description: 'Admin updated successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
+        '403': { description: 'Super admin access required', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
+        '404': { description: 'Admin not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
+      }
+    },
+    delete: {
+      tags: ['Admin'],
+      summary: 'Delete admin',
+      description: 'Remove admin user from system (Super admin only)',
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          in: 'path',
+          name: 'adminId',
+          required: true,
+          schema: { type: 'integer' },
+          description: 'Admin ID'
+        }
+      ],
+      responses: {
+        '200': { description: 'Admin deleted successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
+        '403': { description: 'Super admin access required', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
+        '404': { description: 'Admin not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
+      }
+    }
+  },
+
+  '/api/admin/admins/{adminId}/permissions': {
+    put: {
+      tags: ['Admin'],
+      summary: 'Update admin permissions',
+      description: 'Update permissions for an admin user (Super admin only)',
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          in: 'path',
+          name: 'adminId',
+          required: true,
+          schema: { type: 'integer' },
+          description: 'Admin ID'
+        }
+      ],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['permissions'],
+              properties: {
+                permissions: {
+                  type: 'array',
+                  items: {
+                    type: 'string',
+                    enum: ['manage_shops', 'manage_customers', 'manage_treasury', 'manage_admins', 'view_analytics']
+                  },
+                  description: 'Array of permission strings',
+                  example: ['manage_shops', 'view_analytics']
+                }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        '200': { description: 'Permissions updated successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
+        '403': { description: 'Super admin access required', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
+        '404': { description: 'Admin not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
+      }
+    }
+  },
+
+  '/api/admin/create-admin': {
+    post: {
+      tags: ['Admin'],
+      summary: 'Create new admin',
+      description: 'Create a new admin user with specified permissions (Super admin only)',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['walletAddress', 'name', 'permissions'],
+              properties: {
+                walletAddress: { 
+                  type: 'string', 
+                  pattern: '^0x[a-fA-F0-9]{40}$',
+                  description: 'Admin wallet address',
+                  example: '0xabcd1234567890123456789012345678901234ef'
+                },
+                name: { 
+                  type: 'string',
+                  description: 'Admin name',
+                  example: 'John Admin'
+                },
+                permissions: {
+                  type: 'array',
+                  items: {
+                    type: 'string',
+                    enum: ['manage_shops', 'manage_customers', 'manage_treasury', 'manage_admins', 'view_analytics']
+                  },
+                  description: 'Array of permissions to grant',
+                  example: ['manage_shops', 'view_analytics']
+                }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        '201': { 
+          description: 'Admin created successfully',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } }
+        },
+        '400': { description: 'Invalid request data', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
+        '403': { description: 'Super admin access required', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
+        '409': { description: 'Admin already exists', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
+      }
+    }
+  },
+
   '/api/admin/customers': {
     get: {
       tags: ['Admin'],
-      summary: 'Get customers with filtering',
-      description: 'Retrieve paginated customer list with admin-level details',
+      summary: 'Get customers list',
+      description: 'Retrieve paginated customer list with admin-level details. Requires manage_customers permission.',
       security: [{ bearerAuth: [] }],
       parameters: [
         { in: 'query', name: 'page', schema: { type: 'integer', minimum: 1, default: 1 } },
@@ -1106,10 +1571,276 @@ specs.paths = {
       ],
       responses: {
         '200': { description: 'Customer list retrieved', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
+        '403': { 
+          description: 'Permission denied. Required permission: manage_customers',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } }
+        }
+      }
+    }
+  },
+
+  '/api/admin/shops': {
+    get: {
+      tags: ['Admin'],
+      summary: 'Get shops list',
+      description: 'Retrieve shops with filtering options. Requires manage_shops permission.',
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        { in: 'query', name: 'verified', schema: { type: 'boolean', default: true } },
+        { in: 'query', name: 'active', schema: { type: 'string', enum: ['true', 'false', 'all'], default: 'true' } },
+        { in: 'query', name: 'crossShopEnabled', schema: { type: 'boolean' } }
+      ],
+      responses: {
+        '200': { description: 'Shop list retrieved', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
+        '403': { 
+          description: 'Permission denied. Required permission: manage_shops',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } }
+        }
+      }
+    }
+  },
+
+  '/api/admin/create-shop': {
+    post: {
+      tags: ['Admin'],
+      summary: 'Create new shop',
+      description: 'Admin creates a new shop. Requires manage_shops permission.',
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['shop_id', 'name', 'address', 'phone', 'email', 'wallet_address'],
+              properties: {
+                shop_id: { type: 'string', example: 'shop001' },
+                name: { type: 'string', example: 'Tech Repair Pro' },
+                address: { type: 'string', example: '123 Main St, City, ST 12345' },
+                phone: { type: 'string', example: '+1234567890' },
+                email: { type: 'string', format: 'email', example: 'shop@example.com' },
+                wallet_address: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        '201': { description: 'Shop created successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
+        '403': { 
+          description: 'Permission denied. Required permission: manage_shops',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } }
+        }
+      }
+    }
+  },
+
+  '/api/admin/shops/{shopId}/approve': {
+    post: {
+      tags: ['Admin'],
+      summary: 'Approve shop application',
+      description: 'Approve a pending shop application. Requires manage_shops permission.',
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          in: 'path',
+          name: 'shopId',
+          required: true,
+          schema: { type: 'string' },
+          description: 'Shop ID',
+          example: 'shop001'
+        }
+      ],
+      responses: {
+        '200': { description: 'Shop approved successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
+        '403': { 
+          description: 'Permission denied. Required permission: manage_shops',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } }
+        },
+        '404': { description: 'Shop not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
+      }
+    }
+  },
+
+  '/api/admin/shops/{shopId}/suspend': {
+    post: {
+      tags: ['Admin'],
+      summary: 'Suspend shop',
+      description: 'Suspend a shop from the platform. Requires manage_shops permission.',
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          in: 'path',
+          name: 'shopId',
+          required: true,
+          schema: { type: 'string' },
+          description: 'Shop ID'
+        }
+      ],
+      responses: {
+        '200': { description: 'Shop suspended successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
+        '403': { 
+          description: 'Permission denied. Required permission: manage_shops',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } }
+        }
+      }
+    }
+  },
+
+  '/api/admin/shops/{shopId}/unsuspend': {
+    post: {
+      tags: ['Admin'],
+      summary: 'Unsuspend shop',
+      description: 'Restore a suspended shop. Requires manage_shops permission.',
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          in: 'path',
+          name: 'shopId',
+          required: true,
+          schema: { type: 'string' },
+          description: 'Shop ID'
+        }
+      ],
+      responses: {
+        '200': { description: 'Shop unsuspended successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
+        '403': { 
+          description: 'Permission denied. Required permission: manage_shops',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } }
+        }
+      }
+    }
+  },
+
+  '/api/admin/customers/{address}/suspend': {
+    post: {
+      tags: ['Admin'],
+      summary: 'Suspend customer',
+      description: 'Suspend a customer account. Requires manage_customers permission.',
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          in: 'path',
+          name: 'address',
+          required: true,
+          schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+          description: 'Customer wallet address'
+        }
+      ],
+      responses: {
+        '200': { description: 'Customer suspended successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
+        '403': { 
+          description: 'Permission denied. Required permission: manage_customers',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } }
+        }
+      }
+    }
+  },
+
+  '/api/admin/customers/{address}/unsuspend': {
+    post: {
+      tags: ['Admin'],
+      summary: 'Unsuspend customer',
+      description: 'Restore a suspended customer account. Requires manage_customers permission.',
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          in: 'path',
+          name: 'address',
+          required: true,
+          schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+          description: 'Customer wallet address'
+        }
+      ],
+      responses: {
+        '200': { description: 'Customer unsuspended successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
+        '403': { 
+          description: 'Permission denied. Required permission: manage_customers',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } }
+        }
+      }
+    }
+  },
+
+  '/api/admin/unsuspend-requests': {
+    get: {
+      tags: ['Admin'],
+      summary: 'Get unsuspend requests',
+      description: 'Retrieve all pending unsuspend requests',
+      security: [{ bearerAuth: [] }],
+      responses: {
+        '200': {
+          description: 'Unsuspend requests retrieved',
+          content: {
+            'application/json': {
+              schema: {
+                allOf: [
+                  { $ref: '#/components/schemas/ApiResponse' },
+                  {
+                    type: 'object',
+                    properties: {
+                      data: {
+                        type: 'array',
+                        items: { $ref: '#/components/schemas/UnsuspendRequest' }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
         '403': { description: 'Admin access required', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
       }
     }
   },
+
+  '/api/admin/unsuspend-requests/{requestId}/approve': {
+    post: {
+      tags: ['Admin'],
+      summary: 'Approve unsuspend request',
+      description: 'Approve an unsuspend request',
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          in: 'path',
+          name: 'requestId',
+          required: true,
+          schema: { type: 'integer' },
+          description: 'Request ID'
+        }
+      ],
+      responses: {
+        '200': { description: 'Request approved successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
+        '403': { description: 'Admin access required', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
+        '404': { description: 'Request not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
+      }
+    }
+  },
+
+  '/api/admin/unsuspend-requests/{requestId}/reject': {
+    post: {
+      tags: ['Admin'],
+      summary: 'Reject unsuspend request',
+      description: 'Reject an unsuspend request',
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          in: 'path',
+          name: 'requestId',
+          required: true,
+          schema: { type: 'integer' },
+          description: 'Request ID'
+        }
+      ],
+      responses: {
+        '200': { description: 'Request rejected successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
+        '403': { description: 'Admin access required', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
+        '404': { description: 'Request not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
+      }
+    }
+  },
+
   '/api/admin/mint': {
     post: {
       tags: ['Admin'],
@@ -1138,6 +1869,7 @@ specs.paths = {
       }
     }
   },
+
   '/api/admin/contract/pause': {
     post: {
       tags: ['Admin'],
@@ -1150,6 +1882,7 @@ specs.paths = {
       }
     }
   },
+  
   '/api/admin/contract/unpause': {
     post: {
       tags: ['Admin'],
@@ -1157,7 +1890,7 @@ specs.paths = {
       description: 'Resume normal contract operations',
       security: [{ bearerAuth: [] }],
       responses: {
-        '200': { description: 'Contract unpaused successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
+        '200': { description: 'Contract unpaused successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
         '403': { description: 'Admin access required', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
       }
     }
