@@ -1245,114 +1245,6 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
     }
   }
 
-  async deactivateAdmin(walletAddress: string, deactivatedBy?: string) {
-    try {
-      const admin = await adminRepository.getAdmin(walletAddress);
-      if (!admin) {
-        throw new Error('Admin not found');
-      }
-
-      if (admin.isSuperAdmin) {
-        throw new Error('Cannot deactivate super admin');
-      }
-
-      const updatedAdmin = await adminRepository.updateAdmin(walletAddress, {
-        isActive: false
-      });
-
-      // Log the activity
-      await adminRepository.logAdminActivity({
-        adminAddress: deactivatedBy || 'system',
-        actionType: 'admin_deactivation',
-        actionDescription: `Deactivated admin ${admin.name || walletAddress}`,
-        entityType: 'admin',
-        entityId: walletAddress,
-        metadata: {
-          adminName: admin.name
-        }
-      });
-
-      // Publish event for admin deactivation
-      await eventBus.publish(createDomainEvent(
-        'admin.deactivated',
-        walletAddress,
-        {
-          adminId: admin.id,
-          walletAddress,
-          adminName: admin.name,
-          deactivatedBy
-        },
-        'AdminService'
-      ));
-
-      logger.info('Admin deactivated', {
-        walletAddress,
-        deactivatedBy
-      });
-
-      return {
-        success: true,
-        message: 'Admin deactivated successfully',
-        admin: updatedAdmin
-      };
-    } catch (error) {
-      logger.error('Error deactivating admin:', error);
-      throw error;
-    }
-  }
-
-  async reactivateAdmin(walletAddress: string, reactivatedBy?: string) {
-    try {
-      const admin = await adminRepository.getAdmin(walletAddress);
-      if (!admin) {
-        throw new Error('Admin not found');
-      }
-
-      const updatedAdmin = await adminRepository.updateAdmin(walletAddress, {
-        isActive: true
-      });
-
-      // Log the activity
-      await adminRepository.logAdminActivity({
-        adminAddress: reactivatedBy || 'system',
-        actionType: 'admin_reactivation',
-        actionDescription: `Reactivated admin ${admin.name || walletAddress}`,
-        entityType: 'admin',
-        entityId: walletAddress,
-        metadata: {
-          adminName: admin.name
-        }
-      });
-
-      // Publish event for admin reactivation
-      await eventBus.publish(createDomainEvent(
-        'admin.reactivated',
-        walletAddress,
-        {
-          adminId: admin.id,
-          walletAddress,
-          adminName: admin.name,
-          reactivatedBy
-        },
-        'AdminService'
-      ));
-
-      logger.info('Admin reactivated', {
-        walletAddress,
-        reactivatedBy
-      });
-
-      return {
-        success: true,
-        message: 'Admin reactivated successfully',
-        admin: updatedAdmin
-      };
-    } catch (error) {
-      logger.error('Error reactivating admin:', error);
-      throw error;
-    }
-  }
-
   async checkAdminAccess(walletAddress: string): Promise<boolean> {
     try {
       // First check database
@@ -1428,14 +1320,20 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
 
   async updateAdmin(adminId: string, updateData: any) {
     try {
-      // Prevent updating super admin flag for env super admin
+      // Get the admin first to get their wallet address
       const admin = await this.getAdminById(adminId);
+      if (!admin) {
+        throw new Error('Admin not found');
+      }
+      
+      // Prevent updating super admin flag for env super admin
       const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
       if (admin?.walletAddress?.toLowerCase() === adminAddresses[0]) {
         delete updateData.isSuperAdmin;
       }
       
-      return await adminRepository.updateAdmin(adminId, updateData);
+      // AdminRepository.updateAdmin expects walletAddress, not adminId
+      return await adminRepository.updateAdmin(admin.walletAddress, updateData);
     } catch (error) {
       logger.error('Error updating admin:', error);
       throw error;
@@ -1446,12 +1344,17 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
     try {
       // Prevent deletion of super admin from env
       const admin = await this.getAdminById(adminId);
+      if (!admin) {
+        throw new Error('Admin not found');
+      }
+      
       const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
       if (admin?.walletAddress?.toLowerCase() === adminAddresses[0]) {
         throw new Error('Cannot delete the primary super admin');
       }
       
-      return await adminRepository.deleteAdmin(adminId);
+      // AdminRepository.deleteAdmin expects walletAddress, not adminId
+      return await adminRepository.deleteAdmin(admin.walletAddress);
     } catch (error) {
       logger.error('Error deleting admin:', error);
       throw error;

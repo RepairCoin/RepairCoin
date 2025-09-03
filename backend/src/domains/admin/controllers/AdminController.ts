@@ -181,11 +181,20 @@ export class AdminController {
     try {
       const { walletAddress, name, email, permissions } = req.body;
       
+      // Check if requester is super admin
+      const requesterAddress = req.user?.address;
+      const isSuperAdmin = await this.checkIfSuperAdmin(requesterAddress);
+      
+      if (!isSuperAdmin) {
+        return ResponseHelper.error(res, 'Only super admin can create new admins', 403);
+      }
+      
       const result = await this.adminService.createAdmin({
         walletAddress,
         name,
         email,
-        permissions
+        permissions,
+        createdBy: requesterAddress
       });
       
       ResponseHelper.success(res, result, 'Admin created successfully');
@@ -466,53 +475,15 @@ export class AdminController {
         return ResponseHelper.error(res, 'Only super admin can update permissions', 403);
       }
       
-      const result = await this.adminService.updateAdminPermissions(adminId, permissions);
-      ResponseHelper.success(res, result, 'Admin permissions updated successfully');
-    } catch (error: any) {
-      ResponseHelper.error(res, error.message);
-    }
-  }
-
-  async deactivateAdmin(req: Request, res: Response) {
-    try {
-      const { adminId } = req.params;
-      
-      // Check if requester is super admin
-      const requesterAddress = req.user?.address;
-      const isSuperAdmin = await this.checkIfSuperAdmin(requesterAddress);
-      
-      if (!isSuperAdmin) {
-        return ResponseHelper.error(res, 'Only super admin can deactivate admins', 403);
-      }
-      
-      // Prevent deactivation of super admin from env
+      // Get the admin to get their wallet address
       const admin = await this.adminService.getAdminById(adminId);
-      const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
-      if (admin?.walletAddress?.toLowerCase() === adminAddresses[0]) {
-        return ResponseHelper.error(res, 'Cannot deactivate the primary super admin', 400);
+      if (!admin) {
+        return ResponseHelper.error(res, 'Admin not found', 404);
       }
       
-      const result = await this.adminService.deactivateAdmin(adminId);
-      ResponseHelper.success(res, result, 'Admin deactivated successfully');
-    } catch (error: any) {
-      ResponseHelper.error(res, error.message);
-    }
-  }
-
-  async reactivateAdmin(req: Request, res: Response) {
-    try {
-      const { adminId } = req.params;
-      
-      // Check if requester is super admin
-      const requesterAddress = req.user?.address;
-      const isSuperAdmin = await this.checkIfSuperAdmin(requesterAddress);
-      
-      if (!isSuperAdmin) {
-        return ResponseHelper.error(res, 'Only super admin can reactivate admins', 403);
-      }
-      
-      const result = await this.adminService.reactivateAdmin(adminId);
-      ResponseHelper.success(res, result, 'Admin reactivated successfully');
+      // AdminService.updateAdminPermissions expects walletAddress, not adminId
+      const result = await this.adminService.updateAdminPermissions(admin.walletAddress, permissions, requesterAddress);
+      ResponseHelper.success(res, result, 'Admin permissions updated successfully');
     } catch (error: any) {
       ResponseHelper.error(res, error.message);
     }
