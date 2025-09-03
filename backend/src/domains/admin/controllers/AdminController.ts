@@ -489,6 +489,26 @@ export class AdminController {
     }
   }
 
+  async getAdminProfile(req: Request, res: Response) {
+    try {
+      const walletAddress = req.user?.address;
+      
+      if (!walletAddress) {
+        return ResponseHelper.error(res, 'No authenticated user', 401);
+      }
+      
+      const adminProfile = await this.adminService.getAdminProfile(walletAddress);
+      
+      ResponseHelper.success(res, adminProfile, 'Admin profile retrieved successfully');
+    } catch (error: any) {
+      if (error.message === 'Admin not found') {
+        ResponseHelper.error(res, error.message, 404);
+      } else {
+        ResponseHelper.error(res, error.message, 500);
+      }
+    }
+  }
+
   // Helper method to check if user is super admin
   private async checkIfSuperAdmin(address?: string): Promise<boolean> {
     if (!address) return false;

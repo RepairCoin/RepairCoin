@@ -49,6 +49,7 @@ interface SidebarProps {
   onTabChange?: (tab: string) => void;
   onCollapseChange?: (collapsed: boolean) => void;
   isSuperAdmin?: boolean;
+  adminPermissions?: string[];
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -59,6 +60,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onTabChange,
   onCollapseChange,
   isSuperAdmin = false,
+  adminPermissions = [],
 }) => {
   const pathname = usePathname();
   const router = useRouter();
@@ -180,51 +182,115 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
 
     if (userRole === "admin") {
-      const adminItems = [
-        {
-          title: "Overview",
-          href: "/admin?tab=overview",
-          icon: <span className="text-xl">📊</span>,
-          tabId: "overview",
-        },
-      ];
+      const adminItems = [];
       
-      // Only show Admins tab for super admin
-      if (isSuperAdmin) {
-        adminItems.push({
-          title: "Admins",
-          href: "/admin?tab=admins",
-          icon: <span className="text-xl">🛡️</span>,
-          tabId: "admins",
-        });
-      }
+      // Debug logging
+      console.log("Sidebar rendering for admin");
+      console.log("Sidebar - isSuperAdmin:", isSuperAdmin);
+      console.log("Sidebar - adminPermissions:", adminPermissions);
       
-      adminItems.push(
-        {
-          title: "Customers",
-          href: "/admin?tab=customers",
-          icon: <span className="text-xl">👥</span>,
-          tabId: "customers",
-        },
-        {
-          title: "Shops",
-          href: "/admin?tab=shops-management",
-          icon: <span className="text-xl">🏪</span>,
-          tabId: "shops-management",
-        },
-        {
-          title: "Treasury",
-          href: "/admin?tab=treasury",
-          icon: <span className="text-xl">💰</span>,
-          tabId: "treasury",
-        },
-        {
-          title: "Analytics",
-          href: "/admin?tab=analytics",
-          icon: <span className="text-xl">📈</span>,
-          tabId: "analytics",
+      // Super admin (from env) gets all tabs
+      // Regular admins get tabs based on their permissions
+      const isFullAccess = isSuperAdmin === true || adminPermissions.includes('*');
+      console.log("Sidebar - isFullAccess:", isFullAccess);
+      
+      // Overview is always visible for any admin
+      adminItems.push({
+        title: "Overview",
+        href: "/admin?tab=overview",
+        icon: <span className="text-xl">📊</span>,
+        tabId: "overview",
+      });
+      
+      // If super admin, show ALL tabs
+      if (isFullAccess) {
+        console.log("Super admin detected - showing all tabs");
+        adminItems.push(
+          {
+            title: "Admins",
+            href: "/admin?tab=admins",
+            icon: <span className="text-xl">🛡️</span>,
+            tabId: "admins",
+          },
+          {
+            title: "Customers",
+            href: "/admin?tab=customers",
+            icon: <span className="text-xl">👥</span>,
+            tabId: "customers",
+          },
+          {
+            title: "Shops",
+            href: "/admin?tab=shops-management",
+            icon: <span className="text-xl">🏪</span>,
+            tabId: "shops-management",
+          },
+          {
+            title: "Treasury",
+            href: "/admin?tab=treasury",
+            icon: <span className="text-xl">💰</span>,
+            tabId: "treasury",
+          },
+          {
+            title: "Analytics",
+            href: "/admin?tab=analytics",
+            icon: <span className="text-xl">📈</span>,
+            tabId: "analytics",
+          }
+        );
+      } else {
+        // Regular admin - show tabs based on specific permissions
+        console.log("Regular admin - checking individual permissions");
+        
+        // Only show Admins tab if they have manage_admins permission
+        if (adminPermissions.includes('manage_admins')) {
+          adminItems.push({
+            title: "Admins",
+            href: "/admin?tab=admins",
+            icon: <span className="text-xl">🛡️</span>,
+            tabId: "admins",
+          });
         }
-      );
+        
+        // Show Customers tab if user has manage_customers permission
+        if (adminPermissions.includes('manage_customers')) {
+          adminItems.push({
+            title: "Customers",
+            href: "/admin?tab=customers",
+            icon: <span className="text-xl">👥</span>,
+            tabId: "customers",
+          });
+        }
+        
+        // Show Shops tab if user has manage_shops permission
+        if (adminPermissions.includes('manage_shops')) {
+          adminItems.push({
+            title: "Shops",
+            href: "/admin?tab=shops-management",
+            icon: <span className="text-xl">🏪</span>,
+            tabId: "shops-management",
+          });
+        }
+        
+        // Show Treasury tab if user has manage_treasury permission
+        if (adminPermissions.includes('manage_treasury')) {
+          adminItems.push({
+            title: "Treasury",
+            href: "/admin?tab=treasury",
+            icon: <span className="text-xl">💰</span>,
+            tabId: "treasury",
+          });
+        }
+        
+        // Show Analytics tab if user has view_analytics permission
+        if (adminPermissions.includes('view_analytics')) {
+          adminItems.push({
+            title: "Analytics",
+            href: "/admin?tab=analytics",
+            icon: <span className="text-xl">📈</span>,
+            tabId: "analytics",
+          });
+        }
+      }
       
       return adminItems;
     }

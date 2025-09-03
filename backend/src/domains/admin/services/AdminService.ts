@@ -1361,6 +1361,40 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
     }
   }
 
+  async getAdminProfile(walletAddress: string) {
+    try {
+      // First check if this is the super admin from .env
+      const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
+      const isSuperAdminFromEnv = adminAddresses[0] === walletAddress.toLowerCase();
+      
+      if (isSuperAdminFromEnv) {
+        // Return super admin profile even if not in database
+        return {
+          id: 0,
+          walletAddress: adminAddresses[0],
+          name: 'Super Admin',
+          email: null,
+          permissions: ['*'], // All permissions
+          isActive: true,
+          isSuperAdmin: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+      }
+      
+      // Get admin from database
+      const admin = await this.getAdminByWalletAddress(walletAddress);
+      if (!admin) {
+        throw new Error('Admin not found');
+      }
+      
+      return admin;
+    } catch (error) {
+      logger.error('Error getting admin profile:', error);
+      throw error;
+    }
+  }
+
   async mintShopBalance(shopId: string) {
     try {
       // Get shop data

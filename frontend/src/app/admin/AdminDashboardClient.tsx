@@ -9,7 +9,6 @@ import { authManager } from "@/utils/auth";
 // Import our new components
 import { OverviewTab } from "@/components/admin/OverviewTab";
 import AdminsTab from "@/components/admin/AdminsTab";
-import { CustomersTab } from "@/components/admin/CustomersTab";
 import { CustomersTabEnhanced } from "@/components/admin/CustomersTabEnhanced";
 import { ShopsTab } from "@/components/admin/ShopsTab";
 import { ShopApplicationsTab } from "@/components/admin/ShopApplicationsTab";
@@ -44,15 +43,6 @@ interface PlatformStats {
   }>;
 }
 
-interface Customer {
-  address: string;
-  name?: string;
-  tier: "BRONZE" | "SILVER" | "GOLD";
-  lifetimeEarnings: number;
-  isActive: boolean;
-  lastEarnedDate: string;
-}
-
 interface Shop {
   shopId: string;
   shop_id?: string;
@@ -77,7 +67,6 @@ export default function AdminDashboardClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<PlatformStats | null>(null);
-  const [customers, setCustomers] = useState<Customer[]>([]);
   const [shops, setShops] = useState<Shop[]>([]);
   const [pendingShops, setPendingShops] = useState<Shop[]>([]);
   const [rejectedShops, setRejectedShops] = useState<Shop[]>([]);
@@ -89,43 +78,130 @@ export default function AdminDashboardClient() {
     shop: null,
   });
   const [activeTab, setActiveTab] = useState("overview");
-  const [useEnhancedCustomers, setUseEnhancedCustomers] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [adminPermissions, setAdminPermissions] = useState<string[]>([]);
+
+  // Fetch admin profile with permissions
+  const fetchAdminProfile = async () => {
+    if (!account?.address) return null;
+    
+    try {
+      const adminToken = await generateAdminToken();
+      if (!adminToken) {
+        console.error("Failed to generate admin token for profile fetch");
+        return null;
+      }
+      
+      const response = await fetch(`${API_URL}/admin/me`, {
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+        },
+      });
+      
+      if (!response.ok) {
+        console.error("Failed to fetch admin profile:", response.status, response.statusText);
+        const errorText = await response.text();
+        console.error("Error response:", errorText);
+        return null;
+      }
+      
+      const result = await response.json();
+      console.log("Admin profile response:", result);
+      return result.data;
+    } catch (error) {
+      console.error("Error fetching admin profile:", error);
+      return null;
+    }
+  };
 
   // Check admin status
   useEffect(() => {
+    // First, always reset state when account changes
+    // This ensures we don't carry over permissions from previous account
+    console.log("Account changed, resetting all admin state");
+    setIsAdmin(false);
+    setIsSuperAdmin(false);
+    setAdminPermissions([]);
+    setActiveTab("overview"); // Reset to overview tab
+    
+    // Clear any cached authentication tokens
+    authManager.clearToken("admin");
+    localStorage.removeItem('isSuperAdmin');
+    
+    // Reset dashboard data from previous admin
+    setStats(null);
+    setShops([]);
+    setPendingShops([]);
+    setRejectedShops([]);
+    setError(null);
+    setLoading(true);
+    
     const checkAdminStatus = async () => {
       if (!account?.address) {
-        setIsAdmin(false);
-        setIsSuperAdmin(false);
+        console.log("No account address, keeping reset state");
         return;
       }
 
+      console.log("Checking admin status for new account:", account.address);
+
+      // First, check if this is the super admin from env
+      const adminAddresses = (process.env.NEXT_PUBLIC_ADMIN_ADDRESSES || "")
+        .split(",")
+        .map((addr) => addr.toLowerCase().trim())
+        .filter(addr => addr.length > 0);
+      
+      const isSuperAdminFromEnv = adminAddresses.length > 0 && adminAddresses[0] === account.address.toLowerCase();
+      
+      console.log("Admin addresses from env:", adminAddresses);
+      console.log("Is super admin from env:", isSuperAdminFromEnv);
+
       try {
-        const adminAddresses = (process.env.NEXT_PUBLIC_ADMIN_ADDRESSES || "")
-          .split(",")
-          .map((addr) => addr.toLowerCase().trim());
-        const isAdminUser = adminAddresses.includes(account.address.toLowerCase());
-        setIsAdmin(isAdminUser);
+        // Small delay to ensure wallet is fully ready
+        await new Promise(resolve => setTimeout(resolve, 100));
         
-        // Check if this is the super admin (first address in the list)
-        const isSuperAdminUser = adminAddresses[0] === account.address.toLowerCase();
-        setIsSuperAdmin(isSuperAdminUser);
+        // Try to fetch admin profile - this will confirm admin status and get permissions
+        const profile = await fetchAdminProfile();
         
-        // Also check localStorage for super admin status (set during authentication)
-        const storedSuperAdmin = localStorage.getItem('isSuperAdmin');
-        if (storedSuperAdmin === 'true') {
-          setIsSuperAdmin(true);
+        if (profile) {
+          // User is an admin (either from env or database)
+          console.log("Admin profile fetched:", profile);
+          console.log("Profile says Is Super Admin:", profile.isSuperAdmin);
+          console.log("Profile Permissions:", profile.permissions);
+          
+          setIsAdmin(true);
+          
+          // Trust the backend's determination of super admin status
+          // Backend checks env and returns isSuperAdmin: true for env super admin
+          const isSuper = profile.isSuperAdmin === true;
+          setIsSuperAdmin(isSuper);
+          
+          // Set permissions - super admin gets ['*'], others get specific permissions
+          const perms = profile.permissions || [];
+          setAdminPermissions(perms);
+          
+          console.log("Final state - isSuperAdmin:", isSuper);
+          console.log("Final state - permissions:", perms);
+          
+          // Store super admin status for future reference
+          if (isSuper) {
+            localStorage.setItem('isSuperAdmin', 'true');
+          } else {
+            localStorage.removeItem('isSuperAdmin');
+          }
+        } else {
+          console.log("No admin profile found, user is not an admin");
+          // Not an admin at all - state already reset above
         }
       } catch (error) {
         console.error("Error checking admin status:", error);
-        setIsAdmin(false);
-        setIsSuperAdmin(false);
+        // State already reset above, no need to reset again
       }
     };
 
-    checkAdminStatus();
+    if (account?.address) {
+      checkAdminStatus();
+    }
   }, [account]);
 
   // Generate JWT token for admin authentication
@@ -246,64 +322,57 @@ export default function AdminDashboardClient() {
         );
       }
 
-      // Fetch customers
-      const customersResponse = await fetch(
-        `${API_URL}/admin/customers?page=1&limit=100`,
-        {
-          headers: {
-            Authorization: `Bearer ${adminToken}`,
-          },
+      // Only fetch shops if user has manage_shops permission
+      const canManageShops = isSuperAdmin || adminPermissions.includes('*') || adminPermissions.includes('manage_shops');
+      if (canManageShops) {
+        // Fetch verified shops
+        const shopsResponse = await fetch(
+          `${API_URL}/admin/shops?active=true&verified=true`,
+          {
+            headers: {
+              Authorization: `Bearer ${adminToken}`,
+            },
+          }
+        );
+        if (shopsResponse.ok) {
+          const shopsData = await shopsResponse.json();
+          console.log("Shops data:", shopsData);
+          setShops(shopsData.data?.shops || []);
+        } else {
+          console.error(
+            "Failed to fetch shops:",
+            shopsResponse.status,
+            await shopsResponse.text()
+          );
         }
-      );
-      if (customersResponse.ok) {
-        const customersData = await customersResponse.json();
-        setCustomers(customersData.data?.customers || []);
-      }
+        // Fetch all unverified shops (both pending and rejected)
+        const unverifiedResponse = await fetch(
+          `${API_URL}/admin/shops?verified=false&active=all`,
+          {
+            headers: {
+              Authorization: `Bearer ${adminToken}`,
+            },
+          }
+        );
+        if (unverifiedResponse.ok) {
+          const unverifiedData = await unverifiedResponse.json();
+          const allUnverifiedShops = unverifiedData.data?.shops || [];
 
-      // Fetch shops
-      const shopsResponse = await fetch(
-        `${API_URL}/admin/shops?active=true&verified=true`,
-        {
-          headers: {
-            Authorization: `Bearer ${adminToken}`,
-          },
+          // Separate pending (not suspended) and rejected (suspended) shops
+          const pending = allUnverifiedShops.filter(
+            (shop: any) => !shop.suspended_at
+          );
+          const rejected = allUnverifiedShops.filter(
+            (shop: any) => shop.suspended_at
+          );
+
+          setPendingShops(pending);
+          setRejectedShops(rejected);
         }
-      );
-      if (shopsResponse.ok) {
-        const shopsData = await shopsResponse.json();
-        console.log("Shops data:", shopsData);
-        setShops(shopsData.data?.shops || []);
       } else {
-        console.error(
-          "Failed to fetch shops:",
-          shopsResponse.status,
-          await shopsResponse.text()
-        );
-      }
-
-      // Fetch all unverified shops (both pending and rejected)
-      const unverifiedResponse = await fetch(
-        `${API_URL}/admin/shops?verified=false&active=all`,
-        {
-          headers: {
-            Authorization: `Bearer ${adminToken}`,
-          },
-        }
-      );
-      if (unverifiedResponse.ok) {
-        const unverifiedData = await unverifiedResponse.json();
-        const allUnverifiedShops = unverifiedData.data?.shops || [];
-
-        // Separate pending (not suspended) and rejected (suspended) shops
-        const pending = allUnverifiedShops.filter(
-          (shop: any) => !shop.suspended_at
-        );
-        const rejected = allUnverifiedShops.filter(
-          (shop: any) => shop.suspended_at
-        );
-
-        setPendingShops(pending);
-        setRejectedShops(rejected);
+        // Clear pending/rejected shops if user doesn't have permission
+        setPendingShops([]);
+        setRejectedShops([]);
       }
     } catch (error) {
       console.error("Error loading dashboard data:", error);
@@ -314,10 +383,13 @@ export default function AdminDashboardClient() {
   };
 
   useEffect(() => {
-    if (isAdmin) {
+    // Load dashboard data when admin is confirmed and either:
+    // - Has permissions set, or
+    // - Is a super admin (who has all permissions implicitly)
+    if (isAdmin && (adminPermissions.length > 0 || isSuperAdmin)) {
       loadDashboardData();
     }
-  }, [isAdmin]);
+  }, [isAdmin, adminPermissions, isSuperAdmin]);
 
 
   // Action handlers
@@ -598,6 +670,12 @@ export default function AdminDashboardClient() {
     setActiveTab(tab as any);
   };
 
+  // Helper function to check if user has a specific permission
+  const hasPermission = (permission: string) => {
+    console.log("Checking permission:", isSuperAdmin || adminPermissions.includes('*') || adminPermissions.includes(permission))
+    return isSuperAdmin || adminPermissions.includes('*') || adminPermissions.includes(permission);
+  };
+
   if (!account) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-pink-100">
@@ -638,12 +716,16 @@ export default function AdminDashboardClient() {
     );
   }
 
+  console.log("Rendering AdminDashboard - isSuperAdmin:", isSuperAdmin);
+  console.log("Rendering AdminDashboard - adminPermissions:", adminPermissions);
+  
   return (
     <DashboardLayout
       userRole="admin"
       activeTab={activeTab}
       onTabChange={handleTabChange}
       isSuperAdmin={isSuperAdmin}
+      adminPermissions={adminPermissions}
     >
       <Toaster position="top-right" />
       <div
@@ -685,7 +767,7 @@ export default function AdminDashboardClient() {
             />
           )}
 
-          {activeTab === "customers" && (
+          {activeTab === "customers" && hasPermission('manage_customers') && (
             <CustomersTabEnhanced
               generateAdminToken={generateAdminToken}
               onMintTokens={mintTokensToCustomer}
@@ -696,7 +778,7 @@ export default function AdminDashboardClient() {
           )}
 
           {/* New Combined Shop Management Tab */}
-          {activeTab === "shops-management" && (
+          {activeTab === "shops-management" && hasPermission('manage_shops') && (
             <ShopsManagementTab
               activeShops={shops}
               pendingShops={pendingShops}
@@ -738,14 +820,14 @@ export default function AdminDashboardClient() {
           )}
 
           {/* Other tabs - TODO: Create components for these */}
-          {activeTab === "treasury" && (
+          {activeTab === "treasury" && hasPermission('manage_treasury') && (
             <TreasuryTab
               generateAdminToken={generateAdminToken}
               onError={setError}
             />
           )}
 
-          {activeTab === "admins" && (
+          {activeTab === "admins" && (isSuperAdmin || hasPermission('manage_admins')) && (
             loading ? (
               <div className="flex justify-center items-center h-64">
                 <div className="text-gray-600">Loading admin management...</div>
@@ -763,7 +845,7 @@ export default function AdminDashboardClient() {
             />
           )}
 
-          {activeTab === "analytics" && (
+          {activeTab === "analytics" && hasPermission('view_analytics') && (
             <AnalyticsTab
               generateAdminToken={generateAdminToken}
               onError={setError}

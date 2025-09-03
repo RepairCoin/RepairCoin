@@ -1,6 +1,7 @@
 // backend/src/routes/admin.ts
 import { Router } from 'express';
 import { authMiddleware, requireAdmin } from '../../../middleware/auth';
+import { requirePermission, requireSuperAdmin } from '../../../middleware/permissions';
 import { 
   validateRequired, 
   validateEthereumAddress, 
@@ -30,11 +31,13 @@ router.get('/stats',
 
 // Customer management
 router.get('/customers', 
+  requirePermission('manage_customers'),
   asyncHandler(adminController.getCustomers.bind(adminController))
 );
 
 // Shop management
 router.get('/shops', 
+  requirePermission('manage_shops'),
   asyncHandler(adminController.getShops.bind(adminController))
 );
 
@@ -57,6 +60,7 @@ router.post('/contract/unpause',
 
 // Shop creation (for admins)
 router.post('/create-shop',
+  requirePermission('manage_shops'),
   validateRequired(['shop_id', 'name', 'address', 'phone', 'email', 'wallet_address']),
   validateEthereumAddress('wallet_address'),
   asyncHandler(adminController.createShop.bind(adminController))
@@ -64,13 +68,20 @@ router.post('/create-shop',
 
 // Admin management (for super admins only)
 router.post('/create-admin',
+  requireSuperAdmin,
   validateRequired(['walletAddress', 'name', 'permissions']),
   validateEthereumAddress('walletAddress'),
   asyncHandler(adminController.createAdmin.bind(adminController))
 );
 
+// Get current admin profile
+router.get('/me',
+  asyncHandler(adminController.getAdminProfile.bind(adminController))
+);
+
 // Get all admins
 router.get('/admins',
+  requireSuperAdmin,
   asyncHandler(adminController.getAllAdmins.bind(adminController))
 );
 
@@ -81,52 +92,62 @@ router.get('/admins/:adminId',
 
 // Update admin (super admin only)
 router.put('/admins/:adminId',
+  requireSuperAdmin,
   asyncHandler(adminController.updateAdmin.bind(adminController))
 );
 
 // Delete admin (super admin only)
 router.delete('/admins/:adminId',
+  requireSuperAdmin,
   asyncHandler(adminController.deleteAdmin.bind(adminController))
 );
 
 // Update admin permissions (super admin only)
 router.put('/admins/:adminId/permissions',
+  requireSuperAdmin,
   validateRequired(['permissions']),
   asyncHandler(adminController.updateAdminPermissions.bind(adminController))
 );
 
 // Shop approval
 router.post('/shops/:shopId/approve', 
+  requirePermission('manage_shops'),
   asyncHandler(adminController.approveShop.bind(adminController))
 );
 
 // Customer suspension management
 router.post('/customers/:address/suspend',
+  requirePermission('manage_customers'),
   validateEthereumAddress('address'),
   asyncHandler(adminController.suspendCustomer.bind(adminController))
 );
 
 router.post('/customers/:address/unsuspend',
+  requirePermission('manage_customers'),
   validateEthereumAddress('address'),
   asyncHandler(adminController.unsuspendCustomer.bind(adminController))
 );
 
 // Shop suspension management
 router.post('/shops/:shopId/suspend',
+  requirePermission('manage_shops'),
   asyncHandler(adminController.suspendShop.bind(adminController))
 );
 
 router.post('/shops/:shopId/unsuspend',
+  requirePermission('manage_shops'),
   asyncHandler(adminController.unsuspendShop.bind(adminController))
 );
 
 // Shop editing
 router.put('/shops/:shopId',
+  requirePermission('manage_shops'),
   asyncHandler(adminController.updateShop.bind(adminController))
 );
 
 // Shop verification
 router.post('/shops/:shopId/verify',
+  requirePermission('manage_shops'),
   asyncHandler(adminController.verifyShop.bind(adminController))
 );
 
