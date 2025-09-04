@@ -80,6 +80,7 @@ export default function AdminDashboardClient() {
   const [activeTab, setActiveTab] = useState("overview");
   const [activeSubTab, setActiveSubTab] = useState<string>(""); // Will be set when customers tab is active
   const [customerView, setCustomerView] = useState<"grouped" | "all" | "unsuspend-requests">("grouped");
+  const [shopView, setShopView] = useState<"all" | "active" | "pending" | "rejected" | "unsuspend-requests">("all");
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [adminPermissions, setAdminPermissions] = useState<string[]>([]);
@@ -687,9 +688,36 @@ export default function AdminDashboardClient() {
       setActiveTab("customers");
       setActiveSubTab("customers-grouped");
       setCustomerView("grouped");
+    } 
+    // Handle shop sub-navigation
+    else if (tab === "shops-all") {
+      setActiveTab("shops-management");
+      setActiveSubTab("shops-all");
+      setShopView("all");
+    } else if (tab === "shops-active") {
+      setActiveTab("shops-management");
+      setActiveSubTab("shops-active");
+      setShopView("active");
+    } else if (tab === "shops-pending") {
+      setActiveTab("shops-management");
+      setActiveSubTab("shops-pending");
+      setShopView("pending");
+    } else if (tab === "shops-rejected") {
+      setActiveTab("shops-management");
+      setActiveSubTab("shops-rejected");
+      setShopView("rejected");
+    } else if (tab === "shops-unsuspend") {
+      setActiveTab("shops-management");
+      setActiveSubTab("shops-unsuspend");
+      setShopView("unsuspend-requests");
+    } else if (tab === "shops-management") {
+      // When clicking main shops tab, default to all view
+      setActiveTab("shops-management");
+      setActiveSubTab("shops-all");
+      setShopView("all");
     } else {
       setActiveTab(tab as any);
-      // Clear subtab when switching to a non-customer tab
+      // Clear subtab when switching to a non-sub-navigated tab
       setActiveSubTab("");
     }
   };
@@ -817,6 +845,7 @@ export default function AdminDashboardClient() {
               onMintBalance={mintShopBalance}
               onRefresh={loadDashboardData}
               generateAdminToken={generateAdminToken}
+              initialView={shopView}
             />
           )}
 

@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import { toast } from "react-hot-toast";
 import {
   Store,
-  ChevronDown,
   Search,
   Download,
   CheckCircle,
@@ -22,7 +21,6 @@ import {
   ShieldCheck,
   ShieldOff,
   Send,
-  Filter,
   Plus,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/ui/DashboardHeader";
@@ -82,6 +80,7 @@ interface ShopsManagementTabProps {
   onMintBalance?: (shopId: string) => Promise<void>;
   onRefresh: () => void;
   generateAdminToken?: () => Promise<string | null>;
+  initialView?: "all" | "active" | "pending" | "rejected" | "unsuspend-requests";
 }
 
 export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
@@ -97,10 +96,11 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
   onMintBalance,
   onRefresh,
   generateAdminToken,
+  initialView = "all",
 }) => {
   const [viewMode, setViewMode] = useState<
     "all" | "active" | "pending" | "rejected" | "unsuspend-requests"
-  >("all");
+  >(initialView);
   const [searchTerm, setSearchTerm] = useState("");
   const [editModal, setEditModal] = useState<{
     isOpen: boolean;
@@ -111,7 +111,6 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     shop: Shop | null;
   }>({ isOpen: false, shop: null });
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [showAddShopModal, setShowAddShopModal] = useState(false);
   const [unsuspendReviewModal, setUnsuspendReviewModal] = useState<{
     isOpen: boolean;
@@ -241,21 +240,13 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     }
   };
 
-  // Close dropdown when clicking outside
+  // Sync viewMode with initialView prop changes
   React.useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (!target.closest('.filter-dropdown-container')) {
-        setShowFilterDropdown(false);
-      }
-    };
-
-    if (showFilterDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
+    if (initialView) {
+      setViewMode(initialView);
     }
-  }, [showFilterDropdown]);
-
+  }, [initialView]);
+  
   // Load unsuspend requests on mount
   React.useEffect(() => {
     // Commented out for dummy data preview - uncomment in production
@@ -845,61 +836,6 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
               <Plus className="inline sm:hidden w-5 h-5 text-black" />
               <span className="hidden sm:inline">Add Shop</span>
             </button>
-            
-            {/* Filter Dropdown */}
-            <div className="relative filter-dropdown-container">
-              <button
-                onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-                className="px-4 py-2 bg-gray-700/50 text-gray-300 border border-gray-600 rounded-lg hover:bg-gray-600 transition-colors flex items-center gap-2"
-                title="Filter shops"
-              >
-                <Filter className="w-5 h-5" />
-                <span className="hidden sm:inline capitalize">
-                  {viewMode === 'all' ? 'All' : 
-                   viewMode === 'unsuspend-requests' ? 'Unsuspend Requests' : viewMode}
-                </span>
-                <ChevronDown className={`w-4 h-4 transition-transform ${showFilterDropdown ? 'rotate-180' : ''}`} />
-              </button>
-              
-              {/* Dropdown Menu */}
-              {showFilterDropdown && (
-                <div className="absolute right-0 mt-2 w-56 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-10">
-                  {(['all', 'active', 'pending', 'rejected', 'unsuspend-requests'] as const).map((mode, index, array) => (
-                    <button
-                      key={mode}
-                      onClick={() => {
-                        setViewMode(mode);
-                        setShowFilterDropdown(false);
-                      }}
-                      className={`w-full px-4 py-2 text-left hover:bg-gray-700 transition-colors flex items-center justify-between ${
-                        viewMode === mode ? 'text-yellow-400 bg-gray-700/50' : 'text-gray-300'
-                      } ${
-                        index === 0 ? 'rounded-t-lg' : index === array.length - 1 ? 'rounded-b-lg' : ''
-                      }`}
-                    >
-                      <span className="capitalize">
-                        {mode === 'all' ? 'All Shops' : 
-                         mode === 'unsuspend-requests' ? 'Unsuspend Requests' : mode}
-                      </span>
-                      {mode !== 'all' && (
-                        <span className="text-xs text-gray-500">
-                          {mode === 'active'
-                            ? stats.active
-                            : mode === 'pending'
-                            ? stats.pending
-                            : mode === 'rejected'
-                            ? stats.rejected
-                            : mode === 'unsuspend-requests'
-                            ? shopUnsuspendRequests.length
-                            : 0}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            
             {/* <button
               onClick={exportToCSV}
               className="px-4 py-2 bg-gray-700/50 text-gray-300 border border-gray-600 rounded-lg hover:bg-gray-600 transition-colors flex items-center gap-2"

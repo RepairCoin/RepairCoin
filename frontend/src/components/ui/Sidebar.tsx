@@ -78,9 +78,17 @@ const Sidebar: React.FC<SidebarProps> = ({
     if (activeTab && activeTab !== "customers") {
       setExpandedItems(prev => prev.filter(id => id !== "customers"));
     }
+    // If activeTab changes and it's not "shops-management", collapse the shops subtab
+    if (activeTab && activeTab !== "shops-management") {
+      setExpandedItems(prev => prev.filter(id => id !== "shops-management"));
+    }
     // Auto-expand customers when it becomes active
     if (activeTab === "customers" && !expandedItems.includes("customers")) {
       setExpandedItems(prev => [...prev, "customers"]);
+    }
+    // Auto-expand shops when it becomes active
+    if (activeTab === "shops-management" && !expandedItems.includes("shops-management")) {
+      setExpandedItems(prev => [...prev, "shops-management"]);
     }
   }, [activeTab]);
 
@@ -257,6 +265,38 @@ const Sidebar: React.FC<SidebarProps> = ({
             href: "/admin?tab=shops-management",
             icon: <span className="text-xl">🏪</span>,
             tabId: "shops-management",
+            subItems: [
+              {
+                title: "All Shops",
+                href: "/admin?tab=shops-management&view=all",
+                icon: <span className="text-sm">📋</span>,
+                tabId: "shops-all",
+              },
+              {
+                title: "Active Shops",
+                href: "/admin?tab=shops-management&view=active",
+                icon: <span className="text-sm">✅</span>,
+                tabId: "shops-active",
+              },
+              {
+                title: "Pending Applications",
+                href: "/admin?tab=shops-management&view=pending",
+                icon: <span className="text-sm">⏳</span>,
+                tabId: "shops-pending",
+              },
+              {
+                title: "Rejected Shops",
+                href: "/admin?tab=shops-management&view=rejected",
+                icon: <span className="text-sm">❌</span>,
+                tabId: "shops-rejected",
+              },
+              {
+                title: "Unsuspend Requests",
+                href: "/admin?tab=shops-management&view=unsuspend",
+                icon: <span className="text-sm">🔓</span>,
+                tabId: "shops-unsuspend",
+              },
+            ],
           },
           {
             title: "Treasury",
@@ -322,6 +362,38 @@ const Sidebar: React.FC<SidebarProps> = ({
             href: "/admin?tab=shops-management",
             icon: <span className="text-xl">🏪</span>,
             tabId: "shops-management",
+            subItems: [
+              {
+                title: "All Shops",
+                href: "/admin?tab=shops-management&view=all",
+                icon: <span className="text-sm">📋</span>,
+                tabId: "shops-all",
+              },
+              {
+                title: "Active Shops",
+                href: "/admin?tab=shops-management&view=active",
+                icon: <span className="text-sm">✅</span>,
+                tabId: "shops-active",
+              },
+              {
+                title: "Pending Applications",
+                href: "/admin?tab=shops-management&view=pending",
+                icon: <span className="text-sm">⏳</span>,
+                tabId: "shops-pending",
+              },
+              {
+                title: "Rejected Shops",
+                href: "/admin?tab=shops-management&view=rejected",
+                icon: <span className="text-sm">❌</span>,
+                tabId: "shops-rejected",
+              },
+              {
+                title: "Unsuspend Requests",
+                href: "/admin?tab=shops-management&view=unsuspend",
+                icon: <span className="text-sm">🔓</span>,
+                tabId: "shops-unsuspend",
+              },
+            ],
           });
         }
         
