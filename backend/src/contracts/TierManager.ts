@@ -61,11 +61,20 @@ export class TierManager {
   };
 
   constructor() {
+    // Use RCN-specific env vars first, fall back to legacy if needed
+    const clientId = process.env.RCN_THIRDWEB_CLIENT_ID || process.env.THIRDWEB_CLIENT_ID;
+    const secretKey = process.env.RCN_THIRDWEB_SECRET_KEY || process.env.THIRDWEB_SECRET_KEY;
+    
+    if (!clientId || !secretKey) {
+      throw new Error("Missing required Thirdweb credentials");
+    }
+    
     this.client = createThirdwebClient({
-      clientId: process.env.THIRDWEB_CLIENT_ID!,
-      secretKey: process.env.THIRDWEB_SECRET_KEY!,
+      clientId: clientId,
+      secretKey: secretKey,
     });
-    this.contractAddress = process.env.REPAIRCOIN_CONTRACT_ADDRESS!;
+    
+    this.contractAddress = process.env.RCN_CONTRACT_ADDRESS || process.env.REPAIRCOIN_CONTRACT_ADDRESS!;
   }
 
   // Calculate customer tier based on lifetime earnings

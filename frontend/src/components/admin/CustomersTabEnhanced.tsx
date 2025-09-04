@@ -6,7 +6,6 @@ import {
   Store,
   Search,
   ChevronRight,
-  Download,
   Award,
   Calendar,
   Coins,
@@ -18,8 +17,6 @@ import {
   Mail,
   Phone,
   Hash,
-  Layers,
-  Grid3X3,
   UserCheck,
   Star,
 } from "lucide-react";
@@ -48,7 +45,7 @@ interface Customer {
     id: string;
     requestReason: string;
     createdAt: string;
-    status: 'pending' | 'approved' | 'rejected';
+    status: "pending" | "approved" | "rejected";
   };
 }
 
@@ -76,6 +73,7 @@ interface CustomersTabEnhancedProps {
   onRefresh: () => void;
   onSuspendCustomer?: (address: string, reason: string) => Promise<void>;
   onUnsuspendCustomer?: (address: string) => Promise<void>;
+  initialView?: "grouped" | "all" | "unsuspend-requests";
 }
 
 export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
@@ -83,13 +81,14 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
   onMintTokens,
   onSuspendCustomer,
   onUnsuspendCustomer,
+  initialView = "grouped",
 }) => {
   const [data, setData] = useState<GroupedCustomersData | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedShops, setExpandedShops] = useState<Set<string>>(new Set());
-  const [viewMode, setViewMode] = useState<"grouped" | "all" | "no-shop">(
-    "grouped"
-  );
+  const [viewMode, setViewMode] = useState<
+    "grouped" | "all" | "no-shop" | "unsuspend-requests"
+  >(initialView === "unsuspend-requests" ? "unsuspend-requests" : initialView === "all" ? "all" : "grouped");
   const [displayMode] = useState<"table" | "grid">("table");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTier, setSelectedTier] = useState<string>("all");
@@ -105,9 +104,60 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
   const [unsuspendReviewModal, setUnsuspendReviewModal] = useState<{
     isOpen: boolean;
     customer: Customer | null;
-    action: 'approve' | 'reject';
-  }>({ isOpen: false, customer: null, action: 'approve' });
-  const [unsuspendNotes, setUnsuspendNotes] = useState('');
+    action: "approve" | "reject";
+  }>({ isOpen: false, customer: null, action: "approve" });
+  const [unsuspendNotes, setUnsuspendNotes] = useState("");
+
+  // Dummy data for preview - remove this in production
+  const dummyCustomerUnsuspendRequests = [
+    {
+      id: "req-001",
+      entityType: "customer",
+      entityId: "0x1234...5678",
+      entityDetails: {
+        name: "John Smith",
+        address: "0x1234567890abcdef1234567890abcdef12345678",
+        email: "john.smith@email.com",
+      },
+      requestReason:
+        "I was suspended by mistake. I have completed all required repairs and maintained good standing for 6 months.",
+      createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
+      status: "pending",
+    },
+    {
+      id: "req-003",
+      entityType: "customer",
+      entityId: "0xabcd...ef01",
+      entityDetails: {
+        name: "Sarah Johnson",
+        address: "0xabcdef1234567890abcdef1234567890abcdef12",
+        email: "sarah.j@email.com",
+      },
+      requestReason:
+        "Account was compromised and used fraudulently. I have secured my wallet and changed all credentials.",
+      createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
+      status: "pending",
+    },
+    {
+      id: "req-004",
+      entityType: "customer",
+      entityId: "0x9876...5432",
+      entityDetails: {
+        name: "Michael Chen",
+        address: "0x9876543210fedcba9876543210fedcba98765432",
+        email: "mchen@email.com",
+      },
+      requestReason:
+        "Temporary suspension due to payment issue has been resolved. Bank confirmation provided.",
+      createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
+      status: "pending",
+    },
+  ];
+
+  // Filter to only show customer requests
+  const [unsuspendRequests, setUnsuspendRequests] = useState<any[]>(
+    dummyCustomerUnsuspendRequests
+  );
 
   // Define table columns for customers
   const customerColumns: Column<Customer>[] = [
@@ -218,12 +268,13 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
             )}
             {customer.isActive ? "Active" : "Suspended"}
           </span>
-          {customer.unsuspendRequest && customer.unsuspendRequest.status === 'pending' && (
-            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 animate-pulse">
-              <AlertCircle className="w-3 h-3" />
-              Request
-            </span>
-          )}
+          {customer.unsuspendRequest &&
+            customer.unsuspendRequest.status === "pending" && (
+              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 animate-pulse">
+                <AlertCircle className="w-3 h-3" />
+                Request
+              </span>
+            )}
         </div>
       ),
     },
@@ -266,15 +317,16 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
             >
               <XCircle className="w-4 h-4" />
             </button>
-          ) : !customer.isActive && customer.unsuspendRequest?.status === 'pending' ? (
+          ) : !customer.isActive &&
+            customer.unsuspendRequest?.status === "pending" ? (
             <>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  setUnsuspendReviewModal({ 
-                    isOpen: true, 
-                    customer, 
-                    action: 'approve' 
+                  setUnsuspendReviewModal({
+                    isOpen: true,
+                    customer,
+                    action: "approve",
                   });
                 }}
                 className="p-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors animate-pulse"
@@ -285,10 +337,10 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  setUnsuspendReviewModal({ 
-                    isOpen: true, 
-                    customer, 
-                    action: 'reject' 
+                  setUnsuspendReviewModal({
+                    isOpen: true,
+                    customer,
+                    action: "reject",
                   });
                 }}
                 className="p-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors"
@@ -326,7 +378,91 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
 
   useEffect(() => {
     loadCustomersData();
+    // Commented out for dummy data preview - uncomment in production
+    // fetchUnsuspendRequests();
   }, []);
+
+  // Sync viewMode with initialView prop changes
+  useEffect(() => {
+    if (initialView) {
+      setViewMode(initialView === "unsuspend-requests" ? "unsuspend-requests" : initialView === "all" ? "all" : "grouped");
+    }
+  }, [initialView]);
+
+
+  const fetchUnsuspendRequests = async () => {
+    try {
+      const adminToken = await generateAdminToken();
+      if (!adminToken) {
+        toast.error("Failed to authenticate as admin");
+        return;
+      }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/unsuspend-requests?status=pending&entityType=customer`,
+        {
+          headers: {
+            Authorization: `Bearer ${adminToken}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        // Filter to only show customer requests
+        const customerRequests = (result.data?.requests || []).filter(
+          (req: any) => req.entityType === "customer"
+        );
+        setUnsuspendRequests(customerRequests);
+      } else {
+        console.error("Failed to load unsuspend requests");
+      }
+    } catch (error) {
+      console.error("Error loading unsuspend requests:", error);
+    }
+  };
+
+  const processUnsuspendRequest = async (
+    requestId: string,
+    action: "approve" | "reject",
+    notes: string = ""
+  ) => {
+    try {
+      const adminToken = await generateAdminToken();
+      if (!adminToken) {
+        toast.error("Failed to authenticate as admin");
+        return;
+      }
+
+      const endpoint =
+        action === "approve"
+          ? `/admin/unsuspend-requests/${requestId}/approve`
+          : `/admin/unsuspend-requests/${requestId}/reject`;
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}${endpoint}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${adminToken}`,
+          },
+          body: JSON.stringify({ notes }),
+        }
+      );
+
+      if (response.ok) {
+        toast.success(`Request ${action}d successfully`);
+        fetchUnsuspendRequests();
+        loadCustomersData();
+      } else {
+        toast.error(`Failed to ${action} request`);
+      }
+    } catch (error) {
+      console.error(`Error ${action}ing request:`, error);
+      toast.error(`Failed to ${action} request`);
+    }
+  };
 
   const loadCustomersData = async () => {
     setLoading(true);
@@ -550,41 +686,6 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
       <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700/50">
         {/* Controls */}
         <div className="p-6 border-b border-gray-700/50 space-y-4">
-          {/* View Mode Tabs */}
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-            <div className="flex gap-2">
-              <button
-                onClick={() => setViewMode("grouped")}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                  viewMode === "grouped"
-                    ? "bg-yellow-500 text-gray-900"
-                    : "bg-gray-700/50 text-gray-300 hover:bg-gray-600"
-                }`}
-              >
-                <Layers className="w-4 h-4 inline mr-2" />
-                Grouped by Shop
-              </button>
-              <button
-                onClick={() => setViewMode("all")}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                  viewMode === "all"
-                    ? "bg-yellow-500 text-gray-900"
-                    : "bg-gray-700/50 text-gray-300 hover:bg-gray-600"
-                }`}
-              >
-                <Grid3X3 className="w-4 h-4 inline mr-2" />
-                All Customers
-              </button>
-            </div>
-            {/* <button
-              onClick={exportToCSV}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors flex items-center gap-2"
-            >
-              <Download className="w-4 h-4" />
-              Export CSV
-            </button> */}
-          </div>
-
           {/* Search and Filters */}
           <div className="flex flex-col lg:flex-row gap-4">
             <div className="flex-1 relative">
@@ -597,30 +698,32 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                 className="w-full pl-10 pr-4 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-yellow-400"
               />
             </div>
+            {/* Filter controls - only show for customer views */}
+            {viewMode !== "unsuspend-requests" && (
+              <div className="flex gap-3">
+                <select
+                  value={selectedTier}
+                  onChange={(e) => setSelectedTier(e.target.value)}
+                  className="px-4 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-yellow-400"
+                >
+                  <option value="all">All Tiers</option>
+                  <option value="GOLD">Gold Tier</option>
+                  <option value="SILVER">Silver Tier</option>
+                  <option value="BRONZE">Bronze Tier</option>
+                </select>
 
-            <div className="flex gap-3">
-              <select
-                value={selectedTier}
-                onChange={(e) => setSelectedTier(e.target.value)}
-                className="px-4 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-yellow-400"
-              >
-                <option value="all">All Tiers</option>
-                <option value="GOLD">Gold Tier</option>
-                <option value="SILVER">Silver Tier</option>
-                <option value="BRONZE">Bronze Tier</option>
-              </select>
-
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="px-4 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-yellow-400"
-              >
-                <option value="earnings">Sort by Earnings</option>
-                <option value="transactions">Sort by Transactions</option>
-                <option value="date">Sort by Last Activity</option>
-                <option value="name">Sort by Name</option>
-              </select>
-            </div>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="px-4 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-yellow-400"
+                >
+                  <option value="earnings">Sort by Earnings</option>
+                  <option value="transactions">Sort by Transactions</option>
+                  <option value="date">Sort by Last Activity</option>
+                  <option value="name">Sort by Name</option>
+                </select>
+              </div>
+            )}
           </div>
         </div>
 
@@ -759,6 +862,119 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                 emptyMessage="All customers have shop activity"
               />
             ))}
+
+          {viewMode === "unsuspend-requests" && (
+            <div className="space-y-4">
+              {unsuspendRequests.length === 0 ? (
+                <div className="text-center py-12">
+                  <AlertCircle className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+                  <p className="text-gray-400 text-lg">
+                    No pending unsuspend requests
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-gray-900/50 rounded-xl border border-gray-700/50">
+                  <table className="min-w-full divide-y divide-gray-700">
+                    <thead className="bg-gray-800/50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                          Customer Details
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                          Request Reason
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                          Submitted
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-gray-900/30 divide-y divide-gray-700">
+                      {unsuspendRequests.map((request: any) => (
+                        <tr key={request.id}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm">
+                              {request.entityDetails ? (
+                                <>
+                                  <div className="font-medium text-gray-200">
+                                    {request.entityDetails.name || "N/A"}
+                                  </div>
+                                  <div className="text-gray-400 text-xs">
+                                    {request.entityType === "customer"
+                                      ? request.entityDetails.address
+                                      : request.entityDetails.shopId}
+                                  </div>
+                                  {request.entityDetails.email && (
+                                    <div className="text-gray-500 text-xs">
+                                      {request.entityDetails.email}
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                <div className="text-gray-500">
+                                  No details available
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-gray-300 max-w-xs">
+                              {request.requestReason || request.reason}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                            {new Date(
+                              request.createdAt || request.created_at
+                            ).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button
+                              onClick={() => {
+                                const confirmApprove = confirm(
+                                  `Approve unsuspend request for ${
+                                    request.entityDetails?.name ||
+                                    request.entityId
+                                  }?`
+                                );
+                                if (confirmApprove) {
+                                  processUnsuspendRequest(
+                                    request.id,
+                                    "approve"
+                                  );
+                                }
+                              }}
+                              className="text-green-400 hover:text-green-300 mr-4"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => {
+                                const notes = prompt(
+                                  "Rejection reason (optional):"
+                                );
+                                if (notes !== null) {
+                                  processUnsuspendRequest(
+                                    request.id,
+                                    "reject",
+                                    notes
+                                  );
+                                }
+                              }}
+                              className="text-red-400 hover:text-red-300"
+                            >
+                              Reject
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -925,28 +1141,43 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-2xl max-w-lg w-full p-6">
             <h3 className="text-xl font-bold text-white mb-4">
-              {unsuspendReviewModal.action === 'approve' ? 'Approve' : 'Reject'} Unsuspend Request
+              {unsuspendReviewModal.action === "approve" ? "Approve" : "Reject"}{" "}
+              Unsuspend Request
             </h3>
-            
+
             <div className="mb-4 p-4 bg-gray-700/50 rounded-lg">
               <p className="text-sm text-gray-300 mb-2">
-                <span className="font-medium text-white">Customer:</span> {unsuspendReviewModal.customer.name || 'Anonymous'}
+                <span className="font-medium text-white">Customer:</span>{" "}
+                {unsuspendReviewModal.customer.name || "Anonymous"}
               </p>
               <p className="text-sm text-gray-300 mb-2">
-                <span className="font-medium text-white">Address:</span> {formatAddress(unsuspendReviewModal.customer.address)}
+                <span className="font-medium text-white">Address:</span>{" "}
+                {formatAddress(unsuspendReviewModal.customer.address)}
               </p>
               {unsuspendReviewModal.customer.suspension_reason && (
                 <p className="text-sm text-gray-300 mb-2">
-                  <span className="font-medium text-white">Original Suspension Reason:</span> {unsuspendReviewModal.customer.suspension_reason}
+                  <span className="font-medium text-white">
+                    Original Suspension Reason:
+                  </span>{" "}
+                  {unsuspendReviewModal.customer.suspension_reason}
                 </p>
               )}
               {unsuspendReviewModal.customer.unsuspendRequest && (
                 <>
                   <p className="text-sm text-gray-300 mb-2">
-                    <span className="font-medium text-white">Request Reason:</span> {unsuspendReviewModal.customer.unsuspendRequest.requestReason}
+                    <span className="font-medium text-white">
+                      Request Reason:
+                    </span>{" "}
+                    {
+                      unsuspendReviewModal.customer.unsuspendRequest
+                        .requestReason
+                    }
                   </p>
                   <p className="text-sm text-gray-300">
-                    <span className="font-medium text-white">Submitted:</span> {new Date(unsuspendReviewModal.customer.unsuspendRequest.createdAt).toLocaleString()}
+                    <span className="font-medium text-white">Submitted:</span>{" "}
+                    {new Date(
+                      unsuspendReviewModal.customer.unsuspendRequest.createdAt
+                    ).toLocaleString()}
                   </p>
                 </>
               )}
@@ -968,8 +1199,12 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
             <div className="flex gap-3">
               <button
                 onClick={() => {
-                  setUnsuspendReviewModal({ isOpen: false, customer: null, action: 'approve' });
-                  setUnsuspendNotes('');
+                  setUnsuspendReviewModal({
+                    isOpen: false,
+                    customer: null,
+                    action: "approve",
+                  });
+                  setUnsuspendNotes("");
                 }}
                 className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors"
               >
@@ -978,25 +1213,34 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
               <button
                 onClick={async () => {
                   const customer = unsuspendReviewModal.customer;
-                  
-                  if (unsuspendReviewModal.action === 'approve' && onUnsuspendCustomer) {
+
+                  if (
+                    unsuspendReviewModal.action === "approve" &&
+                    onUnsuspendCustomer
+                  ) {
                     await onUnsuspendCustomer(customer!.address);
                     toast.success("Unsuspend request approved");
                   } else {
                     // For reject, we might need a separate API endpoint
                     toast.success("Unsuspend request rejected");
                   }
-                  
-                  setUnsuspendReviewModal({ isOpen: false, customer: null, action: 'approve' });
-                  setUnsuspendNotes('');
+
+                  setUnsuspendReviewModal({
+                    isOpen: false,
+                    customer: null,
+                    action: "approve",
+                  });
+                  setUnsuspendNotes("");
                 }}
                 className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                  unsuspendReviewModal.action === 'approve' 
-                    ? 'bg-green-600 text-white hover:bg-green-700' 
-                    : 'bg-red-600 text-white hover:bg-red-700'
+                  unsuspendReviewModal.action === "approve"
+                    ? "bg-green-600 text-white hover:bg-green-700"
+                    : "bg-red-600 text-white hover:bg-red-700"
                 }`}
               >
-                {unsuspendReviewModal.action === 'approve' ? 'Approve' : 'Reject'}
+                {unsuspendReviewModal.action === "approve"
+                  ? "Approve"
+                  : "Reject"}
               </button>
             </div>
           </div>

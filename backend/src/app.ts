@@ -2,9 +2,9 @@
 // Deploy trigger: Added uuid dependency
 import dotenv from 'dotenv';
 
-// Load environment variables FIRST - look in root directory
+// Load environment variables FIRST - look in backend directory
 import path from 'path';
-dotenv.config({ path: path.join(process.cwd(), '..', '.env') });
+dotenv.config();
 
 import express from 'express';
 import cors from 'cors';

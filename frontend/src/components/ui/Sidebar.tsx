@@ -46,8 +46,11 @@ interface SidebarProps {
   onToggle?: () => void;
   userRole?: "customer" | "shop" | "admin";
   activeTab?: string;
+  activeSubTab?: string;
   onTabChange?: (tab: string) => void;
   onCollapseChange?: (collapsed: boolean) => void;
+  isSuperAdmin?: boolean;
+  adminPermissions?: string[];
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -55,8 +58,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   onToggle,
   userRole = "customer",
   activeTab,
+  activeSubTab,
   onTabChange,
   onCollapseChange,
+  isSuperAdmin = false,
+  adminPermissions = [],
 }) => {
   const pathname = usePathname();
   const router = useRouter();
@@ -65,6 +71,26 @@ const Sidebar: React.FC<SidebarProps> = ({
   const logout = useAuthStore((state) => state.logout);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+
+  // Auto-collapse subtabs when switching to a different main tab
+  React.useEffect(() => {
+    // If activeTab changes and it's not "customers", collapse the customers subtab
+    if (activeTab && activeTab !== "customers") {
+      setExpandedItems(prev => prev.filter(id => id !== "customers"));
+    }
+    // If activeTab changes and it's not "shops-management", collapse the shops subtab
+    if (activeTab && activeTab !== "shops-management") {
+      setExpandedItems(prev => prev.filter(id => id !== "shops-management"));
+    }
+    // Auto-expand customers when it becomes active
+    if (activeTab === "customers" && !expandedItems.includes("customers")) {
+      setExpandedItems(prev => [...prev, "customers"]);
+    }
+    // Auto-expand shops when it becomes active
+    if (activeTab === "shops-management" && !expandedItems.includes("shops-management")) {
+      setExpandedItems(prev => [...prev, "shops-management"]);
+    }
+  }, [activeTab]);
 
   const handleCollapseToggle = () => {
     const newCollapsed = !isCollapsed;
@@ -178,44 +204,221 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
 
     if (userRole === "admin") {
-      return [
-        {
-          title: "Overview",
-          href: "/admin?tab=overview",
-          icon: <span className="text-xl">📊</span>,
-          tabId: "overview",
-        },
-        {
-          title: "Admins",
-          href: "/admin?tab=admins",
-          icon: <span className="text-xl">🛡️</span>,
-          tabId: "admins",
-        },
-        {
-          title: "Customers",
-          href: "/admin?tab=customers",
-          icon: <span className="text-xl">👥</span>,
-          tabId: "customers",
-        },
-        {
-          title: "Shops",
-          href: "/admin?tab=shops-management",
-          icon: <span className="text-xl">🏪</span>,
-          tabId: "shops-management",
-        },
-        {
-          title: "Treasury",
-          href: "/admin?tab=treasury",
-          icon: <span className="text-xl">💰</span>,
-          tabId: "treasury",
-        },
-        {
-          title: "Analytics",
-          href: "/admin?tab=analytics",
-          icon: <span className="text-xl">📈</span>,
-          tabId: "analytics",
-        },
-      ];
+      const adminItems = [];
+      
+      // Debug logging
+      console.log("Sidebar rendering for admin");
+      console.log("Sidebar - isSuperAdmin:", isSuperAdmin);
+      console.log("Sidebar - adminPermissions:", adminPermissions);
+      
+      // Super admin (from env) gets all tabs
+      // Regular admins get tabs based on their permissions
+      const isFullAccess = isSuperAdmin === true || adminPermissions.includes('*');
+      console.log("Sidebar - isFullAccess:", isFullAccess);
+      
+      // Overview is always visible for any admin
+      adminItems.push({
+        title: "Overview",
+        href: "/admin?tab=overview",
+        icon: <span className="text-xl">📊</span>,
+        tabId: "overview",
+      });
+      
+      // If super admin, show ALL tabs
+      if (isFullAccess) {
+        console.log("Super admin detected - showing all tabs");
+        adminItems.push(
+          {
+            title: "Admins",
+            href: "/admin?tab=admins",
+            icon: <span className="text-xl">🛡️</span>,
+            tabId: "admins",
+          },
+          {
+            title: "Customers",
+            href: "/admin?tab=customers",
+            icon: <span className="text-xl">👥</span>,
+            tabId: "customers",
+            subItems: [
+              {
+                title: "Grouped by Shop",
+                href: "/admin?tab=customers&view=grouped",
+                icon: <span className="text-sm">🏪</span>,
+                tabId: "customers-grouped",
+              },
+              {
+                title: "All Customers",
+                href: "/admin?tab=customers&view=all",
+                icon: <span className="text-sm">👤</span>,
+                tabId: "customers-all",
+              },
+              {
+                title: "Unsuspend Requests",
+                href: "/admin?tab=customers&view=unsuspend",
+                icon: <span className="text-sm">🔓</span>,
+                tabId: "customers-unsuspend",
+              },
+            ],
+          },
+          {
+            title: "Shops",
+            href: "/admin?tab=shops-management",
+            icon: <span className="text-xl">🏪</span>,
+            tabId: "shops-management",
+            subItems: [
+              {
+                title: "All Shops",
+                href: "/admin?tab=shops-management&view=all",
+                icon: <span className="text-sm">📋</span>,
+                tabId: "shops-all",
+              },
+              {
+                title: "Active Shops",
+                href: "/admin?tab=shops-management&view=active",
+                icon: <span className="text-sm">✅</span>,
+                tabId: "shops-active",
+              },
+              {
+                title: "Pending Applications",
+                href: "/admin?tab=shops-management&view=pending",
+                icon: <span className="text-sm">⏳</span>,
+                tabId: "shops-pending",
+              },
+              {
+                title: "Rejected Shops",
+                href: "/admin?tab=shops-management&view=rejected",
+                icon: <span className="text-sm">❌</span>,
+                tabId: "shops-rejected",
+              },
+              {
+                title: "Unsuspend Requests",
+                href: "/admin?tab=shops-management&view=unsuspend",
+                icon: <span className="text-sm">🔓</span>,
+                tabId: "shops-unsuspend",
+              },
+            ],
+          },
+          {
+            title: "Treasury",
+            href: "/admin?tab=treasury",
+            icon: <span className="text-xl">💰</span>,
+            tabId: "treasury",
+          },
+          {
+            title: "Analytics",
+            href: "/admin?tab=analytics",
+            icon: <span className="text-xl">📈</span>,
+            tabId: "analytics",
+          }
+        );
+      } else {
+        // Regular admin - show tabs based on specific permissions
+        console.log("Regular admin - checking individual permissions");
+        
+        // Only show Admins tab if they have manage_admins permission
+        if (adminPermissions.includes('manage_admins')) {
+          adminItems.push({
+            title: "Admins",
+            href: "/admin?tab=admins",
+            icon: <span className="text-xl">🛡️</span>,
+            tabId: "admins",
+          });
+        }
+        
+        // Show Customers tab if user has manage_customers permission
+        if (adminPermissions.includes('manage_customers')) {
+          adminItems.push({
+            title: "Customers",
+            href: "/admin?tab=customers",
+            icon: <span className="text-xl">👥</span>,
+            tabId: "customers",
+            subItems: [
+              {
+                title: "Grouped by Shop",
+                href: "/admin?tab=customers&view=grouped",
+                icon: <span className="text-sm">🏪</span>,
+                tabId: "customers-grouped",
+              },
+              {
+                title: "All Customers",
+                href: "/admin?tab=customers&view=all",
+                icon: <span className="text-sm">👤</span>,
+                tabId: "customers-all",
+              },
+              {
+                title: "Unsuspend Requests",
+                href: "/admin?tab=customers&view=unsuspend",
+                icon: <span className="text-sm">🔓</span>,
+                tabId: "customers-unsuspend",
+              },
+            ],
+          });
+        }
+        
+        // Show Shops tab if user has manage_shops permission
+        if (adminPermissions.includes('manage_shops')) {
+          adminItems.push({
+            title: "Shops",
+            href: "/admin?tab=shops-management",
+            icon: <span className="text-xl">🏪</span>,
+            tabId: "shops-management",
+            subItems: [
+              {
+                title: "All Shops",
+                href: "/admin?tab=shops-management&view=all",
+                icon: <span className="text-sm">📋</span>,
+                tabId: "shops-all",
+              },
+              {
+                title: "Active Shops",
+                href: "/admin?tab=shops-management&view=active",
+                icon: <span className="text-sm">✅</span>,
+                tabId: "shops-active",
+              },
+              {
+                title: "Pending Applications",
+                href: "/admin?tab=shops-management&view=pending",
+                icon: <span className="text-sm">⏳</span>,
+                tabId: "shops-pending",
+              },
+              {
+                title: "Rejected Shops",
+                href: "/admin?tab=shops-management&view=rejected",
+                icon: <span className="text-sm">❌</span>,
+                tabId: "shops-rejected",
+              },
+              {
+                title: "Unsuspend Requests",
+                href: "/admin?tab=shops-management&view=unsuspend",
+                icon: <span className="text-sm">🔓</span>,
+                tabId: "shops-unsuspend",
+              },
+            ],
+          });
+        }
+        
+        // Show Treasury tab if user has manage_treasury permission
+        if (adminPermissions.includes('manage_treasury')) {
+          adminItems.push({
+            title: "Treasury",
+            href: "/admin?tab=treasury",
+            icon: <span className="text-xl">💰</span>,
+            tabId: "treasury",
+          });
+        }
+        
+        // Show Analytics tab if user has view_analytics permission
+        if (adminPermissions.includes('view_analytics')) {
+          adminItems.push({
+            title: "Analytics",
+            href: "/admin?tab=analytics",
+            icon: <span className="text-xl">📈</span>,
+            tabId: "analytics",
+          });
+        }
+      }
+      
+      return adminItems;
     }
 
     return commonItems;
@@ -397,7 +600,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                       <ul className="mt-1 ml-4 space-y-1">
                         {item.subItems?.map((subItem) => {
                           const subIsActive = (userRole === "shop" || userRole === "customer" || userRole === "admin") && subItem.tabId
-                            ? activeTab === subItem.tabId
+                            ? activeSubTab === subItem.tabId
                             : pathname === subItem.href;
 
                           const handleSubClick = (e: React.MouseEvent) => {
@@ -417,7 +620,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                   transition-colors duration-200 text-sm
                                   ${
                                     subIsActive
-                                      ? "bg-yellow-400 text-gray-900 font-medium"
+                                      ? "bg-[#FFCC00] text-gray-900 font-medium"
                                       : "text-gray-400 hover:bg-gray-800 hover:text-white"
                                   }
                                 `}

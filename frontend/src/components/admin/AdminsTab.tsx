@@ -1,677 +1,583 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { 
-  UserPlus,
-  Edit,
-  Ban,
-  CheckCircle,
+import React, { useState, useEffect } from "react";
+import {
   Shield,
+  Mail,
+  Clock,
+  Edit3,
+  Trash2,
+  Copy,
+  AlertCircle,
+  UserPlus,
   Search,
-  X
-} from 'lucide-react';
-import { DataTable, Column } from '@/components/ui/DataTable';
-import { DashboardHeader } from '@/components/ui/DashboardHeader';
-import { toast } from 'react-hot-toast';
+  User
+} from "lucide-react";
+import apiClient from "@/utils/apiClient";
+import { showToast } from "@/utils/toast";
+import { DataTable } from "@/components/ui/DataTable";
+import { DashboardHeader } from "../ui/DashboardHeader";
 
 interface Admin {
-  id: string;
-  address: string;
-  name?: string;
-  email?: string;
-  role: string;
-  status: 'active' | 'suspended';
+  id: number;
+  walletAddress: string;
+  name: string;
+  email: string | null;
+  permissions: string[];
+  isActive: boolean;
+  isSuperAdmin: boolean;
   createdAt: string;
-  lastLogin?: string;
-  permissions?: string[];
+  lastLogin: string | null;
 }
 
-interface AdminsTabProps {
-  generateAdminToken: () => Promise<string | null>;
-  onError: (error: string) => void;
+interface AdminFormData {
+  walletAddress: string;
+  name: string;
+  email: string;
+  permissions: string[];
 }
 
-export function AdminsTab({ generateAdminToken, onError }: AdminsTabProps) {
+const AVAILABLE_PERMISSIONS = [
+  {
+    value: "manage_customers",
+    label: "Manage Customers",
+    icon: "👥",
+    color: "blue",
+  },
+  { value: "manage_shops", label: "Manage Shops", icon: "🏪", color: "green" },
+  {
+    value: "manage_treasury",
+    label: "Manage Treasury",
+    icon: "💰",
+    color: "yellow",
+  },
+  {
+    value: "view_analytics",
+    label: "View Analytics",
+    icon: "📊",
+    color: "purple",
+  },
+  { value: "create_admin", label: "Create Admins", icon: "➕", color: "pink" },
+  { value: "manage_admins", label: "Manage Admins", icon: "⚙️", color: "gray" },
+];
+
+export default function AdminsTab() {
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState<Admin | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [formData, setFormData] = useState<AdminFormData>({
+    walletAddress: "",
+    name: "",
+    email: "",
+    permissions: [],
+  });
 
   useEffect(() => {
-    loadAdmins();
+    fetchAdmins();
   }, []);
 
-  const loadAdmins = async () => {
+  const fetchAdmins = async () => {
     try {
       setLoading(true);
-      const adminToken = await generateAdminToken();
-      if (!adminToken) {
-        onError('Authentication required');
-        return;
-      }
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/admins`, {
-        headers: {
-          'Authorization': `Bearer ${adminToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        // For now, we'll use mock data if the endpoint doesn't exist
-        setAdmins(data.admins || getMockAdmins());
-      } else if (response.status === 404) {
-        // Use mock data if endpoint doesn't exist yet
-        setAdmins(getMockAdmins());
-      } else {
-        throw new Error('Failed to load admins');
-      }
-    } catch (error) {
-      console.error('Error loading admins:', error);
-      // Use mock data for demonstration
-      setAdmins(getMockAdmins());
+      const response = await apiClient.get("/admin/admins", { role: "admin" });
+      setAdmins(response.data || []);
+    } catch (error: any) {
+      console.error("Error fetching admins:", error);
+      showToast.error(error.response?.data?.error || "Failed to fetch admins");
     } finally {
       setLoading(false);
     }
   };
 
-  const getMockAdmins = (): Admin[] => {
-    const adminAddresses = (process.env.NEXT_PUBLIC_ADMIN_ADDRESSES || '')
-      .split(',')
-      .map(addr => addr.trim())
-      .filter(addr => addr);
-
-    return adminAddresses.map((address, index) => ({
-      id: `admin-${index + 1}`,
-      address,
-      name: index === 0 ? 'Super Admin' : `Admin ${index + 1}`,
-      email: `admin${index + 1}@repaircoin.com`,
-      role: index === 0 ? 'super_admin' : 'admin',
-      status: 'active',
-      createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-      lastLogin: new Date(Date.now() - Math.random() * 24 * 60 * 60 * 1000).toISOString(),
-      permissions: index === 0 
-        ? ['all'] 
-        : ['manage_shops', 'manage_customers', 'view_analytics']
-    }));
-  };
-
-  const handleCreateAdmin = async (adminData: Partial<Admin>) => {
+  const handleCreateAdmin = async () => {
     try {
-      const adminToken = await generateAdminToken();
-      if (!adminToken) {
-        onError('Authentication required');
-        return;
-      }
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/create-admin`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${adminToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(adminData),
-      });
-
-      if (response.ok) {
-        toast.success('Admin created successfully');
-        setShowCreateModal(false);
-        loadAdmins();
-      } else {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create admin');
-      }
+      await apiClient.post("/admin/create-admin", formData, { role: "admin" });
+      showToast.success("Admin created successfully");
+      setShowCreateModal(false);
+      setFormData({ walletAddress: "", name: "", email: "", permissions: [] });
+      fetchAdmins();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to create admin');
+      showToast.error(error.response?.data?.error || "Failed to create admin");
     }
   };
 
-  const handleEditAdmin = async (adminId: string, updates: Partial<Admin>) => {
+  const handleUpdateAdmin = async () => {
+    if (!selectedAdmin) return;
+
     try {
-      const adminToken = await generateAdminToken();
-      if (!adminToken) {
-        onError('Authentication required');
-        return;
-      }
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/admins/${adminId}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${adminToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updates),
+      await apiClient.put(`/admin/admins/${selectedAdmin.id}`, formData, {
+        role: "admin",
       });
-
-      if (response.ok) {
-        toast.success('Admin updated successfully');
-        setShowEditModal(false);
-        setSelectedAdmin(null);
-        loadAdmins();
-      } else {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to update admin');
-      }
+      showToast.success("Admin updated successfully");
+      setShowEditModal(false);
+      setSelectedAdmin(null);
+      setFormData({ walletAddress: "", name: "", email: "", permissions: [] });
+      fetchAdmins();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to update admin');
+      showToast.error(error.response?.data?.error || "Failed to update admin");
     }
   };
 
-  const handleSuspendAdmin = async (adminId: string, suspend: boolean) => {
+  const handleDeleteAdmin = async () => {
+    if (!selectedAdmin) return;
+
     try {
-      const adminToken = await generateAdminToken();
-      if (!adminToken) {
-        onError('Authentication required');
-        return;
-      }
-
-      const endpoint = suspend 
-        ? `/admin/admins/${adminId}/suspend`
-        : `/admin/admins/${adminId}/unsuspend`;
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${adminToken}`,
-          'Content-Type': 'application/json',
-        },
+      await apiClient.delete(`/admin/admins/${selectedAdmin.id}`, {
+        role: "admin",
       });
-
-      if (response.ok) {
-        toast.success(`Admin ${suspend ? 'suspended' : 'unsuspended'} successfully`);
-        loadAdmins();
-      } else {
-        const error = await response.json();
-        throw new Error(error.error || `Failed to ${suspend ? 'suspend' : 'unsuspend'} admin`);
-      }
+      showToast.success("Admin deleted successfully");
+      setShowDeleteModal(false);
+      setSelectedAdmin(null);
+      fetchAdmins();
     } catch (error: any) {
-      toast.error(error.message || `Failed to ${suspend ? 'suspend' : 'unsuspend'} admin`);
+      showToast.error(error.response?.data?.error || "Failed to delete admin");
     }
   };
 
-  const filteredAdmins = admins.filter(admin => 
-    admin.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    admin.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    admin.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
-  const columns: Column<Admin>[] = [
+  const openEditModal = (admin: Admin) => {
+    setSelectedAdmin(admin);
+    setFormData({
+      walletAddress: admin.walletAddress,
+      name: admin.name,
+      email: admin.email || "",
+      permissions: admin.permissions,
+    });
+    setShowEditModal(true);
+  };
+
+  const openDeleteModal = (admin: Admin) => {
+    setSelectedAdmin(admin);
+    setShowDeleteModal(true);
+  };
+
+  const copyWalletAddress = (address: string) => {
+    navigator.clipboard.writeText(address);
+    showToast.success("Wallet address copied!");
+  };
+
+  // Filter admins based on search term
+  const filteredAdmins = admins.filter((admin) => {
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase();
+    return (
+      admin.name.toLowerCase().includes(search) ||
+      admin.email?.toLowerCase().includes(search) ||
+      admin.walletAddress.toLowerCase().includes(search) ||
+      admin.id.toString().includes(search)
+    );
+  });
+
+  // Define columns for DataTable
+  const columns = [
     {
-      key: 'admin',
-      header: 'ADMIN',
-      accessor: (admin) => (
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-yellow-400/10 rounded-full flex items-center justify-center">
-            <Shield className="w-5 h-5 text-yellow-400" />
+      key: "admin",
+      header: "Admin",
+      sortable: true,
+      accessor: (admin: Admin) => (
+        <div className="flex items-center gap-3">
+          <div
+            className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm ${
+              admin.isSuperAdmin
+                ? "bg-gradient-to-br from-purple-500 to-pink-500"
+                : "bg-gradient-to-br from-blue-500 to-cyan-500"
+            }`}
+          >
+            {admin.name.charAt(0).toUpperCase()}
           </div>
           <div>
-            <p className="font-medium text-white">{admin.name || 'Unnamed Admin'}</p>
-            <p className="text-xs text-gray-400 font-mono">
-              {admin.address.slice(0, 6)}...{admin.address.slice(-4)}
-            </p>
+            <p className="font-medium text-gray-200">{admin.name}</p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <code className="text-xs bg-gray-800 px-1.5 py-0.5 rounded text-gray-400 font-mono">
+                {admin.walletAddress.slice(0, 6)}...
+                {admin.walletAddress.slice(-4)}
+              </code>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  copyWalletAddress(admin.walletAddress);
+                }}
+                className="text-gray-500 hover:text-gray-300 transition-colors"
+                title="Copy wallet address"
+              >
+                <Copy className="w-3 h-3" />
+              </button>
+            </div>
+            {admin.isSuperAdmin && (
+              <span className="inline-flex items-center gap-1 mt-1 text-xs bg-purple-900/30 text-purple-400 px-2 py-0.5 rounded-full">
+                <Shield className="w-3 h-3" />
+                Super Admin
+              </span>
+            )}
           </div>
         </div>
       ),
-      headerClassName: 'uppercase text-xs tracking-wider'
     },
     {
-      key: 'email',
-      header: 'EMAIL',
-      accessor: (admin) => (
-        <span className="text-sm text-gray-300">{admin.email || '-'}</span>
-      ),
+      key: "email",
+      header: "Contact",
       sortable: true,
-      headerClassName: 'uppercase text-xs tracking-wider'
+      accessor: (admin: Admin) => (
+        <div className="flex items-center gap-2">
+          <Mail className="w-4 h-4 text-gray-500" />
+          <span className="text-gray-300 text-sm">
+            {admin.email || (
+              <span className="text-gray-500 italic">No email</span>
+            )}
+          </span>
+        </div>
+      ),
     },
     {
-      key: 'role',
-      header: 'ROLE',
-      accessor: (admin) => (
-        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-900/50 text-purple-400 border border-purple-700/50">
-          {admin.role === 'super_admin' ? 'Super Admin' : 'Admin'}
-        </span>
-      ),
-      headerClassName: 'uppercase text-xs tracking-wider'
-    },
-    {
-      key: 'status',
-      header: 'STATUS',
-      accessor: (admin) => (
-        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-          admin.status === 'active'
-            ? 'bg-green-900/50 text-green-400 border border-green-700/50'
-            : 'bg-red-900/50 text-red-400 border border-red-700/50'
-        }`}>
-          {admin.status}
-        </span>
-      ),
+      key: "status",
+      header: "Status",
       sortable: true,
-      headerClassName: 'uppercase text-xs tracking-wider'
-    },
-    {
-      key: 'lastLogin',
-      header: 'LAST LOGIN',
-      accessor: (admin) => (
-        <span className="text-sm text-gray-300">
-          {admin.lastLogin 
-            ? new Date(admin.lastLogin).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              })
-            : 'Never'
-          }
-        </span>
-      ),
-      sortable: true,
-      headerClassName: 'uppercase text-xs tracking-wider'
-    },
-    {
-      key: 'actions',
-      header: 'ACTIONS',
-      accessor: (admin) => (
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => {
-              setSelectedAdmin(admin);
-              setShowEditModal(true);
-            }}
-            className="p-1.5 bg-gray-700/30 text-gray-400 border border-gray-600/30 rounded-lg hover:bg-gray-700/50 hover:text-white transition-colors"
-            title="Edit Admin"
+      accessor: (admin: Admin) => (
+        <div className="flex items-center gap-2">
+          <div
+            className={`w-2 h-2 rounded-full ${
+              admin.isActive ? "bg-green-500" : "bg-red-500"
+            }`}
+          />
+          <span
+            className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+              admin.isActive
+                ? "bg-green-900/30 text-green-400"
+                : "bg-red-900/30 text-red-400"
+            }`}
           >
-            <Edit className="w-4 h-4" />
-          </button>
-          {admin.role !== 'super_admin' && (
-            <button
-              onClick={() => handleSuspendAdmin(admin.id, admin.status === 'active')}
-              className={`p-1.5 border rounded-lg transition-colors ${
-                admin.status === 'active'
-                  ? 'bg-red-900/30 text-red-400 border-red-700/30 hover:bg-red-900/50'
-                  : 'bg-green-900/30 text-green-400 border-green-700/30 hover:bg-green-900/50'
-              }`}
-              title={admin.status === 'active' ? 'Suspend Admin' : 'Unsuspend Admin'}
-            >
-              {admin.status === 'active' ? <Ban className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
-            </button>
+            {admin.isActive ? "Active" : "Inactive"}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: "permissions",
+      header: "Permissions",
+      accessor: (admin: Admin) => (
+        <div className="flex flex-wrap gap-1 max-w-xs">
+          {admin.isSuperAdmin ? (
+            <span className="text-xs bg-purple-900/30 text-purple-400 px-2.5 py-1 rounded-full">
+              All Permissions
+            </span>
+          ) : admin.permissions.length > 0 ? (
+            <>
+              {admin.permissions.slice(0, 2).map((perm, index) => {
+                const permission = AVAILABLE_PERMISSIONS.find(
+                  (p) => p.value === perm
+                );
+                return (
+                  <span
+                    key={index}
+                    className="text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded"
+                  >
+                    {permission?.icon} {permission?.label || perm}
+                  </span>
+                );
+              })}
+              {admin.permissions.length > 2 && (
+                <span className="text-xs bg-blue-900/30 text-blue-400 px-2 py-1 rounded">
+                  +{admin.permissions.length - 2} more
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="text-xs text-gray-500 italic">No permissions</span>
           )}
         </div>
       ),
-      headerClassName: 'uppercase text-xs tracking-wider'
-    }
-  ];
-
-  return (
-    <>
-      <div className="space-y-6 p-6">
-        {/* Header Section */}
-        <DashboardHeader 
-          title="Admin Management"
-          subtitle="Manage admin users and their permissions"
-          icon={Shield}
-        />
-
-        {/* Actions Bar */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search admins..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-gray-800/50 border border-gray-700/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-yellow-400/50"
-            />
-          </div>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-yellow-400 text-black rounded-lg hover:bg-yellow-300 transition-colors font-medium"
-          >
-            <UserPlus className="w-5 h-5" />
-            <span>Add Admin</span>
-          </button>
+    },
+    {
+      key: "lastLogin",
+      header: "Last Active",
+      sortable: true,
+      accessor: (admin: Admin) => (
+        <div className="flex items-center gap-2 text-sm text-gray-400">
+          <Clock className="w-4 h-4" />
+          {admin.lastLogin ? (
+            new Date(admin.lastLogin).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          ) : (
+            <span className="italic">Never</span>
+          )}
         </div>
-
-        {/* Admins Table */}
-        <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700/50">
-          <DataTable
-            data={filteredAdmins}
-            columns={columns}
-            keyExtractor={(admin) => admin.id}
-            loading={loading}
-            loadingRows={5}
-            emptyMessage="No admins found"
-            emptyIcon={<Shield className="w-12 h-12 text-gray-500" />}
-            headerClassName="bg-gray-900/30"
-            className="text-gray-300"
-          />
-        </div>
-      </div>
-
-      {/* Create Admin Modal */}
-      {showCreateModal && (
-        <CreateAdminModal
-          onClose={() => setShowCreateModal(false)}
-          onSubmit={handleCreateAdmin}
-        />
-      )}
-
-      {/* Edit Admin Modal */}
-      {showEditModal && selectedAdmin && (
-        <EditAdminModal
-          admin={selectedAdmin}
-          onClose={() => {
-            setShowEditModal(false);
-            setSelectedAdmin(null);
-          }}
-          onSubmit={(updates) => handleEditAdmin(selectedAdmin.id, updates)}
-        />
-      )}
-    </>
-  );
-}
-
-// Create Admin Modal Component
-function CreateAdminModal({ 
-  onClose, 
-  onSubmit 
-}: { 
-  onClose: () => void; 
-  onSubmit: (data: Partial<Admin>) => void;
-}) {
-  const [formData, setFormData] = useState({
-    address: '',
-    name: '',
-    email: '',
-    role: 'admin',
-    permissions: [] as string[]
-  });
-
-  const availablePermissions = [
-    { id: 'manage_shops', label: 'Manage Shops' },
-    { id: 'manage_customers', label: 'Manage Customers' },
-    { id: 'manage_treasury', label: 'Manage Treasury' },
-    { id: 'view_analytics', label: 'View Analytics' },
-    { id: 'manage_admins', label: 'Manage Admins' }
-  ];
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit(formData);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 border border-gray-700 rounded-xl max-w-md w-full p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-white">Create New Admin</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Wallet Address
-            </label>
-            <input
-              type="text"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-yellow-400"
-              placeholder="0x..."
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Name
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-yellow-400"
-              placeholder="Admin Name"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Email
-            </label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-yellow-400"
-              placeholder="admin@example.com"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Role
-            </label>
-            <select
-              value={formData.role}
-              onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-yellow-400"
-            >
-              <option value="admin">Admin</option>
-              <option value="super_admin">Super Admin</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Permissions
-            </label>
-            <div className="space-y-2">
-              {availablePermissions.map(perm => (
-                <label key={perm.id} className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.permissions.includes(perm.id)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setFormData({ 
-                          ...formData, 
-                          permissions: [...formData.permissions, perm.id] 
-                        });
-                      } else {
-                        setFormData({ 
-                          ...formData, 
-                          permissions: formData.permissions.filter(p => p !== perm.id) 
-                        });
-                      }
-                    }}
-                    className="w-4 h-4 bg-gray-800 border-gray-700 rounded text-yellow-400 focus:ring-yellow-400"
-                  />
-                  <span className="text-sm text-gray-300">{perm.label}</span>
-                </label>
-              ))}
+      ),
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      headerClassName: "text-right",
+      className: "text-right",
+      accessor: (admin: Admin) => (
+        <div className="relative">
+          {!admin.isSuperAdmin ? (
+            <div className="flex justify-end items-center gap-1">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openEditModal(admin);
+                }}
+                className="p-1.5 text-blue-400 hover:bg-blue-900/30 rounded transition-colors"
+                title="Edit"
+              >
+                <Edit3 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openDeleteModal(admin);
+                }}
+                className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"
+                title="Delete"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
             </div>
-          </div>
+          ) : (
+            <span className="text-xs text-gray-500 italic px-2">Protected</span>
+          )}
+        </div>
+      ),
+    },
+  ];
 
-          <div className="flex space-x-4 pt-4">
+  return (
+    <div className="">
+      {/* Header with gradient background */}
+      <DashboardHeader
+        title="Admin Management"
+        subtitle="Manage all admin applications and active admin"
+        icon={User}
+      />
+
+      {/* Data Table */}
+      <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700/50">
+        {/* Controls */}
+        <div className="p-6 border-b border-gray-700/50">
+          {/* Search, Filter and Export */}
+          <div className="flex gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by name, ID, email, or wallet address..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-yellow-400"
+              />
+            </div>
             <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors"
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-[#FFCC00] transition-all shadow-lg rounded-3xl"
             >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex-1 px-4 py-2 bg-yellow-400 text-black rounded-lg hover:bg-yellow-300 transition-colors font-medium"
-            >
+              <UserPlus className="w-4 h-4" />
               Create Admin
             </button>
           </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-// Edit Admin Modal Component
-function EditAdminModal({ 
-  admin,
-  onClose, 
-  onSubmit 
-}: { 
-  admin: Admin;
-  onClose: () => void; 
-  onSubmit: (data: Partial<Admin>) => void;
-}) {
-  const [formData, setFormData] = useState({
-    name: admin.name || '',
-    email: admin.email || '',
-    role: admin.role,
-    permissions: admin.permissions || []
-  });
-
-  const availablePermissions = [
-    { id: 'manage_shops', label: 'Manage Shops' },
-    { id: 'manage_customers', label: 'Manage Customers' },
-    { id: 'manage_treasury', label: 'Manage Treasury' },
-    { id: 'view_analytics', label: 'View Analytics' },
-    { id: 'manage_admins', label: 'Manage Admins' }
-  ];
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit(formData);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 border border-gray-700 rounded-xl max-w-md w-full p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-white">Edit Admin</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
         </div>
+        <DataTable
+          data={filteredAdmins}
+          columns={columns}
+          keyExtractor={(admin) => admin.id.toString()}
+          loading={loading}
+          loadingRows={5}
+          emptyMessage="No admins found"
+          emptyIcon={<AlertCircle className="w-12 h-12 text-gray-400" />}
+          className=""
+          headerClassName="bg-gray-900/60 border-gray-800"
+          rowClassName="border-gray-800 hover:bg-gray-800/30"
+        />
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Wallet Address
-            </label>
-            <input
-              type="text"
-              value={admin.address}
-              disabled
-              className="w-full px-4 py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-gray-400"
-            />
-          </div>
+      {/* Create/Edit Modal */}
+      {(showCreateModal || showEditModal) && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-xl shadow-2xl w-full max-w-lg transform transition-all">
+            <div className="p-6 border-b border-gray-800">
+              <h3 className="text-xl font-bold text-white">
+                {showCreateModal ? "Create New Admin" : "Edit Admin"}
+              </h3>
+              <p className="text-gray-400 text-sm mt-1">
+                {showCreateModal
+                  ? "Add a new administrator to the platform"
+                  : "Update administrator information"}
+              </p>
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Name
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-yellow-400"
-              placeholder="Admin Name"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Email
-            </label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-yellow-400"
-              placeholder="admin@example.com"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Role
-            </label>
-            <select
-              value={formData.role}
-              onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-yellow-400"
-              disabled={admin.role === 'super_admin'}
-            >
-              <option value="admin">Admin</option>
-              <option value="super_admin">Super Admin</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Permissions
-            </label>
-            <div className="space-y-2">
-              {availablePermissions.map(perm => (
-                <label key={perm.id} className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.permissions.includes(perm.id)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setFormData({ 
-                          ...formData, 
-                          permissions: [...formData.permissions, perm.id] 
-                        });
-                      } else {
-                        setFormData({ 
-                          ...formData, 
-                          permissions: formData.permissions.filter(p => p !== perm.id) 
-                        });
-                      }
-                    }}
-                    className="w-4 h-4 bg-gray-800 border-gray-700 rounded text-yellow-400 focus:ring-yellow-400"
-                  />
-                  <span className="text-sm text-gray-300">{perm.label}</span>
+            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Wallet Address <span className="text-red-500">*</span>
                 </label>
-              ))}
+                <input
+                  type="text"
+                  value={formData.walletAddress}
+                  onChange={(e) =>
+                    setFormData({ ...formData, walletAddress: e.target.value })
+                  }
+                  disabled={showEditModal}
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                  placeholder="0x..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Admin Name"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="admin@example.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Permissions <span className="text-red-500">*</span>
+                </label>
+                <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-700 rounded-lg p-3 bg-gray-800">
+                  {AVAILABLE_PERMISSIONS.map((perm) => (
+                    <label
+                      key={perm.value}
+                      className="flex items-center p-2 hover:bg-gray-700 rounded cursor-pointer transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={formData.permissions.includes(perm.value)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFormData({
+                              ...formData,
+                              permissions: [
+                                ...formData.permissions,
+                                perm.value,
+                              ],
+                            });
+                          } else {
+                            setFormData({
+                              ...formData,
+                              permissions: formData.permissions.filter(
+                                (p) => p !== perm.value
+                              ),
+                            });
+                          }
+                        }}
+                        className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500"
+                      />
+                      <span className="ml-3 flex items-center gap-2">
+                        <span>{perm.icon}</span>
+                        <span className="text-gray-200">{perm.label}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-800 flex gap-3">
+              <button
+                onClick={
+                  showCreateModal ? handleCreateAdmin : handleUpdateAdmin
+                }
+                className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white py-2.5 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all font-medium"
+              >
+                {showCreateModal ? "Create Admin" : "Update Admin"}
+              </button>
+              <button
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setShowEditModal(false);
+                  setSelectedAdmin(null);
+                  setFormData({
+                    walletAddress: "",
+                    name: "",
+                    email: "",
+                    permissions: [],
+                  });
+                }}
+                className="flex-1 bg-gray-800 text-gray-300 py-2.5 rounded-lg hover:bg-gray-700 transition-all font-medium"
+              >
+                Cancel
+              </button>
             </div>
           </div>
+        </div>
+      )}
 
-          <div className="flex space-x-4 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex-1 px-4 py-2 bg-yellow-400 text-black rounded-lg hover:bg-yellow-300 transition-colors font-medium"
-            >
-              Save Changes
-            </button>
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && selectedAdmin && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-xl shadow-2xl w-full max-w-md transform transition-all">
+            <div className="p-6">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="p-3 bg-red-900/30 rounded-full">
+                  <AlertCircle className="w-6 h-6 text-red-400" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">Delete Admin</h3>
+                  <p className="text-gray-400 text-sm">
+                    This action cannot be undone
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-gray-300 mb-6">
+                Are you sure you want to delete{" "}
+                <span className="font-semibold text-white">
+                  {selectedAdmin.name}
+                </span>
+                ? They will lose all access to the admin panel.
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleDeleteAdmin}
+                  className="flex-1 bg-red-600 text-white py-2.5 rounded-lg hover:bg-red-700 transition-all font-medium"
+                >
+                  Delete Admin
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setSelectedAdmin(null);
+                  }}
+                  className="flex-1 bg-gray-800 text-gray-300 py-2.5 rounded-lg hover:bg-gray-700 transition-all font-medium"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
           </div>
-        </form>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

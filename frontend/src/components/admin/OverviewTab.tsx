@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { DashboardHeader } from '@/components/ui/DashboardHeader';
 import { DataTable, Column } from '@/components/ui/DataTable';
+import { RecentActivitySection } from './RecentActivitySection';
 
 interface PlatformStats {
   totalCustomers: number;
@@ -26,17 +27,6 @@ interface PlatformStats {
     name: string;
     totalTransactions: number;
   }>;
-}
-
-interface ActivityLog {
-  id: string | number;
-  timestamp?: string;
-  createdAt?: string;
-  adminAddress?: string;
-  action: string;
-  details?: string;
-  description?: string;
-  status?: 'success' | 'failed' | 'completed';
 }
 
 interface Transaction {
@@ -67,53 +57,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   loading,
   generateAdminToken
 }) => {
-  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
-  const [logsLoading, setLogsLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(true);
   const [transactionFilter, setTransactionFilter] = useState('all');
 
-  // Fetch activity logs
-  useEffect(() => {
-    const loadActivityLogs = async () => {
-      if (!generateAdminToken) {
-        return;
-      }
-
-      try {
-        setLogsLoading(true);
-        const adminToken = await generateAdminToken();
-        if (!adminToken) {
-          console.error('Authentication required');
-          return;
-        }
-
-        const headers = {
-          'Authorization': `Bearer ${adminToken}`,
-          'Content-Type': 'application/json',
-        };
-
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/analytics/activity-logs?limit=10`, { headers });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setActivityLogs(data.data?.logs || data.logs || []);
-        } else {
-          console.warn('Activity logs API failed:', await response.text());
-          setActivityLogs([]);
-        }
-      } catch (error) {
-        console.error('Error loading activity logs:', error);
-        setActivityLogs([]);
-      } finally {
-        setLogsLoading(false);
-      }
-    };
-
-    loadActivityLogs();
-    const interval = setInterval(loadActivityLogs, 60000); // Refresh every minute
-    return () => clearInterval(interval);
-  }, [generateAdminToken]);
 
   // Fetch transactions
   useEffect(() => {
@@ -166,6 +113,36 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           console.warn('Failed to load treasury data:', err);
         }
 
+        // Get recent customer rewards (mints)
+        try {
+          const customersResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/customers?limit=10&orderBy=last_earned_date&order=DESC`, { headers });
+          if (customersResponse.ok) {
+            const customerData = await customersResponse.json();
+            // Filter customers who have earned recently
+            customerData.data?.customers?.forEach((customer: any) => {
+              if (customer.lifetimeEarnings > 0 && customer.lastEarnedDate) {
+                transactionsData.push({
+                  id: `reward-${customer.id}`,
+                  shopId: customer.homeShopId || 'Unknown',
+                  shopName: customer.homeShopName || 'Unknown Shop',
+                  customerAddress: customer.address,
+                  customerName: `${customer.address.slice(0, 6)}...${customer.address.slice(-4)}`,
+                  type: 'mint',
+                  amount: customer.lastEarnedAmount || 10, // Default reward amount
+                  status: 'completed',
+                  createdAt: customer.lastEarnedDate,
+                  details: {
+                    tier: customer.tier,
+                    lifetimeEarnings: customer.lifetimeEarnings
+                  }
+                });
+              }
+            });
+          }
+        } catch (err) {
+          console.warn('Failed to load customer rewards data:', err);
+        }
+
         // Sort by date descending and take only latest 10
         transactionsData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setTransactions(transactionsData.slice(0, 10));
@@ -178,6 +155,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     };
 
     loadTransactions();
+    const interval = setInterval(loadTransactions, 60000); // Refresh every minute
+    return () => clearInterval(interval);
   }, [generateAdminToken]);
 
   if (loading) {
@@ -229,14 +208,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         />
       </div>
 
-      {/* Activity Logs Section */}
-      <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700/50">
-        <div className="px-6 py-4 border-b border-gray-700/50">
-          <h2 className="text-xl font-bold text-white">Recent Activity</h2>
-          <p className="text-gray-400 text-sm mt-1">Latest admin actions and system events</p>
-        </div>
-        <ActivityLogsTable logs={activityLogs} loading={logsLoading} />
-      </div>
+      {/* Recent Activity Section */}
+      <RecentActivitySection generateAdminToken={generateAdminToken} />
 
       {/* Recent Transactions Section */}
       <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700/50">
@@ -257,6 +230,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 <option value="mint">Token Mints</option>
                 <option value="redemption">Redemptions</option>
               </select>
+              <button 
+                onClick={() => window.location.href = '/admin?tab=treasury'}
+                className="px-3 py-1.5 bg-yellow-500/20 border border-yellow-500/50 rounded-lg text-sm text-yellow-400 hover:bg-yellow-500/30 transition-colors"
+              >
+                View Treasury →
+              </button>
             </div>
           </div>
         </div>
@@ -266,90 +245,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         />
       </div>
     </div>
-  );
-};
-
-// Activity Logs Table Component
-const ActivityLogsTable: React.FC<{ logs: ActivityLog[]; loading: boolean }> = ({ logs, loading }) => {
-  const columns: Column<ActivityLog>[] = [
-    {
-      key: 'time',
-      header: 'TIME',
-      accessor: (log) => (
-        <span className="text-sm text-gray-300">
-          {new Date(log.timestamp || log.createdAt || Date.now()).toLocaleString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })}
-        </span>
-      ),
-      sortable: true,
-      headerClassName: 'uppercase text-xs tracking-wider'
-    },
-    {
-      key: 'admin',
-      header: 'ADMIN',
-      accessor: (log) => (
-        <div className="text-sm text-gray-300 font-mono">
-          {log.adminAddress ? `${log.adminAddress.slice(0, 6)}...${log.adminAddress.slice(-4)}` : 'System'}
-        </div>
-      ),
-      headerClassName: 'uppercase text-xs tracking-wider'
-    },
-    {
-      key: 'action',
-      header: 'ACTION',
-      accessor: (log) => (
-        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-900/50 text-blue-400 border border-blue-700/50">
-          {log.action}
-        </span>
-      ),
-      sortable: true,
-      headerClassName: 'uppercase text-xs tracking-wider'
-    },
-    {
-      key: 'details',
-      header: 'DETAILS',
-      accessor: (log) => (
-        <span className="text-sm text-gray-300 block truncate max-w-md">
-          {log.details || log.description || '-'}
-        </span>
-      ),
-      headerClassName: 'uppercase text-xs tracking-wider'
-    },
-    {
-      key: 'status',
-      header: 'STATUS',
-      accessor: (log) => (
-        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-          log.status === 'success' 
-            ? 'bg-green-900/50 text-green-400 border border-green-700/50' 
-            : log.status === 'failed'
-            ? 'bg-red-900/50 text-red-400 border border-red-700/50'
-            : 'bg-gray-800/50 text-gray-400 border border-gray-700/50'
-        }`}>
-          {log.status || 'completed'}
-        </span>
-      ),
-      sortable: true,
-      headerClassName: 'uppercase text-xs tracking-wider'
-    }
-  ];
-
-  return (
-    <DataTable
-      data={logs}
-      columns={columns}
-      keyExtractor={(log) => String(log.id || Math.random())}
-      loading={loading}
-      loadingRows={3}
-      emptyMessage="No recent activity"
-      emptyIcon={<div className="text-4xl mb-2">📋</div>}
-      headerClassName="bg-gray-900/30"
-      className="text-gray-300"
-    />
   );
 };
 
@@ -392,12 +287,21 @@ const TransactionsTable: React.FC<{ transactions: Transaction[]; loading: boolea
       header: 'SHOP/CUSTOMER',
       accessor: (tx) => (
         <div className="text-sm">
-          <div className="text-gray-300 font-medium">
-            {tx.shopName || tx.customerName || 'Unknown'}
-          </div>
-          <div className="text-gray-500 text-xs">
-            {tx.shopId || (tx.customerAddress && `${tx.customerAddress.slice(0, 6)}...${tx.customerAddress.slice(-4)}`)}
-          </div>
+          {tx.type === 'purchase' ? (
+            <>
+              <div className="text-gray-300 font-medium">{tx.shopName || 'Unknown Shop'}</div>
+              <div className="text-gray-500 text-xs">{tx.shopId}</div>
+            </>
+          ) : (
+            <>
+              <div className="text-gray-300 font-medium">
+                Customer: {tx.customerAddress ? `${tx.customerAddress.slice(0, 6)}...${tx.customerAddress.slice(-4)}` : 'Unknown'}
+              </div>
+              <div className="text-gray-500 text-xs">
+                Shop: {tx.shopName || tx.shopId || 'Unknown'}
+              </div>
+            </>
+          )}
         </div>
       ),
       headerClassName: 'uppercase text-xs tracking-wider'

@@ -1,4 +1,4 @@
-// backend/src/services/AdminService.ts
+// backend/src/domains/admin/services/AdminService.ts
 import { 
   customerRepository, 
   shopRepository, 
@@ -10,6 +10,7 @@ import {
 import { TokenMinter } from '../../../contracts/TokenMinter';
 import { TierManager, CustomerData, TierLevel } from '../../../contracts/TierManager';
 import { logger } from '../../../utils/logger';
+import { eventBus, createDomainEvent } from '../../../events/EventBus';
 
 export interface AdminStats {
   totalCustomers: number;
@@ -298,6 +299,18 @@ export class AdminService {
         active: true,
         lastActivity: new Date().toISOString()
       });
+
+      // Publish event for shop approval
+      await eventBus.publish(createDomainEvent(
+        'shop.approved',
+        shopId,
+        {
+          shopId,
+          shopName: shop.name,
+          approvedBy: adminAddress
+        },
+        'AdminService'
+      ));
 
       logger.info('Shop approved', {
         shopId,
@@ -682,37 +695,80 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
     }
   }
 
-  async createAdmin(adminData: { walletAddress: string; name?: string; email?: string; permissions: string[] }) {
+  async createAdmin(adminData: { walletAddress: string; name?: string; email?: string; permissions: string[], createdBy?: string }) {
     try {
       logger.info('Creating new admin', { walletAddress: adminData.walletAddress });
 
-      // Note: For now, admin management is done via .env file
-      // In a real system, you'd probably have an admins table
-      // This is a placeholder implementation
-
-      // Check if address is already an admin
-      const currentAdmins = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
-      if (currentAdmins.includes(adminData.walletAddress.toLowerCase())) {
+      // Check if address is already an admin in database
+      const existingAdmin = await adminRepository.getAdmin(adminData.walletAddress);
+      if (existingAdmin) {
         throw new Error('Address is already an admin');
       }
 
-      // In a real implementation, you would:
-      // 1. Store admin in database table
-      // 2. Update environment configuration
-      // 3. Notify other services of new admin
+      // Check if address is already an admin in environment variables (legacy check)
+      const envAdmins = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
+      if (envAdmins.includes(adminData.walletAddress.toLowerCase())) {
+        // Migrate this admin from env to database
+        logger.info('Migrating admin from environment variables to database', { 
+          walletAddress: adminData.walletAddress 
+        });
+      }
 
-      logger.warn('Admin creation requested but not fully implemented', {
-        note: 'Currently admins are managed via ADMIN_ADDRESSES environment variable',
-        requestedAdmin: adminData
+      // Store admin in database
+      const newAdmin = await adminRepository.createAdmin({
+        walletAddress: adminData.walletAddress,
+        name: adminData.name,
+        email: adminData.email,
+        permissions: adminData.permissions,
+        isSuperAdmin: false,
+        createdBy: adminData.createdBy
+      });
+
+      // Log the admin creation activity
+      await adminRepository.logAdminActivity({
+        adminAddress: adminData.createdBy || 'system',
+        actionType: 'admin_creation',
+        actionDescription: `Created new admin: ${adminData.name || adminData.walletAddress}`,
+        entityType: 'admin',
+        entityId: adminData.walletAddress,
+        metadata: {
+          name: adminData.name,
+          email: adminData.email,
+          permissions: adminData.permissions
+        }
+      });
+
+      // Notify other services of new admin via event bus
+      await eventBus.publish(createDomainEvent(
+        'admin.created',
+        newAdmin.walletAddress,
+        {
+          adminId: newAdmin.id,
+          walletAddress: newAdmin.walletAddress,
+          name: newAdmin.name,
+          email: newAdmin.email,
+          permissions: newAdmin.permissions,
+          createdBy: adminData.createdBy
+        },
+        'AdminService'
+      ));
+
+      logger.info('Admin successfully created in database and event published', {
+        walletAddress: adminData.walletAddress,
+        name: adminData.name
       });
 
       return {
         success: true,
-        message: 'Admin creation logged. Please manually add the address to ADMIN_ADDRESSES environment variable.',
+        message: 'Admin created successfully',
         admin: {
-          walletAddress: adminData.walletAddress,
-          name: adminData.name,
-          permissions: adminData.permissions
+          id: newAdmin.id,
+          walletAddress: newAdmin.walletAddress,
+          name: newAdmin.name,
+          email: newAdmin.email,
+          permissions: newAdmin.permissions,
+          isActive: newAdmin.isActive,
+          isSuperAdmin: newAdmin.isSuperAdmin
         }
       };
     } catch (error) {
@@ -1112,6 +1168,241 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
       };
     } catch (error) {
       logger.error('Error rejecting unsuspend request:', error);
+      throw error;
+    }
+  }
+
+  async getAdmins() {
+    try {
+      const admins = await adminRepository.getAllAdmins();
+      
+      // Filter out inactive admins unless specifically requested
+      const activeAdmins = admins.filter(admin => admin.isActive);
+      
+      return {
+        success: true,
+        admins: activeAdmins,
+        count: activeAdmins.length
+      };
+    } catch (error) {
+      logger.error('Error getting admins:', error);
+      throw new Error('Failed to retrieve admins');
+    }
+  }
+
+  async updateAdminPermissions(walletAddress: string, permissions: string[], updatedBy?: string) {
+    try {
+      const admin = await adminRepository.getAdmin(walletAddress);
+      if (!admin) {
+        throw new Error('Admin not found');
+      }
+
+      const updatedAdmin = await adminRepository.updateAdmin(walletAddress, {
+        permissions
+      });
+
+      // Log the activity
+      await adminRepository.logAdminActivity({
+        adminAddress: updatedBy || 'system',
+        actionType: 'admin_permissions_update',
+        actionDescription: `Updated permissions for admin ${admin.name || walletAddress}`,
+        entityType: 'admin',
+        entityId: walletAddress,
+        metadata: {
+          oldPermissions: admin.permissions,
+          newPermissions: permissions
+        }
+      });
+
+      // Publish event for permission update
+      await eventBus.publish(createDomainEvent(
+        'admin.permissions_updated',
+        walletAddress,
+        {
+          adminId: admin.id,
+          walletAddress,
+          oldPermissions: admin.permissions,
+          newPermissions: permissions,
+          updatedBy
+        },
+        'AdminService'
+      ));
+
+      logger.info('Admin permissions updated', {
+        walletAddress,
+        permissions,
+        updatedBy
+      });
+
+      return {
+        success: true,
+        message: 'Admin permissions updated successfully',
+        admin: updatedAdmin
+      };
+    } catch (error) {
+      logger.error('Error updating admin permissions:', error);
+      throw error;
+    }
+  }
+
+  async checkAdminAccess(walletAddress: string): Promise<boolean> {
+    try {
+      // Check if adminRepository is available and has the required method
+      if (adminRepository && typeof adminRepository.isAdmin === 'function') {
+        // First check database
+        const isDbAdmin = await adminRepository.isAdmin(walletAddress);
+        if (isDbAdmin) {
+          // Update last login time
+          await adminRepository.updateAdminLastLogin(walletAddress);
+          return true;
+        }
+
+        // Check if this is the super admin from .env (first address in ADMIN_ADDRESSES)
+        const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
+        const superAdminAddress = adminAddresses[0]; // First address is super admin
+        const isSuperAdmin = superAdminAddress === walletAddress.toLowerCase();
+        
+        if (isSuperAdmin && typeof adminRepository.createAdmin === 'function') {
+          // Auto-migrate super admin to database if not exists
+          logger.info('Auto-migrating super admin from environment to database', { walletAddress });
+          try {
+            await adminRepository.createAdmin({
+              walletAddress,
+              name: 'Super Administrator',
+              permissions: ['all'],
+              isSuperAdmin: true,
+              createdBy: 'system'
+            });
+          } catch (migrationError: any) {
+            // Admin might already exist, just log and continue
+            logger.debug('Super admin migration skipped (may already exist)', { 
+              walletAddress,
+              error: migrationError.message 
+            });
+          }
+        }
+        
+        return isSuperAdmin;
+      } else {
+        // Fallback to env check if adminRepository not available
+        logger.warn('AdminRepository not available, falling back to env check');
+        const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
+        const superAdminAddress = adminAddresses[0]; // First address is super admin
+        return superAdminAddress === walletAddress.toLowerCase();
+      }
+    } catch (error) {
+      logger.error('Error checking admin access:', error);
+      // In case of database error, fallback to env check
+      const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
+      const superAdminAddress = adminAddresses[0]; // First address is super admin
+      return superAdminAddress === walletAddress.toLowerCase();
+    }
+  }
+
+  // Admin Management Methods
+  
+  async getAllAdmins() {
+    try {
+      return await adminRepository.getAllAdmins();
+    } catch (error) {
+      logger.error('Error getting all admins:', error);
+      throw error;
+    }
+  }
+
+  async getAdminById(adminId: string) {
+    try {
+      // AdminRepository doesn't have getAdminById, need to get all and filter
+      const admins = await adminRepository.getAllAdmins();
+      return admins.find(a => a.id.toString() === adminId) || null;
+    } catch (error) {
+      logger.error('Error getting admin by ID:', error);
+      throw error;
+    }
+  }
+
+  async getAdminByWalletAddress(walletAddress: string) {
+    try {
+      return await adminRepository.getAdminByWalletAddress(walletAddress);
+    } catch (error) {
+      logger.error('Error getting admin by wallet address:', error);
+      throw error;
+    }
+  }
+
+  async updateAdmin(adminId: string, updateData: any) {
+    try {
+      // Get the admin first to get their wallet address
+      const admin = await this.getAdminById(adminId);
+      if (!admin) {
+        throw new Error('Admin not found');
+      }
+      
+      // Prevent updating super admin flag for env super admin
+      const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
+      if (admin?.walletAddress?.toLowerCase() === adminAddresses[0]) {
+        delete updateData.isSuperAdmin;
+      }
+      
+      // AdminRepository.updateAdmin expects walletAddress, not adminId
+      return await adminRepository.updateAdmin(admin.walletAddress, updateData);
+    } catch (error) {
+      logger.error('Error updating admin:', error);
+      throw error;
+    }
+  }
+
+  async deleteAdmin(adminId: string) {
+    try {
+      // Prevent deletion of super admin from env
+      const admin = await this.getAdminById(adminId);
+      if (!admin) {
+        throw new Error('Admin not found');
+      }
+      
+      const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
+      if (admin?.walletAddress?.toLowerCase() === adminAddresses[0]) {
+        throw new Error('Cannot delete the primary super admin');
+      }
+      
+      // AdminRepository.deleteAdmin expects walletAddress, not adminId
+      return await adminRepository.deleteAdmin(admin.walletAddress);
+    } catch (error) {
+      logger.error('Error deleting admin:', error);
+      throw error;
+    }
+  }
+
+  async getAdminProfile(walletAddress: string) {
+    try {
+      // First check if this is the super admin from .env
+      const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
+      const isSuperAdminFromEnv = adminAddresses[0] === walletAddress.toLowerCase();
+      
+      if (isSuperAdminFromEnv) {
+        // Return super admin profile even if not in database
+        return {
+          id: 0,
+          walletAddress: adminAddresses[0],
+          name: 'Super Admin',
+          email: null,
+          permissions: ['*'], // All permissions
+          isActive: true,
+          isSuperAdmin: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+      }
+      
+      // Get admin from database
+      const admin = await this.getAdminByWalletAddress(walletAddress);
+      if (!admin) {
+        throw new Error('Admin not found');
+      }
+      
+      return admin;
+    } catch (error) {
+      logger.error('Error getting admin profile:', error);
       throw error;
     }
   }

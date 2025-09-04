@@ -21,14 +21,6 @@ export class Config {
     };
   }
 
-  static get thirdweb() {
-    return {
-      clientId: process.env.THIRDWEB_CLIENT_ID,
-      secretKey: process.env.THIRDWEB_SECRET_KEY,
-      contractAddress: process.env.REPAIRCOIN_CONTRACT_ADDRESS
-    };
-  }
-
   static get server() {
     return {
       port: parseInt(process.env.PORT || '3000'),
