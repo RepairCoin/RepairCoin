@@ -99,7 +99,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
   generateAdminToken,
 }) => {
   const [viewMode, setViewMode] = useState<
-    "all" | "active" | "pending" | "rejected"
+    "all" | "active" | "pending" | "rejected" | "unsuspend-requests"
   >("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [editModal, setEditModal] = useState<{
@@ -119,6 +119,127 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     action: 'approve' | 'reject';
   }>({ isOpen: false, shop: null, action: 'approve' });
   const [unsuspendNotes, setUnsuspendNotes] = useState('');
+  
+  // Dummy data for shop unsuspend requests - remove in production
+  const dummyShopUnsuspendRequests = [
+    {
+      id: 'req-002',
+      entityType: 'shop',
+      entityId: 'SHOP-123',
+      entityDetails: {
+        name: 'Premium Auto Repair',
+        shopId: 'SHOP-123',
+        email: 'contact@premiumauto.com',
+        walletAddress: '0x7890abcdef1234567890abcdef1234567890abcd'
+      },
+      requestReason: 'Our shop license has been renewed and all compliance issues have been resolved. Documentation attached.',
+      createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
+      status: 'pending'
+    },
+    {
+      id: 'req-005',
+      entityType: 'shop',
+      entityId: 'SHOP-456',
+      entityDetails: {
+        name: 'Quick Fix Garage',
+        shopId: 'SHOP-456',
+        email: 'info@quickfix.com',
+        walletAddress: '0xfedcba9876543210fedcba9876543210fedcba98'
+      },
+      requestReason: 'New management has taken over. All previous violations have been addressed with new policies in place.',
+      createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
+      status: 'pending'
+    },
+    {
+      id: 'req-006',
+      entityType: 'shop',
+      entityId: 'SHOP-789',
+      entityDetails: {
+        name: 'Elite Motors Service',
+        shopId: 'SHOP-789',
+        email: 'support@elitemotors.com',
+        walletAddress: '0xabcdef0123456789abcdef0123456789abcdef01'
+      },
+      requestReason: 'Technical issues with our wallet have been resolved. We can now process transactions properly.',
+      createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
+      status: 'pending'
+    }
+  ];
+  
+  const [shopUnsuspendRequests, setShopUnsuspendRequests] = useState<any[]>(dummyShopUnsuspendRequests);
+
+  // Fetch unsuspend requests for shops
+  const fetchShopUnsuspendRequests = async () => {
+    if (!generateAdminToken) return;
+    
+    try {
+      const adminToken = await generateAdminToken();
+      if (!adminToken) {
+        toast.error("Failed to authenticate as admin");
+        return;
+      }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/unsuspend-requests?status=pending&entityType=shop`,
+        {
+          headers: {
+            Authorization: `Bearer ${adminToken}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        // Filter to only show shop requests
+        const shopRequests = (result.data?.requests || []).filter(
+          (req: any) => req.entityType === 'shop'
+        );
+        setShopUnsuspendRequests(shopRequests);
+      }
+    } catch (error) {
+      console.error("Error loading shop unsuspend requests:", error);
+    }
+  };
+
+  // Process unsuspend request
+  const processShopUnsuspendRequest = async (requestId: string, action: 'approve' | 'reject', notes: string = '') => {
+    if (!generateAdminToken) return;
+    
+    try {
+      const adminToken = await generateAdminToken();
+      if (!adminToken) {
+        toast.error("Failed to authenticate as admin");
+        return;
+      }
+
+      const endpoint = action === 'approve' 
+        ? `/admin/unsuspend-requests/${requestId}/approve`
+        : `/admin/unsuspend-requests/${requestId}/reject`;
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}${endpoint}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${adminToken}`,
+          },
+          body: JSON.stringify({ notes }),
+        }
+      );
+
+      if (response.ok) {
+        toast.success(`Request ${action}d successfully`);
+        fetchShopUnsuspendRequests();
+        onRefresh();
+      } else {
+        toast.error(`Failed to ${action} request`);
+      }
+    } catch (error) {
+      console.error(`Error ${action}ing request:`, error);
+      toast.error(`Failed to ${action} request`);
+    }
+  };
 
   // Close dropdown when clicking outside
   React.useEffect(() => {
@@ -134,6 +255,12 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [showFilterDropdown]);
+
+  // Load unsuspend requests on mount
+  React.useEffect(() => {
+    // Commented out for dummy data preview - uncomment in production
+    // fetchShopUnsuspendRequests();
+  }, []);
 
   // Combine all shops for unified view
   const allShops = [
@@ -728,15 +855,16 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
               >
                 <Filter className="w-5 h-5" />
                 <span className="hidden sm:inline capitalize">
-                  {viewMode === 'all' ? 'All' : viewMode}
+                  {viewMode === 'all' ? 'All' : 
+                   viewMode === 'unsuspend-requests' ? 'Unsuspend Requests' : viewMode}
                 </span>
                 <ChevronDown className={`w-4 h-4 transition-transform ${showFilterDropdown ? 'rotate-180' : ''}`} />
               </button>
               
               {/* Dropdown Menu */}
               {showFilterDropdown && (
-                <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-10">
-                  {(['all', 'active', 'pending', 'rejected'] as const).map((mode) => (
+                <div className="absolute right-0 mt-2 w-56 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-10">
+                  {(['all', 'active', 'pending', 'rejected', 'unsuspend-requests'] as const).map((mode, index, array) => (
                     <button
                       key={mode}
                       onClick={() => {
@@ -746,11 +874,12 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                       className={`w-full px-4 py-2 text-left hover:bg-gray-700 transition-colors flex items-center justify-between ${
                         viewMode === mode ? 'text-yellow-400 bg-gray-700/50' : 'text-gray-300'
                       } ${
-                        mode === 'all' ? 'rounded-t-lg' : mode === 'rejected' ? 'rounded-b-lg' : ''
+                        index === 0 ? 'rounded-t-lg' : index === array.length - 1 ? 'rounded-b-lg' : ''
                       }`}
                     >
                       <span className="capitalize">
-                        {mode === 'all' ? 'All Shops' : mode}
+                        {mode === 'all' ? 'All Shops' : 
+                         mode === 'unsuspend-requests' ? 'Unsuspend Requests' : mode}
                       </span>
                       {mode !== 'all' && (
                         <span className="text-xs text-gray-500">
@@ -758,7 +887,11 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                             ? stats.active
                             : mode === 'pending'
                             ? stats.pending
-                            : stats.rejected}
+                            : mode === 'rejected'
+                            ? stats.rejected
+                            : mode === 'unsuspend-requests'
+                            ? shopUnsuspendRequests.length
+                            : 0}
                         </span>
                       )}
                     </button>
@@ -778,17 +911,111 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
           </div>
         </div>
 
-        {/* Shop List - DataTable */}
+        {/* Shop List - DataTable or Unsuspend Requests Table */}
         <div className="p-6">
-          <DataTable
-            data={filteredShops}
-            columns={columns}
-            keyExtractor={(shop) => shop.shopId || shop.shop_id || ""}
-            expandable={true}
-            renderExpandedContent={renderExpandedContent}
-            emptyMessage="No shops found matching your criteria"
-            emptyIcon={<AlertCircle className="w-12 h-12 text-gray-500 mx-auto mb-4" />}
-          />
+          {viewMode === "unsuspend-requests" ? (
+            // Unsuspend Requests Table
+            <div className="space-y-4">
+              {shopUnsuspendRequests.length === 0 ? (
+                <div className="text-center py-12">
+                  <AlertCircle className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+                  <p className="text-gray-400 text-lg">No pending shop unsuspend requests</p>
+                </div>
+              ) : (
+                <div className="bg-gray-900/50 rounded-xl border border-gray-700/50">
+                  <table className="min-w-full divide-y divide-gray-700">
+                    <thead className="bg-gray-800/50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                          Shop Details
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                          Request Reason
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                          Submitted
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-gray-900/30 divide-y divide-gray-700">
+                      {shopUnsuspendRequests.map((request: any) => (
+                        <tr key={request.id}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm">
+                              {request.entityDetails ? (
+                                <>
+                                  <div className="font-medium text-gray-200">{request.entityDetails.name || 'N/A'}</div>
+                                  <div className="text-gray-400 text-xs">
+                                    Shop ID: {request.entityDetails.shopId}
+                                  </div>
+                                  {request.entityDetails.email && (
+                                    <div className="text-gray-500 text-xs">{request.entityDetails.email}</div>
+                                  )}
+                                  {request.entityDetails.walletAddress && (
+                                    <div className="text-gray-500 text-xs font-mono">
+                                      {request.entityDetails.walletAddress.slice(0, 6)}...{request.entityDetails.walletAddress.slice(-4)}
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                <div className="text-gray-500">No details available</div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-gray-300 max-w-xs">
+                              {request.requestReason || request.reason}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                            {new Date(request.createdAt || request.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button
+                              onClick={() => {
+                                const confirmApprove = confirm(`Approve unsuspend request for ${request.entityDetails?.name || request.entityId}?`);
+                                if (confirmApprove) {
+                                  processShopUnsuspendRequest(request.id, 'approve');
+                                }
+                              }}
+                              className="text-green-400 hover:text-green-300 mr-4 transition-colors"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => {
+                                const notes = prompt('Rejection reason (optional):');
+                                if (notes !== null) {
+                                  processShopUnsuspendRequest(request.id, 'reject', notes);
+                                }
+                              }}
+                              className="text-red-400 hover:text-red-300 transition-colors"
+                            >
+                              Reject
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ) : (
+            // Regular Shop List
+            <DataTable
+              data={filteredShops}
+              columns={columns}
+              keyExtractor={(shop) => shop.shopId || shop.shop_id || ""}
+              expandable={true}
+              renderExpandedContent={renderExpandedContent}
+              emptyMessage="No shops found matching your criteria"
+              emptyIcon={<AlertCircle className="w-12 h-12 text-gray-500 mx-auto mb-4" />}
+            />
+          )}
         </div>
       </div>
 

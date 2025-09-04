@@ -87,7 +87,7 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
   const [data, setData] = useState<GroupedCustomersData | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedShops, setExpandedShops] = useState<Set<string>>(new Set());
-  const [viewMode, setViewMode] = useState<"grouped" | "all" | "no-shop">(
+  const [viewMode, setViewMode] = useState<"grouped" | "all" | "no-shop" | "unsuspend-requests">(
     "grouped"
   );
   const [displayMode] = useState<"table" | "grid">("table");
@@ -108,6 +108,52 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
     action: 'approve' | 'reject';
   }>({ isOpen: false, customer: null, action: 'approve' });
   const [unsuspendNotes, setUnsuspendNotes] = useState('');
+  
+  // Dummy data for preview - remove this in production
+  const dummyCustomerUnsuspendRequests = [
+    {
+      id: 'req-001',
+      entityType: 'customer',
+      entityId: '0x1234...5678',
+      entityDetails: {
+        name: 'John Smith',
+        address: '0x1234567890abcdef1234567890abcdef12345678',
+        email: 'john.smith@email.com'
+      },
+      requestReason: 'I was suspended by mistake. I have completed all required repairs and maintained good standing for 6 months.',
+      createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
+      status: 'pending'
+    },
+    {
+      id: 'req-003',
+      entityType: 'customer',
+      entityId: '0xabcd...ef01',
+      entityDetails: {
+        name: 'Sarah Johnson',
+        address: '0xabcdef1234567890abcdef1234567890abcdef12',
+        email: 'sarah.j@email.com'
+      },
+      requestReason: 'Account was compromised and used fraudulently. I have secured my wallet and changed all credentials.',
+      createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
+      status: 'pending'
+    },
+    {
+      id: 'req-004',
+      entityType: 'customer',
+      entityId: '0x9876...5432',
+      entityDetails: {
+        name: 'Michael Chen',
+        address: '0x9876543210fedcba9876543210fedcba98765432',
+        email: 'mchen@email.com'
+      },
+      requestReason: 'Temporary suspension due to payment issue has been resolved. Bank confirmation provided.',
+      createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
+      status: 'pending'
+    }
+  ];
+  
+  // Filter to only show customer requests
+  const [unsuspendRequests, setUnsuspendRequests] = useState<any[]>(dummyCustomerUnsuspendRequests);
 
   // Define table columns for customers
   const customerColumns: Column<Customer>[] = [
@@ -326,7 +372,78 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
 
   useEffect(() => {
     loadCustomersData();
+    // Commented out for dummy data preview - uncomment in production
+    // fetchUnsuspendRequests();
   }, []);
+
+  const fetchUnsuspendRequests = async () => {
+    try {
+      const adminToken = await generateAdminToken();
+      if (!adminToken) {
+        toast.error("Failed to authenticate as admin");
+        return;
+      }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/unsuspend-requests?status=pending&entityType=customer`,
+        {
+          headers: {
+            Authorization: `Bearer ${adminToken}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        // Filter to only show customer requests
+        const customerRequests = (result.data?.requests || []).filter(
+          (req: any) => req.entityType === 'customer'
+        );
+        setUnsuspendRequests(customerRequests);
+      } else {
+        console.error("Failed to load unsuspend requests");
+      }
+    } catch (error) {
+      console.error("Error loading unsuspend requests:", error);
+    }
+  };
+
+  const processUnsuspendRequest = async (requestId: string, action: 'approve' | 'reject', notes: string = '') => {
+    try {
+      const adminToken = await generateAdminToken();
+      if (!adminToken) {
+        toast.error("Failed to authenticate as admin");
+        return;
+      }
+
+      const endpoint = action === 'approve' 
+        ? `/admin/unsuspend-requests/${requestId}/approve`
+        : `/admin/unsuspend-requests/${requestId}/reject`;
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}${endpoint}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${adminToken}`,
+          },
+          body: JSON.stringify({ notes }),
+        }
+      );
+
+      if (response.ok) {
+        toast.success(`Request ${action}d successfully`);
+        fetchUnsuspendRequests();
+        loadCustomersData();
+      } else {
+        toast.error(`Failed to ${action} request`);
+      }
+    } catch (error) {
+      console.error(`Error ${action}ing request:`, error);
+      toast.error(`Failed to ${action} request`);
+    }
+  };
 
   const loadCustomersData = async () => {
     setLoading(true);
@@ -575,6 +692,17 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                 <Grid3X3 className="w-4 h-4 inline mr-2" />
                 All Customers
               </button>
+              <button
+                onClick={() => setViewMode("unsuspend-requests")}
+                className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                  viewMode === "unsuspend-requests"
+                    ? "bg-yellow-500 text-gray-900"
+                    : "bg-gray-700/50 text-gray-300 hover:bg-gray-600"
+                }`}
+              >
+                <AlertCircle className="w-4 h-4 inline mr-2" />
+                Customer Unsuspend Requests
+              </button>
             </div>
             {/* <button
               onClick={exportToCSV}
@@ -759,6 +887,95 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                 emptyMessage="All customers have shop activity"
               />
             ))}
+
+          {viewMode === "unsuspend-requests" && (
+            <div className="space-y-4">
+              {unsuspendRequests.length === 0 ? (
+                <div className="text-center py-12">
+                  <AlertCircle className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+                  <p className="text-gray-400 text-lg">No pending unsuspend requests</p>
+                </div>
+              ) : (
+                <div className="bg-gray-900/50 rounded-xl border border-gray-700/50">
+                  <table className="min-w-full divide-y divide-gray-700">
+                    <thead className="bg-gray-800/50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                          Customer Details
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                          Request Reason
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                          Submitted
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-gray-900/30 divide-y divide-gray-700">
+                      {unsuspendRequests.map((request: any) => (
+                        <tr key={request.id}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm">
+                              {request.entityDetails ? (
+                                <>
+                                  <div className="font-medium text-gray-200">{request.entityDetails.name || 'N/A'}</div>
+                                  <div className="text-gray-400 text-xs">
+                                    {request.entityType === 'customer' 
+                                      ? request.entityDetails.address 
+                                      : request.entityDetails.shopId}
+                                  </div>
+                                  {request.entityDetails.email && (
+                                    <div className="text-gray-500 text-xs">{request.entityDetails.email}</div>
+                                  )}
+                                </>
+                              ) : (
+                                <div className="text-gray-500">No details available</div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-gray-300 max-w-xs">
+                              {request.requestReason || request.reason}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                            {new Date(request.createdAt || request.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button
+                              onClick={() => {
+                                const confirmApprove = confirm(`Approve unsuspend request for ${request.entityDetails?.name || request.entityId}?`);
+                                if (confirmApprove) {
+                                  processUnsuspendRequest(request.id, 'approve');
+                                }
+                              }}
+                              className="text-green-400 hover:text-green-300 mr-4"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => {
+                                const notes = prompt('Rejection reason (optional):');
+                                if (notes !== null) {
+                                  processUnsuspendRequest(request.id, 'reject', notes);
+                                }
+                              }}
+                              className="text-red-400 hover:text-red-300"
+                            >
+                              Reject
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
