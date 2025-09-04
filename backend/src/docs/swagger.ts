@@ -8,17 +8,20 @@ const options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'RepairCoin API',
-      version: '1.0.0',
+      title: 'RepairCoin API v3.0',
+      version: '3.0.0',
       description: `
-        RepairCoin loyalty token system API.
+        RepairCoin v3.0 loyalty token system API with dual-token model (RCN utility + RCG governance).
         
         This API enables:
-        - Customer registration and management
-        - Token minting for repairs and referrals
-        - Shop registration and management
+        - Customer registration and management with tier system
+        - Token minting for repairs and referrals (unlimited supply with burn mechanism)
+        - Shop registration, verification, and RCN balance management
+        - Cross-shop network with redemption verification
+        - Referral system with automated rewards
+        - Admin operations, analytics, and treasury management
         - Webhook processing for external integrations
-        - Admin operations and analytics
+        - Redemption sessions for secure customer-approved transactions
       `,
       contact: {
         name: 'RepairCoin Team',
@@ -93,13 +96,55 @@ const options = {
               description: 'Total tokens earned lifetime',
               example: 150.50
             },
+            referralCode: {
+              type: 'string',
+              description: 'Unique referral code',
+              example: 'JOHN123'
+            },
+            referralCount: {
+              type: 'number',
+              description: 'Number of successful referrals',
+              example: 5
+            },
+            dailyEarnings: {
+              type: 'number',
+              description: 'Tokens earned today',
+              example: 25
+            },
+            monthlyEarnings: {
+              type: 'number',
+              description: 'Tokens earned this month',
+              example: 100
+            },
+            lastEarnedDate: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Last date tokens were earned',
+              example: '2025-09-04T12:00:00Z'
+            },
+            joinDate: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Registration date',
+              example: '2025-01-01T00:00:00Z'
+            },
             isActive: {
               type: 'boolean',
               description: 'Whether customer account is active',
               example: true
+            },
+            isSuspended: {
+              type: 'boolean',
+              description: 'Whether customer is suspended',
+              example: false
+            },
+            suspensionReason: {
+              type: 'string',
+              description: 'Reason for suspension if applicable',
+              example: null
             }
           },
-          required: ['address', 'tier', 'lifetimeEarnings', 'isActive']
+          required: ['address']
         },
         
         // Shop schemas
@@ -111,41 +156,160 @@ const options = {
               description: 'Unique shop identifier',
               example: 'shop001'
             },
-            name: {
+            companyName: {
               type: 'string',
-              description: 'Shop name',
-              example: 'Tech Repair Pro'
+              description: 'Shop company name',
+              example: 'Joe\'s Auto Repair'
+            },
+            ownerName: {
+              type: 'string',
+              description: 'Shop owner full name',
+              example: 'Joe Smith'
             },
             address: {
               type: 'string',
-              description: 'Physical shop address',
-              example: '123 Main St, Anytown, ST 12345'
-            },
-            walletAddress: {
-              type: 'string',
               pattern: '^0x[a-fA-F0-9]{40}$',
               description: 'Shop wallet address',
-              example: '0x7890123456789012345678901234567890123456'
+              example: '0x1234567890123456789012345678901234567890'
             },
-            verified: {
+            reimbursementAddress: {
+              type: 'string',
+              pattern: '^0x[a-fA-F0-9]{40}$',
+              description: 'Address for RCN reimbursements',
+              example: '0x1234567890123456789012345678901234567890'
+            },
+            email: {
+              type: 'string',
+              format: 'email',
+              description: 'Shop contact email',
+              example: 'contact@joesautorepair.com'
+            },
+            phone: {
+              type: 'string',
+              description: 'Shop contact phone',
+              example: '+1234567890'
+            },
+            website: {
+              type: 'string',
+              format: 'url',
+              description: 'Shop website URL',
+              example: 'https://joesautorepair.com'
+            },
+            role: {
+              type: 'string',
+              enum: ['Owner', 'Manager', 'Employee'],
+              description: 'Contact person role',
+              example: 'Owner'
+            },
+            companySize: {
+              type: 'string',
+              enum: ['1-10', '11-50', '51-100', '100+'],
+              description: 'Number of employees',
+              example: '11-50'
+            },
+            monthlyRevenue: {
+              type: 'string',
+              enum: ['<$10k', '$10k-$50k', '$50k-$100k', '$100k+'],
+              description: 'Monthly revenue range',
+              example: '$50k-$100k'
+            },
+            referralBy: {
+              type: 'string',
+              description: 'Who referred this shop',
+              example: 'Current Customer'
+            },
+            streetAddress: {
+              type: 'string',
+              description: 'Shop street address',
+              example: '123 Main St'
+            },
+            city: {
+              type: 'string',
+              description: 'Shop city',
+              example: 'San Francisco'
+            },
+            country: {
+              type: 'string',
+              description: 'Shop country',
+              example: 'USA'
+            },
+            isVerified: {
               type: 'boolean',
-              description: 'Whether shop is verified by admin',
+              description: 'Shop verification status',
               example: true
             },
-            active: {
+            isActive: {
               type: 'boolean',
-              description: 'Whether shop is active',
+              description: 'Shop active status',
               example: true
             },
-            crossShopEnabled: {
+            isCrossShopEnabled: {
               type: 'boolean',
-              description: 'Whether cross-shop redemption is enabled',
-              example: false
+              description: 'Whether shop accepts cross-shop redemptions',
+              example: true
+            },
+            rcnBalance: {
+              type: 'number',
+              description: 'Shop\'s purchased RCN balance',
+              example: 10000
+            },
+            totalIssuedRewards: {
+              type: 'number',
+              description: 'Total RCN rewards issued to customers',
+              example: 2500
+            },
+            joinDate: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Shop registration date',
+              example: '2025-01-01T00:00:00Z'
             }
           },
-          required: ['shopId', 'name', 'address', 'walletAddress']
+          required: ['shopId', 'companyName', 'address', 'email']
         },
-        
+
+        // Token schemas
+        TokenStats: {
+          type: 'object',
+          properties: {
+            totalSupply: {
+              type: 'string',
+              description: 'Total RCN token supply (unlimited)',
+              example: '1000000000000000000000'
+            },
+            totalMinted: {
+              type: 'number',
+              description: 'Total tokens minted to date',
+              example: 500000
+            },
+            totalBurned: {
+              type: 'number',
+              description: 'Total tokens burned to date',
+              example: 50000
+            },
+            circulatingSupply: {
+              type: 'number',
+              description: 'Current circulating supply',
+              example: 450000
+            },
+            totalCustomers: {
+              type: 'number',
+              description: 'Total registered customers',
+              example: 1200
+            },
+            totalShops: {
+              type: 'number',
+              description: 'Total verified shops',
+              example: 50
+            },
+            totalTransactions: {
+              type: 'number',
+              description: 'Total transactions processed',
+              example: 5000
+            }
+          }
+        },
+
         // Transaction schemas
         Transaction: {
           type: 'object',
@@ -153,13 +317,18 @@ const options = {
             id: {
               type: 'string',
               description: 'Transaction ID',
-              example: 'repair_1234567890'
+              example: 'txn_123456'
             },
             type: {
               type: 'string',
-              enum: ['mint', 'redeem', 'transfer'],
+              enum: ['repair_reward', 'referral_reward', 'tier_bonus', 'redemption', 'shop_purchase', 'admin_mint', 'burn'],
               description: 'Transaction type',
-              example: 'mint'
+              example: 'repair_reward'
+            },
+            amount: {
+              type: 'number',
+              description: 'Transaction amount in RCN',
+              example: 25
             },
             customerAddress: {
               type: 'string',
@@ -169,199 +338,173 @@ const options = {
             },
             shopId: {
               type: 'string',
-              description: 'Shop identifier',
+              description: 'Shop ID if applicable',
+              example: 'shop001'
+            },
+            txHash: {
+              type: 'string',
+              description: 'Blockchain transaction hash',
+              example: '0xabc123...'
+            },
+            status: {
+              type: 'string',
+              enum: ['pending', 'completed', 'failed'],
+              description: 'Transaction status',
+              example: 'completed'
+            },
+            metadata: {
+              type: 'object',
+              description: 'Additional transaction data',
+              additionalProperties: true
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Transaction creation time',
+              example: '2025-09-04T12:00:00Z'
+            }
+          }
+        },
+
+        // Referral schemas
+        Referral: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'string',
+              description: 'Referral ID',
+              example: 'ref_123456'
+            },
+            referrerAddress: {
+              type: 'string',
+              pattern: '^0x[a-fA-F0-9]{40}$',
+              description: 'Referrer wallet address'
+            },
+            referredAddress: {
+              type: 'string',
+              pattern: '^0x[a-fA-F0-9]{40}$',
+              description: 'Referred customer wallet address'
+            },
+            status: {
+              type: 'string',
+              enum: ['pending', 'completed', 'expired'],
+              description: 'Referral status'
+            },
+            referralDate: {
+              type: 'string',
+              format: 'date-time',
+              description: 'When referral was made'
+            },
+            completionDate: {
+              type: 'string',
+              format: 'date-time',
+              description: 'When referral was completed'
+            },
+            rewardAmount: {
+              type: 'number',
+              description: 'RCN reward amount',
+              example: 25
+            }
+          }
+        },
+
+        // Redemption Session schemas
+        RedemptionSession: {
+          type: 'object',
+          properties: {
+            sessionId: {
+              type: 'string',
+              description: 'Unique session identifier',
+              example: 'sess_123456'
+            },
+            customerAddress: {
+              type: 'string',
+              pattern: '^0x[a-fA-F0-9]{40}$',
+              description: 'Customer wallet address'
+            },
+            shopId: {
+              type: 'string',
+              description: 'Shop requesting redemption',
               example: 'shop001'
             },
             amount: {
               type: 'number',
-              description: 'Token amount',
-              example: 25.0
-            },
-            transactionHash: {
-              type: 'string',
-              description: 'Blockchain transaction hash',
-              example: '0xabcdef1234567890...'
+              description: 'RCN amount to redeem',
+              example: 100
             },
             status: {
               type: 'string',
-              enum: ['pending', 'confirmed', 'failed'],
-              description: 'Transaction status',
-              example: 'confirmed'
+              enum: ['pending', 'approved', 'rejected', 'expired'],
+              description: 'Session status'
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Session creation time'
+            },
+            expiresAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Session expiration time'
             }
           }
         },
-        
+
         // Admin schemas
         Admin: {
           type: 'object',
           properties: {
             id: {
-              type: 'integer',
-              description: 'Admin ID',
-              example: 1
+              type: 'string',
+              description: 'Admin ID'
             },
-            walletAddress: {
+            address: {
               type: 'string',
               pattern: '^0x[a-fA-F0-9]{40}$',
-              description: 'Admin wallet address',
-              example: '0xabcd1234567890123456789012345678901234ef'
+              description: 'Admin wallet address'
             },
             name: {
               type: 'string',
-              description: 'Admin name',
-              example: 'John Admin'
+              description: 'Admin name'
+            },
+            email: {
+              type: 'string',
+              format: 'email',
+              description: 'Admin email'
             },
             permissions: {
               type: 'array',
               items: {
-                type: 'string',
-                enum: ['manage_shops', 'manage_customers', 'manage_treasury', 'manage_admins', 'view_analytics', '*']
+                type: 'string'
               },
-              description: 'Admin permissions array',
-              example: ['manage_shops', 'view_analytics']
+              description: 'Admin permissions'
             },
-            isSuperAdmin: {
+            isActive: {
               type: 'boolean',
-              description: 'Whether admin has super admin privileges',
-              example: false
+              description: 'Admin active status'
             },
             createdAt: {
               type: 'string',
-              format: 'date-time',
-              description: 'Admin creation date',
-              example: '2024-01-15T10:30:00Z'
-            },
-            updatedAt: {
-              type: 'string',
-              format: 'date-time',
-              description: 'Last update timestamp',
-              example: '2024-01-20T15:45:00Z'
-            }
-          },
-          required: ['walletAddress', 'name', 'permissions']
-        },
-
-        AdminLoginRequest: {
-          type: 'object',
-          required: ['walletAddress'],
-          properties: {
-            walletAddress: {
-              type: 'string',
-              pattern: '^0x[a-fA-F0-9]{40}$',
-              description: 'Admin wallet address',
-              example: '0xabcd1234567890123456789012345678901234ef'
+              format: 'date-time'
             }
           }
         },
 
-        AdminLoginResponse: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean', example: true },
-            token: { 
-              type: 'string', 
-              description: 'JWT authentication token',
-              example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
-            },
-            admin: {
-              $ref: '#/components/schemas/Admin'
-            },
-            expiresIn: {
-              type: 'string',
-              description: 'Token expiration time',
-              example: '24h'
-            }
-          }
-        },
-
-        PlatformStats: {
-          type: 'object',
-          properties: {
-            totalCustomers: { type: 'integer', example: 1234 },
-            activeCustomers: { type: 'integer', example: 890 },
-            totalShops: { type: 'integer', example: 56 },
-            activeShops: { type: 'integer', example: 45 },
-            verifiedShops: { type: 'integer', example: 40 },
-            pendingShops: { type: 'integer', example: 5 },
-            totalTransactions: { type: 'integer', example: 5678 },
-            totalTokensMinted: { type: 'number', example: 123456.78 },
-            totalTokensRedeemed: { type: 'number', example: 98765.43 },
-            platformRevenue: { type: 'number', example: 12345.67 }
-          }
-        },
-
-        UnsuspendRequest: {
-          type: 'object',
-          properties: {
-            id: { type: 'integer', example: 1 },
-            entityType: {
-              type: 'string',
-              enum: ['customer', 'shop'],
-              example: 'customer'
-            },
-            entityId: {
-              type: 'string',
-              description: 'Customer address or shop ID',
-              example: '0x1234567890123456789012345678901234567890'
-            },
-            reason: {
-              type: 'string',
-              description: 'Reason for unsuspend request',
-              example: 'Issue resolved with customer'
-            },
-            status: {
-              type: 'string',
-              enum: ['pending', 'approved', 'rejected'],
-              example: 'pending'
-            },
-            requestedAt: {
-              type: 'string',
-              format: 'date-time',
-              example: '2024-01-15T10:30:00Z'
-            },
-            processedAt: {
-              type: 'string',
-              format: 'date-time',
-              nullable: true,
-              example: null
-            },
-            processedBy: {
-              type: 'string',
-              nullable: true,
-              example: null
-            }
-          }
-        },
-
-        // API Response schemas
-        ApiResponse: {
+        // Common response schemas
+        SuccessResponse: {
           type: 'object',
           properties: {
             success: {
               type: 'boolean',
-              description: 'Whether the request was successful',
               example: true
             },
             data: {
-              type: 'object',
-              description: 'Response data'
-            },
-            message: {
-              type: 'string',
-              description: 'Optional message',
-              example: 'Operation completed successfully'
-            },
-            timestamp: {
-              type: 'string',
-              format: 'date-time',
-              description: 'Response timestamp',
-              example: '2024-01-15T10:30:00Z'
+              type: 'object'
             }
-          },
-          required: ['success', 'timestamp']
+          }
         },
         
-        ApiError: {
+        ErrorResponse: {
           type: 'object',
           properties: {
             success: {
@@ -371,1934 +514,1952 @@ const options = {
             error: {
               type: 'string',
               description: 'Error message',
-              example: 'Customer not found'
+              example: 'Invalid request'
             },
             code: {
               type: 'string',
               description: 'Error code',
-              example: 'CUSTOMER_NOT_FOUND'
+              example: 'INVALID_REQUEST'
             },
-            timestamp: {
-              type: 'string',
-              format: 'date-time',
-              example: '2024-01-15T10:30:00Z'
+            details: {
+              type: 'object',
+              description: 'Additional error details'
             }
-          },
-          required: ['success', 'error', 'timestamp']
-        },
-        
-        // Token Verification schemas
-        VerificationResult: {
-          type: 'object',
-          properties: {
-            canRedeem: {
-              type: 'boolean',
-              description: 'Whether the customer can redeem at the shop',
-              example: true
-            },
-            earnedBalance: {
-              type: 'number',
-              description: 'Amount of RCN earned (redeemable) by the customer',
-              example: 125.50
-            },
-            totalBalance: {
-              type: 'number',
-              description: 'Total RCN balance (earned + market-bought)',
-              example: 200.75
-            },
-            maxRedeemable: {
-              type: 'number',
-              description: 'Maximum amount redeemable at this shop',
-              example: 125.50
-            },
-            isHomeShop: {
-              type: 'boolean',
-              description: 'Whether this is the customer\'s home shop',
-              example: true
-            },
-            crossShopLimit: {
-              type: 'number',
-              description: 'Cross-shop redemption limit (20% of earned balance)',
-              example: 25.10
-            },
-            message: {
-              type: 'string',
-              description: 'Human-readable verification message',
-              example: 'Redemption approved for 50 RCN'
-            }
-          },
-          required: ['canRedeem', 'earnedBalance', 'totalBalance', 'maxRedeemable', 'isHomeShop', 'crossShopLimit', 'message']
+          }
         },
 
-        EarnedBalanceInfo: {
+        PaginationParams: {
           type: 'object',
           properties: {
-            earnedBalance: {
-              type: 'number',
-              description: 'RCN earned from shops (redeemable)',
-              example: 125.50
+            page: {
+              type: 'integer',
+              minimum: 1,
+              default: 1,
+              description: 'Page number'
             },
-            totalBalance: {
-              type: 'number',
-              description: 'Total RCN balance (including market-bought)',
-              example: 200.75
+            limit: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 100,
+              default: 20,
+              description: 'Items per page'
             },
-            marketBalance: {
-              type: 'number',
-              description: 'RCN bought on market (not redeemable)',
-              example: 75.25
+            sortBy: {
+              type: 'string',
+              description: 'Field to sort by'
             },
-            earningHistory: {
-              type: 'object',
-              properties: {
-                fromRepairs: {
-                  type: 'number',
-                  description: 'RCN earned from repair transactions',
-                  example: 85.50
-                },
-                fromReferrals: {
-                  type: 'number',
-                  description: 'RCN earned from referrals',
-                  example: 20.00
-                },
-                fromBonuses: {
-                  type: 'number',
-                  description: 'RCN earned from general bonuses',
-                  example: 10.00
-                },
-                fromTierBonuses: {
-                  type: 'number',
-                  description: 'RCN earned from tier-based bonuses',
-                  example: 10.00
+            sortOrder: {
+              type: 'string',
+              enum: ['asc', 'desc'],
+              default: 'desc',
+              description: 'Sort order'
+            }
+          }
+        }
+      }
+    },
+    paths: {
+      // Health & System endpoints
+      '/api/health': {
+        get: {
+          tags: ['System'],
+          summary: 'Health check',
+          description: 'Check if the API is running and healthy',
+          responses: {
+            200: {
+              description: 'Service is healthy',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', example: true },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          status: { type: 'string', example: 'healthy' },
+                          timestamp: { type: 'string', format: 'date-time' },
+                          uptime: { type: 'number' },
+                          version: { type: 'string' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+
+      '/api/system/info': {
+        get: {
+          tags: ['System'],
+          summary: 'System information',
+          description: 'Get system information including version, uptime, and configuration',
+          responses: {
+            200: {
+              description: 'System information',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          version: { type: 'string' },
+                          environment: { type: 'string' },
+                          uptime: { type: 'number' },
+                          memory: { type: 'object' },
+                          domains: { type: 'array', items: { type: 'string' } },
+                          architecture: { type: 'string' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+
+      '/api/errors/summary': {
+        get: {
+          tags: ['System'],
+          summary: 'Error tracking summary',
+          description: 'Get summary of recent errors',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: {
+              description: 'Error summary',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          totalErrors: { type: 'number' },
+                          errorsByType: { type: 'object' },
+                          recentErrors: { type: 'array' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+
+      '/api/errors/clear': {
+        delete: {
+          tags: ['System'],
+          summary: 'Clear error metrics',
+          description: 'Clear accumulated error metrics',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: {
+              description: 'Error metrics cleared'
+            }
+          }
+        }
+      },
+
+      '/api/events/history': {
+        get: {
+          tags: ['System'],
+          summary: 'Event history',
+          description: 'Get domain event history',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'type',
+              in: 'query',
+              description: 'Filter by event type',
+              schema: { type: 'string' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Event history'
+            }
+          }
+        }
+      },
+
+      // Auth endpoints
+      '/api/auth/admin': {
+        post: {
+          tags: ['Authentication'],
+          summary: 'Admin login',
+          description: 'Authenticate as admin using wallet address',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['address'],
+                  properties: {
+                    address: {
+                      type: 'string',
+                      pattern: '^0x[a-fA-F0-9]{40}$',
+                      description: 'Admin wallet address'
+                    }
+                  }
                 }
               }
             }
           },
-          required: ['earnedBalance', 'totalBalance', 'marketBalance', 'earningHistory']
-        },
-
-        // Webhook schemas
-        WebhookPayload: {
-          type: 'object',
-          properties: {
-            event: {
-              type: 'string',
-              enum: ['repair_completed', 'referral_verified', 'ad_funnel_conversion', 'customer_registered'],
-              description: 'Webhook event type',
-              example: 'repair_completed'
+          responses: {
+            200: {
+              description: 'Authentication successful',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', example: true },
+                      token: { type: 'string', description: 'JWT token' },
+                      admin: { $ref: '#/components/schemas/Admin' }
+                    }
+                  }
+                }
+              }
             },
-            data: {
-              type: 'object',
-              description: 'Event-specific data'
+            401: {
+              description: 'Unauthorized - not an admin'
+            }
+          }
+        }
+      },
+
+      '/api/auth/shop': {
+        post: {
+          tags: ['Authentication'],
+          summary: 'Shop login',
+          description: 'Authenticate as shop using wallet address',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['address'],
+                  properties: {
+                    address: {
+                      type: 'string',
+                      pattern: '^0x[a-fA-F0-9]{40}$'
+                    }
+                  }
+                }
+              }
             }
           },
-          required: ['event', 'data']
+          responses: {
+            200: {
+              description: 'Authentication successful',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      token: { type: 'string' },
+                      shop: { $ref: '#/components/schemas/Shop' }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+
+      '/api/auth/customer': {
+        post: {
+          tags: ['Authentication'],
+          summary: 'Customer login',
+          description: 'Authenticate as customer using wallet address',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['address'],
+                  properties: {
+                    address: {
+                      type: 'string',
+                      pattern: '^0x[a-fA-F0-9]{40}$'
+                    }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Authentication successful'
+            }
+          }
+        }
+      },
+
+      // Customer endpoints
+      '/api/customers': {
+        get: {
+          tags: ['Customers'],
+          summary: 'List all customers',
+          description: 'Get paginated list of customers (requires authentication)',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { $ref: '#/components/schemas/PaginationParams/properties/page' },
+            { $ref: '#/components/schemas/PaginationParams/properties/limit' },
+            {
+              name: 'tier',
+              in: 'query',
+              description: 'Filter by tier',
+              schema: {
+                type: 'string',
+                enum: ['BRONZE', 'SILVER', 'GOLD']
+              }
+            },
+            {
+              name: 'isActive',
+              in: 'query',
+              description: 'Filter by active status',
+              schema: { type: 'boolean' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Customer list',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          customers: {
+                            type: 'array',
+                            items: { $ref: '#/components/schemas/Customer' }
+                          },
+                          pagination: {
+                            type: 'object',
+                            properties: {
+                              page: { type: 'number' },
+                              limit: { type: 'number' },
+                              total: { type: 'number' },
+                              totalPages: { type: 'number' }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            401: {
+              description: 'Unauthorized'
+            }
+          }
+        }
+      },
+
+      '/api/customers/{address}': {
+        get: {
+          tags: ['Customers'],
+          summary: 'Get customer by wallet address',
+          description: 'Get customer details by their wallet address',
+          parameters: [
+            {
+              name: 'address',
+              in: 'path',
+              required: true,
+              description: 'Customer wallet address',
+              schema: {
+                type: 'string',
+                pattern: '^0x[a-fA-F0-9]{40}$'
+              }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Customer details',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          customer: { $ref: '#/components/schemas/Customer' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            404: {
+              description: 'Customer not found'
+            }
+          }
+        },
+        put: {
+          tags: ['Customers'],
+          summary: 'Update customer information',
+          description: 'Update customer profile information',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'address',
+              in: 'path',
+              required: true,
+              schema: {
+                type: 'string',
+                pattern: '^0x[a-fA-F0-9]{40}$'
+              }
+            }
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    email: { type: 'string', format: 'email' },
+                    phone: { type: 'string' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Customer updated successfully'
+            }
+          }
+        }
+      },
+
+      '/api/customers/register': {
+        post: {
+          tags: ['Customers'],
+          summary: 'Register new customer',
+          description: 'Register a new customer with wallet address',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['address'],
+                  properties: {
+                    address: {
+                      type: 'string',
+                      pattern: '^0x[a-fA-F0-9]{40}$',
+                      description: 'Customer wallet address'
+                    },
+                    name: {
+                      type: 'string',
+                      description: 'Customer name'
+                    },
+                    email: {
+                      type: 'string',
+                      format: 'email',
+                      description: 'Customer email'
+                    },
+                    phone: {
+                      type: 'string',
+                      description: 'Customer phone'
+                    },
+                    referralCode: {
+                      type: 'string',
+                      description: 'Referral code if referred'
+                    }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            201: {
+              description: 'Customer registered successfully',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          customer: { $ref: '#/components/schemas/Customer' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            409: {
+              description: 'Wallet already registered as another role',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', example: false },
+                      error: { type: 'string' },
+                      conflictingRole: {
+                        type: 'string',
+                        enum: ['customer', 'shop', 'admin']
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+
+      '/api/customers/{address}/transactions': {
+        get: {
+          tags: ['Customers'],
+          summary: 'Get customer transactions',
+          description: 'Get transaction history for a customer',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'address',
+              in: 'path',
+              required: true,
+              schema: {
+                type: 'string',
+                pattern: '^0x[a-fA-F0-9]{40}$'
+              }
+            },
+            { $ref: '#/components/schemas/PaginationParams/properties/page' },
+            { $ref: '#/components/schemas/PaginationParams/properties/limit' },
+            {
+              name: 'type',
+              in: 'query',
+              description: 'Filter by transaction type',
+              schema: {
+                type: 'string',
+                enum: ['repair_reward', 'referral_reward', 'tier_bonus', 'redemption']
+              }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Transaction history',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          transactions: {
+                            type: 'array',
+                            items: { $ref: '#/components/schemas/Transaction' }
+                          },
+                          pagination: { type: 'object' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+
+      '/api/customers/{address}/analytics': {
+        get: {
+          tags: ['Customers'],
+          summary: 'Get customer analytics',
+          description: 'Get detailed analytics for a customer',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'address',
+              in: 'path',
+              required: true,
+              schema: {
+                type: 'string',
+                pattern: '^0x[a-fA-F0-9]{40}$'
+              }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Customer analytics data'
+            }
+          }
+        }
+      },
+
+      '/api/customers/{address}/mint': {
+        post: {
+          tags: ['Customers'],
+          summary: 'Mint tokens to customer',
+          description: 'Admin endpoint to manually mint tokens to a customer',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'address',
+              in: 'path',
+              required: true,
+              schema: {
+                type: 'string',
+                pattern: '^0x[a-fA-F0-9]{40}$'
+              }
+            }
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['amount'],
+                  properties: {
+                    amount: {
+                      type: 'number',
+                      minimum: 1,
+                      description: 'Amount of RCN to mint'
+                    },
+                    reason: {
+                      type: 'string',
+                      description: 'Reason for minting'
+                    }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Tokens minted successfully'
+            },
+            401: {
+              description: 'Unauthorized - admin only'
+            }
+          }
+        }
+      },
+
+      '/api/customers/{address}/redemption-check': {
+        get: {
+          tags: ['Customers'],
+          summary: 'Check redemption eligibility',
+          description: 'Check if customer can redeem tokens at a specific shop',
+          parameters: [
+            {
+              name: 'address',
+              in: 'path',
+              required: true,
+              schema: {
+                type: 'string',
+                pattern: '^0x[a-fA-F0-9]{40}$'
+              }
+            },
+            {
+              name: 'shopId',
+              in: 'query',
+              required: true,
+              schema: { type: 'string' }
+            },
+            {
+              name: 'amount',
+              in: 'query',
+              required: true,
+              schema: { type: 'number' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Redemption eligibility check result'
+            }
+          }
+        }
+      },
+
+      '/api/customers/{address}/deactivate': {
+        post: {
+          tags: ['Customers'],
+          summary: 'Deactivate customer',
+          description: 'Deactivate a customer account',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'address',
+              in: 'path',
+              required: true,
+              schema: {
+                type: 'string',
+                pattern: '^0x[a-fA-F0-9]{40}$'
+              }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Customer deactivated'
+            }
+          }
+        }
+      },
+
+      '/api/customers/tier/{tierLevel}': {
+        get: {
+          tags: ['Customers'],
+          summary: 'Get customers by tier',
+          description: 'Get all customers in a specific tier',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'tierLevel',
+              in: 'path',
+              required: true,
+              schema: {
+                type: 'string',
+                enum: ['BRONZE', 'SILVER', 'GOLD']
+              }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Customers in tier'
+            }
+          }
+        }
+      },
+
+      // Shop endpoints
+      '/api/shops': {
+        get: {
+          tags: ['Shops'],
+          summary: 'List shops',
+          description: 'Get list of shops with optional filters',
+          parameters: [
+            {
+              name: 'verified',
+              in: 'query',
+              description: 'Filter by verification status',
+              schema: { type: 'boolean' }
+            },
+            {
+              name: 'active',
+              in: 'query',
+              description: 'Filter by active status',
+              schema: { type: 'boolean' }
+            },
+            {
+              name: 'crossShopEnabled',
+              in: 'query',
+              description: 'Filter by cross-shop status',
+              schema: { type: 'boolean' }
+            },
+            { $ref: '#/components/schemas/PaginationParams/properties/page' },
+            { $ref: '#/components/schemas/PaginationParams/properties/limit' }
+          ],
+          responses: {
+            200: {
+              description: 'Shop list',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          shops: {
+                            type: 'array',
+                            items: { $ref: '#/components/schemas/Shop' }
+                          },
+                          pagination: { type: 'object' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+
+      '/api/shops/register': {
+        post: {
+          tags: ['Shops'],
+          summary: 'Register new shop',
+          description: 'Register a new shop with comprehensive business information',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['shopId', 'companyName', 'address', 'email'],
+                  properties: {
+                    shopId: { type: 'string' },
+                    companyName: { type: 'string' },
+                    ownerFirstName: { type: 'string' },
+                    ownerLastName: { type: 'string' },
+                    address: {
+                      type: 'string',
+                      pattern: '^0x[a-fA-F0-9]{40}$'
+                    },
+                    email: {
+                      type: 'string',
+                      format: 'email'
+                    },
+                    phone: { type: 'string' },
+                    website: { type: 'string' },
+                    role: {
+                      type: 'string',
+                      enum: ['Owner', 'Manager', 'Employee']
+                    },
+                    companySize: {
+                      type: 'string',
+                      enum: ['1-10', '11-50', '51-100', '100+']
+                    },
+                    monthlyRevenue: {
+                      type: 'string',
+                      enum: ['<$10k', '$10k-$50k', '$50k-$100k', '$100k+']
+                    },
+                    referralBy: { type: 'string' },
+                    streetAddress: { type: 'string' },
+                    city: { type: 'string' },
+                    country: { type: 'string' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            201: {
+              description: 'Shop registered successfully',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          shop: { $ref: '#/components/schemas/Shop' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            409: {
+              description: 'Wallet already registered as another role'
+            }
+          }
+        }
+      },
+
+      '/api/shops/{shopId}': {
+        get: {
+          tags: ['Shops'],
+          summary: 'Get shop by ID',
+          description: 'Get shop details by shop ID',
+          parameters: [
+            {
+              name: 'shopId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Shop details',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          shop: { $ref: '#/components/schemas/Shop' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        put: {
+          tags: ['Shops'],
+          summary: 'Update shop information',
+          description: 'Update shop profile information',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'shopId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            }
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    companyName: { type: 'string' },
+                    email: { type: 'string' },
+                    phone: { type: 'string' },
+                    website: { type: 'string' },
+                    streetAddress: { type: 'string' },
+                    city: { type: 'string' },
+                    country: { type: 'string' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Shop updated successfully'
+            }
+          }
+        }
+      },
+
+      '/api/shops/wallet/{address}': {
+        get: {
+          tags: ['Shops'],
+          summary: 'Get shop by wallet address',
+          description: 'Find shop by wallet address',
+          parameters: [
+            {
+              name: 'address',
+              in: 'path',
+              required: true,
+              schema: {
+                type: 'string',
+                pattern: '^0x[a-fA-F0-9]{40}$'
+              }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Shop found',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          shop: { $ref: '#/components/schemas/Shop' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            404: {
+              description: 'Shop not found'
+            }
+          }
+        }
+      },
+
+      '/api/shops/{shopId}/issue-reward': {
+        post: {
+          tags: ['Shops'],
+          summary: 'Issue reward to customer',
+          description: 'Issue RCN reward to customer for repair service',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'shopId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            }
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['customerAddress', 'repairAmount'],
+                  properties: {
+                    customerAddress: {
+                      type: 'string',
+                      pattern: '^0x[a-fA-F0-9]{40}$'
+                    },
+                    repairAmount: {
+                      type: 'number',
+                      minimum: 0,
+                      description: 'Repair amount in USD'
+                    },
+                    skipTierBonus: {
+                      type: 'boolean',
+                      default: false,
+                      description: 'Skip tier bonus calculation'
+                    }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Reward issued successfully',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          baseReward: { type: 'number' },
+                          tierBonus: { type: 'number' },
+                          totalReward: { type: 'number' },
+                          txHash: { type: 'string' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+
+      '/api/shops/{shopId}/redeem': {
+        post: {
+          tags: ['Shops'],
+          summary: 'Process token redemption',
+          description: 'Process customer RCN redemption at shop',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'shopId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            }
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['sessionId'],
+                  properties: {
+                    sessionId: {
+                      type: 'string',
+                      description: 'Redemption session ID'
+                    }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Redemption processed successfully'
+            }
+          }
+        }
+      },
+
+      '/api/shops/{shopId}/verify': {
+        post: {
+          tags: ['Shops'],
+          summary: 'Verify shop',
+          description: 'Admin endpoint to verify a shop',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'shopId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Shop verified'
+            }
+          }
+        }
+      },
+
+      '/api/shops/{shopId}/dashboard': {
+        get: {
+          tags: ['Shops'],
+          summary: 'Get shop dashboard data',
+          description: 'Get comprehensive dashboard data for shop',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'shopId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Dashboard data'
+            }
+          }
+        }
+      },
+
+      '/api/shops/{shopId}/transactions': {
+        get: {
+          tags: ['Shops'],
+          summary: 'Get shop transactions',
+          description: 'Get transaction history for shop',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'shopId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            },
+            { $ref: '#/components/schemas/PaginationParams/properties/page' },
+            { $ref: '#/components/schemas/PaginationParams/properties/limit' }
+          ],
+          responses: {
+            200: {
+              description: 'Transaction history'
+            }
+          }
+        }
+      },
+
+      '/api/shops/{shopId}/pending-sessions': {
+        get: {
+          tags: ['Shops'],
+          summary: 'Get pending redemption sessions',
+          description: 'Get pending redemption sessions for shop',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'shopId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Pending sessions'
+            }
+          }
+        }
+      },
+
+      // Token endpoints
+      '/api/tokens/stats': {
+        get: {
+          tags: ['Tokens'],
+          summary: 'Token statistics',
+          description: 'Get platform-wide token statistics',
+          responses: {
+            200: {
+              description: 'Token statistics',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: { $ref: '#/components/schemas/TokenStats' }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+
+      '/api/tokens/verify-redemption': {
+        post: {
+          tags: ['Tokens'],
+          summary: 'Verify redemption eligibility',
+          description: 'Verify if customer can redeem tokens at shop',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['customerAddress', 'shopId', 'amount'],
+                  properties: {
+                    customerAddress: {
+                      type: 'string',
+                      pattern: '^0x[a-fA-F0-9]{40}$'
+                    },
+                    shopId: { type: 'string' },
+                    amount: { type: 'number' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Verification result',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          eligible: { type: 'boolean' },
+                          reason: { type: 'string' },
+                          availableBalance: { type: 'number' },
+                          earnedBalance: { type: 'number' },
+                          isHomeShop: { type: 'boolean' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+
+      '/api/tokens/earned-balance/{address}': {
+        get: {
+          tags: ['Tokens'],
+          summary: 'Get earned balance',
+          description: 'Get customer\'s earned (redeemable) RCN balance',
+          parameters: [
+            {
+              name: 'address',
+              in: 'path',
+              required: true,
+              schema: {
+                type: 'string',
+                pattern: '^0x[a-fA-F0-9]{40}$'
+              }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Earned balance breakdown'
+            }
+          }
+        }
+      },
+
+      '/api/tokens/earning-sources/{address}': {
+        get: {
+          tags: ['Tokens'],
+          summary: 'Get earning sources',
+          description: 'Get detailed breakdown of customer\'s RCN earning sources by shop',
+          parameters: [
+            {
+              name: 'address',
+              in: 'path',
+              required: true,
+              schema: {
+                type: 'string',
+                pattern: '^0x[a-fA-F0-9]{40}$'
+              }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Earning sources breakdown'
+            }
+          }
+        }
+      },
+
+      '/api/tokens/verify-batch': {
+        post: {
+          tags: ['Tokens'],
+          summary: 'Batch verification',
+          description: 'Verify multiple redemptions in batch',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['verifications'],
+                  properties: {
+                    verifications: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          customerAddress: { type: 'string' },
+                          shopId: { type: 'string' },
+                          amount: { type: 'number' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Batch verification results'
+            }
+          }
+        }
+      },
+
+      '/api/tokens/redemption-session/create': {
+        post: {
+          tags: ['Tokens'],
+          summary: 'Create redemption session',
+          description: 'Create a new redemption session for customer approval',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['customerAddress', 'shopId', 'amount'],
+                  properties: {
+                    customerAddress: {
+                      type: 'string',
+                      pattern: '^0x[a-fA-F0-9]{40}$'
+                    },
+                    shopId: { type: 'string' },
+                    amount: { type: 'number' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Session created',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          sessionId: { type: 'string' },
+                          expiresAt: { type: 'string', format: 'date-time' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+
+      '/api/tokens/redemption-session/{sessionId}/approve': {
+        post: {
+          tags: ['Tokens'],
+          summary: 'Approve redemption session',
+          description: 'Customer approves redemption session',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'sessionId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Session approved'
+            }
+          }
+        }
+      },
+
+      '/api/tokens/redemption-session/{sessionId}/reject': {
+        post: {
+          tags: ['Tokens'],
+          summary: 'Reject redemption session',
+          description: 'Customer rejects redemption session',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'sessionId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Session rejected'
+            }
+          }
+        }
+      },
+
+      // Webhook endpoints
+      '/api/webhooks/fixflow': {
+        post: {
+          tags: ['Webhooks'],
+          summary: 'Process FixFlow webhook',
+          description: 'Process incoming webhooks from FixFlow system',
+          security: [{ webhookSecret: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['event'],
+                  properties: {
+                    event: {
+                      type: 'string',
+                      enum: ['repair.completed', 'customer.created', 'payment.received']
+                    },
+                    data: {
+                      type: 'object',
+                      description: 'Event-specific data'
+                    }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Webhook processed successfully'
+            },
+            401: {
+              description: 'Invalid webhook signature'
+            }
+          }
+        }
+      },
+
+      '/api/webhooks/test': {
+        post: {
+          tags: ['Webhooks'],
+          summary: 'Test webhook endpoint',
+          description: 'Test webhook processing without authentication',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object'
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Test webhook received'
+            }
+          }
+        }
+      },
+
+      '/api/webhooks/logs': {
+        get: {
+          tags: ['Webhooks'],
+          summary: 'Get webhook logs',
+          description: 'Get recent webhook processing logs',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'status',
+              in: 'query',
+              schema: {
+                type: 'string',
+                enum: ['success', 'failed']
+              }
+            },
+            { $ref: '#/components/schemas/PaginationParams/properties/limit' }
+          ],
+          responses: {
+            200: {
+              description: 'Webhook logs'
+            }
+          }
+        }
+      },
+
+      // Admin endpoints
+      '/api/admin/stats': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Platform statistics',
+          description: 'Get platform-wide statistics',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: {
+              description: 'Platform statistics',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          totalCustomers: { type: 'number' },
+                          activeCustomers: { type: 'number' },
+                          totalShops: { type: 'number' },
+                          verifiedShops: { type: 'number' },
+                          pendingApplications: { type: 'number' },
+                          totalTransactions: { type: 'number' },
+                          totalTokensIssued: { type: 'number' },
+                          platformRevenue: { type: 'number' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+
+      '/api/admin/customers': {
+        get: {
+          tags: ['Admin'],
+          summary: 'List customers (admin)',
+          description: 'Admin endpoint to list all customers',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { $ref: '#/components/schemas/PaginationParams/properties/page' },
+            { $ref: '#/components/schemas/PaginationParams/properties/limit' },
+            {
+              name: 'tier',
+              in: 'query',
+              schema: {
+                type: 'string',
+                enum: ['BRONZE', 'SILVER', 'GOLD']
+              }
+            },
+            {
+              name: 'status',
+              in: 'query',
+              schema: {
+                type: 'string',
+                enum: ['active', 'suspended', 'inactive']
+              }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Customer list'
+            }
+          }
+        }
+      },
+
+      '/api/admin/shops': {
+        get: {
+          tags: ['Admin'],
+          summary: 'List shops (admin)',
+          description: 'Admin endpoint to list all shops',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'verified',
+              in: 'query',
+              schema: { type: 'boolean' }
+            },
+            {
+              name: 'active',
+              in: 'query',
+              schema: { type: 'boolean' }
+            },
+            { $ref: '#/components/schemas/PaginationParams/properties/page' },
+            { $ref: '#/components/schemas/PaginationParams/properties/limit' }
+          ],
+          responses: {
+            200: {
+              description: 'Shop list'
+            }
+          }
+        }
+      },
+
+      '/api/admin/shops/{shopId}/approve': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Approve shop application',
+          description: 'Approve a pending shop application',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'shopId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Shop approved'
+            }
+          }
+        }
+      },
+
+      '/api/admin/create-shop': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Create shop (admin)',
+          description: 'Admin endpoint to create and auto-verify a shop',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['shopId', 'companyName', 'address', 'email'],
+                  properties: {
+                    shopId: { type: 'string' },
+                    companyName: { type: 'string' },
+                    ownerFirstName: { type: 'string' },
+                    ownerLastName: { type: 'string' },
+                    address: {
+                      type: 'string',
+                      pattern: '^0x[a-fA-F0-9]{40}$'
+                    },
+                    email: { type: 'string', format: 'email' },
+                    phone: { type: 'string' },
+                    autoVerify: {
+                      type: 'boolean',
+                      default: true
+                    },
+                    initialRcnBalance: {
+                      type: 'number',
+                      default: 0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            201: {
+              description: 'Shop created'
+            }
+          }
+        }
+      },
+
+      '/api/admin/mint': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Emergency mint',
+          description: 'Emergency mint tokens to address',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['address', 'amount'],
+                  properties: {
+                    address: {
+                      type: 'string',
+                      pattern: '^0x[a-fA-F0-9]{40}$'
+                    },
+                    amount: {
+                      type: 'number',
+                      minimum: 1
+                    },
+                    reason: { type: 'string' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Tokens minted'
+            }
+          }
+        }
+      },
+
+      '/api/admin/treasury': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Treasury statistics',
+          description: 'Get treasury and RCN sales statistics',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: {
+              description: 'Treasury data'
+            }
+          }
+        }
+      },
+
+      '/api/admin/treasury/update': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Update treasury',
+          description: 'Update treasury after RCN sale',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['amount', 'shopId'],
+                  properties: {
+                    amount: { type: 'number' },
+                    shopId: { type: 'string' },
+                    paymentMethod: { type: 'string' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Treasury updated'
+            }
+          }
+        }
+      },
+
+      '/api/admin/analytics/overview': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Analytics overview',
+          description: 'Get comprehensive analytics overview',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'period',
+              in: 'query',
+              schema: {
+                type: 'string',
+                enum: ['day', 'week', 'month', 'year']
+              }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Analytics data'
+            }
+          }
+        }
+      },
+
+      // Referral endpoints
+      '/api/referrals/generate': {
+        post: {
+          tags: ['Referrals'],
+          summary: 'Generate referral code',
+          description: 'Generate a unique referral code for customer',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['customerAddress'],
+                  properties: {
+                    customerAddress: {
+                      type: 'string',
+                      pattern: '^0x[a-fA-F0-9]{40}$'
+                    }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Referral code generated'
+            }
+          }
+        }
+      },
+
+      '/api/referrals/validate/{code}': {
+        get: {
+          tags: ['Referrals'],
+          summary: 'Validate referral code',
+          description: 'Check if referral code is valid',
+          parameters: [
+            {
+              name: 'code',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Validation result'
+            }
+          }
+        }
+      },
+
+      '/api/referrals/stats': {
+        get: {
+          tags: ['Referrals'],
+          summary: 'Referral statistics',
+          description: 'Get referral system statistics',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: {
+              description: 'Referral stats'
+            }
+          }
+        }
+      },
+
+      '/api/referrals/leaderboard': {
+        get: {
+          tags: ['Referrals'],
+          summary: 'Referral leaderboard',
+          description: 'Get top referrers',
+          parameters: [
+            {
+              name: 'limit',
+              in: 'query',
+              schema: {
+                type: 'integer',
+                default: 10
+              }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Leaderboard data'
+            }
+          }
         }
       }
     },
-    security: [
-      {
-        bearerAuth: []
-      }
-    ],
     tags: [
       {
-        name: 'Health',
-        description: 'System health and status endpoints'
+        name: 'System',
+        description: 'System health and monitoring endpoints'
       },
       {
         name: 'Authentication',
-        description: 'Authentication and authorization endpoints for admin users'
+        description: 'Authentication endpoints for all user types'
       },
       {
         name: 'Customers',
-        description: 'Customer management and profile endpoints'
-      },
-      {
-        name: 'Tokens',
-        description: 'Token statistics and management endpoints'
-      },
-      {
-        name: 'Token Verification',
-        description: 'Token verification and anti-arbitrage endpoints'
+        description: 'Customer management and operations'
       },
       {
         name: 'Shops',
-        description: 'Shop registration, management, and redemption endpoints'
+        description: 'Shop management and operations'
+      },
+      {
+        name: 'Tokens',
+        description: 'Token operations and verification'
       },
       {
         name: 'Webhooks',
-        description: 'Webhook processing and logging endpoints'
+        description: 'External webhook processing'
       },
       {
         name: 'Admin',
-        description: 'Administrative endpoints with permission-based access control. Super admin (environment variable) has all permissions, regular admins (database) have specific permissions.'
+        description: 'Administrative operations'
       },
       {
-        name: 'System',
-        description: 'System information, events, and monitoring endpoints'
+        name: 'Referrals',
+        description: 'Referral system operations'
       }
     ]
   },
-  apis: [
-    './src/docs/routes/*.ts', // Route documentation files
-    './src/routes/*.ts',       // Existing route files
-    './src/domains/*/routes/*.ts', // Domain-based routes
-    './src/domains/*/controllers/*.ts' // Domain controllers
-  ],
+  apis: ['./src/**/*.ts'] // This will look for JSDoc comments in your source files
 };
 
-const specs = swaggerJSDoc(options) as any;
+const swaggerSpec = swaggerJSDoc(options);
 
-// Add complete paths documentation
-specs.paths = {
-  ...specs.paths,
-  // Customer Domain Endpoints
-  '/api/customers/{address}': {
-    get: {
-      tags: ['Customers'],
-      summary: 'Get customer by wallet address',
-      description: 'Retrieve detailed information about a customer including tier, earnings, and blockchain balance',
-      parameters: [
-        {
-          in: 'path',
-          name: 'address',
-          required: true,
-          schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
-          description: 'Customer Ethereum wallet address',
-          example: '0x1234567890123456789012345678901234567890'
-        }
-      ],
-      responses: {
-        '200': {
-          description: 'Customer details retrieved successfully',
-          content: {
-            'application/json': {
-              schema: {
-                allOf: [
-                  { $ref: '#/components/schemas/ApiResponse' },
-                  {
-                    type: 'object',
-                    properties: {
-                      data: {
-                        type: 'object',
-                        properties: {
-                          customer: { $ref: '#/components/schemas/Customer' },
-                          blockchainBalance: { type: 'number', example: 125.50 },
-                          tierBenefits: {
-                            type: 'object',
-                            properties: {
-                              dailyLimit: { type: 'number', example: 200 },
-                              monthlyLimit: { type: 'number', example: 2000 },
-                              redemptionMultiplier: { type: 'number', example: 1.0 }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                ]
-              }
-            }
-          }
-        },
-        '404': { description: 'Customer not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
-        '400': { description: 'Invalid wallet address format', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    },
-    put: {
-      tags: ['Customers'],
-      summary: 'Update customer information',
-      description: 'Update customer profile information (requires authentication)',
-      security: [{ bearerAuth: [] }],
-      parameters: [
-        {
-          in: 'path',
-          name: 'address',
-          required: true,
-          schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
-          description: 'Customer Ethereum wallet address'
-        }
-      ],
-      requestBody: {
-        required: true,
-        content: {
-          'application/json': {
-            schema: {
-              type: 'object',
-              properties: {
-                email: { type: 'string', format: 'email', example: 'newemail@example.com' },
-                phone: { type: 'string', example: '+1234567890' }
-              }
-            }
-          }
-        }
-      },
-      responses: {
-        '200': { description: 'Customer updated successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
-        '403': { description: 'Insufficient permissions', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
-        '404': { description: 'Customer not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    }
-  },
-  '/api/customers/register': {
-    post: {
-      tags: ['Customers'],
-      summary: 'Register a new customer',
-      description: 'Create a new customer account with optional email and phone',
-      security: [],
-      requestBody: {
-        required: true,
-        content: {
-          'application/json': {
-            schema: {
-              type: 'object',
-              required: ['walletAddress'],
-              properties: {
-                walletAddress: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$', example: '0x1234567890123456789012345678901234567890' },
-                email: { type: 'string', format: 'email', example: 'customer@example.com' },
-                phone: { type: 'string', example: '+1234567890' },
-                fixflowCustomerId: { type: 'string', example: 'ff_customer_123' }
-              }
-            }
-          }
-        }
-      },
-      responses: {
-        '201': { description: 'Customer registered successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
-        '409': { description: 'Customer already registered', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
-        '400': { description: 'Invalid request data', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    }
-  },
-  '/api/customers/{address}/transactions': {
-    get: {
-      tags: ['Customers'],
-      summary: 'Get customer transaction history',
-      description: 'Retrieve paginated transaction history for a customer',
-      security: [{ bearerAuth: [] }],
-      parameters: [
-        { in: 'path', name: 'address', required: true, schema: { type: 'string' }, description: 'Customer wallet address' },
-        { in: 'query', name: 'limit', schema: { type: 'integer', minimum: 1, maximum: 100, default: 50 }, description: 'Number of transactions' },
-        { in: 'query', name: 'offset', schema: { type: 'integer', minimum: 0, default: 0 }, description: 'Pagination offset' },
-        { in: 'query', name: 'type', schema: { type: 'string', enum: ['mint', 'redeem', 'transfer'] }, description: 'Filter by transaction type' }
-      ],
-      responses: {
-        '200': { description: 'Transaction history retrieved', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
-        '403': { description: 'Access denied', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    }
-  },
-  '/api/customers/{address}/analytics': {
-    get: {
-      tags: ['Customers'],
-      summary: 'Get customer analytics',
-      description: 'Retrieve customer analytics and metrics',
-      security: [{ bearerAuth: [] }],
-      parameters: [
-        { in: 'path', name: 'address', required: true, schema: { type: 'string' }, description: 'Customer wallet address' }
-      ],
-      responses: {
-        '200': { description: 'Analytics retrieved', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
-        '403': { description: 'Access denied', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    }
-  },
-  '/api/customers/{address}/mint': {
-    post: {
-      tags: ['Customers'],
-      summary: 'Manual token minting (Admin only)',
-      description: 'Manually mint tokens for a customer',
-      security: [{ bearerAuth: [] }],
-      parameters: [
-        { in: 'path', name: 'address', required: true, schema: { type: 'string' }, description: 'Customer wallet address' }
-      ],
-      requestBody: {
-        required: true,
-        content: {
-          'application/json': {
-            schema: {
-              type: 'object',
-              required: ['amount', 'reason'],
-              properties: {
-                amount: { type: 'number', minimum: 0.1, maximum: 1000, example: 25.5 },
-                reason: { type: 'string', example: 'Manual adjustment' },
-                shopId: { type: 'string', example: 'shop_001' }
-              }
-            }
-          }
-        }
-      },
-      responses: {
-        '200': { description: 'Tokens minted successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
-        '403': { description: 'Admin access required', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    }
-  },
-  
-  // Token Domain Endpoints
-  '/api/tokens/stats': {
-    get: {
-      tags: ['Tokens'],
-      summary: 'Get token statistics',
-      description: 'Retrieve comprehensive token statistics including supply and holders',
-      security: [],
-      responses: {
-        '200': {
-          description: 'Token statistics retrieved',
-          content: {
-            'application/json': {
-              schema: {
-                allOf: [
-                  { $ref: '#/components/schemas/ApiResponse' },
-                  {
-                    type: 'object',
-                    properties: {
-                      data: {
-                        type: 'object',
-                        properties: {
-                          totalSupply: { type: 'number', example: 1000000 },
-                          totalHolders: { type: 'number', example: 1250 },
-                          totalTransactions: { type: 'number', example: 5000 },
-                          averageBalance: { type: 'number', example: 125.50 }
-                        }
-                      }
-                    }
-                  }
-                ]
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-
-  // Token Verification Endpoints
-  '/api/tokens/verify-redemption': {
-    post: {
-      tags: ['Token Verification'],
-      summary: 'Verify if customer RCN can be redeemed at shop',
-      description: 'Centralized verification to prevent market-bought RCN from being redeemed. Only earned RCN can be redeemed at shops.',
-      security: [{ bearerAuth: [] }],
-      requestBody: {
-        required: true,
-        content: {
-          'application/json': {
-            schema: {
-              type: 'object',
-              required: ['customerAddress', 'shopId', 'amount'],
-              properties: {
-                customerAddress: {
-                  type: 'string',
-                  pattern: '^0x[a-fA-F0-9]{40}$',
-                  description: 'Customer wallet address',
-                  example: '0x1234567890123456789012345678901234567890'
-                },
-                shopId: {
-                  type: 'string',
-                  description: 'Shop identifier',
-                  example: 'shop001'
-                },
-                amount: {
-                  type: 'number',
-                  minimum: 0.01,
-                  maximum: 10000,
-                  description: 'Amount of RCN to redeem',
-                  example: 50.0
-                }
-              }
-            }
-          }
-        }
-      },
-      responses: {
-        '200': {
-          description: 'Verification result',
-          content: {
-            'application/json': {
-              schema: {
-                allOf: [
-                  { $ref: '#/components/schemas/ApiResponse' },
-                  {
-                    type: 'object',
-                    properties: {
-                      data: { $ref: '#/components/schemas/VerificationResult' }
-                    }
-                  }
-                ]
-              }
-            }
-          }
-        },
-        '400': { description: 'Invalid request parameters', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
-        '404': { description: 'Customer or shop not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
-        '500': { description: 'Internal server error', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    }
-  },
-
-  '/api/tokens/earned-balance/{address}': {
-    get: {
-      tags: ['Token Verification'],
-      summary: 'Get customer\'s earned (redeemable) RCN balance',
-      description: 'Returns only RCN earned from repairs, referrals, and shop bonuses. Market-bought RCN is excluded.',
-      parameters: [{
-        in: 'path',
-        name: 'address',
-        required: true,
-        schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
-        description: 'Customer wallet address',
-        example: '0x1234567890123456789012345678901234567890'
-      }],
-      responses: {
-        '200': {
-          description: 'Earned balance information',
-          content: {
-            'application/json': {
-              schema: {
-                allOf: [
-                  { $ref: '#/components/schemas/ApiResponse' },
-                  {
-                    type: 'object',
-                    properties: {
-                      data: { $ref: '#/components/schemas/EarnedBalanceInfo' }
-                    }
-                  }
-                ]
-              }
-            }
-          }
-        },
-        '400': { description: 'Invalid address format', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
-        '404': { description: 'Customer not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
-        '500': { description: 'Internal server error', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    }
-  },
-
-  '/api/tokens/earning-sources/{address}': {
-    get: {
-      tags: ['Token Verification'],
-      summary: 'Get detailed breakdown of customer\'s RCN earning sources',
-      description: 'Shows where the customer earned their RCN tokens from different shops',
-      parameters: [{
-        in: 'path',
-        name: 'address',
-        required: true,
-        schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
-        description: 'Customer wallet address',
-        example: '0x1234567890123456789012345678901234567890'
-      }],
-      responses: {
-        '200': {
-          description: 'Earning sources breakdown',
-          content: {
-            'application/json': {
-              schema: {
-                allOf: [
-                  { $ref: '#/components/schemas/ApiResponse' },
-                  {
-                    type: 'object',
-                    properties: {
-                      data: {
-                        type: 'object',
-                        properties: {
-                          earningSources: {
-                            type: 'array',
-                            items: {
-                              type: 'object',
-                              properties: {
-                                shopId: { type: 'string', example: 'shop001' },
-                                shopName: { type: 'string', example: 'Tech Repair Pro' },
-                                totalEarned: { type: 'number', example: 85.50 },
-                                fromRepairs: { type: 'number', example: 70.00 },
-                                fromReferrals: { type: 'number', example: 10.00 },
-                                fromBonuses: { type: 'number', example: 5.50 },
-                                lastEarning: { type: 'string', format: 'date-time', example: '2024-01-15T10:30:00Z' }
-                              }
-                            }
-                          },
-                          summary: {
-                            type: 'object',
-                            properties: {
-                              totalShops: { type: 'number', example: 3 },
-                              primaryShop: { type: 'string', example: 'shop001' },
-                              totalEarned: { type: 'number', example: 125.50 }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                ]
-              }
-            }
-          }
-        },
-        '400': { description: 'Invalid address format', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
-        '404': { description: 'Customer not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
-        '500': { description: 'Internal server error', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    }
-  },
-
-  '/api/tokens/verify-batch': {
-    post: {
-      tags: ['Token Verification'],
-      summary: 'Batch verification for multiple redemptions',
-      description: 'Verify multiple redemption requests at once (admin/shop access required)',
-      security: [{ bearerAuth: [] }],
-      requestBody: {
-        required: true,
-        content: {
-          'application/json': {
-            schema: {
-              type: 'object',
-              required: ['verifications'],
-              properties: {
-                verifications: {
-                  type: 'array',
-                  maxItems: 50,
-                  description: 'Array of verification requests (max 50)',
-                  items: {
-                    type: 'object',
-                    required: ['customerAddress', 'shopId', 'amount'],
-                    properties: {
-                      customerAddress: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
-                      shopId: { type: 'string' },
-                      amount: { type: 'number', minimum: 0.01 }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      responses: {
-        '200': {
-          description: 'Batch verification results',
-          content: {
-            'application/json': {
-              schema: {
-                allOf: [
-                  { $ref: '#/components/schemas/ApiResponse' },
-                  {
-                    type: 'object',
-                    properties: {
-                      data: {
-                        type: 'array',
-                        items: {
-                          allOf: [
-                            { $ref: '#/components/schemas/VerificationResult' },
-                            {
-                              type: 'object',
-                              properties: {
-                                index: { type: 'number', description: 'Index in the original request array' }
-                              }
-                            }
-                          ]
-                        }
-                      }
-                    }
-                  }
-                ]
-              }
-            }
-          }
-        },
-        '400': { description: 'Invalid request parameters', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
-        '403': { description: 'Insufficient permissions', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
-        '500': { description: 'Internal server error', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    }
-  },
-  
-  // Webhook Domain Endpoints
-  '/api/webhooks/fixflow': {
-    post: {
-      tags: ['Webhooks'],
-      summary: 'Process FixFlow webhook',
-      description: 'Handle incoming webhooks from FixFlow system for repair completions, referrals, etc.',
-      security: [{ webhookSecret: [] }],
-      requestBody: {
-        required: true,
-        content: {
-          'application/json': {
-            schema: { $ref: '#/components/schemas/WebhookPayload' },
-            examples: {
-              repair_completed: {
-                summary: 'Repair completion webhook',
-                value: {
-                  event: 'repair_completed',
-                  data: {
-                    customer_id: 'cust_123',
-                    customer_wallet_address: '0x1234567890123456789012345678901234567890',
-                    shop_id: 'shop001',
-                    repair_amount: 150.00,
-                    repair_id: 'repair_456',
-                    customer_email: 'customer@example.com'
-                  }
-                }
-              },
-              referral_verified: {
-                summary: 'Referral verification webhook',
-                value: {
-                  event: 'referral_verified',
-                  data: {
-                    referrer_wallet_address: '0x1234567890123456789012345678901234567890',
-                    referee_wallet_address: '0x0987654321098765432109876543210987654321',
-                    shop_id: 'shop001'
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      responses: {
-        '200': { description: 'Webhook processed successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
-        '400': { description: 'Invalid webhook payload', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
-        '401': { description: 'Invalid webhook signature', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    }
-  },
-  '/api/webhooks/test': {
-    post: {
-      tags: ['Webhooks'],
-      summary: 'Test webhook endpoint (Development only)',
-      description: 'Test webhook processing without signature verification',
-      security: [],
-      requestBody: {
-        required: true,
-        content: { 'application/json': { schema: { $ref: '#/components/schemas/WebhookPayload' } } }
-      },
-      responses: {
-        '200': { description: 'Test webhook processed', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
-        '404': { description: 'Endpoint not available in production' }
-      }
-    }
-  },
-  '/api/webhooks/logs': {
-    get: {
-      tags: ['Webhooks'],
-      summary: 'Get webhook logs',
-      description: 'Retrieve paginated webhook logs with filtering options',
-      security: [],
-      parameters: [
-        { in: 'query', name: 'page', schema: { type: 'integer', minimum: 1, default: 1 } },
-        { in: 'query', name: 'limit', schema: { type: 'integer', minimum: 1, maximum: 100, default: 50 } },
-        { in: 'query', name: 'eventType', schema: { type: 'string' } },
-        { in: 'query', name: 'source', schema: { type: 'string', enum: ['fixflow', 'admin', 'customer'] } },
-        { in: 'query', name: 'processed', schema: { type: 'boolean' } },
-        { in: 'query', name: 'success', schema: { type: 'boolean' } }
-      ],
-      responses: {
-        '200': { description: 'Webhook logs retrieved', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } }
-      }
-    }
-  },
-  
-  // Shop Domain Endpoints
-  '/api/shops': {
-    get: {
-      tags: ['Shops'],
-      summary: 'Get all active shops',
-      description: 'Retrieve list of active shops with optional filtering',
-      security: [],
-      parameters: [
-        { in: 'query', name: 'verified', schema: { type: 'boolean', default: true }, description: 'Filter by verification status' },
-        { in: 'query', name: 'crossShopEnabled', schema: { type: 'boolean' }, description: 'Filter by cross-shop redemption status' }
-      ],
-      responses: {
-        '200': { description: 'List of active shops', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } }
-      }
-    }
-  },
-  '/api/shops/{shopId}': {
-    get: {
-      tags: ['Shops'],
-      summary: 'Get shop by ID',
-      description: 'Retrieve detailed information about a specific shop',
-      parameters: [
-        { in: 'path', name: 'shopId', required: true, schema: { type: 'string' }, example: 'shop001' }
-      ],
-      responses: {
-        '200': { description: 'Shop details retrieved', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
-        '404': { description: 'Shop not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    },
-    put: {
-      tags: ['Shops'],
-      summary: 'Update shop information',
-      description: 'Update shop details (shop owner or admin only)',
-      security: [{ bearerAuth: [] }],
-      parameters: [
-        { in: 'path', name: 'shopId', required: true, schema: { type: 'string' } }
-      ],
-      requestBody: {
-        required: true,
-        content: {
-          'application/json': {
-            schema: {
-              type: 'object',
-              properties: {
-                name: { type: 'string', example: 'Updated Shop Name' },
-                address: { type: 'string', example: '456 New Street, City, State 12345' },
-                phone: { type: 'string', example: '+1234567890' },
-                email: { type: 'string', format: 'email', example: 'contact@shop.com' }
-              }
-            }
-          }
-        }
-      },
-      responses: {
-        '200': { description: 'Shop updated successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
-        '403': { description: 'Insufficient permissions', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    }
-  },
-  '/api/shops/register': {
-    post: {
-      tags: ['Shops'],
-      summary: 'Register a new shop',
-      description: 'Register a new shop in the system',
-      security: [],
-      requestBody: {
-        required: true,
-        content: {
-          'application/json': {
-            schema: {
-              type: 'object',
-              required: ['shopId', 'name', 'address', 'phone', 'email', 'walletAddress'],
-              properties: {
-                shopId: { type: 'string', example: 'shop001' },
-                name: { type: 'string', example: 'Tech Repair Pro' },
-                address: { type: 'string', example: '123 Main St, Anytown, ST 12345' },
-                phone: { type: 'string', example: '+1234567890' },
-                email: { type: 'string', format: 'email', example: 'contact@techrepairpro.com' },
-                walletAddress: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$', example: '0x7890123456789012345678901234567890123456' },
-                reimbursementAddress: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
-                fixflowShopId: { type: 'string', example: 'ff_shop_123' }
-              }
-            }
-          }
-        }
-      },
-      responses: {
-        '201': { description: 'Shop registered successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
-        '400': { description: 'Invalid request data', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
-        '409': { description: 'Shop ID already registered', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    }
-  },
-  '/api/shops/{shopId}/redeem': {
-    post: {
-      tags: ['Shops'],
-      summary: 'Process token redemption',
-      description: 'Process token redemption at shop',
-      security: [{ bearerAuth: [] }],
-      parameters: [
-        { in: 'path', name: 'shopId', required: true, schema: { type: 'string' } }
-      ],
-      requestBody: {
-        required: true,
-        content: {
-          'application/json': {
-            schema: {
-              type: 'object',
-              required: ['customerAddress', 'amount'],
-              properties: {
-                customerAddress: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
-                amount: { type: 'number', minimum: 0.1, maximum: 1000 },
-                notes: { type: 'string', example: 'Service payment' }
-              }
-            }
-          }
-        }
-      },
-      responses: {
-        '200': { description: 'Redemption processed successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
-        '400': { description: 'Invalid redemption request', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    }
-  },
-  
-  // Authentication Endpoints
-  '/api/auth/admin': {
-    post: {
-      tags: ['Authentication'],
-      summary: 'Admin login',
-      description: 'Authenticate admin user and receive JWT token. Checks both environment variable super admins and database admins.',
-      security: [],
-      requestBody: {
-        required: true,
-        content: {
-          'application/json': {
-            schema: { $ref: '#/components/schemas/AdminLoginRequest' }
-          }
-        }
-      },
-      responses: {
-        '200': {
-          description: 'Login successful',
-          content: {
-            'application/json': {
-              schema: { $ref: '#/components/schemas/AdminLoginResponse' }
-            }
-          }
-        },
-        '401': { 
-          description: 'Invalid credentials or not an admin',
-          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } }
-        },
-        '400': { 
-          description: 'Invalid wallet address format',
-          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } }
-        }
-      }
-    }
-  },
-
-  // Admin Domain Endpoints
-  '/api/admin/stats': {
-    get: {
-      tags: ['Admin'],
-      summary: 'Get platform statistics',
-      description: 'Retrieve comprehensive platform metrics including customers, shops, transactions, and token circulation',
-      security: [{ bearerAuth: [] }],
-      responses: {
-        '200': {
-          description: 'Platform statistics retrieved',
-          content: {
-            'application/json': {
-              schema: {
-                allOf: [
-                  { $ref: '#/components/schemas/ApiResponse' },
-                  {
-                    type: 'object',
-                    properties: {
-                      data: { $ref: '#/components/schemas/PlatformStats' }
-                    }
-                  }
-                ]
-              }
-            }
-          }
-        },
-        '403': { description: 'Admin access required', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    }
-  },
-  
-  '/api/admin/me': {
-    get: {
-      tags: ['Admin'],
-      summary: 'Get current admin profile',
-      description: 'Retrieve current admin user profile with permissions',
-      security: [{ bearerAuth: [] }],
-      responses: {
-        '200': {
-          description: 'Admin profile retrieved',
-          content: {
-            'application/json': {
-              schema: {
-                allOf: [
-                  { $ref: '#/components/schemas/ApiResponse' },
-                  {
-                    type: 'object',
-                    properties: {
-                      data: { $ref: '#/components/schemas/Admin' }
-                    }
-                  }
-                ]
-              }
-            }
-          }
-        },
-        '401': { description: 'Authentication required', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
-        '403': { description: 'Admin access required', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    }
-  },
-
-  '/api/admin/admins': {
-    get: {
-      tags: ['Admin'],
-      summary: 'Get all admins',
-      description: 'Retrieve list of all admin users (Super admin only)',
-      security: [{ bearerAuth: [] }],
-      responses: {
-        '200': {
-          description: 'Admin list retrieved',
-          content: {
-            'application/json': {
-              schema: {
-                allOf: [
-                  { $ref: '#/components/schemas/ApiResponse' },
-                  {
-                    type: 'object',
-                    properties: {
-                      data: {
-                        type: 'array',
-                        items: { $ref: '#/components/schemas/Admin' }
-                      }
-                    }
-                  }
-                ]
-              }
-            }
-          }
-        },
-        '403': { 
-          description: 'Super admin access required',
-          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } }
-        }
-      }
-    }
-  },
-
-  '/api/admin/admins/{adminId}': {
-    get: {
-      tags: ['Admin'],
-      summary: 'Get specific admin',
-      description: 'Retrieve details of a specific admin user',
-      security: [{ bearerAuth: [] }],
-      parameters: [
-        {
-          in: 'path',
-          name: 'adminId',
-          required: true,
-          schema: { type: 'integer' },
-          description: 'Admin ID',
-          example: 1
-        }
-      ],
-      responses: {
-        '200': {
-          description: 'Admin details retrieved',
-          content: {
-            'application/json': {
-              schema: {
-                allOf: [
-                  { $ref: '#/components/schemas/ApiResponse' },
-                  {
-                    type: 'object',
-                    properties: {
-                      data: { $ref: '#/components/schemas/Admin' }
-                    }
-                  }
-                ]
-              }
-            }
-          }
-        },
-        '404': { description: 'Admin not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
-        '403': { description: 'Admin access required', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    },
-    put: {
-      tags: ['Admin'],
-      summary: 'Update admin',
-      description: 'Update admin user details (Super admin only)',
-      security: [{ bearerAuth: [] }],
-      parameters: [
-        {
-          in: 'path',
-          name: 'adminId',
-          required: true,
-          schema: { type: 'integer' },
-          description: 'Admin ID'
-        }
-      ],
-      requestBody: {
-        required: true,
-        content: {
-          'application/json': {
-            schema: {
-              type: 'object',
-              properties: {
-                name: { type: 'string', example: 'Updated Admin Name' },
-                permissions: {
-                  type: 'array',
-                  items: {
-                    type: 'string',
-                    enum: ['manage_shops', 'manage_customers', 'manage_treasury', 'manage_admins', 'view_analytics']
-                  },
-                  example: ['manage_shops', 'manage_customers']
-                }
-              }
-            }
-          }
-        }
-      },
-      responses: {
-        '200': { description: 'Admin updated successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
-        '403': { description: 'Super admin access required', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
-        '404': { description: 'Admin not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    },
-    delete: {
-      tags: ['Admin'],
-      summary: 'Delete admin',
-      description: 'Remove admin user from system (Super admin only)',
-      security: [{ bearerAuth: [] }],
-      parameters: [
-        {
-          in: 'path',
-          name: 'adminId',
-          required: true,
-          schema: { type: 'integer' },
-          description: 'Admin ID'
-        }
-      ],
-      responses: {
-        '200': { description: 'Admin deleted successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
-        '403': { description: 'Super admin access required', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
-        '404': { description: 'Admin not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    }
-  },
-
-  '/api/admin/admins/{adminId}/permissions': {
-    put: {
-      tags: ['Admin'],
-      summary: 'Update admin permissions',
-      description: 'Update permissions for an admin user (Super admin only)',
-      security: [{ bearerAuth: [] }],
-      parameters: [
-        {
-          in: 'path',
-          name: 'adminId',
-          required: true,
-          schema: { type: 'integer' },
-          description: 'Admin ID'
-        }
-      ],
-      requestBody: {
-        required: true,
-        content: {
-          'application/json': {
-            schema: {
-              type: 'object',
-              required: ['permissions'],
-              properties: {
-                permissions: {
-                  type: 'array',
-                  items: {
-                    type: 'string',
-                    enum: ['manage_shops', 'manage_customers', 'manage_treasury', 'manage_admins', 'view_analytics']
-                  },
-                  description: 'Array of permission strings',
-                  example: ['manage_shops', 'view_analytics']
-                }
-              }
-            }
-          }
-        }
-      },
-      responses: {
-        '200': { description: 'Permissions updated successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
-        '403': { description: 'Super admin access required', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
-        '404': { description: 'Admin not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    }
-  },
-
-  '/api/admin/create-admin': {
-    post: {
-      tags: ['Admin'],
-      summary: 'Create new admin',
-      description: 'Create a new admin user with specified permissions (Super admin only)',
-      security: [{ bearerAuth: [] }],
-      requestBody: {
-        required: true,
-        content: {
-          'application/json': {
-            schema: {
-              type: 'object',
-              required: ['walletAddress', 'name', 'permissions'],
-              properties: {
-                walletAddress: { 
-                  type: 'string', 
-                  pattern: '^0x[a-fA-F0-9]{40}$',
-                  description: 'Admin wallet address',
-                  example: '0xabcd1234567890123456789012345678901234ef'
-                },
-                name: { 
-                  type: 'string',
-                  description: 'Admin name',
-                  example: 'John Admin'
-                },
-                permissions: {
-                  type: 'array',
-                  items: {
-                    type: 'string',
-                    enum: ['manage_shops', 'manage_customers', 'manage_treasury', 'manage_admins', 'view_analytics']
-                  },
-                  description: 'Array of permissions to grant',
-                  example: ['manage_shops', 'view_analytics']
-                }
-              }
-            }
-          }
-        }
-      },
-      responses: {
-        '201': { 
-          description: 'Admin created successfully',
-          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } }
-        },
-        '400': { description: 'Invalid request data', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
-        '403': { description: 'Super admin access required', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
-        '409': { description: 'Admin already exists', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    }
-  },
-
-  '/api/admin/customers': {
-    get: {
-      tags: ['Admin'],
-      summary: 'Get customers list',
-      description: 'Retrieve paginated customer list with admin-level details. Requires manage_customers permission.',
-      security: [{ bearerAuth: [] }],
-      parameters: [
-        { in: 'query', name: 'page', schema: { type: 'integer', minimum: 1, default: 1 } },
-        { in: 'query', name: 'limit', schema: { type: 'integer', minimum: 1, maximum: 100, default: 50 } },
-        { in: 'query', name: 'tier', schema: { type: 'string', enum: ['BRONZE', 'SILVER', 'GOLD'] } },
-        { in: 'query', name: 'active', schema: { type: 'boolean', default: true } }
-      ],
-      responses: {
-        '200': { description: 'Customer list retrieved', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
-        '403': { 
-          description: 'Permission denied. Required permission: manage_customers',
-          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } }
-        }
-      }
-    }
-  },
-
-  '/api/admin/shops': {
-    get: {
-      tags: ['Admin'],
-      summary: 'Get shops list',
-      description: 'Retrieve shops with filtering options. Requires manage_shops permission.',
-      security: [{ bearerAuth: [] }],
-      parameters: [
-        { in: 'query', name: 'verified', schema: { type: 'boolean', default: true } },
-        { in: 'query', name: 'active', schema: { type: 'string', enum: ['true', 'false', 'all'], default: 'true' } },
-        { in: 'query', name: 'crossShopEnabled', schema: { type: 'boolean' } }
-      ],
-      responses: {
-        '200': { description: 'Shop list retrieved', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
-        '403': { 
-          description: 'Permission denied. Required permission: manage_shops',
-          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } }
-        }
-      }
-    }
-  },
-
-  '/api/admin/create-shop': {
-    post: {
-      tags: ['Admin'],
-      summary: 'Create new shop',
-      description: 'Admin creates a new shop. Requires manage_shops permission.',
-      security: [{ bearerAuth: [] }],
-      requestBody: {
-        required: true,
-        content: {
-          'application/json': {
-            schema: {
-              type: 'object',
-              required: ['shop_id', 'name', 'address', 'phone', 'email', 'wallet_address'],
-              properties: {
-                shop_id: { type: 'string', example: 'shop001' },
-                name: { type: 'string', example: 'Tech Repair Pro' },
-                address: { type: 'string', example: '123 Main St, City, ST 12345' },
-                phone: { type: 'string', example: '+1234567890' },
-                email: { type: 'string', format: 'email', example: 'shop@example.com' },
-                wallet_address: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' }
-              }
-            }
-          }
-        }
-      },
-      responses: {
-        '201': { description: 'Shop created successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
-        '403': { 
-          description: 'Permission denied. Required permission: manage_shops',
-          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } }
-        }
-      }
-    }
-  },
-
-  '/api/admin/shops/{shopId}/approve': {
-    post: {
-      tags: ['Admin'],
-      summary: 'Approve shop application',
-      description: 'Approve a pending shop application. Requires manage_shops permission.',
-      security: [{ bearerAuth: [] }],
-      parameters: [
-        {
-          in: 'path',
-          name: 'shopId',
-          required: true,
-          schema: { type: 'string' },
-          description: 'Shop ID',
-          example: 'shop001'
-        }
-      ],
-      responses: {
-        '200': { description: 'Shop approved successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
-        '403': { 
-          description: 'Permission denied. Required permission: manage_shops',
-          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } }
-        },
-        '404': { description: 'Shop not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    }
-  },
-
-  '/api/admin/shops/{shopId}/suspend': {
-    post: {
-      tags: ['Admin'],
-      summary: 'Suspend shop',
-      description: 'Suspend a shop from the platform. Requires manage_shops permission.',
-      security: [{ bearerAuth: [] }],
-      parameters: [
-        {
-          in: 'path',
-          name: 'shopId',
-          required: true,
-          schema: { type: 'string' },
-          description: 'Shop ID'
-        }
-      ],
-      responses: {
-        '200': { description: 'Shop suspended successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
-        '403': { 
-          description: 'Permission denied. Required permission: manage_shops',
-          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } }
-        }
-      }
-    }
-  },
-
-  '/api/admin/shops/{shopId}/unsuspend': {
-    post: {
-      tags: ['Admin'],
-      summary: 'Unsuspend shop',
-      description: 'Restore a suspended shop. Requires manage_shops permission.',
-      security: [{ bearerAuth: [] }],
-      parameters: [
-        {
-          in: 'path',
-          name: 'shopId',
-          required: true,
-          schema: { type: 'string' },
-          description: 'Shop ID'
-        }
-      ],
-      responses: {
-        '200': { description: 'Shop unsuspended successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
-        '403': { 
-          description: 'Permission denied. Required permission: manage_shops',
-          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } }
-        }
-      }
-    }
-  },
-
-  '/api/admin/customers/{address}/suspend': {
-    post: {
-      tags: ['Admin'],
-      summary: 'Suspend customer',
-      description: 'Suspend a customer account. Requires manage_customers permission.',
-      security: [{ bearerAuth: [] }],
-      parameters: [
-        {
-          in: 'path',
-          name: 'address',
-          required: true,
-          schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
-          description: 'Customer wallet address'
-        }
-      ],
-      responses: {
-        '200': { description: 'Customer suspended successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
-        '403': { 
-          description: 'Permission denied. Required permission: manage_customers',
-          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } }
-        }
-      }
-    }
-  },
-
-  '/api/admin/customers/{address}/unsuspend': {
-    post: {
-      tags: ['Admin'],
-      summary: 'Unsuspend customer',
-      description: 'Restore a suspended customer account. Requires manage_customers permission.',
-      security: [{ bearerAuth: [] }],
-      parameters: [
-        {
-          in: 'path',
-          name: 'address',
-          required: true,
-          schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
-          description: 'Customer wallet address'
-        }
-      ],
-      responses: {
-        '200': { description: 'Customer unsuspended successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
-        '403': { 
-          description: 'Permission denied. Required permission: manage_customers',
-          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } }
-        }
-      }
-    }
-  },
-
-  '/api/admin/unsuspend-requests': {
-    get: {
-      tags: ['Admin'],
-      summary: 'Get unsuspend requests',
-      description: 'Retrieve all pending unsuspend requests',
-      security: [{ bearerAuth: [] }],
-      responses: {
-        '200': {
-          description: 'Unsuspend requests retrieved',
-          content: {
-            'application/json': {
-              schema: {
-                allOf: [
-                  { $ref: '#/components/schemas/ApiResponse' },
-                  {
-                    type: 'object',
-                    properties: {
-                      data: {
-                        type: 'array',
-                        items: { $ref: '#/components/schemas/UnsuspendRequest' }
-                      }
-                    }
-                  }
-                ]
-              }
-            }
-          }
-        },
-        '403': { description: 'Admin access required', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    }
-  },
-
-  '/api/admin/unsuspend-requests/{requestId}/approve': {
-    post: {
-      tags: ['Admin'],
-      summary: 'Approve unsuspend request',
-      description: 'Approve an unsuspend request',
-      security: [{ bearerAuth: [] }],
-      parameters: [
-        {
-          in: 'path',
-          name: 'requestId',
-          required: true,
-          schema: { type: 'integer' },
-          description: 'Request ID'
-        }
-      ],
-      responses: {
-        '200': { description: 'Request approved successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
-        '403': { description: 'Admin access required', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
-        '404': { description: 'Request not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    }
-  },
-
-  '/api/admin/unsuspend-requests/{requestId}/reject': {
-    post: {
-      tags: ['Admin'],
-      summary: 'Reject unsuspend request',
-      description: 'Reject an unsuspend request',
-      security: [{ bearerAuth: [] }],
-      parameters: [
-        {
-          in: 'path',
-          name: 'requestId',
-          required: true,
-          schema: { type: 'integer' },
-          description: 'Request ID'
-        }
-      ],
-      responses: {
-        '200': { description: 'Request rejected successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
-        '403': { description: 'Admin access required', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
-        '404': { description: 'Request not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    }
-  },
-
-  '/api/admin/mint': {
-    post: {
-      tags: ['Admin'],
-      summary: 'Emergency manual token minting',
-      description: 'Manually mint tokens for emergency situations',
-      security: [{ bearerAuth: [] }],
-      requestBody: {
-        required: true,
-        content: {
-          'application/json': {
-            schema: {
-              type: 'object',
-              required: ['customerAddress', 'amount', 'reason'],
-              properties: {
-                customerAddress: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
-                amount: { type: 'number', minimum: 0.1, maximum: 1000 },
-                reason: { type: 'string', example: 'Emergency adjustment' }
-              }
-            }
-          }
-        }
-      },
-      responses: {
-        '200': { description: 'Emergency mint successful', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
-        '403': { description: 'Admin access required', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    }
-  },
-
-  '/api/admin/contract/pause': {
-    post: {
-      tags: ['Admin'],
-      summary: 'Emergency contract pause',
-      description: 'Pause the smart contract in emergency situations',
-      security: [{ bearerAuth: [] }],
-      responses: {
-        '200': { description: 'Contract paused successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } },
-        '403': { description: 'Admin access required', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    }
-  },
-  
-  '/api/admin/contract/unpause': {
-    post: {
-      tags: ['Admin'],
-      summary: 'Unpause contract',
-      description: 'Resume normal contract operations',
-      security: [{ bearerAuth: [] }],
-      responses: {
-        '200': { description: 'Contract unpaused successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
-        '403': { description: 'Admin access required', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } }
-      }
-    }
-  },
-  
-  // System Endpoints
-  '/api/events/history': {
-    get: {
-      tags: ['System'],
-      summary: 'Get system event history',
-      description: 'Retrieve system event history and subscription information',
-      security: [],
-      parameters: [
-        { in: 'query', name: 'type', schema: { type: 'string' }, description: 'Filter by event type' }
-      ],
-      responses: {
-        '200': { description: 'Event history retrieved', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } } }
-      }
-    }
-  },
-  '/api/system/info': {
-    get: {
-      tags: ['System'],
-      summary: 'Get system information',
-      description: 'Retrieve comprehensive system information including version, uptime, and domain status',
-      security: [],
-      responses: {
-        '200': {
-          description: 'System information retrieved',
-          content: {
-            'application/json': {
-              schema: {
-                allOf: [
-                  { $ref: '#/components/schemas/ApiResponse' },
-                  {
-                    type: 'object',
-                    properties: {
-                      data: {
-                        type: 'object',
-                        properties: {
-                          version: { type: 'string', example: '1.0.0' },
-                          environment: { type: 'string', example: 'development' },
-                          uptime: { type: 'number', example: 12345.67 },
-                          memory: {
-                            type: 'object',
-                            properties: {
-                              used: { type: 'number', example: 45 },
-                              total: { type: 'number', example: 128 }
-                            }
-                          },
-                          domains: { type: 'array', items: { type: 'string' } },
-                          architecture: { type: 'string', example: 'enhanced-domains' }
-                        }
-                      }
-                    }
-                  }
-                ]
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-  
-  // Shop Wallet Detection Endpoint
-  '/api/shops/wallet/{address}': {
-    get: {
-      tags: ['Shops'],
-      summary: 'Get shop by wallet address',
-      description: 'Retrieve shop information by wallet address. This endpoint is used for wallet detection to determine if an address is registered as a shop.',
-      parameters: [
-        {
-          in: 'path',
-          name: 'address',
-          required: true,
-          schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
-          description: 'Shop Ethereum wallet address',
-          example: '0x7890123456789012345678901234567890123456'
-        }
-      ],
-      responses: {
-        '200': {
-          description: 'Shop details retrieved successfully',
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                properties: {
-                  success: { type: 'boolean', example: true },
-                  data: {
-                    type: 'object',
-                    properties: {
-                      shopId: { type: 'string', example: 'shop001' },
-                      name: { type: 'string', example: 'Fix It Right Electronics' },
-                      address: { type: 'string', example: '123 Main St, Tech City, TC 12345' },
-                      phone: { type: 'string', example: '+1-555-0123' },
-                      email: { type: 'string', example: 'contact@fixitright.com' },
-                      walletAddress: { type: 'string', example: '0x7890123456789012345678901234567890123456' },
-                      verified: { type: 'boolean', example: true },
-                      active: { type: 'boolean', example: true },
-                      crossShopEnabled: { type: 'boolean', example: true },
-                      joinDate: { type: 'string', format: 'date-time', example: '2025-07-01T00:00:00.000Z' },
-                      purchasedRcnBalance: { type: 'number', example: 5000 },
-                      totalRcnPurchased: { type: 'number', example: 10000 },
-                      totalTokensIssued: { type: 'number', example: 2500 },
-                      totalRedemptions: { type: 'number', example: 1500 }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        '400': {
-          description: 'Invalid wallet address format',
-          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } }
-        },
-        '404': {
-          description: 'Shop not found',
-          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } }
-        }
-      }
-    }
-  }
-};
-
-export const setupSwagger = (app: Application): void => {
-  // Swagger UI setup
-  const swaggerOptions = {
-    explorer: true,
-    customSiteTitle: 'RepairCoin API Documentation'
-  };
-
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, swaggerOptions));
-  
-  // Raw OpenAPI spec endpoint
+export function setupSwagger(app: Application): void {
+  // Serve Swagger JSON
   app.get('/api-docs.json', (req, res) => {
     res.setHeader('Content-Type', 'application/json');
-    res.send(specs);
+    res.send(swaggerSpec);
   });
 
-  console.log('📚 Swagger documentation available at /api-docs');
-  console.log('📄 OpenAPI spec available at /api-docs.json');
-};
-
-// backend/src/docs/routes/customers.ts - Route-specific documentation
-/**
- * @swagger
- * /api/customers/{address}:
- *   get:
- *     summary: Get customer by wallet address
- *     description: Retrieve detailed information about a customer including tier, earnings, and blockchain balance
- *     tags: [Customers]
- *     parameters:
- *       - in: path
- *         name: address
- *         required: true
- *         schema:
- *           type: string
- *           pattern: '^0x[a-fA-F0-9]{40}$'
- *         description: Customer's Ethereum wallet address
- *         example: '0x1234567890123456789012345678901234567890'
- *     responses:
- *       200:
- *         description: Customer details retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               allOf:
- *                 - $ref: '#/components/schemas/ApiResponse'
- *                 - type: object
- *                   properties:
- *                     data:
- *                       type: object
- *                       properties:
- *                         customer:
- *                           $ref: '#/components/schemas/Customer'
- *                         blockchainBalance:
- *                           type: number
- *                           example: 125.50
- *                         tierBenefits:
- *                           type: object
- *                           properties:
- *                             dailyLimit:
- *                               type: number
- *                               example: 200
- *                             monthlyLimit:
- *                               type: number
- *                               example: 2000
- *                             redemptionMultiplier:
- *                               type: number
- *                               example: 1.0
- *       404:
- *         description: Customer not found
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiError'
- *       400:
- *         description: Invalid wallet address format
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiError'
- * 
- * /api/customers/register:
- *   post:
- *     summary: Register a new customer
- *     description: Create a new customer account with optional email and phone
- *     tags: [Customers]
- *     security: []  # No auth required for registration
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - walletAddress
- *             properties:
- *               walletAddress:
- *                 type: string
- *                 pattern: '^0x[a-fA-F0-9]{40}$'
- *                 description: Customer's Ethereum wallet address
- *                 example: '0x1234567890123456789012345678901234567890'
- *               email:
- *                 type: string
- *                 format: email
- *                 description: Customer's email address (optional)
- *                 example: 'customer@example.com'
- *               phone:
- *                 type: string
- *                 description: Customer's phone number (optional)
- *                 example: '+1234567890'
- *               fixflowCustomerId:
- *                 type: string
- *                 description: External FixFlow customer ID (optional)
- *                 example: 'ff_customer_123'
- *     responses:
- *       201:
- *         description: Customer registered successfully
- *         content:
- *           application/json:
- *             schema:
- *               allOf:
- *                 - $ref: '#/components/schemas/ApiResponse'
- *                 - type: object
- *                   properties:
- *                     data:
- *                       $ref: '#/components/schemas/Customer'
- *       409:
- *         description: Customer already registered
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiError'
- *       400:
- *         description: Invalid request data
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiError'
- * 
- * /api/customers/{address}/transactions:
- *   get:
- *     summary: Get customer transaction history
- *     description: Retrieve paginated transaction history for a customer
- *     tags: [Customers]
- *     parameters:
- *       - in: path
- *         name: address
- *         required: true
- *         schema:
- *           type: string
- *           pattern: '^0x[a-fA-F0-9]{40}$'
- *         description: Customer's wallet address
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           minimum: 1
- *           maximum: 100
- *           default: 50
- *         description: Number of transactions to return
- *       - in: query
- *         name: type
- *         schema:
- *           type: string
- *           enum: [mint, redeem, transfer]
- *         description: Filter by transaction type
- *     responses:
- *       200:
- *         description: Transaction history retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               allOf:
- *                 - $ref: '#/components/schemas/ApiResponse'
- *                 - type: object
- *                   properties:
- *                     data:
- *                       type: object
- *                       properties:
- *                         transactions:
- *                           type: array
- *                           items:
- *                             $ref: '#/components/schemas/Transaction'
- *                         count:
- *                           type: integer
- *                           example: 25
- *                         customer:
- *                           type: object
- *                           properties:
- *                             address:
- *                               type: string
- *                             tier:
- *                               type: string
- *                             lifetimeEarnings:
- *                               type: number
- */
-
-// backend/src/docs/routes/webhooks.ts - Webhook documentation
-/**
- * @swagger
- * /api/webhooks/fixflow:
- *   post:
- *     summary: Process FixFlow webhook
- *     description: Handle incoming webhooks from FixFlow system for repair completions, referrals, etc.
- *     tags: [Webhooks]
- *     security:
- *       - webhookSecret: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/WebhookPayload'
- *           examples:
- *             repair_completed:
- *               summary: Repair completion webhook
- *               value:
- *                 event: "repair_completed"
- *                 data:
- *                   customer_id: "cust_123"
- *                   customer_wallet_address: "0x1234567890123456789012345678901234567890"
- *                   shop_id: "shop001"
- *                   repair_amount: 150.00
- *                   repair_id: "repair_456"
- *                   customer_email: "customer@example.com"
- *             referral_verified:
- *               summary: Referral verification webhook
- *               value:
- *                 event: "referral_verified"
- *                 data:
- *                   referrer_wallet_address: "0x1234567890123456789012345678901234567890"
- *                   referee_wallet_address: "0x0987654321098765432109876543210987654321"
- *                   shop_id: "shop001"
- *     responses:
- *       200:
- *         description: Webhook processed successfully
- *         content:
- *           application/json:
- *             schema:
- *               allOf:
- *                 - $ref: '#/components/schemas/ApiResponse'
- *                 - type: object
- *                   properties:
- *                     data:
- *                       type: object
- *                       properties:
- *                         webhookId:
- *                           type: string
- *                           example: "webhook_1234567890"
- *                         transactionHash:
- *                           type: string
- *                           example: "0xabcdef1234567890..."
- *                         processingTime:
- *                           type: number
- *                           example: 245
- *       400:
- *         description: Invalid webhook payload
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiError'
- *       401:
- *         description: Invalid webhook signature
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiError'
- * 
- * /api/webhooks/test:
- *   post:
- *     summary: Test webhook endpoint (development only)
- *     description: Test webhook processing without signature verification (development environment only)
- *     tags: [Webhooks]
- *     security: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/WebhookPayload'
- *     responses:
- *       200:
- *         description: Test webhook processed
- *       404:
- *         description: Endpoint not available in production
- */
+  // Serve Swagger UI
+  if (process.env.ENABLE_SWAGGER === 'true' || process.env.NODE_ENV !== 'production') {
+    app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+      customCss: '.swagger-ui .topbar { display: none }',
+      customSiteTitle: 'RepairCoin API Documentation',
+    }));
+  }
+}

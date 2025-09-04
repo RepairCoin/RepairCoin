@@ -1,4 +1,4 @@
-// backend/src/services/AdminService.ts
+// backend/src/domains/admin/services/AdminService.ts
 import { 
   customerRepository, 
   shopRepository, 
@@ -1247,37 +1247,49 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
 
   async checkAdminAccess(walletAddress: string): Promise<boolean> {
     try {
-      // First check database
-      const isDbAdmin = await adminRepository.isAdmin(walletAddress);
-      if (isDbAdmin) {
-        // Update last login time
-        await adminRepository.updateAdminLastLogin(walletAddress);
-        return true;
-      }
-
-      // Check if this is the super admin from .env (first address in ADMIN_ADDRESSES)
-      const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
-      const superAdminAddress = adminAddresses[0]; // First address is super admin
-      const isSuperAdmin = superAdminAddress === walletAddress.toLowerCase();
-      
-      if (isSuperAdmin) {
-        // Auto-migrate super admin to database if not exists
-        logger.info('Auto-migrating super admin from environment to database', { walletAddress });
-        try {
-          await adminRepository.createAdmin({
-            walletAddress,
-            name: 'Super Administrator',
-            permissions: ['all'],
-            isSuperAdmin: true,
-            createdBy: 'system'
-          });
-        } catch (migrationError) {
-          // Admin might already exist, just log and continue
-          logger.debug('Super admin migration skipped (may already exist)', { walletAddress });
+      // Check if adminRepository is available and has the required method
+      if (adminRepository && typeof adminRepository.isAdmin === 'function') {
+        // First check database
+        const isDbAdmin = await adminRepository.isAdmin(walletAddress);
+        if (isDbAdmin) {
+          // Update last login time
+          await adminRepository.updateAdminLastLogin(walletAddress);
+          return true;
         }
-      }
 
-      return isSuperAdmin;
+        // Check if this is the super admin from .env (first address in ADMIN_ADDRESSES)
+        const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
+        const superAdminAddress = adminAddresses[0]; // First address is super admin
+        const isSuperAdmin = superAdminAddress === walletAddress.toLowerCase();
+        
+        if (isSuperAdmin && typeof adminRepository.createAdmin === 'function') {
+          // Auto-migrate super admin to database if not exists
+          logger.info('Auto-migrating super admin from environment to database', { walletAddress });
+          try {
+            await adminRepository.createAdmin({
+              walletAddress,
+              name: 'Super Administrator',
+              permissions: ['all'],
+              isSuperAdmin: true,
+              createdBy: 'system'
+            });
+          } catch (migrationError: any) {
+            // Admin might already exist, just log and continue
+            logger.debug('Super admin migration skipped (may already exist)', { 
+              walletAddress,
+              error: migrationError.message 
+            });
+          }
+        }
+        
+        return isSuperAdmin;
+      } else {
+        // Fallback to env check if adminRepository not available
+        logger.warn('AdminRepository not available, falling back to env check');
+        const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
+        const superAdminAddress = adminAddresses[0]; // First address is super admin
+        return superAdminAddress === walletAddress.toLowerCase();
+      }
     } catch (error) {
       logger.error('Error checking admin access:', error);
       // In case of database error, fallback to env check
