@@ -11,6 +11,7 @@ All database migrations for RepairCoin are stored in this directory. They should
 5. **004_add_admin_tables.sql** - Adds admin management tables
 6. **005_add_suspension_fields.sql** - Adds customer suspension features
 7. **006_fix_referral_case_sensitivity.sql** - Fixes case-sensitive referral codes
+8. **007_add_admins_table.sql** - Creates admins table for storing admin users with permissions
 
 ## How to Apply Migrations
 
