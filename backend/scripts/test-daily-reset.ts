@@ -3,7 +3,7 @@ import * as dotenv from 'dotenv';
 import * as path from 'path';
 
 // Load environment variables
-dotenv.config({ path: path.join(__dirname, '../../.env') });
+dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const API_URL = 'http://localhost:3000/api';
 const SHOP_WALLET = '0x761e5e59485ec6feb263320f5d636042bd9ebc8c'; // shop001

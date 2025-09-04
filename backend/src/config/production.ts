@@ -21,9 +21,9 @@ export default {
   },
   blockchain: {
     network: 'base-sepolia',
-    contractAddress: process.env.REPAIRCOIN_CONTRACT_ADDRESS,
-    thirdwebClientId: process.env.THIRDWEB_CLIENT_ID,
-    thirdwebSecretKey: process.env.THIRDWEB_SECRET_KEY,
+    contractAddress: process.env.RCN_CONTRACT_ADDRESS,
+    thirdwebClientId: process.env.RCN_THIRDWEB_CLIENT_ID,
+    thirdwebSecretKey: process.env.RCN_THIRDWEB_SECRET_KEY,
     privateKey: process.env.PRIVATE_KEY
   },
   swagger: {
