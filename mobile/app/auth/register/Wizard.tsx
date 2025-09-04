@@ -10,10 +10,23 @@ export default function RegisterWizard() {
   const [step, setStep] = useState<Step>(1);
 
   const [email, setEmail] = useState("");
+  const [isValidEmail, setIsValidEmail] = useState(true);
+  const [sendingCodeSuccess, setSendingCodeSuccess] = useState(true);
 
   const CODE_LEN = 5;
   const [code, setCode] = useState<string[]>(Array(CODE_LEN).fill(""));
   const isCodeFilled = code.every(Boolean);
+  const [codeInputFieldStatus, setCodeInputFieldStatus] = useState<
+    {
+      isFocused: boolean;
+      isFilled: boolean;
+    }[]
+  >(
+    Array(CODE_LEN).fill({
+      isFocused: false,
+      isFilled: false,
+    })
+  );
 
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
@@ -30,6 +43,53 @@ export default function RegisterWizard() {
     const score = [hasLen, hasNum, hasSym].filter(Boolean).length;
     return score / 3;
   }, [passReqs]);
+
+  const GetCodeFromThirdWeb = async () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(email)) {
+      setIsValidEmail(false);
+      return;
+    } else {
+      setIsValidEmail(true);
+    }
+
+    const clientId =
+      process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID ||
+      "99f01d5781fadab9f6a42660090e824b";
+    const apiUrl = "https://api.thirdweb.com/v1/auth/initiate";
+
+    const requestBody = {
+      method: "email",
+      email: email,
+    };
+
+    try {
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-client-id": clientId,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (response.status === 200) {
+        setSendingCodeSuccess(true);
+        setStep(2);
+      } else {
+        setSendingCodeSuccess(false);
+      }
+    } catch (error) {
+      setSendingCodeSuccess(false);
+    }
+  };
 
   const ProgressDots = ({ step }: { step: Step }) => (
     <View className="mt-2 flex-row items-center gap-2">
@@ -133,12 +193,24 @@ export default function RegisterWizard() {
               autoCorrect={false}
               keyboardType="email-address"
               placeholder="you@example.com"
-              className="rounded-xl border border-zinc-300 bg-white px-4 py-3 text-base text-zinc-900"
+              className={`rounded-xl border bg-white px-4 py-3 text-base text-zinc-900 ${isValidEmail ? "border-zinc-300" : "border-red-400"}`}
             />
+
+            {!isValidEmail && (
+              <Text className="mt-2 text-xs text-red-500">
+                Please enter a valid email
+              </Text>
+            )}
+
+            {!sendingCodeSuccess && (
+              <Text className="mt-2 text-xs text-red-500">
+                An error occured sending the code
+              </Text>
+            )}
 
             <PrimaryButton
               label="Create an account"
-              onPress={() => setStep(2)}
+              onPress={() => GetCodeFromThirdWeb()}
               className="mt-4"
             />
 
@@ -170,6 +242,7 @@ export default function RegisterWizard() {
                   }}
                   keyboardType="number-pad"
                   maxLength={1}
+                  autoFocus={i === 2}
                   className="h-12 flex-1 mx-1 rounded-lg border border-zinc-300 bg-white text-center text-base"
                 />
               ))}

@@ -1,11 +1,15 @@
 import { AntDesign, FontAwesome } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import React from "react";
+import React, { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { ThirdWebStrategy } from "../../../utilities/GlobalTypes";
+import { ConnectWalletService } from "@/utilities/ConnectWalletService";
 
 export default function RegisterStart() {
+  const [strategy, setStrategy] = useState<ThirdWebStrategy>("google");
+
   return (
     <SafeAreaView className="flex-1 items-center bg-zinc-100">
       {/* page container */}
@@ -50,19 +54,28 @@ export default function RegisterStart() {
 
         {/* social buttons */}
         <SocialButton
-          onPress={() => {}}
+          onPress={() => {
+            setStrategy('apple');
+            ConnectWalletService("apple");
+          }}
           left={<AntDesign name="apple1" size={18} color="#1f2937" />}
           label="Continue with Apple"
         />
         <View className="h-3" />
         <SocialButton
-          onPress={() => {}}
+          onPress={() => {
+            setStrategy('facebook');
+            ConnectWalletService("facebook");
+          }}
           left={<FontAwesome name="facebook-f" size={18} color="#1877F2" />}
           label="Continue with Facebook"
         />
         <View className="h-3" />
         <SocialButton
-          onPress={() => {}}
+          onPress={() => {
+            setStrategy('google');
+            ConnectWalletService("google");
+          }}
           left={
             <Image
               source={{
