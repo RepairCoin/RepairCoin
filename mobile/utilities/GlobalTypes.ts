@@ -1,0 +1,1 @@
+export type ThirdWebStrategy = "apple" | "facebook" | "google";

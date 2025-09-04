@@ -6,7 +6,8 @@
     "client": "cd frontend && npm run dev",
     "build": "cd backend && npm run build",
     "start": "cd backend && npm run start",
-    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
+    "mobile": "cd mobile && npm start",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install && cd ../mobile npm install"
   },
   "dependencies": {
     "@thirdweb-dev/react": "^4.9.4",
