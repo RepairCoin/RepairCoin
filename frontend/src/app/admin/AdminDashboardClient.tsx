@@ -78,6 +78,8 @@ export default function AdminDashboardClient() {
     shop: null,
   });
   const [activeTab, setActiveTab] = useState("overview");
+  const [activeSubTab, setActiveSubTab] = useState<string>(""); // Will be set when customers tab is active
+  const [customerView, setCustomerView] = useState<"grouped" | "all" | "unsuspend-requests">("grouped");
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [adminPermissions, setAdminPermissions] = useState<string[]>([]);
@@ -667,7 +669,29 @@ export default function AdminDashboardClient() {
   };
 
   const handleTabChange = (tab: string) => {
-    setActiveTab(tab as any);
+    // Handle customer sub-navigation
+    if (tab === "customers-grouped") {
+      setActiveTab("customers");
+      setActiveSubTab("customers-grouped");
+      setCustomerView("grouped");
+    } else if (tab === "customers-all") {
+      setActiveTab("customers");
+      setActiveSubTab("customers-all");
+      setCustomerView("all");
+    } else if (tab === "customers-unsuspend") {
+      setActiveTab("customers");
+      setActiveSubTab("customers-unsuspend");
+      setCustomerView("unsuspend-requests");
+    } else if (tab === "customers") {
+      // When clicking main customers tab, default to grouped view
+      setActiveTab("customers");
+      setActiveSubTab("customers-grouped");
+      setCustomerView("grouped");
+    } else {
+      setActiveTab(tab as any);
+      // Clear subtab when switching to a non-customer tab
+      setActiveSubTab("");
+    }
   };
 
   // Helper function to check if user has a specific permission
@@ -723,6 +747,7 @@ export default function AdminDashboardClient() {
     <DashboardLayout
       userRole="admin"
       activeTab={activeTab}
+      activeSubTab={activeSubTab}
       onTabChange={handleTabChange}
       isSuperAdmin={isSuperAdmin}
       adminPermissions={adminPermissions}
@@ -774,6 +799,7 @@ export default function AdminDashboardClient() {
               onRefresh={loadDashboardData}
               onSuspendCustomer={suspendCustomer}
               onUnsuspendCustomer={unsuspendCustomer}
+              initialView={customerView}
             />
           )}
 

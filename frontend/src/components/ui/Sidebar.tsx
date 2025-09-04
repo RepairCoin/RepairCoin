@@ -46,6 +46,7 @@ interface SidebarProps {
   onToggle?: () => void;
   userRole?: "customer" | "shop" | "admin";
   activeTab?: string;
+  activeSubTab?: string;
   onTabChange?: (tab: string) => void;
   onCollapseChange?: (collapsed: boolean) => void;
   isSuperAdmin?: boolean;
@@ -57,6 +58,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onToggle,
   userRole = "customer",
   activeTab,
+  activeSubTab,
   onTabChange,
   onCollapseChange,
   isSuperAdmin = false,
@@ -69,6 +71,18 @@ const Sidebar: React.FC<SidebarProps> = ({
   const logout = useAuthStore((state) => state.logout);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+
+  // Auto-collapse subtabs when switching to a different main tab
+  React.useEffect(() => {
+    // If activeTab changes and it's not "customers", collapse the customers subtab
+    if (activeTab && activeTab !== "customers") {
+      setExpandedItems(prev => prev.filter(id => id !== "customers"));
+    }
+    // Auto-expand customers when it becomes active
+    if (activeTab === "customers" && !expandedItems.includes("customers")) {
+      setExpandedItems(prev => [...prev, "customers"]);
+    }
+  }, [activeTab]);
 
   const handleCollapseToggle = () => {
     const newCollapsed = !isCollapsed;
@@ -217,6 +231,26 @@ const Sidebar: React.FC<SidebarProps> = ({
             href: "/admin?tab=customers",
             icon: <span className="text-xl">👥</span>,
             tabId: "customers",
+            subItems: [
+              {
+                title: "Grouped by Shop",
+                href: "/admin?tab=customers&view=grouped",
+                icon: <span className="text-sm">🏪</span>,
+                tabId: "customers-grouped",
+              },
+              {
+                title: "All Customers",
+                href: "/admin?tab=customers&view=all",
+                icon: <span className="text-sm">👤</span>,
+                tabId: "customers-all",
+              },
+              {
+                title: "Unsuspend Requests",
+                href: "/admin?tab=customers&view=unsuspend",
+                icon: <span className="text-sm">🔓</span>,
+                tabId: "customers-unsuspend",
+              },
+            ],
           },
           {
             title: "Shops",
@@ -258,6 +292,26 @@ const Sidebar: React.FC<SidebarProps> = ({
             href: "/admin?tab=customers",
             icon: <span className="text-xl">👥</span>,
             tabId: "customers",
+            subItems: [
+              {
+                title: "Grouped by Shop",
+                href: "/admin?tab=customers&view=grouped",
+                icon: <span className="text-sm">🏪</span>,
+                tabId: "customers-grouped",
+              },
+              {
+                title: "All Customers",
+                href: "/admin?tab=customers&view=all",
+                icon: <span className="text-sm">👤</span>,
+                tabId: "customers-all",
+              },
+              {
+                title: "Unsuspend Requests",
+                href: "/admin?tab=customers&view=unsuspend",
+                icon: <span className="text-sm">🔓</span>,
+                tabId: "customers-unsuspend",
+              },
+            ],
           });
         }
         
@@ -474,7 +528,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                       <ul className="mt-1 ml-4 space-y-1">
                         {item.subItems?.map((subItem) => {
                           const subIsActive = (userRole === "shop" || userRole === "customer" || userRole === "admin") && subItem.tabId
-                            ? activeTab === subItem.tabId
+                            ? activeSubTab === subItem.tabId
                             : pathname === subItem.href;
 
                           const handleSubClick = (e: React.MouseEvent) => {
@@ -494,7 +548,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                   transition-colors duration-200 text-sm
                                   ${
                                     subIsActive
-                                      ? "bg-yellow-400 text-gray-900 font-medium"
+                                      ? "bg-[#FFCC00] text-gray-900 font-medium"
                                       : "text-gray-400 hover:bg-gray-800 hover:text-white"
                                   }
                                 `}
