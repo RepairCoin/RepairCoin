@@ -8,7 +8,6 @@ interface TreasuryData {
   availableSupply: number | string;
   totalSold: number;
   totalRevenue: number;
-  percentageSold: string;
   lastUpdated: string;
   circulatingSupply?: number;
   mintedRewards?: number;
@@ -204,12 +203,12 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({ generateAdminToken, on
 
   if (loading) {
     return (
-      <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+      <div className="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700">
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
+          <div className="h-8 bg-gray-700 rounded w-1/4 mb-4"></div>
           <div className="space-y-4">
-            <div className="h-32 bg-gray-200 rounded"></div>
-            <div className="h-32 bg-gray-200 rounded"></div>
+            <div className="h-32 bg-gray-700 rounded"></div>
+            <div className="h-32 bg-gray-700 rounded"></div>
           </div>
         </div>
       </div>
@@ -218,9 +217,9 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({ generateAdminToken, on
 
   if (!treasuryData) {
     return (
-      <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Treasury Management</h2>
-        <p className="text-gray-600">Failed to load treasury data</p>
+      <div className="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700">
+        <h2 className="text-2xl font-bold text-white mb-4">Treasury Management</h2>
+        <p className="text-gray-400">Failed to load treasury data</p>
       </div>
     );
   }
@@ -228,9 +227,9 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({ generateAdminToken, on
   return (
     <div className="space-y-6">
       {/* Treasury Overview */}
-      <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+      <div className="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">Treasury Overview</h2>
+          <h2 className="text-2xl font-bold text-white">Treasury Overview</h2>
           <div className="flex gap-2">
             <button
               onClick={() => setShowSellModal(true)}
@@ -249,37 +248,37 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({ generateAdminToken, on
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200">
+          <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-xl p-6 border border-blue-700">
             <div className="text-3xl mb-2">💎</div>
-            <p className="text-sm text-gray-600 mb-1">Total Supply</p>
-            <p className="text-2xl font-bold text-gray-900">
+            <p className="text-sm text-gray-400 mb-1">Total Supply</p>
+            <p className="text-2xl font-bold text-white">
               {typeof treasuryData.totalSupply === 'string' 
                 ? treasuryData.totalSupply 
                 : formatNumber(treasuryData.totalSupply)} RCN
             </p>
           </div>
 
-          <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 border border-green-200">
+          <div className="bg-gradient-to-br from-green-900 to-green-800 rounded-xl p-6 border border-green-700">
             <div className="text-3xl mb-2">🏦</div>
-            <p className="text-sm text-gray-600 mb-1">Available in Treasury</p>
-            <p className="text-2xl font-bold text-gray-900">
+            <p className="text-sm text-gray-400 mb-1">Available in Treasury</p>
+            <p className="text-2xl font-bold text-white">
               {typeof treasuryData.availableSupply === 'string' 
                 ? treasuryData.availableSupply 
                 : formatNumber(treasuryData.availableSupply)} RCN
             </p>
           </div>
 
-          <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border border-purple-200">
+          <div className="bg-gradient-to-br from-purple-900 to-purple-800 rounded-xl p-6 border border-purple-700">
             <div className="text-3xl mb-2">💰</div>
-            <p className="text-sm text-gray-600 mb-1">Total Sold</p>
-            <p className="text-2xl font-bold text-gray-900">{formatNumber(treasuryData.totalSold)} RCN</p>
-            <p className="text-sm text-purple-600 mt-1">{treasuryData.percentageSold}% of supply</p>
+            <p className="text-sm text-gray-400 mb-1">Total Sold to Shops</p>
+            <p className="text-2xl font-bold text-white">{formatNumber(treasuryData.totalSold)} RCN</p>
+            <p className="text-sm text-purple-400 mt-1">Shops purchased @ $0.10/RCN</p>
           </div>
 
-          <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl p-6 border border-yellow-200">
+          <div className="bg-gradient-to-br from-yellow-900 to-yellow-800 rounded-xl p-6 border border-yellow-700">
             <div className="text-3xl mb-2">💵</div>
-            <p className="text-sm text-gray-600 mb-1">Total Revenue</p>
-            <p className="text-2xl font-bold text-gray-900">{formatCurrency(treasuryData.totalRevenue)}</p>
+            <p className="text-sm text-gray-400 mb-1">Total Revenue</p>
+            <p className="text-2xl font-bold text-white">{formatCurrency(treasuryData.totalRevenue)}</p>
           </div>
         </div>
 
@@ -289,24 +288,24 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({ generateAdminToken, on
       </div>
 
       {/* Top Buyers */}
-      <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-        <h3 className="text-xl font-bold text-gray-900 mb-4">Top RCN Buyers</h3>
+      <div className="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700">
+        <h3 className="text-xl font-bold text-white mb-4">Top RCN Buyers</h3>
         {treasuryData.topBuyers.length === 0 ? (
-          <p className="text-gray-500">No purchases yet</p>
+          <p className="text-gray-400">No purchases yet</p>
         ) : (
           <div className="space-y-3">
             {treasuryData.topBuyers.map((buyer, index) => (
-              <div key={buyer.shop_id || buyer.shopId || `buyer-${index}`} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div key={buyer.shop_id || buyer.shopId || `buyer-${index}`} className="flex items-center justify-between p-4 bg-gray-900 rounded-lg border border-gray-700">
                 <div className="flex items-center gap-3">
-                  <div className="text-2xl font-bold text-gray-400">#{index + 1}</div>
+                  <div className="text-2xl font-bold text-gray-500">#{index + 1}</div>
                   <div>
-                    <p className="font-semibold text-gray-900">{buyer.shop_name || buyer.shopName}</p>
-                    <p className="text-sm text-gray-500">Shop ID: {buyer.shop_id || buyer.shopId}</p>
+                    <p className="font-semibold text-white">{buyer.shop_name || buyer.shopName}</p>
+                    <p className="text-sm text-gray-400">Shop ID: {buyer.shop_id || buyer.shopId}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-gray-900">{formatNumber(Number(buyer.total_purchased || buyer.totalPurchased || 0))} RCN</p>
-                  <p className="text-sm text-gray-500">{formatCurrency(Number(buyer.total_spent || buyer.totalSpent || 0))}</p>
+                  <p className="font-bold text-white">{formatNumber(Number(buyer.total_purchased || buyer.totalPurchased || 0))} RCN</p>
+                  <p className="text-sm text-gray-400">{formatCurrency(Number(buyer.total_spent || buyer.totalSpent || 0))}</p>
                 </div>
               </div>
             ))}
@@ -315,40 +314,40 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({ generateAdminToken, on
       </div>
 
       {/* Recent Purchases */}
-      <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-        <h3 className="text-xl font-bold text-gray-900 mb-4">Recent RCN Purchases</h3>
+      <div className="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700">
+        <h3 className="text-xl font-bold text-white mb-4">Recent RCN Purchases</h3>
         {treasuryData.recentPurchases.length === 0 ? (
-          <p className="text-gray-500">No recent purchases</p>
+          <p className="text-gray-400">No recent purchases</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-gray-700">
+              <thead className="bg-gray-900">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shop</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Shop</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Amount</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Cost</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-gray-800 divide-y divide-gray-700">
                 {treasuryData.recentPurchases.map((purchase) => (
                   <tr key={purchase.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{purchase.shop_name || purchase.shopName}</div>
-                      <div className="text-sm text-gray-500">{purchase.shop_id || purchase.shopId}</div>
+                      <div className="text-sm font-medium text-white">{purchase.shop_name || purchase.shopName}</div>
+                      <div className="text-sm text-gray-400">{purchase.shop_id || purchase.shopId}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
                       {formatNumber(Number(purchase.rcn_amount || purchase.amount || 0))} RCN
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
                       {formatCurrency(Number(purchase.total_cost || purchase.totalCost || 0))}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
                       {new Date(purchase.purchase_date || purchase.createdAt || Date.now()).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800`}>
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-900 text-green-400`}>
                         Completed
                       </span>
                     </td>
@@ -363,16 +362,16 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({ generateAdminToken, on
       {/* Sell RCN Modal */}
       {showSellModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Sell RCN to Shop</h3>
+          <div className="bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 border border-gray-700">
+            <h3 className="text-xl font-bold text-white mb-4">Sell RCN to Shop</h3>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Select Shop</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Select Shop</label>
                 <select
                   value={selectedShopId}
                   onChange={(e) => setSelectedShopId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">Choose a shop...</option>
                   {shops.map((shop) => (
@@ -384,22 +383,22 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = ({ generateAdminToken, on
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Amount (RCN)</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Amount (RCN)</label>
                 <input
                   type="number"
                   value={sellAmount}
                   onChange={(e) => setSellAmount(parseInt(e.target.value) || 0)}
                   min="1"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
-                <p className="text-sm text-gray-500 mt-1">Total: {formatCurrency(sellAmount * 0.10)}</p>
+                <p className="text-sm text-gray-400 mt-1">Total: {formatCurrency(sellAmount * 0.10)}</p>
               </div>
             </div>
 
             <div className="flex justify-end space-x-3 mt-6">
               <button
                 onClick={() => setShowSellModal(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                className="px-4 py-2 border border-gray-600 rounded-lg text-gray-300 hover:bg-gray-700"
               >
                 Cancel
               </button>

@@ -72,7 +72,7 @@ export const ShopsTab: React.FC<ShopsTabProps> = ({
       const contract = getContract({
         client,
         chain: baseSepolia,
-        address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`,
+        address: process.env.NEXT_PUBLIC_RCN_CONTRACT_ADDRESS as `0x${string}`,
       });
 
       const balances: Record<string, number> = {};

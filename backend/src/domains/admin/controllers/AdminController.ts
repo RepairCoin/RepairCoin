@@ -298,6 +298,30 @@ export class AdminController {
     }
   }
 
+  async sellRcnToShop(req: Request, res: Response) {
+    try {
+      const { shopId } = req.params;
+      const { amount, pricePerToken = 0.10, paymentMethod = 'manual', paymentReference } = req.body;
+      
+      const result = await this.adminService.sellRcnToShop({
+        shopId,
+        amount,
+        pricePerToken,
+        paymentMethod,
+        paymentReference,
+        adminAddress: req.user?.address
+      });
+      
+      ResponseHelper.success(res, result, 'RCN sold to shop successfully');
+    } catch (error: any) {
+      if (error.message === 'Shop not found') {
+        ResponseHelper.error(res, error.message, 404);
+      } else {
+        ResponseHelper.error(res, error.message, 400);
+      }
+    }
+  }
+
   async mintShopBalance(req: Request, res: Response) {
     try {
       const { shopId } = req.params;

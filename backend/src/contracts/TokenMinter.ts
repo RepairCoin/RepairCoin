@@ -390,6 +390,50 @@ export class TokenMinter {
     }
   }
 
+  // Admin manual mint function
+  async adminMintTokens(
+    customerAddress: string,
+    amount: number,
+    reason: string = "Admin manual mint"
+  ): Promise<MintResult> {
+    try {
+      console.log(`👑 Admin minting ${amount} RCN to ${customerAddress}. Reason: ${reason}`);
+
+      if (!this.isValidAddress(customerAddress)) {
+        return {
+          success: false,
+          message: "Invalid customer address format"
+        };
+      }
+
+      if (amount <= 0 || amount > 10000) {
+        return {
+          success: false,
+          message: "Invalid amount. Must be between 0 and 10000 RCN"
+        };
+      }
+
+      // Use the private mintTokens method
+      const result = await this.mintTokens(customerAddress, amount, `Admin: ${reason}`);
+      
+      if (result.success) {
+        console.log(`✅ Admin mint successful: ${amount} RCN to ${customerAddress}`);
+        console.log(`📝 Transaction: ${result.transactionHash}`);
+      } else {
+        console.log(`❌ Admin mint failed: ${result.error || result.message}`);
+      }
+
+      return result;
+    } catch (error: any) {
+      console.error('❌ Admin mint error:', error);
+      return {
+        success: false,
+        error: error.message || 'Unknown error during admin mint',
+        message: `Admin mint failed: ${error.message || 'Unknown error'}`
+      };
+    }
+  }
+
   // Emergency functions for admin use
 async pauseContract(): Promise<MintResult> {
     try {

@@ -46,6 +46,15 @@ export interface ManualMintParams {
   adminAddress?: string;
 }
 
+export interface SellRcnParams {
+  shopId: string;
+  amount: number;
+  pricePerToken: number;
+  paymentMethod: string;
+  paymentReference?: string;
+  adminAddress?: string;
+}
+
 export class AdminService {
   private tokenMinter: TokenMinter | null = null;
   private tierManager: TierManager | null = null;
@@ -168,9 +177,19 @@ export class AdminService {
         reason: params.reason
       });
 
-      // TODO: Implement actual token minting when TokenMinter is ready
-      // For now, return mock success
-      const mockTransactionHash = `mock_mint_${Date.now()}`;
+      // Mint tokens using TokenMinter
+      const tokenMinter = this.getTokenMinterInstance();
+      const mintResult = await tokenMinter.adminMintTokens(
+        params.customerAddress,
+        params.amount,
+        params.reason
+      );
+
+      if (!mintResult.success || !mintResult.transactionHash) {
+        throw new Error(mintResult.error || 'Failed to mint tokens');
+      }
+
+      const transactionHash = mintResult.transactionHash;
 
       // Update customer data
       const newTier = this.getTierManager().calculateTier(customer.lifetimeEarnings + params.amount);
@@ -184,7 +203,7 @@ export class AdminService {
         shopId: 'admin_system',
         amount: params.amount,
         reason: `Admin mint: ${params.reason}`,
-        transactionHash: mockTransactionHash,
+        transactionHash: transactionHash,
         timestamp: new Date().toISOString(),
         status: 'confirmed',
         metadata: {
@@ -206,13 +225,13 @@ export class AdminService {
         metadata: {
           amount: params.amount,
           reason: params.reason,
-          transactionHash: mockTransactionHash
+          transactionHash: transactionHash
         }
       });
 
       return {
         success: true,
-        transactionHash: mockTransactionHash,
+        transactionHash: transactionHash,
         amount: params.amount,
         newTier,
         message: `Successfully minted ${params.amount} RCN to customer`
@@ -342,6 +361,76 @@ export class AdminService {
       };
     } catch (error) {
       logger.error('Shop approval error:', error);
+      throw error;
+    }
+  }
+
+  async sellRcnToShop(params: SellRcnParams) {
+    try {
+      // Validate shop exists and is active
+      const shop = await shopRepository.getShop(params.shopId);
+      if (!shop) {
+        throw new Error('Shop not found');
+      }
+      if (!shop.active) {
+        throw new Error('Shop is not active');
+      }
+      if (!shop.verified) {
+        throw new Error('Shop is not verified');
+      }
+
+      logger.info('Processing RCN sale to shop', {
+        shopId: params.shopId,
+        amount: params.amount,
+        pricePerToken: params.pricePerToken,
+        totalCost: params.amount * params.pricePerToken
+      });
+
+      // Record the purchase in the database
+      const purchase = await shopRepository.createShopPurchase({
+        shopId: params.shopId,
+        amount: params.amount,
+        pricePerRcn: params.pricePerToken,
+        totalCost: params.amount * params.pricePerToken,
+        paymentMethod: params.paymentMethod,
+        paymentReference: params.paymentReference || `ADMIN-${Date.now()}`,
+        status: 'completed'
+      });
+
+      // Update shop's purchased RCN balance
+      await shopRepository.updateShopRcnBalance(params.shopId, params.amount);
+
+      // Update treasury
+      await treasuryRepository.updateTreasuryAfterSale(params.amount, params.amount * params.pricePerToken);
+
+      // Log admin activity
+      await adminRepository.logAdminActivity({
+        adminAddress: params.adminAddress || 'system',
+        actionType: 'rcn_sale',
+        actionDescription: `Sold ${params.amount} RCN to shop ${shop.name} at $${params.pricePerToken} per token`,
+        entityType: 'shop',
+        entityId: params.shopId,
+        metadata: {
+          amount: params.amount,
+          pricePerToken: params.pricePerToken,
+          totalCost: params.amount * params.pricePerToken,
+          paymentMethod: params.paymentMethod,
+          paymentReference: params.paymentReference
+        }
+      });
+
+      return {
+        success: true,
+        message: `Successfully sold ${params.amount} RCN to shop`,
+        purchase: {
+          id: purchase.id,
+          amount: params.amount,
+          totalCost: params.amount * params.pricePerToken,
+          newBalance: shop.purchasedRcnBalance + params.amount
+        }
+      };
+    } catch (error) {
+      logger.error('Error selling RCN to shop:', error);
       throw error;
     }
   }

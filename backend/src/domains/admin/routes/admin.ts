@@ -151,6 +151,14 @@ router.post('/shops/:shopId/verify',
   asyncHandler(adminController.verifyShop.bind(adminController))
 );
 
+// Sell RCN to shops ($0.10 per token)
+router.post('/shops/:shopId/sell-rcn',
+  requirePermission('manage_shops'),
+  validateRequired(['amount']),
+  validateNumeric('amount', 100, 1000000),
+  asyncHandler(adminController.sellRcnToShop.bind(adminController))
+);
+
 // Mint shop's purchased RCN balance to blockchain
 router.post('/shops/:shopId/mint-balance',
   asyncHandler(adminController.mintShopBalance.bind(adminController))

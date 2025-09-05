@@ -218,4 +218,35 @@ export class TreasuryRepository extends BaseRepository {
       throw new Error('Failed to fetch revenue by period');
     }
   }
+
+  async updateTreasuryAfterSale(amountSold: number, revenue: number): Promise<void> {
+    try {
+      const checkQuery = `SELECT COUNT(*) as count FROM admin_treasury`;
+      const checkResult = await this.pool.query(checkQuery);
+      
+      if (parseInt(checkResult.rows[0].count) === 0) {
+        // Initialize treasury if it doesn't exist
+        await this.pool.query(`
+          INSERT INTO admin_treasury (
+            total_supply, total_sold_to_shops, total_revenue, 
+            available_balance, last_updated, updated_by
+          ) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, 'system')
+        `, ['unlimited', amountSold, revenue, 'unlimited']);
+      } else {
+        // Update existing treasury
+        await this.pool.query(`
+          UPDATE admin_treasury 
+          SET total_sold_to_shops = COALESCE(total_sold_to_shops, 0) + $1,
+              total_revenue = COALESCE(total_revenue, 0) + $2,
+              last_updated = CURRENT_TIMESTAMP,
+              updated_by = 'system'
+        `, [amountSold, revenue]);
+      }
+      
+      logger.info('Treasury updated after sale:', { amountSold, revenue });
+    } catch (error) {
+      logger.error('Error updating treasury after sale:', error);
+      throw new Error('Failed to update treasury');
+    }
+  }
 }

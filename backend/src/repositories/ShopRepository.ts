@@ -549,6 +549,29 @@ export class ShopRepository extends BaseRepository {
     }
   }
 
+  async updateShopRcnBalance(shopId: string, amount: number): Promise<void> {
+    try {
+      const query = `
+        UPDATE shops 
+        SET purchased_rcn_balance = purchased_rcn_balance + $1,
+            total_rcn_purchased = total_rcn_purchased + $1,
+            last_purchase_date = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE shop_id = $2
+      `;
+      
+      await this.pool.query(query, [amount, shopId]);
+      
+      logger.info('Shop RCN balance updated:', { 
+        shopId,
+        amountAdded: amount
+      });
+    } catch (error) {
+      logger.error('Error updating shop RCN balance:', error);
+      throw error;
+    }
+  }
+
   async getShopPurchaseHistory(shopId: string, filters: {
     page: number;
     limit: number;
