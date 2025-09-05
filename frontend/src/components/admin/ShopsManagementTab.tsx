@@ -124,59 +124,14 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
   const [unsuspendNotes, setUnsuspendNotes] = useState('');
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'pending' | 'rejected'>('all');
-  
-  // Dummy data for shop unsuspend requests - remove in production
-  const dummyShopUnsuspendRequests = [
-    {
-      id: 'req-002',
-      entityType: 'shop',
-      entityId: 'SHOP-123',
-      entityDetails: {
-        name: 'Premium Auto Repair',
-        shopId: 'SHOP-123',
-        email: 'contact@premiumauto.com',
-        walletAddress: '0x7890abcdef1234567890abcdef1234567890abcd'
-      },
-      requestReason: 'Our shop license has been renewed and all compliance issues have been resolved. Documentation attached.',
-      createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
-      status: 'pending'
-    },
-    {
-      id: 'req-005',
-      entityType: 'shop',
-      entityId: 'SHOP-456',
-      entityDetails: {
-        name: 'Quick Fix Garage',
-        shopId: 'SHOP-456',
-        email: 'info@quickfix.com',
-        walletAddress: '0xfedcba9876543210fedcba9876543210fedcba98'
-      },
-      requestReason: 'New management has taken over. All previous violations have been addressed with new policies in place.',
-      createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
-      status: 'pending'
-    },
-    {
-      id: 'req-006',
-      entityType: 'shop',
-      entityId: 'SHOP-789',
-      entityDetails: {
-        name: 'Elite Motors Service',
-        shopId: 'SHOP-789',
-        email: 'support@elitemotors.com',
-        walletAddress: '0xabcdef0123456789abcdef0123456789abcdef01'
-      },
-      requestReason: 'Technical issues with our wallet have been resolved. We can now process transactions properly.',
-      createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
-      status: 'pending'
-    }
-  ];
-  
-  const [shopUnsuspendRequests, setShopUnsuspendRequests] = useState<any[]>(dummyShopUnsuspendRequests);
+  const [shopUnsuspendRequests, setShopUnsuspendRequests] = useState<any[]>([]);
+  const [unsuspendRequestsLoading, setUnsuspendRequestsLoading] = useState(false);
 
   // Fetch unsuspend requests for shops
   const fetchShopUnsuspendRequests = async () => {
     if (!generateAdminToken) return;
     
+    setUnsuspendRequestsLoading(true);
     try {
       const adminToken = await generateAdminToken();
       if (!adminToken) {
@@ -200,9 +155,16 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
           (req: any) => req.entityType === 'shop'
         );
         setShopUnsuspendRequests(shopRequests);
+      } else {
+        // If the endpoint doesn't exist or returns an error, set empty array
+        setShopUnsuspendRequests([]);
+        console.warn("Failed to fetch unsuspend requests:", response.status);
       }
     } catch (error) {
       console.error("Error loading shop unsuspend requests:", error);
+      setShopUnsuspendRequests([]);
+    } finally {
+      setUnsuspendRequestsLoading(false);
     }
   };
 
@@ -253,11 +215,12 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     }
   }, [initialView]);
   
-  // Load unsuspend requests on mount
+  // Load unsuspend requests on mount and when view changes to unsuspend-requests
   React.useEffect(() => {
-    // Commented out for dummy data preview - uncomment in production
-    // fetchShopUnsuspendRequests();
-  }, []);
+    if (viewMode === "unsuspend-requests") {
+      fetchShopUnsuspendRequests();
+    }
+  }, [viewMode]);
 
   // Close filter dropdown when clicking outside
   React.useEffect(() => {
@@ -1001,7 +964,12 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
           ) : viewMode === "unsuspend-requests" ? (
             // Unsuspend Requests Table
             <div className="space-y-4">
-              {shopUnsuspendRequests.length === 0 ? (
+              {unsuspendRequestsLoading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-yellow-400 border-t-transparent mx-auto mb-4"></div>
+                  <p className="text-gray-400">Loading unsuspend requests...</p>
+                </div>
+              ) : shopUnsuspendRequests.length === 0 ? (
                 <div className="text-center py-12">
                   <AlertCircle className="w-16 h-16 text-gray-500 mx-auto mb-4" />
                   <p className="text-gray-400 text-lg">No pending shop unsuspend requests</p>

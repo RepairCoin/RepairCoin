@@ -107,57 +107,8 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
     action: "approve" | "reject";
   }>({ isOpen: false, customer: null, action: "approve" });
   const [unsuspendNotes, setUnsuspendNotes] = useState("");
-
-  // Dummy data for preview - remove this in production
-  const dummyCustomerUnsuspendRequests = [
-    {
-      id: "req-001",
-      entityType: "customer",
-      entityId: "0x1234...5678",
-      entityDetails: {
-        name: "John Smith",
-        address: "0x1234567890abcdef1234567890abcdef12345678",
-        email: "john.smith@email.com",
-      },
-      requestReason:
-        "I was suspended by mistake. I have completed all required repairs and maintained good standing for 6 months.",
-      createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
-      status: "pending",
-    },
-    {
-      id: "req-003",
-      entityType: "customer",
-      entityId: "0xabcd...ef01",
-      entityDetails: {
-        name: "Sarah Johnson",
-        address: "0xabcdef1234567890abcdef1234567890abcdef12",
-        email: "sarah.j@email.com",
-      },
-      requestReason:
-        "Account was compromised and used fraudulently. I have secured my wallet and changed all credentials.",
-      createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
-      status: "pending",
-    },
-    {
-      id: "req-004",
-      entityType: "customer",
-      entityId: "0x9876...5432",
-      entityDetails: {
-        name: "Michael Chen",
-        address: "0x9876543210fedcba9876543210fedcba98765432",
-        email: "mchen@email.com",
-      },
-      requestReason:
-        "Temporary suspension due to payment issue has been resolved. Bank confirmation provided.",
-      createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
-      status: "pending",
-    },
-  ];
-
-  // Filter to only show customer requests
-  const [unsuspendRequests, setUnsuspendRequests] = useState<any[]>(
-    dummyCustomerUnsuspendRequests
-  );
+  const [unsuspendRequests, setUnsuspendRequests] = useState<any[]>([]);
+  const [unsuspendRequestsLoading, setUnsuspendRequestsLoading] = useState(false);
 
   // Define table columns for customers
   const customerColumns: Column<Customer>[] = [
@@ -378,9 +329,14 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
 
   useEffect(() => {
     loadCustomersData();
-    // Commented out for dummy data preview - uncomment in production
-    // fetchUnsuspendRequests();
   }, []);
+
+  // Fetch unsuspend requests when the view changes to unsuspend-requests
+  useEffect(() => {
+    if (viewMode === "unsuspend-requests") {
+      fetchUnsuspendRequests();
+    }
+  }, [viewMode]);
 
   // Sync viewMode with initialView prop changes
   useEffect(() => {
@@ -391,6 +347,7 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
 
 
   const fetchUnsuspendRequests = async () => {
+    setUnsuspendRequestsLoading(true);
     try {
       const adminToken = await generateAdminToken();
       if (!adminToken) {
@@ -415,10 +372,15 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
         );
         setUnsuspendRequests(customerRequests);
       } else {
-        console.error("Failed to load unsuspend requests");
+        // If the endpoint doesn't exist or returns an error, set empty array
+        setUnsuspendRequests([]);
+        console.warn("Failed to load unsuspend requests:", response.status);
       }
     } catch (error) {
       console.error("Error loading unsuspend requests:", error);
+      setUnsuspendRequests([]);
+    } finally {
+      setUnsuspendRequestsLoading(false);
     }
   };
 
@@ -865,7 +827,12 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
 
           {viewMode === "unsuspend-requests" && (
             <div className="space-y-4">
-              {unsuspendRequests.length === 0 ? (
+              {unsuspendRequestsLoading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-yellow-400 border-t-transparent mx-auto mb-4"></div>
+                  <p className="text-gray-400">Loading unsuspend requests...</p>
+                </div>
+              ) : unsuspendRequests.length === 0 ? (
                 <div className="text-center py-12">
                   <AlertCircle className="w-16 h-16 text-gray-500 mx-auto mb-4" />
                   <p className="text-gray-400 text-lg">
