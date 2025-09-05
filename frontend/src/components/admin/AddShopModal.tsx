@@ -33,7 +33,6 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
     description: '',
     companySize: '',
     monthlyRevenue: '',
-    role: '',
     referralCode: '',
     verified: false,
     active: true,
@@ -92,7 +91,6 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
           description: formData.description,
           companySize: formData.companySize,
           monthlyRevenue: formData.monthlyRevenue,
-          role: formData.role,
           referralCode: formData.referralCode,
           verified: formData.verified,
           active: formData.active,
@@ -119,7 +117,6 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
           description: '',
           companySize: '',
           monthlyRevenue: '',
-          role: '',
           referralCode: '',
           verified: false,
           active: true,
@@ -407,38 +404,18 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Role
-                    </label>
-                    <select
-                      name="role"
-                      value={formData.role}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-yellow-400 focus:outline-none"
-                      disabled={loading}
-                    >
-                      <option value="">Select role</option>
-                      <option value="Owner">Owner</option>
-                      <option value="Manager">Manager</option>
-                      <option value="Employee">Employee</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Referral Code
-                    </label>
-                    <input
-                      type="text"
-                      name="referralCode"
-                      value={formData.referralCode}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-yellow-400 focus:outline-none"
-                      disabled={loading}
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Referral Code
+                  </label>
+                  <input
+                    type="text"
+                    name="referralCode"
+                    value={formData.referralCode}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-yellow-400 focus:outline-none"
+                    disabled={loading}
+                  />
                 </div>
               </div>
             </div>
