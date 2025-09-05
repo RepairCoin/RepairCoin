@@ -155,8 +155,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     };
 
     loadTransactions();
-    const interval = setInterval(loadTransactions, 60000); // Refresh every minute
-    return () => clearInterval(interval);
   }, [generateAdminToken]);
 
   if (loading) {

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Activity, Store, Users, Coins, ArrowRight, Gift, ShoppingCart, UserPlus, CheckCircle, XCircle, Clock, Building2, DollarSign, UserCheck } from 'lucide-react';
+import { DataTable, Column } from '@/components/ui/DataTable';
 
 interface ActivityItem {
   id: string;
@@ -17,6 +18,11 @@ interface ActivityItem {
     tier?: string;
     status?: string;
     txHash?: string;
+    location?: string;
+    owner?: string;
+    paymentMethod?: string;
+    referredBy?: string;
+    usdAmount?: number;
   };
   icon: React.ReactNode;
   iconBg: string;
@@ -57,9 +63,9 @@ export const RecentActivitySection: React.FC<RecentActivitySectionProps> = ({ ge
 
           if (activeShops.ok) {
             const activeData = await activeShops.json();
-            activeData.data?.shops?.forEach((shop: any) => {
+            activeData.data?.shops?.forEach((shop: any, index: number) => {
               activities.push({
-                id: `shop-verified-${shop.id}`,
+                id: `shop-verified-${shop.id || index}-${Date.now()}-${index}`,
                 type: 'shop_approval',
                 timestamp: shop.verifiedAt || shop.joinDate,
                 title: 'Shop Approved',
@@ -79,9 +85,9 @@ export const RecentActivitySection: React.FC<RecentActivitySectionProps> = ({ ge
 
           if (pendingShops.ok) {
             const pendingData = await pendingShops.json();
-            pendingData.data?.shops?.forEach((shop: any) => {
+            pendingData.data?.shops?.forEach((shop: any, index: number) => {
               activities.push({
-                id: `shop-pending-${shop.id}`,
+                id: `shop-pending-${shop.id || index}-${Date.now()}-${index}`,
                 type: 'shop_registration',
                 timestamp: shop.joinDate,
                 title: 'New Shop Application',
@@ -108,9 +114,9 @@ export const RecentActivitySection: React.FC<RecentActivitySectionProps> = ({ ge
           const treasuryRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/treasury`, { headers });
           if (treasuryRes.ok) {
             const treasuryData = await treasuryRes.json();
-            treasuryData.data?.recentPurchases?.forEach((purchase: any) => {
+            treasuryData.data?.recentPurchases?.forEach((purchase: any, index: number) => {
               activities.push({
-                id: `purchase-${purchase.id}`,
+                id: `purchase-${purchase.id || index}-${Date.now()}-${index}`,
                 type: 'rcn_purchase',
                 timestamp: purchase.purchase_date,
                 title: 'RCN Purchase',
@@ -137,9 +143,9 @@ export const RecentActivitySection: React.FC<RecentActivitySectionProps> = ({ ge
           const customersRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/customers?limit=5&orderBy=join_date&order=DESC`, { headers });
           if (customersRes.ok) {
             const customerData = await customersRes.json();
-            customerData.data?.customers?.forEach((customer: any) => {
+            customerData.data?.customers?.forEach((customer: any, index: number) => {
               activities.push({
-                id: `customer-${customer.id}`,
+                id: `customer-${customer.id || customer.address || index}-${Date.now()}`,
                 type: 'new_customer',
                 timestamp: customer.joinDate,
                 title: 'New Customer',
@@ -172,8 +178,6 @@ export const RecentActivitySection: React.FC<RecentActivitySectionProps> = ({ ge
     };
 
     fetchActivities();
-    const interval = setInterval(fetchActivities, 60000); // Refresh every minute
-    return () => clearInterval(interval);
   }, [generateAdminToken]);
 
   const filteredActivities = activities.filter(activity => {
@@ -192,6 +196,97 @@ export const RecentActivitySection: React.FC<RecentActivitySectionProps> = ({ ge
     if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
     return then.toLocaleDateString();
   };
+
+  // Define columns for the DataTable
+  const columns: Column<ActivityItem>[] = [
+    {
+      key: 'type',
+      header: 'TYPE',
+      accessor: (activity) => (
+        <div className="flex items-center gap-3">
+          <div className={`${activity.iconBg} p-2 rounded-lg shadow-lg flex-shrink-0`}>
+            <div className="text-white">{activity.icon}</div>
+          </div>
+          <span className="text-sm text-gray-300">{activity.title}</span>
+        </div>
+      ),
+      headerClassName: 'uppercase text-xs tracking-wider'
+    },
+    {
+      key: 'description',
+      header: 'DETAILS',
+      accessor: (activity) => (
+        <div className="space-y-1">
+          <p className="text-sm text-gray-300">{activity.description}</p>
+          {activity.metadata && (
+            <div className="flex flex-wrap items-center gap-2">
+              {activity.metadata.amount && (
+                <div className="flex items-center gap-1">
+                  <Coins className="w-3 h-3 text-yellow-500" />
+                  <span className="text-xs text-yellow-400 font-semibold">
+                    {activity.metadata.amount.toLocaleString()} RCN
+                    {activity.metadata.usdAmount && (
+                      <span className="text-gray-500 ml-1">(${activity.metadata.usdAmount})</span>
+                    )}
+                  </span>
+                </div>
+              )}
+              {activity.metadata.tier && (
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                  activity.metadata.tier === 'GOLD' ? 'bg-yellow-900/30 text-yellow-400 border border-yellow-700/50' :
+                  activity.metadata.tier === 'SILVER' ? 'bg-gray-700/30 text-gray-300 border border-gray-600/50' :
+                  'bg-orange-900/30 text-orange-400 border border-orange-700/50'
+                }`}>
+                  {activity.metadata.tier} Tier
+                </span>
+              )}
+              {activity.metadata.location && (
+                <span className="text-xs text-gray-500">📍 {activity.metadata.location}</span>
+              )}
+              {activity.metadata.owner && (
+                <span className="text-xs text-gray-500">👤 {activity.metadata.owner}</span>
+              )}
+              {activity.metadata.paymentMethod && (
+                <span className="text-xs text-gray-500">💳 {activity.metadata.paymentMethod}</span>
+              )}
+              {activity.metadata.referredBy && (
+                <span className="text-xs text-purple-400">🎯 Referred</span>
+              )}
+            </div>
+          )}
+        </div>
+      ),
+      headerClassName: 'uppercase text-xs tracking-wider'
+    },
+    {
+      key: 'status',
+      header: 'STATUS',
+      accessor: (activity) => activity.status ? (
+        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+          activity.status === 'success' ? 'bg-green-900/50 text-green-400 border border-green-700/50' :
+          activity.status === 'pending' ? 'bg-yellow-900/50 text-yellow-400 border border-yellow-700/50' :
+          'bg-red-900/50 text-red-400 border border-red-700/50'
+        }`}>
+          {activity.status.charAt(0).toUpperCase() + activity.status.slice(1)}
+        </span>
+      ) : null,
+      headerClassName: 'uppercase text-xs tracking-wider'
+    },
+    {
+      key: 'timestamp',
+      header: 'TIME',
+      accessor: (activity) => (
+        <div className="text-sm">
+          <div className="text-gray-300">{getRelativeTime(activity.timestamp)}</div>
+          <div className="text-gray-500 text-xs">
+            {new Date(activity.timestamp).toLocaleString()}
+          </div>
+        </div>
+      ),
+      sortable: true,
+      headerClassName: 'uppercase text-xs tracking-wider'
+    }
+  ];
 
   return (
     <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700/50">
@@ -218,100 +313,17 @@ export const RecentActivitySection: React.FC<RecentActivitySectionProps> = ({ ge
         </div>
       </div>
 
-      <div className="max-h-[500px] overflow-y-auto">
-        {loading ? (
-          <div className="p-8 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-2 border-yellow-400 border-t-transparent mx-auto mb-4"></div>
-            <p className="text-gray-400">Loading activities...</p>
-          </div>
-        ) : filteredActivities.length > 0 ? (
-          <div className="divide-y divide-gray-700/30">
-            {filteredActivities.map((activity) => (
-              <div key={activity.id} className="p-4 hover:bg-gray-700/20 transition-colors">
-                <div className="flex items-start gap-4">
-                  <div className={`${activity.iconBg} p-3 rounded-xl flex-shrink-0 shadow-lg`}>
-                    <div className="text-white">{activity.icon}</div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-white font-semibold">{activity.title}</h4>
-                          {activity.status && (
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                              activity.status === 'success' ? 'bg-green-900/30 text-green-400 border border-green-700/50' :
-                              activity.status === 'pending' ? 'bg-yellow-900/30 text-yellow-400 border border-yellow-700/50' :
-                              'bg-red-900/30 text-red-400 border border-red-700/50'
-                            }`}>
-                              {activity.status}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-gray-400 text-sm mt-1">{activity.description}</p>
-                        {activity.metadata && (
-                          <div className="flex flex-wrap items-center gap-3 mt-2">
-                            {activity.metadata.amount && (
-                              <div className="flex items-center gap-1">
-                                <Coins className="w-3 h-3 text-yellow-500" />
-                                <span className="text-sm text-yellow-400 font-semibold">
-                                  {activity.metadata.amount.toLocaleString()} RCN
-                                </span>
-                                {activity.metadata.usdAmount && (
-                                  <span className="text-xs text-gray-500">
-                                    (${activity.metadata.usdAmount})
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                            {activity.metadata.tier && (
-                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                                activity.metadata.tier === 'GOLD' ? 'bg-yellow-900/30 text-yellow-400 border border-yellow-700/50' :
-                                activity.metadata.tier === 'SILVER' ? 'bg-gray-700/30 text-gray-300 border border-gray-600/50' :
-                                'bg-orange-900/30 text-orange-400 border border-orange-700/50'
-                              }`}>
-                                {activity.metadata.tier} Tier
-                              </span>
-                            )}
-                            {activity.metadata.location && (
-                              <span className="text-xs text-gray-500 flex items-center gap-1">
-                                📍 {activity.metadata.location}
-                              </span>
-                            )}
-                            {activity.metadata.owner && (
-                              <span className="text-xs text-gray-500">
-                                👤 {activity.metadata.owner}
-                              </span>
-                            )}
-                            {activity.metadata.paymentMethod && (
-                              <span className="text-xs text-gray-500">
-                                💳 {activity.metadata.paymentMethod}
-                              </span>
-                            )}
-                            {activity.metadata.referredBy && (
-                              <span className="text-xs text-purple-400">
-                                🎯 Referred
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <span className="text-xs text-gray-500">{getRelativeTime(activity.timestamp)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="p-8 text-center">
-            <div className="text-4xl mb-4">📋</div>
-            <p className="text-gray-400">No recent activities</p>
-            <p className="text-gray-500 text-sm mt-2">Activities will appear here as they happen</p>
-          </div>
-        )}
-      </div>
+      <DataTable
+        data={filteredActivities}
+        columns={columns}
+        keyExtractor={(activity) => activity.id}
+        loading={loading}
+        loadingRows={5}
+        emptyMessage="No recent activities"
+        emptyIcon={<div className="text-4xl mb-2">📋</div>}
+        headerClassName="bg-gray-900/30"
+        className="text-gray-300"
+      />
 
       {filteredActivities.length > 10 && (
         <div className="px-6 py-3 border-t border-gray-700/30">
