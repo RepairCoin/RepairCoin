@@ -72,6 +72,7 @@ export default function CustomerRegisterClient() {
     useState<EarnedBalanceData | null>(null);
   const [transactions, setTransactions] = useState<TransactionHistory[]>([]);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showUnsuspendModal, setShowUnsuspendModal] = useState(false);
   const [activeTab, setActiveTab] = useState<
@@ -88,7 +89,10 @@ export default function CustomerRegisterClient() {
   const fetchCustomerData = async () => {
     if (!account?.address) return;
 
-    setLoading(true);
+    // Only set loading if not initial load
+    if (!initialLoading) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -167,6 +171,7 @@ export default function CustomerRegisterClient() {
       setError("Failed to load customer data");
     } finally {
       setLoading(false);
+      setInitialLoading(false);
     }
   };
 
@@ -242,6 +247,25 @@ export default function CustomerRegisterClient() {
               theme="light"
               connectModal={{ size: "wide" }}
             />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state during initial load
+  if (initialLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] py-32">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-yellow-400 border-t-transparent mx-auto mb-6"></div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">
+              Loading Dashboard
+            </h3>
+            <p className="text-gray-600">
+              Checking account status...
+            </p>
           </div>
         </div>
       </div>
