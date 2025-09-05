@@ -22,6 +22,8 @@ import {
   ShieldOff,
   Send,
   Plus,
+  Filter,
+  ChevronDown,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/ui/DashboardHeader";
 import { DataTable, Column } from "@/components/ui/DataTable";
@@ -118,6 +120,8 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     action: 'approve' | 'reject';
   }>({ isOpen: false, shop: null, action: 'approve' });
   const [unsuspendNotes, setUnsuspendNotes] = useState('');
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'pending' | 'rejected'>('all');
   
   // Dummy data for shop unsuspend requests - remove in production
   const dummyShopUnsuspendRequests = [
@@ -253,6 +257,19 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     // fetchShopUnsuspendRequests();
   }, []);
 
+  // Close filter dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.filter-dropdown-container')) {
+        setShowFilterDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // Combine all shops for unified view
   const allShops = [
     ...activeShops.map((s) => ({ ...s, status: "active" as const })),
@@ -260,10 +277,13 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     ...rejectedShops.map((s) => ({ ...s, status: "rejected" as const })),
   ];
 
-  // Filter shops based on view mode and search
+  // Filter shops based on view mode, filter status, and search
   const filteredShops = allShops.filter((shop) => {
-    // View mode filter
-    if (viewMode !== "all" && shop.status !== viewMode) return false;
+    // View mode filter (for unsuspend requests view)
+    if (viewMode === "unsuspend-requests") return false;
+    
+    // Filter status filter (from the Filter dropdown)
+    if (filterStatus !== "all" && shop.status !== filterStatus) return false;
 
     // Search filter
     if (searchTerm) {
@@ -827,15 +847,108 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
               />
             </div>
             
-            {/* Add Shop Button */}
-            <button
-              onClick={() => setShowAddShopModal(true)}
-              className="px-4 py-2 bg-gradient-to-r bg-[#FFCC00] text-black border border-blue-400/30 rounded-lg transition-all flex items-center gap-2 shadow-lg"
-              title="Add new shop"
-            >
-              <Plus className="inline sm:hidden w-5 h-5 text-black" />
-              <span className="hidden sm:inline">Add Shop</span>
-            </button>
+            {/* Filter Dropdown Button - Hide on unsuspend-requests view */}
+            {viewMode !== "unsuspend-requests" && (
+              <div className="relative filter-dropdown-container">
+                <button
+                  onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+                  className="px-4 py-2 bg-gray-700/50 text-gray-300 border border-gray-600 rounded-lg hover:bg-gray-600 transition-colors flex items-center gap-2"
+                  title="Filter shops"
+                >
+                  <Filter className="w-5 h-5" />
+                  <span className="hidden sm:inline">Filter</span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${showFilterDropdown ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {/* Filter Dropdown Menu */}
+                {showFilterDropdown && (
+                  <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50">
+                    <div className="py-1">
+                      <button
+                        onClick={() => {
+                          setFilterStatus('all');
+                          setShowFilterDropdown(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 text-sm transition-colors ${
+                          filterStatus === 'all' 
+                            ? 'bg-yellow-400/20 text-yellow-400' 
+                            : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-gray-500"></span>
+                          All Shops
+                          {filterStatus === 'all' && <span className="ml-auto text-xs">✓</span>}
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setFilterStatus('active');
+                          setShowFilterDropdown(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 text-sm transition-colors ${
+                          filterStatus === 'active' 
+                            ? 'bg-yellow-400/20 text-yellow-400' 
+                            : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-green-400"></span>
+                          Active Shops
+                          {filterStatus === 'active' && <span className="ml-auto text-xs">✓</span>}
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setFilterStatus('pending');
+                          setShowFilterDropdown(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 text-sm transition-colors ${
+                          filterStatus === 'pending' 
+                            ? 'bg-yellow-400/20 text-yellow-400' 
+                            : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-yellow-400"></span>
+                          Pending Applications
+                          {filterStatus === 'pending' && <span className="ml-auto text-xs">✓</span>}
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setFilterStatus('rejected');
+                          setShowFilterDropdown(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 text-sm transition-colors ${
+                          filterStatus === 'rejected' 
+                            ? 'bg-yellow-400/20 text-yellow-400' 
+                            : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-red-400"></span>
+                          Rejected Shops
+                          {filterStatus === 'rejected' && <span className="ml-auto text-xs">✓</span>}
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Add Shop Button - Hide on unsuspend-requests view */}
+            {viewMode !== "unsuspend-requests" && (
+              <button
+                onClick={() => setShowAddShopModal(true)}
+                className="px-4 py-2 bg-gradient-to-r bg-[#FFCC00] text-black border border-blue-400/30 rounded-lg transition-all flex items-center gap-2 shadow-lg"
+                title="Add new shop"
+              >
+                <Plus className="inline sm:hidden w-5 h-5 text-black" />
+                <span className="hidden sm:inline">Add Shop</span>
+              </button>
+            )}
             {/* <button
               onClick={exportToCSV}
               className="px-4 py-2 bg-gray-700/50 text-gray-300 border border-gray-600 rounded-lg hover:bg-gray-600 transition-colors flex items-center gap-2"

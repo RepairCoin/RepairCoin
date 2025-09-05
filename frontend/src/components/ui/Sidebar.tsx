@@ -273,24 +273,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                 tabId: "shops-all",
               },
               {
-                title: "Active Shops",
-                href: "/admin?tab=shops-management&view=active",
-                icon: <span className="text-sm">✅</span>,
-                tabId: "shops-active",
-              },
-              {
-                title: "Pending Applications",
-                href: "/admin?tab=shops-management&view=pending",
-                icon: <span className="text-sm">⏳</span>,
-                tabId: "shops-pending",
-              },
-              {
-                title: "Rejected Shops",
-                href: "/admin?tab=shops-management&view=rejected",
-                icon: <span className="text-sm">❌</span>,
-                tabId: "shops-rejected",
-              },
-              {
                 title: "Unsuspend Requests",
                 href: "/admin?tab=shops-management&view=unsuspend",
                 icon: <span className="text-sm">🔓</span>,
@@ -368,24 +350,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                 href: "/admin?tab=shops-management&view=all",
                 icon: <span className="text-sm">📋</span>,
                 tabId: "shops-all",
-              },
-              {
-                title: "Active Shops",
-                href: "/admin?tab=shops-management&view=active",
-                icon: <span className="text-sm">✅</span>,
-                tabId: "shops-active",
-              },
-              {
-                title: "Pending Applications",
-                href: "/admin?tab=shops-management&view=pending",
-                icon: <span className="text-sm">⏳</span>,
-                tabId: "shops-pending",
-              },
-              {
-                title: "Rejected Shops",
-                href: "/admin?tab=shops-management&view=rejected",
-                icon: <span className="text-sm">❌</span>,
-                tabId: "shops-rejected",
               },
               {
                 title: "Unsuspend Requests",
