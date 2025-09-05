@@ -328,52 +328,48 @@ export default function AdminDashboardClient() {
       // Only fetch shops if user has manage_shops permission
       const canManageShops = isSuperAdmin || adminPermissions.includes('*') || adminPermissions.includes('manage_shops');
       if (canManageShops) {
-        // Fetch verified shops
-        const shopsResponse = await fetch(
-          `${API_URL}/admin/shops?active=true&verified=true`,
+        // Fetch ALL shops to get complete data
+        const allShopsResponse = await fetch(
+          `${API_URL}/admin/shops`,
           {
             headers: {
               Authorization: `Bearer ${adminToken}`,
             },
           }
         );
-        if (shopsResponse.ok) {
-          const shopsData = await shopsResponse.json();
-          console.log("Shops data:", shopsData);
-          setShops(shopsData.data?.shops || []);
+        if (allShopsResponse.ok) {
+          const allShopsData = await allShopsResponse.json();
+          const allShops = allShopsData.data?.shops || [];
+          console.log("All shops data:", allShops);
+
+          // Separate shops based on their status
+          const activeVerifiedShops = allShops.filter(
+            (shop: any) => shop.active && shop.verified && !shop.suspended_at
+          );
+          const pendingShops = allShops.filter(
+            (shop: any) => !shop.verified && !shop.suspended_at
+          );
+          const rejectedShops = allShops.filter(
+            (shop: any) => shop.suspended_at || (!shop.active && shop.verified)
+          );
+
+          setShops(activeVerifiedShops);
+          setPendingShops(pendingShops);
+          setRejectedShops(rejectedShops);
         } else {
           console.error(
             "Failed to fetch shops:",
-            shopsResponse.status,
-            await shopsResponse.text()
+            allShopsResponse.status,
+            await allShopsResponse.text()
           );
-        }
-        // Fetch all unverified shops (both pending and rejected)
-        const unverifiedResponse = await fetch(
-          `${API_URL}/admin/shops?verified=false&active=all`,
-          {
-            headers: {
-              Authorization: `Bearer ${adminToken}`,
-            },
-          }
-        );
-        if (unverifiedResponse.ok) {
-          const unverifiedData = await unverifiedResponse.json();
-          const allUnverifiedShops = unverifiedData.data?.shops || [];
-
-          // Separate pending (not suspended) and rejected (suspended) shops
-          const pending = allUnverifiedShops.filter(
-            (shop: any) => !shop.suspended_at
-          );
-          const rejected = allUnverifiedShops.filter(
-            (shop: any) => shop.suspended_at
-          );
-
-          setPendingShops(pending);
-          setRejectedShops(rejected);
+          // Fallback to empty arrays on error
+          setShops([]);
+          setPendingShops([]);
+          setRejectedShops([]);
         }
       } else {
-        // Clear pending/rejected shops if user doesn't have permission
+        // Clear all shops if user doesn't have permission
+        setShops([]);
         setPendingShops([]);
         setRejectedShops([]);
       }
@@ -844,6 +840,7 @@ export default function AdminDashboardClient() {
               onUnsuspendShop={unsuspendShop}
               onMintBalance={mintShopBalance}
               onRefresh={loadDashboardData}
+              loading={loading}
               generateAdminToken={generateAdminToken}
               initialView={shopView}
             />

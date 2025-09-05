@@ -83,6 +83,7 @@ interface ShopsManagementTabProps {
   onRefresh: () => void;
   generateAdminToken?: () => Promise<string | null>;
   initialView?: "all" | "active" | "pending" | "rejected" | "unsuspend-requests";
+  loading?: boolean;
 }
 
 export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
@@ -99,6 +100,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
   onRefresh,
   generateAdminToken,
   initialView = "all",
+  loading = false,
 }) => {
   const [viewMode, setViewMode] = useState<
     "all" | "active" | "pending" | "rejected" | "unsuspend-requests"
@@ -774,6 +776,37 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     );
   };
 
+  // Loading skeleton component
+  const LoadingSkeleton = () => (
+    <div className="space-y-4">
+      {[...Array(5)].map((_, index) => (
+        <div key={index} className="animate-pulse">
+          <div className="bg-gray-700/50 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gray-600 rounded-lg"></div>
+                <div className="space-y-2">
+                  <div className="h-4 w-32 bg-gray-600 rounded"></div>
+                  <div className="h-3 w-24 bg-gray-600 rounded"></div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <div className="h-6 w-20 bg-gray-600 rounded-full"></div>
+                <div className="h-6 w-20 bg-gray-600 rounded-full"></div>
+              </div>
+            </div>
+            <div className="mt-3 grid grid-cols-4 gap-4">
+              <div className="h-3 bg-gray-600 rounded"></div>
+              <div className="h-3 bg-gray-600 rounded"></div>
+              <div className="h-3 bg-gray-600 rounded"></div>
+              <div className="h-3 bg-gray-600 rounded"></div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
   const exportToCSV = () => {
     const headers = [
       "Shop Name",
@@ -962,7 +995,10 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
 
         {/* Shop List - DataTable or Unsuspend Requests Table */}
         <div className="p-6">
-          {viewMode === "unsuspend-requests" ? (
+          {loading ? (
+            // Show loading skeleton when data is loading
+            <LoadingSkeleton />
+          ) : viewMode === "unsuspend-requests" ? (
             // Unsuspend Requests Table
             <div className="space-y-4">
               {shopUnsuspendRequests.length === 0 ? (
