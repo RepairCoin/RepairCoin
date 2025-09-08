@@ -1,12 +1,18 @@
-import { EmailConnectWalletService, SendCodeViaEmailService } from "@/services/RegisterServices";
+import {
+  EmailConnectWalletService,
+  RegisterAsCustomerService,
+  SendCodeViaEmailService,
+} from "@/services/RegisterServices";
 import { AntDesign, Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { OtpInput } from 'react-native-otp-entry';
+import { OtpInput } from "react-native-otp-entry";
+import PrimaryButton from "@/components/PrimaryButton";
+import FooterNote from "@/components/FooterNote";
 
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 3;
 
 export default function RegisterWizard() {
   const [step, setStep] = useState<Step>(1);
@@ -53,9 +59,14 @@ export default function RegisterWizard() {
   };
 
   const handleConnectWallet = async () => {
-    console.log("aaaaa");
-    await EmailConnectWalletService(email, code);
-  }
+    const account = await EmailConnectWalletService(email, code);
+    await RegisterAsCustomerService({
+      email: email,
+      walletAddress: account.address,
+    });
+  };
+
+  const handleRegisterCustomer = async () => {};
 
   const ProgressDots = ({ step }: { step: Step }) => (
     <View className="mt-2 flex-row items-center gap-2">
@@ -69,28 +80,6 @@ export default function RegisterWizard() {
         className={`h-1.5 w-8 rounded-full ${step >= 3 ? "bg-yellow-400" : "bg-zinc-300"}`}
       />
     </View>
-  );
-
-  const PrimaryButton = ({
-    label,
-    onPress,
-    disabled,
-    className = "",
-  }: {
-    label: string;
-    onPress: () => void;
-    disabled?: boolean;
-    className?: string;
-  }) => (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      className={`items-center justify-center rounded-2xl py-4 ${
-        disabled ? "bg-yellow-300" : "bg-yellow-400 active:opacity-90"
-      } ${className}`}
-    >
-      <Text className="font-semibold text-zinc-900">{label}</Text>
-    </Pressable>
   );
 
   const ReqRow = ({ label, ok }: { label: string; ok: boolean }) => (
@@ -108,45 +97,29 @@ export default function RegisterWizard() {
     </View>
   );
 
-  const FooterNote = ({ className = "" }: { className?: string }) => (
-    <View className={`mt-auto mb-6 items-center px-6 ${className}`}>
-      <Text className="text-center text-xs text-zinc-400">
-        By using ReparCoin, you agree to the{" "}
-        <Text className="text-zinc-600 underline">Terms</Text> and{" "}
-        <Text className="text-zinc-600 underline">Privacy Policy</Text>
-      </Text>
-    </View>
-  );
-
   return (
     <SafeAreaView className="flex-1 items-center bg-zinc-100">
       <View className="w-[92%] md:w-[80%] lg:w-[60%] flex-1">
         <View className="mt-2 mb-2 h-10 flex-row items-center">
-          {step !== 4 ? (
-            <Pressable
-              className="h-10 w-10 items-center justify-center rounded-full active:opacity-70"
-              onPress={() => {
-                if (step === 1) router.back();
-                setStep((s) => (s > 1 ? ((s - 1) as Step) : s));
-              }}
-            >
-              <AntDesign name="left" size={18} color="#18181b" />
-            </Pressable>
-          ) : (
-            <View className="h-10 w-10" />
-          )}
+          <Pressable
+            className="h-10 w-10 items-center justify-center rounded-full active:opacity-70"
+            onPress={() => {
+              if (step === 1) router.back();
+              setStep((s) => (s > 1 ? ((s - 1) as Step) : s));
+            }}
+          >
+            <AntDesign name="left" size={18} color="#18181b" />
+          </Pressable>
         </View>
 
-        {step !== 4 && (
-          <View className="mb-4 items-center">
-            <Text className="text-lg font-extrabold text-zinc-900">
-              {step === 1 && "Add your email 1 / 3"}
-              {step === 2 && "Verify your email 2 / 3"}
-              {step === 3 && "Create your password 3 / 3"}
-            </Text>
-            <ProgressDots step={step} />
-          </View>
-        )}
+        <View className="mb-4 items-center">
+          <Text className="text-lg font-extrabold text-zinc-900">
+            {step === 1 && "Add your email 1 / 3"}
+            {step === 2 && "Verify your email 2 / 3"}
+            {step === 3 && "Create your password 3 / 3"}
+          </Text>
+          <ProgressDots step={step} />
+        </View>
 
         {step === 1 && (
           <View className="flex-1">
@@ -195,9 +168,9 @@ export default function RegisterWizard() {
 
             <View className="mt-3">
               <OtpInput
-                numberOfDigits = {6}
-                onTextChange = {setCode}
-                focusColor = "red"
+                numberOfDigits={6}
+                onTextChange={setCode}
+                focusColor="red"
               />
             </View>
 
@@ -261,33 +234,10 @@ export default function RegisterWizard() {
             <PrimaryButton
               label="Continue"
               disabled={passProgress < 1}
-              onPress={() => setStep(4)}
+              onPress={() => router.push("/auth/register/Success")}
               className="mt-5"
             />
 
-            <FooterNote />
-          </View>
-        )}
-
-        {step === 4 && (
-          <View className="flex-1 items-center justify-center px-6">
-            <View className="mb-6 h-20 w-20 items-center justify-center rounded-full bg-yellow-100">
-              <AntDesign name="check" size={28} color="#EAB308" />
-            </View>
-
-            <Text className="text-center text-2xl font-extrabold text-zinc-800">
-              Your account{"\n"}was successfully created!
-            </Text>
-            <Text className="mt-3 text-center text-zinc-500">
-              Thanks for joining the movement. Let&apos;s turn every{"\n"}repair
-              into real value.
-            </Text>
-
-            <PrimaryButton
-              label="Log in"
-              onPress={() => {}}
-              className="mt-6 w-[80%]"
-            />
             <FooterNote />
           </View>
         )}
