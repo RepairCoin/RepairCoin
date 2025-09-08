@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useActiveAccount } from "thirdweb/react";
-import { useAuthStore } from '../stores/authStore';
+import { useAuthStore, UserProfile } from '../stores/authStore';
+import { authApi } from '@/services/api/auth';
 
 /**
  * Hook that integrates Thirdweb account with Zustand auth store
- * Automatically syncs wallet connection with authentication state
+ * Contains all business logic for authentication
  */
 export const useAuth = () => {
   const account = useActiveAccount();
@@ -18,53 +19,145 @@ export const useAuth = () => {
     isShop,
     isCustomer,
     setAccount,
-    login,
-    logout,
-    refreshProfile,
-    checkUserExists
+    setUserProfile,
+    setLoading,
+    setError,
+    resetAuth
   } = useAuthStore();
 
-  // Auto-sync account changes with auth store
+  const checkUserExists = useCallback(async (address: string) => {
+    try {
+      const result = await authApi.checkUser(address);
+
+      if (result) {
+        return { 
+          exists: true, 
+          type: result.type, 
+          data: result.user 
+        };
+      } else {
+        console.log(`ℹ️ User check: Wallet ${address} not registered yet`);
+        return { exists: false };
+      }
+    } catch (error) {
+      console.error('❌ Error checking user:', error);
+      return { exists: false };
+    }
+  }, []);
+
+  const fetchUserProfile = useCallback(async (address: string): Promise<UserProfile | null> => {
+    try {
+      const userCheck = await checkUserExists(address);
+      
+      if (!userCheck.exists) {
+        return null;
+      }
+
+      const userData = userCheck.data;
+      
+      const profile: UserProfile = {
+        id: userData.id,
+        address: userData.walletAddress || userData.address || address,
+        type: userCheck.type as 'customer' | 'shop' | 'admin',
+        name: userData.name || userData.shopName,
+        email: userData.email,
+        isActive: userData.active !== false,
+        tier: userData.tier,
+        shopId: userData.shopId,
+        registrationDate: userData.createdAt || userData.created_at
+      };
+
+      return profile;
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      return null;
+    }
+  }, [checkUserExists]);
+
+  const login = useCallback(async () => {
+    if (!account?.address) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const profile = await fetchUserProfile(account.address);
+      
+      if (profile) {
+        try {
+          const tokenData = await authApi.generateToken(account.address);
+          
+          if (tokenData && tokenData.token) {
+            profile.token = tokenData.token;
+            console.log('✅ Authentication token obtained successfully');
+          } else {
+            console.log('ℹ️ Token generation skipped - user not registered');
+          }
+        } catch (tokenError) {
+          console.error('❌ Network error fetching token:', tokenError);
+        }
+      }
+      
+      setUserProfile(profile);
+    } catch (error) {
+      console.error('Login error:', error);
+      setError('Failed to authenticate user');
+    } finally {
+      setLoading(false);
+    }
+  }, [account?.address, setLoading, setError, setUserProfile, fetchUserProfile]);
+
+  const logout = useCallback(() => {
+    resetAuth();
+  }, [resetAuth]);
+
+  const refreshProfile = useCallback(async () => {
+    if (!account?.address) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const profile = await fetchUserProfile(account.address);
+      setUserProfile(profile);
+    } catch (error) {
+      console.error('Refresh profile error:', error);
+      setError('Failed to refresh profile');
+    } finally {
+      setLoading(false);
+    }
+  }, [account?.address, setLoading, setError, setUserProfile, fetchUserProfile]);
+
   useEffect(() => {
     if (account?.address) {
-      useAuthStore.getState().setAccount(account);
-      // Auto-login when account is connected
+      setAccount(account);
       login();
     } else {
-      // Auto-logout when account is disconnected
       logout();
-      useAuthStore.getState().setAccount(null);
+      setAccount(null);
       
-      // Clear any stored tokens or session data
       if (typeof window !== 'undefined') {
         sessionStorage.clear();
       }
     }
-  }, [account?.address, login, logout]);
+  }, [account?.address]);
 
   return {
-    // Thirdweb account
     account,
-    
-    // Auth state
     userProfile,
-    user: userProfile, // Alias for backward compatibility
+    user: userProfile, 
     isAuthenticated,
     isLoading,
-    loading: isLoading, // Alias for backward compatibility
     error,
-    
-    // User type helpers
     userType,
     isAdmin,
     isShop,
     isCustomer,
-    
-    // Actions
     login,
     logout,
     refreshProfile,
-    checkUserExists
+    checkUserExists,
+    fetchUserProfile
   };
 };
 

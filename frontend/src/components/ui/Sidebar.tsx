@@ -4,7 +4,8 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useActiveWallet, useDisconnect } from "thirdweb/react";
-import { useAuthStore } from "@/stores/authStore";
+import { useAuth } from "@/hooks/useAuth";
+
 import {
   LayoutGrid,
   Receipt,
@@ -68,7 +69,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const router = useRouter();
   const wallet = useActiveWallet();
   const { disconnect } = useDisconnect();
-  const logout = useAuthStore((state) => state.logout);
+  const { logout } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
 
