@@ -57,13 +57,12 @@ export const generateToken = async (address: string, signature?: string): Promis
  */
 export const checkUser = async (address: string): Promise<{
   exists: boolean;
-  role?: 'admin' | 'shop' | 'customer';
-  isActive?: boolean;
-  data?: any;
+  type?: 'admin' | 'shop' | 'customer';
+  user?: any;
 }> => {
   try {
     const response = await apiClient.post<any>('/auth/check-user', { address });
-    return response.data || { exists: false };
+    return response.data
   } catch (error) {
     console.error('Error checking user:', error);
     return { exists: false };
