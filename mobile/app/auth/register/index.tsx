@@ -6,6 +6,7 @@ import { Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ThirdWebStrategy } from "../../../utilities/GlobalTypes";
 import { SocialConnectWalletService } from "@/services/RegisterServices";
+import { useActiveAccount } from "thirdweb/react";
 
 export default function RegisterStart() {
   const [strategy, setStrategy] = useState<ThirdWebStrategy>("google");
@@ -55,7 +56,7 @@ export default function RegisterStart() {
         {/* social buttons */}
         <SocialButton
           onPress={() => {
-            setStrategy('apple');
+            setStrategy("apple");
             SocialConnectWalletService("apple");
           }}
           left={<AntDesign name="apple1" size={18} color="#1f2937" />}
@@ -64,7 +65,7 @@ export default function RegisterStart() {
         <View className="h-3" />
         <SocialButton
           onPress={() => {
-            setStrategy('facebook');
+            setStrategy("facebook");
             SocialConnectWalletService("facebook");
           }}
           left={<FontAwesome name="facebook-f" size={18} color="#1877F2" />}
@@ -73,7 +74,7 @@ export default function RegisterStart() {
         <View className="h-3" />
         <SocialButton
           onPress={() => {
-            setStrategy('google');
+            setStrategy("google");
             SocialConnectWalletService("google");
           }}
           left={
