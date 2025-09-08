@@ -80,11 +80,11 @@ export const RegisterAsCustomerService = async (registrationData: {
   walletAddress: string;
   fixflowCustomerId?: string;
 }) => {
-  // const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
   console.log(JSON.stringify(registrationData));
 
-  await fetch("http://192.168.132.85:3001/api/customers/register/", {
+  await fetch(`${apiUrl}/customers/register/`, {
     method: "POST",
     headers: {
       Accept: "application/json",
