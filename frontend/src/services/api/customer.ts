@@ -1,4 +1,4 @@
-import { ApiService } from './base';
+import apiClient from './client';
 import {
   Customer,
   Transaction,
@@ -47,160 +47,142 @@ export interface ShopInfo {
   crossShopEnabled: boolean;
 }
 
-class CustomerApiService extends ApiService {
-  /**
-   * Register a new customer
-   */
-  async register(data: CustomerRegistrationData): Promise<Customer | null> {
-    const response = await this.post<Customer>('/customers/register', data);
-    
-    if (response.success && response.data) {
-      return response.data;
+// Helper function to build query string
+const buildQueryString = (params: Record<string, any>): string => {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      searchParams.append(key, String(value));
     }
+  });
+  const queryString = searchParams.toString();
+  return queryString ? `?${queryString}` : '';
+};
+
+// Profile Management
+export const registerCustomer = async (data: CustomerRegistrationData): Promise<Customer | null> => {
+  try {
+    const response = await apiClient.post<Customer>('/customers/register', data);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error registering customer:', error);
     return null;
   }
+};
 
-  /**
-   * Get customer profile
-   */
-  async getProfile(address: string): Promise<Customer | null> {
-    const response = await this.get<Customer>(`/customers/${address}`);
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+export const getCustomerProfile = async (address: string): Promise<Customer | null> => {
+  try {
+    const response = await apiClient.get<Customer>(`/customers/${address}`);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error getting customer profile:', error);
     return null;
   }
+};
 
-  /**
-   * Update customer profile
-   */
-  async updateProfile(
-    address: string,
-    updates: Partial<Customer>
-  ): Promise<Customer | null> {
-    const response = await this.put<Customer>(
-      `/customers/${address}`,
-      updates,
-      { includeAuth: true, authType: 'customer' }
+export const updateCustomerProfile = async (
+  address: string,
+  updates: Partial<Customer>
+): Promise<Customer | null> => {
+  try {
+    const response = await apiClient.put<Customer>(`/customers/${address}`, updates);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error updating customer profile:', error);
+    return null;
+  }
+};
+
+export const deleteCustomerAccount = async (
+  address: string,
+  reason?: string
+): Promise<boolean> => {
+  try {
+    await apiClient.delete(`/customers/${address}`, {
+      data: { reason }
+    });
+    return true;
+  } catch (error) {
+    console.error('Error deleting customer account:', error);
+    return false;
+  }
+};
+
+// Transactions
+export const getCustomerTransactions = async (
+  address: string,
+  params?: FilterParams & {
+    type?: 'earned' | 'redeemed' | 'bonus' | 'referral';
+    shopId?: string;
+  }
+): Promise<Transaction[]> => {
+  try {
+    const queryString = params ? buildQueryString(params) : '';
+    const response = await apiClient.get<Transaction[]>(
+      `/customers/${address}/transactions${queryString}`
     );
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
-    return null;
-  }
-
-  /**
-   * Get all customers (admin only)
-   */
-  async getAllCustomers(params?: FilterParams & {
-    tier?: 'BRONZE' | 'SILVER' | 'GOLD';
-    active?: boolean;
-  }): Promise<Customer[]> {
-    const queryString = params ? this.buildQueryString(params) : '';
-    const response = await this.get<Customer[]>(`/customers${queryString}`);
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+    return response.data || [];
+  } catch (error) {
+    console.error('Error getting customer transactions:', error);
     return [];
   }
+};
 
-  /**
-   * Get customer transactions
-   */
-  async getTransactions(
-    address: string,
-    params?: FilterParams & {
-      type?: 'earned' | 'redeemed' | 'bonus' | 'referral';
-      shopId?: string;
-    }
-  ): Promise<Transaction[]> {
-    const queryString = params ? this.buildQueryString(params) : '';
-    const response = await this.get<Transaction[]>(
-      `/customers/${address}/transactions${queryString}`,
-      { includeAuth: true, authType: 'customer' }
-    );
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
-    return [];
-  }
-
-  /**
-   * Get customer analytics
-   */
-  async getAnalytics(address: string): Promise<{
-    earningsTrend: Array<{ date: string; amount: number }>;
-    redemptionHistory: Array<{ date: string; amount: number; shopId: string }>;
-    tierProgress: { current: number; next: number; percentage: number };
-  } | null> {
-    const response = await this.get<any>(
-      `/customers/${address}/analytics`,
-      { includeAuth: true, authType: 'customer' }
-    );
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+// Analytics & Stats
+export const getCustomerAnalytics = async (address: string): Promise<{
+  earningsTrend: Array<{ date: string; amount: number }>;
+  redemptionHistory: Array<{ date: string; amount: number; shopId: string }>;
+  tierProgress: { current: number; next: number; percentage: number };
+} | null> => {
+  try {
+    const response = await apiClient.get<any>(`/customers/${address}/analytics`);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error getting customer analytics:', error);
     return null;
   }
+};
 
-  /**
-   * Get customer statistics
-   */
-  async getStats(address: string): Promise<CustomerStats | null> {
-    const response = await this.get<CustomerStats>(
-      `/customers/${address}/stats`,
-      { includeAuth: true, authType: 'customer' }
-    );
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+export const getCustomerStats = async (address: string): Promise<CustomerStats | null> => {
+  try {
+    const response = await apiClient.get<CustomerStats>(`/customers/${address}/stats`);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error getting customer stats:', error);
     return null;
   }
+};
 
-  /**
-   * Get earned balance breakdown
-   */
-  async getEarnedBalance(address: string): Promise<BalanceData | null> {
-    const response = await this.get<BalanceData>(`/tokens/earned-balance/${address}`);
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+// Balance & Earnings
+export const getEarnedBalance = async (address: string): Promise<BalanceData | null> => {
+  try {
+    const response = await apiClient.get<BalanceData>(`/tokens/earned-balance/${address}`);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error getting earned balance:', error);
     return null;
   }
+};
 
-  /**
-   * Get referral data
-   */
-  async getReferralData(address: string): Promise<ReferralData | null> {
-    const response = await this.get<ReferralData>(
-      `/customers/${address}/referrals`,
-      { includeAuth: true, authType: 'customer' }
-    );
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+// Referrals
+export const getReferralData = async (address: string): Promise<ReferralData | null> => {
+  try {
+    const response = await apiClient.get<ReferralData>(`/customers/${address}/referrals`);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error getting referral data:', error);
     return null;
   }
+};
 
-  /**
-   * Generate referral code
-   */
-  async generateReferralCode(address: string): Promise<{ code: string; shareUrl: string } | null> {
-    const response = await this.post<{ code: string }>(
+export const generateReferralCode = async (address: string): Promise<{ code: string; shareUrl: string } | null> => {
+  try {
+    const response = await apiClient.post<{ code: string }>(
       `/customers/${address}/referrals/generate`,
-      {},
-      { includeAuth: true, authType: 'customer' }
+      {}
     );
     
-    if (response.success && response.data) {
+    if (response.data) {
       const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
       return {
         code: response.data.code,
@@ -208,241 +190,260 @@ class CustomerApiService extends ApiService {
       };
     }
     return null;
+  } catch (error) {
+    console.error('Error generating referral code:', error);
+    return null;
   }
+};
 
-  /**
-   * Get available shops for customer
-   */
-  async getAvailableShops(address: string): Promise<ShopInfo[]> {
-    const response = await this.get<ShopInfo[]>(
-      `/customers/${address}/shops`,
-      { includeAuth: true, authType: 'customer' }
-    );
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+// Shops
+export const getAvailableShops = async (address: string): Promise<ShopInfo[]> => {
+  try {
+    const response = await apiClient.get<ShopInfo[]>(`/customers/${address}/shops`);
+    return response.data || [];
+  } catch (error) {
+    console.error('Error getting available shops:', error);
     return [];
   }
+};
 
-  /**
-   * Get nearby shops
-   */
-  async getNearbyShops(
-    latitude: number,
-    longitude: number,
-    radius: number = 10
-  ): Promise<ShopInfo[]> {
-    const response = await this.get<ShopInfo[]>('/shops/nearby', {
-      params: { lat: latitude, lon: longitude, radius },
+export const getNearbyShops = async (
+  latitude: number,
+  longitude: number,
+  radius: number = 10
+): Promise<ShopInfo[]> => {
+  try {
+    const response = await apiClient.get<ShopInfo[]>('/shops/nearby', {
+      params: { lat: latitude, lon: longitude, radius }
+    });
+    return response.data || [];
+  } catch (error) {
+    console.error('Error getting nearby shops:', error);
+    return [];
+  }
+};
+
+// Redemption
+export const checkRedemptionEligibility = async (
+  address: string,
+  shopId: string
+): Promise<{
+  eligible: boolean;
+  maxRedeemable: number;
+  isHomeShop: boolean;
+  message?: string;
+}> => {
+  try {
+    const response = await apiClient.get<any>(`/customers/${address}/redemption-check`, {
+      params: { shopId }
     });
     
-    if (response.success && response.data) {
-      return response.data;
-    }
-    return [];
-  }
-
-  /**
-   * Check redemption eligibility
-   */
-  async checkRedemptionEligibility(
-    address: string,
-    shopId: string
-  ): Promise<{
-    eligible: boolean;
-    maxRedeemable: number;
-    isHomeShop: boolean;
-    message?: string;
-  }> {
-    const response = await this.get<any>(
-      `/customers/${address}/redemption-check`,
-      { params: { shopId } }
-    );
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
-    
+    return response.data || {
+      eligible: false,
+      maxRedeemable: 0,
+      isHomeShop: false,
+      message: 'Unable to check eligibility',
+    };
+  } catch (error) {
+    console.error('Error checking redemption eligibility:', error);
     return {
       eligible: false,
       maxRedeemable: 0,
       isHomeShop: false,
-      message: response.error || 'Unable to check eligibility',
+      message: 'Error checking eligibility',
     };
   }
+};
 
-  /**
-   * Get pending redemption sessions
-   */
-  async getPendingRedemptions(address: string): Promise<RedemptionSession[]> {
-    const response = await this.get<RedemptionSession[]>(
-      `/customers/${address}/redemptions/pending`,
-      { includeAuth: true, authType: 'customer' }
+export const getPendingRedemptions = async (address: string): Promise<RedemptionSession[]> => {
+  try {
+    const response = await apiClient.get<RedemptionSession[]>(
+      `/customers/${address}/redemptions/pending`
     );
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+    return response.data || [];
+  } catch (error) {
+    console.error('Error getting pending redemptions:', error);
     return [];
   }
+};
 
-  /**
-   * Approve redemption
-   */
-  async approveRedemption(
-    address: string,
-    sessionId: string
-  ): Promise<{ success: boolean; txHash?: string }> {
-    const response = await this.post<any>(
+export const approveRedemption = async (
+  address: string,
+  sessionId: string
+): Promise<{ success: boolean; txHash?: string }> => {
+  try {
+    const response = await apiClient.post<any>(
       `/customers/${address}/approve-redemption`,
-      { sessionId },
-      { includeAuth: true, authType: 'customer' }
+      { sessionId }
     );
     
     return {
-      success: response.success,
+      success: true,
       txHash: response.data?.txHash,
     };
+  } catch (error) {
+    console.error('Error approving redemption:', error);
+    return { success: false };
   }
+};
 
-  /**
-   * Reject redemption
-   */
-  async rejectRedemption(
-    address: string,
-    sessionId: string,
-    reason?: string
-  ): Promise<boolean> {
-    const response = await this.post(
+export const rejectRedemption = async (
+  address: string,
+  sessionId: string,
+  reason?: string
+): Promise<boolean> => {
+  try {
+    await apiClient.post(
       `/customers/${address}/reject-redemption`,
-      { sessionId, reason },
-      { includeAuth: true, authType: 'customer' }
+      { sessionId, reason }
     );
-    
-    return response.success;
+    return true;
+  } catch (error) {
+    console.error('Error rejecting redemption:', error);
+    return false;
   }
+};
 
-  /**
-   * Get customers by tier
-   */
-  async getCustomersByTier(tier: 'BRONZE' | 'SILVER' | 'GOLD'): Promise<Customer[]> {
-    const response = await this.get<Customer[]>(`/customers/tier/${tier}`);
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
-    return [];
+// Settings & Preferences
+export const updateNotificationPreferences = async (
+  address: string,
+  preferences: NotificationPreferences
+): Promise<boolean> => {
+  try {
+    await apiClient.put(`/customers/${address}/preferences`, preferences);
+    return true;
+  } catch (error) {
+    console.error('Error updating notification preferences:', error);
+    return false;
   }
+};
 
-  /**
-   * Update notification preferences
-   */
-  async updateNotificationPreferences(
-    address: string,
-    preferences: NotificationPreferences
-  ): Promise<boolean> {
-    const response = await this.put(
-      `/customers/${address}/preferences`,
-      preferences,
-      { includeAuth: true, authType: 'customer' }
-    );
-    
-    return response.success;
+export const requestSuspension = async (
+  address: string,
+  reason: string
+): Promise<boolean> => {
+  try {
+    await apiClient.post(`/customers/${address}/deactivate`, { reason });
+    return true;
+  } catch (error) {
+    console.error('Error requesting suspension:', error);
+    return false;
   }
+};
 
-  /**
-   * Request account suspension
-   */
-  async requestSuspension(
-    address: string,
-    reason: string
-  ): Promise<boolean> {
-    const response = await this.post(
-      `/customers/${address}/deactivate`,
-      { reason },
-      { includeAuth: true, authType: 'customer' }
-    );
-    
-    return response.success;
+export const requestUnsuspension = async (
+  address: string,
+  reason: string
+): Promise<boolean> => {
+  try {
+    await apiClient.post(`/customers/${address}/request-unsuspend`, { reason });
+    return true;
+  } catch (error) {
+    console.error('Error requesting unsuspension:', error);
+    return false;
   }
+};
 
-  /**
-   * Request unsuspension
-   */
-  async requestUnsuspension(
-    address: string,
-    reason: string
-  ): Promise<boolean> {
-    const response = await this.post(
-      `/customers/${address}/request-unsuspend`,
-      { reason },
-      { includeAuth: true, authType: 'customer' }
-    );
-    
-    return response.success;
-  }
-
-  /**
-   * Export customer data
-   */
-  async exportData(
-    address: string,
-    format: 'json' | 'csv' | 'pdf' = 'json'
-  ): Promise<CustomerExportData | Blob | null> {
-    const response = await this.get<any>(
-      `/customers/${address}/export`,
-      { 
-        params: { format },
-        includeAuth: true,
-        authType: 'customer',
-      }
-    );
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+// Data Export
+export const exportCustomerData = async (
+  address: string,
+  format: 'json' | 'csv' | 'pdf' = 'json'
+): Promise<CustomerExportData | Blob | null> => {
+  try {
+    const response = await apiClient.get<any>(`/customers/${address}/export`, {
+      params: { format }
+    });
+    return response.data || null;
+  } catch (error) {
+    console.error('Error exporting customer data:', error);
     return null;
   }
+};
 
-  /**
-   * Mint tokens to customer (admin only)
-   */
-  async mintTokens(
-    address: string,
-    amount: number,
-    reason: string
-  ): Promise<{ success: boolean; txHash?: string }> {
-    const response = await this.post<any>(
+// Admin Functions
+export const getAllCustomers = async (params?: FilterParams & {
+  tier?: 'BRONZE' | 'SILVER' | 'GOLD';
+  active?: boolean;
+}): Promise<Customer[]> => {
+  try {
+    const queryString = params ? buildQueryString(params) : '';
+    const response = await apiClient.get<Customer[]>(`/customers${queryString}`);
+    return response.data || [];
+  } catch (error) {
+    console.error('Error getting all customers:', error);
+    return [];
+  }
+};
+
+export const getCustomersByTier = async (tier: 'BRONZE' | 'SILVER' | 'GOLD'): Promise<Customer[]> => {
+  try {
+    const response = await apiClient.get<Customer[]>(`/customers/tier/${tier}`);
+    return response.data || [];
+  } catch (error) {
+    console.error('Error getting customers by tier:', error);
+    return [];
+  }
+};
+
+export const mintTokensToCustomer = async (
+  address: string,
+  amount: number,
+  reason: string
+): Promise<{ success: boolean; txHash?: string }> => {
+  try {
+    const response = await apiClient.post<any>(
       `/customers/${address}/mint`,
-      { amount, reason },
-      { includeAuth: true, authType: 'admin' }
+      { amount, reason }
     );
     
     return {
-      success: response.success,
+      success: true,
       txHash: response.data?.txHash,
     };
+  } catch (error) {
+    console.error('Error minting tokens to customer:', error);
+    return { success: false };
   }
+};
 
-  /**
-   * Delete customer account
-   */
-  async deleteAccount(
-    address: string,
-    reason?: string
-  ): Promise<boolean> {
-    const response = await this.delete(
-      `/customers/${address}`,
-      {
-        data: { reason },
-        includeAuth: true,
-        authType: 'customer',
-      }
-    );
-    
-    return response.success;
-  }
-}
-
-export const customerApi = new CustomerApiService();
+// Named exports grouped as namespace for convenience
+export const customerApi = {
+  // Profile
+  register: registerCustomer,
+  getProfile: getCustomerProfile,
+  updateProfile: updateCustomerProfile,
+  deleteAccount: deleteCustomerAccount,
+  
+  // Transactions
+  getTransactions: getCustomerTransactions,
+  getAnalytics: getCustomerAnalytics,
+  getStats: getCustomerStats,
+  
+  // Balance
+  getEarnedBalance,
+  
+  // Referrals
+  getReferralData,
+  generateReferralCode,
+  
+  // Shops
+  getAvailableShops,
+  getNearbyShops,
+  
+  // Redemption
+  checkRedemptionEligibility,
+  getPendingRedemptions,
+  approveRedemption,
+  rejectRedemption,
+  
+  // Settings
+  updateNotificationPreferences,
+  requestSuspension,
+  requestUnsuspension,
+  exportData: exportCustomerData,
+  
+  // Admin
+  getAll: getAllCustomers,
+  getByTier: getCustomersByTier,
+  mintTokens: mintTokensToCustomer,
+} as const;

@@ -1,4 +1,4 @@
-import { ApiService } from './base';
+import apiClient from './client';
 import { ReferralData, Referral } from '@/constants/types';
 
 export interface ReferralStats {
@@ -18,20 +18,27 @@ export interface ReferralValidation {
   message?: string;
 }
 
-class ReferralApiService extends ApiService {
-  /**
-   * Generate referral code for customer
-   */
-  async generateCode(): Promise<{
-    code: string;
-    shareUrl: string;
-  } | null> {
-    const response = await this.post<any>('/referral/generate', {}, {
-      includeAuth: true,
-      authType: 'customer',
-    });
+// Helper function to build query string
+const buildQueryString = (params: Record<string, any>): string => {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      searchParams.append(key, String(value));
+    }
+  });
+  const queryString = searchParams.toString();
+  return queryString ? `?${queryString}` : '';
+};
+
+// Referral Code
+export const generateReferralCode = async (): Promise<{
+  code: string;
+  shareUrl: string;
+} | null> => {
+  try {
+    const response = await apiClient.post<{ code: string }>('/referral/generate', {});
     
-    if (response.success && response.data) {
+    if (response.data) {
       const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
       return {
         code: response.data.code,
@@ -39,34 +46,31 @@ class ReferralApiService extends ApiService {
       };
     }
     return null;
+  } catch (error) {
+    console.error('Error generating referral code:', error);
+    return null;
   }
+};
 
-  /**
-   * Validate referral code
-   */
-  async validateCode(code: string): Promise<ReferralValidation> {
-    const response = await this.get<any>(`/referral/validate/${code}`);
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
-    
+export const validateReferralCode = async (code: string): Promise<ReferralValidation> => {
+  try {
+    const response = await apiClient.get<ReferralValidation>(`/referral/validate/${code}`);
+    return response.data || { isValid: false, message: 'Invalid referral code' };
+  } catch (error) {
+    console.error('Error validating referral code:', error);
     return {
       isValid: false,
-      message: response.error || 'Invalid referral code',
+      message: 'Invalid referral code',
     };
   }
+};
 
-  /**
-   * Get referral statistics
-   */
-  async getStats(): Promise<ReferralStats | null> {
-    const response = await this.get<any>('/referral/stats', {
-      includeAuth: true,
-      authType: 'customer',
-    });
+// Statistics
+export const getReferralStats = async (): Promise<ReferralStats | null> => {
+  try {
+    const response = await apiClient.get<ReferralStats>('/referral/stats');
     
-    if (response.success && response.data) {
+    if (response.data) {
       const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
       return {
         ...response.data,
@@ -76,106 +80,138 @@ class ReferralApiService extends ApiService {
       };
     }
     return null;
+  } catch (error) {
+    console.error('Error getting referral stats:', error);
+    return null;
   }
+};
 
-  /**
-   * Get referral leaderboard
-   */
-  async getLeaderboard(params?: {
-    limit?: number;
-    period?: 'all' | 'month' | 'week';
-  }): Promise<Array<{
-    rank: number;
-    address: string;
-    name?: string;
-    referralCount: number;
-    totalEarned: number;
-  }>> {
-    const queryString = params ? this.buildQueryString(params) : '';
-    const response = await this.get<any[]>(`/referral/leaderboard${queryString}`);
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+// Leaderboard
+export const getReferralLeaderboard = async (params?: {
+  limit?: number;
+  period?: 'all' | 'month' | 'week';
+}): Promise<Array<{
+  rank: number;
+  address: string;
+  name?: string;
+  referralCount: number;
+  totalEarned: number;
+}>> => {
+  try {
+    const queryString = params ? buildQueryString(params) : '';
+    const response = await apiClient.get<Array<{
+      rank: number;
+      address: string;
+      name?: string;
+      referralCount: number;
+      totalEarned: number;
+    }>>(`/referral/leaderboard${queryString}`);
+    return response.data || [];
+  } catch (error) {
+    console.error('Error getting referral leaderboard:', error);
     return [];
   }
+};
 
-  /**
-   * Get referral history for customer
-   */
-  async getReferralHistory(address: string): Promise<Referral[]> {
-    const response = await this.get<{ referrals: Referral[] }>(
-      `/customers/${address}/referrals`,
-      { includeAuth: true, authType: 'customer' }
-    );
-    
-    if (response.success && response.data) {
-      return response.data.referrals || [];
-    }
+// History
+export const getReferralHistory = async (address: string): Promise<Referral[]> => {
+  try {
+    const response = await apiClient.get<{ referrals: Referral[] }>(`/customers/${address}/referrals`);
+    return response.data?.referrals || [];
+  } catch (error) {
+    console.error('Error getting referral history:', error);
     return [];
   }
+};
 
-  /**
-   * Track referral link click
-   */
-  async trackClick(code: string): Promise<boolean> {
-    const response = await this.post(`/referral/track-click`, { code });
-    return response.success;
+// Tracking
+export const trackReferralClick = async (code: string): Promise<boolean> => {
+  try {
+    await apiClient.post('/referral/track-click', { code });
+    return true;
+  } catch (error) {
+    console.error('Error tracking referral click:', error);
+    return false;
   }
+};
 
-  /**
-   * Complete referral (called after first repair)
-   */
-  async completeReferral(
-    referredAddress: string,
-    referralCode: string
-  ): Promise<{
-    success: boolean;
-    rewardAmount?: number;
-    txHash?: string;
-  }> {
-    const response = await this.post<any>('/referral/complete', {
+// Completion
+export const completeReferral = async (
+  referredAddress: string,
+  referralCode: string
+): Promise<{
+  success: boolean;
+  rewardAmount?: number;
+  txHash?: string;
+}> => {
+  try {
+    const response = await apiClient.post<{
+      success: boolean;
+      rewardAmount?: number;
+      txHash?: string;
+    }>('/referral/complete', {
       referredAddress,
       referralCode,
-    }, {
-      includeAuth: true,
-      authType: 'shop',
     });
     
-    if (response.success && response.data) {
-      return response.data;
-    }
-    
+    return response.data || { success: false };
+  } catch (error) {
+    console.error('Error completing referral:', error);
     return { success: false };
   }
+};
 
-  /**
-   * Get pending referral rewards
-   */
-  async getPendingRewards(address: string): Promise<{
-    pendingAmount: number;
-    pendingCount: number;
-    referrals: Array<{
-      referredAddress: string;
-      status: string;
-      expectedReward: number;
-    }>;
-  }> {
-    const response = await this.get<any>(`/referral/pending-rewards/${address}`, {
-      includeAuth: true,
-      authType: 'customer',
-    });
+// Pending Rewards
+export const getPendingReferralRewards = async (address: string): Promise<{
+  pendingAmount: number;
+  pendingCount: number;
+  referrals: Array<{
+    referredAddress: string;
+    status: string;
+    expectedReward: number;
+  }>;
+}> => {
+  try {
+    const response = await apiClient.get<{
+      pendingAmount: number;
+      pendingCount: number;
+      referrals: Array<{
+        referredAddress: string;
+        status: string;
+        expectedReward: number;
+      }>;
+    }>(`/referral/pending-rewards/${address}`);
     
-    if (response.success && response.data) {
-      return response.data;
-    }
-    
+    return response.data || {
+      pendingAmount: 0,
+      pendingCount: 0,
+      referrals: [],
+    };
+  } catch (error) {
+    console.error('Error getting pending referral rewards:', error);
     return {
       pendingAmount: 0,
       pendingCount: 0,
       referrals: [],
     };
   }
-}
+};
 
-export const referralApi = new ReferralApiService();
+// Named exports grouped as namespace for convenience
+export const referralApi = {
+  // Code Management
+  generateCode: generateReferralCode,
+  validateCode: validateReferralCode,
+  
+  // Statistics
+  getStats: getReferralStats,
+  getLeaderboard: getReferralLeaderboard,
+  getHistory: getReferralHistory,
+  
+  // Tracking & Completion
+  trackClick: trackReferralClick,
+  complete: completeReferral,
+  
+  // Rewards
+  getPendingRewards: getPendingReferralRewards,
+} as const;

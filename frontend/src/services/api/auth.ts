@@ -1,4 +1,4 @@
-import { ApiService } from './base';
+import apiClient from './client';
 import { AuthToken, User } from '@/constants/types';
 
 export interface LoginCredentials {
@@ -15,155 +15,169 @@ export interface ProfileData {
   role?: string;
 }
 
-class AuthApiService extends ApiService {
-  /**
-   * Generate a generic auth token
-   */
-  async generateToken(address: string, signature?: string): Promise<AuthToken | null> {
-    const response = await this.post<AuthToken>('/auth/token', {
-      address,
-      signature,
-    });
+// Helper function to store token
+const storeToken = (token: string, type: 'admin' | 'shop' | 'customer' = 'customer') => {
+  const tokenKey = `${type}AuthToken`;
+  localStorage.setItem(tokenKey, token);
+  localStorage.setItem('token', token); // Also store as generic token for apiClient
+};
 
-    if (response.success && response.data) {
-      this.storeToken(response.data.token, 'customer');
+// Helper function to clear token
+const clearToken = (type?: 'admin' | 'shop' | 'customer') => {
+  if (type) {
+    const tokenKey = `${type}AuthToken`;
+    localStorage.removeItem(tokenKey);
+  } else {
+    localStorage.removeItem('adminAuthToken');
+    localStorage.removeItem('shopAuthToken');
+    localStorage.removeItem('customerAuthToken');
+  }
+  localStorage.removeItem('token');
+};
+
+/**
+ * Generate a generic auth token
+ */
+export const generateToken = async (address: string, signature?: string): Promise<AuthToken | null> => {
+  try {
+    const response = await apiClient.post<AuthToken>('/auth/token', { address, signature });
+    if (response.data) {
+      storeToken(response.data.token, 'customer');
       return response.data;
     }
     return null;
+  } catch (error) {
+    console.error('Error generating token:', error);
+    return null;
   }
+};
 
-  /**
-   * Check user type and registration status
-   */
-  async checkUser(address: string): Promise<{
-    exists: boolean;
-    role?: 'admin' | 'shop' | 'customer';
-    isActive?: boolean;
-    data?: any;
-  }> {
-    const response = await this.post<any>('/auth/check-user', { address });
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
-    
+/**
+ * Check user type and registration status
+ */
+export const checkUser = async (address: string): Promise<{
+  exists: boolean;
+  role?: 'admin' | 'shop' | 'customer';
+  isActive?: boolean;
+  data?: any;
+}> => {
+  try {
+    const response = await apiClient.post<any>('/auth/check-user', { address });
+    return response.data || { exists: false };
+  } catch (error) {
+    console.error('Error checking user:', error);
     return { exists: false };
   }
+};
 
-  /**
-   * Get or create user profile
-   */
-  async getProfile(data: ProfileData): Promise<User | null> {
-    const response = await this.post<User>('/auth/profile', data);
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+/**
+ * Get or create user profile
+ */
+export const getProfile = async (data: ProfileData): Promise<User | null> => {
+  try {
+    const response = await apiClient.post<User>('/auth/profile', data);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error getting profile:', error);
     return null;
   }
+};
 
-  /**
-   * Get current session info
-   */
-  async getSession(): Promise<{
-    isValid: boolean;
-    user?: User;
-    expiresAt?: string;
-  }> {
-    const response = await this.get<any>('/auth/session', {
-      includeAuth: true,
-    });
-
-    if (response.success && response.data) {
-      return response.data;
-    }
-
+/**
+ * Get current session info
+ */
+export const getSession = async (): Promise<{
+  isValid: boolean;
+  user?: User;
+  expiresAt?: string;
+}> => {
+  try {
+    const response = await apiClient.get<any>('/auth/session');
+    return response.data || { isValid: false };
+  } catch (error) {
+    console.error('Error getting session:', error);
     return { isValid: false };
   }
+};
 
-  /**
-   * Admin authentication
-   */
-  async authenticateAdmin(address: string): Promise<AuthToken | null> {
-    const response = await this.post<AuthToken>('/auth/admin', { address });
-
-    if (response.success && response.data) {
-      this.storeToken(response.data.token, 'admin');
+/**
+ * Admin authentication
+ */
+export const authenticateAdmin = async (address: string): Promise<AuthToken | null> => {
+  try {
+    const response = await apiClient.post<AuthToken>('/auth/admin', { address });
+    if (response.data) {
+      storeToken(response.data.token, 'admin');
       return response.data;
     }
     return null;
+  } catch (error) {
+    console.error('Error authenticating admin:', error);
+    return null;
   }
+};
 
-  /**
-   * Customer authentication
-   */
-  async authenticateCustomer(address: string): Promise<AuthToken | null> {
-    const response = await this.post<AuthToken>('/auth/customer', { address });
-
-    if (response.success && response.data) {
-      this.storeToken(response.data.token, 'customer');
+/**
+ * Customer authentication
+ */
+export const authenticateCustomer = async (address: string): Promise<AuthToken | null> => {
+  try {
+    const response = await apiClient.post<AuthToken>('/auth/customer', { address });
+    if (response.data) {
+      storeToken(response.data.token, 'customer');
       return response.data;
     }
     return null;
+  } catch (error) {
+    console.error('Error authenticating customer:', error);
+    return null;
   }
+};
 
-  /**
-   * Shop authentication
-   */
-  async authenticateShop(address: string): Promise<AuthToken | null> {
-    const response = await this.post<AuthToken>('/auth/shop', { address });
-
-    if (response.success && response.data) {
-      this.storeToken(response.data.token, 'shop');
+/**
+ * Shop authentication
+ */
+export const authenticateShop = async (address: string): Promise<AuthToken | null> => {
+  try {
+    const response = await apiClient.post<AuthToken>('/auth/shop', { address });
+    if (response.data) {
+      storeToken(response.data.token, 'shop');
       return response.data;
     }
     return null;
+  } catch (error) {
+    console.error('Error authenticating shop:', error);
+    return null;
   }
+};
 
-  /**
-   * Store authentication token
-   */
-  private storeToken(token: string, type: 'admin' | 'shop' | 'customer'): void {
-    if (typeof window === 'undefined') return;
-    
-    const tokenKey = `${type}AuthToken`;
-    localStorage.setItem(tokenKey, token);
-    sessionStorage.setItem(tokenKey, token);
-  }
+/**
+ * Check if user is authenticated
+ */
+export const isAuthenticated = (type: 'admin' | 'shop' | 'customer' = 'customer'): boolean => {
+  if (typeof window === 'undefined') return false;
+  
+  const tokenKey = `${type}AuthToken`;
+  const token = localStorage.getItem(tokenKey) || sessionStorage.getItem(tokenKey);
+  return !!token;
+};
 
-  /**
-   * Clear authentication tokens
-   */
-  clearTokens(type?: 'admin' | 'shop' | 'customer'): void {
-    if (typeof window === 'undefined') return;
+/**
+ * Logout user
+ */
+export const logout = (type?: 'admin' | 'shop' | 'customer'): void => {
+  clearToken(type);
+};
 
-    if (type) {
-      const tokenKey = `${type}AuthToken`;
-      localStorage.removeItem(tokenKey);
-      sessionStorage.removeItem(tokenKey);
-    } else {
-      // Clear all tokens
-      ['admin', 'shop', 'customer'].forEach(t => {
-        const tokenKey = `${t}AuthToken`;
-        localStorage.removeItem(tokenKey);
-        sessionStorage.removeItem(tokenKey);
-      });
-    }
-  }
-
-  /**
-   * Check if user is authenticated
-   */
-  isAuthenticated(type: 'admin' | 'shop' | 'customer' = 'customer'): boolean {
-    return !!this.getAuthToken(type);
-  }
-
-  /**
-   * Logout user
-   */
-  logout(type?: 'admin' | 'shop' | 'customer'): void {
-    this.clearTokens(type);
-  }
-}
-
-export const authApi = new AuthApiService();
+// Named exports grouped as namespace for convenience
+export const authApi = {
+  generateToken,
+  checkUser,
+  getProfile,
+  getSession,
+  authenticateAdmin,
+  authenticateCustomer,
+  authenticateShop,
+  isAuthenticated,
+  logout,
+} as const;

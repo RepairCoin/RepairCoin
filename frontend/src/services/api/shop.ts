@@ -1,9 +1,8 @@
-import { ApiService } from './base';
+import apiClient from './client';
 import {
   Shop,
   Customer,
   Transaction,
-  TierBonus,
   TierBonusPreview,
   ShopPurchase,
   PurchaseSession,
@@ -42,349 +41,376 @@ export interface RedeemTokensData {
   description?: string;
 }
 
-class ShopApiService extends ApiService {
-  /**
-   * Register a new shop
-   */
-  async register(data: ShopRegistrationData): Promise<Shop | null> {
-    const response = await this.post<Shop>('/shops/register', data);
-    
-    if (response.success && response.data) {
-      return response.data;
+// Helper function to build query string
+const buildQueryString = (params: Record<string, any>): string => {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      searchParams.append(key, String(value));
     }
+  });
+  const queryString = searchParams.toString();
+  return queryString ? `?${queryString}` : '';
+};
+
+// Shop Management
+export const registerShop = async (data: ShopRegistrationData): Promise<Shop | null> => {
+  try {
+    const response = await apiClient.post<Shop>('/shops/register', data);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error registering shop:', error);
     return null;
   }
+};
 
-  /**
-   * Get shop by ID
-   */
-  async getShop(shopId: string): Promise<Shop | null> {
-    const response = await this.get<Shop>(`/shops/${shopId}`);
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+export const getShop = async (shopId: string): Promise<Shop | null> => {
+  try {
+    const response = await apiClient.get<Shop>(`/shops/${shopId}`);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error getting shop:', error);
     return null;
   }
+};
 
-  /**
-   * Get shop by wallet address
-   */
-  async getShopByWallet(address: string): Promise<Shop | null> {
-    const response = await this.get<Shop>(`/shops/wallet/${address}`);
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+export const getShopByWallet = async (address: string): Promise<Shop | null> => {
+  try {
+    const response = await apiClient.get<Shop>(`/shops/wallet/${address}`);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error getting shop by wallet:', error);
     return null;
   }
+};
 
-  /**
-   * Update shop information
-   */
-  async updateShop(shopId: string, updates: Partial<Shop>): Promise<Shop | null> {
-    const response = await this.put<Shop>(`/shops/${shopId}`, updates, {
-      includeAuth: true,
-      authType: 'shop',
-    });
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+export const updateShop = async (shopId: string, updates: Partial<Shop>): Promise<Shop | null> => {
+  try {
+    const response = await apiClient.put<Shop>(`/shops/${shopId}`, updates);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error updating shop:', error);
     return null;
   }
+};
 
-  /**
-   * Get all shops with filters
-   */
-  async getShops(params?: FilterParams & {
-    verified?: boolean;
-    active?: boolean;
-    crossShopEnabled?: boolean;
-  }): Promise<Shop[]> {
-    const queryString = params ? this.buildQueryString(params) : '';
-    const response = await this.get<Shop[]>(`/shops${queryString}`);
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+export const getShops = async (params?: FilterParams & {
+  verified?: boolean;
+  active?: boolean;
+  crossShopEnabled?: boolean;
+}): Promise<Shop[]> => {
+  try {
+    const queryString = params ? buildQueryString(params) : '';
+    const response = await apiClient.get<Shop[]>(`/shops${queryString}`);
+    return response.data || [];
+  } catch (error) {
+    console.error('Error getting shops:', error);
     return [];
   }
+};
 
-  /**
-   * Get shop customers
-   */
-  async getCustomers(shopId: string, params?: FilterParams): Promise<Customer[]> {
-    const queryString = params ? this.buildQueryString(params) : '';
-    const response = await this.get<Customer[]>(
-      `/shops/${shopId}/customers${queryString}`,
-      { includeAuth: true, authType: 'shop' }
-    );
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+// Customer Management
+export const getShopCustomers = async (shopId: string, params?: FilterParams): Promise<Customer[]> => {
+  try {
+    const queryString = params ? buildQueryString(params) : '';
+    const response = await apiClient.get<Customer[]>(`/shops/${shopId}/customers${queryString}`);
+    return response.data || [];
+  } catch (error) {
+    console.error('Error getting shop customers:', error);
     return [];
   }
+};
 
-  /**
-   * Get shop transactions
-   */
-  async getTransactions(shopId: string, params?: FilterParams): Promise<Transaction[]> {
-    const queryString = params ? this.buildQueryString(params) : '';
-    const response = await this.get<Transaction[]>(
-      `/shops/${shopId}/transactions${queryString}`,
-      { includeAuth: true, authType: 'shop' }
-    );
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+// Transactions
+export const getShopTransactions = async (shopId: string, params?: FilterParams): Promise<Transaction[]> => {
+  try {
+    const queryString = params ? buildQueryString(params) : '';
+    const response = await apiClient.get<Transaction[]>(`/shops/${shopId}/transactions${queryString}`);
+    return response.data || [];
+  } catch (error) {
+    console.error('Error getting shop transactions:', error);
     return [];
   }
+};
 
-  /**
-   * Issue reward to customer
-   */
-  async issueReward(shopId: string, data: IssueRewardData): Promise<{
-    success: boolean;
-    txHash?: string;
-    totalRewarded?: number;
-    tierBonus?: number;
-  }> {
-    const response = await this.post<any>(
-      `/shops/${shopId}/issue-reward`,
-      data,
-      { includeAuth: true, authType: 'shop' }
-    );
+// Rewards
+export const issueReward = async (
+  shopId: string,
+  data: IssueRewardData
+): Promise<{
+  success: boolean;
+  txHash?: string;
+  totalRewarded?: number;
+  tierBonus?: number;
+}> => {
+  try {
+    const response = await apiClient.post<{
+      txHash?: string;
+      totalRewarded?: number;
+      tierBonus?: number;
+    }>(`/shops/${shopId}/issue-reward`, data);
     
-    return response;
+    return {
+      success: true,
+      txHash: response.data?.txHash,
+      totalRewarded: response.data?.totalRewarded,
+      tierBonus: response.data?.tierBonus,
+    };
+  } catch (error) {
+    console.error('Error issuing reward:', error);
+    return { success: false };
   }
+};
 
-  /**
-   * Initiate redemption session
-   */
-  async initiateRedemption(shopId: string, data: RedeemTokensData): Promise<RedemptionSession | null> {
-    const response = await this.post<RedemptionSession>(
-      `/shops/${shopId}/redeem`,
-      data,
-      { includeAuth: true, authType: 'shop' }
-    );
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+// Redemption
+export const initiateRedemption = async (
+  shopId: string,
+  data: RedeemTokensData
+): Promise<RedemptionSession | null> => {
+  try {
+    const response = await apiClient.post<RedemptionSession>(`/shops/${shopId}/redeem`, data);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error initiating redemption:', error);
     return null;
   }
+};
 
-  /**
-   * Get redemption session status
-   */
-  async getRedemptionSession(shopId: string, sessionId: string): Promise<RedemptionSession | null> {
-    const response = await this.get<RedemptionSession>(
-      `/shops/${shopId}/redemption-session/${sessionId}`,
-      { includeAuth: true, authType: 'shop' }
-    );
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+export const getRedemptionSession = async (
+  shopId: string,
+  sessionId: string
+): Promise<RedemptionSession | null> => {
+  try {
+    const response = await apiClient.get<RedemptionSession>(`/shops/${shopId}/redemption-session/${sessionId}`);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error getting redemption session:', error);
     return null;
   }
+};
 
-  /**
-   * Cancel redemption session
-   */
-  async cancelRedemption(shopId: string, sessionId: string): Promise<boolean> {
-    const response = await this.delete(
-      `/shops/${shopId}/redemption-session/${sessionId}`,
-      { includeAuth: true, authType: 'shop' }
-    );
-    
-    return response.success;
+export const cancelRedemption = async (shopId: string, sessionId: string): Promise<boolean> => {
+  try {
+    await apiClient.delete(`/shops/${shopId}/redemption-session/${sessionId}`);
+    return true;
+  } catch (error) {
+    console.error('Error canceling redemption:', error);
+    return false;
   }
+};
 
-  /**
-   * Get shop statistics
-   */
-  async getStats(shopId: string): Promise<{
-    totalCustomers: number;
-    totalTransactions: number;
-    totalRcnIssued: number;
-    totalRcnRedeemed: number;
-    averageTransactionValue: number;
-    topCustomers: Customer[];
-  } | null> {
-    const response = await this.get<any>(
-      `/shops/${shopId}/stats`,
-      { includeAuth: true, authType: 'shop' }
-    );
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+// Statistics
+export const getShopStats = async (shopId: string): Promise<{
+  totalCustomers: number;
+  totalTransactions: number;
+  totalRcnIssued: number;
+  totalRcnRedeemed: number;
+  averageTransactionValue: number;
+  topCustomers: Customer[];
+} | null> => {
+  try {
+    const response = await apiClient.get<{
+      totalCustomers: number;
+      totalTransactions: number;
+      totalRcnIssued: number;
+      totalRcnRedeemed: number;
+      averageTransactionValue: number;
+      topCustomers: Customer[];
+    }>(`/shops/${shopId}/stats`);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error getting shop stats:', error);
     return null;
   }
+};
 
-  /**
-   * Get tier bonus preview
-   */
-  async previewTierBonus(data: {
+// Tier Bonus
+export const previewTierBonus = async (data: {
+  customerAddress: string;
+  repairAmount: number;
+  shopId?: string;
+}): Promise<TierBonusPreview | null> => {
+  try {
+    const response = await apiClient.post<TierBonusPreview>('/tier-bonus/preview', data);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error previewing tier bonus:', error);
+    return null;
+  }
+};
+
+export const getTierBonusStats = async (shopId: string): Promise<{
+  totalBonusesIssued: number;
+  bonusesByTier: Record<string, number>;
+  topBonusRecipients: Array<{
     customerAddress: string;
-    repairAmount: number;
-    shopId?: string;
-  }): Promise<TierBonusPreview | null> {
-    const response = await this.post<TierBonusPreview>('/tier-bonus/preview', data);
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
-    return null;
-  }
-
-  /**
-   * Get tier bonus stats for shop
-   */
-  async getTierBonusStats(shopId: string): Promise<{
-    totalBonusesIssued: number;
-    bonusesByTier: Record<string, number>;
-    topBonusRecipients: Array<{
-      customerAddress: string;
-      totalBonus: number;
-      tier: string;
-    }>;
-  } | null> {
-    const response = await this.get<any>(
-      `/tier-bonus/stats/${shopId}`,
-      { includeAuth: true, authType: 'shop' }
-    );
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
-    return null;
-  }
-
-  /**
-   * Calculate tier bonus
-   */
-  async calculateTierBonus(data: {
-    customerAddress: string;
-    baseAmount: number;
-    repairAmount: number;
-  }): Promise<{
-    baseReward: number;
-    tierBonus: number;
-    totalReward: number;
+    totalBonus: number;
     tier: string;
-  } | null> {
-    const response = await this.post<any>('/tier-bonus/calculate', data);
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+  }>;
+} | null> => {
+  try {
+    const response = await apiClient.get<{
+      totalBonusesIssued: number;
+      bonusesByTier: Record<string, number>;
+      topBonusRecipients: Array<{
+        customerAddress: string;
+        totalBonus: number;
+        tier: string;
+      }>;
+    }>(`/tier-bonus/stats/${shopId}`);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error getting tier bonus stats:', error);
     return null;
   }
+};
 
-  /**
-   * Initiate RCN purchase
-   */
-  async initiatePurchase(shopId: string, data: {
+export const calculateTierBonus = async (data: {
+  customerAddress: string;
+  baseAmount: number;
+  repairAmount: number;
+}): Promise<{
+  baseReward: number;
+  tierBonus: number;
+  totalReward: number;
+  tier: string;
+} | null> => {
+  try {
+    const response = await apiClient.post<{
+      baseReward: number;
+      tierBonus: number;
+      totalReward: number;
+      tier: string;
+    }>('/tier-bonus/calculate', data);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error calculating tier bonus:', error);
+    return null;
+  }
+};
+
+// RCN Purchase
+export const initiatePurchase = async (
+  shopId: string,
+  data: {
     rcnAmount: number;
     paymentMethod: 'crypto' | 'fiat' | 'bank_transfer';
-  }): Promise<PurchaseSession | null> {
-    const response = await this.post<PurchaseSession>(
-      '/purchase/initiate',
-      { shopId, ...data },
-      { includeAuth: true, authType: 'shop' }
-    );
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+  }
+): Promise<PurchaseSession | null> => {
+  try {
+    const response = await apiClient.post<PurchaseSession>('/purchase/initiate', { shopId, ...data });
+    return response.data || null;
+  } catch (error) {
+    console.error('Error initiating purchase:', error);
     return null;
   }
+};
 
-  /**
-   * Complete RCN purchase
-   */
-  async completePurchase(data: {
-    sessionId: string;
-    paymentReference: string;
-    txHash?: string;
-  }): Promise<ShopPurchase | null> {
-    const response = await this.post<ShopPurchase>(
-      '/purchase/complete',
-      data,
-      { includeAuth: true, authType: 'shop' }
-    );
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+export const completePurchase = async (data: {
+  sessionId: string;
+  paymentReference: string;
+  txHash?: string;
+}): Promise<ShopPurchase | null> => {
+  try {
+    const response = await apiClient.post<ShopPurchase>('/purchase/complete', data);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error completing purchase:', error);
     return null;
   }
+};
 
-  /**
-   * Get shop RCN balance
-   */
-  async getRcnBalance(shopId: string): Promise<{
-    purchasedBalance: number;
-    usedBalance: number;
-    availableBalance: number;
-  } | null> {
-    const response = await this.get<any>(
-      `/purchase/balance/${shopId}`,
-      { includeAuth: true, authType: 'shop' }
-    );
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+export const getRcnBalance = async (shopId: string): Promise<{
+  purchasedBalance: number;
+  usedBalance: number;
+  availableBalance: number;
+} | null> => {
+  try {
+    const response = await apiClient.get<{
+      purchasedBalance: number;
+      usedBalance: number;
+      availableBalance: number;
+    }>(`/purchase/balance/${shopId}`);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error getting RCN balance:', error);
     return null;
   }
+};
 
-  /**
-   * Get purchase history
-   */
-  async getPurchaseHistory(shopId: string, params?: FilterParams): Promise<ShopPurchase[]> {
-    const queryString = params ? this.buildQueryString(params) : '';
-    const response = await this.get<ShopPurchase[]>(
-      `/purchase/history/${shopId}${queryString}`,
-      { includeAuth: true, authType: 'shop' }
-    );
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+export const getPurchaseHistory = async (
+  shopId: string,
+  params?: FilterParams
+): Promise<ShopPurchase[]> => {
+  try {
+    const queryString = params ? buildQueryString(params) : '';
+    const response = await apiClient.get<ShopPurchase[]>(`/purchase/history/${shopId}${queryString}`);
+    return response.data || [];
+  } catch (error) {
+    console.error('Error getting purchase history:', error);
     return [];
   }
+};
 
-  /**
-   * Request shop verification
-   */
-  async requestVerification(shopId: string, documents?: any): Promise<boolean> {
-    const response = await this.post(
-      `/shops/${shopId}/request-verification`,
-      { documents },
-      { includeAuth: true, authType: 'shop' }
-    );
-    
-    return response.success;
+// Verification & Settings
+export const requestVerification = async (shopId: string, documents?: any): Promise<boolean> => {
+  try {
+    await apiClient.post(`/shops/${shopId}/request-verification`, { documents });
+    return true;
+  } catch (error) {
+    console.error('Error requesting verification:', error);
+    return false;
   }
+};
 
-  /**
-   * Enable/disable cross-shop redemptions
-   */
-  async toggleCrossShop(shopId: string, enabled: boolean): Promise<boolean> {
-    const response = await this.put(
-      `/shops/${shopId}/cross-shop`,
-      { enabled },
-      { includeAuth: true, authType: 'shop' }
-    );
-    
-    return response.success;
+export const toggleCrossShop = async (shopId: string, enabled: boolean): Promise<boolean> => {
+  try {
+    await apiClient.put(`/shops/${shopId}/cross-shop`, { enabled });
+    return true;
+  } catch (error) {
+    console.error('Error toggling cross-shop:', error);
+    return false;
   }
-}
+};
 
-export const shopApi = new ShopApiService();
+// Named exports grouped as namespace for convenience
+export const shopApi = {
+  // Management
+  register: registerShop,
+  get: getShop,
+  getByWallet: getShopByWallet,
+  update: updateShop,
+  list: getShops,
+  
+  // Customers
+  getCustomers: getShopCustomers,
+  
+  // Transactions
+  getTransactions: getShopTransactions,
+  
+  // Rewards
+  issueReward,
+  
+  // Redemption
+  initiateRedemption,
+  getRedemptionSession,
+  cancelRedemption,
+  
+  // Stats
+  getStats: getShopStats,
+  
+  // Tier Bonus
+  previewTierBonus,
+  getTierBonusStats,
+  calculateTierBonus,
+  
+  // RCN Purchase
+  initiatePurchase,
+  completePurchase,
+  getRcnBalance,
+  getPurchaseHistory,
+  
+  // Settings
+  requestVerification,
+  toggleCrossShop,
+} as const;

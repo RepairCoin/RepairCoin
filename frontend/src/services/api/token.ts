@@ -1,4 +1,4 @@
-import { ApiService } from './base';
+import apiClient from './client';
 import { BalanceData, CrossShopVerification } from '@/constants/types';
 
 export interface VerifyRedemptionData {
@@ -58,227 +58,281 @@ export interface VerificationResult {
   };
 }
 
-class TokenApiService extends ApiService {
-  /**
-   * Get earned balance breakdown for customer
-   */
-  async getEarnedBalance(address: string): Promise<BalanceData | null> {
-    const response = await this.get<BalanceData>(`/tokens/earned-balance/${address}`);
-    
-    if (response.success && response.data) {
-      return response.data;
+// Helper function to build query string
+const buildQueryString = (params: Record<string, any>): string => {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      searchParams.append(key, String(value));
     }
+  });
+  const queryString = searchParams.toString();
+  return queryString ? `?${queryString}` : '';
+};
+
+// Balance & Earnings
+export const getEarnedBalance = async (address: string): Promise<BalanceData | null> => {
+  try {
+    const response = await apiClient.get<BalanceData>(`/tokens/earned-balance/${address}`);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error getting earned balance:', error);
     return null;
   }
+};
 
-  /**
-   * Get earning sources breakdown
-   */
-  async getEarningSources(address: string): Promise<EarningSources | null> {
-    const response = await this.get<EarningSources>(`/tokens/earning-sources/${address}`);
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+export const getEarningSources = async (address: string): Promise<EarningSources | null> => {
+  try {
+    const response = await apiClient.get<EarningSources>(`/tokens/earning-sources/${address}`);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error getting earning sources:', error);
     return null;
   }
+};
 
-  /**
-   * Verify redemption eligibility
-   */
-  async verifyRedemption(data: VerifyRedemptionData): Promise<VerificationResult | null> {
-    const response = await this.post<VerificationResult>('/tokens/verify-redemption', data);
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+// Verification
+export const verifyRedemption = async (data: VerifyRedemptionData): Promise<VerificationResult | null> => {
+  try {
+    const response = await apiClient.post<VerificationResult>('/tokens/verify-redemption', data);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error verifying redemption:', error);
     return null;
   }
+};
 
-  /**
-   * Batch verify redemptions
-   */
-  async verifyBatch(requests: VerifyRedemptionData[]): Promise<VerificationResult[]> {
-    const response = await this.post<VerificationResult[]>('/tokens/verify-batch', {
-      requests,
-    });
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+export const verifyBatch = async (requests: VerifyRedemptionData[]): Promise<VerificationResult[]> => {
+  try {
+    const response = await apiClient.post<VerificationResult[]>('/tokens/verify-batch', { requests });
+    return response.data || [];
+  } catch (error) {
+    console.error('Error verifying batch:', error);
     return [];
   }
+};
 
-  /**
-   * Get token statistics
-   */
-  async getTokenStats(): Promise<TokenStats | null> {
-    const response = await this.get<TokenStats>('/tokens/stats');
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+// Token Statistics
+export const getTokenStats = async (): Promise<TokenStats | null> => {
+  try {
+    const response = await apiClient.get<TokenStats>('/tokens/stats');
+    return response.data || null;
+  } catch (error) {
+    console.error('Error getting token stats:', error);
     return null;
   }
+};
 
-  /**
-   * Get token price info
-   */
-  async getTokenPrice(): Promise<{
-    priceUSD: number;
-    priceChange24h: number;
-    volume24h: number;
-    marketCap: number;
-  } | null> {
-    const response = await this.get<any>('/tokens/price');
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+export const getTokenPrice = async (): Promise<{
+  priceUSD: number;
+  priceChange24h: number;
+  volume24h: number;
+  marketCap: number;
+} | null> => {
+  try {
+    const response = await apiClient.get<{
+      priceUSD: number;
+      priceChange24h: number;
+      volume24h: number;
+      marketCap: number;
+    }>('/tokens/price');
+    return response.data || null;
+  } catch (error) {
+    console.error('Error getting token price:', error);
     return null;
   }
+};
 
-  /**
-   * Verify cross-shop redemption eligibility
-   */
-  async verifyCrossShopRedemption(data: {
-    customerAddress: string;
-    shopId: string;
-    amount: number;
-  }): Promise<CrossShopVerification | null> {
-    const response = await this.post<CrossShopVerification>('/cross-shop/verify', data);
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+// Cross-shop
+export const verifyCrossShopRedemption = async (data: {
+  customerAddress: string;
+  shopId: string;
+  amount: number;
+}): Promise<CrossShopVerification | null> => {
+  try {
+    const response = await apiClient.post<CrossShopVerification>('/cross-shop/verify', data);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error verifying cross-shop redemption:', error);
     return null;
   }
+};
 
-  /**
-   * Get cross-shop balance for customer
-   */
-  async getCrossShopBalance(customerAddress: string): Promise<{
-    availableBalance: number;
-    maxCrossShopAmount: number;
-    homeShopId?: string;
-    homeShopName?: string;
-  } | null> {
-    const response = await this.get<any>(`/cross-shop/balance/${customerAddress}`);
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+export const getCrossShopBalance = async (customerAddress: string): Promise<{
+  availableBalance: number;
+  maxCrossShopAmount: number;
+  homeShopId?: string;
+  homeShopName?: string;
+} | null> => {
+  try {
+    const response = await apiClient.get<{
+      availableBalance: number;
+      maxCrossShopAmount: number;
+      homeShopId?: string;
+      homeShopName?: string;
+    }>(`/cross-shop/balance/${customerAddress}`);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error getting cross-shop balance:', error);
     return null;
   }
+};
 
-  /**
-   * Get RCN breakdown for customer
-   */
-  async getRcnBreakdown(customerAddress: string): Promise<{
-    onChainBalance: number;
-    earnedBalance: number;
-    referralBalance: number;
-    bonusBalance: number;
-    redeemedAmount: number;
-    availableForRedemption: number;
-    lockedAmount: number;
-  } | null> {
-    const response = await this.get<any>(`/referral/rcn-breakdown`, {
-      includeAuth: true,
-      authType: 'customer',
-    });
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+// RCN Breakdown
+export const getRcnBreakdown = async (customerAddress: string): Promise<{
+  onChainBalance: number;
+  earnedBalance: number;
+  referralBalance: number;
+  bonusBalance: number;
+  redeemedAmount: number;
+  availableForRedemption: number;
+  lockedAmount: number;
+} | null> => {
+  try {
+    const response = await apiClient.get<{
+      onChainBalance: number;
+      earnedBalance: number;
+      referralBalance: number;
+      bonusBalance: number;
+      redeemedAmount: number;
+      availableForRedemption: number;
+      lockedAmount: number;
+    }>('/referral/rcn-breakdown');
+    return response.data || null;
+  } catch (error) {
+    console.error('Error getting RCN breakdown:', error);
     return null;
   }
+};
 
-  /**
-   * Check redemption eligibility at shop
-   */
-  async checkRedemptionEligibility(
-    customerAddress: string,
-    shopId: string,
-    amount: number
-  ): Promise<{
-    eligible: boolean;
-    maxRedeemable: number;
-    reason?: string;
-  }> {
-    const response = await this.post<any>('/referral/verify-redemption', {
+// Redemption Eligibility
+export const checkRedemptionEligibility = async (
+  customerAddress: string,
+  shopId: string,
+  amount: number
+): Promise<{
+  eligible: boolean;
+  maxRedeemable: number;
+  reason?: string;
+}> => {
+  try {
+    const response = await apiClient.post<{
+      eligible: boolean;
+      maxRedeemable: number;
+      reason?: string;
+    }>('/referral/verify-redemption', {
       customerAddress,
       shopId,
       requestedAmount: amount,
     });
     
-    if (response.success && response.data) {
-      return response.data;
-    }
-    
+    return response.data || {
+      eligible: false,
+      maxRedeemable: 0,
+      reason: 'Unable to verify redemption eligibility',
+    };
+  } catch (error) {
+    console.error('Error checking redemption eligibility:', error);
     return {
       eligible: false,
       maxRedeemable: 0,
-      reason: response.error || 'Unable to verify redemption eligibility',
+      reason: 'Unable to verify redemption eligibility',
     };
   }
+};
 
-  /**
-   * Get transaction history
-   */
-  async getTransactionHistory(
-    address: string,
-    params?: {
-      type?: 'earned' | 'redeemed' | 'bonus' | 'referral';
-      limit?: number;
-      offset?: number;
-      startDate?: string;
-      endDate?: string;
-    }
-  ): Promise<Array<{
-    id: string;
-    type: string;
-    amount: number;
-    description: string;
-    shopId?: string;
-    shopName?: string;
-    txHash?: string;
-    createdAt: string;
-  }>> {
-    const queryString = params ? this.buildQueryString(params) : '';
-    const response = await this.get<any[]>(`/customers/${address}/transactions${queryString}`, {
-      includeAuth: true,
-      authType: 'customer',
-    });
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
-    return [];
-  }
-
-  /**
-   * Get leaderboard data
-   */
-  async getLeaderboard(params?: {
-    period?: 'all' | 'month' | 'week';
-    type?: 'earnings' | 'referrals' | 'tier';
+// Transaction History
+export const getTokenTransactionHistory = async (
+  address: string,
+  params?: {
+    type?: 'earned' | 'redeemed' | 'bonus' | 'referral';
     limit?: number;
-  }): Promise<Array<{
-    rank: number;
-    address: string;
-    name?: string;
-    value: number;
-    tier?: string;
-  }>> {
-    const queryString = params ? this.buildQueryString(params) : '';
-    const response = await this.get<any[]>(`/referral/leaderboard${queryString}`);
-    
-    if (response.success && response.data) {
-      return response.data;
-    }
+    offset?: number;
+    startDate?: string;
+    endDate?: string;
+  }
+): Promise<Array<{
+  id: string;
+  type: string;
+  amount: number;
+  description: string;
+  shopId?: string;
+  shopName?: string;
+  txHash?: string;
+  createdAt: string;
+}>> => {
+  try {
+    const queryString = params ? buildQueryString(params) : '';
+    const response = await apiClient.get<Array<{
+      id: string;
+      type: string;
+      amount: number;
+      description: string;
+      shopId?: string;
+      shopName?: string;
+      txHash?: string;
+      createdAt: string;
+    }>>(`/customers/${address}/transactions${queryString}`);
+    return response.data || [];
+  } catch (error) {
+    console.error('Error getting token transaction history:', error);
     return [];
   }
-}
+};
 
-export const tokenApi = new TokenApiService();
+// Leaderboard
+export const getLeaderboard = async (params?: {
+  period?: 'all' | 'month' | 'week';
+  type?: 'earnings' | 'referrals' | 'tier';
+  limit?: number;
+}): Promise<Array<{
+  rank: number;
+  address: string;
+  name?: string;
+  value: number;
+  tier?: string;
+}>> => {
+  try {
+    const queryString = params ? buildQueryString(params) : '';
+    const response = await apiClient.get<Array<{
+      rank: number;
+      address: string;
+      name?: string;
+      value: number;
+      tier?: string;
+    }>>(`/referral/leaderboard${queryString}`);
+    return response.data || [];
+  } catch (error) {
+    console.error('Error getting leaderboard:', error);
+    return [];
+  }
+};
+
+// Named exports grouped as namespace for convenience
+export const tokenApi = {
+  // Balance
+  getEarnedBalance,
+  getEarningSources,
+  
+  // Verification
+  verifyRedemption,
+  verifyBatch,
+  
+  // Stats
+  getTokenStats,
+  getTokenPrice,
+  
+  // Cross-shop
+  verifyCrossShopRedemption,
+  getCrossShopBalance,
+  
+  // Breakdown
+  getRcnBreakdown,
+  checkRedemptionEligibility,
+  
+  // Transactions
+  getTransactionHistory: getTokenTransactionHistory,
+  
+  // Leaderboard
+  getLeaderboard,
+} as const;
