@@ -30,7 +30,7 @@ interface PlatformStats {
 }
 
 interface Transaction {
-  id: number;
+  id: number | string;
   shopId: string;
   shopName?: string;
   customerAddress: string;
