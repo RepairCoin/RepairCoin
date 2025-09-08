@@ -1,19 +1,86 @@
 'use client';
 
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useActiveAccount } from "thirdweb/react";
+import { useWalletDetection } from "@/hooks/useWalletDetection";
+import { useAuth } from "@/hooks/useAuth";
 import HowAndWhy from "@/components/landing/HowAndWhy";
 import FindARepairCoin from "@/components/landing/FindARepairCoin";
 import SuccessStories from "@/components/landing/SuccessStories";
-import LatestNews from "@/components/landing/LatestNews";
 import CommunityBanner from "@/components/CommunityBanner";
-import WalletAwareHero from "@/components/landing/WalletAwareHero";
+import LandingHero from "@/components/landing/LandingHero";
 
 export default function LandingPage() {
+  const router = useRouter();
+  const account = useActiveAccount();
+  const { isAuthenticated } = useAuth();
+  const { walletType, isRegistered, isDetecting } = useWalletDetection();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  const handleGetStarted = () => {
+    if (!account) {
+      // If no wallet connected, the ConnectButton will handle it
+      return;
+    }
+
+    if (isRegistered) {
+      // Already registered, route to appropriate dashboard
+      switch (walletType) {
+        case "admin":
+          router.push("/admin");
+          break;
+        case "shop":
+          router.push("/shop");
+          break;
+        case "customer":
+          router.push("/customer");
+          break;
+      }
+    } else {
+      // New wallet, go to choose page
+      router.push("/choose");
+    }
+  };
+
+  const handleAuthConnect = () => {
+    setShowAuthModal(false);
+  };
+
+  const handleAuthError = (error: any) => {
+    console.log("Connection error:", error);
+  };
+
+  const getStatusMessage = () => {
+    if (account && !isDetecting && !isRegistered) {
+      return (
+        <p className="text-blue-200 text-sm">
+          <span className="font-semibold">New wallet detected!</span>{" "}
+          Click "Get Started" to choose how you want to participate in
+          RepairCoin.
+        </p>
+      );
+    }
+    return null;
+  };
+
   return (
     <main>
-      <WalletAwareHero
+      <LandingHero
         backgroundImage="/img/hero-bg.png"  
         techBgImage="/img/tech-bg.png"
-        hero1BgImage="/img/hero1-bg.png"  
+        hero1BgImage="/img/hero1-bg.png"
+        hasWallet={!!account}
+        isDetecting={isDetecting}
+        isRegistered={isRegistered}
+        isAuthenticated={isAuthenticated}
+        showAuthModal={showAuthModal}
+        onGetStartedClick={handleGetStarted}
+        onAuthModalOpen={() => setShowAuthModal(true)}
+        onAuthModalClose={() => setShowAuthModal(false)}
+        onAuthConnect={handleAuthConnect}
+        onAuthError={handleAuthError}
+        statusMessage={getStatusMessage()}
       />
       <HowAndWhy 
         techBgImage="/img/tech-bg.png"
@@ -24,9 +91,6 @@ export default function LandingPage() {
       <SuccessStories 
         successStoriesBgImage="/img/success-stories-bg.png"
       />
-      {/* <LatestNews 
-        latestNewsBgImage="/img/success-stories-bg.png"
-      /> */}
       <CommunityBanner 
         communityBannerBgImage="/img/community-chain.png"
         bannerChainImage="/img/banner-chain.png"
