@@ -17,6 +17,7 @@ import GroupHeadIcon from "./GroupHeadIcon";
 import MailCheckIcon from "./MailCheckIcon";
 import ThreeDotsIcon from "./ThreeDotsIcon";
 import DbIcon from "./DbIcon";
+import QrCodeIcon from "./QrCodeIcon";
 
 export {
     OverviewIcon,
@@ -37,5 +38,6 @@ export {
     GroupHeadIcon,
     MailCheckIcon,
     ThreeDotsIcon,
-    DbIcon
+    DbIcon,
+    QrCodeIcon
 }

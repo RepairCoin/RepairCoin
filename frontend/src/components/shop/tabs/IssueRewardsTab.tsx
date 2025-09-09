@@ -687,7 +687,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                     !canIssueReward ||
                     !hasSufficientBalance
                   }
-                  className="w-full bg-gradient-to-r from-[#FFCC00] to-[#FFA500] text-black font-bold py-4 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow-lg hover:shadow-yellow-500/25 transform hover:scale-105"
+                  className="w-full bg-[#FFCC00] text-black font-bold py-4 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow-lg hover:shadow-yellow-500/25 transform hover:scale-105"
                 >
                   {processing ? (
                     <div className="flex items-center justify-center">
