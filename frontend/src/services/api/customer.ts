@@ -10,10 +10,9 @@ import {
 } from '@/constants/types';
 
 export interface CustomerRegistrationData {
-  address: string;
+  walletAddress: string;
   name?: string;
   email?: string;
-  phone?: string;
   referralCode?: string;
 }
 

@@ -25,6 +25,7 @@ export class CustomerController {
       const { 
         walletAddress, 
         email, 
+        name, 
         phone, 
         fixflowCustomerId, 
         referralCode,
@@ -35,6 +36,7 @@ export class CustomerController {
       const result = await this.customerService.registerCustomer({
         walletAddress,
         email,
+        name,
         phone,
         fixflowCustomerId,
         referralCode,

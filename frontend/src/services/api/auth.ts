@@ -62,9 +62,14 @@ export const checkUser = async (address: string): Promise<{
 }> => {
   try {
     const response = await apiClient.post<any>('/auth/check-user', { address });
-    return response.data
-  } catch (error) {
-    console.error('Error checking user:', error);
+    return response.data;
+  } catch (error: any) {
+    // Handle 404 or other errors
+    if (error?.response?.status === 404) {
+      console.log('User not found');
+    } else {
+      console.error('Error checking user:', error);
+    }
     return { exists: false };
   }
 };

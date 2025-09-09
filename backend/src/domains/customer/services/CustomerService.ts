@@ -9,6 +9,7 @@ import { ReferralService } from '../../../services/ReferralService';
 export interface CustomerRegistrationData {
   walletAddress: string;
   email?: string;
+  name?: string;
   phone?: string;
   fixflowCustomerId?: string;
   referralCode?: string;
@@ -149,6 +150,7 @@ export class CustomerService {
       // Create new customer
       const newCustomer = TierManager.createNewCustomer(
         data.walletAddress,
+        data.name,
         data.email,
         data.phone,
         data.fixflowCustomerId

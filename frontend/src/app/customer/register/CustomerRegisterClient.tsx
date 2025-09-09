@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { createThirdwebClient } from "thirdweb";
 import { useAuth } from "../../../hooks/useAuth";
 import { useAuthMethod } from "@/contexts/AuthMethodContext";
-import CommunityBanner from "@/components/CommunityBanner";
+import { useCustomer } from "@/hooks/useCustomer";
 
 const client = createThirdwebClient({
   clientId:
@@ -19,131 +19,39 @@ export default function CustomerRegisterClient() {
   const { refreshProfile } = useAuth();
   const { authMethod, walletType } = useAuthMethod();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  
+  const {
+    loading,
+    error,
+    success,
+    registrationFormData,
+    updateRegistrationFormField,
+    handleRegistrationSubmit,
+    clearMessages,
+  } = useCustomer();
 
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    referralCode: "",
-  });
-
-  // Get referral code from URL if present
-  useEffect(() => {
-    const refCode = searchParams.get("ref");
-    if (refCode) {
-      setFormData((prev) => ({
-        ...prev,
-        referralCode: refCode,
-      }));
-    }
-  }, [searchParams]);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
+  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!account?.address) return;
 
-    setLoading(true);
-    setError(null);
-    setSuccess(null);
-
-    try {
-      const registrationData = {
-        ...formData,
-        walletAddress: account.address,
-        walletType: walletType || 'external',
-        authMethod: authMethod || 'wallet',
-      };
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/customers/register`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(registrationData),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-
-        // Handle specific error cases
-        if (response.status === 409) {
-          // Handle role conflict errors with specific messaging
-          if (errorData.conflictingRole) {
-            const roleMessage = {
-              admin:
-                "This wallet is registered as an admin account and cannot be used for customer registration.",
-              shop: "This wallet is already registered as a shop account. You cannot register the same wallet as both a shop and a customer.",
-              customer: "This wallet is already registered as a customer.",
-            };
-
-            const message =
-              roleMessage[
-                errorData.conflictingRole as keyof typeof roleMessage
-              ] || errorData.error;
-
-            // For existing customer, we still redirect, but for other roles we don't
-            if (errorData.conflictingRole === "customer") {
-              throw new Error(
-                "This wallet is already registered. Redirecting to your dashboard..."
-              );
-            } else {
-              throw new Error(message);
-            }
-          } else {
-            throw new Error(
-              "This wallet is already registered. Redirecting to your dashboard..."
-            );
-          }
-        }
-
-        throw new Error(errorData.error || "Registration failed");
-      }
-
-      const result = await response.json();
-      setSuccess("Registration successful! Welcome to RepairCoin!");
-      console.log("Customer registered:", result);
-
-      // Refresh the auth profile to update the authentication state
-      await refreshProfile();
-
-      // Redirect to customer dashboard after successful registration
-      setTimeout(() => {
-        router.push("/customer");
-      }, 2000);
-    } catch (err) {
-      console.error("Registration error:", err);
-      const errorMessage =
-        err instanceof Error ? err.message : "Registration failed";
-      setError(errorMessage);
-
-      // If user already exists as customer, redirect after a short delay
-      // Don't redirect for role conflicts (admin/shop trying to register as customer)
-      if (
-        errorMessage.includes("already registered") &&
-        errorMessage.includes("Redirecting")
-      ) {
-        setTimeout(() => {
-          router.push("/customer");
-        }, 3000);
-      }
-    } finally {
-      setLoading(false);
-    }
+    // Call the registration handler from the hook
+    await handleRegistrationSubmit(
+      account.address,
+      walletType || 'external',
+      authMethod || 'wallet'
+    );
+    
+    // Refresh the auth profile after registration
+    await refreshProfile();
   };
+
+  // Clear messages when component unmounts
+  useEffect(() => {
+    return () => {
+      clearMessages();
+    };
+  }, [clearMessages]);
 
   if (!account) {
     return (
@@ -197,8 +105,8 @@ export default function CustomerRegisterClient() {
                   <input
                     type="text"
                     name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
+                    value={registrationFormData.name}
+                    onChange={(e) => updateRegistrationFormField('name', e.target.value)}
                     placeholder="Full name"
                     className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
@@ -208,8 +116,8 @@ export default function CustomerRegisterClient() {
                   <input
                     type="email"
                     name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
+                    value={registrationFormData.email}
+                    onChange={(e) => updateRegistrationFormField('email', e.target.value)}
                     placeholder="Email address"
                     className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
@@ -230,8 +138,8 @@ export default function CustomerRegisterClient() {
                   <input
                     type="text"
                     name="referralCode"
-                    value={formData.referralCode}
-                    onChange={handleInputChange}
+                    value={registrationFormData.referralCode}
+                    onChange={(e) => updateRegistrationFormField('referralCode', e.target.value)}
                     placeholder="Enter referral code"
                     className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
@@ -242,63 +150,25 @@ export default function CustomerRegisterClient() {
                 </div>
                 {/* Submit Button */}
                 <div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className='bg-[#FFCC00] w-full text-black py-2 xl:py-4 px-4 xl:px-6 rounded-full font-semibold text-sm md:text-base text-center disabled:opacity-50 disabled:cursor-not-allowed'
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className='bg-[#FFCC00] w-full text-black py-2 xl:py-4 px-4 xl:px-6 rounded-full font-semibold text-sm md:text-base text-center disabled:opacity-50 disabled:cursor-not-allowed'
                   >
-                  {loading ? (
-                    <div className="flex items-center justify-center gap-2">
-                      <svg className="animate-spin h-4 w-4 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      <span>Creating Account...</span>
-                    </div>
-                  ) : 'Join RepairCoin'}
-                </button>
+                    {loading ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <svg className="animate-spin h-4 w-4 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Creating Account...</span>
+                      </div>
+                    ) : 'Join RepairCoin'}
+                  </button>
                 </div>
               </div>
             </div>
           </form>
-
-          {/* Success Message */}
-          {success && (
-            <div className="mt-6 bg-green-50 border border-green-200 rounded-xl p-4">
-              <div className="flex items-center">
-                <div className="text-green-400 text-2xl mr-3">✅</div>
-                <div>
-                  <h3 className="text-sm font-medium text-green-800">
-                    Registration Successful!
-                  </h3>
-                  <div className="mt-2 text-sm text-green-700">{success}</div>
-                  <div className="mt-2 text-sm text-green-600">
-                    Redirecting to your dashboard...
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Error Message */}
-          {error && (
-            <div className="mt-6 bg-red-50 border border-red-200 rounded-xl p-4">
-              <div className="flex items-center">
-                <div className="text-red-400 text-2xl mr-3">⚠️</div>
-                <div>
-                  <h3 className="text-sm font-medium text-red-800">
-                    Registration Error
-                  </h3>
-                  <div className="mt-2 text-sm text-red-700">{error}</div>
-                  {error.includes("already registered") && (
-                    <div className="mt-2 text-sm text-red-600">
-                      Redirecting to your dashboard...
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="w-full mx-auto bg-black/70 rounded-2xl overflow-hidden my-12">

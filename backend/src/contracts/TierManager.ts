@@ -390,11 +390,12 @@ export class TierManager {
   }
 
   // Create new customer data object
-  static createNewCustomer(address: string, email?: string, phone?: string, fixflowCustomerId?: string): CustomerData {
+  static createNewCustomer(address: string, name?: string, email?: string, phone?: string, fixflowCustomerId?: string): CustomerData {
     return {
       address: address.toLowerCase(),
       email,
       phone,
+      name,
       lifetimeEarnings: 0,
       tier: "BRONZE",
       dailyEarnings: 0,

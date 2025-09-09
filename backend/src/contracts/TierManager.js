@@ -279,9 +279,10 @@ class TierManager {
         return date instanceof Date && !isNaN(date.getTime());
     }
     // Create new customer data object
-    static createNewCustomer(address, email, phone, fixflowCustomerId) {
+    static createNewCustomer(address, name, email, phone, fixflowCustomerId) {
         return {
             address: address.toLowerCase(),
+            name,
             email,
             phone,
             lifetimeEarnings: 0,
