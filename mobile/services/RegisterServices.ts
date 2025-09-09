@@ -23,13 +23,19 @@ export const SocialConnectWalletService = async (
   console.log("asdf");
 
   // await connect(async () => {
-  await wallet.connect({
-    client,
-    strategy: strategy,
-  });
+  const account = await wallet
+    .connect({
+      client,
+      strategy: strategy,
+      closeOpenedWindow: window => {console.log('asdfasdf')}
+    })
+    .then((res) => console.log(res.address))
+    .catch((err) => {
+      console.error("Error connecting wallet:", err);
+    });
   // });
 
-  // console.log(account);
+  console.log(account);
 };
 
 export const SendCodeViaEmailService = async (email: string) => {
@@ -80,9 +86,11 @@ export const RegisterAsCustomerService = async (registrationData: {
   walletAddress: string;
   fixflowCustomerId?: string;
 }) => {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+  const apiUrl =
+    process.env.NEXT_PUBLIC_API_URL || "http://192.168.132.85:3001/api";
 
   console.log(JSON.stringify(registrationData));
+  console.log(apiUrl);
 
   await fetch(`${apiUrl}/customers/register/`, {
     method: "POST",

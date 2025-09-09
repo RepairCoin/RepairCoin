@@ -1,26 +1,23 @@
 import { Pressable, Text } from "react-native";
 
-export default function PrimaryButton({
-  label,
-  onPress,
-  disabled,
-  className = "",
-}: {
-  label: string;
-  onPress: () => void;
+type Props = {
+  title: string;
+  onPress?: () => void;
   disabled?: boolean;
-  className?: string;
-}) {
+}
+
+export default function PrimaryButton({
+  title, onPress, disabled
+}: Props) {
   return (
-    
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      className={`items-center justify-center rounded-2xl py-4 ${
-        disabled ? "bg-yellow-300" : "bg-yellow-400 active:opacity-90"
-      } ${className}`}
+      className="w-full items-center justify-center rounded-2xl bg-rc-yellow py-4 active:opacity-90"
+      style={{ minHeight: 56 }}
+      android_ripple={{ color: 'rgba(0,0,0,0.08)', borderless: false }}
     >
-      <Text className="font-semibold text-zinc-900">{label}</Text>
+      <Text className="text-base font-semibold text-black">{title}</Text>
     </Pressable>
   );
 }
