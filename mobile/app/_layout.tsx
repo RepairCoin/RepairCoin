@@ -3,6 +3,7 @@ import { SplashScreen, Stack } from "expo-router";
 import { useEffect } from "react";
 import { ThirdwebProvider } from "thirdweb/react";
 // import { createThirdwebClient } from "thirdweb";
+import { StatusBar } from "react-native";
 import "../global.css";
 
 export default function RootLayout() {
@@ -25,6 +26,7 @@ export default function RootLayout() {
 
   return (
     <ThirdwebProvider>
+      <StatusBar barStyle="light-content" />
       <Stack screenOptions={{ headerShown: false }} />
     </ThirdwebProvider>
   );

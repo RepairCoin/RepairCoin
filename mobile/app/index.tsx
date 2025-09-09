@@ -1,56 +1,25 @@
-import { router } from "expo-router";
-import React from "react";
-import { Image, Pressable, Text, View } from "react-native";
-// import "../global.css";
+import { Image, Text, View } from "react-native";
+import { Link } from "expo-router";
+import Screen from "@/components/Screen";
+import PrimaryButton from "@/components/PrimaryButton";
 
-export default function Landing() {
+const logo = require('@/assets/images/logo.png');
+
+export default function Splash() {
   return (
-    <View className="w-full">
-      <View>
-        <Image
-          source={require("../assets/images/landing/landing-hero.png")}
-          resizeMode="cover"
-          className="scale-x-50 scale-y-50 top-[-25%] left-[-110%]"
-        />
+    <Screen>
+      <View className="flex-[0.22] items-center justify-start px-8">
+        <Image source={logo} className="h-[250%] w-[80%]" resizeMode="contain" />
+        <Text className="mt-10 text-center text-xs text-neutral-300">
+          The Repair Industry’s Loyalty Token
+        </Text>
       </View>
-      <View className="absolute">
-        <Image
-          source={require("../assets/images/landing/logo.png")}
-          className="w-[50vw] top-[-40] left-4"
-          resizeMode="contain"
-        />
+
+      <View className="flex-[0.16] items-center justify-end px-6 pb-8">
+        <Link href="/onboarding" asChild>
+          <PrimaryButton title="Get Started!" />
+        </Link>
       </View>
-      <View className="top-[-42vh] h-80 bg-[#FFCC00] w-full">
-        <View className="top-[1.8vh] h-[100vh] rounded-[8vw] bg-white w-full">
-          <View className="flex-row gap-2 mt-3 mx-auto mb-10">
-            <View className="h-2 w-10 rounded-full bg-[#FFCC00]" />
-            <View className="h-2 w-2 rounded-full bg-[#FFCC00] opacity-40" />
-            <View className="h-2 w-2 rounded-full bg-[#FFCC00] opacity-40" />
-          </View>
-          <Text className="text-[37px] text-center mt-20 font-[poppins-extrabold] font-extrabold">
-            Welcome to{"\n"}RepairCoin
-          </Text>
-          <Text className="font-medium text-[14px] text-[#8D8D8D] text-center my-10 font-[poppins]">
-            Earn rewards every time you repair.{"\n"}
-            Track redemptions, shop nearby, and{"\n"}
-            grow your loyalty wallet.
-          </Text>
-          <Pressable
-            className="h-16 w-[60vw] rounded-[10] bg-[#FFCC00] mx-auto px-4"
-            onPress={() => router.push("/auth/register")}
-          >
-            <View className="flex-row m-auto">
-              <Image
-                source={require("../assets/images/landing/wallet.png")}
-                className="w-[28px] h-[28px]"
-              />
-              <Text className="font-bold text-[16px] my-auto ml-2 font-[poppins]">
-                Connect Wallet
-              </Text>
-            </View>
-          </Pressable>
-        </View>
-      </View>
-    </View>
+    </Screen>
   );
 }
