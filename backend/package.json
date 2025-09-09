@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "RepairCoin loyalty token system backend API",
   "main": "dist/src/app.js",
+  "bin": {
+    "repaircoin-admin": "./bin/repaircoin-admin"
+  },
   "scripts": {
     "dev": "nodemon src/app.ts",
     "dev:ts": "ts-node -r dotenv/config src/app.ts",
@@ -35,7 +38,11 @@
     "db:init": "node scripts/init-db.js",
     "db:init:prod": "NODE_ENV=production node scripts/init-db.js",
     "db:test": "node scripts/init-db-simple.js",
-    "db:check": "node scripts/check-db.js"
+    "db:check": "node scripts/check-db.js",
+    "admin": "ts-node src/cli/admin.ts",
+    "admin:list": "ts-node src/cli/admin.ts list",
+    "admin:add": "ts-node src/cli/admin.ts add",
+    "admin:check": "ts-node src/cli/admin.ts check"
   },
   "keywords": [
     "blockchain",

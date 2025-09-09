@@ -308,7 +308,7 @@ class RepairCoinApp {
   }
 
   start(): void {
-    const port = parseInt(process.env.PORT || '3000');
+    const port = parseInt(process.env.PORT || '5000');
     
     this.app.listen(port, () => {
       logger.info(`🚀 RepairCoin API running on port ${port}`);

@@ -3,6 +3,7 @@ import { TokenMinter } from '../../../contracts/TokenMinter';
 import jwt from 'jsonwebtoken';
 import { TreasuryRepository } from '../../../repositories/TreasuryRepository';
 import { ShopRepository } from '../../../repositories/ShopRepository';
+import { getRCGService } from '../../../services/RCGService';
 // TODO: Implement treasury methods in repository
 
 const router = Router();
@@ -143,9 +144,54 @@ router.get('/treasury', verifyAdminToken, async (req: Request, res: Response) =>
     }
 });
 
+// Get RCG metrics for treasury
+router.get('/treasury/rcg', verifyAdminToken, async (req: Request, res: Response) => {
+    try {
+        const rcgService = getRCGService();
+        const rcgMetrics = await rcgService.getRCGMetrics();
+        
+        res.json({
+            success: true,
+            data: rcgMetrics
+        });
+    } catch (error) {
+        console.error('RCG metrics error:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Failed to fetch RCG metrics',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+
+// Update shop tier based on current RCG balance
+router.post('/treasury/update-shop-tier/:shopId', verifyAdminToken, async (req: Request, res: Response) => {
+    try {
+        const { shopId } = req.params;
+        const rcgService = getRCGService();
+        
+        await rcgService.updateShopTier(parseInt(shopId));
+        const tierInfo = await rcgService.getShopTierInfo(parseInt(shopId));
+        
+        res.json({
+            success: true,
+            data: tierInfo
+        });
+    } catch (error) {
+        console.error('Update shop tier error:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Failed to update shop tier',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+
 // Update treasury calculations
 router.post('/treasury/update', verifyAdminToken, async (req: Request, res: Response) => {
     try {
+        const treasuryRepo = new TreasuryRepository();
+        
         // TODO: Implement treasury repository methods
         // First, update total supply from blockchain
         try {
@@ -157,18 +203,43 @@ router.post('/treasury/update', verifyAdminToken, async (req: Request, res: Resp
             console.warn('Could not update total supply from blockchain:', error);
         }
         
-        // Recalculate treasury from all shop RCN purchases
-        // await treasuryRepository.recalculateTreasury();
+        // Calculate revenue distribution for current period
+        const rcgService = getRCGService();
+        const revenueMetrics = await rcgService.calculateRevenueByTier();
+        const distribution = rcgService.getRCGTokenReader().calculateDistribution(revenueMetrics.totalRevenue);
+        
+        // Store revenue distribution record
+        await treasuryRepo.query(`
+            INSERT INTO revenue_distributions (
+                week_start, week_end, total_rcn_sold, total_revenue_usd,
+                operations_share, stakers_share, dao_treasury_share
+            ) VALUES (
+                date_trunc('week', CURRENT_DATE),
+                date_trunc('week', CURRENT_DATE) + INTERVAL '6 days',
+                $1, $2, $3, $4, $5
+            ) ON CONFLICT (week_start, week_end) DO UPDATE SET
+                total_rcn_sold = EXCLUDED.total_rcn_sold,
+                total_revenue_usd = EXCLUDED.total_revenue_usd,
+                operations_share = EXCLUDED.operations_share,
+                stakers_share = EXCLUDED.stakers_share,
+                dao_treasury_share = EXCLUDED.dao_treasury_share,
+                created_at = NOW()
+        `, [
+            0, // We'd need to calculate total RCN sold this week
+            revenueMetrics.totalRevenue,
+            distribution.operations,
+            distribution.stakers,
+            distribution.daoTreasury
+        ]);
         
         // Get updated treasury data
         const treasuryData = {
-            totalSupply: 0,
-            totalCirculating: 0,
-            totalReserved: 0,
+            totalSupply: 'unlimited',
             totalSold: 0,
-            totalRevenue: 0,
+            totalRevenue: revenueMetrics.totalRevenue,
+            distribution,
             lastUpdated: new Date()
-        }; // await treasuryRepository.getTreasuryData();
+        };
         
         res.json({
             success: true,

@@ -61,7 +61,7 @@ See `env.example` for required configuration:
 
 ## 📚 API Documentation
 
-Swagger UI available at: http://localhost:3000/api-docs
+Swagger UI available at: http://localhost:5000/api-docs
 
 ## 🧪 Testing
 
