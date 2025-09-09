@@ -17,6 +17,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { LookupIcon, QrCodeIcon, RedeemIcon } from "../../icon";
+import { showToast } from "@/utils/toast";
 
 interface RedeemTabProps {
   shopId: string;
@@ -712,7 +713,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                 <div
                   className={`p-4 rounded-xl border transition-all ${
                     flow === "two-factor"
-                      ? "bg-[#FFCC00] bg-opacity-10 border-[#FFCC00]"
+                      ? "bg-[#2F2F2F] bg-opacity-10 border-[#FFCC00]"
                       : "bg-[#0D0D0D] border-gray-700 hover:border-gray-600"
                   }`}
                 >
@@ -765,7 +766,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                 <div
                   className={`p-4 rounded-xl border transition-all ${
                     flow === "qr-scan"
-                      ? "bg-[#FFCC00] bg-opacity-10 border-[#FFCC00]"
+                      ? "bg-[#2F2F2F] bg-opacity-10 border-[#FFCC00]"
                       : "bg-[#0D0D0D] border-gray-700 hover:border-gray-600"
                   }`}
                 >
@@ -1027,20 +1028,33 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                       type="number"
                       min="1"
                       value={redeemAmount || ""}
-                      onChange={(e) =>
-                        setRedeemAmount(parseInt(e.target.value) || 0)
-                      }
+                      onChange={(e) => {
+                        const amount = parseInt(e.target.value) || 0;
+                        setRedeemAmount(amount);
+                        if (amount > 0 && (shopData?.purchasedRcnBalance || 0) < amount) {
+                          showToast.warning(
+                            `Insufficient Balance: Need ${amount} RCN but only have ${shopData?.purchasedRcnBalance || 0} RCN available`
+                          );
+                        }
+                      }}
                       placeholder="0"
                       className="w-full px-4 py-3 bg-[#2F2F2F] text-[#FFCC00] rounded-xl transition-all text-2xl font-bold"
                     />
                   </div>
 
                   {/* Quick amount buttons */}
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                     {[10, 25, 50, 100].map((amount) => (
                       <button
                         key={amount}
-                        onClick={() => setRedeemAmount(amount)}
+                        onClick={() => {
+                          setRedeemAmount(amount);
+                          if ((shopData?.purchasedRcnBalance || 0) < amount) {
+                            showToast.warning(
+                              `Insufficient Balance: Need ${amount} RCN but only have ${shopData?.purchasedRcnBalance || 0} RCN available`
+                            );
+                          }
+                        }}
                         className="px-3 py-2 bg-[#FFCC00] hover:bg-yellow-500 border border-gray-700 rounded-3xl font-medium text-black transition-colors"
                       >
                         {amount} RCN
@@ -1049,34 +1063,6 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                   </div>
                 </div>
               </div>
-
-              {/* Warning if insufficient balance */}
-              {!hasSufficientBalance && redeemAmount > 0 && (
-                <div className="bg-yellow-900 bg-opacity-20 border border-yellow-500 rounded-xl p-4">
-                  <div className="flex items-start">
-                    <svg
-                      className="w-5 h-5 text-yellow-500 mt-0.5 mr-3"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <div>
-                      <h4 className="font-semibold text-yellow-500 mb-1">
-                        Insufficient Balance
-                      </h4>
-                      <p className="text-sm text-yellow-400">
-                        Need {redeemAmount} RCN but only have{" "}
-                        {shopData?.purchasedRcnBalance || 0} RCN available.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
             </>
           )}
 
@@ -1132,14 +1118,13 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <button
                     onClick={() => {
                       // Simulate camera scanner (placeholder)
-                      setError(
+                      showToast.warning(
                         "Camera scanner not available - please paste QR code manually"
                       );
-                      setTimeout(() => setError(null), 3000);
                     }}
                     className="bg-[#FFCC00] hover:bg-yellow-500 text-black font-medium py-3 px-4 rounded-xl border border-gray-700 transition-colors flex items-center justify-center gap-2"
                   >

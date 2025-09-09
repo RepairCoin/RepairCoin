@@ -20,6 +20,20 @@ export const showToast = {
     });
   },
 
+  // Warning messages
+  warning: (message: string) => {
+    return toast(message, {
+      duration: 4000,
+      position: 'top-right',
+      icon: '⚠️',
+      style: {
+        background: '#854d0e',
+        color: 'white',
+        border: '1px solid #ca8a04',
+      },
+    });
+  },
+
   // Loading messages
   loading: (message: string) => {
     return toast.loading(message, {
