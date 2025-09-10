@@ -328,9 +328,9 @@ export default function AdminDashboardClient() {
       // Only fetch shops if user has manage_shops permission
       const canManageShops = isSuperAdmin || adminPermissions.includes('*') || adminPermissions.includes('manage_shops');
       if (canManageShops) {
-        // Fetch ALL shops to get complete data
+        // Fetch ALL shops to get complete data (including pending/unverified)
         const allShopsResponse = await fetch(
-          `${API_URL}/admin/shops`,
+          `${API_URL}/admin/shops?active=all&verified=all`,
           {
             headers: {
               Authorization: `Bearer ${adminToken}`,
