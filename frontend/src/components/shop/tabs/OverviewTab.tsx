@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { WalletIcon } from "../../icon/index";
 import { DataTable, Column } from "@/components/ui/DataTable";
+import { StatCard } from "@/components/ui/StatCard";
 import { Filter, ChevronDown } from "lucide-react";
 
 interface ShopData {
@@ -36,8 +37,8 @@ interface OverviewTabProps {
 // Purchase columns for DataTable
 const purchaseColumns: Column<PurchaseHistory>[] = [
   {
-    key: 'date',
-    header: 'Date',
+    key: "date",
+    header: "Date",
     sortable: true,
     accessor: (purchase) => (
       <span className="text-sm text-gray-300">
@@ -46,8 +47,8 @@ const purchaseColumns: Column<PurchaseHistory>[] = [
     ),
   },
   {
-    key: 'amount',
-    header: 'Credits',
+    key: "amount",
+    header: "Credits",
     sortable: true,
     accessor: (purchase) => (
       <span className="text-sm font-semibold text-yellow-400">
@@ -56,8 +57,8 @@ const purchaseColumns: Column<PurchaseHistory>[] = [
     ),
   },
   {
-    key: 'cost',
-    header: 'Cost',
+    key: "cost",
+    header: "Cost",
     sortable: true,
     accessor: (purchase) => (
       <span className="text-sm text-gray-300">
@@ -66,8 +67,8 @@ const purchaseColumns: Column<PurchaseHistory>[] = [
     ),
   },
   {
-    key: 'method',
-    header: 'Payment Method',
+    key: "method",
+    header: "Payment Method",
     accessor: (purchase) => (
       <span className="text-sm text-gray-300">
         {purchase.paymentMethod.toUpperCase()}
@@ -75,19 +76,22 @@ const purchaseColumns: Column<PurchaseHistory>[] = [
     ),
   },
   {
-    key: 'status',
-    header: 'Status',
+    key: "status",
+    header: "Status",
     accessor: (purchase) => {
       const statusColors = {
-        completed: 'bg-green-500/10 text-green-400',
-        pending: 'bg-yellow-500/10 text-yellow-400',
-        failed: 'bg-red-500/10 text-red-400',
+        completed: "bg-green-500/10 text-green-400",
+        pending: "bg-yellow-500/10 text-yellow-400",
+        failed: "bg-red-500/10 text-red-400",
       };
-      
+
       return (
-        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-          statusColors[purchase.status as keyof typeof statusColors] || statusColors.pending
-        }`}>
+        <span
+          className={`px-2 py-1 rounded-full text-xs font-medium ${
+            statusColors[purchase.status as keyof typeof statusColors] ||
+            statusColors.pending
+          }`}
+        >
           {purchase.status}
         </span>
       );
@@ -101,11 +105,13 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   blockchainBalance = 0,
 }) => {
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'completed' | 'pending' | 'failed'>('all');
+  const [filter, setFilter] = useState<
+    "all" | "completed" | "pending" | "failed"
+  >("all");
 
   // Filter purchases based on selected filter
-  const filteredPurchases = purchases.filter(purchase => {
-    if (filter === 'all') return true;
+  const filteredPurchases = purchases.filter((purchase) => {
+    if (filter === "all") return true;
     return purchase.status === filter;
   });
 
@@ -113,14 +119,15 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
-      if (!target.closest('.filter-dropdown-container')) {
+      if (!target.closest(".filter-dropdown-container")) {
         setShowFilterDropdown(false);
       }
     };
 
     if (showFilterDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [showFilterDropdown]);
 
@@ -129,138 +136,111 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   }
 
   return (
-    <div className="space-y-8">
-      {/* Shop Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          title="Wallet Balance"
-          value={blockchainBalance.toFixed(2)}
-          subtitle="Your RCN tokens"
-          color="green"
-          icon={<WalletIcon />}
-        />
-        <StatCard
-          title="Tokens Issued"
-          value={shopData.totalTokensIssued || 0}
-          subtitle="To customers"
-          color="blue"
-          icon={<WalletIcon />}
-        />
-        <StatCard
-          title="Total Redemptions"
-          value={shopData.totalRedemptions || 0}
-          subtitle="RCN redeemed"
-          color="purple"
-          icon={<WalletIcon />}
-        />
-        <StatCard
-          title="Distribution Credits"
-          value={(Number(shopData.purchasedRcnBalance) || 0).toFixed(2)}
-          subtitle="Available to distribute"
-          color="orange"
-          icon={<WalletIcon />}
-        />
-      </div>
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="space-y-8">
+        {/* Shop Statistics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatCard
+            title="Wallet Balance"
+            value={blockchainBalance.toFixed(2)}
+            subtitle="Your RCN tokens"
+            icon={<WalletIcon />}
+          />
+          <StatCard
+            title="Tokens Issued"
+            value={shopData.totalTokensIssued || 0}
+            subtitle="To customers"
+            icon={<WalletIcon />}
+          />
+          <StatCard
+            title="Total Redemptions"
+            value={shopData.totalRedemptions || 0}
+            subtitle="RCN redeemed"
+            icon={<WalletIcon />}
+          />
+          <StatCard
+            title="Distribution Credits"
+            value={(Number(shopData.purchasedRcnBalance) || 0).toFixed(2)}
+            subtitle="Available to distribute"
+            icon={<WalletIcon />}
+          />
+        </div>
 
-      {/* Status Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <StatusCard shopData={shopData} />
-        <BalanceAlertCard balance={blockchainBalance} />
-      </div>
+        {/* Status Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <StatusCard shopData={shopData} />
+          <BalanceAlertCard balance={blockchainBalance} />
+        </div>
 
-      {/* Recent Credit Purchases with DataTable */}
-      <div className="bg-[#212121] rounded-2xl shadow-xl p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-2xl font-bold text-[#FFCC00]">Recent Credit Purchases</h3>
-          
-          {/* Filter Dropdown */}
-          <div className="relative filter-dropdown-container">
-            <button
-              onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-              className="px-4 py-2 bg-[#FFCC00] rounded-lg transition-colors flex items-center gap-2"
-              title="Filter purchases"
-            >
-              <span className="hidden sm:inline capitalize">
-                {filter === 'all' ? 'All' : filter}
-              </span>
-              <ChevronDown className={`w-4 h-4 transition-transform ${showFilterDropdown ? 'rotate-180' : ''}`} />
-            </button>
-            
-            {/* Dropdown Menu */}
-            {showFilterDropdown && (
-              <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-10">
-                {(['all', 'completed', 'pending', 'failed'] as const).map((filterOption) => (
-                  <button
-                    key={filterOption}
-                    onClick={() => {
-                      setFilter(filterOption);
-                      setShowFilterDropdown(false);
-                    }}
-                    className={`w-full text-left px-4 py-2 text-sm transition-colors ${
-                      filter === filterOption
-                        ? 'bg-yellow-500/20 text-yellow-400'
-                        : 'text-gray-300 hover:bg-gray-700'
-                    } ${filterOption === 'all' ? 'rounded-t-lg' : ''} ${filterOption === 'failed' ? 'rounded-b-lg' : ''}`}
-                  >
-                    <span className="capitalize">{filterOption}</span>
-                    {filter === filterOption && <span className="ml-2">✓</span>}
-                  </button>
-                ))}
-              </div>
-            )}
+        {/* Recent Credit Purchases with DataTable */}
+        <div className="bg-[#212121] rounded-2xl shadow-xl p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-2xl font-bold text-[#FFCC00]">
+              Recent Credit Purchases
+            </h3>
+
+            {/* Filter Dropdown */}
+            <div className="relative filter-dropdown-container">
+              <button
+                onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+                className="px-4 py-2 bg-[#FFCC00] rounded-lg transition-colors flex items-center gap-2"
+                title="Filter purchases"
+              >
+                <span className="hidden sm:inline capitalize">
+                  {filter === "all" ? "All" : filter}
+                </span>
+                <ChevronDown
+                  className={`w-4 h-4 transition-transform ${
+                    showFilterDropdown ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {/* Dropdown Menu */}
+              {showFilterDropdown && (
+                <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-10">
+                  {(["all", "completed", "pending", "failed"] as const).map(
+                    (filterOption) => (
+                      <button
+                        key={filterOption}
+                        onClick={() => {
+                          setFilter(filterOption);
+                          setShowFilterDropdown(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 text-sm transition-colors ${
+                          filter === filterOption
+                            ? "bg-yellow-500/20 text-yellow-400"
+                            : "text-gray-300 hover:bg-gray-700"
+                        } ${filterOption === "all" ? "rounded-t-lg" : ""} ${
+                          filterOption === "failed" ? "rounded-b-lg" : ""
+                        }`}
+                      >
+                        <span className="capitalize">{filterOption}</span>
+                        {filter === filterOption && (
+                          <span className="ml-2">✓</span>
+                        )}
+                      </button>
+                    )
+                  )}
+                </div>
+              )}
+            </div>
           </div>
+
+          <DataTable
+            data={filteredPurchases}
+            columns={purchaseColumns}
+            keyExtractor={(purchase) => purchase.id}
+            loading={false}
+            loadingRows={5}
+            emptyMessage="No purchases yet"
+            className=""
+            headerClassName="bg-[#3D3D3D]"
+            rowClassName={(purchase) =>
+              purchase.status === "failed" ? "bg-red-900/10" : ""
+            }
+          />
         </div>
-
-        <DataTable
-          data={filteredPurchases}
-          columns={purchaseColumns}
-          keyExtractor={(purchase) => purchase.id}
-          loading={false}
-          loadingRows={5}
-          emptyMessage="No purchases yet"
-          className=""
-          headerClassName="bg-[#3D3D3D]"
-          rowClassName={(purchase) => 
-            purchase.status === 'failed' ? 'bg-red-900/10' : ''
-          }
-        />
-      </div>
-
-    </div>
-  );
-};
-
-interface StatCardProps {
-  title: string;
-  value: string | number;
-  subtitle: string;
-  color: string;
-  icon: React.ReactNode;
-}
-
-const StatCard: React.FC<StatCardProps> = ({
-  title,
-  value,
-  subtitle,
-  icon,
-}) => {
-  return (
-    <div
-      className="rounded-2xl shadow-xl p-6"
-      style={{
-        backgroundImage: `url('/img/stat-card.png')`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-      }}
-    >
-      <div className="flex items-center gap-4 justify-between">
-        <div className="flex flex-col gap-2">
-          <p className={`text-3xl font-bold text-white`}>{value}</p>
-          <p className="text-lg font-medium text-[#FFCC00]">{title}</p>
-          <p className="text-sm text-gray-400">{subtitle}</p>
-        </div>
-        <div className="w-20 text-3xl">{icon}</div>
       </div>
     </div>
   );
