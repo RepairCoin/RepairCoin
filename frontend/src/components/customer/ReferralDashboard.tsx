@@ -12,6 +12,8 @@ import {
   ThreeDotsIcon,
   DbIcon,
 } from "../../components/icon";
+import { DataTable, type Column } from "../ui/DataTable";
+import { StatCard } from "../ui/StatCard";
 
 const client = createThirdwebClient({
   clientId:
@@ -39,14 +41,57 @@ interface ReferralStats {
   }>;
 }
 
+// Define columns for the DataTable
+const referralColumns: Column<ReferralStats['referrals'][0]>[] = [
+  {
+    key: "date",
+    header: "Date",
+    accessor: (item) => new Date(item.createdAt).toLocaleDateString(),
+    sortable: true,
+  },
+  {
+    key: "referee",
+    header: "Referee",
+    accessor: (item) => item.refereeAddress ? (
+      <span className="font-mono text-sm">
+        {item.refereeAddress.slice(0, 6)}...{item.refereeAddress.slice(-4)}
+      </span>
+    ) : (
+      <span className="text-gray-500">Pending</span>
+    ),
+  },
+  {
+    key: "status",
+    header: "Status",
+    accessor: (item) => (
+      <span
+        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+          item.status === "completed"
+            ? "bg-green-100 text-green-800"
+            : item.status === "expired"
+            ? "bg-red-100 text-red-800"
+            : "bg-yellow-100 text-yellow-800"
+        }`}
+      >
+        {item.status}
+      </span>
+    ),
+  },
+  {
+    key: "completed",
+    header: "Completed",
+    accessor: (item) => item.completedAt
+      ? new Date(item.completedAt).toLocaleDateString()
+      : "-",
+    sortable: true,
+  },
+];
+
 export function ReferralDashboard() {
   const { 
     customerData, 
-    earnedBalanceData,
-    blockchainBalance,
     isLoading: dataLoading,
     fetchCustomerData,
-    lastFetchTime
   } = useCustomer();
   
   const [referralStats, setReferralStats] = useState<ReferralStats | null>(null);
@@ -74,8 +119,8 @@ export function ReferralDashboard() {
         totalReferrals: customerData.referralCount || 0,
         successfulReferrals: customerData.referralCount || 0,
         pendingReferrals: 0,
-        totalEarned: (customerData.referralCount || 0) * 25, // 25 RCN per referral
-        referrals: [], // Empty array for now - could be fetched separately if needed
+        totalEarned: (customerData.referralCount || 0) * 25,
+        referrals: [],
       };
       setReferralStats(stats);
     }
@@ -147,15 +192,40 @@ export function ReferralDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Refresh indicator */}
-      {dataLoading && customerData && (
-        <div className="mb-4 flex items-center justify-end">
-          <div className="flex items-center gap-2 text-sm text-gray-400">
-            <div className="animate-spin rounded-full h-4 w-4 border-2 border-yellow-400 border-t-transparent"></div>
-            <span>Refreshing data...</span>
-          </div>
-        </div>
-      )}
+      {/* Referral Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <StatCard
+          title="Total Referrals"
+          value={referralStats?.totalReferrals || 0}
+          icon={<GroupHeadIcon />}
+          titleClassName="text-yellow-400 text-sm md:text-base font-medium"
+          valueClassName="text-white text-lg sm:text-xl md:text-2xl font-semibold"
+        />
+        
+        <StatCard
+          title="Successful"
+          value={referralStats?.successfulReferrals || 0}
+          icon={<MailCheckIcon />}
+          titleClassName="text-yellow-400 text-sm md:text-base font-medium"
+          valueClassName="text-white text-lg sm:text-xl md:text-2xl font-semibold"
+        />
+        
+        <StatCard
+          title="Pending"
+          value={referralStats?.pendingReferrals || 0}
+          icon={<ThreeDotsIcon />}
+          titleClassName="text-yellow-400 text-sm md:text-base font-medium"
+          valueClassName="text-white text-lg sm:text-xl md:text-2xl font-semibold"
+        />
+        
+        <StatCard
+          title="Total Earned"
+          value={`${referralStats?.totalEarned || 0} RCN`}
+          icon={<DbIcon />}
+          titleClassName="text-yellow-400 text-sm md:text-base font-medium"
+          valueClassName="text-white text-lg sm:text-xl md:text-2xl font-semibold"
+        />
+      </div>
 
       {/* Referral Code Section */}
       <div className="bg-[#212121] rounded-3xl">
@@ -171,15 +241,6 @@ export function ReferralDashboard() {
           <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
             Your Referral Program
           </p>
-          {lastFetchTime && (
-            <button
-              onClick={() => fetchCustomerData(true)}
-              className="text-xs px-3 py-1 bg-black/20 hover:bg-black/30 rounded-full transition-colors"
-              title="Refresh data"
-            >
-              🔄 Refresh
-            </button>
-          )}
         </div>
         <div className="w-full p-4 md:p-8 text-white">
           <p className="text-xs md:text-sm opacity-90 mb-6">
@@ -263,96 +324,7 @@ export function ReferralDashboard() {
         </div>
       </div>
 
-      {/* Referral Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div
-          className="bg-gradient-to-r from-black to-[#3C3C3C] rounded-2xl px-6 py-4 shadow-lg flex justify-between items-center"
-          style={{
-            backgroundImage: `url('/img/stat-card.png')`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-          }}
-        >
-          <div>
-            <p className="text-yellow-400 text-sm md:text-base font-medium mb-1">
-              Total Referrals
-            </p>
-            <p className="text-white text-lg sm:text-xl md:text-2xl font-semibold">
-              {referralStats?.totalReferrals || 0}
-            </p>
-          </div>
-          <div className="w-20 rounded-lg">
-            <GroupHeadIcon />
-          </div>
-        </div>
-
-        <div
-          className="bg-gradient-to-r from-black to-[#3C3C3C] rounded-2xl px-6 py-4 shadow-lg flex justify-between items-center"
-          style={{
-            backgroundImage: `url('/img/stat-card.png')`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-          }}
-        >
-          <div>
-            <p className="text-yellow-400 text-sm md:text-base font-medium mb-1">
-              Successful
-            </p>
-            <p className="text-white text-lg sm:text-xl md:text-2xl font-semibold">
-              {referralStats?.successfulReferrals || 0}
-            </p>
-          </div>
-          <div className="w-20 rounded-lg">
-            <MailCheckIcon />
-          </div>
-        </div>
-
-        <div
-          className="bg-gradient-to-r from-black to-[#3C3C3C] rounded-2xl px-6 py-4 shadow-lg flex justify-between items-center"
-          style={{
-            backgroundImage: `url('/img/stat-card.png')`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-          }}
-        >
-          <div>
-            <p className="text-yellow-400 text-sm md:text-base font-medium mb-1">Pending</p>
-            <p className="text-white text-lg sm:text-xl md:text-2xl font-semibold">
-              {referralStats?.pendingReferrals || 0}
-            </p>
-          </div>
-          <div className="w-20 rounded-lg">
-            <ThreeDotsIcon />
-          </div>
-        </div>
-
-        <div
-          className="bg-gradient-to-r from-black to-[#3C3C3C] rounded-2xl px-6 py-4 shadow-lg flex justify-between items-center"
-          style={{
-            backgroundImage: `url('/img/stat-card.png')`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-          }}
-        >
-          <div>
-            <p className="text-yellow-400 text-sm md:text-base font-medium mb-1">
-              Total Earned
-            </p>
-            <p className="text-white text-lg sm:text-xl md:text-2xl font-semibold">
-              {referralStats?.totalEarned || 0}
-            </p>
-          </div>
-          <div className="w-20 rounded-lg">
-            <DbIcon />
-          </div>
-        </div>
-      </div>
-
-      {/* RCN Balance Breakdown */}
+      {/* Recent Referrals */}
       <div className="bg-[#212121] rounded-3xl">
         <div
           className="w-full px-4 md:px-8 py-4 text-white rounded-t-3xl"
@@ -363,156 +335,25 @@ export function ReferralDashboard() {
             backgroundRepeat: "no-repeat",
           }}
         >
-          <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">Your RCN Breakdown</p>
+          <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
+            Recent Referrals
+          </p>
         </div>
-        <div className="w-full p-4 md:p-8 text-white">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-            <div>
-              <p className="text-sm md:text-lg text-white font-semibold opacity-90 mb-2">
-                Balance Overview
-              </p>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-200 text-xs md:text-sm">Total Balance:</span>
-                  <span className="font-semibold text-xs md:text-sm">
-                    {blockchainBalance || 0} RCN
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-200 text-xs md:text-sm">Earned (Redeemable):</span>
-                  <span className="font-semibold text-green-600 text-xs md:text-sm">
-                    {(earnedBalanceData?.earnedBalance || 0).toFixed(2)}{" "}
-                    RCN
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-200 text-xs md:text-sm">Market Bought:</span>
-                  <span className="font-semibold text-gray-500 text-xs md:text-sm">
-                    {(earnedBalanceData?.marketBalance || 0).toFixed(2)}{" "}
-                    RCN
-                  </span>
-                </div>
-                <div className="border-t pt-3 mt-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-200 text-xs md:text-sm">
-                      Cross-Shop Limit (20%):
-                    </span>
-                    <span className="font-semibold text-[#FFCC00] text-xs md:text-sm">
-                      {(earnedBalanceData?.earnedBalance
-                        ? earnedBalanceData.earnedBalance * 0.2
-                        : 0
-                      ).toFixed(2)}{" "}
-                      RCN
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <p className="text-sm md:text-lg text-white font-semibold opacity-90 mb-2">
-                Earnings by Type
-              </p>
-              <div className="space-y-3">
-                {earnedBalanceData?.earningHistory &&
-                  Object.entries(earnedBalanceData.earningHistory).map(
-                    ([type, amount]) => (
-                      <div
-                        key={type}
-                        className="flex justify-between items-center"
-                      >
-                        <span className="text-gray-200 capitalize text-xs md:text-sm">
-                          {type.replace(/([A-Z])/g, ' $1').trim()}:
-                        </span>
-                        <span className="font-semibold text-xs md:text-sm">{amount} RCN</span>
-                      </div>
-                    )
-                  )}
-              </div>
-            </div>
-          </div>
+        <div className="p-4 md:p-8">
+          <DataTable
+            data={referralStats?.referrals || []}
+            columns={referralColumns}
+            keyExtractor={(item) => item.id}
+            emptyMessage="No referrals yet. Share your referral code to start earning!"
+            emptyIcon={
+              <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">👥</div>
+            }
+            className="text-white"
+            headerClassName="bg-gray-800/50"
+            rowClassName="text-gray-300"
+          />
         </div>
-
-        {earnedBalanceData?.homeShop && (
-          <div className="mt-2 px-8 py-4 bg-[#212121] rounded-b-3xl">
-            <p className="text-sm text-white">
-              <span className="font-semibold">Home Shop:</span>{" "}
-              {earnedBalanceData.homeShop}
-              <br />
-              <span className="text-xs">
-                You can redeem 100% of your earned RCN at your home shop
-              </span>
-            </p>
-          </div>
-        )}
       </div>
-
-      {/* Recent Referrals */}
-      {referralStats?.referrals &&
-        referralStats.referrals.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-            <h3 className="text-lg sm:text-xl md:text-2xl font-semibold text-gray-900 mb-6">
-              Recent Referrals
-            </h3>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead>
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Referee
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Completed
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {referralStats.referrals.map((referral) => (
-                    <tr key={referral.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(referral.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        {referral.refereeAddress ? (
-                          <span className="font-mono">
-                            {referral.refereeAddress.slice(0, 6)}...
-                            {referral.refereeAddress.slice(-4)}
-                          </span>
-                        ) : (
-                          <span className="text-gray-500">Pending</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            referral.status === "completed"
-                              ? "bg-green-100 text-green-800"
-                              : referral.status === "expired"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-yellow-100 text-yellow-800"
-                          }`}
-                        >
-                          {referral.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {referral.completedAt
-                          ? new Date(referral.completedAt).toLocaleDateString()
-                          : "-"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
     </div>
   );
 }
