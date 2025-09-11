@@ -1,17 +1,17 @@
 import { ReactNode } from "react";
-import { ImageBackground, SafeAreaView, View, Image } from "react-native";
+import { ImageBackground, SafeAreaView, View } from "react-native";
 
 const bg = require('@/assets/images/background.jpg');
 
 export default function Screen({ children }: { children: ReactNode }) {
   return (
-    <SafeAreaView className="flex-1 bg-black">
+    <SafeAreaView className="bg-black">
       <ImageBackground
         source={bg}
         resizeMode="stretch"
         className="h-full w-full"
       >
-        <View className="flex-1 h-full w-full">{children}</View>
+        <View className="h-full w-full">{children}</View>
       </ImageBackground>
     </SafeAreaView>
   );
