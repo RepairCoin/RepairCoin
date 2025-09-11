@@ -63,7 +63,6 @@ export default function ConnectWalletWithSocialPage() {
               title={option.title}
               icon={option.icon}
               className={option.className}
-              onPress={() => router.push("/auth/register")}
             />
           ))}
         </View>
@@ -94,7 +93,7 @@ export default function ConnectWalletWithSocialPage() {
               keyboardType="email-address"
               className="color-[#666]"
             />
-            <Ionicons name="arrow-forward" color="#666" size={25} />
+            <Ionicons name="arrow-forward" color="#666" size={25} onPress={() => router.push("/auth/wallet/VerifyEmail")} />
           </View>
         </View>
 

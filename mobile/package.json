@@ -16,6 +16,7 @@
     "@mobile-wallet-protocol/client": "^1.0.0",
     "@react-native-async-storage/async-storage": "^1.24.0",
     "@react-native-community/datetimepicker": "^8.4.4",
+    "@react-native-picker/picker": "^2.11.2",
     "@react-navigation/bottom-tabs": "^7.3.10",
     "@react-navigation/elements": "^2.3.8",
     "@react-navigation/native": "^7.1.6",
@@ -44,6 +45,7 @@
     "react-native-modal-datetime-picker": "^18.0.0",
     "react-native-otp-entry": "^1.8.5",
     "react-native-passkey": "^3.1.0",
+    "react-native-picker-select": "^9.3.1",
     "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "^5.4.0",
     "react-native-screens": "~4.11.1",
@@ -51,7 +53,8 @@
     "react-native-web": "~0.20.0",
     "react-native-webview": "13.13.5",
     "tailwindcss": "^3.4.17",
-    "thirdweb": "^5.105.41"
+    "thirdweb": "^5.105.41",
+    "expo-checkbox": "~4.1.4"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

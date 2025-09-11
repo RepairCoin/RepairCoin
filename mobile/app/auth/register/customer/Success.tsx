@@ -1,6 +1,7 @@
 import { Image, View, Text, Pressable } from "react-native";
 import Screen from "@/components/Screen";
 import { goBack } from "expo-router/build/global-state/routing";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function CustomerRegisterSuccessPage() {
   return (
@@ -27,9 +28,10 @@ export default function CustomerRegisterSuccessPage() {
               className="flex-row w-full items-center justify-center rounded-2xl py-3.5 bg-[#FFCC00]"
               android_ripple={{ color: "rgba(0,0,0,0.08)", borderless: false }}
             >
-              <Text className="text-lg font-extrabold text-black">
+              <Text className="text-lg font-extrabold text-black mr-1">
                 Go to Home
               </Text>
+              <Ionicons name="arrow-forward" color="black" size={16} />
             </Pressable>
             <Pressable onPress={goBack} className="mt-8">
               <Text className="text-lg font-extrabold text-gray-400 text-center">
