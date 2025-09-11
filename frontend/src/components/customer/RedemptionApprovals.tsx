@@ -8,6 +8,7 @@ import { getContract, prepareContractCall, sendTransaction } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
 import { createThirdwebClient } from "thirdweb";
 import { QRCodeModal } from "../QRCodeModal";
+import { DataTable, type Column } from "../ui/DataTable";
 
 const client = createThirdwebClient({
   clientId:
@@ -24,7 +25,7 @@ interface RedemptionSession {
   status: string;
   createdAt: string;
   expiresAt: string;
-  burnTransactionHash?: string; // Track if tokens have been burned
+  burnTransactionHash?: string;
 }
 
 interface BurnStatus {
@@ -42,10 +43,6 @@ export function RedemptionApprovals() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
   const [burnStatus, setBurnStatus] = useState<BurnStatus>({});
-  
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
 
   // For QR generation
   const [qrShopId, setQrShopId] = useState("");
@@ -56,7 +53,6 @@ export function RedemptionApprovals() {
   useEffect(() => {
     if (account?.address) {
       loadSessions();
-      // Poll for new sessions
       const interval = setInterval(loadSessions, 5000);
       return () => clearInterval(interval);
     }
@@ -108,7 +104,6 @@ export function RedemptionApprovals() {
     }));
 
     try {
-      // Get the RepairCoin contract
       const contract = getContract({
         client,
         chain: baseSepolia,
@@ -118,14 +113,12 @@ export function RedemptionApprovals() {
           "0xBFE793d78B6B83859b528F191bd6F2b8555D951C",
       });
 
-      // Prepare the transfer to burn address
       const transaction = prepareContractCall({
         contract,
         method: "function transfer(address to, uint256 amount) returns (bool)",
-        params: [BURN_ADDRESS, BigInt(amount) * BigInt(10 ** 18)], // Convert to wei
+        params: [BURN_ADDRESS, BigInt(amount) * BigInt(10 ** 18)],
       });
 
-      // Send the transaction from customer's wallet
       const result = await sendTransaction({
         transaction,
         account: account,
@@ -133,7 +126,6 @@ export function RedemptionApprovals() {
 
       console.log("Burn transaction sent:", result.transactionHash);
 
-      // Update burn status
       setBurnStatus((prev) => ({
         ...prev,
         [sessionId]: {
@@ -170,7 +162,6 @@ export function RedemptionApprovals() {
     setProcessing(sessionId);
 
     try {
-      // In a real app, we'd sign the approval with the wallet
       const message = JSON.stringify({
         action: "approve_redemption",
         sessionId,
@@ -178,7 +169,6 @@ export function RedemptionApprovals() {
         burnTransactionHash: transactionHash,
       });
 
-      // Simulate wallet signature (in production, use actual wallet signing)
       const signature = `0x${Buffer.from(message).toString("hex")}`;
 
       const response = await fetch(
@@ -194,7 +184,7 @@ export function RedemptionApprovals() {
           body: JSON.stringify({
             sessionId,
             signature,
-            transactionHash, // Include burn transaction hash if provided
+            transactionHash,
           }),
         }
       );
@@ -296,18 +286,128 @@ export function RedemptionApprovals() {
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   };
 
-  // Calculate pagination
-  const totalPages = Math.ceil(sessions.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedSessions = sessions.slice(startIndex, endIndex);
+  // Define columns for the DataTable
+  const redemptionColumns: Column<RedemptionSession>[] = [
+    {
+      key: "amount",
+      header: "Amount",
+      accessor: (item) => (
+        <span className="text-[#FFCC00] font-semibold">{item.amount} RCN</span>
+      ),
+      sortable: true,
+    },
+    {
+      key: "shop",
+      header: "Shop",
+      accessor: (item) => <span className="text-gray-100">{item.shopId}</span>,
+    },
+    {
+      key: "requested",
+      header: "Requested",
+      accessor: (item) => (
+        <span className="text-gray-400 text-xs">
+          {new Date(item.createdAt).toLocaleString()}
+        </span>
+      ),
+      sortable: true,
+    },
+    {
+      key: "status",
+      header: "Status",
+      accessor: (item) => {
+        if (item.status === "pending") {
+          return (
+            <div className="flex flex-col">
+              <span className="text-yellow-400 text-xs font-semibold">Pending</span>
+              <span className="text-yellow-400 text-xs">
+                Expires in: {getTimeRemaining(item.expiresAt)}
+              </span>
+            </div>
+          );
+        } else if (item.status === "approved") {
+          return (
+            <div className="flex items-center gap-1">
+              <CheckCircle className="w-4 h-4 text-green-500" />
+              <span className="text-green-500 text-xs">Approved</span>
+            </div>
+          );
+        } else if (item.status === "rejected") {
+          return (
+            <div className="flex items-center gap-1">
+              <XCircle className="w-4 h-4 text-red-500" />
+              <span className="text-red-500 text-xs">Rejected</span>
+            </div>
+          );
+        } else if (item.status === "used") {
+          return <span className="text-gray-500 text-xs">Completed</span>;
+        }
+        return <span className="text-gray-500 text-xs">{item.status}</span>;
+      },
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      accessor: (item) => {
+        const burnState = burnStatus[item.sessionId];
+        const isPending = item.status === "pending";
+        
+        return (
+          <div className="flex gap-2 items-center flex-wrap">
+            {/* Burn Button - Show for pending items that haven't been burned */}
+            {isPending && !burnState?.burned ? (
+              <button
+                onClick={() => burnTokens(item.sessionId, item.amount)}
+                disabled={processing === item.sessionId || burnState?.burning}
+                className="px-2 md:px-3 py-1 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed text-xs md:text-sm flex items-center gap-1 transition-all"
+              >
+                {burnState?.burning ? (
+                  <>
+                    <span className="animate-spin">⏳</span> Burning...
+                  </>
+                ) : (
+                  <>
+                    <Flame className="w-4 h-4" /> Burn
+                  </>
+                )}
+              </button>
+            ) : isPending && burnState?.burned ? (
+              <span className="text-xs text-green-600 flex items-center">
+                <CheckCircle className="w-3 h-3 mr-1" /> Burned
+              </span>
+            ) : null}
 
-  // Reset to page 1 if current page exceeds total pages (after data update)
-  useEffect(() => {
-    if (currentPage > totalPages && totalPages > 0) {
-      setCurrentPage(1);
-    }
-  }, [totalPages, currentPage]);
+            {/* Approve Button - Show for pending items that have been burned, disabled otherwise */}
+            <button
+              onClick={() => isPending && burnState?.burned && approveSession(item.sessionId, burnState?.transactionHash)}
+              disabled={!isPending || !burnState?.burned || processing === item.sessionId}
+              className={`px-2 md:px-3 py-1 rounded-lg text-xs md:text-sm transition-all ${
+                isPending && burnState?.burned
+                  ? "bg-green-600 text-white hover:bg-green-700"
+                  : "bg-gray-600 text-gray-400 cursor-not-allowed"
+              } disabled:opacity-50`}
+            >
+              <CheckCircle className="w-4 h-4 inline mr-1" />
+              Approve
+            </button>
+
+            {/* Reject Button - Show for all pending items, disabled for non-pending */}
+            <button
+              onClick={() => isPending && rejectSession(item.sessionId)}
+              disabled={!isPending || processing === item.sessionId || burnState?.burning}
+              className={`px-2 md:px-3 py-1 rounded-lg text-xs md:text-sm transition-all ${
+                isPending
+                  ? "bg-red-600 text-white hover:bg-red-700"
+                  : "bg-gray-600 text-gray-400 cursor-not-allowed"
+              } disabled:opacity-50`}
+            >
+              <XCircle className="w-4 h-4 inline mr-1" />
+              Reject
+            </button>
+          </div>
+        );
+      },
+    },
+  ];
 
   if (loading) {
     return (
@@ -393,42 +493,13 @@ export function RedemptionApprovals() {
             onClick={generateQRCode}
             className="w-full flex items-center justify-center gap-2 bg-[#FFCC00] text-black py-2 rounded-lg transition mt-10"
           >
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              xmlnsXlink="http://www.w3.org/1999/xlink"
-            >
-              <rect width="24" height="24" fill="url(#pattern0_3380_5422)" />
-              <defs>
-                <pattern
-                  id="pattern0_3380_5422"
-                  patternContentUnits="objectBoundingBox"
-                  width="1"
-                  height="1"
-                >
-                  <use
-                    xlinkHref="#image0_3380_5422"
-                    transform="scale(0.00195312)"
-                  />
-                </pattern>
-                <image
-                  id="image0_3380_5422"
-                  width="512"
-                  height="512"
-                  preserveAspectRatio="none"
-                  xlinkHref="data:image/png;base64,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"
-                />
-              </defs>
-            </svg>
+            <QrCode className="w-5 h-5" />
             Generate QR Code
           </button>
         </div>
       </div>
 
-      {/* Redemption Sessions */}
+      {/* Redemption Sessions Table */}
       <div className="bg-[#212121] rounded-xl md:rounded-2xl lg:rounded-3xl overflow-hidden">
         <div
           className="w-full px-4 md:px-6 lg:px-8 py-3 md:py-4 text-white rounded-t-xl md:rounded-t-2xl lg:rounded-t-3xl"
@@ -444,180 +515,25 @@ export function RedemptionApprovals() {
           </p>
         </div>
 
-        {sessions.length === 0 ? (
-          <p className="text-sm md:text-base text-gray-500 text-center py-8">
-            No redemption requests
-          </p>
-        ) : (
-          <div className="flex flex-col w-full p-4 md:p-8 gap-6">
-            {paginatedSessions.map((session) => (
-              <div
-                key={session.sessionId}
-                className={`p-4 rounded-lg ${
-                  session.status === "pending"
-                    ? "bg-yellow-50"
-                    : "bg-[#525252]"
-                }`}
-              >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className="font-semibold text-sm md:text-base text-gray-100">
-                      <span className="text-[#FFCC00]">{session.amount} RCN</span> at {session.shopId}
-                    </h4>
-                    <p className="text-xs text-gray-400 mt-1">
-                      Requested: {new Date(session.createdAt).toLocaleString()}
-                    </p>
-                    {session.status === "pending" && (
-                      <p className="text-xs text-yellow-400 mt-1">
-                        Expires in: {getTimeRemaining(session.expiresAt)}
-                      </p>
-                    )}
-                  </div>
-
-                  {session.status === "pending" && (
-                    <div className="flex gap-2">
-                      {!burnStatus[session.sessionId]?.burned ? (
-                        <button
-                          onClick={() =>
-                            burnTokens(session.sessionId, session.amount)
-                          }
-                          disabled={
-                            processing === session.sessionId ||
-                            burnStatus[session.sessionId]?.burning
-                          }
-                          className="px-2 md:px-3 py-1 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 text-xs md:text-sm flex items-center gap-1"
-                        >
-                          {burnStatus[session.sessionId]?.burning ? (
-                            <>
-                              <span className="animate-spin">⏳</span>{" "}
-                              Burning...
-                            </>
-                          ) : (
-                            <>
-                              <Flame className="w-4 h-4" /> Burn{" "}
-                              {session.amount} RCN
-                            </>
-                          )}
-                        </button>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() =>
-                              approveSession(
-                                session.sessionId,
-                                burnStatus[session.sessionId]?.transactionHash
-                              )
-                            }
-                            disabled={processing === session.sessionId}
-                            className="px-2 md:px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-xs md:text-sm"
-                          >
-                            Approve
-                          </button>
-                          <span className="text-xs text-green-600 flex items-center">
-                            <CheckCircle className="w-3 h-3 mr-1" /> Burned
-                          </span>
-                        </>
-                      )}
-                      <button
-                        onClick={() => rejectSession(session.sessionId)}
-                        disabled={
-                          processing === session.sessionId ||
-                          burnStatus[session.sessionId]?.burning
-                        }
-                        className="px-2 md:px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-xs md:text-sm"
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  )}
-
-                  {session.status === "approved" && (
-                    <CheckCircle className="w-5 h-5 text-green-600" />
-                  )}
-
-                  {session.status === "rejected" && (
-                    <XCircle className="w-5 h-5 text-red-600" />
-                  )}
-
-                  {session.status === "used" && (
-                    <span className="text-xs md:text-sm text-gray-500">
-                      Completed
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-            
-            {/* Pagination Controls */}
-            {totalPages > 1 && (
-              <div className="flex justify-center items-center gap-2 mt-6 pb-4">
-                <button
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                >
-                  Previous
-                </button>
-                
-                {/* Page Numbers */}
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                    // Show first page, last page, current page, and pages around current
-                    const shouldShow = 
-                      page === 1 || 
-                      page === totalPages || 
-                      (page >= currentPage - 1 && page <= currentPage + 1);
-                    
-                    // Show ellipsis for gaps
-                    const showEllipsisBefore = 
-                      page === currentPage - 1 && 
-                      currentPage > 3;
-                    
-                    const showEllipsisAfter = 
-                      page === currentPage + 1 && 
-                      currentPage < totalPages - 2;
-                    
-                    if (!shouldShow) return null;
-                    
-                    return (
-                      <React.Fragment key={page}>
-                        {showEllipsisBefore && (
-                          <span className="text-gray-500 px-1">...</span>
-                        )}
-                        <button
-                          onClick={() => setCurrentPage(page)}
-                          className={`px-3 py-1 rounded-lg text-sm transition-colors ${
-                            currentPage === page
-                              ? "bg-[#FFCC00] text-black font-semibold"
-                              : "bg-gray-600 text-white hover:bg-gray-700"
-                          }`}
-                        >
-                          {page}
-                        </button>
-                        {showEllipsisAfter && (
-                          <span className="text-gray-500 px-1">...</span>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </div>
-                
-                <button
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-1 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                >
-                  Next
-                </button>
-                
-                {/* Item count display */}
-                <span className="text-gray-500 text-xs ml-2">
-                  ({startIndex + 1}-{Math.min(endIndex, sessions.length)} of {sessions.length})
-                </span>
-              </div>
-            )}
-          </div>
-        )}
+        <div className="p-4 md:p-8">
+          <DataTable
+            data={sessions}
+            columns={redemptionColumns}
+            keyExtractor={(item) => item.sessionId}
+            emptyMessage="No redemption requests"
+            emptyIcon={
+              <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">🔄</div>
+            }
+            loading={loading}
+            className="text-white"
+            headerClassName="bg-gray-800/50"
+            rowClassName={(item) => 
+              item.status === "pending" 
+                ? "bg-yellow-900/20 hover:bg-yellow-900/30" 
+                : "bg-gray-800/30 hover:bg-gray-800/40"
+            }
+          />
+        </div>
       </div>
 
       {/* QR Code Modal */}
