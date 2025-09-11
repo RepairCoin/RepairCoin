@@ -17,8 +17,8 @@ export default function ChoosePage() {
       </Text>
 
       <View className="flex-col gap-4 mx-8 mt-8">
-        <PrimaryButton title="Register as Customer" onPress={() => router.push("/auth/register/Customer")} />
-        <PrimaryButton title="Register as Shop" />
+        <PrimaryButton title="Register as Customer" onPress={() => router.push("/auth/register/customer")} />
+        <PrimaryButton title="Register as Shop" onPress={() => router.push("/auth/register/shop")} />
       </View>
     </Screen>
   );

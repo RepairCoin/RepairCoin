@@ -33,7 +33,7 @@ export default function RegisterAsCustomerPage() {
           <Text className="text-sm text-gray-300 mb-1">Full Name</Text>
           <TextInput
             className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
-            placeholder="Enter Full Name"
+            placeholder="Enter Your Full Name"
             placeholderTextColor="#999"
             value={fullName}
             onChangeText={setFullName}
@@ -95,8 +95,7 @@ export default function RegisterAsCustomerPage() {
               placeholder="(000) 000-0000"
               placeholderTextColor="#999"
               keyboardType="phone-pad"
-              value={phone}
-              onChangeText={(text) => setPhone(text)}
+              onChangeText={(masked, unMasked) => setPhone(masked)}
             />
           </View>
         </View>
@@ -112,7 +111,7 @@ export default function RegisterAsCustomerPage() {
         </View>
         <Text className="text-sm text-gray-300 mt-1 mb-10">Earn bonus tokens when you sign up with a referral code.</Text>
 
-        <PrimaryButton title="Register as Customer" onPress={() => router.push("/auth/register/CustomerSuccess")} />
+        <PrimaryButton title="Register as Customer" onPress={() => router.push("/auth/register/customer/Success")} />
       </View>
     </Screen>
   );
