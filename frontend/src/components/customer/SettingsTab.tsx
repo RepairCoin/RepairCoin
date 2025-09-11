@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../../hooks/useAuth";
+import { useCustomer } from "@/hooks/useCustomer";
 import toast from "react-hot-toast";
 import {
   Mail,
@@ -25,26 +26,37 @@ interface CustomerData {
   twoFactorEnabled?: boolean;
 }
 
-interface SettingsTabProps {
-  customerData: CustomerData | null;
-  onUpdateCustomer?: () => void;
-}
-
-export function SettingsTab({
-  customerData,
-  onUpdateCustomer,
-}: SettingsTabProps) {
+export function SettingsTab() {
   const { account } = useAuth();
+  const { 
+    customerData, 
+    isLoading,
+    fetchCustomerData,
+  } = useCustomer();
+  
   const [isEditing, setIsEditing] = useState(false);
   const [showPrivateKey, setShowPrivateKey] = useState(false);
   const [formData, setFormData] = useState({
-    name: customerData?.name || "",
-    email: customerData?.email || "",
-    phone: customerData?.phone || "",
-    notificationsEnabled: customerData?.notificationsEnabled ?? true,
-    twoFactorEnabled: customerData?.twoFactorEnabled ?? false,
+    name: "",
+    email: "",
+    phone: "",
+    notificationsEnabled: true,
+    twoFactorEnabled: false,
   });
   const [loading, setLoading] = useState(false);
+
+  // Initialize form data from store
+  useEffect(() => {
+    if (customerData) {
+      setFormData({
+        name: customerData.name || "",
+        email: customerData.email || "",
+        phone: customerData.phone || "",
+        notificationsEnabled: customerData.notificationsEnabled ?? true,
+        twoFactorEnabled: customerData.twoFactorEnabled ?? false,
+      });
+    }
+  }, [customerData]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -79,9 +91,7 @@ export function SettingsTab({
       if (response.ok) {
         toast.success("Profile updated successfully!");
         setIsEditing(false);
-        if (onUpdateCustomer) {
-          onUpdateCustomer();
-        }
+        fetchCustomerData(true); // Force refresh data after update
       } else {
         throw new Error("Failed to update profile");
       }
@@ -108,6 +118,15 @@ export function SettingsTab({
     navigator.clipboard.writeText(text);
     toast.success(`${label} copied to clipboard!`);
   };
+
+  // Only show loading on initial load, not when switching tabs
+  if (isLoading && !customerData) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-16 w-16 border-4 border-yellow-400 border-t-transparent"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

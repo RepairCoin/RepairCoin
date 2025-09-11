@@ -131,12 +131,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           tabId: "overview",
         },
         {
-          title: "Transactions",
-          href: "/customer?tab=transactions",
-          icon: <DollarSign className="w-5 h-5" />,
-          tabId: "transactions",
-        },
-        {
           title: "Referrals",
           href: "/customer?tab=referrals",
           icon: <Users className="w-5 h-5" />,

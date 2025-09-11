@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useActiveAccount, useReadContract } from "thirdweb/react";
+import { useReadContract } from "thirdweb/react";
 import { getContract, createThirdwebClient } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
+import { useCustomer } from "@/hooks/useCustomer";
 import { toast } from "react-hot-toast";
 import {
   GroupHeadIcon,
-  WalletIcon,
   MailCheckIcon,
   ThreeDotsIcon,
   DbIcon,
@@ -25,133 +25,73 @@ const contract = getContract({
   address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS!,
 });
 
-interface ReferralData {
-  referralCode: string;
-  referralLink: string;
-  stats: {
-    totalReferrals: number;
-    successfulReferrals: number;
-    pendingReferrals: number;
-    totalEarned: number;
-    referrals: Array<{
-      id: string;
-      refereeAddress?: string;
-      status: string;
-      createdAt: string;
-      completedAt?: string;
-    }>;
-  };
-  rcnBreakdown: {
-    totalBalance: number;
-    earnedBalance: number;
-    marketBalance: number;
-    earningHistory?: {
-      fromRepairs: number;
-      fromReferrals: number;
-      fromBonuses: number;
-      fromTierBonuses: number;
-    };
-    homeShop?: string;
-  };
+interface ReferralStats {
+  totalReferrals: number;
+  successfulReferrals: number;
+  pendingReferrals: number;
+  totalEarned: number;
+  referrals: Array<{
+    id: string;
+    refereeAddress?: string;
+    status: string;
+    createdAt: string;
+    completedAt?: string;
+  }>;
 }
 
 export function ReferralDashboard() {
-  const account = useActiveAccount();
-  const [referralData, setReferralData] = useState<ReferralData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { 
+    customerData, 
+    earnedBalanceData,
+    blockchainBalance,
+    isLoading: dataLoading,
+    fetchCustomerData,
+    lastFetchTime
+  } = useCustomer();
+  
+  const [referralStats, setReferralStats] = useState<ReferralStats | null>(null);
   const [copying, setCopying] = useState(false);
-  const [generating, setGenerating] = useState(false);
-  const [blockchainBalance, setBlockchainBalance] = useState<number>(0);
 
   // Read token balance from contract
-  const { data: tokenBalance, isLoading: balanceLoading } = useReadContract({
+  const { data: tokenBalance } = useReadContract({
     contract,
     method: "function balanceOf(address) view returns (uint256)",
-    params: account?.address ? [account.address] : [''],
+    params: customerData?.address ? [customerData.address] : [''],
   });
 
-  const formatBalance = (balance: bigint | undefined): string => {
-    if (!balance) return "0";
-    return (Number(balance) / 1e18).toFixed(2);
-  };
-
+  // Update blockchain balance from contract if needed
   useEffect(() => {
-    if (account?.address) {
-      loadReferralData();
+    if (tokenBalance) {
+      const formattedBalance = Number(tokenBalance) / 1e18;
+      // This could update the store if needed
     }
-  }, [account?.address]);
+  }, [tokenBalance]);
 
-  // Update blockchain balance when contract read completes
+  // Initialize referral stats from customer data
   useEffect(() => {
-    if (tokenBalance && !balanceLoading) {
-      const formattedBalance = parseFloat(formatBalance(tokenBalance));
-      setBlockchainBalance(formattedBalance);
+    if (customerData) {
+      const stats: ReferralStats = {
+        totalReferrals: customerData.referralCount || 0,
+        successfulReferrals: customerData.referralCount || 0,
+        pendingReferrals: 0,
+        totalEarned: (customerData.referralCount || 0) * 25, // 25 RCN per referral
+        referrals: [], // Empty array for now - could be fetched separately if needed
+      };
+      setReferralStats(stats);
     }
-  }, [tokenBalance, balanceLoading]);
+  }, [customerData]);
 
-  const loadReferralData = async () => {
-    if (!account?.address) return;
-
-    try {
-      setLoading(true);
-
-      // First get customer data to get referral info
-      const customerResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/customers/${account.address}`
-      );
-
-      if (!customerResponse.ok) {
-        throw new Error("Failed to load customer data");
-      }
-
-      const customerData = await customerResponse.json();
-      const customer = customerData.data.customer || customerData.data;
-
-      // Get earned balance breakdown
-      const breakdownResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/tokens/earned-balance/${account.address}`
-      );
-
-      if (breakdownResponse.ok) {
-        const breakdownData = await breakdownResponse.json();
-
-        // Use customer's referral code
-        const referralCode = customer.referralCode || customer.referral_code;
-        const referralLink = referralCode
-          ? `${window.location.origin}/customer/register?ref=${referralCode}`
-          : "";
-
-        // Mock referral stats from customer data
-        const stats = {
-          totalReferrals: customer.referralCount || 0,
-          successfulReferrals: customer.referralCount || 0,
-          pendingReferrals: 0,
-          totalEarned: (customer.referralCount || 0) * 25, // 25 RCN per referral
-          referralCode: referralCode,
-          referrals: [], // Empty array for now
-        };
-
-        setReferralData({
-          referralCode: referralCode || "Generating...",
-          referralLink,
-          stats,
-          rcnBreakdown: breakdownData.data,
-        });
-      }
-    } catch (error) {
-      console.error("Error loading referral data:", error);
-      toast.error("Failed to load referral data");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const referralCode = customerData?.referralCode || "Generating...";
+  const referralLink = customerData?.referralCode
+    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/customer/register?ref=${customerData.referralCode}`
+    : "";
 
   const copyReferralLink = async () => {
-    if (!referralData?.referralLink) return;
+    if (!referralLink) return;
 
     try {
       setCopying(true);
-      await navigator.clipboard.writeText(referralData.referralLink);
+      await navigator.clipboard.writeText(referralLink);
       toast.success("Referral link copied to clipboard!");
     } catch (error) {
       toast.error("Failed to copy link");
@@ -161,11 +101,11 @@ export function ReferralDashboard() {
   };
 
   const copyReferralCode = async () => {
-    if (!referralData?.referralCode) return;
+    if (!referralCode) return;
 
     try {
       setCopying(true);
-      await navigator.clipboard.writeText(referralData.referralCode);
+      await navigator.clipboard.writeText(referralCode);
       toast.success("Referral code copied to clipboard!");
     } catch (error) {
       toast.error("Failed to copy code");
@@ -174,7 +114,8 @@ export function ReferralDashboard() {
     }
   };
 
-  if (loading) {
+  // Only show loading on initial load
+  if (dataLoading && !customerData) {
     return (
       <div className="bg-[#212121] rounded-2xl shadow-xl p-8 border border-gray-100">
         <div className="animate-pulse">
@@ -188,22 +129,38 @@ export function ReferralDashboard() {
     );
   }
 
-  if (!referralData) {
+  if (!customerData && !dataLoading) {
     return (
       <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
         <p className="text-gray-600">
           Unable to load referral data. Please try again later.
         </p>
+        <button 
+          onClick={() => fetchCustomerData(true)}
+          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          Retry
+        </button>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
+      {/* Refresh indicator */}
+      {dataLoading && customerData && (
+        <div className="mb-4 flex items-center justify-end">
+          <div className="flex items-center gap-2 text-sm text-gray-400">
+            <div className="animate-spin rounded-full h-4 w-4 border-2 border-yellow-400 border-t-transparent"></div>
+            <span>Refreshing data...</span>
+          </div>
+        </div>
+      )}
+
       {/* Referral Code Section */}
       <div className="bg-[#212121] rounded-3xl">
         <div
-          className="w-full px-4 md:px-8 py-4 text-white rounded-t-3xl"
+          className="w-full px-4 md:px-8 py-4 text-white rounded-t-3xl flex justify-between items-center"
           style={{
             backgroundImage: `url('/img/cust-ref-widget3.png')`,
             backgroundSize: "cover",
@@ -214,6 +171,15 @@ export function ReferralDashboard() {
           <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
             Your Referral Program
           </p>
+          {lastFetchTime && (
+            <button
+              onClick={() => fetchCustomerData(true)}
+              className="text-xs px-3 py-1 bg-black/20 hover:bg-black/30 rounded-full transition-colors"
+              title="Refresh data"
+            >
+              🔄 Refresh
+            </button>
+          )}
         </div>
         <div className="w-full p-4 md:p-8 text-white">
           <p className="text-xs md:text-sm opacity-90 mb-6">
@@ -236,7 +202,7 @@ export function ReferralDashboard() {
               </p>
               <div className="flex items-center gap-2">
                 <p className="text-2xl sm:text-3xl md:text-4xl font-mono font-semibold">
-                  {referralData.referralCode}
+                  {referralCode}
                 </p>
                 <button
                   onClick={copyReferralCode}
@@ -313,7 +279,7 @@ export function ReferralDashboard() {
               Total Referrals
             </p>
             <p className="text-white text-lg sm:text-xl md:text-2xl font-semibold">
-              {referralData.stats.totalReferrals}
+              {referralStats?.totalReferrals || 0}
             </p>
           </div>
           <div className="w-20 rounded-lg">
@@ -335,7 +301,7 @@ export function ReferralDashboard() {
               Successful
             </p>
             <p className="text-white text-lg sm:text-xl md:text-2xl font-semibold">
-              {referralData.stats.successfulReferrals}
+              {referralStats?.successfulReferrals || 0}
             </p>
           </div>
           <div className="w-20 rounded-lg">
@@ -355,7 +321,7 @@ export function ReferralDashboard() {
           <div>
             <p className="text-yellow-400 text-sm md:text-base font-medium mb-1">Pending</p>
             <p className="text-white text-lg sm:text-xl md:text-2xl font-semibold">
-              {referralData.stats.pendingReferrals}
+              {referralStats?.pendingReferrals || 0}
             </p>
           </div>
           <div className="w-20 rounded-lg">
@@ -377,7 +343,7 @@ export function ReferralDashboard() {
               Total Earned
             </p>
             <p className="text-white text-lg sm:text-xl md:text-2xl font-semibold">
-              {referralData.stats.totalEarned}
+              {referralStats?.totalEarned || 0}
             </p>
           </div>
           <div className="w-20 rounded-lg">
@@ -409,20 +375,20 @@ export function ReferralDashboard() {
                 <div className="flex justify-between items-center">
                   <span className="text-gray-200 text-xs md:text-sm">Total Balance:</span>
                   <span className="font-semibold text-xs md:text-sm">
-                    {blockchainBalance.toFixed(2)} RCN
+                    {blockchainBalance || 0} RCN
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-200 text-xs md:text-sm">Earned (Redeemable):</span>
                   <span className="font-semibold text-green-600 text-xs md:text-sm">
-                    {(referralData.rcnBreakdown?.earnedBalance || 0).toFixed(2)}{" "}
+                    {(earnedBalanceData?.earnedBalance || 0).toFixed(2)}{" "}
                     RCN
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-200 text-xs md:text-sm">Market Bought:</span>
                   <span className="font-semibold text-gray-500 text-xs md:text-sm">
-                    {(referralData.rcnBreakdown?.marketBalance || 0).toFixed(2)}{" "}
+                    {(earnedBalanceData?.marketBalance || 0).toFixed(2)}{" "}
                     RCN
                   </span>
                 </div>
@@ -432,8 +398,8 @@ export function ReferralDashboard() {
                       Cross-Shop Limit (20%):
                     </span>
                     <span className="font-semibold text-[#FFCC00] text-xs md:text-sm">
-                      {(referralData.rcnBreakdown?.earnedBalance
-                        ? referralData.rcnBreakdown.earnedBalance * 0.2
+                      {(earnedBalanceData?.earnedBalance
+                        ? earnedBalanceData.earnedBalance * 0.2
                         : 0
                       ).toFixed(2)}{" "}
                       RCN
@@ -448,15 +414,15 @@ export function ReferralDashboard() {
                 Earnings by Type
               </p>
               <div className="space-y-3">
-                {referralData.rcnBreakdown?.earningHistory &&
-                  Object.entries(referralData.rcnBreakdown.earningHistory).map(
+                {earnedBalanceData?.earningHistory &&
+                  Object.entries(earnedBalanceData.earningHistory).map(
                     ([type, amount]) => (
                       <div
                         key={type}
                         className="flex justify-between items-center"
                       >
                         <span className="text-gray-200 capitalize text-xs md:text-sm">
-                          {type}:
+                          {type.replace(/([A-Z])/g, ' $1').trim()}:
                         </span>
                         <span className="font-semibold text-xs md:text-sm">{amount} RCN</span>
                       </div>
@@ -467,11 +433,11 @@ export function ReferralDashboard() {
           </div>
         </div>
 
-        {referralData.rcnBreakdown?.homeShop && (
+        {earnedBalanceData?.homeShop && (
           <div className="mt-2 px-8 py-4 bg-[#212121] rounded-b-3xl">
             <p className="text-sm text-white">
               <span className="font-semibold">Home Shop:</span>{" "}
-              {referralData.rcnBreakdown.homeShop}
+              {earnedBalanceData.homeShop}
               <br />
               <span className="text-xs">
                 You can redeem 100% of your earned RCN at your home shop
@@ -482,8 +448,8 @@ export function ReferralDashboard() {
       </div>
 
       {/* Recent Referrals */}
-      {referralData.stats.referrals &&
-        referralData.stats.referrals.length > 0 && (
+      {referralStats?.referrals &&
+        referralStats.referrals.length > 0 && (
           <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
             <h3 className="text-lg sm:text-xl md:text-2xl font-semibold text-gray-900 mb-6">
               Recent Referrals
@@ -507,7 +473,7 @@ export function ReferralDashboard() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {referralData.stats.referrals.map((referral) => (
+                  {referralStats.referrals.map((referral) => (
                     <tr key={referral.id}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {new Date(referral.createdAt).toLocaleDateString()}
