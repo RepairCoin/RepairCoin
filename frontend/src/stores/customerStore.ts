@@ -56,9 +56,6 @@ export interface CustomerStore {
   isLoading: boolean;
   error: string | null;
   
-  // Cache management
-  lastFetchTime: number | null;
-  
   // Actions
   setCustomerData: (data: CustomerData | null) => void;
   setEarnedBalanceData: (data: EarnedBalanceData | null) => void;
@@ -74,8 +71,6 @@ export interface CustomerStore {
   clearCache: () => void;
 }
 
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-
 export const useCustomerStore = create<CustomerStore>()(
   devtools(
     (set, get) => ({
@@ -86,7 +81,6 @@ export const useCustomerStore = create<CustomerStore>()(
       blockchainBalance: 0,
       isLoading: false,
       error: null,
-      lastFetchTime: null,
 
       // Setters
       setCustomerData: (data) => set({ customerData: data }),
@@ -102,7 +96,6 @@ export const useCustomerStore = create<CustomerStore>()(
         earnedBalanceData: null,
         transactions: [],
         blockchainBalance: 0,
-        lastFetchTime: null,
         error: null,
       }),
 
@@ -110,13 +103,8 @@ export const useCustomerStore = create<CustomerStore>()(
       fetchCustomerData: async (address: string, force: boolean = false) => {
         const state = get();
         
-        // Check if data is still fresh and not forced refresh
-        if (!force && state.lastFetchTime && Date.now() - state.lastFetchTime < CACHE_DURATION) {
-          return; // Use cached data
-        }
-
         // Prevent duplicate fetches
-        if (state.isLoading) return;
+        if (!force && state.isLoading) return;
 
         set({ isLoading: true, error: null });
 
@@ -190,8 +178,6 @@ export const useCustomerStore = create<CustomerStore>()(
             const transactionsResult = await transactionsResponse.json();
             set({ transactions: transactionsResult.data?.transactions || [] });
           }
-
-          set({ lastFetchTime: Date.now() });
         } catch (err) {
           console.log("Error fetching customer data:", err);
           set({ error: "Failed to load customer data" });

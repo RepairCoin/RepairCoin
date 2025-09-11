@@ -26,7 +26,6 @@ interface UseCustomerReturn {
   transactions: TransactionHistory[];
   blockchainBalance: number;
   isLoading: boolean;
-  lastFetchTime: number | null;
   
   // Form handlers
   updateRegistrationFormField: (field: keyof RegistrationFormData, value: string) => void;
@@ -53,7 +52,6 @@ export const useCustomer = (): UseCustomerReturn => {
     blockchainBalance,
     isLoading,
     error: storeError,
-    lastFetchTime,
     fetchCustomerData: storeFetchCustomerData,
     clearCache,
   } = useCustomerStore();
@@ -84,14 +82,14 @@ export const useCustomer = (): UseCustomerReturn => {
   useEffect(() => {
     if (account?.address) {
       // Only fetch if we don't have data
-      if (!lastFetchTime) {
+      if (!customerData) {
         storeFetchCustomerData(account.address);
       }
     } else {
       // Clear cache when account disconnects
       clearCache();
     }
-  }, [account?.address, lastFetchTime, storeFetchCustomerData, clearCache]);
+  }, [account?.address, customerData, storeFetchCustomerData, clearCache]);
 
   const clearMessages = useCallback(() => {
     setError(null);
@@ -176,7 +174,6 @@ export const useCustomer = (): UseCustomerReturn => {
     transactions,
     blockchainBalance,
     isLoading,
-    lastFetchTime,
     
     // Form handlers
     updateRegistrationFormField,
