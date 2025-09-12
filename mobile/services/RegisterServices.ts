@@ -2,6 +2,7 @@ import { ThirdWebStrategy } from "../utilities/GlobalTypes";
 import { createThirdwebClient } from "thirdweb";
 import { useActiveAccount, useConnect } from "thirdweb/react";
 import { inAppWallet, preAuthenticate } from "thirdweb/wallets";
+import { router } from "expo-router";
 
 const clientId =
   process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID ||
@@ -13,29 +14,19 @@ export const SocialConnectWalletService = async (
   const client = createThirdwebClient({
     clientId,
   });
-
-  console.log("ffff");
   const wallet = inAppWallet();
 
   // const { connect } = useConnect();
   // const account = useActiveAccount();
 
-  console.log("asdf");
-
   // await connect(async () => {
-  const account = await wallet
-    .connect({
-      client,
-      strategy: strategy,
-      closeOpenedWindow: window => {console.log('asdfasdf')}
-    })
-    .then((res) => console.log(res.address))
-    .catch((err) => {
-      console.error("Error connecting wallet:", err);
-    });
+  const account = await wallet.connect({
+    client,
+    strategy: strategy,
+  });
   // });
 
-  console.log(account);
+  return account;
 };
 
 export const SendCodeViaEmailService = async (email: string) => {
@@ -92,6 +83,8 @@ export const RegisterAsCustomerService = async (registrationData: {
   console.log(JSON.stringify(registrationData));
   console.log(apiUrl);
 
+  const response = { success: false, resData: {} };
+
   await fetch(`${apiUrl}/customers/register/`, {
     method: "POST",
     headers: {
@@ -100,6 +93,13 @@ export const RegisterAsCustomerService = async (registrationData: {
     },
     body: JSON.stringify(registrationData),
   })
-    .then((res) => console.log("Customer registration response:", res))
-    .catch((err) => console.log("Customer registration error:", err));
+    .then((res) => {
+      response.success = true;
+      response.resData = res;
+    })
+    .catch((err) => {
+      response.success = false;
+    });
+
+    return response;
 };

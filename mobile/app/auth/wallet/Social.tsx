@@ -6,25 +6,38 @@ import LoginButton from "@/components/LoginButton";
 import Screen from "@/components/Screen";
 import { useState } from "react";
 import { router } from "expo-router";
+import { SendCodeViaEmailService, SocialConnectWalletService } from "@/services/RegisterServices";
+import { ThirdWebStrategy } from "@/utilities/GlobalTypes";
+import { useAuthStore } from "@/store/authStore";
 
 export default function ConnectWalletWithSocialPage() {
   const [email, setEmail] = useState<string>("");
+  const setEmailState = useAuthStore(state => state.setEmail);
+  const { setAddress } = useAuthStore(state => state);
 
-  const SocialOptions = [
+  const SocialOptions: {
+    title: string;
+    icon: any;
+    className: string;
+    strategy: ThirdWebStrategy
+  }[] = [
     {
       title: "Continue with Google",
       icon: require("@/assets/icons/icons8-google-100.png"),
       className: "h-6 w-6",
+      strategy: "google"
     },
     {
       title: "Continue with Apple",
       icon: require("@/assets/icons/icons8-apple-100.png"),
       className: "h-6 w-6",
+      strategy: "apple"
     },
     {
       title: "Continue with Facebook",
       icon: require("@/assets/icons/icons8-facebook-100.png"),
       className: "h-6 w-6",
+      strategy: "facebook"
     },
   ];
 
@@ -40,6 +53,22 @@ export default function ConnectWalletWithSocialPage() {
       className: "h-6 w-6",
     },
   ];
+
+  const handleSendCode = async () => {
+    const response = await (SendCodeViaEmailService(email));
+    if (response.success) {
+      setEmailState(email);
+      router.push("/auth/wallet/VerifyEmail");
+    }
+  }
+
+  const handleSocialWalletConnect = async (strategy: ThirdWebStrategy) => {
+    const connectedAccount = await SocialConnectWalletService(strategy);
+    if (connectedAccount.address) {
+      setAddress(connectedAccount.address);
+      router.push("/auth/register");
+    }
+  }
 
   return (
     <Screen>
@@ -63,6 +92,7 @@ export default function ConnectWalletWithSocialPage() {
               title={option.title}
               icon={option.icon}
               className={option.className}
+              onPress={() => handleSocialWalletConnect(option.strategy)}
             />
           ))}
         </View>
@@ -93,7 +123,7 @@ export default function ConnectWalletWithSocialPage() {
               keyboardType="email-address"
               className="color-[#666]"
             />
-            <Ionicons name="arrow-forward" color="#666" size={25} onPress={() => router.push("/auth/wallet/VerifyEmail")} />
+            <Ionicons name="arrow-forward" color="#666" size={25} onPress={handleSendCode} />
           </View>
         </View>
 

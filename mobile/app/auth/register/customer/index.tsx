@@ -8,6 +8,8 @@ import CountryPicker, { CountryCode } from "react-native-country-picker-modal";
 import { MaskedTextInput } from "react-native-mask-text";
 import PrimaryButton from "@/components/PrimaryButton";
 import { router } from "expo-router";
+import { RegisterAsCustomerService } from "@/services/RegisterServices";
+import { useAuthStore } from "@/store/authStore";
 
 export default function RegisterAsCustomerPage() {
   const [fullName, setFullName] = useState<string>("");
@@ -17,6 +19,22 @@ export default function RegisterAsCustomerPage() {
   const [countryCode, setCountryCode] = useState<CountryCode>("US");
   const [phone, setPhone] = useState<string>("");
   const [referral, setReferral] = useState<string>("");
+
+  const { address } = useAuthStore(state => state);
+
+  const handleSubmit = async () => {
+    const res = await RegisterAsCustomerService({
+      walletAddress: address,
+      name: fullName,
+      email,
+      phone,
+      referralCode: referral,
+    });
+
+    console.log(email);
+
+    if (res.success) router.push("/auth/register/customer/Success");
+  }
 
   return (
     <Screen>
@@ -111,7 +129,7 @@ export default function RegisterAsCustomerPage() {
         </View>
         <Text className="text-sm text-gray-300 mt-1 mb-10">Earn bonus tokens when you sign up with a referral code.</Text>
 
-        <PrimaryButton title="Register as Customer" onPress={() => router.push("/auth/register/customer/Success")} />
+        <PrimaryButton title="Register as Customer" onPress={handleSubmit} />
       </View>
     </Screen>
   );
