@@ -145,6 +145,7 @@ router.post('/check-user', async (req, res) => {
       }
       
       return res.json({
+        exists: true,
         type: 'admin',
         user: {
           id: adminData.id.toString(),
@@ -165,6 +166,7 @@ router.post('/check-user', async (req, res) => {
       const customer = await customerRepository.getCustomer(normalizedAddress);
       if (customer) {
         return res.json({
+          exists: true,
           type: 'customer',
           user: {
             id: customer.address, // Use address as ID since that's the primary identifier
@@ -191,6 +193,7 @@ router.post('/check-user', async (req, res) => {
       
       if (shop) {
         return res.json({
+          exists: true,
           type: 'shop',
           user: {
             id: shop.shopId,
@@ -212,6 +215,7 @@ router.post('/check-user', async (req, res) => {
 
     // User not found in any category
     return res.status(404).json({
+      exists: false,
       error: 'User not found',
       message: 'No user found with this wallet address'
     });

@@ -1,6 +1,8 @@
 // backend/src/domains/shop/services/ShopPurchaseService.ts
 import { shopRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
+import { revenueDistributionService } from '../../../services/RevenueDistributionService';
+import { RCGTokenReader } from '../../../contracts/RCGTokenReader';
 
 interface ShopRcnPurchase {
   id: string;
@@ -34,16 +36,22 @@ export interface PurchaseResponse {
 }
 
 /**
- * Service for handling shop RCN purchases according to new requirements:
- * - Shops buy RCN at $0.10 per token
- * - Minimum purchase: 100 RCN ($10)
- * - Multiple payment methods supported
+ * Service for handling shop RCN purchases with tiered pricing:
+ * - Standard tier: $0.10 per RCN (10,000-49,999 RCG)
+ * - Premium tier: $0.08 per RCN (50,000-199,999 RCG)
+ * - Elite tier: $0.06 per RCN (200,000+ RCG)
+ * - Revenue split: 80% operations, 10% stakers, 10% DAO
  * - Automatic balance updates upon completion
  */
 export class ShopPurchaseService {
-  private static readonly PRICE_PER_RCN = 0.10; // $0.10 per RCN as per requirements
   private static readonly MINIMUM_PURCHASE = 1; // 1 RCN minimum (reduced for testing)
   private static readonly MAXIMUM_PURCHASE = 10000; // 10,000 RCN maximum per transaction
+  
+  private rcgReader: RCGTokenReader;
+
+  constructor() {
+    this.rcgReader = new RCGTokenReader();
+  }
 
   /**
    * Initiate a shop RCN purchase
@@ -62,27 +70,62 @@ export class ShopPurchaseService {
         throw new Error('Shop is not active');
       }
 
-      // Calculate total cost
-      const totalCost = purchaseData.amount * ShopPurchaseService.PRICE_PER_RCN;
+      // Get shop's RCG balance to determine tier AND check if operational
+      let shopTier = 'standard';
+      let rcgBalance = 0;
+      let hasCommitment = false;
+      
+      if (shop.walletAddress) {
+        try {
+          const balanceStr = await this.rcgReader.getBalance(shop.walletAddress);
+          rcgBalance = parseFloat(balanceStr);
+          shopTier = revenueDistributionService.determineTierFromRCGBalance(rcgBalance);
+        } catch (error) {
+          logger.warn(`Failed to get RCG balance for shop ${shop.shopId}, using standard tier`, error);
+        }
+      }
+
+      // Check if shop has active commitment enrollment
+      const commitment = await shopRepository.getActiveCommitmentByShopId(purchaseData.shopId);
+      hasCommitment = !!commitment;
+
+      // Validate shop is operational (has RCG or commitment)
+      if (rcgBalance < 10000 && !hasCommitment) {
+        throw new Error('Shop must hold at least 10,000 RCG tokens or be enrolled in the Commitment Program to purchase RCN');
+      }
+
+      // Calculate total cost based on tier
+      const tierPricing = revenueDistributionService.getTierPricing(shopTier);
+      const totalCost = purchaseData.amount * tierPricing.pricePerRCN;
+
+      // Calculate revenue distribution
+      const distribution = revenueDistributionService.calculateDistribution(purchaseData.amount, shopTier);
 
       // Create purchase record
       const purchaseResult = await shopRepository.createShopPurchase({
         shopId: purchaseData.shopId,
         amount: purchaseData.amount,
-        pricePerRcn: ShopPurchaseService.PRICE_PER_RCN,
+        pricePerRcn: tierPricing.pricePerRCN,
         totalCost,
         paymentMethod: purchaseData.paymentMethod,
         paymentReference: purchaseData.paymentReference,
         status: 'pending'
       });
 
-      logger.info(`RCN purchase initiated for shop ${purchaseData.shopId}: ${purchaseData.amount} RCN at $${totalCost}`);
+      logger.info(`RCN purchase initiated for shop ${purchaseData.shopId}:`, {
+        amount: purchaseData.amount,
+        tier: shopTier,
+        rcgBalance,
+        unitPrice: tierPricing.pricePerRCN,
+        totalCost,
+        distribution
+      });
 
       return {
         purchaseId: purchaseResult.id,
         totalCost,
         status: 'pending',
-        message: `Purchase of ${purchaseData.amount} RCN initiated. Total cost: $${totalCost}. Please complete payment.`
+        message: `Purchase of ${purchaseData.amount} RCN initiated at ${shopTier} tier pricing ($${tierPricing.pricePerRCN}/RCN). Total cost: $${totalCost}. Please complete payment.`
       };
 
     } catch (error) {

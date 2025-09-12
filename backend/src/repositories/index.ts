@@ -7,6 +7,7 @@ export { AdminRepository } from './AdminRepository';
 export { WebhookRepository } from './WebhookRepository';
 export { TreasuryRepository } from './TreasuryRepository';
 export { RedemptionSessionRepository } from './RedemptionSessionRepository';
+export { CommitmentRepository } from './CommitmentRepository';
 
 // Create singleton instances
 import { CustomerRepository } from './CustomerRepository';
@@ -16,6 +17,7 @@ import { AdminRepository } from './AdminRepository';
 import { WebhookRepository } from './WebhookRepository';
 import { TreasuryRepository } from './TreasuryRepository';
 import { RedemptionSessionRepository } from './RedemptionSessionRepository';
+import { CommitmentRepository } from './CommitmentRepository';
 
 export const customerRepository = new CustomerRepository();
 export const shopRepository = new ShopRepository();
@@ -24,3 +26,4 @@ export const adminRepository = new AdminRepository();
 export const webhookRepository = new WebhookRepository();
 export const treasuryRepository = new TreasuryRepository();
 export const redemptionSessionRepository = new RedemptionSessionRepository();
+export const commitmentRepository = new CommitmentRepository();

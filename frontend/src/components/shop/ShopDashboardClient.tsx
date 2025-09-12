@@ -21,6 +21,8 @@ import { CustomerLookupTab } from '@/components/shop/tabs/CustomerLookupTab';
 import { SettingsTab } from '@/components/shop/tabs/SettingsTab';
 import { CustomersTab } from '@/components/shop/tabs/CustomersTab';
 import { useShopRegistration } from '@/hooks/useShopRegistration';
+import { OnboardingBanner } from '@/components/shop/OnboardingBanner';
+import { OperationalRequiredTab } from '@/components/shop/OperationalRequiredTab';
 
 const client = createThirdwebClient({
   clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "1969ac335e07ba13ad0f8d1a1de4f6ab",
@@ -41,6 +43,10 @@ interface ShopData {
   purchasedRcnBalance: number;
   totalRcnPurchased: number;
   lastPurchaseDate?: string;
+  operational_status?: 'pending' | 'rcg_qualified' | 'commitment_qualified' | 'not_qualified';
+  commitment_enrolled?: boolean;
+  rcg_tier?: string;
+  rcg_balance?: number;
 }
 
 interface PurchaseHistory {
@@ -279,6 +285,12 @@ export default function ShopDashboardClient() {
     setCurrentPurchaseId(null);
   };
 
+  // Check if shop is operational
+  const isOperational = shopData && (
+    shopData.operational_status === 'rcg_qualified' || 
+    shopData.operational_status === 'commitment_qualified'
+  );
+
   // Error state (shop not found)
   if (error && !shopData && !existingApplication.hasApplication) {
     return (
@@ -404,21 +416,31 @@ export default function ShopDashboardClient() {
         }}
       >
         <div className="max-w-screen-2xl w-[96%] mx-auto">
+          {/* Show onboarding banner if shop is not operational */}
+          {shopData && shopData.operational_status !== 'rcg_qualified' && 
+           shopData.operational_status !== 'commitment_qualified' && (
+            <OnboardingBanner shopData={shopData} />
+          )}
+          
           {/* Tab Content */}
           {activeTab === 'overview' && (
             <OverviewTab shopData={shopData} purchases={purchases} blockchainBalance={blockchainBalance} />
           )}
 
           {activeTab === 'purchase' && (
-            <PurchaseTab
-              purchaseAmount={purchaseAmount}
-              setPurchaseAmount={setPurchaseAmount}
-              paymentMethod={paymentMethod}
-              setPaymentMethod={setPaymentMethod}
-              purchasing={purchasing}
-              purchases={purchases}
-              onInitiatePurchase={initiatePurchase}
-            />
+            isOperational ? (
+              <PurchaseTab
+                purchaseAmount={purchaseAmount}
+                setPurchaseAmount={setPurchaseAmount}
+                paymentMethod={paymentMethod}
+                setPaymentMethod={setPaymentMethod}
+                purchasing={purchasing}
+                purchases={purchases}
+                onInitiatePurchase={initiatePurchase}
+              />
+            ) : (
+              <OperationalRequiredTab feature="RCN token purchasing" />
+            )
           )}
 
           {activeTab === 'bonuses' && (
@@ -434,21 +456,29 @@ export default function ShopDashboardClient() {
           )}
 
           {activeTab === 'redeem' && shopData && (
-            <RedeemTabV2 
-              shopId={shopData.shopId} 
-              onRedemptionComplete={loadShopData}
-            />
+            isOperational ? (
+              <RedeemTabV2 
+                shopId={shopData.shopId} 
+                onRedemptionComplete={loadShopData}
+              />
+            ) : (
+              <OperationalRequiredTab feature="customer redemptions" />
+            )
           )}
 
           {activeTab === 'issue-rewards' && shopData && (
-            <IssueRewardsTab 
-              shopId={shopData.shopId}
-              shopData={{
-                ...shopData,
-                purchasedRcnBalance: blockchainBalance // Use blockchain balance for tier bonus calculations
-              }}
-              onRewardIssued={loadShopData}
-            />
+            isOperational ? (
+              <IssueRewardsTab 
+                shopId={shopData.shopId}
+                shopData={{
+                  ...shopData,
+                  purchasedRcnBalance: blockchainBalance // Use blockchain balance for tier bonus calculations
+                }}
+                onRewardIssued={loadShopData}
+              />
+            ) : (
+              <OperationalRequiredTab feature="issuing rewards" />
+            )
           )}
 
           {activeTab === 'customers' && shopData && (

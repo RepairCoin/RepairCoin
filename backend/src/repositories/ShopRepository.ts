@@ -31,6 +31,11 @@ interface ShopData {
   verifiedBy?: string;
   purchasedRcnBalance?: number;
   totalRcnPurchased?: number;
+  rcg_tier?: string;
+  rcg_balance?: number;
+  tier_updated_at?: string;
+  commitment_enrolled?: boolean;
+  operational_status?: 'pending' | 'rcg_qualified' | 'commitment_qualified' | 'not_qualified';
 }
 
 export interface ShopFilters {
@@ -40,6 +45,21 @@ export interface ShopFilters {
 }
 
 export class ShopRepository extends BaseRepository {
+  async getActiveCommitmentByShopId(shopId: string): Promise<any> {
+    try {
+      const query = `
+        SELECT * FROM commitment_enrollments 
+        WHERE shop_id = $1 AND status = 'active'
+        LIMIT 1
+      `;
+      
+      const result = await this.pool.query(query, [shopId]);
+      return result.rows[0] || null;
+    } catch (error) {
+      logger.error('Error getting active commitment:', error);
+      throw error;
+    }
+  }
   async getShop(shopId: string): Promise<ShopData | null> {
     try {
       const query = 'SELECT * FROM shops WHERE shop_id = $1';
@@ -966,6 +986,31 @@ export class ShopRepository extends BaseRepository {
     } catch (error) {
       logger.error('Error getting customer growth stats:', error);
       throw new Error('Failed to get customer growth statistics');
+    }
+  }
+
+  /**
+   * Get shop RCN purchases within a date range for revenue reporting
+   */
+  async getPurchasesInDateRange(startDate: Date, endDate: Date): Promise<any[]> {
+    try {
+      const query = `
+        SELECT 
+          p.*,
+          s.rcg_tier as shop_tier
+        FROM shop_rcn_purchases p
+        JOIN shops s ON p.shop_id = s.shop_id
+        WHERE p.created_at >= $1 
+          AND p.created_at <= $2
+          AND p.status = 'completed'
+        ORDER BY p.created_at DESC
+      `;
+      
+      const result = await this.pool.query(query, [startDate, endDate]);
+      return result.rows;
+    } catch (error) {
+      logger.error('Error getting purchases in date range:', error);
+      throw new Error('Failed to get purchases in date range');
     }
   }
 }

@@ -1,7 +1,15 @@
 import axios from "axios";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+
+console.log('🔍 FRONTEND API CONFIGURATION:');
+console.log(`- process.env.NEXT_PUBLIC_API_URL: ${process.env.NEXT_PUBLIC_API_URL}`);
+console.log(`- Default if not set: http://localhost:4000/api`);
+console.log(`- Actually using: ${API_URL}`);
+console.log('');
+
 const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api",
+  baseURL: API_URL,
   headers: {
     "Content-Type": "application/json",
   },
@@ -9,6 +17,8 @@ const apiClient = axios.create({
 
 // Request interceptor for auth tokens
 apiClient.interceptors.request.use((config) => {
+  console.log(`📡 API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
+  
   // Check for specific auth type tokens first
   const adminToken = localStorage.getItem("adminAuthToken");
   const shopToken = localStorage.getItem("shopAuthToken");

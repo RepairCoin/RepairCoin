@@ -13,6 +13,7 @@ import { AdminService } from '../services/AdminService';
 import treasuryRoutes from './treasury';
 import analyticsRoutes from './analytics';
 import customerRoutes from './customers';
+import revenueRoutes from '../../../routes/admin/revenue';
 
 const router = Router();
 
@@ -208,5 +209,16 @@ router.use('/analytics', analyticsRoutes);
 
 // Customer management routes
 router.use('/customers', customerRoutes);
+
+// Revenue distribution routes
+router.use('/revenue', revenueRoutes);
+
+// RCG management routes
+import rcgManagementRoutes from '../../../routes/admin/rcg-management';
+router.use('/rcg', rcgManagementRoutes);
+
+// Commitment program routes
+import commitmentRoutes from '../../../routes/admin/commitment';
+router.use('/commitment', commitmentRoutes);
 
 export default router;

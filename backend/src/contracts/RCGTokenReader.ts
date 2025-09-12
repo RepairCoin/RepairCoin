@@ -43,7 +43,7 @@ export class RCGTokenReader {
   };
 
   constructor() {
-    this.contractAddress = process.env.RCG_CONTRACT_ADDRESS || '0x973D8b27E7CD72270F9C07d94381f522bC9D4304';
+    this.contractAddress = process.env.RCG_CONTRACT_ADDRESS || '0xdaFCC0552d976339cA28EF2e84ca1c6561379c9D';
     this.clientId = process.env.RCG_THIRDWEB_CLIENT_ID || process.env.THIRDWEB_CLIENT_ID || '';
     this.secretKey = process.env.RCG_THIRDWEB_SECRET_KEY || process.env.THIRDWEB_SECRET_KEY || '';
 

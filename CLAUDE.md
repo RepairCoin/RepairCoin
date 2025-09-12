@@ -41,7 +41,7 @@ cd backend && npm run test:coverage
 
 # Database operations
 cd backend && npm run healthcheck
-curl http://localhost:3000/api/health
+curl http://localhost:5000/api/health
 
 # API Documentation
 cd backend && npm run docs:open
@@ -80,14 +80,28 @@ docker exec -it repaircoin-db psql -U repaircoin -d repaircoin
 - **Blockchain**: Thirdweb on Base Sepolia
 - **Containerization**: Docker + Docker Compose
 
-### Business Model Overview
+### Business Model Overview (Dual-Token System)
+
+**RCN (RepairCoin) - Utility Token**:
 - **Token Type**: Pure utility token for loyalty rewards (no trading or speculation)
 - **Token Supply**: Unlimited minting capability (no max cap)
-- **Revenue Model**: Shops purchase RCN tokens directly from RepairCoin admin at $0.10 per RCN
+- **Revenue Model**: Shops purchase RCN tokens from RepairCoin admin at tiered pricing
 - **Token Distribution**: Shops distribute earned RCN to customers as loyalty rewards
 - **Redemption Value**: 1 RCN = $0.10 USD guaranteed redemption value at all participating shops
 - **Cross-Shop Network**: Customers can use 20% of their earned balance at other participating shops
 - **Anti-Arbitrage**: No public trading; tokens flow only from Admin → Shops → Customers → Burned on redemption
+
+**RCG (RepairCoin Governance) - Governance Token**:
+- **Token Type**: Governance and revenue-sharing token (publicly tradeable)
+- **Token Supply**: Fixed 100,000,000 RCG (never increases)
+- **Shop Requirements**: Minimum 10,000 RCG stake to become partner shop
+- **Tiered Pricing**: Higher RCG holdings = better RCN purchase prices
+  - Standard (10K-49K RCG): $0.10 per RCN
+  - Premium (50K-199K RCG): $0.08 per RCN (20% discount)
+  - Elite (200K+ RCG): $0.06 per RCN (40% discount)
+- **Revenue Sharing**: 10% of RCN sales distributed weekly to RCG stakers as USDC
+- **Governance Rights**: RCG holders vote on platform parameters
+- **DAO Treasury**: 10% of RCN sales goes to community-controlled treasury
 
 ### Domain-Driven Architecture
 The backend uses an enhanced domain-driven architecture with the following structure:
@@ -178,8 +192,8 @@ Copy `env.example` to `.env` and configure:
 ## API Documentation
 
 The API uses Swagger/OpenAPI documentation:
-- **Local**: http://localhost:3000/api-docs
-- **JSON Spec**: http://localhost:3000/api-docs.json
+- **Local**: http://localhost:5000/api-docs
+- **JSON Spec**: http://localhost:5000/api-docs.json
 - **Access**: `npm run docs:open` in backend directory
 
 ### Customer Tier System
@@ -700,10 +714,15 @@ Based on RepairCoin Requirements v1.1, the following features need to be impleme
 - Partner shop directory
 - Contact and support information
 
-### 6. Liquidity Management
-**Status**: ❌ Not Applicable
-**Priority**: N/A
-**Note**: RCN is a pure utility token with no public trading. Liquidity pools are not needed since tokens can only be obtained through shops and redeemed for services.
+### 6. RCG Liquidity & Trading
+**Status**: 🔴 Not Started
+**Priority**: HIGH
+**Requirements**:
+- Deploy liquidity pools on DEXs (Uniswap V3, SushiSwap)
+- Initial liquidity: 2.5M RCG + $1.25M USDC
+- Market making arrangements
+- CEX listing applications (Coinbase, Binance, Kraken)
+- Price discovery mechanisms
 
 ### 7. Analytics Dashboard
 **Status**: 🟢 Enhanced Implementation
@@ -793,15 +812,16 @@ Based on RepairCoin Requirements v1.1, the following features need to be impleme
 - Support email workflows
 - Dispute resolution process
 
-### 14. Vesting Contract
+### 14. RCG Vesting Contracts
 **Status**: 🔴 Not Started
 **Priority**: HIGH (Before Token Distribution)
 **Requirements**:
-- Deploy vesting smart contract
-- 4-year vesting with 12-month cliff
-- Quarterly release schedule
-- 400M RCN allocation for team/investors
+- Deploy vesting smart contract for RCG tokens
+- Team/Founders: 4-year vesting with 1-year cliff
+- Private Investors: 2-year vesting with 6-month cliff
+- Support different beneficiary schedules
 - Vesting dashboard for beneficiaries
+- Emergency unlock via governance
 
 ### 15. Emergency Procedures
 **Status**: 🟡 Basic pause/unpause implemented
@@ -824,6 +844,72 @@ Based on RepairCoin Requirements v1.1, the following features need to be impleme
 - **Sidebar Collapse**: Space-efficient navigation with collapse functionality
 - **Treasury Management**: Track RCN sales and platform revenue
 - **Enhanced Transaction Tracking**: Detailed transaction history with filters
+
+### 17. RCG Integration Features (NEW - Critical for Dual-Token)
+**Status**: 🔴 Not Started
+**Priority**: CRITICAL
+**Required Features**:
+
+**Smart Contracts**:
+- **RCG Staking Contract**: 30-day minimum lock, weekly USDC distributions
+- **Revenue Distribution Contract**: Automatic 10% revenue share to stakers
+- **DAO Governance Contract**: Proposal creation, voting, parameter adjustment
+- **Treasury Management**: Multi-sig with timelock for DAO treasury
+
+**Backend Updates**:
+- **RCG Balance Service**: Check wallet RCG holdings
+- **Shop Tier Service**: Determine tier based on RCG holdings
+- **Dynamic Pricing**: Calculate RCN price based on shop tier
+- **Revenue Tracking**: Track sales by tier for distribution
+- **Staking Integration**: Connect to staking contract
+
+**Shop Registration Changes**:
+- **RCG Validation**: Check 10,000 RCG minimum on registration
+- **Tier Assignment**: Store shop tier in database
+- **Alternative Path**: Support 6-month commitment option
+- **Tier Updates**: Monitor RCG balance changes
+
+**Shop Purchase Flow Updates**:
+- **Tier-Based Pricing**: 
+  - Standard: $0.10/RCN
+  - Premium: $0.08/RCN 
+  - Elite: $0.06/RCN
+- **Revenue Split**: Automatically calculate 80/10/10 distribution
+- **Tier Verification**: Validate tier before each purchase
+
+**Admin Dashboard Additions**:
+- **RCG Distribution Tab**: Initial token allocation management
+- **Staking Analytics**: Track staked amounts and yields
+- **Revenue Distribution**: Monitor weekly USDC payments
+- **DAO Treasury**: Manage community funds
+
+**Database Schema Updates**:
+```sql
+ALTER TABLE shops ADD COLUMN rcg_tier VARCHAR(20) DEFAULT 'standard';
+ALTER TABLE shops ADD COLUMN rcg_balance NUMERIC(18,2) DEFAULT 0;
+ALTER TABLE shops ADD COLUMN rcg_staked_at TIMESTAMP;
+ALTER TABLE shops ADD COLUMN commitment_path BOOLEAN DEFAULT FALSE;
+ALTER TABLE shops ADD COLUMN commitment_monthly_amount NUMERIC(10,2);
+
+CREATE TABLE revenue_distributions (
+  id SERIAL PRIMARY KEY,
+  rcn_sales_amount NUMERIC(18,2),
+  usdc_to_stakers NUMERIC(18,2),
+  usdc_to_dao NUMERIC(18,2),
+  usdc_to_operations NUMERIC(18,2),
+  distribution_week DATE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE rcg_staking (
+  id SERIAL PRIMARY KEY,
+  wallet_address VARCHAR(42),
+  staked_amount NUMERIC(18,2),
+  staked_at TIMESTAMP,
+  unstake_requested_at TIMESTAMP,
+  last_claim_at TIMESTAMP
+);
+```
 
 ## 📋 Development Priorities
 
@@ -853,7 +939,7 @@ For developers starting work on pending features:
 1. **Mobile App Development**:
    ```bash
    # Consider React Native or Flutter
-   # API endpoints are ready at http://localhost:3000/api
+   # API endpoints are ready at http://localhost:5000/api
    # Use Thirdweb SDK for wallet integration
    ```
 
@@ -876,3 +962,80 @@ For developers starting work on pending features:
 - **Base Network**: https://base.org/
 - **Safe (Gnosis)**: https://safe.global/
 - **Requirements Doc**: Internal document v1.1 (July 2025)
+
+## 🔄 September 9, 2025 Session Updates
+
+### RCG Token Integration Completed
+- **Created RCG Token Services**:
+  - `backend/src/contracts/RCGTokenReader.ts` - Thirdweb v5 SDK integration for RCG token
+  - `backend/src/services/RCGService.ts` - Shop tier management and revenue calculations
+  - Tier thresholds: Standard (10K-49K), Premium (50K-199K), Elite (200K+)
+
+- **API Endpoints Added**:
+  - `GET /api/admin/treasury/rcg` - Fetch RCG metrics
+  - `POST /api/admin/treasury/update-shop-tier/:shopId` - Update shop tier based on RCG holdings
+  - `POST /api/admin/treasury/update` - Update treasury with revenue distribution
+
+- **Database Migration**:
+  - Created `migrations/add_rcg_support.sql`:
+    ```sql
+    ALTER TABLE shops ADD COLUMN rcg_tier VARCHAR(20) DEFAULT 'standard';
+    ALTER TABLE shops ADD COLUMN rcg_balance NUMERIC(18,2) DEFAULT 0;
+    ALTER TABLE shops ADD COLUMN tier_updated_at TIMESTAMP;
+    
+    CREATE TABLE revenue_distributions (
+      id SERIAL PRIMARY KEY,
+      week_start DATE NOT NULL,
+      week_end DATE NOT NULL,
+      total_rcn_sold NUMERIC(18,2),
+      total_revenue_usd NUMERIC(18,2),
+      operations_share NUMERIC(18,2),
+      stakers_share NUMERIC(18,2),
+      dao_treasury_share NUMERIC(18,2),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    
+    CREATE TABLE rcg_staking (
+      id SERIAL PRIMARY KEY,
+      wallet_address VARCHAR(42) NOT NULL,
+      staked_amount NUMERIC(18,2) NOT NULL,
+      staked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      unstake_requested_at TIMESTAMP,
+      last_claim_at TIMESTAMP
+    );
+    ```
+
+- **Frontend Updates**:
+  - Enhanced `TreasuryTab.tsx` with dual-tab interface (RCN/RCG)
+  - RCG metrics display: token distribution, tier breakdown, revenue impact
+  - Shows shop tier distribution and top RCG holders
+
+### Port Configuration Changes
+- **Backend Default Port**: Changed from 3000 to 5000
+  - Updated in `src/config/index.ts`, `src/app.ts`, `src/config/production.ts`
+  - All documentation updated to reflect port 5000
+- **Frontend Configuration**: Points to backend on appropriate port
+  - Note: Currently backend runs on 3000, frontend configured accordingly
+
+### Technical Fixes Applied
+- **Fixed axios installation**: Added missing axios dependency to frontend
+- **Fixed duplicate key error**: Updated TransactionsTable keyExtractor to handle undefined IDs
+- **Merged with main**: Successfully pulled 11 commits and applied all changes without conflicts
+
+### Admin CLI Tool
+- Located at `backend/src/cli/admin.ts`
+- Commands: list, add, remove, update, check, interactive mode
+- Binary configuration in package.json for global installation
+
+### Current System Status
+- **Backend Port**: Running on 3000 (can be changed to 5000 with PORT=5000)
+- **Frontend Port**: Running on 3001
+- **RCG Contract**: 0x973D8b27E7CD72270F9C07d94381f522bC9D4304
+- **RCG Client ID**: 99f01d5781fadab9f6a42660090e824b
+
+### Important Notes for Future Sessions
+1. **Dual-Token System**: RCN (utility) + RCG (governance) fully documented
+2. **Shop Tiers**: Implemented based on RCG holdings with tiered pricing
+3. **Revenue Distribution**: 80% operations, 10% stakers, 10% DAO treasury
+4. **Database**: Has RCG support tables ready for staking and revenue distribution
+5. **Missing Features**: See MISSING-FEATURES.md for comprehensive list

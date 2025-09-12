@@ -14,6 +14,7 @@ import { logger } from '../../../utils/logger';
 import { RoleValidator } from '../../../utils/roleValidator';
 import { validateShopRoleConflict } from '../../../middleware/roleConflictValidator';
 import { ReferralService } from '../../../services/ReferralService';
+import rcgRoutes from './rcg';
 
 interface ShopData {
   shopId: string;
@@ -219,7 +220,12 @@ router.get('/wallet/:address',
           purchasedRcnBalance: shop.purchasedRcnBalance,
           totalRcnPurchased: shop.totalRcnPurchased,
           totalTokensIssued: shop.totalTokensIssued,
-          totalRedemptions: shop.totalRedemptions
+          totalRedemptions: shop.totalRedemptions,
+          // Include operational status
+          operational_status: shop.operational_status,
+          commitment_enrolled: shop.commitment_enrolled,
+          rcg_tier: shop.rcg_tier,
+          rcg_balance: shop.rcg_balance
         };
       }
 
@@ -1458,5 +1464,8 @@ router.get('/:shopId/transactions',
     }
   }
 );
+
+// Mount RCG routes
+router.use('/', rcgRoutes);
 
 export default router;

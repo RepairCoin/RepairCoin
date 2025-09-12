@@ -1,10 +1,14 @@
 # RepairCoin Token Specifications
 
+**Last Updated**: August 29, 2025  
+**RCN Version**: 3.0  
+**RCG Version**: 2.0
+
 ## Overview
 
 RepairCoin operates a dual-token ecosystem:
-- **RCN (RepairCoin)**: Utility token for loyalty rewards
-- **RCG (RepairCoin Governance)**: Governance token for platform control
+- **RCN (RepairCoin)**: Utility token for loyalty rewards (non-tradeable)
+- **RCG (RepairCoin Governance)**: Governance token for platform control and revenue sharing
 
 ## RCN - Utility Token
 
@@ -49,34 +53,85 @@ RepairCoin operates a dual-token ecosystem:
 - **Name**: RepairCoin Governance
 - **Symbol**: RCG
 - **Standard**: ERC-20 (Base Chain)
-- **Total Supply**: 100,000,000 RCG (fixed)
+- **Total Supply**: 100,000,000 RCG (fixed, never increases)
 - **Contract Address**: `0x973D8b27E7CD72270F9C07d94381f522bC9D4304`
 - **Thirdweb Client ID**: `99f01d5781fadab9f6a42660090e824b`
+- **Public Trading**: Available on DEXs and future CEX listings
 
 ### Purpose
 - Platform governance and decision making
-- Shop tier determination
-- Revenue sharing qualification
+- Shop tier determination for RCN pricing discounts
+- Revenue sharing qualification via staking
+- Investment opportunity tied to platform growth
 
-### Shop Requirements
+### Token Distribution (100M Total)
+- **Team & Founders**: 30M RCG (30%)
+  - Miguel Rodriguez (Founder): 18M RCG-B class
+  - Zeff (Lead Developer): 8M RCG
+  - Team Pool: 4M RCG
+- **Private Investors**: 30M RCG (30%)
+  - Seed Round: 10M RCG
+  - Series A: 10M RCG
+  - Strategic: 10M RCG
+- **Public Sale**: 20M RCG (20%)
+  - IDO Launch: 15M RCG
+  - DEX Liquidity: 5M RCG
+- **DAO Treasury**: 15M RCG (15%)
+- **Staking Rewards**: 5M RCG (5%)
+
+### Vesting Schedules
+- **Team & Founders**: 4-year vesting, 1-year cliff
+- **Private Investors**: 2-year vesting, 6-month cliff
+- **Public Sale**: 20% at TGE, 20% monthly for 4 months
+- **DAO Treasury**: Unlocked via governance votes only
+- **Staking Rewards**: Linear emission over 4 years
+
+### Shop Requirements & Tier System
 - **Minimum Stake**: 10,000 RCG to become partner
 - **Lock Period**: 6 months minimum
 - **Recovery**: Unlocked after 30-day notice
 
 ### Shop Tier Benefits
 
-| Tier | RCG Stake | RCN Price | Savings | Investment |
-|------|-----------|-----------|---------|------------|
+| Tier | RCG Holdings | RCN Price | Savings | RCG Investment |
+|------|--------------|-----------|---------|----------------|
 | Standard | 10K-49K | $0.10 | 0% | ~$5,000 |
 | Premium | 50K-199K | $0.08 | 20% | ~$25,000 |
 | Elite | 200K+ | $0.06 | 40% | ~$100,000 |
 
+**Alternative Qualification**: 6-month purchase commitment
+- Standard: $300/month minimum
+- Premium: $800/month minimum  
+- Elite: $2,000/month minimum
+
 ### Revenue Distribution
 
 From each RCN sale to shops:
-- **80%**: Platform Operations (development, infrastructure)
+- **80%**: Platform Operations (development, infrastructure, support)
 - **10%**: RCG Stakers (weekly USDC distributions)
 - **10%**: DAO Treasury (community-controlled)
+
+### Staking Mechanism
+- **Who Can Stake**: Any RCG holder (no minimum)
+- **Lock Period**: 30-day minimum commitment
+- **Rewards**: Weekly USDC distributions
+- **Calculation**: Your stake ÷ Total staked × 10% revenue share
+- **Unstaking**: 7-day cooldown period
+
+### Governance System
+- **Voting Power**: 1 RCG = 1 vote (RCG-B = 10 votes)
+- **Proposal Threshold**: 100,000 RCG required
+- **Quorum**: 5% of circulating supply
+- **Passing**: 60% majority required
+- **Voting Period**: 7 days
+- **Dual-Class**: RCG-B (founder class) has 10x voting power
+
+### Value Drivers
+1. **Mandatory Shop Holdings**: Every shop needs 10K+ RCG
+2. **Cost Savings**: 20-40% discount on RCN purchases
+3. **Revenue Sharing**: 10% of platform revenue to stakers
+4. **Fixed Supply**: Only 100M RCG ever
+5. **Governance Rights**: Control over growing platform
 
 ## Governance Parameters
 
@@ -133,23 +188,69 @@ The following can be adjusted by RCG holder votes:
 ## Implementation Status
 
 ### Completed ✅
-- Both token contracts deployed
-- Basic minting functionality
-- Customer earning system
-- Shop purchase mechanism
-- Referral system
+- Basic RCN minting functionality
+- Customer earning system (repairs, tiers, referrals)
+- Shop registration and management
+- Fixed-price RCN purchases ($0.10)
+- Admin dashboard with treasury tracking
+- Cross-shop verification system
+- Referral reward distribution
 
-### In Progress ⏳
-- Burn mechanism integration
-- RCG staking platform
-- Tier-based pricing system
-- Revenue distribution
+### Missing/Required 🔴
+- **RCG Staking Platform**: For revenue sharing
+- **Tier-Based RCN Pricing**: Dynamic pricing based on RCG holdings
+- **Revenue Distribution System**: Weekly USDC payments to stakers
+- **DAO Governance Interface**: For parameter voting
+- **RCG Balance Checking**: In shop registration/purchase flows
+- **Vesting Contracts**: For team/investor token locks
+- **Burn Mechanism**: On RCN redemption
+- **Multi-sig Wallet**: For admin control
+- **Purchase Commitment Path**: Alternative to RCG holdings
 
-### Planned 📋
-- DAO governance interface
-- Automated parameter adjustment
+### In Development ⏳
+- Mobile applications (customer & shop)
+- Marketing website
 - Advanced analytics
-- Mobile applications
+- Production infrastructure
+
+## Technical Requirements
+
+### Smart Contracts Needed
+1. **RCG Staking Contract**
+   - Stake/unstake with 30-day minimum
+   - Track staking amounts and duration
+   - Calculate revenue share percentages
+   
+2. **Revenue Distribution Contract**
+   - Receive platform revenue in USDC
+   - Calculate weekly distributions
+   - Send USDC to stakers proportionally
+   
+3. **Vesting Contract**
+   - Lock tokens with cliff/vesting schedules
+   - Support different beneficiary types
+   - Allow emergency unlocks via governance
+
+4. **DAO Governance Contract**
+   - Proposal creation and voting
+   - Parameter adjustment execution
+   - Treasury management
+
+### Backend Updates Required
+1. **RCG Integration Service**
+   - Check wallet RCG balance
+   - Determine shop tier
+   - Calculate dynamic RCN pricing
+   
+2. **Revenue Tracking System**
+   - Track all RCN sales by tier
+   - Calculate 10/10/80 split
+   - Prepare distribution data
+
+3. **Shop Registration Updates**
+   - Validate 10K RCG minimum
+   - Support commitment path option
+   - Store tier information
 
 ## Network Information
 
@@ -160,8 +261,15 @@ The following can be adjusted by RCG holder votes:
 
 ## Migration to Mainnet
 
-When ready for production:
-1. Deploy new contracts on Base Mainnet
-2. Update all contract addresses
-3. Migrate user balances if needed
-4. Update environment configurations
+### Pre-Launch Requirements
+1. Complete all missing functionality
+2. Security audits on all contracts
+3. Multi-sig wallet setup
+4. Legal/compliance review
+
+### Launch Steps
+1. Deploy RCG token and distribute initial allocations
+2. Deploy staking and governance contracts
+3. Deploy updated RCN contract with burn
+4. Migrate existing data and balances
+5. Update all integrations

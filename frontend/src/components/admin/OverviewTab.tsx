@@ -335,7 +335,7 @@ const TransactionsTable: React.FC<{ transactions: Transaction[]; loading: boolea
     <DataTable
       data={transactions}
       columns={columns}
-      keyExtractor={(tx) => String(tx.id)}
+      keyExtractor={(tx) => tx.id ? String(tx.id) : `tx-${tx.shopId}-${tx.customerAddress}-${tx.createdAt}-${tx.amount}`}
       loading={loading}
       loadingRows={5}
       emptyMessage="No transactions found. Transactions will appear here once shops start purchasing RCN."

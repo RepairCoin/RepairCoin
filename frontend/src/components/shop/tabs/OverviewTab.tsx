@@ -5,6 +5,7 @@ import { WalletIcon } from "../../icon/index";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatCard } from "@/components/ui/StatCard";
 import { Filter, ChevronDown } from "lucide-react";
+import { RCGBalanceCard } from "@/components/shop/RCGBalanceCard";
 
 interface ShopData {
   shopId: string;
@@ -17,6 +18,10 @@ interface ShopData {
   purchasedRcnBalance: number;
   totalRcnPurchased: number;
   lastPurchaseDate?: string;
+  operational_status?: 'pending' | 'rcg_qualified' | 'commitment_qualified' | 'not_qualified';
+  commitment_enrolled?: boolean;
+  rcg_tier?: string;
+  rcg_balance?: number;
 }
 
 interface PurchaseHistory {
@@ -166,10 +171,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           />
         </div>
 
-        {/* Status Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Status Cards and RCG Balance */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <StatusCard shopData={shopData} />
           <BalanceAlertCard balance={blockchainBalance} />
+          <RCGBalanceCard shopId={shopData.shopId} />
         </div>
 
         {/* Recent Credit Purchases with DataTable */}
@@ -259,6 +265,20 @@ const StatusCard: React.FC<{ shopData: ShopData }> = ({ shopData }) => {
     >
       <h3 className="text-2xl font-bold text-[#FFCC00] mb-4">Shop Status</h3>
       <div className="space-y-3">
+        <StatusRow
+          label="Operational Status"
+          value={
+            shopData.operational_status === 'rcg_qualified' ? "RCG Qualified" :
+            shopData.operational_status === 'commitment_qualified' ? "Commitment Program" :
+            shopData.operational_status === 'pending' ? "Pending" :
+            "Not Qualified"
+          }
+          status={
+            shopData.operational_status === 'rcg_qualified' || 
+            shopData.operational_status === 'commitment_qualified' ? "success" : 
+            shopData.operational_status === 'pending' ? "warning" : "error"
+          }
+        />
         <StatusRow
           label="Active Status"
           value={shopData.active ? "Active" : "Inactive"}
