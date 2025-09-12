@@ -5,9 +5,20 @@ import Screen from "@/components/Screen";
 import { useState } from "react";
 import PrimaryButton from "@/components/PrimaryButton";
 import { router } from "expo-router";
+import { EmailConnectWalletService } from "@/services/RegisterServices";
+import { useAuthStore } from "@/store/authStore";
 
 export default function VerifyEmailPage() {
   const [code, setCode] = useState<string>("");
+  const { email, setAddress } = useAuthStore(state => state);
+
+  const handleConnectWallet = async () => {
+    const account = await EmailConnectWalletService(email, code);
+    if (account.address) {
+      setAddress(account.address);
+      router.push("/auth/register");
+    }
+  }
 
   return (
     <Screen>
@@ -45,7 +56,7 @@ export default function VerifyEmailPage() {
           </View>
         </View>
         <View className="mx-2 mt-auto mb-20">
-          <PrimaryButton title="Next" onPress={() => router.push("/auth/register")} />
+          <PrimaryButton title="Next" onPress={handleConnectWallet} />
         </View>
       </View>
     </Screen>
