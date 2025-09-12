@@ -217,7 +217,11 @@ router.use('/revenue', revenueRoutes);
 import rcgManagementRoutes from '../../../routes/admin/rcg-management';
 router.use('/rcg', rcgManagementRoutes);
 
-// Commitment program routes
+// Subscription routes (formerly commitment program)
+import subscriptionRoutes from '../../../routes/admin/subscription';
+router.use('/subscription', subscriptionRoutes);
+
+// Legacy commitment routes (for backwards compatibility)
 import commitmentRoutes from '../../../routes/admin/commitment';
 router.use('/commitment', commitmentRoutes);
 

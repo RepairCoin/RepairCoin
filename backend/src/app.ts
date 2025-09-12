@@ -328,6 +328,14 @@ class RepairCoinApp {
       
       // Start monitoring service
       monitoringService.startMonitoring(30); // Run checks every 30 minutes
+      
+      // Start subscription automated workflows
+      import('./services/SubscriptionService').then(({ subscriptionService }) => {
+        subscriptionService.startAutomatedWorkflows();
+        logger.info('💳 Subscription automated workflows started');
+      }).catch(error => {
+        logger.error('Failed to start subscription workflows:', error);
+      });
       logger.info(`🔍 Monitoring service started`);
       
       // Start error monitoring

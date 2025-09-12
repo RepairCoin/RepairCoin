@@ -1,10 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
+import { SubscriptionManagement } from '../SubscriptionManagement';
 
 interface ShopData {
   crossShopEnabled: boolean;
   purchasedRcnBalance: number;
+  walletAddress: string;
+  operational_status?: string;
 }
 
 interface SettingsTabProps {
@@ -60,6 +63,14 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ shopId, shopData, onSe
 
   return (
     <div className="space-y-8">
+      {/* Monthly Subscription Management - Only show if not RCG qualified */}
+      {shopData && shopData.operational_status !== 'rcg_qualified' && (
+        <SubscriptionManagement 
+          shopId={shopId} 
+          shopWallet={shopData.walletAddress}
+        />
+      )}
+
       {/* Cross-Shop Settings */}
       <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
         <h2 className="text-2xl font-bold text-gray-900 mb-6">Cross-Shop Network Settings</h2>

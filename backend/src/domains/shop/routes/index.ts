@@ -1468,4 +1468,8 @@ router.get('/:shopId/transactions',
 // Mount RCG routes
 router.use('/', rcgRoutes);
 
+// Mount subscription routes
+import subscriptionRoutes from '../../../routes/shop/subscription';
+router.use('/subscription', subscriptionRoutes);
+
 export default router;

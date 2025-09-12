@@ -117,7 +117,7 @@ export function OnboardingBanner({ shopData }: OnboardingBannerProps) {
                     <div>• No upfront token purchase</div>
                   </div>
                   {!hasCommitment && (
-                    <Link href="/shop/commitment-program">
+                    <Link href="/shop/dashboard?tab=settings">
                       <Button 
                         variant="outline" 
                         size="sm" 

@@ -1,6 +1,6 @@
 import { commitmentRepository, shopRepository } from '../repositories';
 import { logger } from '../utils/logger';
-import { EventBus } from '../events/EventBus';
+import { eventBus } from '../events/EventBus';
 
 export class CommitmentPaymentService {
   private static instance: CommitmentPaymentService;
@@ -44,12 +44,19 @@ export class CommitmentPaymentService {
         );
         
         // Emit event for successful payment
-        EventBus.emit('commitment.payment_processed', {
-          enrollmentId,
-          shopId: enrollment.shopId,
-          amount: enrollment.monthlyAmount,
-          paymentsMade: enrollment.paymentsMade + 1,
-          totalPaid: enrollment.totalPaid + enrollment.monthlyAmount
+        await eventBus.publish({
+          type: 'commitment.payment_processed',
+          aggregateId: enrollment.shopId,
+          data: {
+            enrollmentId,
+            shopId: enrollment.shopId,
+            amount: enrollment.monthlyAmount,
+            paymentsMade: enrollment.paymentsMade + 1,
+            totalPaid: enrollment.totalPaid + enrollment.monthlyAmount
+          },
+          source: 'CommitmentPaymentService',
+          timestamp: new Date(),
+          version: 1
         });
         
         logger.info(`Payment processed for enrollment ${enrollmentId}`, {
@@ -127,10 +134,17 @@ export class CommitmentPaymentService {
     type: 'first_warning' | 'second_warning' | 'final_warning' | 'defaulted'
   ): Promise<void> {
     // TODO: Implement email/SMS notifications
-    EventBus.emit('commitment.payment_warning', {
-      enrollmentId: enrollment.id,
-      shopId: enrollment.shopId,
-      warningType: type
+    await eventBus.publish({
+      type: 'commitment.payment_warning',
+      aggregateId: enrollment.shopId,
+      data: {
+        enrollmentId: enrollment.id,
+        shopId: enrollment.shopId,
+        warningType: type
+      },
+      source: 'CommitmentPaymentService',
+      timestamp: new Date(),
+      version: 1
     });
     
     logger.warn(`Payment warning sent: ${type}`, {

@@ -184,6 +184,12 @@ const Sidebar: React.FC<SidebarProps> = ({
           tabId: "purchase",
         },
         {
+          title: "Subscription",
+          href: "/shop?tab=subscription",
+          icon: <span className="text-xl">💳</span>,
+          tabId: "subscription",
+        },
+        {
           title: "Bonuses",
           href: "/shop?tab=bonuses",
           icon: <BonusesIcon width={24} height={24} />,
@@ -276,6 +282,12 @@ const Sidebar: React.FC<SidebarProps> = ({
             ],
           },
           {
+            title: "Subscriptions",
+            href: "/admin?tab=subscriptions",
+            icon: <span className="text-xl">💳</span>,
+            tabId: "subscriptions",
+          },
+          {
             title: "Treasury",
             href: "/admin?tab=treasury",
             icon: <span className="text-xl">💰</span>,
@@ -353,6 +365,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                 tabId: "shops-unsuspend",
               },
             ],
+          });
+          
+          // Also add Subscriptions if they can manage shops
+          adminItems.push({
+            title: "Subscriptions",
+            href: "/admin?tab=subscriptions",
+            icon: <span className="text-xl">💳</span>,
+            tabId: "subscriptions",
           });
         }
         

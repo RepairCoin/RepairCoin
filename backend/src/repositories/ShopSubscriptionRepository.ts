@@ -6,7 +6,7 @@ export interface ShopSubscription {
   shopId: string;
   status: 'pending' | 'active' | 'cancelled' | 'paused' | 'defaulted';
   monthlyAmount: number;
-  subscriptionType: 'standard' | 'premium' | 'custom';
+  subscriptionType: 'standard' | 'premium' | 'custom' | 'trial';
   billingMethod?: 'credit_card' | 'ach' | 'wire';
   billingReference?: string;
   paymentsMade: number;

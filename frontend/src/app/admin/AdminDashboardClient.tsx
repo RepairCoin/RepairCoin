@@ -15,6 +15,7 @@ import { ShopApplicationsTab } from "@/components/admin/ShopApplicationsTab";
 import { ShopsManagementTab } from "@/components/admin/ShopsManagementTab";
 import { TreasuryTab } from "@/components/admin/TreasuryTab";
 import { AnalyticsTab } from "@/components/admin/AnalyticsTab";
+import SubscriptionManagementTab from "@/components/admin/SubscriptionManagementTab";
 // UnsuspendRequestsTab removed - functionality integrated into Shop and Customer tabs
 import { CreateAdminTab } from "@/components/admin/CreateAdminTab";
 import { ShopReviewModal } from "@/components/admin/ShopReviewModal";
@@ -902,6 +903,9 @@ export default function AdminDashboardClient() {
               generateAdminToken={generateAdminToken}
               onError={setError}
             />
+          )}
+          {activeTab === "subscriptions" && hasPermission('manage_shops') && (
+            <SubscriptionManagementTab />
           )}
         </div>
       </div>
