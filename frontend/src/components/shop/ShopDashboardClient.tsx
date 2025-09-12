@@ -23,7 +23,7 @@ import { CustomersTab } from '@/components/shop/tabs/CustomersTab';
 import { useShopRegistration } from '@/hooks/useShopRegistration';
 import { OnboardingBanner } from '@/components/shop/OnboardingBanner';
 import { OperationalRequiredTab } from '@/components/shop/OperationalRequiredTab';
-import SubscriptionManagement from '@/components/shop/SubscriptionManagement';
+import { SubscriptionManagement } from '@/components/shop/SubscriptionManagement';
 
 const client = createThirdwebClient({
   clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "1969ac335e07ba13ad0f8d1a1de4f6ab",
