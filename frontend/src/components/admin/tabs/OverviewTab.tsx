@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   Users,
   Store,
@@ -36,7 +37,7 @@ interface OverviewTabProps {
 export const OverviewTab: React.FC<OverviewTabProps> = ({
   onQuickAction
 }) => {
-  const { stats, pendingShops, loading, generateAdminToken } = useAdminDashboard();
+  const router = useRouter();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(true);
   const [transactionFilter, setTransactionFilter] = useState('all');
@@ -186,43 +187,41 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         />
       </div>
 
-      {/* Two Column Layout: Recent Activity & Transactions (40/60 split) */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Left Column: Recent Transactions Timeline (60% width) */}
-        <div className="lg:col-span-3">
-          <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700/50">
-            <div className="px-6 py-4 border-b border-gray-700/50">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-xl font-bold text-white">Recent Transactions</h2>
-                </div>
-                <div className="flex gap-2">
-                  <select 
-                    className="px-3 py-1.5 bg-gray-700/50 border border-gray-600 rounded-lg text-sm text-gray-300 focus:outline-none focus:border-yellow-400"
-                    value={transactionFilter}
-                    onChange={(e) => setTransactionFilter(e.target.value)}
-                  >
-                    <option value="all">All Types</option>
-                    <option value="purchase">RCN Purchases</option>
-                    <option value="mint">Token Mints</option>
-                    <option value="redemption">Redemptions</option>
-                  </select>
-                </div>
-              </div>
+      {/* Recent Activity Section */}
+      <RecentActivitySection generateAdminToken={generateAdminToken} />
+
+      {/* Recent Transactions Section */}
+      <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700/50">
+        <div className="px-6 py-4 border-b border-gray-700/50">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-bold text-white">Recent Transactions</h2>
+              <p className="text-gray-400 text-sm mt-1">Latest platform transactions</p>
             </div>
-            <div className="overflow-x-auto">
-              <TransactionsTable 
-                transactions={transactions.filter(tx => transactionFilter === 'all' || tx.type === transactionFilter)} 
-                loading={transactionsLoading} 
-              />
+            <div className="flex gap-2">
+              <select 
+                className="px-3 py-1.5 bg-gray-700/50 border border-gray-600 rounded-lg text-sm text-gray-300 focus:outline-none focus:border-yellow-400"
+                value={transactionFilter}
+                onChange={(e) => setTransactionFilter(e.target.value)}
+              >
+                <option value="all">All Types</option>
+                <option value="purchase">RCN Purchases</option>
+                <option value="mint">Token Mints</option>
+                <option value="redemption">Redemptions</option>
+              </select>
+              <button 
+                onClick={() => router.push('/admin?tab=treasury')}
+                className="px-3 py-1.5 bg-yellow-500/20 border border-yellow-500/50 rounded-lg text-sm text-yellow-400 hover:bg-yellow-500/30 transition-colors"
+              >
+                View Treasury →
+              </button>
             </div>
           </div>
         </div>
-
-        {/* Right Column: Recent Activity Section (40% width) */}
-        <div className="lg:col-span-2">
-          <RecentActivityTimeline generateAdminToken={generateAdminToken} />
-        </div>
+        <TransactionsTable 
+          transactions={transactions.filter(tx => transactionFilter === 'all' || tx.type === transactionFilter)} 
+          loading={transactionsLoading} 
+        />
       </div>
     </div>
   );
