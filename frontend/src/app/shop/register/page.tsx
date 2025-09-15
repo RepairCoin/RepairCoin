@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { ConnectButton } from "thirdweb/react";
 import { createThirdwebClient } from "thirdweb";
 import { useShopRegistration } from '@/hooks/useShopRegistration';
@@ -11,6 +12,7 @@ const client = createThirdwebClient({
 });
 
 export default function ShopRegistration() {
+  const router = useRouter();
   const {
     formData,
     loading,
@@ -59,7 +61,7 @@ export default function ShopRegistration() {
           </p>
           
           <button
-            onClick={() => window.location.href = '/shop'}
+            onClick={() => router.push('/shop')}
             className="bg-[#FFCC00] text-black px-6 py-3 rounded-full font-semibold hover:bg-yellow-500 transition"
           >
             Go to Dashboard

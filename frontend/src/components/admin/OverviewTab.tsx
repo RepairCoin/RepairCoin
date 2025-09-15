@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   Users,
   Store,
@@ -57,6 +58,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   loading,
   generateAdminToken
 }) => {
+  const router = useRouter();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(true);
   const [transactionFilter, setTransactionFilter] = useState('all');
@@ -229,7 +231,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 <option value="redemption">Redemptions</option>
               </select>
               <button 
-                onClick={() => window.location.href = '/admin?tab=treasury'}
+                onClick={() => router.push('/admin?tab=treasury')}
                 className="px-3 py-1.5 bg-yellow-500/20 border border-yellow-500/50 rounded-lg text-sm text-yellow-400 hover:bg-yellow-500/30 transition-colors"
               >
                 View Treasury →
