@@ -1,7 +1,7 @@
 // backend/src/domains/shop/routes/tierBonus.ts
 import { Router, Request, Response } from 'express';
 import { tierBonusService } from '../services/TierBonusService';
-import { requireShopOrAdmin, requireShopOwnership } from '../../../middleware/auth';
+import { authMiddleware, requireShopOrAdmin, requireShopOwnership } from '../../../middleware/auth';
 import { logger } from '../../../utils/logger';
 
 const router = Router();
@@ -200,6 +200,7 @@ router.post('/preview', async (req: Request, res: Response) => {
  *         description: Internal server error
  */
 router.get('/stats/:shopId', 
+  authMiddleware,
   requireShopOrAdmin,
   requireShopOwnership,
   async (req: Request, res: Response) => {

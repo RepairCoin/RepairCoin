@@ -201,6 +201,12 @@ const Sidebar: React.FC<SidebarProps> = ({
           icon: <AnalyticsIcon width={24} height={24} />,
           tabId: "analytics",
         },
+        {
+          title: "Promo Codes",
+          href: "/shop?tab=promo-codes",
+          icon: <span className="text-xl">🏷️</span>,
+          tabId: "promo-codes",
+        },
       ];
     }
 
@@ -298,6 +304,12 @@ const Sidebar: React.FC<SidebarProps> = ({
             href: "/admin?tab=analytics",
             icon: <span className="text-xl">📈</span>,
             tabId: "analytics",
+          },
+          {
+            title: "Promo Codes",
+            href: "/admin?tab=promo-codes",
+            icon: <span className="text-xl">🏷️</span>,
+            tabId: "promo-codes",
           }
         );
       } else {
@@ -393,6 +405,16 @@ const Sidebar: React.FC<SidebarProps> = ({
             href: "/admin?tab=analytics",
             icon: <span className="text-xl">📈</span>,
             tabId: "analytics",
+          });
+        }
+        
+        // Show Promo Codes tab if user has manage_shops permission
+        if (adminPermissions.includes('manage_shops')) {
+          adminItems.push({
+            title: "Promo Codes",
+            href: "/admin?tab=promo-codes",
+            icon: <span className="text-xl">🏷️</span>,
+            tabId: "promo-codes",
           });
         }
       }

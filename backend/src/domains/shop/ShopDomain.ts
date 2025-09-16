@@ -1,12 +1,13 @@
 import { DomainModule } from '../types';
 import { eventBus, createDomainEvent } from '../../events/EventBus';
 import { logger } from '../../utils/logger';
-import shopRoutes from './routes/index'; // Use domain-based route
+import shopRoutes, { publicRouter as shopPublicRoutes } from './routes/index'; // Import both routers
 import { ShopService } from './services/ShopService';
 
 export class ShopDomain implements DomainModule {
   name = 'shops';
   routes = shopRoutes; // Use your existing shops route
+  publicRoutes = shopPublicRoutes; // Add public routes
   private shopService!: ShopService;
 
   async initialize(): Promise<void> {

@@ -174,7 +174,12 @@ export class ShopRepository extends BaseRepository {
         verifiedAt: 'verified_at',
         verifiedBy: 'verified_by',
         purchasedRcnBalance: 'purchased_rcn_balance',
-        totalRcnPurchased: 'total_rcn_purchased'
+        totalRcnPurchased: 'total_rcn_purchased',
+        rcg_balance: 'rcg_balance',
+        rcg_tier: 'rcg_tier',
+        tier_updated_at: 'tier_updated_at',
+        commitment_enrolled: 'commitment_enrolled',
+        operational_status: 'operational_status'
       };
 
       for (const [key, value] of Object.entries(updates)) {
@@ -452,7 +457,12 @@ export class ShopRepository extends BaseRepository {
         verifiedAt: row.verified_at,
         verifiedBy: row.verified_by,
         purchasedRcnBalance: parseFloat(row.purchased_rcn_balance || 0),
-        totalRcnPurchased: parseFloat(row.total_rcn_purchased || 0)
+        totalRcnPurchased: parseFloat(row.total_rcn_purchased || 0),
+        rcg_balance: parseFloat(row.rcg_balance || 0),
+        rcg_tier: row.rcg_tier,
+        tier_updated_at: row.tier_updated_at,
+        commitment_enrolled: row.commitment_enrolled,
+        operational_status: row.operational_status
       };
     } catch (error) {
       logger.error('Error fetching shop by wallet:', error);

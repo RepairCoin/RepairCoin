@@ -225,7 +225,7 @@ class ApiClient {
 
 // Create default API client instance
 const apiClient = new ApiClient({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'
 });
 
 // Export for use in components

@@ -103,7 +103,7 @@ class RepairCoinApp {
       },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'Cache-Control', 'Pragma', 'x-payment-page'],
       preflightContinue: false,
       optionsSuccessStatus: 204
     }));
@@ -113,6 +113,13 @@ class RepairCoinApp {
       crossOriginResourcePolicy: { policy: "cross-origin" },
       crossOriginOpenerPolicy: { policy: "unsafe-none" }
     }));
+    
+    // Raw body parsing for Stripe webhooks (MUST be before JSON parsing)
+    this.app.use('/api/shops/webhooks/stripe', 
+      express.raw({ type: 'application/json' })
+    );
+    
+    // JSON parsing for all other routes
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true }));
     
@@ -190,7 +197,15 @@ class RepairCoinApp {
     // Referral routes
     this.app.use('/api/referrals', referralRoutes);
     
-    // Domain routes
+    // Domain public routes (no auth) - MUST BE MOUNTED FIRST
+    domainRegistry.getAllDomains().forEach(domain => {
+      if (domain.publicRoutes) {
+        this.app.use(`/api/${domain.name}`, domain.publicRoutes);
+        logger.info(`Domain public route registered: /api/${domain.name} (no auth)`);
+      }
+    });
+    
+    // Domain routes (with auth)
     const routes = domainRegistry.getRoutes();
     Object.entries(routes).forEach(([path, router]) => {
       this.app.use(`/api${path}`, router);
@@ -330,11 +345,12 @@ class RepairCoinApp {
       monitoringService.startMonitoring(30); // Run checks every 30 minutes
       
       // Start subscription automated workflows
-      import('./services/SubscriptionService').then(({ subscriptionService }) => {
-        subscriptionService.startAutomatedWorkflows();
-        logger.info('💳 Subscription automated workflows started');
+      import('./services/PaymentRetryService').then(({ getPaymentRetryService }) => {
+        const paymentRetryService = getPaymentRetryService();
+        // Payment retry service starts automatically
+        logger.info('💳 Payment retry service started');
       }).catch(error => {
-        logger.error('Failed to start subscription workflows:', error);
+        logger.error('Failed to start payment retry service:', error);
       });
       logger.info(`🔍 Monitoring service started`);
       

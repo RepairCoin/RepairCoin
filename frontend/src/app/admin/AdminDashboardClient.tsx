@@ -16,6 +16,7 @@ import { ShopsManagementTab } from "@/components/admin/ShopsManagementTab";
 import { TreasuryTab } from "@/components/admin/TreasuryTab";
 import { AnalyticsTab } from "@/components/admin/AnalyticsTab";
 import SubscriptionManagementTab from "@/components/admin/SubscriptionManagementTab";
+import PromoCodesAnalyticsTab from "@/components/admin/PromoCodesAnalyticsTab";
 // UnsuspendRequestsTab removed - functionality integrated into Shop and Customer tabs
 import { CreateAdminTab } from "@/components/admin/CreateAdminTab";
 import { ShopReviewModal } from "@/components/admin/ShopReviewModal";
@@ -27,7 +28,7 @@ const client = createThirdwebClient({
     "1969ac335e07ba13ad0f8d1a1de4f6ab",
 });
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 interface PlatformStats {
   totalCustomers: number;
@@ -906,6 +907,12 @@ export default function AdminDashboardClient() {
           )}
           {activeTab === "subscriptions" && hasPermission('manage_shops') && (
             <SubscriptionManagementTab />
+          )}
+          {activeTab === "promo-codes" && hasPermission('manage_shops') && (
+            <PromoCodesAnalyticsTab
+              generateAdminToken={generateAdminToken}
+              onError={setError}
+            />
           )}
         </div>
       </div>

@@ -111,8 +111,25 @@ export class RCGTokenReader {
       
       // Convert BigInt to string and format to 18 decimals
       const balanceInWei = balance.toString();
-      const balanceFormatted = (Number(balanceInWei) / 1e18).toFixed(6);
-      return balanceFormatted;
+      
+      // Handle large BigInt values properly
+      // RCG has 18 decimals, so we need to divide by 10^18
+      const divisor = BigInt(10) ** BigInt(18);
+      const wholePart = balance / divisor;
+      const remainder = balance % divisor;
+      
+      // Format the whole part
+      const wholePartStr = wholePart.toString();
+      
+      // For small remainders, we can just use the whole part
+      // This avoids precision issues with very large numbers
+      if (remainder < BigInt(1000000000000)) { // Less than 0.000001 tokens
+        return wholePartStr;
+      }
+      
+      // Otherwise, calculate decimal places for significant remainders
+      const decimalPart = (Number(remainder) / 1e18).toFixed(6).substring(2);
+      return `${wholePartStr}.${decimalPart}`;
     } catch (error) {
       console.error('Failed to get RCG balance:', error);
       return '0';

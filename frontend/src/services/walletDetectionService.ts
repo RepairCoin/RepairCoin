@@ -15,7 +15,7 @@ export class WalletDetectionService {
   private apiUrl: string;
 
   private constructor() {
-    this.apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+    this.apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
   }
 
   static getInstance(): WalletDetectionService {

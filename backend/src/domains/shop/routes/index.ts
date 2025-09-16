@@ -1469,7 +1469,21 @@ router.get('/:shopId/transactions',
 router.use('/', rcgRoutes);
 
 // Mount subscription routes
-import subscriptionRoutes from '../../../routes/shop/subscription';
-router.use('/subscription', subscriptionRoutes);
+import subscriptionRoutes, { publicRouter as subscriptionPublicRoutes } from './subscription';
+router.use('/', subscriptionPublicRoutes); // Mount public routes first (no auth)
+router.use('/', subscriptionRoutes); // Then mount authenticated routes
 
+// Mount webhook routes - MUST BE PUBLIC FOR STRIPE
+import webhookRoutes from './webhooks';
+
+// Create a public router for webhooks (no auth)
+const publicRouter = Router();
+publicRouter.use('/webhooks', webhookRoutes);
+
+// Mount promo code routes
+import promoCodeRoutes from './promoCodes';
+router.use('/', promoCodeRoutes);
+
+// Export both routers
 export default router;
+export { publicRouter };

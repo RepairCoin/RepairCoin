@@ -34,9 +34,26 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
   const [subscribing, setSubscribing] = useState(false);
   const [cancellationReason, setCancellationReason] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [billingForm, setBillingForm] = useState({
+    billingEmail: '',
+    billingContact: '',
+    billingPhone: ''
+  });
 
   useEffect(() => {
     loadSubscriptionStatus();
+    
+    // Prefill form with shop data if available
+    const shopData = JSON.parse(localStorage.getItem('shopData') || '{}');
+    if (shopData) {
+      setBillingForm(prev => ({
+        ...prev,
+        billingEmail: shopData.email || '',
+        billingContact: `${shopData.firstName || ''} ${shopData.lastName || ''}`.trim() || shopData.ownerName || '',
+        billingPhone: shopData.phoneNumber || ''
+      }));
+    }
   }, [shopId]);
 
   const loadSubscriptionStatus = async () => {
@@ -56,12 +73,22 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
       });
 
       if (!response.ok) {
-        throw new Error('Failed to load subscription status');
+        const errorData = await response.json().catch(() => null);
+        console.error('Subscription status error:', response.status, errorData);
+        throw new Error(errorData?.error || 'Failed to load subscription status');
       }
 
       const result = await response.json();
       if (result.success && result.data.currentSubscription) {
         setSubscription(result.data.currentSubscription);
+        console.log('✅ SUBSCRIPTION STATUS: TRUE - Active subscription found:', {
+          subscriptionId: result.data.currentSubscription.id,
+          status: result.data.currentSubscription.status,
+          subscriptionType: result.data.currentSubscription.subscriptionType,
+          monthlyAmount: result.data.currentSubscription.monthlyAmount
+        });
+      } else {
+        console.log('❌ SUBSCRIPTION STATUS: FALSE - No active subscription found');
       }
     } catch (error) {
       console.error('Error loading subscription:', error);
@@ -76,6 +103,13 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
       setSubscribing(true);
       setError(null);
 
+      // Validate form
+      if (!billingForm.billingEmail || !billingForm.billingContact) {
+        setError('Please fill in all required fields');
+        setSubscribing(false);
+        return;
+      }
+
       const token = localStorage.getItem('shopAuthToken');
       if (!token) {
         throw new Error('Authentication required');
@@ -88,22 +122,55 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          billingMethod: 'credit_card',
+          billingMethod: 'credit_card', // Always credit card now
+          billingEmail: billingForm.billingEmail,
+          billingContact: billingForm.billingContact,
+          billingPhone: billingForm.billingPhone,
           notes: 'Monthly subscription enrollment'
         })
       });
 
       const result = await response.json();
       
-      if (!response.ok) {
+      // Check if response is successful (2xx status codes)
+      if (!response.ok && !(response.status >= 200 && response.status < 300)) {
         throw new Error(result.error || 'Failed to create subscription');
       }
+      
+      // If we get a successful response, check if it's because of existing pending subscription
+      if (!result.success && result.error) {
+        throw new Error(result.error);
+      }
 
-      setSubscription(result.data);
+      // Update subscription state with the enrollment data
+      if (result.data.enrollment) {
+        setSubscription({
+          ...result.data.enrollment,
+          subscriptionType: 'monthly_commitment'
+        });
+      }
       setShowSubscribeModal(false);
       
-      // Show success message
-      alert('Subscription created successfully! Please wait for payment setup instructions.');
+      // Handle pending subscription resume
+      if (result.data.isPendingResume) {
+        setSuccessMessage(result.data.message);
+        // Redirect to payment page for pending subscriptions
+        if (result.data.paymentUrl) {
+          setTimeout(() => {
+            window.location.href = result.data.paymentUrl;
+          }, 2000);
+        }
+      } else if (result.data.paymentUrl) {
+        // Handle payment redirect for new subscriptions
+        setSuccessMessage('Redirecting to secure payment...');
+        setTimeout(() => {
+          window.location.href = result.data.paymentUrl;
+        }, 1500);
+      } else {
+        // Show success message
+        setSuccessMessage(result.data.nextSteps || result.data.message);
+        setTimeout(() => setSuccessMessage(null), 10000);
+      }
     } catch (error) {
       console.error('Error subscribing:', error);
       setError(error instanceof Error ? error.message : 'Failed to subscribe');
@@ -139,12 +206,24 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
         throw new Error(result.error || 'Failed to cancel subscription');
       }
 
-      setSubscription(result.data);
+      // Update subscription state
+      if (result.data.enrollment) {
+        setSubscription({
+          ...result.data.enrollment,
+          subscriptionType: 'monthly_commitment'
+        });
+      } else {
+        // Reload to get updated status
+        await loadSubscriptionStatus();
+      }
       setShowCancelModal(false);
       setCancellationReason('');
       
       // Show success message
-      alert('Subscription cancelled successfully. You can resubscribe at any time.');
+      setSuccessMessage(result.data.message || 'Subscription cancelled successfully. You can resubscribe at any time.');
+      
+      // Clear success message after 10 seconds
+      setTimeout(() => setSuccessMessage(null), 10000);
     } catch (error) {
       console.error('Error cancelling subscription:', error);
       setError(error instanceof Error ? error.message : 'Failed to cancel subscription');
@@ -211,6 +290,15 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
     <div className="bg-[#212121] rounded-2xl shadow-xl p-6">
       <h3 className="text-2xl font-bold text-[#FFCC00] mb-6">Monthly Subscription</h3>
       
+      {successMessage && (
+        <div className="bg-green-900/20 border border-green-700 rounded-lg p-4 mb-6">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-5 h-5 text-green-400" />
+            <p className="text-green-300">{successMessage}</p>
+          </div>
+        </div>
+      )}
+
       {error && (
         <div className="bg-red-900/20 border border-red-700 rounded-lg p-4 mb-6">
           <div className="flex items-center gap-2">
@@ -285,15 +373,60 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
           </div>
         </div>
       ) : subscription && subscription.status === 'pending' ? (
-        <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-4">
-          <div className="flex items-center gap-3">
-            <AlertCircle className="w-6 h-6 text-yellow-400" />
-            <div>
-              <h4 className="text-lg font-semibold text-yellow-400">Subscription Pending</h4>
-              <p className="text-sm text-gray-300 mt-1">
-                Your subscription request has been submitted. Please wait for payment setup instructions.
-              </p>
+        <div className="space-y-6">
+          <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-4">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-6 h-6 text-yellow-400" />
+              <div className="flex-1">
+                <h4 className="text-lg font-semibold text-yellow-400">Subscription Pending</h4>
+                <p className="text-sm text-gray-300 mt-1">
+                  Your subscription request has been submitted. Please complete the payment setup to activate your subscription.
+                </p>
+              </div>
             </div>
+          </div>
+          
+          {/* Subscription Details */}
+          <div className="bg-gray-800 rounded-lg p-6">
+            <h4 className="text-lg font-semibold text-white mb-4">Subscription Details</h4>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Monthly Amount:</span>
+                <span className="text-white font-medium">${subscription.monthlyAmount}/mo</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Term:</span>
+                <span className="text-white font-medium">{subscription.termMonths || 6} months</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Total Commitment:</span>
+                <span className="text-white font-medium">${subscription.totalCommitment || (subscription.monthlyAmount * 6)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Payment Method:</span>
+                <span className="text-white font-medium">Credit Card</span>
+              </div>
+            </div>
+          </div>
+          
+          {/* Action Buttons */}
+          <div className="flex gap-3">
+            <Button
+              onClick={() => {
+                const paymentUrl = `${process.env.NEXT_PUBLIC_APP_URL}/shop/subscription/payment/${subscription.id}`;
+                window.location.href = paymentUrl;
+              }}
+              className="bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold"
+            >
+              Complete Payment Setup
+            </Button>
+            <Button
+              onClick={() => setShowCancelModal(true)}
+              variant="outline"
+              className="border-red-600 text-red-600 hover:bg-red-600 hover:text-white"
+            >
+              Cancel Subscription Request
+            </Button>
           </div>
         </div>
       ) : (
@@ -373,8 +506,70 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
               </ul>
             </div>
             
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-sm text-red-600">{error}</p>
+              </div>
+            )}
+            
+            <div className="space-y-3">
+              <div>
+                <label htmlFor="billingContact" className="block text-sm font-medium mb-1">
+                  Billing Contact Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="billingContact"
+                  value={billingForm.billingContact}
+                  onChange={(e) => setBillingForm({ ...billingForm, billingContact: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFCC00]"
+                  placeholder="John Doe"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="billingEmail" className="block text-sm font-medium mb-1">
+                  Billing Email <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  id="billingEmail"
+                  value={billingForm.billingEmail}
+                  onChange={(e) => setBillingForm({ ...billingForm, billingEmail: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFCC00]"
+                  placeholder="billing@example.com"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="billingPhone" className="block text-sm font-medium mb-1">
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  id="billingPhone"
+                  value={billingForm.billingPhone}
+                  onChange={(e) => setBillingForm({ ...billingForm, billingPhone: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFCC00]"
+                  placeholder="+1 (555) 123-4567"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="paymentMethod" className="block text-sm font-medium mb-1">
+                  Payment Method
+                </label>
+                <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
+                  <CreditCard className="w-5 h-5 text-gray-600" />
+                  <span className="text-gray-700 font-medium">Credit Card (via Stripe)</span>
+                </div>
+              </div>
+            </div>
+            
             <div className="text-sm text-gray-500">
-              After subscribing, you'll receive payment setup instructions via email.
+              You'll be redirected to Stripe to securely complete your subscription setup.
             </div>
           </div>
 

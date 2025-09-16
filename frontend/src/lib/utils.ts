@@ -20,3 +20,25 @@ export function formatNumber(value: number): string {
     minimumFractionDigits: 0,
   }).format(value)
 }
+
+export function formatRCGBalance(value: number): string {
+  // For RCG balances, show exact values when close to tier thresholds
+  const tierThresholds = [10000, 50000, 200000];
+  
+  // Check if the value is within 5% of any tier threshold
+  for (const threshold of tierThresholds) {
+    const lowerBound = threshold * 0.95;
+    const upperBound = threshold * 1.05;
+    
+    if (value >= lowerBound && value <= upperBound) {
+      // Show exact value with comma formatting
+      return new Intl.NumberFormat('en-US', {
+        maximumFractionDigits: 0,
+        minimumFractionDigits: 0,
+      }).format(value);
+    }
+  }
+  
+  // Otherwise use the normal formatting
+  return formatNumber(value);
+}

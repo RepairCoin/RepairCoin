@@ -66,7 +66,7 @@ cp .env.example .env.local
 ```env
 NEXT_PUBLIC_THIRDWEB_CLIENT_ID=your_thirdweb_client_id
 NEXT_PUBLIC_CONTRACT_ADDRESS=0xd92ced7c3f4D8E42C05A4c558F37dA6DC731d5f5
-NEXT_PUBLIC_API_URL=http://localhost:3000/api
+NEXT_PUBLIC_API_URL=http://localhost:4000/api
 NEXT_PUBLIC_ADMIN_ADDRESS=your_admin_wallet_address
 ```
 

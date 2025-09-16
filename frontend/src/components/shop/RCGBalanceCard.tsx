@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ExternalLink, TrendingUp, Award } from 'lucide-react';
 import { useRCGBalance } from '@/hooks/useRCGBalance';
-import { formatNumber } from '@/lib/utils';
+import { formatNumber, formatRCGBalance } from '@/lib/utils';
 import { RCGPurchaseModal } from './RCGPurchaseModal';
 
 interface RCGBalanceCardProps {
@@ -76,7 +76,7 @@ export function RCGBalanceCard({ shopId }: RCGBalanceCardProps) {
         {/* Balance Display */}
         <div>
           <p className="text-sm text-gray-400">Your Balance</p>
-          <p className="text-3xl font-bold text-white">{formatNumber(rcgInfo.balance)} RCG</p>
+          <p className="text-3xl font-bold text-white">{formatRCGBalance(rcgInfo.balance)} RCG</p>
         </div>
 
         {/* Current Tier */}
@@ -110,11 +110,11 @@ export function RCGBalanceCard({ shopId }: RCGBalanceCardProps) {
             </div>
             <Progress value={progressPercentage} className="h-2 bg-gray-700" />
             <div className="flex justify-between text-sm text-gray-400">
-              <span>{formatNumber(rcgInfo.balance)} RCG</span>
-              <span>{formatNumber(rcgInfo.nextTierInfo.required)} RCG</span>
+              <span>{formatRCGBalance(rcgInfo.balance)} RCG</span>
+              <span>{formatRCGBalance(rcgInfo.nextTierInfo.required)} RCG</span>
             </div>
             <div className="bg-blue-900/20 rounded-lg p-3 space-y-2">
-              <p className="text-sm font-medium text-blue-300">Need {formatNumber(rcgInfo.nextTierInfo.tokensNeeded)} more RCG</p>
+              <p className="text-sm font-medium text-blue-300">Need {rcgInfo.nextTierInfo.tokensNeeded < 100 ? rcgInfo.nextTierInfo.tokensNeeded : formatNumber(rcgInfo.nextTierInfo.tokensNeeded)} more RCG</p>
               <p className="text-xs text-gray-400">
                 Unlock ${rcgInfo.nextTierInfo.benefits.rcnPrice.toFixed(2)} per RCN ({rcgInfo.nextTierInfo.benefits.discount} discount)
               </p>

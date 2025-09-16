@@ -277,12 +277,32 @@ async function validateUserInDatabase(tokenPayload: JWTPayload): Promise<boolean
         return await adminService.checkAdminAccess(tokenPayload.address);
         
       case 'shop':
-        if (!tokenPayload.shopId) return false;
+        if (!tokenPayload.shopId) {
+          logger.warn('Shop token missing shopId', { address: tokenPayload.address });
+          return false;
+        }
         const shop = await shopRepository.getShop(tokenPayload.shopId);
-        return shop !== null && 
-               shop.active && 
-               shop.verified && 
-               shop.walletAddress.toLowerCase() === tokenPayload.address.toLowerCase();
+        if (!shop) {
+          logger.warn('Shop not found', { shopId: tokenPayload.shopId });
+          return false;
+        }
+        if (!shop.active) {
+          logger.warn('Shop not active', { shopId: tokenPayload.shopId });
+          return false;
+        }
+        if (!shop.verified) {
+          logger.warn('Shop not verified', { shopId: tokenPayload.shopId });
+          return false;
+        }
+        if (shop.walletAddress.toLowerCase() !== tokenPayload.address.toLowerCase()) {
+          logger.warn('Shop wallet address mismatch', { 
+            shopId: tokenPayload.shopId,
+            shopWallet: shop.walletAddress.toLowerCase(),
+            tokenWallet: tokenPayload.address.toLowerCase()
+          });
+          return false;
+        }
+        return true;
         
       case 'customer':
         const customer = await customerRepository.getCustomer(tokenPayload.address);

@@ -1,323 +1,379 @@
-import { shopSubscriptionRepository, shopRepository } from '../repositories';
-import { EmailService } from './EmailService';
+import { Pool } from 'pg';
+import { getStripeService, StripeService } from './StripeService';
 import { logger } from '../utils/logger';
-import cron from 'node-cron';
+import { BaseRepository } from '../repositories/BaseRepository';
+import { eventBus } from '../events/EventBus';
 
-export interface SubscriptionConfig {
-  gracePeriodDays: number;
-  warningDays: number[];
-  trialPeriodDays: number;
-  defaultMonthlyAmount: number;
+export interface SubscriptionData {
+  id: number;
+  shopId: string;
+  stripeCustomerId: string;
+  stripeSubscriptionId: string;
+  stripePriceId: string;
+  status: 'active' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete';
+  currentPeriodStart: Date;
+  currentPeriodEnd: Date;
+  cancelAtPeriodEnd: boolean;
+  canceledAt?: Date;
+  endedAt?: Date;
+  trialEnd?: Date;
+  metadata: Record<string, any>;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-export class SubscriptionService {
-  private emailService: EmailService;
-  private config: SubscriptionConfig;
-  private cronJobs: Map<string, cron.ScheduledTask> = new Map();
+export interface CustomerData {
+  id: number;
+  shopId: string;
+  stripeCustomerId: string;
+  email: string;
+  name?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
-  constructor(config?: Partial<SubscriptionConfig>) {
-    this.emailService = new EmailService();
-    this.config = {
-      gracePeriodDays: 7,
-      warningDays: [7, 3, 1], // Send warnings at 7, 3, and 1 days before due
-      trialPeriodDays: 14,
-      defaultMonthlyAmount: 500,
-      ...config
+export class SubscriptionService extends BaseRepository {
+  private stripeService: StripeService;
+
+  constructor() {
+    super();
+    this.stripeService = getStripeService();
+  }
+
+  /**
+   * Create a new subscription for a shop
+   */
+  async createSubscription(shopId: string, email: string, name: string, paymentMethodId?: string): Promise<{
+    subscription: SubscriptionData;
+    clientSecret?: string;
+  }> {
+    const client = await this.pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+
+      // Check if shop already has an active subscription
+      const existingQuery = `
+        SELECT s.*, sc.stripe_customer_id 
+        FROM stripe_subscriptions s
+        JOIN stripe_customers sc ON s.stripe_customer_id = sc.stripe_customer_id
+        WHERE s.shop_id = $1 AND s.status IN ('active', 'past_due', 'unpaid')
+      `;
+      const existingResult = await client.query(existingQuery, [shopId]);
+      
+      if (existingResult.rows.length > 0) {
+        throw new Error('Shop already has an active subscription');
+      }
+
+      // Get or create Stripe customer
+      let customer = await this.getCustomerByShopId(shopId);
+      
+      if (!customer) {
+        const stripeCustomer = await this.stripeService.createCustomer({
+          email,
+          name,
+          shopId,
+          metadata: { shopId }
+        });
+
+        // Save customer to database
+        const customerQuery = `
+          INSERT INTO stripe_customers (shop_id, stripe_customer_id, email, name)
+          VALUES ($1, $2, $3, $4)
+          RETURNING *
+        `;
+        const customerResult = await client.query(customerQuery, [
+          shopId,
+          stripeCustomer.id,
+          email,
+          name
+        ]);
+        
+        customer = this.mapCustomerRow(customerResult.rows[0]);
+      }
+
+      // Get price ID from environment
+      const priceId = process.env.STRIPE_MONTHLY_PRICE_ID!;
+
+      // Create Stripe subscription
+      const stripeSubscription = await this.stripeService.createSubscription({
+        customerId: customer.stripeCustomerId,
+        priceId,
+        paymentMethodId,
+        metadata: { shopId }
+      });
+      
+      logger.debug('Stripe subscription object structure', {
+        id: stripeSubscription.id,
+        status: stripeSubscription.status,
+        current_period_start: (stripeSubscription as any).current_period_start,
+        current_period_end: (stripeSubscription as any).current_period_end,
+        hasLatestInvoice: !!stripeSubscription.latest_invoice
+      });
+
+      // Save subscription to database
+      const subscriptionQuery = `
+        INSERT INTO stripe_subscriptions (
+          shop_id, stripe_customer_id, stripe_subscription_id, stripe_price_id,
+          status, current_period_start, current_period_end, cancel_at_period_end,
+          trial_end, metadata
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING *
+      `;
+
+      // Extract dates from Stripe subscription
+      const currentPeriodStart = (stripeSubscription as any).current_period_start || 
+                                 (stripeSubscription as any).currentPeriodStart ||
+                                 Math.floor(Date.now() / 1000);
+      const currentPeriodEnd = (stripeSubscription as any).current_period_end || 
+                               (stripeSubscription as any).currentPeriodEnd ||
+                               Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60); // 30 days
+      
+      const subscriptionResult = await client.query(subscriptionQuery, [
+        shopId,
+        customer.stripeCustomerId,
+        stripeSubscription.id,
+        priceId,
+        stripeSubscription.status,
+        new Date(currentPeriodStart * 1000),
+        new Date(currentPeriodEnd * 1000),
+        stripeSubscription.cancel_at_period_end || false,
+        stripeSubscription.trial_end ? new Date(stripeSubscription.trial_end * 1000) : null,
+        JSON.stringify(stripeSubscription.metadata || {})
+      ]);
+
+      await client.query('COMMIT');
+
+      const subscription = this.mapSubscriptionRow(subscriptionResult.rows[0]);
+
+      // Publish event
+      eventBus.publish({
+        type: 'subscription.created',
+        aggregateId: shopId,
+        timestamp: new Date(),
+        source: 'SubscriptionService',
+        version: 1,
+        data: { 
+          subscriptionId: subscription.stripeSubscriptionId,
+          status: subscription.status,
+          priceId: subscription.stripePriceId
+        }
+      });
+
+      logger.info('Subscription created successfully', {
+        shopId,
+        subscriptionId: subscription.stripeSubscriptionId,
+        status: subscription.status
+      });
+
+      // Extract client secret if payment requires confirmation
+      let clientSecret: string | undefined;
+      if (stripeSubscription.latest_invoice && 
+          typeof stripeSubscription.latest_invoice === 'object' &&
+          (stripeSubscription.latest_invoice as any).payment_intent &&
+          typeof (stripeSubscription.latest_invoice as any).payment_intent === 'object') {
+        clientSecret = ((stripeSubscription.latest_invoice as any).payment_intent as any).client_secret || undefined;
+      }
+
+      return { subscription, clientSecret };
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      logger.error('Failed to create subscription', {
+        shopId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Get active subscription for shop
+   */
+  async getActiveSubscription(shopId: string): Promise<SubscriptionData | null> {
+    const query = `
+      SELECT * FROM stripe_subscriptions 
+      WHERE shop_id = $1 AND status IN ('active', 'past_due', 'unpaid')
+      ORDER BY created_at DESC LIMIT 1
+    `;
+    const result = await this.pool.query(query, [shopId]);
+    
+    console.log('🔍 SUBSCRIPTION SERVICE - Database query result for shop:', {
+      shopId,
+      rowsFound: result.rows.length,
+      subscriptions: result.rows.map(row => ({
+        id: row.id,
+        stripe_subscription_id: row.stripe_subscription_id,
+        status: row.status,
+        created_at: row.created_at
+      }))
+    });
+    
+    return result.rows.length > 0 ? this.mapSubscriptionRow(result.rows[0]) : null;
+  }
+
+  /**
+   * Get customer by shop ID
+   */
+  async getCustomerByShopId(shopId: string): Promise<CustomerData | null> {
+    const query = `SELECT * FROM stripe_customers WHERE shop_id = $1`;
+    const result = await this.pool.query(query, [shopId]);
+    
+    return result.rows.length > 0 ? this.mapCustomerRow(result.rows[0]) : null;
+  }
+
+  /**
+   * Create a subscription record in the database (used for tracking pending subscriptions)
+   */
+  async createSubscriptionRecord(params: {
+    shopId: string;
+    stripeCustomerId: string;
+    stripeSubscriptionId: string;
+    stripePriceId: string;
+    status: 'incomplete' | 'active' | 'past_due' | 'canceled' | 'unpaid';
+    metadata?: Record<string, any>;
+  }): Promise<SubscriptionData> {
+    const query = `
+      INSERT INTO stripe_subscriptions (
+        shop_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, 
+        status, metadata, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      RETURNING *
+    `;
+    
+    const result = await this.pool.query(query, [
+      params.shopId,
+      params.stripeCustomerId,
+      params.stripeSubscriptionId,
+      params.stripePriceId,
+      params.status,
+      JSON.stringify(params.metadata || {})
+    ]);
+    
+    return this.mapSubscriptionRow(result.rows[0]);
+  }
+
+  /**
+   * Cancel subscription
+   */
+  async cancelSubscription(shopId: string, immediately: boolean = false): Promise<SubscriptionData> {
+    const client = await this.pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+
+      // Get active subscription
+      const subscription = await this.getActiveSubscription(shopId);
+      if (!subscription) {
+        throw new Error('No active subscription found');
+      }
+
+      // Cancel in Stripe
+      const updatedStripeSubscription = await this.stripeService.cancelSubscription(
+        subscription.stripeSubscriptionId,
+        immediately
+      );
+
+      // Update subscription in database
+      const updateQuery = `
+        UPDATE stripe_subscriptions 
+        SET 
+          status = $1,
+          cancel_at_period_end = $2,
+          canceled_at = $3,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE stripe_subscription_id = $4
+        RETURNING *
+      `;
+
+      const updateResult = await client.query(updateQuery, [
+        updatedStripeSubscription.status,
+        updatedStripeSubscription.cancel_at_period_end,
+        updatedStripeSubscription.canceled_at ? new Date(updatedStripeSubscription.canceled_at * 1000) : new Date(),
+        subscription.stripeSubscriptionId
+      ]);
+
+      await client.query('COMMIT');
+
+      const updatedSubscription = this.mapSubscriptionRow(updateResult.rows[0]);
+
+      // Publish event
+      eventBus.publish({
+        type: 'subscription.canceled',
+        aggregateId: shopId,
+        timestamp: new Date(),
+        source: 'SubscriptionService',
+        version: 1,
+        data: {
+          subscriptionId: subscription.stripeSubscriptionId,
+          immediately,
+          cancelAtPeriodEnd: updatedSubscription.cancelAtPeriodEnd
+        }
+      });
+
+      logger.info('Subscription canceled successfully', {
+        shopId,
+        subscriptionId: subscription.stripeSubscriptionId,
+        immediately,
+        status: updatedSubscription.status
+      });
+
+      return updatedSubscription;
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      logger.error('Failed to cancel subscription', {
+        shopId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  // Row mapping methods
+  private mapSubscriptionRow(row: any): SubscriptionData {
+    return {
+      id: row.id,
+      shopId: row.shop_id,
+      stripeCustomerId: row.stripe_customer_id,
+      stripeSubscriptionId: row.stripe_subscription_id,
+      stripePriceId: row.stripe_price_id,
+      status: row.status,
+      currentPeriodStart: row.current_period_start,
+      currentPeriodEnd: row.current_period_end,
+      cancelAtPeriodEnd: row.cancel_at_period_end,
+      canceledAt: row.canceled_at,
+      endedAt: row.ended_at,
+      trialEnd: row.trial_end,
+      metadata: row.metadata || {},
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
     };
   }
 
-  /**
-   * Start automated subscription workflows
-   */
-  startAutomatedWorkflows() {
-    // Check for overdue payments daily at 2 AM
-    const overdueJob = cron.schedule('0 2 * * *', async () => {
-      await this.processOverdueSubscriptions();
-    });
-    this.cronJobs.set('overdue', overdueJob);
-
-    // Send payment reminders daily at 10 AM
-    const reminderJob = cron.schedule('0 10 * * *', async () => {
-      await this.sendPaymentReminders();
-    });
-    this.cronJobs.set('reminder', reminderJob);
-
-    // Process trial expirations daily at 12 PM
-    const trialJob = cron.schedule('0 12 * * *', async () => {
-      await this.processTrialExpirations();
-    });
-    this.cronJobs.set('trial', trialJob);
-
-    logger.info('Subscription automated workflows started');
-  }
-
-  /**
-   * Stop all automated workflows
-   */
-  stopAutomatedWorkflows() {
-    this.cronJobs.forEach((job, name) => {
-      job.stop();
-      logger.info(`Stopped cron job: ${name}`);
-    });
-    this.cronJobs.clear();
-  }
-
-  /**
-   * Process overdue subscriptions and handle grace period
-   */
-  async processOverdueSubscriptions() {
-    try {
-      logger.info('Processing overdue subscriptions...');
-      
-      const overdue = await shopSubscriptionRepository.getOverduePayments();
-      
-      for (const subscription of overdue) {
-        const daysOverdue = this.calculateDaysOverdue(subscription.nextPaymentDate);
-        
-        if (daysOverdue > this.config.gracePeriodDays) {
-          // Grace period exceeded - default the subscription
-          await this.defaultSubscription(subscription);
-        } else {
-          // Still in grace period - send warning
-          await this.sendOverdueNotice(subscription, daysOverdue);
-        }
-      }
-      
-      // Use repository method to bulk default subscriptions
-      const defaultedCount = await shopSubscriptionRepository.checkAndDefaultOverdueSubscriptions(
-        this.config.gracePeriodDays
-      );
-      
-      logger.info(`Processed overdue subscriptions. Defaulted: ${defaultedCount}`);
-    } catch (error) {
-      logger.error('Error processing overdue subscriptions:', error);
-    }
-  }
-
-  /**
-   * Send payment reminders before due date
-   */
-  async sendPaymentReminders() {
-    try {
-      logger.info('Sending payment reminders...');
-      
-      const activeSubscriptions = await shopSubscriptionRepository.getActiveSubscriptions();
-      let remindersSent = 0;
-      
-      for (const subscription of activeSubscriptions) {
-        if (!subscription.nextPaymentDate) continue;
-        
-        const daysUntilDue = this.calculateDaysUntilDue(subscription.nextPaymentDate);
-        
-        // Check if we should send a reminder today
-        if (this.config.warningDays.includes(daysUntilDue)) {
-          await this.sendPaymentReminder(subscription, daysUntilDue);
-          remindersSent++;
-        }
-      }
-      
-      logger.info(`Payment reminders sent: ${remindersSent}`);
-    } catch (error) {
-      logger.error('Error sending payment reminders:', error);
-    }
-  }
-
-  /**
-   * Process trial period expirations
-   */
-  async processTrialExpirations() {
-    try {
-      logger.info('Processing trial expirations...');
-      
-      // This would check for shops on trial and convert them to paid
-      // Implementation depends on trial period feature being added
-      
-    } catch (error) {
-      logger.error('Error processing trial expirations:', error);
-    }
-  }
-
-  /**
-   * Default a subscription after grace period
-   */
-  private async defaultSubscription(subscription: any) {
-    try {
-      const shop = await shopRepository.getShop(subscription.shopId);
-      if (!shop) return;
-      
-      // Mark subscription as defaulted
-      await shopSubscriptionRepository.markAsDefaulted(
-        subscription.id,
-        Math.ceil(this.calculateDaysOverdue(subscription.nextPaymentDate) / 30)
-      );
-      
-      // Send defaulted notification
-      await this.emailService.sendSubscriptionDefaulted({
-        shopEmail: shop.email,
-        shopName: shop.name,
-        amountDue: subscription.monthlyAmount,
-        daysPastDue: this.calculateDaysOverdue(subscription.nextPaymentDate)
-      });
-      
-      logger.info(`Subscription defaulted for shop ${subscription.shopId}`);
-    } catch (error) {
-      logger.error(`Error defaulting subscription ${subscription.id}:`, error);
-    }
-  }
-
-  /**
-   * Send overdue notice
-   */
-  private async sendOverdueNotice(subscription: any, daysOverdue: number) {
-    try {
-      const shop = await shopRepository.getShop(subscription.shopId);
-      if (!shop) return;
-      
-      const daysRemaining = this.config.gracePeriodDays - daysOverdue;
-      
-      await this.emailService.sendPaymentOverdue({
-        shopEmail: shop.email,
-        shopName: shop.name,
-        amountDue: subscription.monthlyAmount,
-        daysOverdue,
-        gracePeriodRemaining: daysRemaining,
-        suspensionDate: new Date(Date.now() + daysRemaining * 24 * 60 * 60 * 1000)
-      });
-      
-    } catch (error) {
-      logger.error(`Error sending overdue notice for subscription ${subscription.id}:`, error);
-    }
-  }
-
-  /**
-   * Send payment reminder
-   */
-  private async sendPaymentReminder(subscription: any, daysUntilDue: number) {
-    try {
-      const shop = await shopRepository.getShop(subscription.shopId);
-      if (!shop) return;
-      
-      await this.emailService.sendPaymentReminder({
-        shopEmail: shop.email,
-        shopName: shop.name,
-        amountDue: subscription.monthlyAmount,
-        dueDate: new Date(subscription.nextPaymentDate),
-        daysUntilDue
-      });
-      
-    } catch (error) {
-      logger.error(`Error sending payment reminder for subscription ${subscription.id}:`, error);
-    }
-  }
-
-  /**
-   * Reactivate a cancelled subscription
-   */
-  async reactivateSubscription(shopId: string, paymentMethod?: string) {
-    try {
-      // Check if shop can subscribe
-      const eligibility = await shopSubscriptionRepository.canShopSubscribe(shopId);
-      if (!eligibility.canSubscribe) {
-        throw new Error(eligibility.reason || 'Shop cannot subscribe');
-      }
-      
-      // Create new subscription
-      const subscription = await shopSubscriptionRepository.createSubscription({
-        shopId,
-        status: 'active',
-        monthlyAmount: this.config.defaultMonthlyAmount,
-        subscriptionType: 'standard',
-        billingMethod: paymentMethod as 'credit_card' | 'ach' | 'wire' | undefined,
-        paymentsMade: 0,
-        totalPaid: 0,
-        nextPaymentDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        createdBy: 'reactivation'
-      });
-      
-      // Update shop operational status
-      await shopRepository.updateShop(shopId, {
-        commitment_enrolled: true,
-        operational_status: 'commitment_qualified'
-      });
-      
-      // Send reactivation email
-      const shop = await shopRepository.getShop(shopId);
-      if (shop) {
-        await this.emailService.sendSubscriptionReactivated({
-          shopEmail: shop.email,
-          shopName: shop.name,
-          monthlyAmount: this.config.defaultMonthlyAmount,
-          nextPaymentDate: subscription.nextPaymentDate!
-        });
-      }
-      
-      logger.info(`Subscription reactivated for shop ${shopId}`);
-      return subscription;
-      
-    } catch (error) {
-      logger.error(`Error reactivating subscription for shop ${shopId}:`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * Create trial subscription for new shops
-   */
-  async createTrialSubscription(shopId: string) {
-    try {
-      const trialEndDate = new Date(Date.now() + this.config.trialPeriodDays * 24 * 60 * 60 * 1000);
-      
-      const subscription = await shopSubscriptionRepository.createSubscription({
-        shopId,
-        status: 'active',
-        monthlyAmount: 0, // Free during trial
-        subscriptionType: 'trial',
-        paymentsMade: 0,
-        totalPaid: 0,
-        nextPaymentDate: trialEndDate,
-        notes: `${this.config.trialPeriodDays}-day free trial`,
-        createdBy: 'system'
-      });
-      
-      // Update shop operational status
-      await shopRepository.updateShop(shopId, {
-        commitment_enrolled: true,
-        operational_status: 'commitment_qualified'
-      });
-      
-      logger.info(`Trial subscription created for shop ${shopId}`);
-      return subscription;
-      
-    } catch (error) {
-      logger.error(`Error creating trial subscription for shop ${shopId}:`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * Calculate days overdue
-   */
-  private calculateDaysOverdue(nextPaymentDate?: Date | string): number {
-    if (!nextPaymentDate) return 0;
-    const dueDate = new Date(nextPaymentDate);
-    const now = new Date();
-    const diffTime = now.getTime() - dueDate.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return Math.max(0, diffDays);
-  }
-
-  /**
-   * Calculate days until due
-   */
-  private calculateDaysUntilDue(nextPaymentDate?: Date | string): number {
-    if (!nextPaymentDate) return 999;
-    const dueDate = new Date(nextPaymentDate);
-    const now = new Date();
-    const diffTime = dueDate.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return Math.max(0, diffDays);
+  private mapCustomerRow(row: any): CustomerData {
+    return {
+      id: row.id,
+      shopId: row.shop_id,
+      stripeCustomerId: row.stripe_customer_id,
+      email: row.email,
+      name: row.name,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
   }
 }
 
-// Create singleton instance
-export const subscriptionService = new SubscriptionService();
+// Singleton instance
+let subscriptionService: SubscriptionService | null = null;
+
+export function getSubscriptionService(): SubscriptionService {
+  if (!subscriptionService) {
+    subscriptionService = new SubscriptionService();
+  }
+  return subscriptionService;
+}

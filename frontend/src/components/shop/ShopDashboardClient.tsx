@@ -20,6 +20,7 @@ import { IssueRewardsTab } from '@/components/shop/tabs/IssueRewardsTab';
 import { CustomerLookupTab } from '@/components/shop/tabs/CustomerLookupTab';
 import { SettingsTab } from '@/components/shop/tabs/SettingsTab';
 import { CustomersTab } from '@/components/shop/tabs/CustomersTab';
+import PromoCodesTab from '@/components/shop/tabs/PromoCodesTab';
 import { useShopRegistration } from '@/hooks/useShopRegistration';
 import { OnboardingBanner } from '@/components/shop/OnboardingBanner';
 import { OperationalRequiredTab } from '@/components/shop/OperationalRequiredTab';
@@ -142,8 +143,17 @@ export default function ShopDashboardClient() {
         return;
       }
       
-      // Load shop data
-      const shopResponse = await fetch(`${apiUrl}/shops/wallet/${account?.address}`);
+      // Get auth token for authenticated requests
+      const authToken = localStorage.getItem('shopAuthToken') || sessionStorage.getItem('shopAuthToken');
+      
+      // Load shop data with authentication
+      const shopResponse = await fetch(`${apiUrl}/shops/wallet/${account?.address}`, {
+        cache: 'no-store',
+        headers: {
+          'Authorization': authToken ? `Bearer ${authToken}` : '',
+          'Content-Type': 'application/json'
+        }
+      });
       
       if (shopResponse.ok) {
         const shopResult = await shopResponse.json();
@@ -191,12 +201,20 @@ export default function ShopDashboardClient() {
         } else {
           setError('Invalid shop data received');
         }
-      } else if (shopResponse.status === 404) {
-        setError(
-          `Shop not found for wallet ${account?.address}. ` + 
-          'Available test shop wallet: 0x7890123456789012345678901234567890123456 (shop001). ' +
-          'Please switch to this wallet or register a new shop.'
-        );
+      } else {
+        const errorText = await shopResponse.text();
+        console.error('Shop API error:', shopResponse.status, errorText);
+        
+        if (shopResponse.status === 404) {
+          setError(
+            `Shop not found for wallet ${account?.address}. ` + 
+            'Please check if your wallet is registered as a shop.'
+          );
+        } else if (shopResponse.status === 401) {
+          setError('Authentication failed. Please try refreshing the page.');
+        } else {
+          setError(`API Error (${shopResponse.status}): ${errorText || 'Failed to load shop data'}`);
+        }
       }
     } catch (err) {
       console.error('Error loading shop data:', err);
@@ -342,7 +360,49 @@ export default function ShopDashboardClient() {
     );
   }
 
-  if (existingApplication.hasApplication && !shopData) {
+  // Show loading state if shop is verified but data is still loading
+  if (existingApplication.hasApplication && !shopData && existingApplication.status === "verified" && loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] py-32">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+          <div className="text-center">
+            <div className="text-blue-500 text-4xl mb-4">⏳</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">Loading Dashboard</h3>
+            <p className="text-gray-600 mb-6">
+              Your shop is verified! Loading your dashboard data...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // If shop is verified but data failed to load, show error with retry option
+  if (existingApplication.hasApplication && !shopData && existingApplication.status === "verified" && !loading && error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] py-32">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+          <div className="text-center">
+            <div className="text-red-500 text-4xl mb-4">⚠️</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">Connection Issue</h3>
+            <p className="text-gray-600 mb-6">
+              Your shop is verified, but we're having trouble loading your dashboard data.
+            </p>
+            <p className="text-sm text-red-600 mb-4">{error}</p>
+            <button
+              onClick={() => loadShopData()}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Retry Loading
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Only show pending message if application exists but is not verified
+  if (existingApplication.hasApplication && !shopData && existingApplication.status !== "verified") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] py-32">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
@@ -417,6 +477,7 @@ export default function ShopDashboardClient() {
         }}
       >
         <div className="max-w-screen-2xl w-[96%] mx-auto">
+          
           {/* Show onboarding banner if shop is not operational */}
           {shopData && shopData.operational_status !== 'rcg_qualified' && 
            shopData.operational_status !== 'commitment_qualified' && (
@@ -489,7 +550,14 @@ export default function ShopDashboardClient() {
           {activeTab === 'lookup' && shopData && (
             <CustomerLookupTab shopId={shopData.shopId} />
           )}
-
+          
+          {activeTab === 'promo-codes' && shopData && (
+            isOperational ? (
+              <PromoCodesTab shopId={shopData.shopId} />
+            ) : (
+              <OperationalRequiredTab feature="promo codes" />
+            )
+          )}
 
           {activeTab === 'subscription' && shopData && (
             <SubscriptionManagement shopId={shopData.shopId} />
