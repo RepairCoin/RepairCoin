@@ -9,6 +9,7 @@ import { router } from "expo-router";
 import { SendCodeViaEmailService, SocialConnectWalletService } from "@/services/RegisterServices";
 import { ThirdWebStrategy } from "@/utilities/GlobalTypes";
 import { useAuthStore } from "@/store/authStore";
+import { EmailValidation } from "@/utilities/Validation";
 
 export default function ConnectWalletWithSocialPage() {
   const [email, setEmail] = useState<string>("");
@@ -123,7 +124,7 @@ export default function ConnectWalletWithSocialPage() {
               keyboardType="email-address"
               className="color-[#666]"
             />
-            <Ionicons name="arrow-forward" color="#666" size={25} onPress={handleSendCode} />
+            <Ionicons name="arrow-forward" color="#666" size={25} onPress={handleSendCode} disabled={!EmailValidation(email)} />
           </View>
         </View>
 

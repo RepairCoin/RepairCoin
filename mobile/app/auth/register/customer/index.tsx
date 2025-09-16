@@ -1,7 +1,7 @@
 import Screen from "@/components/Screen";
 import { AntDesign, Feather } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { View, Text, TextInput, Pressable } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import CountryPicker, { CountryCode } from "react-native-country-picker-modal";
@@ -10,6 +10,7 @@ import PrimaryButton from "@/components/PrimaryButton";
 import { router } from "expo-router";
 import { RegisterAsCustomerService } from "@/services/RegisterServices";
 import { useAuthStore } from "@/store/authStore";
+import { EmailValidation } from "@/utilities/Validation";
 
 export default function RegisterAsCustomerPage() {
   const [fullName, setFullName] = useState<string>("");
@@ -19,22 +20,28 @@ export default function RegisterAsCustomerPage() {
   const [countryCode, setCountryCode] = useState<CountryCode>("US");
   const [phone, setPhone] = useState<string>("");
   const [referral, setReferral] = useState<string>("");
+  const [callingCode, setCallingCode] = useState("1");
 
-  const { address } = useAuthStore(state => state);
+  const { address } = useAuthStore((state) => state);
 
   const handleSubmit = async () => {
     const res = await RegisterAsCustomerService({
       walletAddress: address,
       name: fullName,
       email,
-      phone,
+      phone: `+${callingCode}${phone}`,
       referralCode: referral,
     });
 
     console.log(email);
 
     if (res.success) router.push("/auth/register/customer/Success");
-  }
+  };
+
+  const isValidate = useMemo(() => {
+    const isValidateEmail = EmailValidation(email);
+    return fullName || email || dob || phone || isValidateEmail;
+  }, [fullName, email, dob, phone]);
 
   return (
     <Screen>
@@ -105,7 +112,10 @@ export default function RegisterAsCustomerPage() {
               withFlag
               withCallingCode
               withEmoji
-              onSelect={(country) => setCountryCode(country.cca2)}
+              onSelect={(country) => {
+                setCountryCode(country.cca2);
+                setCallingCode(country.callingCode[0]);
+              }}
             />
             <MaskedTextInput
               mask="(999) 999-9999"
@@ -118,7 +128,9 @@ export default function RegisterAsCustomerPage() {
           </View>
         </View>
         <View className="mt-4">
-          <Text className="text-sm text-gray-300 mb-1">Referral Code (Optional)</Text>
+          <Text className="text-sm text-gray-300 mb-1">
+            Referral Code (Optional)
+          </Text>
           <TextInput
             className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
             placeholder="Enter Referral Code"
@@ -127,9 +139,11 @@ export default function RegisterAsCustomerPage() {
             onChangeText={setReferral}
           />
         </View>
-        <Text className="text-sm text-gray-300 mt-1 mb-10">Earn bonus tokens when you sign up with a referral code.</Text>
+        <Text className="text-sm text-gray-300 mt-1 mb-10">
+          Earn bonus tokens when you sign up with a referral code.
+        </Text>
 
-        <PrimaryButton title="Register as Customer" onPress={handleSubmit} />
+        <PrimaryButton title="Register as Customer" onPress={handleSubmit} disabled={!isValidate} />
       </View>
     </Screen>
   );
