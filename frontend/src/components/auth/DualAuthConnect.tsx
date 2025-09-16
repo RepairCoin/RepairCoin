@@ -5,7 +5,6 @@ import { ConnectButton, useActiveAccount, useActiveWallet } from "thirdweb/react
 import { client } from '@/utils/thirdweb';
 import { useAuthMethod } from '@/contexts/AuthMethodContext';
 import { createWallet, inAppWallet } from "thirdweb/wallets";
-import { hasStoredConnector } from "thirdweb/react";
 
 interface DualAuthConnectProps {
   onConnect?: (address: string, authMethod: string) => void;

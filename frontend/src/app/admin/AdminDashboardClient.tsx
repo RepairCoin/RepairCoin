@@ -909,10 +909,7 @@ export default function AdminDashboardClient() {
             <SubscriptionManagementTab />
           )}
           {activeTab === "promo-codes" && hasPermission('manage_shops') && (
-            <PromoCodesAnalyticsTab
-              generateAdminToken={generateAdminToken}
-              onError={setError}
-            />
+            <PromoCodesAnalyticsTab/>
           )}
         </div>
       </div>
