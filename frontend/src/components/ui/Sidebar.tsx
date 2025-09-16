@@ -19,6 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
+  MapPin,
 } from "lucide-react";
 import { 
   IssueRewardsIcon, 
@@ -141,6 +142,12 @@ const Sidebar: React.FC<SidebarProps> = ({
           href: "/customer?tab=approvals",
           icon: <Users className="w-5 h-5" />,
           tabId: "approvals",
+        },
+        {
+          title: "Find Shop",
+          href: "/customer?tab=findshop",
+          icon: <MapPin className="w-5 h-5" />,
+          tabId: "findshop",
         },
       ];
     }
