@@ -5,7 +5,7 @@ import { inAppWallet, preAuthenticate } from "thirdweb/wallets";
 import { router } from "expo-router";
 
 const clientId =
-  process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID ||
+  process.env.EXPO_PUBLIC_THIRDWEB_CLIENT_ID ||
   "99f01d5781fadab9f6a42660090e824b";
 
 export const SocialConnectWalletService = async (
@@ -79,7 +79,7 @@ export const RegisterAsCustomerService = async (registrationData: {
   fixflowCustomerId?: string;
 }) => {
   const apiUrl =
-    process.env.NEXT_PUBLIC_API_URL || "http://192.168.132.85:3001/api";
+    process.env.EXPO_PUBLIC_API_URL || "http://192.168.132.85:3001/api";
 
   console.log(JSON.stringify(registrationData));
   console.log(apiUrl);
