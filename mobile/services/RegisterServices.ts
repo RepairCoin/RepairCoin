@@ -23,6 +23,7 @@ export const SocialConnectWalletService = async (
   const account = await wallet.connect({
     client,
     strategy: strategy,
+    redirectUrl: "mobile://auth/wallet/Social",
   });
   // });
 
@@ -101,5 +102,5 @@ export const RegisterAsCustomerService = async (registrationData: {
       response.success = false;
     });
 
-    return response;
+  return response;
 };

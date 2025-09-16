@@ -15,6 +15,7 @@
       "intentFilters": [
         {
           "action": "VIEW",
+          "autoVerify": true,
           "data": [{ "scheme": "mobile", "host": "auth" }],
           "category": ["BROWSABLE", "DEFAULT"]
         }
