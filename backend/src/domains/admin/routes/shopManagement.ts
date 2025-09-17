@@ -57,11 +57,9 @@ router.post('/shops/:shopId/update-rcg-balance', verifyAdminToken, async (req: R
         }
         
         // Determine operational status
-        let operationalStatus: 'pending' | 'rcg_qualified' | 'commitment_qualified' | 'not_qualified' = 'not_qualified';
+        let operationalStatus: 'pending' | 'rcg_qualified' | 'subscription_qualified' | 'not_qualified' = 'not_qualified';
         if (rcgBalance >= 10000) {
             operationalStatus = 'rcg_qualified';
-        } else if (shop.commitment_enrolled) {
-            operationalStatus = 'commitment_qualified';
         }
         
         // Update shop

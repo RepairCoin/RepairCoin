@@ -14,7 +14,6 @@ import treasuryRoutes from './treasury';
 import analyticsRoutes from './analytics';
 import customerRoutes from './customers';
 import revenueRoutes from '../../../routes/admin/revenue';
-import commitmentsRoutes from './commitments';
 
 const router = Router();
 
@@ -218,19 +217,11 @@ router.use('/revenue', revenueRoutes);
 import rcgManagementRoutes from '../../../routes/admin/rcg-management';
 router.use('/rcg', rcgManagementRoutes);
 
-// Subscription routes (formerly commitment program)
-import subscriptionRoutes from '../../../routes/admin/subscription';
-router.use('/subscription', subscriptionRoutes);
 
-// Legacy commitment routes (for backwards compatibility)
-import commitmentRoutes from '../../../routes/admin/commitment';
-router.use('/commitment', commitmentRoutes);
 
 // Shop management routes (includes manual RCG balance update)
 import shopManagementRoutes from './shopManagement';
 router.use('', shopManagementRoutes);
 
-// Commitment subscription management routes
-router.use('/commitments', commitmentsRoutes);
 
 export default router;

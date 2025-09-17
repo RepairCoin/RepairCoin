@@ -85,13 +85,12 @@ export class ShopPurchaseService {
         }
       }
 
-      // Check if shop has active commitment enrollment
-      const commitment = await shopRepository.getActiveCommitmentByShopId(purchaseData.shopId);
-      hasCommitment = !!commitment;
+      // Check if shop has active subscription
+      const hasSubscription = shop.operational_status === 'subscription_qualified';
 
-      // Validate shop is operational (has RCG or commitment)
-      if (rcgBalance < 10000 && !hasCommitment) {
-        throw new Error('Shop must hold at least 10,000 RCG tokens or be enrolled in the Commitment Program to purchase RCN');
+      // Validate shop is operational (has RCG or subscription)
+      if (rcgBalance < 10000 && !hasSubscription) {
+        throw new Error('Shop must hold at least 10,000 RCG tokens or have an active subscription to purchase RCN');
       }
 
       // Calculate total cost based on tier
