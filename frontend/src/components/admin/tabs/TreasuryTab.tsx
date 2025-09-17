@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
+import { useAdminDashboard } from '@/hooks/useAdminDashboard';
 
 interface TreasuryData {
   totalSupply: number | string;
@@ -39,10 +40,7 @@ interface TreasuryData {
   }>;
 }
 
-interface TreasuryTabProps {
-  generateAdminToken: () => Promise<string | null>;
-  onError: (error: string) => void;
-}
+interface TreasuryTabProps {}
 
 interface RCGMetrics {
   totalSupply: string;
@@ -76,7 +74,8 @@ interface RCGMetrics {
   };
 }
 
-export const TreasuryTab: React.FC<TreasuryTabProps> = ({ generateAdminToken, onError }) => {
+export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
+  const { generateAdminToken, setError: onError } = useAdminDashboard();
   const [treasuryData, setTreasuryData] = useState<TreasuryData | null>(null);
   const [rcgMetrics, setRcgMetrics] = useState<RCGMetrics | null>(null);
   const [loading, setLoading] = useState(true);

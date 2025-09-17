@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { SuspendShopModal, UnsuspendShopModal } from '../ConfirmationModal';
+import { SuspendShopModal, UnsuspendShopModal } from '@/components/ConfirmationModal';
 import { EditShopModal } from './EditShopModal';
 import { getContract, readContract } from 'thirdweb';
 import { baseSepolia } from 'thirdweb/chains';

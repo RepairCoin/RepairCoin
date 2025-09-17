@@ -1,14 +1,10 @@
 import { useState } from 'react';
-import { useActiveAccount } from "thirdweb/react";
+import { useAdminDashboard } from '@/hooks/useAdminDashboard';
 
-interface CreateAdminTabProps {
-  generateAdminToken: () => Promise<string | null>;
-  onError: (error: string) => void;
-  onSuccess: () => void;
-}
+interface CreateAdminTabProps {}
 
-export function CreateAdminTab({ generateAdminToken, onError, onSuccess }: CreateAdminTabProps) {
-  const account = useActiveAccount();
+export function CreateAdminTab({}: CreateAdminTabProps) {
+  const { account, generateAdminToken, setError: onError, loadDashboardData: onSuccess } = useAdminDashboard();
   const [formData, setFormData] = useState({
     walletAddress: '',
     name: '',

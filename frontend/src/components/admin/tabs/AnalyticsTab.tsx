@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAdminDashboard } from '@/hooks/useAdminDashboard';
 
 interface Analytics {
   tokensInCirculation?: number;
@@ -19,12 +20,10 @@ interface ShopRanking {
   unique_customers?: number;
 }
 
-interface AnalyticsTabProps {
-  generateAdminToken: () => Promise<string | null>;
-  onError: (error: string) => void;
-}
+interface AnalyticsTabProps {}
 
-export function AnalyticsTab({ generateAdminToken, onError }: AnalyticsTabProps) {
+export function AnalyticsTab({}: AnalyticsTabProps) {
+  const { generateAdminToken, setError: onError } = useAdminDashboard();
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [shopRankings, setShopRankings] = useState<ShopRanking[]>([]);
   const [loading, setLoading] = useState(true);

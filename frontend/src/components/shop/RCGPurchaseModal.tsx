@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,6 +21,7 @@ export function RCGPurchaseModal({
   currentTier,
   nextTierRequired 
 }: RCGPurchaseModalProps) {
+  const router = useRouter();
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
 
   const purchaseOptions = [
@@ -43,7 +45,7 @@ export function RCGPurchaseModal({
       icon: Package,
       color: 'text-blue-400',
       bgColor: 'bg-blue-900/20',
-      action: () => window.location.href = '/shop/rcg-otc',
+      action: () => router.push('/shop/rcg-otc'),
       features: ['10K-200K', 'Support', 'Flexible pay'],
       recommended: nextTierRequired > 0 && (nextTierRequired - currentBalance) >= 10000
     },
@@ -66,7 +68,7 @@ export function RCGPurchaseModal({
       icon: ShieldCheck,
       color: 'text-green-400',
       bgColor: 'bg-green-900/20',
-      action: () => window.location.href = '/shop?tab=subscription',
+      action: () => router.push('/shop?tab=subscription'),
       features: ['No upfront', '6 months', 'Standard tier'],
       available: currentTier === 'none'
     }

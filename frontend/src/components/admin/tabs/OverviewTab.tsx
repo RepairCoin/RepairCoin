@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   Users,
   Store,
@@ -12,22 +13,8 @@ import {
 } from 'lucide-react';
 import { DashboardHeader } from '@/components/ui/DashboardHeader';
 import { DataTable, Column } from '@/components/ui/DataTable';
-import { RecentActivitySection } from './RecentActivitySection';
-
-interface PlatformStats {
-  totalCustomers: number;
-  totalShops: number;
-  totalTransactions: number;
-  totalTokensIssued: number;
-  totalRedemptions: number;
-  activeCustomersLast30Days?: number;
-  averageTransactionValue?: number;
-  topPerformingShops?: Array<{
-    shopId: string;
-    name: string;
-    totalTransactions: number;
-  }>;
-}
+import { RecentActivityTimeline } from './RecentActivityTimeline';
+import { useAdminDashboard } from '@/hooks/useAdminDashboard';
 
 interface Transaction {
   id: number | string;
@@ -44,23 +31,18 @@ interface Transaction {
 }
 
 interface OverviewTabProps {
-  stats: PlatformStats | null;
-  pendingShopsCount: number;
-  loading: boolean;
   onQuickAction?: (action: 'mint' | 'shops' | 'reports') => void;
-  generateAdminToken?: () => Promise<string | null>;
 }
 
 export const OverviewTab: React.FC<OverviewTabProps> = ({
-  stats,
-  pendingShopsCount,
-  loading,
-  generateAdminToken
+  onQuickAction
 }) => {
+  const router = useRouter();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(true);
   const [transactionFilter, setTransactionFilter] = useState('all');
-
+  
+  const pendingShopsCount = pendingShops?.length || 0;
 
   // Fetch transactions
   useEffect(() => {
@@ -169,12 +151,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       {/* Header Section */}
       <DashboardHeader 
         title="Dashboard Overview"
         subtitle="Welcome back! Here's what's happening today"
-        icon={Sparkles}
       />
 
       {/* Key Metrics Grid */}
@@ -229,7 +210,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 <option value="redemption">Redemptions</option>
               </select>
               <button 
-                onClick={() => window.location.href = '/admin?tab=treasury'}
+                onClick={() => router.push('/admin?tab=treasury')}
                 className="px-3 py-1.5 bg-yellow-500/20 border border-yellow-500/50 rounded-lg text-sm text-yellow-400 hover:bg-yellow-500/30 transition-colors"
               >
                 View Treasury →

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { SuspendCustomerModal, UnsuspendCustomerModal } from '../ConfirmationModal';
+import { SuspendCustomerModal, UnsuspendCustomerModal } from '@/components/ConfirmationModal';
 
 interface Customer {
   address: string;

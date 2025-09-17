@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import AdminDashboardClient from "./AdminDashboardClient";
+import AdminDashboardClient from "@/components/admin/AdminDashboardClient";
 
 // Loading component for the Suspense boundary
 function LoadingFallback() {

@@ -515,7 +515,7 @@ export function RedemptionApprovals() {
           </p>
         </div>
 
-        <div className="p-4 md:p-8">
+        <div className="bg-[#212121] p-4 md:p-8">
           <DataTable
             data={sessions}
             columns={redemptionColumns}
@@ -527,11 +527,6 @@ export function RedemptionApprovals() {
             loading={loading}
             className="text-white"
             headerClassName="bg-gray-800/50"
-            rowClassName={(item) => 
-              item.status === "pending" 
-                ? "bg-yellow-900/20 hover:bg-yellow-900/30" 
-                : "bg-gray-800/30 hover:bg-gray-800/40"
-            }
           />
         </div>
       </div>

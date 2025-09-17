@@ -30,6 +30,7 @@ import { DataTable, Column } from "@/components/ui/DataTable";
 import { EditShopModal } from "./EditShopModal";
 import { ShopReviewModal } from "./ShopReviewModal";
 import { AddShopModal } from "./AddShopModal";
+import { useAdminDashboard } from '@/hooks/useAdminDashboard';
 
 interface Shop {
   shopId: string;
@@ -70,38 +71,30 @@ interface Shop {
 }
 
 interface ShopsManagementTabProps {
-  activeShops: Shop[];
-  pendingShops: Shop[];
-  rejectedShops?: Shop[];
-  onApproveShop: (shopId: string) => Promise<void>;
-  onRejectShop?: (shopId: string, reason?: string) => Promise<void>;
-  onVerifyShop: (shopId: string) => Promise<void>;
-  onSuspendShop: (shopId: string) => Promise<void>;
-  onUnsuspendShop: (shopId: string) => Promise<void>;
-  onEditShop?: (shop: Shop) => void;
-  onMintBalance?: (shopId: string) => Promise<void>;
-  onRefresh: () => void;
-  generateAdminToken?: () => Promise<string | null>;
   initialView?: "all" | "active" | "pending" | "rejected" | "unsuspend-requests";
-  loading?: boolean;
 }
 
 export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
-  activeShops,
-  pendingShops,
-  rejectedShops = [],
-  onApproveShop,
-  onRejectShop,
-  onVerifyShop,
-  onSuspendShop,
-  onUnsuspendShop,
-  onEditShop,
-  onMintBalance,
-  onRefresh,
-  generateAdminToken,
   initialView = "all",
-  loading = false,
 }) => {
+  const {
+    shops: activeShops,
+    pendingShops,
+    rejectedShops,
+    shopActions,
+    generateAdminToken,
+    loading,
+    loadDashboardData
+  } = useAdminDashboard();
+  
+  const onApproveShop = shopActions.approve;
+  const onRejectShop = shopActions.reject;
+  const onVerifyShop = shopActions.verify;
+  const onSuspendShop = shopActions.suspend;
+  const onUnsuspendShop = shopActions.unsuspend;
+  const onMintBalance = shopActions.mintBalance;
+  const onRefresh = loadDashboardData;
+  const onEditShop = (shop: Shop) => console.log("Edit shop:", shop);
   const [viewMode, setViewMode] = useState<
     "all" | "active" | "pending" | "rejected" | "unsuspend-requests"
   >(initialView);

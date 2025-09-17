@@ -7,6 +7,7 @@ import { baseSepolia } from "thirdweb/chains";
 import { WalletIcon, TrophyIcon, RepairsIcon, CheckShieldIcon } from "../icon";
 import { useCustomer } from "@/hooks/useCustomer";
 import { StatCard } from "../ui/StatCard";
+import { DataTable, type Column } from "../ui/DataTable";
 
 const client = createThirdwebClient({
   clientId:
@@ -42,6 +43,90 @@ export const OverviewTab: React.FC = () => {
     error,
     fetchCustomerData
   } = useCustomer();
+
+  // Use dummy data if no real transactions
+  const displayTransactions = transactions.length > 0 ? transactions : [];
+
+  // Define columns for DataTable
+  const transactionColumns: Column[] = [
+    {
+      key: "date",
+      header: "Date",
+      accessor: (transaction: any) => (
+        <div>
+          <div className="font-medium text-gray-300">
+            {new Date(transaction.createdAt).toLocaleDateString()}
+          </div>
+          <div className="text-xs text-gray-500">
+            {new Date(transaction.createdAt).toLocaleTimeString()}
+          </div>
+        </div>
+      ),
+      className: "text-sm",
+    },
+    {
+      key: "description",
+      header: "Description",
+      accessor: (transaction: any) => (
+        <div className="text-gray-200">{transaction.description}</div>
+      ),
+      className: "text-sm",
+    },
+    {
+      key: "shop",
+      header: "Shop",
+      accessor: (transaction: any) => (
+        <span className="text-gray-400">
+          {transaction.shopName || "—"}
+        </span>
+      ),
+      className: "text-sm hidden md:table-cell",
+      headerClassName: "hidden md:table-cell",
+    },
+    {
+      key: "type",
+      header: "Type",
+      accessor: (transaction: any) => (
+        <span
+          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+            transaction.type === "redeemed"
+              ? "bg-red-900/30 text-red-400 border border-red-800/50"
+              : transaction.type === "tier_bonus"
+              ? "bg-purple-900/30 text-purple-400 border border-purple-800/50"
+              : transaction.type === "referral"
+              ? "bg-blue-900/30 text-blue-400 border border-blue-800/50"
+              : "bg-green-900/30 text-green-400 border border-green-800/50"
+          }`}
+        >
+          {transaction.type === "earned"
+            ? "Repair"
+            : transaction.type === "tier_bonus"
+            ? "Bonus"
+            : transaction.type === "referral"
+            ? "Referral"
+            : transaction.type === "redeemed"
+            ? "Redeemed"
+            : transaction.type}
+        </span>
+      ),
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      accessor: (transaction: any) => (
+        <span
+          className={`text-sm font-bold ${
+            transaction.type === "redeemed" ? "text-red-400" : "text-green-400"
+          }`}
+        >
+          {transaction.type === "redeemed" ? "-" : "+"}
+          {transaction.amount} RCN
+        </span>
+      ),
+      className: "text-right",
+      headerClassName: "text-right",
+    },
+  ];
 
   // Read token balance from contract
   const { data: tokenBalance } = useReadContract({
@@ -167,142 +252,24 @@ export const OverviewTab: React.FC = () => {
             Transaction History
           </p>
         </div>
-        <div className="bg-[#212121]">
-          {transactions.length === 0 ? (
-            <div className="text-center py-8 sm:py-12">
-              <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">📋</div>
-              <p className="text-gray-500 text-sm sm:text-base">No transactions yet</p>
-              <p className="text-xs sm:text-sm text-gray-400 mt-2 px-4">
-                Start earning RCN by visiting participating repair shops!
-              </p>
-            </div>
-          ) : (
-            <>
-              {/* Mobile View - Cards */}
-              <div className="block sm:hidden p-4 space-y-3">
-                {transactions.map((transaction) => (
-                  <div key={transaction.id} className="bg-gray-50 rounded-lg p-3">
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-900 text-sm">
-                          {transaction.description}
-                        </p>
-                        {transaction.shopName && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            {transaction.shopName}
-                          </p>
-                        )}
-                      </div>
-                      <span className={`text-sm font-bold ${
-                        transaction.type === 'redeemed' 
-                          ? 'text-red-600' 
-                          : 'text-green-600'
-                      }`}>
-                        {transaction.type === 'redeemed' ? '-' : '+'}
-                        {transaction.amount} RCN
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        transaction.type === 'redeemed' 
-                          ? 'bg-red-100 text-red-800' 
-                          : transaction.type === 'tier_bonus'
-                          ? 'bg-purple-100 text-purple-800'
-                          : transaction.type === 'referral'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-green-100 text-green-800'
-                      }`}>
-                        {transaction.type === 'earned' ? 'Repair' : 
-                         transaction.type === 'tier_bonus' ? 'Bonus' :
-                         transaction.type === 'referral' ? 'Referral' :
-                         transaction.type === 'redeemed' ? 'Redeemed' : 
-                         transaction.type}
-                      </span>
-                      <span className="text-xs text-gray-400">
-                        {new Date(transaction.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+        <div className="bg-[#212121] p-4">
+          <DataTable
+            data={displayTransactions}
+            columns={transactionColumns}
+            keyExtractor={(transaction) => transaction.id}
+            emptyMessage="No transactions yet"
+            emptyIcon={
+              <div className="text-center">
+                <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">📋</div>
+                <p className="text-gray-500 text-sm sm:text-base mb-2">No transactions yet</p>
+                <p className="text-xs sm:text-sm text-gray-400">
+                  Start earning RCN by visiting participating repair shops!
+                </p>
               </div>
-
-              {/* Tablet/Desktop View - Table */}
-              <div className="hidden sm:block overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b border-gray-200">
-                    <tr>
-                      <th className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Date
-                      </th>
-                      <th className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Description
-                      </th>
-                      <th className="hidden md:table-cell px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Shop
-                      </th>
-                      <th className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Type
-                      </th>
-                      <th className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Amount
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {transactions.map((transaction) => (
-                      <tr key={transaction.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-600">
-                          <div>
-                            <div className="font-medium">{new Date(transaction.createdAt).toLocaleDateString()}</div>
-                            <div className="text-xs text-gray-400 hidden lg:block">
-                              {new Date(transaction.createdAt).toLocaleTimeString()}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-900">
-                          <div className="font-medium line-clamp-2">
-                            {transaction.description}
-                          </div>
-                        </td>
-                        <td className="hidden md:table-cell px-3 sm:px-4 lg:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-600">
-                          {transaction.shopName || 
-                            <span className="text-gray-400">—</span>
-                          }
-                        </td>
-                        <td className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            transaction.type === 'redeemed' 
-                              ? 'bg-red-100 text-red-800' 
-                              : transaction.type === 'tier_bonus'
-                              ? 'bg-purple-100 text-purple-800'
-                              : transaction.type === 'referral'
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'bg-green-100 text-green-800'
-                          }`}>
-                            {transaction.type === 'earned' ? 'Repair' : 
-                             transaction.type === 'tier_bonus' ? 'Bonus' :
-                             transaction.type === 'referral' ? 'Referral' :
-                             transaction.type === 'redeemed' ? 'Redeemed' : 
-                             transaction.type}
-                          </span>
-                        </td>
-                        <td className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 whitespace-nowrap text-right">
-                          <span className={`text-xs sm:text-sm font-bold ${
-                            transaction.type === 'redeemed' 
-                              ? 'text-red-600' 
-                              : 'text-green-600'
-                          }`}>
-                            {transaction.type === 'redeemed' ? '-' : '+'}
-                            {transaction.amount} RCN
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
+            }
+            className="w-full"
+            headerClassName="bg-gray-800/50"
+          />
         </div>
       </div>
     </>

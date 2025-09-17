@@ -5,16 +5,15 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Package, Shield, TrendingUp, AlertCircle, RefreshCw } from 'lucide-react';
 import { formatNumber } from '@/lib/utils';
-import { useActiveAccount } from 'thirdweb/react';
+import { useAuth } from '@/hooks/useAuth';
 import { useRCGPrice } from '@/hooks/useRCGPrice';
 
 export default function RCGOTCPurchase() {
   const router = useRouter();
-  const account = useActiveAccount();
+  const { account } = useAuth();
   const [selectedPackage, setSelectedPackage] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const { marketPrice, loading: priceLoading, error: priceError, lastUpdated, refetch } = useRCGPrice();
@@ -82,7 +81,7 @@ export default function RCGOTCPurchase() {
     const pkg = packages.find(p => p.id === selectedPackage);
     const subject = `OTC Purchase Request: ${pkg?.name}`;
     const body = `
-Shop Wallet: ${account.address}
+Shop Wallet: ${account?.address || 'Unknown'}
 Package: ${pkg?.name}
 RCG Amount: ${formatNumber(pkg?.amount || 0)}
 Total Price: $${formatNumber(pkg?.price || 0)}
@@ -93,6 +92,8 @@ Please process this OTC purchase request.
     window.location.href = `mailto:treasury@repaircoin.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     setIsProcessing(false);
   };
+
+  console.log("accountaccount: ", account)
 
   if (!account) {
     return (
@@ -234,7 +235,7 @@ Please process this OTC purchase request.
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">Your Wallet:</span>
-                  <span className="text-white font-mono text-xs">{account.address}</span>
+                  <span className="text-white font-mono text-xs">{account?.address || 'Not connected'}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">RCG Amount:</span>
