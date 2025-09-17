@@ -213,15 +213,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     if (userRole === "admin") {
       const adminItems = [];
       
-      // Debug logging
-      console.log("Sidebar rendering for admin");
-      console.log("Sidebar - isSuperAdmin:", isSuperAdmin);
-      console.log("Sidebar - adminPermissions:", adminPermissions);
-      
       // Super admin (from env) gets all tabs
       // Regular admins get tabs based on their permissions
       const isFullAccess = isSuperAdmin === true || adminPermissions.includes('*');
-      console.log("Sidebar - isFullAccess:", isFullAccess);
       
       // Overview is always visible for any admin
       adminItems.push({
@@ -233,7 +227,6 @@ const Sidebar: React.FC<SidebarProps> = ({
       
       // If super admin, show ALL tabs
       if (isFullAccess) {
-        console.log("Super admin detected - showing all tabs");
         adminItems.push(
           {
             title: "Admins",
@@ -299,12 +292,12 @@ const Sidebar: React.FC<SidebarProps> = ({
             icon: <span className="text-xl">💰</span>,
             tabId: "treasury",
           },
-          {
-            title: "Analytics",
-            href: "/admin?tab=analytics",
-            icon: <span className="text-xl">📈</span>,
-            tabId: "analytics",
-          },
+          // {
+          //   title: "Analytics",
+          //   href: "/admin?tab=analytics",
+          //   icon: <span className="text-xl">📈</span>,
+          //   tabId: "analytics",
+          // },
           {
             title: "Promo Codes",
             href: "/admin?tab=promo-codes",
@@ -313,9 +306,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           }
         );
       } else {
-        // Regular admin - show tabs based on specific permissions
-        console.log("Regular admin - checking individual permissions");
-        
         // Only show Admins tab if they have manage_admins permission
         if (adminPermissions.includes('manage_admins')) {
           adminItems.push({

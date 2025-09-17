@@ -59,8 +59,25 @@ const buildQueryString = (params: Record<string, any>): string => {
 // Platform Statistics
 export const getAdminStats = async (): Promise<AdminStats | null> => {
   try {
-    const response = await apiClient.get<AdminStats>('/admin/stats');
-    return response.data || null;
+    const response = await apiClient.get<{ data?: AdminStats } | AdminStats>('/admin/stats');
+    
+    // Handle both response formats: { data: stats } or direct stats
+    if (response.data) {
+      // Check if it's nested structure
+      if ('data' in response && typeof response.data === 'object' && 'totalCustomers' in (response.data as any)) {
+        return response.data as AdminStats;
+      }
+      // Check if response.data.data exists
+      if ('data' in response.data) {
+        return (response.data as any).data || null;
+      }
+      // If it's already the stats object
+      if ('totalCustomers' in response.data || 'totalShops' in response.data) {
+        return response.data as AdminStats;
+      }
+    }
+    
+    return null;
   } catch (error) {
     console.error('Error getting admin stats:', error);
     return null;
@@ -110,8 +127,30 @@ export const getAdminShops = async (params?: FilterParams & {
 }): Promise<Shop[]> => {
   try {
     const queryString = params ? buildQueryString(params) : '';
-    const response = await apiClient.get<Shop[]>(`/admin/shops${queryString}`);
-    return response.data || [];
+    const response = await apiClient.get<any>(`/admin/shops${queryString}`);
+    
+    // Handle both response formats: { data: { shops: [] } } or direct array
+    if (response.data) {
+      // Check if response.data.data.shops exists (nested structure)
+      if (response.data?.data?.shops && Array.isArray(response.data.data.shops)) {
+        return response.data.data.shops;
+      }
+      // Check if response.data.shops exists
+      if (response.data?.shops && Array.isArray(response.data.shops)) {
+        return response.data.shops;
+      }
+      // Check if response.data.data is the array
+      if (response.data?.data && Array.isArray(response.data.data)) {
+        return response.data.data;
+      }
+      // If response.data is already an array
+      if (Array.isArray(response.data)) {
+        return response.data;
+      }
+    }
+    
+    console.warn('Unexpected shops response format:', response);
+    return [];
   } catch (error) {
     console.error('Error getting admin shops:', error);
     return [];
@@ -332,6 +371,30 @@ export const unpauseContract = async (): Promise<boolean> => {
 };
 
 // Admin Management
+export const getAdminProfile = async (): Promise<{
+  address: string;
+  name?: string;
+  email?: string;
+  isSuperAdmin: boolean;
+  permissions: string[];
+} | null> => {
+  try {
+    const response = await apiClient.get<{
+      data: {
+        address: string;
+        name?: string;
+        email?: string;
+        isSuperAdmin: boolean;
+        permissions: string[];
+      }
+    }>('/admin/me');
+    return response.data?.data || null;
+  } catch (error) {
+    console.error('Error getting admin profile:', error);
+    return null;
+  }
+};
+
 export const createAdmin = async (data: {
   address: string;
   name?: string;
@@ -344,6 +407,32 @@ export const createAdmin = async (data: {
   } catch (error) {
     console.error('Error creating admin:', error);
     return false;
+  }
+};
+
+export const verifyShop = async (shopId: string): Promise<boolean> => {
+  try {
+    await apiClient.post(`/admin/shops/${shopId}/verify`, {});
+    return true;
+  } catch (error) {
+    console.error('Error verifying shop:', error);
+    return false;
+  }
+};
+
+export const mintShopBalance = async (shopId: string): Promise<{
+  success: boolean;
+  message?: string;
+}> => {
+  try {
+    const response = await apiClient.post<{ message: string }>(`/admin/shops/${shopId}/mint-balance`, {});
+    return {
+      success: true,
+      message: response.data?.message
+    };
+  } catch (error) {
+    console.error('Error minting shop balance:', error);
+    return { success: false };
   }
 };
 
@@ -403,6 +492,8 @@ export const adminApi = {
   createShop,
   suspendShop,
   unsuspendShop,
+  verifyShop,
+  mintShopBalance,
   
   // Tokens
   mintTokens,
@@ -431,6 +522,7 @@ export const adminApi = {
   unpauseContract,
   
   // Admin
+  getAdminProfile,
   createAdmin,
   
   // Unsuspend Requests

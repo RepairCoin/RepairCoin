@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { DashboardHeader } from "@/components/ui/DashboardHeader";
 import { DataTable, Column } from "@/components/ui/DataTable";
+import { useAdminDashboard } from '@/hooks/useAdminDashboard';
 
 interface Customer {
   address: string;
@@ -68,21 +69,22 @@ interface GroupedCustomersData {
 }
 
 interface CustomersTabEnhancedProps {
-  generateAdminToken: () => Promise<string | null>;
-  onMintTokens: (address: string, amount: number, reason: string) => void;
-  onRefresh: () => void;
-  onSuspendCustomer?: (address: string, reason: string) => Promise<void>;
-  onUnsuspendCustomer?: (address: string) => Promise<void>;
   initialView?: "grouped" | "all" | "unsuspend-requests";
 }
 
 export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
-  generateAdminToken,
-  onMintTokens,
-  onSuspendCustomer,
-  onUnsuspendCustomer,
   initialView = "grouped",
 }) => {
+  const {
+    generateAdminToken,
+    customerActions,
+    loadDashboardData
+  } = useAdminDashboard();
+  
+  const onMintTokens = customerActions.mintTokens;
+  const onSuspendCustomer = customerActions.suspend;
+  const onUnsuspendCustomer = customerActions.unsuspend;
+  const onRefresh = loadDashboardData;
   const [data, setData] = useState<GroupedCustomersData | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedShops, setExpandedShops] = useState<Set<string>>(new Set());

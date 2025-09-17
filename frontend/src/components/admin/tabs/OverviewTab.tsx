@@ -13,21 +13,7 @@ import {
 import { DashboardHeader } from '@/components/ui/DashboardHeader';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { RecentActivityTimeline } from './RecentActivityTimeline';
-
-interface PlatformStats {
-  totalCustomers: number;
-  totalShops: number;
-  totalTransactions: number;
-  totalTokensIssued: number;
-  totalRedemptions: number;
-  activeCustomersLast30Days?: number;
-  averageTransactionValue?: number;
-  topPerformingShops?: Array<{
-    shopId: string;
-    name: string;
-    totalTransactions: number;
-  }>;
-}
+import { useAdminDashboard } from '@/hooks/useAdminDashboard';
 
 interface Transaction {
   id: number | string;
@@ -44,23 +30,18 @@ interface Transaction {
 }
 
 interface OverviewTabProps {
-  stats: PlatformStats | null;
-  pendingShopsCount: number;
-  loading: boolean;
   onQuickAction?: (action: 'mint' | 'shops' | 'reports') => void;
-  generateAdminToken?: () => Promise<string | null>;
 }
 
 export const OverviewTab: React.FC<OverviewTabProps> = ({
-  stats,
-  pendingShopsCount,
-  loading,
-  generateAdminToken
+  onQuickAction
 }) => {
+  const { stats, pendingShops, loading, generateAdminToken } = useAdminDashboard();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(true);
   const [transactionFilter, setTransactionFilter] = useState('all');
-
+  
+  const pendingShopsCount = pendingShops?.length || 0;
 
   // Fetch transactions
   useEffect(() => {
