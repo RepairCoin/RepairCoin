@@ -14,16 +14,44 @@ export default function SubscriptionSuccessPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (sessionId) {
-      // In a full implementation, we would verify the session with the backend
-      // For now, we'll just show a success message
-      setTimeout(() => {
+    const verifySession = async () => {
+      if (!sessionId) {
+        setError('No session information found');
         setLoading(false);
-      }, 1500);
-    } else {
-      setError('No session information found');
-      setLoading(false);
-    }
+        return;
+      }
+
+      try {
+        // Wait a bit for webhook to process
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        // Check subscription status
+        const token = localStorage.getItem('shopAuthToken');
+        if (token) {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/subscription/status`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (response.ok) {
+            const result = await response.json();
+            if (result.data?.hasActiveSubscription) {
+              console.log('✅ Subscription verified after payment');
+            } else {
+              console.log('⏳ Subscription not yet active, webhook may still be processing');
+            }
+          }
+        }
+        
+        setLoading(false);
+      } catch (error) {
+        console.error('Error verifying session:', error);
+        setLoading(false);
+      }
+    };
+
+    verifySession();
   }, [sessionId]);
 
   if (loading) {

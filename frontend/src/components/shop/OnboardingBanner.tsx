@@ -11,7 +11,6 @@ interface OnboardingBannerProps {
     shopId: string;
     name: string;
     operational_status?: string;
-    commitment_enrolled?: boolean;
     rcg_balance?: number;
     rcg_tier?: string;
   };
@@ -21,7 +20,7 @@ export function OnboardingBanner({ shopData }: OnboardingBannerProps) {
   const [showRCGModal, setShowRCGModal] = useState(false);
   
   const isOperational = shopData.operational_status === 'rcg_qualified' || 
-                       shopData.operational_status === 'commitment_qualified';
+                       shopData.operational_status === 'subscription_qualified';
   
   if (isOperational) {
     return null;
@@ -29,7 +28,7 @@ export function OnboardingBanner({ shopData }: OnboardingBannerProps) {
 
   const rcgBalance = shopData.rcg_balance || 0;
   const hasEnoughRCG = rcgBalance >= 10000;
-  const hasCommitment = shopData.commitment_enrolled;
+  const hasSubscription = shopData.operational_status === 'subscription_qualified';
 
   return (
     <>
@@ -96,27 +95,27 @@ export function OnboardingBanner({ shopData }: OnboardingBannerProps) {
                 </div>
 
                 {/* Monthly Subscription Option */}
-                <div className={`bg-black/30 rounded-lg p-4 border ${hasCommitment ? 'border-green-600' : 'border-gray-700'}`}>
+                <div className={`bg-black/30 rounded-lg p-4 border ${hasSubscription ? 'border-green-600' : 'border-gray-700'}`}>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-2">
-                      <CreditCard className={`h-5 w-5 ${hasCommitment ? 'text-green-500' : 'text-gray-400'}`} />
+                      <CreditCard className={`h-5 w-5 ${hasSubscription ? 'text-green-500' : 'text-gray-400'}`} />
                       <h4 className="font-medium text-white">Monthly Subscription</h4>
                     </div>
-                    {hasCommitment && (
+                    {hasSubscription && (
                       <span className="text-xs bg-green-600/20 text-green-400 px-2 py-1 rounded">
                         ✓ Active
                       </span>
                     )}
                   </div>
                   <p className="text-sm text-gray-300 mb-3">
-                    Pay $500/month to operate without RCG tokens. No commitment, cancel anytime.
+                    Pay $500/month to operate without RCG tokens. Cancel anytime.
                   </p>
                   <div className="space-y-1 mb-3 text-sm text-gray-400">
                     <div>• Monthly payment plan</div>
                     <div>• Standard RCN pricing ($0.10)</div>
                     <div>• No upfront token purchase</div>
                   </div>
-                  {!hasCommitment && (
+                  {!hasSubscription && (
                     <Link href="/shop?tab=subscription">
                       <Button 
                         variant="outline" 

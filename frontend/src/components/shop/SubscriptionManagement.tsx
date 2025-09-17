@@ -35,6 +35,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
   const [cancellationReason, setCancellationReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
   const [billingForm, setBillingForm] = useState({
     billingEmail: '',
     billingContact: '',
@@ -98,6 +99,45 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
     }
   };
 
+  const syncSubscription = async () => {
+    try {
+      setSyncing(true);
+      setError(null);
+
+      const token = localStorage.getItem('shopAuthToken');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/subscription/sync`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || 'Failed to sync subscription');
+      }
+
+      const result = await response.json();
+      if (result.data?.synced) {
+        setSuccessMessage('Subscription synced successfully!');
+        // Reload subscription status
+        await loadSubscriptionStatus();
+      } else {
+        setError(result.message || 'No new subscription to sync');
+      }
+    } catch (error) {
+      console.error('Error syncing subscription:', error);
+      setError(error instanceof Error ? error.message : 'Failed to sync subscription');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const handleSubscribe = async () => {
     try {
       setSubscribing(true);
@@ -146,7 +186,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
       if (result.data.enrollment) {
         setSubscription({
           ...result.data.enrollment,
-          subscriptionType: 'monthly_commitment'
+          subscriptionType: 'monthly_subscription'
         });
       }
       setShowSubscribeModal(false);
@@ -210,7 +250,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
       if (result.data.enrollment) {
         setSubscription({
           ...result.data.enrollment,
-          subscriptionType: 'monthly_commitment'
+          subscriptionType: 'monthly_subscription'
         });
       } else {
         // Reload to get updated status
@@ -454,16 +494,27 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
               </div>
               <div className="flex items-center gap-2 text-sm text-gray-300">
                 <CheckCircle className="w-4 h-4 text-green-400" />
-                <span>Cancel anytime, no commitment</span>
+                <span>Cancel anytime</span>
               </div>
             </div>
 
-            <Button
-              onClick={() => setShowSubscribeModal(true)}
-              className="bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold"
-            >
-              Subscribe Now
-            </Button>
+            <div className="flex gap-3 justify-center">
+              <Button
+                onClick={() => setShowSubscribeModal(true)}
+                className="bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold"
+              >
+                Subscribe Now
+              </Button>
+              
+              <Button
+                onClick={syncSubscription}
+                variant="outline"
+                disabled={syncing}
+                className="border-gray-600 text-gray-300 hover:bg-gray-700"
+              >
+                {syncing ? 'Syncing...' : 'Sync Status'}
+              </Button>
+            </div>
             
             {/* Show reactivate option if previously subscribed */}
             {subscription && subscription.status === 'cancelled' && (
