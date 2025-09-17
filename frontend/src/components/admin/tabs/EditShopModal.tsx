@@ -19,6 +19,7 @@ interface Shop {
   country?: string;
   website?: string;
   description?: string;
+  verified?: boolean;
 }
 
 interface EditShopModalProps {
