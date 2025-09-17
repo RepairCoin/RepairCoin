@@ -68,7 +68,7 @@ export function RCGPurchaseModal({
       icon: ShieldCheck,
       color: 'text-green-400',
       bgColor: 'bg-green-900/20',
-      action: () => router.push('/shop/commitment-program'),
+      action: () => router.push('/shop?tab=subscription'),
       features: ['No upfront', '6 months', 'Standard tier'],
       available: currentTier === 'none'
     }
