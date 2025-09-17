@@ -1,10 +1,10 @@
 import axios from "axios";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
 
 console.log('🔍 FRONTEND API CONFIGURATION:');
 console.log(`- process.env.NEXT_PUBLIC_API_URL: ${process.env.NEXT_PUBLIC_API_URL}`);
-console.log(`- Default if not set: http://localhost:4000/api`);
+console.log(`- Default if not set: http://localhost:3000/api`);
 console.log(`- Actually using: ${API_URL}`);
 console.log('');
 

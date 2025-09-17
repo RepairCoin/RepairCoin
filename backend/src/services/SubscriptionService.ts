@@ -33,11 +33,18 @@ export interface CustomerData {
 }
 
 export class SubscriptionService extends BaseRepository {
-  private stripeService: StripeService;
+  private stripeService: StripeService | null = null;
 
   constructor() {
     super();
-    this.stripeService = getStripeService();
+    try {
+      this.stripeService = getStripeService();
+    } catch (error) {
+      logger.warn('StripeService initialization failed - Stripe features disabled', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      this.stripeService = null;
+    }
   }
 
   /**
@@ -47,6 +54,10 @@ export class SubscriptionService extends BaseRepository {
     subscription: SubscriptionData;
     clientSecret?: string;
   }> {
+    if (!this.stripeService) {
+      throw new Error('Stripe integration not available');
+    }
+    
     const client = await this.pool.connect();
     
     try {

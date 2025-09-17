@@ -373,6 +373,64 @@ export const toggleCrossShop = async (shopId: string, enabled: boolean): Promise
   }
 };
 
+// Subscription Management
+export const getSubscriptionStatus = async (): Promise<{
+  currentSubscription: any | null;
+  hasActiveSubscription: boolean;
+} | null> => {
+  try {
+    const response = await apiClient.get('/shops/subscription/status');
+    if (response.data?.success) {
+      return response.data.data;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting subscription status:', error);
+    throw error; // Re-throw to let component handle error
+  }
+};
+
+export const subscribeToCommitment = async (data: {
+  billingMethod: string;
+  billingEmail: string;
+  billingContact: string;
+  billingPhone?: string;
+  notes?: string;
+}): Promise<{
+  message: string;
+  paymentUrl?: string;
+  sessionId?: string;
+  billingMethod: string;
+  nextSteps?: string;
+} | null> => {
+  try {
+    const response = await apiClient.post('/shops/subscription/subscribe', data);
+    if (response.data?.success) {
+      return response.data.data;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error subscribing to commitment:', error);
+    throw error;
+  }
+};
+
+export const cancelSubscription = async (reason?: string): Promise<{
+  message: string;
+  enrollment?: any;
+} | null> => {
+  try {
+    const response = await apiClient.post('/shops/subscription/cancel', { reason });
+    if (response.data?.success) {
+      return response.data.data;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error canceling subscription:', error);
+    throw error;
+  }
+};
+
 // Named exports grouped as namespace for convenience
 export const shopApi = {
   // Management
@@ -409,6 +467,11 @@ export const shopApi = {
   completePurchase,
   getRcnBalance,
   getPurchaseHistory,
+  
+  // Subscription
+  getSubscriptionStatus,
+  subscribeToCommitment,
+  cancelSubscription,
   
   // Settings
   requestVerification,

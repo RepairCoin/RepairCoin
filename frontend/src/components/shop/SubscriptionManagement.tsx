@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { AlertCircle, CheckCircle, XCircle, CreditCard, Calendar, DollarSign } from 'lucide-react';
+import { shopApi } from '@/services/api/shop';
 
 interface Subscription {
   id?: number;
@@ -22,10 +23,9 @@ interface Subscription {
 
 interface SubscriptionManagementProps {
   shopId: string;
-  shopWallet?: string;
 }
 
-export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ shopId, shopWallet }) => {
+export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ shopId }) => {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -61,34 +61,19 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
       setLoading(true);
       setError(null);
 
-      const token = localStorage.getItem('shopAuthToken');
-      if (!token) {
-        throw new Error('Authentication required');
-      }
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/subscription/status`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        console.error('Subscription status error:', response.status, errorData);
-        throw new Error(errorData?.error || 'Failed to load subscription status');
-      }
-
-      const result = await response.json();
-      if (result.success && result.data.currentSubscription) {
-        setSubscription(result.data.currentSubscription);
+      const result = await shopApi.getSubscriptionStatus();
+      
+      if (result && result.currentSubscription) {
+        setSubscription(result.currentSubscription);
         console.log('✅ SUBSCRIPTION STATUS: TRUE - Active subscription found:', {
-          subscriptionId: result.data.currentSubscription.id,
-          status: result.data.currentSubscription.status,
-          subscriptionType: result.data.currentSubscription.subscriptionType,
-          monthlyAmount: result.data.currentSubscription.monthlyAmount
+          subscriptionId: result.currentSubscription.id,
+          status: result.currentSubscription.status,
+          subscriptionType: result.currentSubscription.subscriptionType,
+          monthlyAmount: result.currentSubscription.monthlyAmount
         });
       } else {
         console.log('❌ SUBSCRIPTION STATUS: FALSE - No active subscription found');
+        setSubscription(null);
       }
     } catch (error) {
       console.error('Error loading subscription:', error);
@@ -110,67 +95,34 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
         return;
       }
 
-      const token = localStorage.getItem('shopAuthToken');
-      if (!token) {
-        throw new Error('Authentication required');
-      }
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/subscription/subscribe`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          billingMethod: 'credit_card', // Always credit card now
-          billingEmail: billingForm.billingEmail,
-          billingContact: billingForm.billingContact,
-          billingPhone: billingForm.billingPhone,
-          notes: 'Monthly subscription enrollment'
-        })
+      const result = await shopApi.subscribeToCommitment({
+        billingMethod: 'credit_card', // Always credit card now
+        billingEmail: billingForm.billingEmail,
+        billingContact: billingForm.billingContact,
+        billingPhone: billingForm.billingPhone || undefined,
+        notes: 'Monthly subscription enrollment'
       });
-
-      const result = await response.json();
       
-      // Check if response is successful (2xx status codes)
-      if (!response.ok && !(response.status >= 200 && response.status < 300)) {
-        throw new Error(result.error || 'Failed to create subscription');
-      }
-      
-      // If we get a successful response, check if it's because of existing pending subscription
-      if (!result.success && result.error) {
-        throw new Error(result.error);
+      if (!result) {
+        throw new Error('Failed to create subscription');
       }
 
-      // Update subscription state with the enrollment data
-      if (result.data.enrollment) {
-        setSubscription({
-          ...result.data.enrollment,
-          subscriptionType: 'monthly_commitment'
-        });
-      }
       setShowSubscribeModal(false);
       
-      // Handle pending subscription resume
-      if (result.data.isPendingResume) {
-        setSuccessMessage(result.data.message);
-        // Redirect to payment page for pending subscriptions
-        if (result.data.paymentUrl) {
-          setTimeout(() => {
-            window.location.href = result.data.paymentUrl;
-          }, 2000);
-        }
-      } else if (result.data.paymentUrl) {
-        // Handle payment redirect for new subscriptions
+      // Handle payment redirect for new subscriptions
+      if (result.paymentUrl) {
         setSuccessMessage('Redirecting to secure payment...');
         setTimeout(() => {
-          window.location.href = result.data.paymentUrl;
+          window.location.href = result.paymentUrl as string;
         }, 1500);
       } else {
         // Show success message
-        setSuccessMessage(result.data.nextSteps || result.data.message);
+        setSuccessMessage(result.nextSteps || result.message);
         setTimeout(() => setSuccessMessage(null), 10000);
       }
+      
+      // Reload subscription status
+      setTimeout(() => loadSubscriptionStatus(), 2000);
     } catch (error) {
       console.error('Error subscribing:', error);
       setError(error instanceof Error ? error.message : 'Failed to subscribe');
@@ -184,32 +136,16 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
       setCancelling(true);
       setError(null);
 
-      const token = localStorage.getItem('shopAuthToken');
-      if (!token) {
-        throw new Error('Authentication required');
-      }
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/subscription/cancel`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          reason: cancellationReason || 'Cancelled by shop owner'
-        })
-      });
-
-      const result = await response.json();
+      const result = await shopApi.cancelSubscription(cancellationReason || 'Cancelled by shop owner');
       
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to cancel subscription');
+      if (!result) {
+        throw new Error('Failed to cancel subscription');
       }
 
       // Update subscription state
-      if (result.data.enrollment) {
+      if (result.enrollment) {
         setSubscription({
-          ...result.data.enrollment,
+          ...result.enrollment,
           subscriptionType: 'monthly_commitment'
         });
       } else {
@@ -220,7 +156,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
       setCancellationReason('');
       
       // Show success message
-      setSuccessMessage(result.data.message || 'Subscription cancelled successfully. You can resubscribe at any time.');
+      setSuccessMessage(result.message || 'Subscription cancelled successfully. You can resubscribe at any time.');
       
       // Clear success message after 10 seconds
       setTimeout(() => setSuccessMessage(null), 10000);
@@ -396,11 +332,11 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Term:</span>
-                <span className="text-white font-medium">{subscription.termMonths || 6} months</span>
+                <span className="text-white font-medium">6 months</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Total Commitment:</span>
-                <span className="text-white font-medium">${subscription.totalCommitment || (subscription.monthlyAmount * 6)}</span>
+                <span className="text-white font-medium">${subscription.monthlyAmount * 6}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Payment Method:</span>
