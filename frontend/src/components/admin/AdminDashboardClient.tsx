@@ -785,7 +785,7 @@ export default function AdminDashboardClient() {
           backgroundRepeat: "no-repeat",
         }}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-7xl px-8 mx-auto py-8">
           {error && (
             <div className="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
               {error}

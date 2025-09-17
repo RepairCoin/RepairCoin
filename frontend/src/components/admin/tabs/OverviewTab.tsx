@@ -169,12 +169,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       {/* Header Section */}
       <DashboardHeader 
         title="Dashboard Overview"
         subtitle="Welcome back! Here's what's happening today"
-        icon={Sparkles}
       />
 
       {/* Key Metrics Grid */}
