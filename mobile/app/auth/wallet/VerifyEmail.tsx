@@ -5,7 +5,7 @@ import Screen from "@/components/Screen";
 import { useState } from "react";
 import PrimaryButton from "@/components/PrimaryButton";
 import { router } from "expo-router";
-import { EmailConnectWalletService } from "@/services/RegisterServices";
+import { EmailConnectWalletService, SendCodeViaEmailService } from "@/services/RegisterServices";
 import { useAuthStore } from "@/store/authStore";
 
 export default function VerifyEmailPage() {
@@ -18,6 +18,10 @@ export default function VerifyEmailPage() {
       setAddress(account.address);
       router.push("/auth/register");
     }
+  }
+
+  const handleResendCode = () => {
+    SendCodeViaEmailService(email);
   }
 
   return (
@@ -48,7 +52,7 @@ export default function VerifyEmailPage() {
           />
           <View className="flex-row items-center justify-center mt-6">
             <Text className="text-gray-300 mb-1">Don't get it? </Text>
-            <Pressable>
+            <Pressable onPress={handleResendCode}>
               <Text className="font-bold text-gray-300 mb-1">
                 Tap to resend
               </Text>
