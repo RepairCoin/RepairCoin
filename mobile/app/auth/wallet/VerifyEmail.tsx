@@ -5,12 +5,17 @@ import Screen from "@/components/Screen";
 import { useState } from "react";
 import PrimaryButton from "@/components/PrimaryButton";
 import { router } from "expo-router";
-import { EmailConnectWalletService, SendCodeViaEmailService } from "@/services/RegisterServices";
+import {
+  EmailConnectWalletService,
+  SendCodeViaEmailService,
+} from "@/services/RegisterServices";
 import { useAuthStore } from "@/store/authStore";
 
 export default function VerifyEmailPage() {
   const [code, setCode] = useState<string>("");
-  const { account, setAccount } = useAuthStore(state => state);
+  const { account, setAccount, checkUserExists, fetchUserProfile } = useAuthStore(
+    (state) => state
+  );
 
   const email = account ? account.email : "";
 
@@ -19,15 +24,21 @@ export default function VerifyEmailPage() {
     if (res.address) {
       setAccount({
         ...account,
-        address: account.address
+        address: res.address,
       });
-      router.push("/auth/register");
+      const userCheck = await checkUserExists(res.address);
+      if (!userCheck.exists) {
+        router.push("/auth/register");
+      } else {
+        fetchUserProfile(res.address);
+        router.push("/dashboard/customer");
+      }
     }
-  }
+  };
 
   const handleResendCode = () => {
     SendCodeViaEmailService(email);
-  }
+  };
 
   return (
     <Screen>
