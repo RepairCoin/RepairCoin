@@ -34,8 +34,7 @@ interface ShopData {
   rcg_tier?: string;
   rcg_balance?: number;
   tier_updated_at?: string;
-  commitment_enrolled?: boolean;
-  operational_status?: 'pending' | 'rcg_qualified' | 'commitment_qualified' | 'not_qualified';
+  operational_status?: 'pending' | 'rcg_qualified' | 'subscription_qualified' | 'not_qualified';
 }
 
 export interface ShopFilters {
@@ -45,21 +44,6 @@ export interface ShopFilters {
 }
 
 export class ShopRepository extends BaseRepository {
-  async getActiveCommitmentByShopId(shopId: string): Promise<any> {
-    try {
-      const query = `
-        SELECT * FROM commitment_enrollments 
-        WHERE shop_id = $1 AND status = 'active'
-        LIMIT 1
-      `;
-      
-      const result = await this.pool.query(query, [shopId]);
-      return result.rows[0] || null;
-    } catch (error) {
-      logger.error('Error getting active commitment:', error);
-      throw error;
-    }
-  }
   async getShop(shopId: string): Promise<ShopData | null> {
     try {
       const query = 'SELECT * FROM shops WHERE shop_id = $1';
@@ -178,7 +162,6 @@ export class ShopRepository extends BaseRepository {
         rcg_balance: 'rcg_balance',
         rcg_tier: 'rcg_tier',
         tier_updated_at: 'tier_updated_at',
-        commitment_enrolled: 'commitment_enrolled',
         operational_status: 'operational_status'
       };
 
@@ -461,7 +444,6 @@ export class ShopRepository extends BaseRepository {
         rcg_balance: parseFloat(row.rcg_balance || 0),
         rcg_tier: row.rcg_tier,
         tier_updated_at: row.tier_updated_at,
-        commitment_enrolled: row.commitment_enrolled,
         operational_status: row.operational_status
       };
     } catch (error) {

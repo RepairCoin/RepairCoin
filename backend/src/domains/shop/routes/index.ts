@@ -223,7 +223,6 @@ router.get('/wallet/:address',
           totalRedemptions: shop.totalRedemptions,
           // Include operational status
           operational_status: shop.operational_status,
-          commitment_enrolled: shop.commitment_enrolled,
           rcg_tier: shop.rcg_tier,
           rcg_balance: shop.rcg_balance
         };

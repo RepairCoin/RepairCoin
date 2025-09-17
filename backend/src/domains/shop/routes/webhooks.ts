@@ -623,6 +623,8 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event, subscriptionS
           stripeSubscriptionId: subscription.id,
           stripePriceId: subscription.items.data[0]?.price.id || process.env.STRIPE_MONTHLY_PRICE_ID || '',
           status: subscription.status as any,
+          currentPeriodStart: new Date((subscription as any).current_period_start * 1000),
+          currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
           metadata: { 
             checkoutSessionId: session.id,
             webhookCreated: true 

@@ -54,6 +54,11 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
       });
     }
 
+    console.log('🔍 SUBSCRIPTION STATUS - Checking for shop:', { 
+      shopId, 
+      user: req.user 
+    });
+
     // Check for Stripe subscription only (commitment enrollment system removed)
     const subscriptionService = getSubscriptionService();
     const stripeSubscription = await subscriptionService.getActiveSubscription(shopId);
@@ -106,6 +111,177 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
       success: false,
       error: 'Failed to get subscription status'
     });
+  }
+});
+
+/**
+ * @swagger
+ * /api/shops/subscription/sync:
+ *   post:
+ *     summary: Sync subscription status from Stripe
+ *     tags: [Shop Subscriptions]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Subscription synced successfully
+ *       401:
+ *         description: Unauthorized
+ */
+router.post('/subscription/sync', async (req: Request, res: Response) => {
+  try {
+    const shopId = req.user?.shopId;
+    
+    if (!shopId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Shop ID not found in token'
+      });
+    }
+
+    logger.info('Starting subscription sync for shop', { shopId });
+
+    const subscriptionService = getSubscriptionService();
+    
+    // Get customer
+    const customer = await subscriptionService.getCustomerByShopId(shopId);
+    if (!customer) {
+      logger.info('No Stripe customer found for shop', { shopId });
+      return res.json({
+        success: true,
+        message: 'No Stripe customer found for this shop',
+        data: { synced: false }
+      });
+    }
+
+    logger.info('Found Stripe customer', { 
+      shopId, 
+      stripeCustomerId: customer.stripeCustomerId 
+    });
+
+    // Get all subscriptions from Stripe for this customer
+    logger.info('Fetching subscriptions from Stripe', { 
+      customerId: customer.stripeCustomerId 
+    });
+    
+    let subscriptions;
+    try {
+      // Get stripeService instance
+      const stripeService = getStripeService();
+      const stripe = stripeService.getStripe();
+      
+      // First try to get all subscriptions (not just active)
+      subscriptions = await stripe.subscriptions.list({
+        customer: customer.stripeCustomerId,
+        limit: 10
+      });
+      
+      logger.info('Fetched subscriptions from Stripe', {
+        customerId: customer.stripeCustomerId,
+        totalCount: subscriptions.data.length,
+        subscriptions: subscriptions.data.map(sub => ({
+          id: sub.id,
+          status: sub.status,
+          created: new Date(sub.created * 1000).toISOString()
+        }))
+      });
+    } catch (stripeError) {
+      logger.error('Stripe API error when fetching subscriptions', {
+        error: stripeError instanceof Error ? stripeError.message : 'Unknown error',
+        customerId: customer.stripeCustomerId
+      });
+      throw new Error('Failed to fetch subscriptions from Stripe: ' + (stripeError instanceof Error ? stripeError.message : 'Unknown error'));
+    }
+
+    // Filter for active subscriptions
+    const activeSubscriptions = subscriptions.data.filter(sub => sub.status === 'active');
+    
+    if (activeSubscriptions.length === 0) {
+      logger.info('No active subscriptions found in Stripe', {
+        customerId: customer.stripeCustomerId,
+        allSubscriptionStatuses: subscriptions.data.map(s => s.status)
+      });
+      return res.json({
+        success: true,
+        message: `No active subscriptions found in Stripe. Found ${subscriptions.data.length} subscription(s) with statuses: ${subscriptions.data.map(s => s.status).join(', ')}`,
+        data: { synced: false }
+      });
+    }
+
+    // Take the first active subscription
+    const activeSubscription = activeSubscriptions[0];
+    
+    // Check if we have this subscription in our database
+    const db = DatabaseService.getInstance();
+    const existingQuery = `SELECT id FROM stripe_subscriptions WHERE stripe_subscription_id = $1`;
+    const existingResult = await db.query(existingQuery, [activeSubscription.id]);
+    
+    if (existingResult.rows.length === 0) {
+      // Create the subscription record
+      const currentPeriodStart = activeSubscription.current_period_start 
+        ? new Date(activeSubscription.current_period_start * 1000) 
+        : new Date();
+      const currentPeriodEnd = activeSubscription.current_period_end 
+        ? new Date(activeSubscription.current_period_end * 1000) 
+        : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
+      
+      await subscriptionService.createSubscriptionRecord({
+        shopId: shopId,
+        stripeCustomerId: customer.stripeCustomerId,
+        stripeSubscriptionId: activeSubscription.id,
+        stripePriceId: activeSubscription.items.data[0]?.price.id || '',
+        status: activeSubscription.status as any,
+        currentPeriodStart: currentPeriodStart,
+        currentPeriodEnd: currentPeriodEnd,
+        metadata: { syncedManually: true }
+      });
+
+      logger.info('Manually synced subscription from Stripe', {
+        shopId,
+        subscriptionId: activeSubscription.id,
+        status: activeSubscription.status
+      });
+
+      res.json({
+        success: true,
+        message: 'Subscription synced successfully',
+        data: { 
+          synced: true,
+          subscriptionId: activeSubscription.id,
+          status: activeSubscription.status
+        }
+      });
+    } else {
+      res.json({
+        success: true,
+        message: 'Subscription already exists in database',
+        data: { 
+          synced: false,
+          subscriptionId: activeSubscription.id,
+          status: activeSubscription.status
+        }
+      });
+    }
+
+  } catch (error) {
+    logger.error('Failed to sync subscription', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      shopId: req.user?.shopId,
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    
+    // Return more specific error messages
+    if (error instanceof Error && error.message.includes('STRIPE_SECRET_KEY')) {
+      res.status(503).json({
+        success: false,
+        error: 'Payment service temporarily unavailable'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to sync subscription'
+      });
+    }
   }
 });
 

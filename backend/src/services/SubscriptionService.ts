@@ -234,12 +234,14 @@ export class SubscriptionService extends BaseRepository {
     stripePriceId: string;
     status: 'incomplete' | 'active' | 'past_due' | 'canceled' | 'unpaid';
     metadata?: Record<string, any>;
+    currentPeriodStart?: Date;
+    currentPeriodEnd?: Date;
   }): Promise<SubscriptionData> {
     const query = `
       INSERT INTO stripe_subscriptions (
         shop_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, 
-        status, metadata, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        status, metadata, current_period_start, current_period_end, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       RETURNING *
     `;
     
@@ -249,7 +251,9 @@ export class SubscriptionService extends BaseRepository {
       params.stripeSubscriptionId,
       params.stripePriceId,
       params.status,
-      JSON.stringify(params.metadata || {})
+      JSON.stringify(params.metadata || {}),
+      params.currentPeriodStart || new Date(),
+      params.currentPeriodEnd || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
     ]);
     
     return this.mapSubscriptionRow(result.rows[0]);
