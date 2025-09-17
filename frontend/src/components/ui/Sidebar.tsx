@@ -189,18 +189,18 @@ const Sidebar: React.FC<SidebarProps> = ({
           icon: <span className="text-xl">💳</span>,
           tabId: "subscription",
         },
-        {
-          title: "Bonuses",
-          href: "/shop?tab=bonuses",
-          icon: <BonusesIcon width={24} height={24} />,
-          tabId: "bonuses",
-        },
-        {
-          title: "Analytics",
-          href: "/shop?tab=analytics",
-          icon: <AnalyticsIcon width={24} height={24} />,
-          tabId: "analytics",
-        },
+        // {
+        //   title: "Bonuses",
+        //   href: "/shop?tab=bonuses",
+        //   icon: <BonusesIcon width={24} height={24} />,
+        //   tabId: "bonuses",
+        // },
+        // {
+        //   title: "Analytics",
+        //   href: "/shop?tab=analytics",
+        //   icon: <AnalyticsIcon width={24} height={24} />,
+        //   tabId: "analytics",
+        // },
         {
           title: "Promo Codes",
           href: "/shop?tab=promo-codes",
