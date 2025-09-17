@@ -40,7 +40,7 @@ interface AuthState {
   fetchUserProfile: (address: string) => Promise<UserProfile | null>;
 }
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.132.85:3001/api';
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.132.85:3000/api';
 
 export const useAuthStore = create<AuthState>()(
   devtools(
