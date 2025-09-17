@@ -5,21 +5,18 @@ import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { createThirdwebClient } from "thirdweb";
 import { toast, Toaster } from "react-hot-toast";
 import { authManager } from "@/utils/auth";
-
-// Import our new components
-import { OverviewTab } from "@/components/admin/OverviewTab";
-import AdminsTab from "@/components/admin/AdminsTab";
-import { CustomersTabEnhanced } from "@/components/admin/CustomersTabEnhanced";
-import { ShopsTab } from "@/components/admin/ShopsTab";
-import { ShopApplicationsTab } from "@/components/admin/ShopApplicationsTab";
-import { ShopsManagementTab } from "@/components/admin/ShopsManagementTab";
-import { TreasuryTab } from "@/components/admin/TreasuryTab";
-import { AnalyticsTab } from "@/components/admin/AnalyticsTab";
-import SubscriptionManagementTab from "@/components/admin/SubscriptionManagementTab";
-import PromoCodesAnalyticsTab from "@/components/admin/PromoCodesAnalyticsTab";
-// UnsuspendRequestsTab removed - functionality integrated into Shop and Customer tabs
-import { CreateAdminTab } from "@/components/admin/CreateAdminTab";
-import { ShopReviewModal } from "@/components/admin/ShopReviewModal";
+import { OverviewTab } from "@/components/admin/tabs/OverviewTab";
+import AdminsTab from "@/components/admin/tabs/AdminsTab";
+import { CustomersTabEnhanced } from "@/components/admin/tabs/CustomersTabEnhanced";
+import { ShopsTab } from "@/components/admin/tabs/ShopsTab";
+import { ShopApplicationsTab } from "@/components/admin/tabs/ShopApplicationsTab";
+import { ShopsManagementTab } from "@/components/admin/tabs/ShopsManagementTab";
+import { TreasuryTab } from "@/components/admin/tabs/TreasuryTab";
+import { AnalyticsTab } from "@/components/admin/tabs/AnalyticsTab";
+import SubscriptionManagementTab from "@/components/admin/tabs/SubscriptionManagementTab";
+import PromoCodesAnalyticsTab from "@/components/admin/tabs/PromoCodesAnalyticsTab";
+import { CreateAdminTab } from "@/components/admin/tabs/CreateAdminTab";
+import { ShopReviewModal } from "@/components/admin/tabs/ShopReviewModal";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 
 const client = createThirdwebClient({

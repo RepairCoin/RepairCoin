@@ -16,7 +16,7 @@ import {
 import apiClient from "@/utils/apiClient";
 import { showToast } from "@/utils/toast";
 import { DataTable } from "@/components/ui/DataTable";
-import { DashboardHeader } from "../ui/DashboardHeader";
+import { DashboardHeader } from "@/components/ui/DashboardHeader";
 
 interface Admin {
   id: number;
