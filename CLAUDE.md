@@ -377,6 +377,35 @@ All registration endpoints return HTTP 409 (Conflict) with a `conflictingRole` f
 - Automatic token refresh and session management
 - Admin address validation against `ADMIN_ADDRESSES` environment variable
 
+### Shop Subscription System
+
+**Current Status**: ✅ Fully Operational (September 17, 2025)
+
+**Payment Method**: Credit card only via Stripe checkout sessions
+- Monthly subscription fee: $500/month
+- Automatic billing and renewal
+- Instant activation upon successful payment
+- No ACH or wire transfer options (removed)
+
+**Subscription Flow**:
+1. Shop registers and gets verified
+2. Shop clicks "Subscribe Now" in subscription tab
+3. Redirected to Stripe checkout for payment
+4. Upon payment success, webhook creates subscription record
+5. Shop gains `subscription_qualified` operational status
+6. Manual sync endpoint available if webhook fails
+
+**Key Endpoints**:
+- `POST /api/shops/subscription/subscribe` - Initiate Stripe checkout
+- `POST /api/shops/subscription/sync` - Manual subscription sync from Stripe
+- `GET /api/shops/subscription/status` - Check current subscription status
+- `POST /api/webhooks/stripe` - Handle Stripe webhook events
+
+**Database Tables**:
+- `stripe_customers` - Maps shops to Stripe customer IDs
+- `stripe_subscriptions` - Tracks subscription status and billing periods
+- Note: `commitment_enrollments` table removed as of September 2025
+
 ### Shop Registration System
 
 The shop registration form (`frontend/src/app/shop/register/page.tsx`) includes comprehensive business information:
@@ -480,6 +509,14 @@ If admin dashboard shows "Authentication required" errors:
 2. Ensure `JWT_SECRET` is configured (32+ characters)
 3. Check that wallet address in `ADMIN_ADDRESSES` matches connected wallet exactly
 4. Frontend should be calling `POST /api/auth/admin` to get JWT token
+
+### Shop Subscription Issues
+If shops report subscription not detected after payment:
+1. **Check Database**: Verify subscription exists in `stripe_subscriptions` table
+2. **Manual Sync**: Use sync endpoint `/api/shops/subscription/sync`
+3. **Webhook Status**: Check webhook delivery logs in Stripe dashboard
+4. **Authentication**: Ensure shop JWT token is valid
+5. **Operational Status**: Should be `subscription_qualified` for active subscriptions
 
 ### Shop Count Discrepancies
 If Overview stats don't match Active Shops tab:
@@ -612,6 +649,30 @@ If you see "parseUnits was not found" errors:
   - Updated frontend messaging to reflect new flow
 - **Wallet Detection**: Investigated and confirmed wallet detection service working correctly
 - **Documentation**: Updated README files and consolidated documentation
+
+### September 17, 2025 Development Session - Payment Subscription System Fixes
+- **Subscription Detection Fix**: Fixed critical issue where Stripe subscriptions weren't being saved to database
+  - Updated database triggers to check stripe_subscriptions table
+  - Fixed operational status logic to recognize subscription_qualified status
+  - Created manual sync endpoint `/api/shops/subscription/sync` for subscription recovery
+- **Commitment System Removal**: Completely removed commitment enrollment system
+  - Removed all ACH and wire transfer payment options
+  - Updated SubscriptionManagement component to only show credit card via Stripe
+  - Deleted commitment_enrollments table and related references
+  - Updated operational_status from commitment_qualified to subscription_qualified
+- **Authentication & Port Fixes**: Resolved critical authentication issues
+  - Fixed JWT authentication errors for shop subscription endpoints
+  - Corrected backend port configuration from 3000 to 4000 across all frontend API calls
+  - Fixed Shop ID not found in token errors
+- **Database & TypeScript Fixes**: Resolved multiple compilation and runtime errors
+  - Fixed missing CustomerData properties (lastPaymentDate)
+  - Corrected database column name mismatches (company_name → name, etc.)
+  - Fixed timestamp parsing errors in subscription sync
+- **Stripe Integration Improvements**: Enhanced payment flow reliability
+  - Implemented proper error handling for invalid timestamps
+  - Added comprehensive logging throughout subscription flow
+  - Successfully activated live shop subscriptions ($500/month)
+- **System Status**: Payment subscription system now fully operational from shop perspective
 
 ### August 12, 2025 Development Session - Mobile Responsive UI & Enhanced Features
 - **Mobile Responsive Design**: Made all dashboard components fully mobile responsive
@@ -773,6 +834,9 @@ Based on RepairCoin Requirements v1.1, the following features need to be impleme
 - Tier bonus calculations
 - Redemption session management
 - Mobile-responsive shop interface
+- **Subscription system fully operational** (September 2025)
+- Stripe payment integration for monthly subscriptions
+- Subscription status tracking and manual sync capabilities
 **Enhancements Needed**:
 - POS system integration APIs
 - Bulk transaction upload

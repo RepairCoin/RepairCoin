@@ -18,8 +18,7 @@ interface ShopData {
   purchasedRcnBalance: number;
   totalRcnPurchased: number;
   lastPurchaseDate?: string;
-  operational_status?: 'pending' | 'rcg_qualified' | 'commitment_qualified' | 'not_qualified';
-  commitment_enrolled?: boolean;
+  operational_status?: 'pending' | 'rcg_qualified' | 'subscription_qualified' | 'not_qualified';
   rcg_tier?: string;
   rcg_balance?: number;
 }
@@ -269,13 +268,13 @@ const StatusCard: React.FC<{ shopData: ShopData }> = ({ shopData }) => {
           label="Operational Status"
           value={
             shopData.operational_status === 'rcg_qualified' ? "RCG Qualified" :
-            shopData.operational_status === 'commitment_qualified' ? "Commitment Program" :
+            shopData.operational_status === 'subscription_qualified' ? "Subscription Active" :
             shopData.operational_status === 'pending' ? "Pending" :
             "Not Qualified"
           }
           status={
             shopData.operational_status === 'rcg_qualified' || 
-            shopData.operational_status === 'commitment_qualified' ? "success" : 
+            shopData.operational_status === 'subscription_qualified' ? "success" : 
             shopData.operational_status === 'pending' ? "warning" : "error"
           }
         />

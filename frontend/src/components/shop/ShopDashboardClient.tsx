@@ -45,8 +45,7 @@ interface ShopData {
   purchasedRcnBalance: number;
   totalRcnPurchased: number;
   lastPurchaseDate?: string;
-  operational_status?: 'pending' | 'rcg_qualified' | 'commitment_qualified' | 'not_qualified';
-  commitment_enrolled?: boolean;
+  operational_status?: 'pending' | 'rcg_qualified' | 'subscription_qualified' | 'not_qualified';
   rcg_tier?: string;
   rcg_balance?: number;
 }
@@ -162,14 +161,22 @@ export default function ShopDashboardClient() {
           
           // Load purchase history
           if (shopResult.data.shopId) {
-            const purchaseResponse = await fetch(`${apiUrl}/shops/purchase/history/${shopResult.data.shopId}`);
+            const purchaseResponse = await fetch(`${apiUrl}/shops/purchase/history/${shopResult.data.shopId}`, {
+              headers: {
+                'Authorization': `Bearer ${authToken}`
+              }
+            });
             if (purchaseResponse.ok) {
               const purchaseResult = await purchaseResponse.json();
               setPurchases(purchaseResult.data.purchases || []);
             }
 
             // Load tier bonus stats
-            const tierResponse = await fetch(`${apiUrl}/shops/tier-bonus/stats/${shopResult.data.shopId}`);
+            const tierResponse = await fetch(`${apiUrl}/shops/tier-bonus/stats/${shopResult.data.shopId}`, {
+              headers: {
+                'Authorization': `Bearer ${authToken}`
+              }
+            });
             if (tierResponse.ok) {
               const tierResult = await tierResponse.json();
               setTierStats(tierResult.data);
@@ -307,7 +314,7 @@ export default function ShopDashboardClient() {
   // Check if shop is operational
   const isOperational = shopData && (
     shopData.operational_status === 'rcg_qualified' || 
-    shopData.operational_status === 'commitment_qualified'
+    shopData.operational_status === 'subscription_qualified'
   );
 
   // Error state (shop not found)
@@ -480,7 +487,7 @@ export default function ShopDashboardClient() {
           
           {/* Show onboarding banner if shop is not operational */}
           {shopData && shopData.operational_status !== 'rcg_qualified' && 
-           shopData.operational_status !== 'commitment_qualified' && (
+           shopData.operational_status !== 'subscription_qualified' && (
             <OnboardingBanner shopData={shopData} />
           )}
           

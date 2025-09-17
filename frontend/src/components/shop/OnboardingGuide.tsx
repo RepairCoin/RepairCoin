@@ -32,7 +32,7 @@ export function OnboardingGuide({ hasRCG, isVerified, className = '' }: Onboardi
     {
       id: 3,
       title: "Choose Your Path",
-      description: "Buy RCG tokens OR join commitment program (optional)",
+      description: "Buy RCG tokens OR subscribe to monthly plan (optional)",
       completed: hasRCG
     },
     {
