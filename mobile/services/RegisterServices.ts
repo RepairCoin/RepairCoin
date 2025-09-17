@@ -79,7 +79,7 @@ export const RegisterAsCustomerService = async (registrationData: {
   fixflowCustomerId?: string;
 }) => {
   const apiUrl =
-    process.env.EXPO_PUBLIC_API_URL || "http://192.168.132.85:3001/api";
+    process.env.EXPO_PUBLIC_API_URL || "http://192.168.132.85:3000/api";
 
   console.log(JSON.stringify(registrationData));
   console.log(apiUrl);

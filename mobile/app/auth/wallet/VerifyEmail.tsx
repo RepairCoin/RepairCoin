@@ -13,9 +13,8 @@ import { useAuthStore } from "@/store/authStore";
 
 export default function VerifyEmailPage() {
   const [code, setCode] = useState<string>("");
-  const { account, setAccount, checkUserExists, fetchUserProfile } = useAuthStore(
-    (state) => state
-  );
+  const { account, setAccount, checkUserExists, login, isCustomer } =
+    useAuthStore((state) => state);
 
   const email = account ? account.email : "";
 
@@ -30,8 +29,10 @@ export default function VerifyEmailPage() {
       if (!userCheck.exists) {
         router.push("/auth/register");
       } else {
-        fetchUserProfile(res.address);
-        router.push("/dashboard/customer");
+        await login();
+        if (isCustomer) {
+          router.push("/dashboard/customer");
+        }
       }
     }
   };
@@ -67,7 +68,7 @@ export default function VerifyEmailPage() {
             onChangeText={setCode}
           />
           <View className="flex-row items-center justify-center mt-6">
-            <Text className="text-gray-300 mb-1">Don't get it? </Text>
+            <Text className="text-gray-300 mb-1">Don&apos;t get it? </Text>
             <Pressable onPress={handleResendCode}>
               <Text className="font-bold text-gray-300 mb-1">
                 Tap to resend

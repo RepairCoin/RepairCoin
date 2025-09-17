@@ -7,7 +7,7 @@ const logo = require("@/assets/images/logo.png");
 
 export default function Splash() {
   useEffect(() => {
-    const timer = setTimeout(() => router.push("/dashboard/customer"), 2000);
+    const timer = setTimeout(() => router.push("/onboarding"), 2000);
 
     return () => {
       clearTimeout(timer);

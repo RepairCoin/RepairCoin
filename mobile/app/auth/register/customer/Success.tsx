@@ -2,6 +2,7 @@ import { Image, View, Text, Pressable } from "react-native";
 import Screen from "@/components/Screen";
 import { goBack } from "expo-router/build/global-state/routing";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 
 export default function CustomerRegisterSuccessPage() {
   return (
@@ -24,7 +25,7 @@ export default function CustomerRegisterSuccessPage() {
           </Text>
           <View className="px-8 mt-4">
             <Pressable
-              onPress={() => {}}
+              onPress={() => router.push("/dashboard/customer")}
               className="flex-row w-full items-center justify-center rounded-2xl py-3.5 bg-[#FFCC00]"
               android_ripple={{ color: "rgba(0,0,0,0.08)", borderless: false }}
             >
