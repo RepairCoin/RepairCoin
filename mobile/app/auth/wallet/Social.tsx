@@ -13,8 +13,7 @@ import { EmailValidation } from "@/utilities/Validation";
 
 export default function ConnectWalletWithSocialPage() {
   const [email, setEmail] = useState<string>("");
-  const setEmailState = useAuthStore(state => state.setEmail);
-  const { setAddress } = useAuthStore(state => state);
+  const { account, setAccount } = useAuthStore(state => state);
 
   const SocialOptions: {
     title: string;
@@ -58,7 +57,10 @@ export default function ConnectWalletWithSocialPage() {
   const handleSendCode = async () => {
     const response = await (SendCodeViaEmailService(email));
     if (response.success) {
-      setEmailState(email);
+      setAccount({
+        ...account,
+        email
+      });
       router.push("/auth/wallet/VerifyEmail");
     }
   }
@@ -66,7 +68,10 @@ export default function ConnectWalletWithSocialPage() {
   const handleSocialWalletConnect = async (strategy: ThirdWebStrategy) => {
     const connectedAccount = await SocialConnectWalletService(strategy);
     if (connectedAccount.address) {
-      setAddress(connectedAccount.address);
+      setAccount({
+        ...account,
+        address: connectedAccount.address
+      });
       router.push("/auth/register");
     }
   }
