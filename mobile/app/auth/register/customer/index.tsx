@@ -22,7 +22,7 @@ export default function RegisterAsCustomerPage() {
   const [referral, setReferral] = useState<string>("");
   const [callingCode, setCallingCode] = useState("1");
 
-  const { address } = useAuthStore((state) => state);
+  const { address } = useAuthStore((state) => state.account);
 
   const handleSubmit = async () => {
     const res = await RegisterAsCustomerService({

@@ -10,12 +10,17 @@ import { useAuthStore } from "@/store/authStore";
 
 export default function VerifyEmailPage() {
   const [code, setCode] = useState<string>("");
-  const { email, setAddress } = useAuthStore(state => state);
+  const { account, setAccount } = useAuthStore(state => state);
+
+  const email = account ? account.email : "";
 
   const handleConnectWallet = async () => {
-    const account = await EmailConnectWalletService(email, code);
-    if (account.address) {
-      setAddress(account.address);
+    const res = await EmailConnectWalletService(email, code);
+    if (res.address) {
+      setAccount({
+        ...account,
+        address: account.address
+      });
       router.push("/auth/register");
     }
   }
