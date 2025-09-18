@@ -9,7 +9,11 @@ export const getRCNBalanceByWalletAddress = async (address: string) => {
     },
   });
 
-  return response;
+  if (!response.ok) {
+    throw new Error(`Failed to fetch balance: ${response.status}`);
+  }
+
+  return response.json();
 }
 
 export const getEarningHistoryByWalletAddress = async (address: string) => {
@@ -21,7 +25,11 @@ export const getEarningHistoryByWalletAddress = async (address: string) => {
     },
   });
 
-  return response;
+  if (!response.ok) {
+    throw new Error(`Failed to fetch earning history: ${response.status}`);
+  }
+
+  return response.json();
 }
 
 export const calculateTierByAddress = async (address: string, repairAmount: number) => {
@@ -34,9 +42,12 @@ export const calculateTierByAddress = async (address: string, repairAmount: numb
     body: JSON.stringify({
       customerAddress: address,
       repairAmount
-
     })
   });
 
-  return response;
+  if (!response.ok) {
+    throw new Error(`Failed to fetch tier status: ${response.status}`);
+  }
+
+  return response.json();
 }

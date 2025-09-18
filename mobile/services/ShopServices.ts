@@ -9,7 +9,11 @@ export const listShops = async () => {
     },
   });
 
-  return response;
+  if (!response.ok) {
+    throw new Error(`Failed to fetch shops: ${response.status}`);
+  }
+
+  return response.json();
 }
 
 export const getShopById = async (shopId: string) => {
@@ -21,7 +25,11 @@ export const getShopById = async (shopId: string) => {
     },
   });
 
-  return response;
+  if (!response.ok) {
+    throw new Error(`Failed to fetch shop: ${response.status}`);
+  }
+
+  return response.json();
 }
 
 export const getShopByWalletAddress = async (address: string) => {
@@ -33,5 +41,9 @@ export const getShopByWalletAddress = async (address: string) => {
     },
   });
 
-  return response;
+  if (!response.ok) {
+    throw new Error(`Failed to fetch shop: ${response.status}`);
+  }
+
+  return response.json();
 }
