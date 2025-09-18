@@ -51,9 +51,6 @@ interface ShopCustomer {
   total_transactions: number;
 }
 
-interface ShopData {
-  purchasedRcnBalance: number;
-}
 
 type RedemptionFlow = "two-factor" | "qr-scan";
 
@@ -78,7 +75,6 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
     "idle" | "creating" | "waiting" | "processing"
   >("idle");
   const [showingAllCustomers, setShowingAllCustomers] = useState(false);
-  const [shopData, setShopData] = useState<ShopData | null>(null);
 
   // QR scan flow states
   const [qrCode, setQrCode] = useState("");
@@ -96,35 +92,9 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
 
-  // Load shop data
-  const loadShopData = async () => {
-    try {
-      const authToken =
-        localStorage.getItem("shopAuthToken") ||
-        sessionStorage.getItem("shopAuthToken");
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}`,
-        {
-          headers: {
-            Authorization: authToken ? `Bearer ${authToken}` : "",
-          },
-        }
-      );
-
-      if (response.ok) {
-        const result = await response.json();
-        setShopData({
-          purchasedRcnBalance: result.data.purchasedRcnBalance || 0,
-        });
-      }
-    } catch (err) {
-      console.error("Error loading shop data:", err);
-    }
-  };
 
   // Load shop customers and check for pending sessions on mount
   useEffect(() => {
-    loadShopData();
     loadShopCustomers();
     loadRedemptionHistory();
     checkForPendingSessions();
@@ -333,8 +303,10 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   };
 
   const handleCustomerSelect = (customer: ShopCustomer) => {
+    console.log("Selecting customer:", customer);
     setSelectedCustomer(customer);
     setCustomerAddress(customer.address);
+    console.log("Customer selected:", { customer, address: customer.address });
   };
 
   const filteredCustomers = shopCustomers.filter((customer) => {
@@ -347,6 +319,17 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
 
     return nameMatch || addressMatch;
   });
+
+  // Auto-select if only one result
+  useEffect(() => {
+    if (filteredCustomers.length === 1 && customerSearch.trim()) {
+      const customer = filteredCustomers[0];
+      if (!selectedCustomer || selectedCustomer.address !== customer.address) {
+        console.log("Auto-selecting single search result:", customer);
+        handleCustomerSelect(customer);
+      }
+    }
+  }, [filteredCustomers.length, customerSearch]);
 
   // Poll for session status updates
   useEffect(() => {
@@ -428,6 +411,13 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   }, [currentSession, sessionStatus]);
 
   const createRedemptionSession = async () => {
+    console.log("Creating session with:", {
+      selectedCustomer,
+      customerAddress,
+      redeemAmount,
+      sessionStatus
+    });
+    
     const finalAddress = selectedCustomer?.address || customerAddress;
 
     if (!finalAddress || !redeemAmount) {
@@ -526,7 +516,6 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
       setCustomerSearch("");
 
       await loadRedemptionHistory();
-      await loadShopData();
       await checkForPendingSessions();
       onRedemptionComplete();
     } catch (err) {
@@ -607,7 +596,6 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
       setSuccess(`Successfully redeemed ${sessionData.amount} RCN via QR code`);
       setQrCode("");
       setScanResult(null);
-      await loadShopData();
       await loadRedemptionHistory();
       await checkForPendingSessions();
       onRedemptionComplete();
@@ -643,8 +631,6 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
     }
   };
 
-  const hasSufficientBalance =
-    (shopData?.purchasedRcnBalance || 0) >= redeemAmount;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -825,7 +811,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                 >
                   <LookupIcon width={24} height={24} color={"black"} />
                   <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
-                    Find Customer
+                    Step 1: Select Customer
                   </p>
                 </div>
                 <div className="space-y-4 px-4 md:px-8 py-4">
@@ -846,8 +832,8 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                             setCustomerAddress("");
                           }
                         }}
-                        placeholder="Search by name or wallet address (0x...)..."
-                        className="w-full px-4 py-3 bg-[#2F2F2F] text-white rounded-xl transition-all pl-10"
+                        placeholder="Type customer name or wallet address..."
+                        className="w-full px-4 py-3 bg-[#2F2F2F] text-white rounded-xl transition-all pl-10 border-2 border-transparent focus:border-[#FFCC00]"
                       />
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                       {loadingCustomers && (
@@ -877,7 +863,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                   </div>
 
                   {/* Search Results */}
-                  {customerSearch && (
+                  {customerSearch && !selectedCustomer && (
                     <div className="bg-[#0D0D0D] rounded-xl border border-gray-700 max-h-64 overflow-y-auto">
                       {filteredCustomers.length > 0 ? (
                         <div>
@@ -885,6 +871,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                             <button
                               key={customer.address}
                               onClick={() => {
+                                console.log("Customer button clicked:", customer);
                                 handleCustomerSelect(customer);
                                 setCustomerSearch("");
                               }}
@@ -967,33 +954,37 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                   )}
 
                   {/* Selected Customer Display */}
-                  {selectedCustomer && !customerSearch && (
-                    <div className="bg-[#0D0D0D] rounded-xl p-4 border border-gray-700">
+                  {selectedCustomer && (
+                    <div className="bg-gradient-to-r from-green-900/20 to-green-800/20 rounded-xl p-4 border-2 border-green-500">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div
-                            className={`px-3 py-1 rounded-full text-xs font-bold ${getTierColor(
-                              selectedCustomer.tier
-                            )}`}
-                          >
-                            {selectedCustomer.tier} TIER
-                          </div>
-                          <div>
-                            <p className="font-semibold text-white">
-                              {selectedCustomer.name || "External Customer"}
-                            </p>
-                            <p className="text-xs text-gray-400 font-mono">
-                              {selectedCustomer.address.slice(0, 8)}...
-                              {selectedCustomer.address.slice(-6)}
-                            </p>
+                        <div className="flex items-center gap-3">
+                          <CheckCircle className="w-5 h-5 text-green-500" />
+                          <div className="flex items-center gap-4">
+                            <div
+                              className={`px-3 py-1 rounded-full text-xs font-bold ${getTierColor(
+                                selectedCustomer.tier
+                              )}`}
+                            >
+                              {selectedCustomer.tier} TIER
+                            </div>
+                            <div>
+                              <p className="font-semibold text-white">
+                                {selectedCustomer.name || "External Customer"}
+                              </p>
+                              <p className="text-xs text-gray-400 font-mono">
+                                {selectedCustomer.address.slice(0, 8)}...
+                                {selectedCustomer.address.slice(-6)}
+                              </p>
+                            </div>
                           </div>
                         </div>
                         <button
                           onClick={() => {
                             setSelectedCustomer(null);
                             setCustomerAddress("");
+                            setCustomerSearch("");
                           }}
-                          className="text-[#FFCC00] hover:text-yellow-400 text-sm font-medium"
+                          className="text-[#FFCC00] hover:text-yellow-400 text-sm font-medium px-3 py-1 rounded-lg border border-[#FFCC00] hover:bg-yellow-900/20"
                         >
                           Change
                         </button>
@@ -1002,6 +993,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                   )}
                 </div>
               </div>
+
 
               {/* Amount Input Card */}
               <div className="bg-[#212121] rounded-3xl">
@@ -1016,13 +1008,13 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                 >
                   <LookupIcon width={24} height={24} color={"black"} />
                   <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
-                    Redemption Amount
+                    Step 2: Enter Redemption Amount
                   </p>
                 </div>
                 <div className="space-y-4 px-4 md:px-8 py-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-400 mb-2">
-                      Enter Amount (RCN)
+                      Customer wants to redeem (RCN)
                     </label>
                     <input
                       type="number"
@@ -1030,12 +1022,8 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                       value={redeemAmount || ""}
                       onChange={(e) => {
                         const amount = parseInt(e.target.value) || 0;
+                        console.log("Setting redeem amount:", amount);
                         setRedeemAmount(amount);
-                        if (amount > 0 && (shopData?.purchasedRcnBalance || 0) < amount) {
-                          showToast.warning(
-                            `Insufficient Balance: Need ${amount} RCN but only have ${shopData?.purchasedRcnBalance || 0} RCN available`
-                          );
-                        }
                       }}
                       placeholder="0"
                       className="w-full px-4 py-3 bg-[#2F2F2F] text-[#FFCC00] rounded-xl transition-all text-2xl font-bold"
@@ -1048,12 +1036,8 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                       <button
                         key={amount}
                         onClick={() => {
+                          console.log("Quick amount button clicked:", amount);
                           setRedeemAmount(amount);
-                          if ((shopData?.purchasedRcnBalance || 0) < amount) {
-                            showToast.warning(
-                              `Insufficient Balance: Need ${amount} RCN but only have ${shopData?.purchasedRcnBalance || 0} RCN available`
-                            );
-                          }
                         }}
                         className="px-3 py-2 bg-[#FFCC00] hover:bg-yellow-500 border border-gray-700 rounded-3xl font-medium text-black transition-colors"
                       >
@@ -1365,31 +1349,6 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                 </div>
               </div>
 
-              {/* Balance Display */}
-              <div className="px-6 py-4 border-b border-gray-800">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400 text-sm">
-                    Available Balance
-                  </span>
-                  <div className="text-right">
-                    <div
-                      className={`text-2xl font-bold ${
-                        hasSufficientBalance ? "text-[#FFCC00]" : "text-red-500"
-                      }`}
-                    >
-                      {shopData?.purchasedRcnBalance || 0} RCN
-                    </div>
-                    {!hasSufficientBalance && redeemAmount > 0 && (
-                      <p className="text-red-400 text-xs mt-1">
-                        Need{" "}
-                        {redeemAmount - (shopData?.purchasedRcnBalance || 0)}{" "}
-                        more
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
               {/* Redemption Details */}
               <div className="px-6 py-4 space-y-4">
                 {selectedCustomer && (
@@ -1440,16 +1399,41 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                 </div>
 
                 {/* Process Button */}
-                <button
-                  onClick={createRedemptionSession}
-                  disabled={
+                {(() => {
+                  const isDisabled = 
                     sessionStatus !== "idle" ||
                     !selectedCustomer ||
                     !redeemAmount ||
-                    !hasSufficientBalance
+                    redeemAmount <= 0;
+                  
+                  // Debug info - remove in production
+                  if (isDisabled) {
+                    console.log("Button disabled because:", {
+                      sessionNotIdle: sessionStatus !== "idle",
+                      noCustomer: !selectedCustomer,
+                      noAmount: !redeemAmount,
+                      amountNotPositive: redeemAmount <= 0,
+                      sessionStatus,
+                      selectedCustomer,
+                      redeemAmount
+                    });
                   }
-                  className="w-full bg-[#FFCC00] text-black font-bold py-4 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow-lg hover:shadow-yellow-500/25 transform hover:scale-105"
-                >
+                  
+                  return (
+                    <button
+                      onClick={createRedemptionSession}
+                      disabled={isDisabled}
+                      className="w-full bg-[#FFCC00] text-black font-bold py-4 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow-lg hover:shadow-yellow-500/25 transform hover:scale-105 disabled:transform-none"
+                      title={
+                        sessionStatus !== "idle" 
+                          ? `Session in progress (${sessionStatus})` 
+                          : !selectedCustomer 
+                          ? "Please select a customer" 
+                          : !redeemAmount || redeemAmount <= 0 
+                          ? `Please enter redemption amount (current: ${redeemAmount})` 
+                          : "Click to request approval"
+                      }
+                    >
                   {sessionStatus === "creating" ? (
                     <div className="flex items-center justify-center">
                       <svg
@@ -1479,7 +1463,9 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                       <span>Request Approval</span>
                     </div>
                   )}
-                </button>
+                    </button>
+                  );
+                })()}
 
                 {/* Exchange Rate */}
                 <p className="text-center text-xs text-gray-500">
