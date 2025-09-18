@@ -95,16 +95,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ shopId, shopData, onSe
             </div>
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-            <h4 className="text-sm font-medium text-blue-800 mb-2">🔄 How Cross-Shop Works</h4>
-            <ul className="text-sm text-blue-700 space-y-1">
-              <li>• Customers can use 20% of their balance at participating shops</li>
-              <li>• Increases customer acquisition from the network</li>
-              <li>• You receive $1 value for each RCN redeemed</li>
-              <li>• Home shop customers can still redeem 100% at your shop</li>
-            </ul>
-          </div>
-
           <button
             onClick={saveCrossShopSettings}
             disabled={saving || crossShopEnabled === shopData?.crossShopEnabled}
@@ -192,25 +182,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ shopId, shopData, onSe
           >
             {saving ? 'Saving...' : 'Save Auto-Purchase Settings'}
           </button>
-        </div>
-      </div>
-
-      {/* Shop Information */}
-      <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Shop Information</h2>
-        
-        <div className="space-y-4">
-          <InfoRow label="Current RCN Balance" value={`${shopData?.purchasedRcnBalance || 0} RCN`} />
-          <InfoRow 
-            label="Cross-Shop Status" 
-            value={shopData?.crossShopEnabled ? 'Enabled' : 'Disabled'}
-            status={shopData?.crossShopEnabled ? 'success' : 'neutral'}
-          />
-          <InfoRow 
-            label="Auto-Purchase" 
-            value={autoPurchaseEnabled ? `Enabled (Threshold: ${autoPurchaseThreshold} RCN)` : 'Disabled'}
-            status={autoPurchaseEnabled ? 'success' : 'neutral'}
-          />
         </div>
       </div>
 
