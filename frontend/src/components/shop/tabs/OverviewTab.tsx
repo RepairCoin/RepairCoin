@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { WalletIcon } from "../../icon/index";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatCard } from "@/components/ui/StatCard";
-import { Filter, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { RCGBalanceCard } from "@/components/shop/RCGBalanceCard";
 
 interface ShopData {
@@ -143,11 +143,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="space-y-8">
         {/* Shop Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <StatCard
-            title="Wallet Balance"
-            value={blockchainBalance.toFixed(2)}
-            subtitle="Your RCN tokens"
+            title="RCN Balance"
+            value={(Number(shopData.purchasedRcnBalance) || 0).toFixed(2)}
+            subtitle="Available to distribute"
             icon={<WalletIcon />}
           />
           <StatCard
@@ -160,12 +160,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             title="Total Redemptions"
             value={shopData.totalRedemptions || 0}
             subtitle="RCN redeemed"
-            icon={<WalletIcon />}
-          />
-          <StatCard
-            title="Distribution Credits"
-            value={(Number(shopData.purchasedRcnBalance) || 0).toFixed(2)}
-            subtitle="Available to distribute"
             icon={<WalletIcon />}
           />
         </div>

@@ -539,10 +539,7 @@ export default function ShopDashboardClient() {
             isOperational ? (
               <IssueRewardsTab 
                 shopId={shopData.shopId}
-                shopData={{
-                  ...shopData,
-                  purchasedRcnBalance: blockchainBalance // Use blockchain balance for tier bonus calculations
-                }}
+                shopData={shopData}
                 onRewardIssued={loadShopData}
               />
             ) : (
