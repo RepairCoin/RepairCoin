@@ -747,7 +747,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                         <Smartphone className="w-5 h-5 text-[#FFCC00]" />
                       </div>
                       <p className="text-gray-400 text-sm">
-                        Request customer approval via mobile app
+                        Request customer approval
                       </p>
                     </div>
                   </div>
@@ -800,7 +800,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                         <QrCode className="w-5 h-5 text-[#FFCC00]" />
                       </div>
                       <p className="text-gray-400 text-sm">
-                        Instant redemption via QR code
+                        Instant redemption
                       </p>
                     </div>
                   </div>
