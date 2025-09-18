@@ -23,3 +23,20 @@ export const getEarningHistoryByWalletAddress = async (address: string) => {
 
   return response;
 }
+
+export const calculateTierByAddress = async (address: string, repairAmount: number) => {
+  const response = await fetch(`${API_URL}/shops/tier-bonus/calculate`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      customerAddress: address,
+      repairAmount
+
+    })
+  });
+
+  return response;
+}
