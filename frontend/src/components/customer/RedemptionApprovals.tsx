@@ -146,10 +146,10 @@ export function RedemptionApprovals() {
 
       if (error.message?.includes("User rejected")) {
         toast.error("Transaction cancelled");
-      } else if (error.message?.includes("insufficient")) {
-        toast.error("Insufficient RCN balance");
+      } else if (error.message?.includes("insufficient") || error.message?.includes("exceeds balance")) {
+        toast.error("Insufficient RCN balance on blockchain. You can still approve without burning.");
       } else {
-        toast.error("Failed to burn tokens");
+        toast.error(`Burn failed: ${error.message || "Unknown error"}. You can still approve without burning.`);
       }
       throw error;
     }
@@ -353,12 +353,17 @@ export function RedemptionApprovals() {
         
         return (
           <div className="flex gap-2 items-center flex-wrap">
-            {/* Burn Button - Show for pending items that haven't been burned */}
+            {/* Burn Button - Optional, only if user has blockchain balance */}
             {isPending && !burnState?.burned ? (
               <button
-                onClick={() => burnTokens(item.sessionId, item.amount)}
+                onClick={() => {
+                  if (window.confirm(`Optional: Burn ${item.amount} RCN from your wallet?\n\nNote: This will permanently destroy tokens from your blockchain balance. Only do this if you have purchased RCN tokens on-chain.\n\nYou can approve the redemption without burning.`)) {
+                    burnTokens(item.sessionId, item.amount);
+                  }
+                }}
                 disabled={processing === item.sessionId || burnState?.burning}
-                className="px-2 md:px-3 py-1 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed text-xs md:text-sm flex items-center gap-1 transition-all"
+                className="px-2 md:px-3 py-1 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-xs md:text-sm flex items-center gap-1 transition-all"
+                title="Optional: Burn tokens from blockchain (only if you have on-chain balance)"
               >
                 {burnState?.burning ? (
                   <>
@@ -366,7 +371,7 @@ export function RedemptionApprovals() {
                   </>
                 ) : (
                   <>
-                    <Flame className="w-4 h-4" /> Burn
+                    <Flame className="w-3 h-3" /> Burn (Optional)
                   </>
                 )}
               </button>
@@ -376,18 +381,19 @@ export function RedemptionApprovals() {
               </span>
             ) : null}
 
-            {/* Approve Button - Show for pending items that have been burned, disabled otherwise */}
+            {/* Approve Button - Can approve with or without burning */}
             <button
-              onClick={() => isPending && burnState?.burned && approveSession(item.sessionId, burnState?.transactionHash)}
-              disabled={!isPending || !burnState?.burned || processing === item.sessionId}
+              onClick={() => isPending && approveSession(item.sessionId, burnState?.transactionHash)}
+              disabled={!isPending || processing === item.sessionId || burnState?.burning}
               className={`px-2 md:px-3 py-1 rounded-lg text-xs md:text-sm transition-all ${
-                isPending && burnState?.burned
+                isPending
                   ? "bg-green-600 text-white hover:bg-green-700"
                   : "bg-gray-600 text-gray-400 cursor-not-allowed"
               } disabled:opacity-50`}
+              title={burnState?.burned ? "Approve with burn proof" : "Approve redemption"}
             >
               <CheckCircle className="w-4 h-4 inline mr-1" />
-              Approve
+              {burnState?.burned ? "Approve (Burned)" : "Approve"}
             </button>
 
             {/* Reject Button - Show for all pending items, disabled for non-pending */}
