@@ -6,6 +6,8 @@ import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatCard } from "@/components/ui/StatCard";
 import { ChevronDown } from "lucide-react";
 import { RCGBalanceCard } from "@/components/shop/RCGBalanceCard";
+import { useRCGBalance } from "@/hooks/useRCGBalance";
+import { formatRCGBalance } from "@/lib/utils";
 
 interface ShopData {
   shopId: string;
@@ -18,7 +20,11 @@ interface ShopData {
   purchasedRcnBalance: number;
   totalRcnPurchased: number;
   lastPurchaseDate?: string;
-  operational_status?: 'pending' | 'rcg_qualified' | 'subscription_qualified' | 'not_qualified';
+  operational_status?:
+    | "pending"
+    | "rcg_qualified"
+    | "subscription_qualified"
+    | "not_qualified";
   rcg_tier?: string;
   rcg_balance?: number;
 }
@@ -108,6 +114,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   purchases,
   blockchainBalance = 0,
 }) => {
+  const { rcgInfo } = useRCGBalance(shopData?.shopId);
+
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [filter, setFilter] = useState<
     "all" | "completed" | "pending" | "failed"
@@ -143,46 +151,55 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="space-y-8">
         {/* Shop Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard
             title="RCN Balance"
             value={(Number(shopData.purchasedRcnBalance) || 0).toFixed(2)}
-            subtitle="Available to distribute"
             icon={<WalletIcon />}
           />
           <StatCard
             title="Tokens Issued"
             value={shopData.totalTokensIssued || 0}
-            subtitle="To customers"
             icon={<WalletIcon />}
           />
           <StatCard
-            title="Total Redemptions"
+            title="Redemptions"
             value={shopData.totalRedemptions || 0}
-            subtitle="RCN redeemed"
+            icon={<WalletIcon />}
+          />
+          <StatCard
+            title="RCG Token"
+            value={formatRCGBalance(rcgInfo?.balance || 0)}
             icon={<WalletIcon />}
           />
         </div>
 
         {/* Status Cards and RCG Balance */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <StatusCard shopData={shopData} />
           <BalanceAlertCard balance={blockchainBalance} />
-          <RCGBalanceCard shopId={shopData.shopId} />
+          {/* <RCGBalanceCard shopId={shopData.shopId} /> */}
         </div>
 
         {/* Recent Credit Purchases with DataTable */}
-        <div className="bg-[#212121] rounded-2xl shadow-xl p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-2xl font-bold text-[#FFCC00]">
+        <div className="bg-[#212121] rounded-3xl">
+          <div
+            className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-3xl"
+            style={{
+              backgroundImage: `url('/img/cust-ref-widget3.png')`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              backgroundRepeat: "no-repeat",
+            }}
+          >
+            <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
               Recent Credit Purchases
-            </h3>
-
+            </p>
             {/* Filter Dropdown */}
             <div className="relative filter-dropdown-container">
               <button
                 onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-                className="px-4 py-2 bg-[#FFCC00] rounded-lg transition-colors flex items-center gap-2"
+                className="px-4 py-2 bg-[#101010] rounded-3xl transition-colors flex items-center gap-2"
                 title="Filter purchases"
               >
                 <span className="hidden sm:inline capitalize">
@@ -197,7 +214,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
               {/* Dropdown Menu */}
               {showFilterDropdown && (
-                <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-10">
+                <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50">
                   {(["all", "completed", "pending", "failed"] as const).map(
                     (filterOption) => (
                       <button
@@ -226,19 +243,24 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             </div>
           </div>
 
-          <DataTable
-            data={filteredPurchases}
-            columns={purchaseColumns}
-            keyExtractor={(purchase) => purchase.id}
-            loading={false}
-            loadingRows={5}
-            emptyMessage="No purchases yet"
-            className=""
-            headerClassName="bg-[#3D3D3D]"
-            rowClassName={(purchase) =>
-              purchase.status === "failed" ? "bg-red-900/10" : ""
-            }
-          />
+          <div className="space-y-4 py-8">
+            <DataTable
+              data={filteredPurchases}
+              columns={purchaseColumns}
+              keyExtractor={(purchase) => purchase.id}
+              loading={false}
+              loadingRows={5}
+              emptyMessage="No purchases yet"
+              className=""
+              headerClassName="bg-[#3D3D3D]"
+              showPagination={true}
+              itemsPerPage={5}
+              paginationClassName=""
+              rowClassName={(purchase) =>
+                purchase.status === "failed" ? "bg-red-900/10" : ""
+              }
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -248,7 +270,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 const StatusCard: React.FC<{ shopData: ShopData }> = ({ shopData }) => {
   return (
     <div
-      className="bg-white rounded-2xl shadow-xl p-6"
+      className="rounded-2xl shadow-xl p-6"
       style={{
         backgroundImage: `url('/img/stat-card.png')`,
         backgroundSize: "cover",
@@ -261,15 +283,21 @@ const StatusCard: React.FC<{ shopData: ShopData }> = ({ shopData }) => {
         <StatusRow
           label="Operational Status"
           value={
-            shopData.operational_status === 'rcg_qualified' ? "RCG Qualified" :
-            shopData.operational_status === 'subscription_qualified' ? "Subscription Active" :
-            shopData.operational_status === 'pending' ? "Pending" :
-            "Not Qualified"
+            shopData.operational_status === "rcg_qualified"
+              ? "RCG Qualified"
+              : shopData.operational_status === "subscription_qualified"
+              ? "Subscription Active"
+              : shopData.operational_status === "pending"
+              ? "Pending"
+              : "Not Qualified"
           }
           status={
-            shopData.operational_status === 'rcg_qualified' || 
-            shopData.operational_status === 'subscription_qualified' ? "success" : 
-            shopData.operational_status === 'pending' ? "warning" : "error"
+            shopData.operational_status === "rcg_qualified" ||
+            shopData.operational_status === "subscription_qualified"
+              ? "success"
+              : shopData.operational_status === "pending"
+              ? "warning"
+              : "error"
           }
         />
         <StatusRow
@@ -309,7 +337,7 @@ const StatusRow: React.FC<{ label: string; value: string; status: string }> = ({
     <div className="flex justify-between items-center">
       <span className="text-gray-400 text-base">{label}</span>
       <span
-        className={`px-6 py-1 rounded-full text-base font-semibold ${
+        className={`px-6 py-1 rounded-full text-sm font-semibold ${
           statusColors[status as keyof typeof statusColors]
         }`}
       >
