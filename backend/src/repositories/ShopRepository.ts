@@ -77,7 +77,8 @@ export class ShopRepository extends BaseRepository {
         verifiedAt: row.verified_at,
         verifiedBy: row.verified_by,
         purchasedRcnBalance: parseFloat(row.purchased_rcn_balance || 0),
-        totalRcnPurchased: parseFloat(row.total_rcn_purchased || 0)
+        totalRcnPurchased: parseFloat(row.total_rcn_purchased || 0),
+        operational_status: row.operational_status
       };
     } catch (error) {
       logger.error('Error fetching shop:', error);
@@ -309,7 +310,8 @@ export class ShopRepository extends BaseRepository {
         verifiedAt: row.verified_at,
         verifiedBy: row.verified_by,
         purchasedRcnBalance: parseFloat(row.purchased_rcn_balance || 0),
-        totalRcnPurchased: parseFloat(row.total_rcn_purchased || 0)
+        totalRcnPurchased: parseFloat(row.total_rcn_purchased || 0),
+        operational_status: row.operational_status
       }));
 
       const totalPages = Math.ceil(totalItems / filters.limit);
@@ -358,7 +360,8 @@ export class ShopRepository extends BaseRepository {
         verifiedAt: row.verified_at,
         verifiedBy: row.verified_by,
         purchasedRcnBalance: parseFloat(row.purchased_rcn_balance || 0),
-        totalRcnPurchased: parseFloat(row.total_rcn_purchased || 0)
+        totalRcnPurchased: parseFloat(row.total_rcn_purchased || 0),
+        operational_status: row.operational_status
       }));
     } catch (error) {
       logger.error('Error getting active shops:', error);
@@ -399,7 +402,8 @@ export class ShopRepository extends BaseRepository {
         verifiedAt: row.verified_at,
         verifiedBy: row.verified_by,
         purchasedRcnBalance: parseFloat(row.purchased_rcn_balance || 0),
-        totalRcnPurchased: parseFloat(row.total_rcn_purchased || 0)
+        totalRcnPurchased: parseFloat(row.total_rcn_purchased || 0),
+        operational_status: row.operational_status
       }));
     } catch (error) {
       logger.error('Error getting cross-shop enabled shops:', error);

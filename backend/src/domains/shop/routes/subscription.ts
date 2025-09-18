@@ -3,7 +3,7 @@ import { getSubscriptionService } from '../../../services/SubscriptionService';
 import { getStripeService } from '../../../services/StripeService';
 import { logger } from '../../../utils/logger';
 import { authMiddleware } from '../../../middleware/auth';
-import { CommitmentRepository } from '../../../repositories/CommitmentRepository';
+// import { CommitmentRepository } from '../../../repositories/CommitmentRepository'; // Removed - commitment system deprecated
 import { DatabaseService } from '../../../services/DatabaseService';
 import { shopRepository } from '../../../repositories';
 
@@ -344,12 +344,8 @@ router.post('/subscription/subscribe', async (req: Request, res: Response) => {
       });
     }
 
-    // Clean up any old commitment enrollments if they exist
-    await DatabaseService.getInstance().getPool().query(
-      'DELETE FROM commitment_enrollments WHERE shop_id = $1',
-      [shopId]
-    );
-    logger.info('Cleaned up old commitment enrollments for shop', { shopId });
+    // Note: commitment_enrollments table has been removed as of September 2025
+    // No cleanup needed as system now uses stripe_subscriptions table exclusively
 
     // Only support credit card payments now - ACH/wire transfers removed
     if (billingMethod !== 'credit_card') {
@@ -899,29 +895,9 @@ router.delete('/:shopId/subscription', async (req: Request, res: Response) => {
  *           format: date-time
  */
 
-/**
- * @swagger
- * /api/shops/subscription/enrollment/{enrollmentId}:
- *   get:
- *     summary: Get enrollment details
- *     tags: [Shop Subscriptions]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: enrollmentId
- *         required: true
- *         schema:
- *           type: string
- *         description: Enrollment ID
- *     responses:
- *       200:
- *         description: Enrollment details
- *       401:
- *         description: Unauthorized
- *       404:
- *         description: Enrollment not found
- */
+// DEPRECATED: Enrollment endpoints removed - commitment system no longer in use
+// The system now uses Stripe subscriptions exclusively
+/*
 router.get('/subscription/enrollment/:enrollmentId', async (req: Request, res: Response) => {
   try {
     const enrollmentId = parseInt(req.params.enrollmentId);
@@ -989,26 +965,10 @@ router.get('/subscription/enrollment/:enrollmentId', async (req: Request, res: R
     });
   }
 });
+*/
 
-/**
- * @swagger
- * /api/shops/subscription/enrollment-public/{enrollmentId}:
- *   get:
- *     summary: Get enrollment details for payment page (no auth required)
- *     tags: [Shop Subscriptions]
- *     parameters:
- *       - in: path
- *         name: enrollmentId
- *         required: true
- *         schema:
- *           type: string
- *         description: Enrollment ID
- *     responses:
- *       200:
- *         description: Enrollment details
- *       404:
- *         description: Enrollment not found
- */
+// DEPRECATED: Public enrollment endpoint removed - commitment system no longer in use
+/*
 publicRouter.get('/subscription/enrollment-public/:enrollmentId', async (req: Request, res: Response) => {
   try {
     const enrollmentId = parseInt(req.params.enrollmentId);
@@ -1070,32 +1030,10 @@ publicRouter.get('/subscription/enrollment-public/:enrollmentId', async (req: Re
     });
   }
 });
+*/
 
-/**
- * @swagger
- * /api/shops/subscription/payment/intent:
- *   post:
- *     summary: Create payment intent for subscription
- *     tags: [Shop Subscriptions]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               enrollmentId:
- *                 type: string
- *     responses:
- *       200:
- *         description: Payment intent created
- *       400:
- *         description: Bad request
- *       401:
- *         description: Unauthorized
- */
+// DEPRECATED: Payment intent endpoint removed - now using Stripe checkout
+/*
 router.post('/subscription/payment/intent', async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
@@ -1228,34 +1166,10 @@ router.post('/subscription/payment/intent', async (req: Request, res: Response) 
     });
   }
 });
+*/
 
-/**
- * @swagger
- * /api/shops/subscription/payment/confirm:
- *   post:
- *     summary: Confirm payment and activate subscription
- *     tags: [Shop Subscriptions]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               enrollmentId:
- *                 type: string
- *               paymentIntentId:
- *                 type: string
- *     responses:
- *       200:
- *         description: Payment confirmed
- *       400:
- *         description: Bad request
- *       401:
- *         description: Unauthorized
- */
+// DEPRECATED: Payment confirm endpoint removed - Stripe webhook handles this
+/*
 router.post('/subscription/payment/confirm', async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
@@ -1353,32 +1267,10 @@ router.post('/subscription/payment/confirm', async (req: Request, res: Response)
     });
   }
 });
+*/
 
-/**
- * @swagger
- * /api/shops/subscription/cancel:
- *   post:
- *     summary: Cancel commitment subscription
- *     tags: [Shop Subscriptions]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               reason:
- *                 type: string
- *     responses:
- *       200:
- *         description: Subscription cancelled
- *       400:
- *         description: Bad request
- *       401:
- *         description: Unauthorized
- */
+// DEPRECATED: Commitment cancellation endpoint - use DELETE /:shopId/subscription instead
+/*
 router.post('/subscription/cancel', async (req: Request, res: Response) => {
   try {
     const shopId = req.user?.shopId;
@@ -1439,6 +1331,7 @@ router.post('/subscription/cancel', async (req: Request, res: Response) => {
     });
   }
 });
+*/
 
 /**
  * @swagger
