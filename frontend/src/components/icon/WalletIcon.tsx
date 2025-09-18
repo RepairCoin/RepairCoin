@@ -1,6 +1,6 @@
-const WalletIcon = ({ width, height }: any) => {
+const WalletIcon = ({ width = "100%", height = "100%" }: any) => {
   return (
-    <svg width={width} height={height} viewBox="0 0 57 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width={width} height={height} viewBox="0 0 57 56" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
       <g filter="url(#filter0_d_2775_3789)">
         <rect x="6" y="2" width="45" height="45" rx="12" fill="#FFCC00" />
       </g>
