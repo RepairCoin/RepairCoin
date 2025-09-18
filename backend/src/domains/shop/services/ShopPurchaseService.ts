@@ -85,11 +85,26 @@ export class ShopPurchaseService {
         }
       }
 
-      // Check if shop has active subscription
-      const hasSubscription = shop.operational_status === 'subscription_qualified';
+      // Check if shop is qualified (either by RCG holdings or subscription)
+      const isQualified = shop.operational_status === 'subscription_qualified' || 
+                          shop.operational_status === 'rcg_qualified';
+      
+      // Debug logging to understand what's happening
+      logger.info(`Shop purchase validation for ${shop.shopId}:`, {
+        operational_status: shop.operational_status,
+        isQualified,
+        rcgBalance,
+        walletAddress: shop.walletAddress,
+        shopData: shop
+      });
 
-      // Validate shop is operational (has RCG or subscription)
-      if (rcgBalance < 10000 && !hasSubscription) {
+      // Validate shop is operational (has proper qualification)
+      if (!isQualified) {
+        logger.error(`Shop ${shop.shopId} does not meet requirements:`, {
+          rcgBalance,
+          operational_status: shop.operational_status,
+          requiredRCG: 10000
+        });
         throw new Error('Shop must hold at least 10,000 RCG tokens or have an active subscription to purchase RCN');
       }
 

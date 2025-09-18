@@ -1174,19 +1174,8 @@ router.post('/:shopId/issue-reward',
       }
       const totalReward = skipTierBonus ? baseReward : baseReward + tierBonus;
 
-      // Check shop has sufficient balance on blockchain
-      let shopBalance = 0;
-      try {
-        const tokenMinter = getTokenMinter();
-        const blockchainBalance = await tokenMinter.getCustomerBalance(shop.walletAddress);
-        shopBalance = blockchainBalance || 0;
-      } catch (error) {
-        logger.error('Error fetching shop blockchain balance:', error);
-        return res.status(500).json({
-          success: false,
-          error: 'Failed to check shop balance'
-        });
-      }
+      // Check shop has sufficient purchased RCN balance (off-chain balance from database)
+      const shopBalance = shop.purchasedRcnBalance || 0;
       
       if (shopBalance < totalReward) {
         return res.status(400).json({
@@ -1241,38 +1230,30 @@ router.post('/:shopId/issue-reward',
         });
       }
 
-      // Process the reward - Shop transfers their RCN to customer
-      // For now, we'll use the admin wallet to transfer on behalf of the shop
-      // In production, this would be done via shop's own wallet or smart contract
-      const tokenMinter = getTokenMinter();
-      let transactionHash = '';
+      // Process the reward - Deduct from shop's purchased RCN balance (off-chain)
+      // This is managed in the database, not on blockchain
+      let transactionHash = `offchain_${Date.now()}_${shopId}_${customerAddress}`;
       
       try {
-        // Transfer tokens from admin wallet to customer
-        // The transferTokens method expects: toAddress, amount, reason
-        const transferResult = await tokenMinter.transferTokens(
-          customerAddress,
-          totalReward,
-          `Repair reward from ${shop.name} - $${repairAmount} repair`
-        );
+        // Update shop's balance and statistics atomically
+        await shopRepository.updateShop(shopId, {
+          purchasedRcnBalance: shopBalance - totalReward,
+          totalTokensIssued: (shop.totalTokensIssued || 0) + totalReward
+        });
         
-        if (!transferResult.success) {
-          throw new Error(transferResult.error || 'Transfer failed');
-        }
-        
-        transactionHash = transferResult.transactionHash || '';
-      } catch (transferError) {
-        logger.error('Token transfer error:', transferError);
+        logger.info('Shop balance updated after issuing reward', {
+          shopId,
+          previousBalance: shopBalance,
+          rewardIssued: totalReward,
+          newBalance: shopBalance - totalReward
+        });
+      } catch (updateError) {
+        logger.error('Failed to update shop balance:', updateError);
         return res.status(500).json({
           success: false,
-          error: 'Failed to transfer reward tokens'
+          error: 'Failed to process reward'
         });
       }
-
-      // Update shop statistics (no balance update needed as it's on blockchain)
-      await shopRepository.updateShop(shopId, {
-        totalTokensIssued: (shop.totalTokensIssued || 0) + totalReward
-      });
 
       // Calculate new tier after earning
       const updatedLifetimeEarnings = customer.lifetimeEarnings + totalReward;
@@ -1285,23 +1266,35 @@ router.post('/:shopId/issue-reward',
         newTier
       );
 
-      // Log transaction using the correct method
-      await transactionRepository.recordTransaction({
-        id: `${Date.now()}_${customerAddress}_${shopId}`,
-        type: 'mint',
-        customerAddress,
-        shopId,
-        amount: totalReward,
-        reason: `Repair reward - $${repairAmount} repair`,
-        transactionHash: transactionHash,
-        timestamp: new Date().toISOString(),
-        status: 'confirmed',
-        metadata: {
-          repairAmount,
-          baseReward,
-          tierBonus: skipTierBonus ? 0 : tierBonus
-        }
-      });
+      // Log transaction - wrap in try-catch to not fail the entire reward if logging fails
+      try {
+        await transactionRepository.recordTransaction({
+          id: `${Date.now()}_${customerAddress}_${shopId}`,
+          type: 'mint',
+          customerAddress,
+          shopId,
+          amount: totalReward,
+          reason: `Repair reward - $${repairAmount} repair`,
+          transactionHash: transactionHash,
+          timestamp: new Date().toISOString(),
+          status: 'confirmed',
+          metadata: {
+            repairAmount,
+            baseReward,
+            tierBonus: skipTierBonus ? 0 : tierBonus
+          }
+        });
+        logger.info('Transaction recorded successfully');
+      } catch (txError) {
+        // Log error but don't fail the reward since it was already processed
+        logger.error('Failed to record transaction in database:', txError);
+        logger.error('Transaction details that failed to record:', {
+          id: `${Date.now()}_${customerAddress}_${shopId}`,
+          transactionHash,
+          amount: totalReward
+        });
+        // Continue execution - the reward was still issued successfully
+      }
 
       // Tier update is already handled in updateCustomerAfterEarning
 

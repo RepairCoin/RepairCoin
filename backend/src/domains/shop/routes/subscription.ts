@@ -3,7 +3,7 @@ import { getSubscriptionService } from '../../../services/SubscriptionService';
 import { getStripeService } from '../../../services/StripeService';
 import { logger } from '../../../utils/logger';
 import { authMiddleware } from '../../../middleware/auth';
-// CommitmentRepository removed - commitment system deprecated in favor of Stripe subscriptions
+// import { CommitmentRepository } from '../../../repositories/CommitmentRepository'; // Removed - commitment system deprecated
 import { DatabaseService } from '../../../services/DatabaseService';
 import { shopRepository } from '../../../repositories';
 
@@ -345,8 +345,8 @@ router.post('/subscription/subscribe', async (req: Request, res: Response) => {
       });
     }
 
-    // Note: commitment_enrollments table was removed in migration 015
-    // No cleanup needed as we only use Stripe subscriptions now
+    // Note: commitment_enrollments table has been removed as of September 2025
+    // No cleanup needed as system now uses stripe_subscriptions table exclusively
 
     // Only support credit card payments now - ACH/wire transfers removed
     if (billingMethod !== 'credit_card') {
@@ -910,214 +910,443 @@ router.delete('/:shopId/subscription', async (req: Request, res: Response) => {
  *           format: date-time
  */
 
-/**
- * @swagger
- * /api/shops/subscription/enrollment/{enrollmentId}:
- *   get:
- *     summary: Get enrollment details
- *     tags: [Shop Subscriptions]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: enrollmentId
- *         required: true
- *         schema:
- *           type: string
- *         description: Enrollment ID
- *     responses:
- *       200:
- *         description: Enrollment details
- *       401:
- *         description: Unauthorized
- *       404:
- *         description: Enrollment not found
- */
+// DEPRECATED: Enrollment endpoints removed - commitment system no longer in use
+// The system now uses Stripe subscriptions exclusively
+/*
 router.get('/subscription/enrollment/:enrollmentId', async (req: Request, res: Response) => {
-  // Commitment enrollments deprecated - use Stripe subscriptions
-  return res.status(410).json({
-    success: false,
-    error: 'Commitment enrollments have been deprecated. Please use Stripe subscription system instead.'
-  });
-});
-
-/**
- * @swagger
- * /api/shops/subscription/enrollment-public/{enrollmentId}:
- *   get:
- *     summary: Get enrollment details for payment page (no auth required)
- *     tags: [Shop Subscriptions]
- *     parameters:
- *       - in: path
- *         name: enrollmentId
- *         required: true
- *         schema:
- *           type: string
- *         description: Enrollment ID
- *     responses:
- *       200:
- *         description: Enrollment details
- *       404:
- *         description: Enrollment not found
- */
-publicRouter.get('/subscription/enrollment-public/:enrollmentId', async (req: Request, res: Response) => {
-  // Commitment enrollments deprecated - use Stripe subscriptions
-  return res.status(410).json({
-    success: false,
-    error: 'Commitment enrollments have been deprecated. Please use Stripe subscription system instead.'
-  });
-});
-
-/**
- * @swagger
- * /api/shops/subscription/payment/intent:
- *   post:
- *     summary: Create payment intent for subscription
- *     tags: [Shop Subscriptions]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               enrollmentId:
- *                 type: string
- *     responses:
- *       200:
- *         description: Payment intent created
- *       400:
- *         description: Bad request
- *       401:
- *         description: Unauthorized
- */
-router.post('/subscription/payment/intent', async (req: Request, res: Response) => {
-  // Payment intents deprecated - use Stripe subscriptions
-  return res.status(410).json({
-    success: false,
-    error: 'Payment intents have been deprecated. Please use Stripe subscription system instead.'
-  });
-});
-
-/**
- * @swagger
- * /api/shops/subscription/payment/confirm:
- *   post:
- *     summary: Confirm payment and activate subscription
- *     tags: [Shop Subscriptions]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               enrollmentId:
- *                 type: string
- *               paymentIntentId:
- *                 type: string
- *     responses:
- *       200:
- *         description: Payment confirmed
- *       400:
- *         description: Bad request
- *       401:
- *         description: Unauthorized
- */
-router.post('/subscription/payment/confirm', async (req: Request, res: Response) => {
-  // Payment confirmation deprecated - use Stripe subscriptions
-  return res.status(410).json({
-    success: false,
-    error: 'Payment confirmation has been deprecated. Please use Stripe subscription system instead.'
-  });
-});
-
-/**
- * @swagger
- * /api/shops/subscription/cancel:
- *   post:
- *     summary: Cancel commitment subscription
- *     tags: [Shop Subscriptions]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               reason:
- *                 type: string
- *     responses:
- *       200:
- *         description: Subscription cancelled
- *       400:
- *         description: Bad request
- *       401:
- *         description: Unauthorized
- */
-router.post('/subscription/cancel', async (req: Request, res: Response) => {
-  // Commitment cancellation deprecated - use Stripe subscriptions
-  return res.status(410).json({
-    success: false,
-    error: 'Commitment cancellation has been deprecated. Please use Stripe subscription cancellation instead.'
-  });
-});
-
-/**
- * @swagger
- * /api/shops/subscription/health:
- *   get:
- *     summary: Check Stripe service health and configuration
- *     tags: [Shop Subscriptions]
- *     responses:
- *       200:
- *         description: Service is healthy
- *       503:
- *         description: Service is unhealthy or misconfigured
- */
-publicRouter.get('/subscription/health', async (req: Request, res: Response) => {
   try {
-    // Check if Stripe service can be initialized
-    const stripeService = getStripeService();
+    const enrollmentId = parseInt(req.params.enrollmentId);
+    const shopId = req.user?.shopId;
     
-    // Check required environment variables
-    const config = {
-      hasSecretKey: !!process.env.STRIPE_SECRET_KEY,
-      hasWebhookSecret: !!process.env.STRIPE_WEBHOOK_SECRET,
-      hasPriceId: !!process.env.STRIPE_MONTHLY_PRICE_ID,
-      secretKeyPrefix: process.env.STRIPE_SECRET_KEY ? process.env.STRIPE_SECRET_KEY.substring(0, 7) : 'missing',
-      priceId: process.env.STRIPE_MONTHLY_PRICE_ID || 'missing',
-      environment: process.env.NODE_ENV || 'development'
-    };
+    if (!shopId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Shop ID not found in token'
+      });
+    }
+
+    if (isNaN(enrollmentId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid enrollment ID'
+      });
+    }
+
+    const commitmentRepo = new CommitmentRepository();
+    const enrollment = await commitmentRepo.getEnrollmentById(enrollmentId);
     
-    const isHealthy = config.hasSecretKey && config.hasWebhookSecret && config.hasPriceId;
-    
-    res.status(isHealthy ? 200 : 503).json({
-      success: isHealthy,
-      status: isHealthy ? 'healthy' : 'unhealthy',
-      config: config,
-      message: isHealthy ? 'Stripe service is properly configured' : 'Stripe service is missing required configuration'
+    if (!enrollment) {
+      return res.status(404).json({
+        success: false,
+        error: 'Enrollment not found'
+      });
+    }
+
+    // Verify this enrollment belongs to the requesting shop
+    if (enrollment.shopId !== shopId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Unauthorized to view this enrollment'
+      });
+    }
+
+    // Get shop details
+    const shopResult = await DatabaseService.getInstance().getPool().query(
+      'SELECT name, email, phone FROM shops WHERE shop_id = $1',
+      [shopId]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        ...enrollment,
+        shopDetails: shopResult.rows[0] ? {
+          companyName: shopResult.rows[0].name,
+          email: shopResult.rows[0].email,
+          phoneNumber: shopResult.rows[0].phone
+        } : null
+      }
     });
-    
+
   } catch (error) {
-    logger.error('Stripe health check failed', {
-      error: error instanceof Error ? error.message : 'Unknown error'
+    logger.error('Failed to get enrollment details', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      enrollmentId: req.params.enrollmentId
     });
     
-    res.status(503).json({
+    res.status(500).json({
       success: false,
-      status: 'error',
-      error: error instanceof Error ? error.message : 'Failed to check Stripe service health',
-      message: 'Stripe service initialization failed'
+      error: 'Failed to get enrollment details'
     });
   }
 });
+*/
+
+// DEPRECATED: Public enrollment endpoint removed - commitment system no longer in use
+/*
+publicRouter.get('/subscription/enrollment-public/:enrollmentId', async (req: Request, res: Response) => {
+  try {
+    const enrollmentId = parseInt(req.params.enrollmentId);
+    
+    if (isNaN(enrollmentId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid enrollment ID'
+      });
+    }
+
+    const commitmentRepo = new CommitmentRepository();
+    const enrollment = await commitmentRepo.getEnrollmentById(enrollmentId);
+    
+    if (!enrollment) {
+      return res.status(404).json({
+        success: false,
+        error: 'Enrollment not found'
+      });
+    }
+
+    // Only return if enrollment is pending (for payment setup)
+    if (enrollment.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        error: 'This enrollment is no longer pending payment'
+      });
+    }
+
+    // Get shop details
+    const shopResult = await DatabaseService.getInstance().getPool().query(
+      'SELECT name, email, phone FROM shops WHERE shop_id = $1',
+      [enrollment.shopId]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        ...enrollment,
+        shopDetails: shopResult.rows[0] ? {
+          companyName: shopResult.rows[0].name,
+          email: shopResult.rows[0].email,
+          phoneNumber: shopResult.rows[0].phone
+        } : null
+      }
+    });
+
+  } catch (error) {
+    logger.error('Failed to get public enrollment details', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      enrollmentId: req.params.enrollmentId,
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get enrollment details',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+*/
+
+// DEPRECATED: Payment intent endpoint removed - now using Stripe checkout
+/*
+router.post('/subscription/payment/intent', async (req: Request, res: Response) => {
+  try {
+    const shopId = req.user?.shopId;
+    const { enrollmentId } = req.body;
+    
+    if (!shopId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Shop ID not found in token'
+      });
+    }
+
+    const enrollmentIdNum = parseInt(enrollmentId);
+    if (isNaN(enrollmentIdNum)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid enrollment ID'
+      });
+    }
+
+    const commitmentRepo = new CommitmentRepository();
+    const enrollment = await commitmentRepo.getEnrollmentById(enrollmentIdNum);
+    
+    if (!enrollment) {
+      return res.status(404).json({
+        success: false,
+        error: 'Enrollment not found'
+      });
+    }
+
+    // Verify ownership
+    if (enrollment.shopId !== shopId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Unauthorized to access this enrollment'
+      });
+    }
+
+    // Verify enrollment is pending
+    if (enrollment.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        error: 'Enrollment is not in pending status'
+      });
+    }
+
+    const stripeService = getStripeService();
+    
+    // Get or create Stripe customer
+    const shopResult = await DatabaseService.getInstance().getPool().query(
+      'SELECT name, email FROM shops WHERE shop_id = $1',
+      [shopId]
+    );
+    
+    if (!shopResult.rows[0]) {
+      return res.status(404).json({
+        success: false,
+        error: 'Shop not found'
+      });
+    }
+    
+    const shop = shopResult.rows[0];
+    
+    // Check if shop already has a Stripe customer
+    let stripeCustomerId: string;
+    const customerResult = await DatabaseService.getInstance().getPool().query(
+      'SELECT stripe_customer_id FROM stripe_customers WHERE shop_id = $1',
+      [shopId]
+    );
+    
+    if (customerResult.rows[0]?.stripe_customer_id) {
+      stripeCustomerId = customerResult.rows[0].stripe_customer_id;
+    } else {
+      // Create new Stripe customer
+      const customer = await stripeService.createCustomer({
+        email: enrollment.billingReference || shop.email,
+        name: shop.name,
+        shopId: shopId
+      });
+      stripeCustomerId = customer.id;
+      
+      // Save customer ID
+      await DatabaseService.getInstance().getPool().query(
+        `INSERT INTO stripe_customers (shop_id, stripe_customer_id, email, name) 
+         VALUES ($1, $2, $3, $4) 
+         ON CONFLICT (shop_id) DO UPDATE 
+         SET stripe_customer_id = $2, email = $3, name = $4`,
+        [shopId, stripeCustomerId, enrollment.billingReference || shop.email, shop.name]
+      );
+    }
+    
+    // Create payment intent
+    const paymentIntent = await stripeService.createPaymentIntent({
+      amount: enrollment.monthlyAmount * 100, // Convert to cents
+      currency: 'usd',
+      customerId: stripeCustomerId,
+      metadata: {
+        enrollmentId: enrollmentId,
+        shopId: shopId,
+        type: 'commitment_subscription'
+      },
+      description: `Monthly subscription for ${shop.name}`
+    });
+    
+    logger.info('Payment intent created for commitment subscription', {
+      enrollmentId: enrollmentIdNum,
+      shopId,
+      paymentIntentId: paymentIntent.id,
+      amount: enrollment.monthlyAmount
+    });
+
+    res.json({
+      success: true,
+      data: {
+        clientSecret: paymentIntent.client_secret,
+        amount: enrollment.monthlyAmount,
+        currency: 'usd'
+      }
+    });
+
+  } catch (error) {
+    logger.error('Failed to create payment intent', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      shopId: req.user?.shopId
+    });
+    
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create payment intent'
+    });
+  }
+});
+*/
+
+// DEPRECATED: Payment confirm endpoint removed - Stripe webhook handles this
+/*
+router.post('/subscription/payment/confirm', async (req: Request, res: Response) => {
+  try {
+    const shopId = req.user?.shopId;
+    const { enrollmentId, paymentMethodId, amount } = req.body;
+    
+    if (!shopId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Shop ID not found in token'
+      });
+    }
+
+    const enrollmentIdNum = parseInt(enrollmentId);
+    if (isNaN(enrollmentIdNum)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid enrollment ID'
+      });
+    }
+
+    const commitmentRepo = new CommitmentRepository();
+    const enrollment = await commitmentRepo.getEnrollmentById(enrollmentIdNum);
+    
+    if (!enrollment) {
+      return res.status(404).json({
+        success: false,
+        error: 'Enrollment not found'
+      });
+    }
+
+    // Verify ownership
+    if (enrollment.shopId !== shopId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Unauthorized to confirm this payment'
+      });
+    }
+
+    // Verify enrollment is pending
+    if (enrollment.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        error: 'Enrollment is not in pending status'
+      });
+    }
+
+    // In production, this would process the payment with Stripe
+    // For now, we'll simulate successful payment and activate the subscription
+
+    // Record the payment
+    await commitmentRepo.recordPayment(enrollmentIdNum, amount, new Date());
+
+    // Activate the enrollment
+    const activated = await commitmentRepo.updateEnrollmentStatus(
+      enrollmentIdNum,
+      'active',
+      {
+        activatedAt: new Date()
+      }
+    );
+
+    // Update shop operational status
+    await DatabaseService.getInstance().getPool().query(
+      `UPDATE shops 
+       SET operational_status = 'commitment_qualified',
+           commitment_enrolled = true
+       WHERE shop_id = $1`,
+      [shopId]
+    );
+
+    logger.info('Commitment subscription activated via payment', {
+      enrollmentId: enrollmentIdNum,
+      shopId,
+      amount,
+      paymentMethodId
+    });
+
+    res.json({
+      success: true,
+      data: {
+        enrollment: activated,
+        message: 'Payment successful! Your subscription is now active.'
+      }
+    });
+
+  } catch (error) {
+    logger.error('Failed to confirm payment', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      shopId: req.user?.shopId
+    });
+    
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to confirm payment'
+    });
+  }
+});
+*/
+
+// DEPRECATED: Commitment cancellation endpoint - use DELETE /:shopId/subscription instead
+/*
+router.post('/subscription/cancel', async (req: Request, res: Response) => {
+  try {
+    const shopId = req.user?.shopId;
+    const { reason } = req.body;
+    
+    if (!shopId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Shop ID not found in token'
+      });
+    }
+
+    const commitmentRepo = new CommitmentRepository();
+    
+    // Check if shop has active enrollment
+    const activeEnrollment = await commitmentRepo.getActiveEnrollmentByShopId(shopId);
+    
+    if (!activeEnrollment) {
+      return res.status(400).json({
+        success: false,
+        error: 'No active subscription found'
+      });
+    }
+
+    // Cancel the enrollment
+    const cancelledEnrollment = await commitmentRepo.updateEnrollmentStatus(
+      activeEnrollment.id!,
+      'cancelled',
+      {
+        cancelledAt: new Date(),
+        cancellationReason: reason || 'Cancelled by shop owner'
+      }
+    );
+
+    logger.info('Commitment subscription cancelled', {
+      shopId,
+      enrollmentId: activeEnrollment.id,
+      reason
+    });
+
+    res.json({
+      success: true,
+      data: {
+        message: 'Subscription cancelled successfully. You can resubscribe at any time.',
+        enrollment: cancelledEnrollment
+      }
+    });
+
+  } catch (error) {
+    logger.error('Failed to cancel subscription', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      shopId: req.user?.shopId
+    });
+    
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to cancel subscription'
+    });
+  }
+});
+*/
 
 /**
  * @swagger
