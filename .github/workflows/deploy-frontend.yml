@@ -35,8 +35,16 @@ jobs:
           
       - name: Build frontend
         env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
-          NEXT_PUBLIC_THIRDWEB_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_THIRDWEB_CLIENT_ID }}
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'https://repaircoin-staging-s7743.ondigitalocean.app/api' }}
+          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL || 'https://repaircoin-frontend.ondigitalocean.app' }}
+          NEXT_PUBLIC_RCN_CONTRACT_ADDRESS: 0xBFE793d78B6B83859b528F191bd6F2b8555D951C
+          NEXT_PUBLIC_RCN_THIRDWEB_CLIENT_ID: 1969ac335e07ba13ad0f8d1a1de4f6ab
+          NEXT_PUBLIC_RCG_CONTRACT_ADDRESS: 0x973D8b27E7CD72270F9C07d94381f522bC9D4304
+          NEXT_PUBLIC_RCG_THIRDWEB_CLIENT_ID: 99f01d5781fadab9f6a42660090e824b
+          NEXT_PUBLIC_CHAIN_ID: 84532
+          NEXT_PUBLIC_NETWORK: base-sepolia
+          NEXT_PUBLIC_ADMIN_ADDRESSES: 0x761E5E59485ec6feb263320f5d636042bD9EBc8c
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_51RaMUiL8hwPnzzXkAUUvdQWlPFBazG2ZUVjYFOBJK7bV4Tv1H0wyWDWqYwmtj51EvLYvK7KhTpncM5VRDcOLrLLF004SSTddiJ
         run: |
           cd frontend
           npm ci

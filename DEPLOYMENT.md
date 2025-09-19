@@ -43,7 +43,18 @@ This guide explains how to set up automatic deployment to Digital Ocean App Plat
    **DIGITALOCEAN_APP_ID**
    - Click "New repository secret"
    - Name: `DIGITALOCEAN_APP_ID`
-   - Value: Your app's UUID from the URL
+   - Value: Your backend app's UUID from the URL
+   
+   **DIGITALOCEAN_FRONTEND_APP_ID** (if deploying frontend)
+   - Click "New repository secret"
+   - Name: `DIGITALOCEAN_FRONTEND_APP_ID`
+   - Value: Your frontend app's UUID
+   
+   **NEXT_PUBLIC_API_URL** (optional)
+   - Click "New repository secret"
+   - Name: `NEXT_PUBLIC_API_URL`
+   - Value: Your backend API URL (e.g., `https://your-backend.ondigitalocean.app/api`)
+   - If not set, defaults to staging URL in workflow
 
 ### Step 4: Verify Your App Settings
 
