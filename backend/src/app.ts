@@ -90,11 +90,22 @@ class RepairCoinApp {
         // Allow requests with no origin (like mobile apps or Postman)
         if (!origin) return callback(null, true);
         
+        // Allow any Digital Ocean App Platform URL
+        if (origin && origin.includes('.ondigitalocean.app')) {
+          return callback(null, true);
+        }
+        
+        // Allow any Vercel deployment URL
+        if (origin && origin.includes('.vercel.app')) {
+          return callback(null, true);
+        }
+        
         if (allowedOrigins.includes(origin)) {
           callback(null, true);
         } else {
-          // In production, only allow specified origins
+          // In production, only allow specified origins or DO/Vercel
           if (process.env.NODE_ENV === 'production') {
+            logger.warn(`CORS blocked origin: ${origin}`);
             callback(new Error('Not allowed by CORS'));
           } else {
             callback(null, true); // Allow all origins in development
