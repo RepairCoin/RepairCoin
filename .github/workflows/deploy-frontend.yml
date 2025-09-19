@@ -1,0 +1,106 @@
+name: Deploy Frontend to Digital Ocean
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Force deployment even without frontend changes'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+          
+      - name: Build frontend
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_THIRDWEB_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_THIRDWEB_CLIENT_ID }}
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+          
+      - name: Deploy to Digital Ocean App Platform
+        run: |
+          echo "Starting frontend deployment to Digital Ocean App Platform..."
+          doctl apps create-deployment ${{ secrets.DIGITALOCEAN_FRONTEND_APP_ID }} --force-rebuild --wait
+          
+      - name: Get deployment status
+        id: deployment
+        run: |
+          echo "Fetching deployment information..."
+          DEPLOYMENT_ID=$(doctl apps list-deployments ${{ secrets.DIGITALOCEAN_FRONTEND_APP_ID }} --format ID --no-header | head -1)
+          echo "deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
+          
+      - name: Monitor deployment
+        run: |
+          echo "Monitoring deployment progress..."
+          MAX_ATTEMPTS=60
+          ATTEMPT=0
+          
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            STATUS=$(doctl apps get-deployment ${{ secrets.DIGITALOCEAN_FRONTEND_APP_ID }} ${{ steps.deployment.outputs.deployment_id }} --format Phase --no-header)
+            echo "Deployment status: $STATUS"
+            
+            if [ "$STATUS" = "ACTIVE" ]; then
+              echo "✅ Deployment successful!"
+              exit 0
+            elif [ "$STATUS" = "ERROR" ] || [ "$STATUS" = "CANCELED" ]; then
+              echo "❌ Deployment failed with status: $STATUS"
+              doctl apps get-deployment ${{ secrets.DIGITALOCEAN_FRONTEND_APP_ID }} ${{ steps.deployment.outputs.deployment_id }}
+              exit 1
+            fi
+            
+            sleep 10
+            ATTEMPT=$((ATTEMPT + 1))
+          done
+          
+          echo "⏱️ Deployment timeout after $MAX_ATTEMPTS attempts"
+          exit 1
+          
+      - name: Verify deployment
+        run: |
+          echo "Verifying deployment health..."
+          APP_URL=$(doctl apps get ${{ secrets.DIGITALOCEAN_FRONTEND_APP_ID }} --format DefaultIngress --no-header)
+          
+          # Wait a bit for the app to stabilize
+          sleep 30
+          
+          # Check if frontend is responding
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://$APP_URL || echo "000")
+          
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "✅ Frontend is responding!"
+          else
+            echo "⚠️ Frontend returned status: $HTTP_STATUS"
+            echo "This might be normal if the app is still warming up."
+          fi
+          
+      - name: Deployment summary
+        if: always()
+        run: |
+          echo "=== Frontend Deployment Summary ==="
+          doctl apps get ${{ secrets.DIGITALOCEAN_FRONTEND_APP_ID }}
+          echo "================================"

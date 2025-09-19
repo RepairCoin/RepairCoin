@@ -68,8 +68,9 @@ To build the first community-governed loyalty ecosystem for the repair industry,
 
 ### Infrastructure
 - **Docker + Docker Compose** - Container orchestration
-- **Base Sepolia Testnet** - Current deployment
-- **GitHub Actions** - CI/CD pipeline
+- **Digital Ocean App Platform** - Production deployment
+- **Base Sepolia Testnet** - Current blockchain deployment
+- **GitHub Actions** - Automated CI/CD pipeline
 
 ---
 
@@ -222,6 +223,23 @@ docker exec -it repaircoin-db psql -U repaircoin -d repaircoin
 # Health check
 curl http://localhost:4000/api/health
 ```
+
+### Deployment
+
+RepairCoin uses automated deployment via GitHub Actions to Digital Ocean App Platform.
+
+```bash
+# Automatic deployment (on push to main branch)
+git push origin main
+
+# Manual deployment trigger
+# Go to GitHub Actions → Deploy Backend → Run workflow
+
+# View deployment logs
+# GitHub Actions tab shows real-time deployment status
+```
+
+For detailed deployment setup, see [DEPLOYMENT.md](./DEPLOYMENT.md).
 
 ### Stripe Webhook Setup
 
