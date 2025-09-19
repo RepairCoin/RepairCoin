@@ -30,19 +30,28 @@ export function useAdminAuth() {
   const generateAdminToken = useCallback(async (
     forceRefresh: boolean = false
   ): Promise<string | null> => {
-    if (!account?.address) return null;
+    console.log('🔑 generateAdminToken called', { account: account?.address, forceRefresh });
+    
+    if (!account?.address) {
+      console.log('❌ No account address available');
+      return null;
+    }
 
     // Check if we already have a token stored (unless forcing refresh)
     if (!forceRefresh) {
       const storedToken = authManager.getToken("admin");
       if (storedToken) {
+        console.log('✅ Using stored admin token');
         return storedToken;
       }
     }
 
     try {
+      const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'}/auth/admin`;
+      console.log('🌐 Calling admin auth endpoint:', url);
+      
       // Note: auth/admin endpoint is not in adminApi, using direct fetch
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'}/auth/admin`, {
+      const response = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -52,12 +61,19 @@ export function useAdminAuth() {
         }),
       });
 
+      console.log('📨 Admin auth response status:', response.status);
+
       if (response.ok) {
         const data = await response.json();
+        console.log('✅ Admin auth successful:', data);
         const token = data.token;
         if (token) {
           // Store token using authManager
           authManager.setToken("admin", token, 24); // 24 hour expiry
+          
+          // Also store in localStorage for the axios interceptor
+          localStorage.setItem("adminAuthToken", token);
+          console.log('💾 Admin token stored in localStorage');
           
           // Update super admin status if provided in response
           if (data.user?.isSuperAdmin !== undefined) {
@@ -73,11 +89,11 @@ export function useAdminAuth() {
         }
       } else {
         const errorData = await response.json();
+        console.error("❌ Admin auth failed:", response.status, errorData);
         toast.error(errorData.error || "Admin authentication failed");
-        console.error("Admin auth failed:", errorData);
       }
     } catch (error) {
-      console.error("Failed to generate admin token:", error);
+      console.error("❌ Failed to generate admin token:", error);
       toast.error("Network error during authentication");
     }
 

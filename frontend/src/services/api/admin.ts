@@ -78,8 +78,12 @@ export const getAdminStats = async (): Promise<AdminStats | null> => {
     }
     
     return null;
-  } catch (error) {
-    console.error('Error getting admin stats:', error);
+  } catch (error: any) {
+    if (error?.response?.status === 403) {
+      console.error('❌ Admin stats access denied (403). Ensure your wallet address is registered as admin in the backend database.');
+    } else {
+      console.error('Error getting admin stats:', error);
+    }
     return null;
   }
 };
