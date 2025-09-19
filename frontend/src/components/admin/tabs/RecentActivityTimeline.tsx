@@ -1,11 +1,31 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { Activity, Store, Users, Coins, Gift, ShoppingCart, UserPlus, CheckCircle, Building2, Award, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import {
+  Activity,
+  Store,
+  Users,
+  Coins,
+  Gift,
+  ShoppingCart,
+  UserPlus,
+  CheckCircle,
+  Building2,
+  Award,
+  AlertCircle,
+} from "lucide-react";
 
 interface ActivityItem {
   id: string;
-  type: 'shop_registration' | 'shop_approval' | 'rcn_purchase' | 'new_customer' | 'customer_reward' | 'redemption' | 'referral' | 'tier_upgrade';
+  type:
+    | "shop_registration"
+    | "shop_approval"
+    | "rcn_purchase"
+    | "new_customer"
+    | "customer_reward"
+    | "redemption"
+    | "referral"
+    | "tier_upgrade";
   timestamp: string;
   title: string;
   description: string;
@@ -25,7 +45,7 @@ interface ActivityItem {
   };
   icon: React.ReactNode;
   iconBg: string;
-  status?: 'success' | 'pending' | 'failed';
+  status?: "success" | "pending" | "failed";
 }
 
 interface RecentActivityTimelineProps {
@@ -40,76 +60,79 @@ const getRelativeTime = (timestamp: string): string => {
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
 
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins} min${diffMins !== 1 ? 's' : ''} ago`;
-  if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
-  if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins} min${diffMins !== 1 ? "s" : ""} ago`;
+  if (diffHours < 24)
+    return `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`;
+  if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? "s" : ""} ago`;
   return then.toLocaleDateString();
 };
 
-const getActivityIcon = (type: ActivityItem['type']) => {
+const getActivityIcon = (type: ActivityItem["type"]) => {
   switch (type) {
-    case 'shop_registration':
+    case "shop_registration":
       return <Store className="w-4 h-4" />;
-    case 'shop_approval':
+    case "shop_approval":
       return <CheckCircle className="w-4 h-4" />;
-    case 'rcn_purchase':
+    case "rcn_purchase":
       return <ShoppingCart className="w-4 h-4" />;
-    case 'new_customer':
+    case "new_customer":
       return <UserPlus className="w-4 h-4" />;
-    case 'customer_reward':
+    case "customer_reward":
       return <Gift className="w-4 h-4" />;
-    case 'redemption':
+    case "redemption":
       return <Coins className="w-4 h-4" />;
-    case 'referral':
+    case "referral":
       return <Users className="w-4 h-4" />;
-    case 'tier_upgrade':
+    case "tier_upgrade":
       return <Award className="w-4 h-4" />;
     default:
       return <Activity className="w-4 h-4" />;
   }
 };
 
-const getActivityColor = (type: ActivityItem['type']) => {
+const getActivityColor = (type: ActivityItem["type"]) => {
   switch (type) {
-    case 'shop_registration':
-      return 'from-blue-500 to-indigo-600';
-    case 'shop_approval':
-      return 'from-green-500 to-emerald-600';
-    case 'rcn_purchase':
-      return 'from-yellow-500 to-orange-600';
-    case 'new_customer':
-      return 'from-purple-500 to-pink-600';
-    case 'customer_reward':
-      return 'from-cyan-500 to-teal-600';
-    case 'redemption':
-      return 'from-amber-500 to-yellow-600';
-    case 'referral':
-      return 'from-violet-500 to-purple-600';
-    case 'tier_upgrade':
-      return 'from-rose-500 to-pink-600';
+    case "shop_registration":
+      return "from-blue-500 to-indigo-600";
+    case "shop_approval":
+      return "from-green-500 to-emerald-600";
+    case "rcn_purchase":
+      return "from-yellow-500 to-orange-600";
+    case "new_customer":
+      return "from-purple-500 to-pink-600";
+    case "customer_reward":
+      return "from-cyan-500 to-teal-600";
+    case "redemption":
+      return "from-amber-500 to-yellow-600";
+    case "referral":
+      return "from-violet-500 to-purple-600";
+    case "tier_upgrade":
+      return "from-rose-500 to-pink-600";
     default:
-      return 'from-gray-500 to-gray-600';
+      return "from-gray-500 to-gray-600";
   }
 };
 
-export const RecentActivityTimeline: React.FC<RecentActivityTimelineProps> = ({ generateAdminToken }) => {
+export const RecentActivityTimeline: React.FC<RecentActivityTimelineProps> = ({
+  generateAdminToken,
+}) => {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState("all");
 
   useEffect(() => {
     const fetchActivities = async () => {
       if (!generateAdminToken) return;
-      
+
       try {
         setLoading(true);
         const token = await generateAdminToken();
         if (!token) return;
 
         const headers = {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         };
 
         const activities: ActivityItem[] = [];
@@ -117,8 +140,14 @@ export const RecentActivityTimeline: React.FC<RecentActivityTimelineProps> = ({ 
         // Fetch recent shop registrations and approvals
         try {
           const [activeShops, pendingShops] = await Promise.all([
-            fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/shops?limit=5&orderBy=join_date&order=DESC`, { headers }),
-            fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/shops?verified=false&limit=5`, { headers })
+            fetch(
+              `${process.env.NEXT_PUBLIC_API_URL}/admin/shops?limit=5&orderBy=join_date&order=DESC`,
+              { headers }
+            ),
+            fetch(
+              `${process.env.NEXT_PUBLIC_API_URL}/admin/shops?verified=false&limit=5`,
+              { headers }
+            ),
           ]);
 
           if (activeShops.ok) {
@@ -126,19 +155,24 @@ export const RecentActivityTimeline: React.FC<RecentActivityTimelineProps> = ({ 
             activeData.data?.shops?.forEach((shop: any, index: number) => {
               activities.push({
                 id: `shop-verified-${shop.id || index}-${Date.now()}-${index}`,
-                type: 'shop_approval',
-                timestamp: shop.verifiedAt || shop.joinDate || new Date().toISOString(),
-                title: 'Shop Approved',
+                type: "shop_approval",
+                timestamp:
+                  shop.verifiedAt || shop.joinDate || new Date().toISOString(),
+                title: "Shop Approved",
                 description: `${shop.name} has been verified`,
                 metadata: {
                   shopId: shop.id,
                   shopName: shop.name,
-                  status: 'verified',
-                  location: shop.city ? `${shop.city}, ${shop.country}` : shop.country
+                  status: "verified",
+                  location: shop.city
+                    ? `${shop.city}, ${shop.country}`
+                    : shop.country,
                 },
-                icon: getActivityIcon('shop_approval'),
-                iconBg: `bg-gradient-to-br ${getActivityColor('shop_approval')}`,
-                status: 'success'
+                icon: getActivityIcon("shop_approval"),
+                iconBg: `bg-gradient-to-br ${getActivityColor(
+                  "shop_approval"
+                )}`,
+                status: "success",
               });
             });
           }
@@ -148,35 +182,42 @@ export const RecentActivityTimeline: React.FC<RecentActivityTimelineProps> = ({ 
             pendingData.data?.shops?.forEach((shop: any, index: number) => {
               activities.push({
                 id: `shop-pending-${shop.id || index}-${Date.now()}-${index}`,
-                type: 'shop_registration',
+                type: "shop_registration",
                 timestamp: shop.joinDate || new Date().toISOString(),
-                title: 'New Shop Application',
+                title: "New Shop Application",
                 description: `${shop.name} applied`,
                 metadata: {
                   shopId: shop.id,
                   shopName: shop.name,
-                  status: 'pending',
-                  location: shop.city ? `${shop.city}, ${shop.country}` : shop.country,
-                  owner: shop.contactName
+                  status: "pending",
+                  location: shop.city
+                    ? `${shop.city}, ${shop.country}`
+                    : shop.country,
+                  owner: shop.contactName,
                 },
-                icon: getActivityIcon('shop_registration'),
-                iconBg: `bg-gradient-to-br ${getActivityColor('shop_registration')}`,
-                status: 'pending'
+                icon: getActivityIcon("shop_registration"),
+                iconBg: `bg-gradient-to-br ${getActivityColor(
+                  "shop_registration"
+                )}`,
+                status: "pending",
               });
             });
           }
         } catch (error) {
-          console.error('Error fetching shop activities:', error);
+          console.error("Error fetching shop activities:", error);
         }
 
         // Sort activities by timestamp
         const allActivities = [...activities]
-          .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+          .sort(
+            (a, b) =>
+              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          )
           .slice(0, 10);
 
         setActivities(allActivities);
       } catch (error) {
-        console.error('Error fetching activities:', error);
+        console.error("Error fetching activities:", error);
       } finally {
         setLoading(false);
       }
@@ -185,32 +226,35 @@ export const RecentActivityTimeline: React.FC<RecentActivityTimelineProps> = ({ 
     fetchActivities();
   }, [generateAdminToken]);
 
-  const filteredActivities = filter === 'all' 
-    ? activities 
-    : activities.filter(a => a.type === filter);
+  const filteredActivities =
+    filter === "all" ? activities : activities.filter((a) => a.type === filter);
 
   return (
-    <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700/50 flex flex-col max-h-[600px]">
-      <div className="px-6 py-4 border-b border-gray-700/50">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              Recent Activity
-            </h2>
-          </div>
-          <div className="flex items-center gap-2">
-            <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="px-3 py-1.5 bg-gray-700/50 border border-gray-600 rounded-lg text-sm text-gray-300 focus:outline-none focus:border-yellow-400"
-            >
-              <option value="all">All Events</option>
-              <option value="shop_registration">Registrations</option>
-              <option value="shop_approval">Approvals</option>
-              <option value="rcn_purchase">Purchases</option>
-              <option value="tier_upgrade">Upgrades</option>
-            </select>
-          </div>
+    <div className="bg-[#212121] rounded-3xl lg:col-span-2 flex flex-col  max-h-[600px]">
+      <div
+        className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-3xl"
+        style={{
+          backgroundImage: `url('/img/cust-ref-widget3.png')`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
+      >
+        <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
+          Recent Activity
+        </p>
+        <div className="flex items-center gap-2">
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="px-3 py-1.5 bg-black border border-gray-600 rounded-3xl text-sm text-gray-300 focus:outline-none focus:border-yellow-400"
+          >
+            <option value="all">All Events</option>
+            <option value="shop_registration">Registrations</option>
+            <option value="shop_approval">Approvals</option>
+            <option value="rcn_purchase">Purchases</option>
+            <option value="tier_upgrade">Upgrades</option>
+          </select>
         </div>
       </div>
 
@@ -231,7 +275,9 @@ export const RecentActivityTimeline: React.FC<RecentActivityTimelineProps> = ({ 
           <div className="text-center py-8">
             <AlertCircle className="w-12 h-12 text-gray-600 mx-auto mb-3" />
             <p className="text-gray-400 font-medium">No recent activity</p>
-            <p className="text-gray-500 text-sm mt-2">Shop registrations and approvals will appear here</p>
+            <p className="text-gray-500 text-sm mt-2">
+              Shop registrations and approvals will appear here
+            </p>
           </div>
         ) : (
           <div className="relative">
@@ -244,8 +290,12 @@ export const RecentActivityTimeline: React.FC<RecentActivityTimelineProps> = ({ 
                     <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50 hover:border-gray-600/50 transition-all">
                       <div className="flex items-start justify-between mb-2">
                         <div>
-                          <h3 className="text-sm font-semibold text-white">{activity.title}</h3>
-                          <p className="text-xs text-gray-400 mt-0.5">{activity.description}</p>
+                          <h3 className="text-sm font-semibold text-white">
+                            {activity.title}
+                          </h3>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {activity.description}
+                          </p>
                         </div>
                         <span className="text-xs text-gray-500 whitespace-nowrap ml-4">
                           {getRelativeTime(activity.timestamp)}
@@ -267,34 +317,38 @@ export const RecentActivityTimeline: React.FC<RecentActivityTimelineProps> = ({ 
                               )}
                             </div>
                           )}
-                          
+
                           {activity.metadata.tier && (
-                            <span className={`text-xs px-2 py-1 rounded-md font-medium ${
-                              activity.metadata.tier === 'GOLD' 
-                                ? 'bg-gradient-to-r from-yellow-900/30 to-amber-900/30 text-yellow-400 border border-yellow-700/30' 
-                                : activity.metadata.tier === 'SILVER' 
-                                ? 'bg-gradient-to-r from-gray-800/30 to-gray-700/30 text-gray-300 border border-gray-600/30' 
-                                : 'bg-gradient-to-r from-orange-900/30 to-amber-900/30 text-orange-400 border border-orange-700/30'
-                            }`}>
+                            <span
+                              className={`text-xs px-2 py-1 rounded-md font-medium ${
+                                activity.metadata.tier === "GOLD"
+                                  ? "bg-gradient-to-r from-yellow-900/30 to-amber-900/30 text-yellow-400 border border-yellow-700/30"
+                                  : activity.metadata.tier === "SILVER"
+                                  ? "bg-gradient-to-r from-gray-800/30 to-gray-700/30 text-gray-300 border border-gray-600/30"
+                                  : "bg-gradient-to-r from-orange-900/30 to-amber-900/30 text-orange-400 border border-orange-700/30"
+                              }`}
+                            >
                               {activity.metadata.tier}
                             </span>
                           )}
-                          
+
                           {activity.metadata.location && (
                             <span className="text-xs text-gray-500 flex items-center gap-1">
                               <Building2 className="w-3 h-3" />
                               {activity.metadata.location}
                             </span>
                           )}
-                          
+
                           {activity.status && (
-                            <span className={`text-xs px-2 py-1 rounded-md font-medium ${
-                              activity.status === 'success' 
-                                ? 'bg-green-900/30 text-green-400 border border-green-700/30' 
-                                : activity.status === 'pending' 
-                                ? 'bg-yellow-900/30 text-yellow-400 border border-yellow-700/30' 
-                                : 'bg-red-900/30 text-red-400 border border-red-700/30'
-                            }`}>
+                            <span
+                              className={`text-xs px-2 py-1 rounded-md font-medium ${
+                                activity.status === "success"
+                                  ? "bg-green-900/30 text-green-400 border border-green-700/30"
+                                  : activity.status === "pending"
+                                  ? "bg-yellow-900/30 text-yellow-400 border border-yellow-700/30"
+                                  : "bg-red-900/30 text-red-400 border border-red-700/30"
+                              }`}
+                            >
                               {activity.status}
                             </span>
                           )}
