@@ -130,6 +130,17 @@ router.post('/check-user', async (req, res) => {
         logger.info('Auto-created super admin from env:', normalizedAddress);
       } catch (error) {
         logger.error('Failed to auto-create super admin:', error);
+        // Even if DB creation fails, allow super admin from env to proceed
+        adminData = {
+          id: 0,
+          walletAddress: normalizedAddress,
+          name: 'Super Administrator',
+          permissions: ['all'],
+          isActive: true,
+          isSuperAdmin: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        } as any;
       }
     }
     
