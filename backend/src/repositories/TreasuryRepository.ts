@@ -171,9 +171,9 @@ export class TreasuryRepository extends BaseRepository {
       const row = result.rows[0];
       
       return {
-        totalSupply: parseFloat(row.total_supply),
+        totalSupply: row.total_supply === 'unlimited' ? Infinity : parseFloat(row.total_supply),
         circulatingSupply: parseFloat(row.circulating_supply),
-        availableSupply: parseFloat(row.available_supply),
+        availableSupply: row.available_supply === 'unlimited' ? Infinity : parseFloat(row.available_supply),
         totalRevenue: parseFloat(row.total_revenue),
         averageTokenPrice: parseFloat(row.avg_price)
       };
@@ -228,18 +228,17 @@ export class TreasuryRepository extends BaseRepository {
         // Initialize treasury if it doesn't exist
         await this.pool.query(`
           INSERT INTO admin_treasury (
-            total_supply, total_sold_to_shops, total_revenue, 
-            available_balance, last_updated, updated_by
-          ) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, 'system')
-        `, ['unlimited', amountSold, revenue, 'unlimited']);
+            total_supply, total_sold, total_revenue, 
+            available_supply, last_updated
+          ) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+        `, [null, amountSold, revenue, null]);
       } else {
         // Update existing treasury
         await this.pool.query(`
           UPDATE admin_treasury 
-          SET total_sold_to_shops = COALESCE(total_sold_to_shops, 0) + $1,
+          SET total_sold = COALESCE(total_sold, 0) + $1,
               total_revenue = COALESCE(total_revenue, 0) + $2,
-              last_updated = CURRENT_TIMESTAMP,
-              updated_by = 'system'
+              last_updated = CURRENT_TIMESTAMP
         `, [amountSold, revenue]);
       }
       

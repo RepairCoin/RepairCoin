@@ -309,7 +309,11 @@ export class ShopRepository extends BaseRepository {
         verifiedAt: row.verified_at,
         verifiedBy: row.verified_by,
         purchasedRcnBalance: parseFloat(row.purchased_rcn_balance || 0),
-        totalRcnPurchased: parseFloat(row.total_rcn_purchased || 0)
+        totalRcnPurchased: parseFloat(row.total_rcn_purchased || 0),
+        operational_status: row.operational_status || 'pending',
+        rcg_tier: row.rcg_tier || 'standard',
+        rcg_balance: parseFloat(row.rcg_balance || 0),
+        tier_updated_at: row.tier_updated_at
       }));
 
       const totalPages = Math.ceil(totalItems / filters.limit);
@@ -358,7 +362,11 @@ export class ShopRepository extends BaseRepository {
         verifiedAt: row.verified_at,
         verifiedBy: row.verified_by,
         purchasedRcnBalance: parseFloat(row.purchased_rcn_balance || 0),
-        totalRcnPurchased: parseFloat(row.total_rcn_purchased || 0)
+        totalRcnPurchased: parseFloat(row.total_rcn_purchased || 0),
+        operational_status: row.operational_status || 'pending',
+        rcg_tier: row.rcg_tier || 'standard',
+        rcg_balance: parseFloat(row.rcg_balance || 0),
+        tier_updated_at: row.tier_updated_at
       }));
     } catch (error) {
       logger.error('Error getting active shops:', error);

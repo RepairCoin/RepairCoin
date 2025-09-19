@@ -209,6 +209,16 @@ router.post('/treasury/update', verifyAdminToken, async (req: Request, res: Resp
         const distribution = rcgService.getRCGTokenReader().calculateDistribution(revenueMetrics.totalRevenue);
         
         // Store revenue distribution record
+        // First, calculate the total RCN sold this week
+        const weeklyRcnQuery = await treasuryRepo.query(`
+            SELECT COALESCE(SUM(amount), 0) as weekly_rcn_sold
+            FROM shop_rcn_purchases
+            WHERE status = 'completed'
+            AND created_at >= date_trunc('week', CURRENT_DATE)
+            AND created_at < date_trunc('week', CURRENT_DATE) + INTERVAL '7 days'
+        `);
+        const weeklyRcnSold = parseFloat(weeklyRcnQuery.rows[0]?.weekly_rcn_sold || '0');
+        
         await treasuryRepo.query(`
             INSERT INTO revenue_distributions (
                 week_start, week_end, total_rcn_sold, total_revenue_usd,
@@ -225,7 +235,7 @@ router.post('/treasury/update', verifyAdminToken, async (req: Request, res: Resp
                 dao_treasury_share = EXCLUDED.dao_treasury_share,
                 created_at = NOW()
         `, [
-            0, // We'd need to calculate total RCN sold this week
+            weeklyRcnSold,
             revenueMetrics.totalRevenue,
             distribution.operations,
             distribution.stakers,
