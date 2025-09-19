@@ -70,11 +70,9 @@ export function useAdminDashboardData(
       // Fetch platform statistics using API service
       const statsData = await adminApi.getStats();
       if (statsData) {
-        console.log("Stats data:", statsData);
         setStats(statsData);
       } else {
         // If failed, try refreshing the token
-        console.log("Failed to fetch stats, refreshing token...");
         authManager.clearToken("admin");
         const newToken = await generateAdminToken(true);
         if (newToken) {
@@ -96,14 +94,9 @@ export function useAdminDashboardData(
       if (canManageShops) {
         // Fetch ALL shops to get complete data using API service
         const allShops = await adminApi.getShops({ active: 'all' as any, verified: 'all' as any });
-        console.log("All shops data:", allShops, "Type:", typeof allShops, "Is Array:", Array.isArray(allShops));
 
         // Ensure allShops is an array
         const shopsArray = Array.isArray(allShops) ? allShops : [];
-        
-        if (!Array.isArray(allShops)) {
-          console.error("Expected shops to be an array but got:", allShops);
-        }
 
         // Separate shops based on their status
         const activeVerifiedShops = shopsArray.filter(

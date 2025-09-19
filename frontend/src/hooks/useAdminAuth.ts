@@ -30,10 +30,7 @@ export function useAdminAuth() {
   const generateAdminToken = useCallback(async (
     forceRefresh: boolean = false
   ): Promise<string | null> => {
-    console.log('🔑 generateAdminToken called', { account: account?.address, forceRefresh });
-    
     if (!account?.address) {
-      console.log('❌ No account address available');
       return null;
     }
 
@@ -41,14 +38,12 @@ export function useAdminAuth() {
     if (!forceRefresh) {
       const storedToken = authManager.getToken("admin");
       if (storedToken) {
-        console.log('✅ Using stored admin token');
         return storedToken;
       }
     }
 
     try {
       const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'}/auth/admin`;
-      console.log('🌐 Calling admin auth endpoint:', url);
       
       // Note: auth/admin endpoint is not in adminApi, using direct fetch
       const response = await fetch(url, {
@@ -61,11 +56,8 @@ export function useAdminAuth() {
         }),
       });
 
-      console.log('📨 Admin auth response status:', response.status);
-
       if (response.ok) {
         const data = await response.json();
-        console.log('✅ Admin auth successful:', data);
         const token = data.token;
         if (token) {
           // Store token using authManager
@@ -73,7 +65,6 @@ export function useAdminAuth() {
           
           // Also store in localStorage for the axios interceptor
           localStorage.setItem("adminAuthToken", token);
-          console.log('💾 Admin token stored in localStorage');
           
           // Update super admin status if provided in response
           if (data.user?.isSuperAdmin !== undefined) {
@@ -89,11 +80,11 @@ export function useAdminAuth() {
         }
       } else {
         const errorData = await response.json();
-        console.error("❌ Admin auth failed:", response.status, errorData);
+        console.error("Admin auth failed:", response.status, errorData);
         toast.error(errorData.error || "Admin authentication failed");
       }
     } catch (error) {
-      console.error("❌ Failed to generate admin token:", error);
+      console.error("Failed to generate admin token:", error);
       toast.error("Network error during authentication");
     }
 
@@ -113,10 +104,8 @@ export function useAdminAuth() {
       
       // Use the admin API service
       const profile = await adminApi.getAdminProfile();
-      console.log("Admin profile response:", profile);
       return profile;
     } catch (error) {
-      console.error("Error fetching admin profile:", error);
       return null;
     }
   }, [account, generateAdminToken]);
@@ -124,7 +113,6 @@ export function useAdminAuth() {
   // Check admin-specific permissions and status
   useEffect(() => {
     // Reset admin-specific state when account changes
-    console.log("Account changed, resetting admin permissions");
     setIsSuperAdmin(false);
     setAdminPermissions([]);
     
@@ -136,12 +124,9 @@ export function useAdminAuth() {
     
     const checkAdminStatus = async () => {
       if (!account?.address || !isAdminFromAuth) {
-        console.log("No account address or not an admin");
         setAdminProfileLoading(false);
         return;
       }
-
-      console.log("Checking admin permissions for:", account.address);
 
       // First, check if this is the super admin from env
       const adminAddresses = (process.env.NEXT_PUBLIC_ADMIN_ADDRESSES || "")
@@ -150,9 +135,6 @@ export function useAdminAuth() {
         .filter(addr => addr.length > 0);
       
       const isSuperAdminFromEnv = adminAddresses.length > 0 && adminAddresses[0] === account.address.toLowerCase();
-      
-      console.log("Admin addresses from env:", adminAddresses);
-      console.log("Is super admin from env:", isSuperAdminFromEnv);
 
       try {
         // Small delay to ensure wallet is fully ready
@@ -164,10 +146,6 @@ export function useAdminAuth() {
         
         if (profile) {
           // Admin profile fetched successfully
-          console.log("Admin profile fetched:", profile);
-          console.log("Profile says Is Super Admin:", profile.isSuperAdmin);
-          console.log("Profile Permissions:", profile.permissions);
-          
           // Trust the backend's determination of super admin status
           const isSuper = profile.isSuperAdmin === true;
           setIsSuperAdmin(isSuper);
@@ -175,9 +153,6 @@ export function useAdminAuth() {
           // Set permissions - super admin gets ['*'], others get specific permissions
           const perms = profile.permissions || [];
           setAdminPermissions(perms);
-          
-          console.log("Final state - isSuperAdmin:", isSuper);
-          console.log("Final state - permissions:", perms);
           
           // Store super admin status for future reference
           if (isSuper) {
@@ -187,8 +162,6 @@ export function useAdminAuth() {
           }
         } else {
           // Fallback: If no profile endpoint exists, use env-based determination
-          console.log("No admin profile found, using env-based determination");
-          
           // For backwards compatibility, assume super admin if first in env list
           if (isSuperAdminFromEnv) {
             setIsSuperAdmin(true);
@@ -202,7 +175,7 @@ export function useAdminAuth() {
           }
         }
       } catch (error) {
-        console.error("Error checking admin status:", error);
+        // Silent fail
       } finally {
         setAdminProfileLoading(false);
       }
@@ -218,7 +191,6 @@ export function useAdminAuth() {
 
   // Helper function to check if user has a specific permission
   const hasPermission = useCallback((permission: string) => {
-    console.log("Checking permission:", permission, "Result:", isSuperAdmin || adminPermissions.includes('*') || adminPermissions.includes(permission));
     return isSuperAdmin || adminPermissions.includes('*') || adminPermissions.includes(permission);
   }, [isSuperAdmin, adminPermissions]);
 

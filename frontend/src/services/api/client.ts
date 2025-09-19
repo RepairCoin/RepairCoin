@@ -2,12 +2,6 @@ import axios from "axios";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
 
-console.log('🔍 FRONTEND API CONFIGURATION:');
-console.log(`- process.env.NEXT_PUBLIC_API_URL: ${process.env.NEXT_PUBLIC_API_URL}`);
-console.log(`- Default if not set: http://localhost:4000/api`);
-console.log(`- Actually using: ${API_URL}`);
-console.log('');
-
 const apiClient = axios.create({
   baseURL: API_URL,
   headers: {
@@ -32,8 +26,6 @@ function getTokenFromAuthManager(role: string): string | null {
 
 // Request interceptor for auth tokens
 apiClient.interceptors.request.use((config) => {
-  console.log(`📡 API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
-  
   // Check for specific auth type tokens first (legacy format)
   const adminTokenLegacy = localStorage.getItem("adminAuthToken");
   const shopTokenLegacy = localStorage.getItem("shopAuthToken");
@@ -45,14 +37,6 @@ apiClient.interceptors.request.use((config) => {
   const shopTokenNew = getTokenFromAuthManager('shop');
   const customerTokenNew = getTokenFromAuthManager('customer');
   
-  // Debug token availability
-  console.log('🔐 Available tokens:', {
-    adminToken: (adminTokenLegacy || adminTokenNew) ? 'Present' : 'Missing',
-    shopToken: (shopTokenLegacy || shopTokenNew) ? 'Present' : 'Missing', 
-    customerToken: (customerTokenLegacy || customerTokenNew) ? 'Present' : 'Missing',
-    genericToken: genericToken ? 'Present' : 'Missing'
-  });
-  
   // Use the most specific token available (prefer new format over legacy)
   const token = adminTokenNew || adminTokenLegacy || 
                 shopTokenNew || shopTokenLegacy || 
@@ -61,9 +45,11 @@ apiClient.interceptors.request.use((config) => {
   
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
-    console.log('✅ Added auth header to request');
   } else {
-    console.log('⚠️ No auth token available for request');
+    // Only log when no token is available for protected endpoints
+    if (config.url && !config.url.includes('/auth/')) {
+      console.warn('⚠️ No auth token available for protected endpoint:', config.url);
+    }
   }
   return config;
 });
