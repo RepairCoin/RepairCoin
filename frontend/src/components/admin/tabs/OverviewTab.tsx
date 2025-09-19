@@ -42,6 +42,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const [transactionsLoading, setTransactionsLoading] = useState(true);
   const [transactionFilter, setTransactionFilter] = useState('all');
   
+  const { loading, stats, pendingShops, generateAdminToken } = useAdminDashboard();
   const pendingShopsCount = pendingShops?.length || 0;
 
   // Fetch transactions
