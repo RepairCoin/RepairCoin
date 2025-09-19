@@ -143,6 +143,7 @@ export function useAdminAuth() {
         await new Promise(resolve => setTimeout(resolve, 100));
         
         // Try to fetch admin profile - this will confirm admin status and get permissions
+        // Note: If the /admin/me endpoint doesn't exist, we'll fall back to env-based determination
         const profile = await fetchAdminProfile();
         
         if (profile) {
@@ -169,7 +170,20 @@ export function useAdminAuth() {
             localStorage.removeItem('isSuperAdmin');
           }
         } else {
-          console.log("No admin profile found");
+          // Fallback: If no profile endpoint exists, use env-based determination
+          console.log("No admin profile found, using env-based determination");
+          
+          // For backwards compatibility, assume super admin if first in env list
+          if (isSuperAdminFromEnv) {
+            setIsSuperAdmin(true);
+            setAdminPermissions(['*']); // Super admin gets all permissions
+            localStorage.setItem('isSuperAdmin', 'true');
+          } else {
+            // Regular admin
+            setIsSuperAdmin(false);
+            setAdminPermissions(['shops.view', 'customers.view', 'transactions.view']);
+            localStorage.removeItem('isSuperAdmin');
+          }
         }
       } catch (error) {
         console.error("Error checking admin status:", error);

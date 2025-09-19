@@ -14,6 +14,7 @@ import {
 import { DashboardHeader } from '@/components/ui/DashboardHeader';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { RecentActivityTimeline } from './RecentActivityTimeline';
+import { RecentActivitySection } from './RecentActivitySection';
 import { useAdminDashboard } from '@/hooks/useAdminDashboard';
 
 interface Transaction {
@@ -102,10 +103,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           if (customersResponse.ok) {
             const customerData = await customersResponse.json();
             // Filter customers who have earned recently
-            customerData.data?.customers?.forEach((customer: any) => {
+            customerData.data?.customers?.forEach((customer: any, index: number) => {
               if (customer.lifetimeEarnings > 0 && customer.lastEarnedDate) {
                 transactionsData.push({
-                  id: `reward-${customer.id}`,
+                  id: `reward-${customer.id || customer.address || index}`,
                   shopId: customer.homeShopId || 'Unknown',
                   shopName: customer.homeShopName || 'Unknown Shop',
                   customerAddress: customer.address,

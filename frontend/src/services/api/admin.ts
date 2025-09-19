@@ -389,7 +389,12 @@ export const getAdminProfile = async (): Promise<{
       }
     }>('/admin/me');
     return response.data?.data || null;
-  } catch (error) {
+  } catch (error: any) {
+    // If endpoint doesn't exist (404) or forbidden (403), return null gracefully
+    if (error?.response?.status === 404 || error?.response?.status === 403) {
+      console.log('Admin profile endpoint not available, using fallback');
+      return null;
+    }
     console.error('Error getting admin profile:', error);
     return null;
   }
