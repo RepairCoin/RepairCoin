@@ -116,12 +116,15 @@ cd backend && npm run dev
 
 # Terminal 2: Frontend
 cd frontend && npm run dev
+
+# Terminal 3: Stripe Webhooks (optional)
+stripe listen --forward-to localhost:4000/api/webhooks/stripe
 ```
 
 6. **Access the application**
 - Frontend: http://localhost:3001
-- Backend API: http://localhost:3000
-- API Documentation: http://localhost:3000/api-docs
+- Backend API: http://localhost:4000
+- API Documentation: http://localhost:4000/api-docs
 
 ---
 
@@ -217,8 +220,75 @@ cd frontend && npm run lint
 docker exec -it repaircoin-db psql -U repaircoin -d repaircoin
 
 # Health check
-curl http://localhost:3000/api/health
+curl http://localhost:4000/api/health
 ```
+
+### Stripe Webhook Setup
+
+RepairCoin uses Stripe webhooks to automatically process shop subscription events. Follow these steps to set up webhook testing locally:
+
+#### 1. Install Stripe CLI
+```bash
+# macOS
+brew install stripe/stripe-cli/stripe
+
+# Windows (via Scoop)
+scoop bucket add stripe https://github.com/stripe/scoop-stripe-cli.git
+scoop install stripe
+
+# Linux
+wget -O stripe.tar.gz https://github.com/stripe/stripe-cli/releases/latest/download/stripe_*_linux_x86_64.tar.gz
+tar -xzf stripe.tar.gz
+sudo mv stripe /usr/local/bin/
+```
+
+#### 2. Login to Stripe
+```bash
+stripe login
+```
+
+#### 3. Start Webhook Forwarding
+```bash
+# Forward Stripe webhooks to your local backend
+stripe listen --forward-to localhost:4000/api/webhooks/stripe
+
+# Copy the webhook signing secret from the output (starts with whsec_)
+# Add it to your .env file as STRIPE_WEBHOOK_SECRET
+```
+
+#### 4. Test Webhook Events
+```bash
+# Trigger a test subscription event
+stripe trigger customer.subscription.created
+
+# Trigger payment success
+stripe trigger invoice.payment_succeeded
+
+# View webhook logs
+stripe logs tail
+```
+
+#### 5. Verify Setup
+- Check backend logs for webhook processing
+- Visit `/api-docs` and test webhook endpoints
+- Monitor `webhook_logs` table in database
+- Use Stripe Dashboard to view webhook delivery status
+
+#### Important Environment Variables
+```bash
+# Required in .env file
+STRIPE_SECRET_KEY=sk_test_...          # From Stripe Dashboard
+STRIPE_WEBHOOK_SECRET=whsec_...        # From stripe listen command
+STRIPE_MONTHLY_PRICE_ID=price_...      # Your subscription price ID
+STRIPE_MODE=test                       # Use 'live' for production
+```
+
+#### Production Webhook Setup
+For production deployment:
+1. Create webhook endpoint in Stripe Dashboard
+2. Set URL to `https://yourdomain.com/api/webhooks/stripe`
+3. Select events: `customer.subscription.*`, `invoice.*`
+4. Copy webhook signing secret to production environment
 
 ### Documentation
 ```bash
