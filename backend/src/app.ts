@@ -196,6 +196,22 @@ class RepairCoinApp {
   }
 
   private setupRoutes(): void {
+    // Root endpoint - Backend status
+    this.app.get('/', (req, res) => {
+      res.json({
+        message: 'RepairCoin Backend API is running',
+        status: 'online',
+        environment: process.env.NODE_ENV || 'development',
+        version: process.env.npm_package_version || '1.0.0',
+        timestamp: new Date().toISOString(),
+        endpoints: {
+          health: '/api/health',
+          docs: process.env.ENABLE_SWAGGER === 'true' ? '/api-docs' : 'disabled',
+          api: '/api'
+        }
+      });
+    });
+
     // Health check (always first)
     this.app.use('/api/health', healthRoutes);
     
@@ -344,13 +360,24 @@ class RepairCoinApp {
     console.log('');
     
     this.app.listen(port, () => {
-      logger.info(`🚀 RepairCoin API running on port ${port}`);
-      logger.info(`📊 Health check: http://localhost:${port}/api/health`);
-      logger.info(`📚 API docs: http://localhost:${port}/api-docs`);
-      logger.info(`🔧 System info: http://localhost:${port}/api/system/info`);
-      logger.info(`📈 Events: http://localhost:${port}/api/events/history`);
-      logger.info(`🏛️  Domains: ${domainRegistry.getAllDomains().map(d => d.name).join(', ')}`);
-      logger.info(`🏗️  Architecture: Enhanced Domains`);
+      console.log('\n==============================================');
+      console.log('🚀 RepairCoin Backend API Started Successfully');
+      console.log('==============================================');
+      console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`🔌 Port: ${port}`);
+      console.log(`📍 Base URL: http://localhost:${port}`);
+      console.log('\n📋 Available Endpoints:');
+      console.log(`   • Root Status: http://localhost:${port}/`);
+      console.log(`   • Health Check: http://localhost:${port}/api/health`);
+      console.log(`   • API Docs: http://localhost:${port}/api-docs`);
+      console.log(`   • System Info: http://localhost:${port}/api/system/info`);
+      console.log('\n🏛️  Active Domains:');
+      domainRegistry.getAllDomains().forEach(d => {
+        console.log(`   • ${d.name}`);
+      });
+      console.log('\n🔐 Admin Configuration:');
+      console.log(`   • Admin Addresses: ${process.env.ADMIN_ADDRESSES || 'Not configured'}`);
+      console.log('==============================================\n');
       
       // Start monitoring service
       monitoringService.startMonitoring(30); // Run checks every 30 minutes

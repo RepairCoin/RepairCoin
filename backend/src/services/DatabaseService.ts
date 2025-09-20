@@ -7,28 +7,79 @@ import { Pool, QueryResult } from 'pg';
 export class DatabaseService {
   private static instance: DatabaseService;
   private pool: Pool;
+  private connectionInfo: string;
 
   private constructor() {
     // Support DATABASE_URL from DigitalOcean
     if (process.env.DATABASE_URL) {
+      const dbUrl = process.env.DATABASE_URL;
       this.pool = new Pool({
-        connectionString: process.env.DATABASE_URL,
+        connectionString: dbUrl,
         ssl: process.env.NODE_ENV === 'production' ? {
           rejectUnauthorized: false
         } : false,
       });
+      
+      // Extract host for logging (hide password)
+      const urlParts = dbUrl.match(/postgresql:\/\/[^:]+:[^@]+@([^:\/]+)/);
+      const host = urlParts ? urlParts[1] : 'unknown';
+      this.connectionInfo = `DATABASE_URL (${host})`;
     } else {
       // Use individual connection parameters
+      const host = process.env.DB_HOST || 'localhost';
+      const port = process.env.DB_PORT || '5432';
+      const database = process.env.DB_NAME || 'repaircoin';
+      const user = process.env.DB_USER || 'repaircoin';
+      
       this.pool = new Pool({
-        host: process.env.DB_HOST || 'localhost',
-        port: parseInt(process.env.DB_PORT || '5432'),
-        database: process.env.DB_NAME || 'repaircoin',
-        user: process.env.DB_USER || 'repaircoin',
+        host,
+        port: parseInt(port),
+        database,
+        user,
         password: process.env.DB_PASSWORD || 'repaircoin123',
         max: 20,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 10000,
       });
+      
+      this.connectionInfo = `${user}@${host}:${port}/${database}`;
+    }
+
+    // Test connection and log status
+    this.testConnection();
+  }
+
+  private async testConnection(): Promise<void> {
+    try {
+      const client = await this.pool.connect();
+      const result = await client.query('SELECT NOW(), current_database(), version()');
+      const dbInfo = result.rows[0];
+      
+      console.log('✅ Database connected successfully');
+      console.log(`📍 Connection: ${this.connectionInfo}`);
+      console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`📊 Database: ${dbInfo.current_database}`);
+      console.log(`⏰ Server Time: ${new Date(dbInfo.now).toISOString()}`);
+      
+      // Log if it's local vs production
+      if (this.connectionInfo.includes('localhost') || this.connectionInfo.includes('127.0.0.1')) {
+        console.log('🏠 Using LOCAL database');
+      } else if (this.connectionInfo.includes('digitalocean')) {
+        console.log('☁️  Using DIGITAL OCEAN database');
+      } else {
+        console.log('🔗 Using REMOTE database');
+      }
+      
+      client.release();
+    } catch (error: any) {
+      console.error('❌ Database connection failed!');
+      console.error(`📍 Attempted connection: ${this.connectionInfo}`);
+      console.error(`🔥 Error: ${error.message}`);
+      
+      // Don't crash the app, but log the error
+      if (process.env.NODE_ENV === 'production') {
+        console.error('⚠️  Warning: Running without database connection!');
+      }
     }
   }
 
