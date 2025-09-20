@@ -344,12 +344,8 @@ router.post('/subscription/subscribe', async (req: Request, res: Response) => {
       });
     }
 
-    // Clean up any old commitment enrollments if they exist
-    await DatabaseService.getInstance().getPool().query(
-      'DELETE FROM commitment_enrollments WHERE shop_id = $1',
-      [shopId]
-    );
-    logger.info('Cleaned up old commitment enrollments for shop', { shopId });
+    // Note: commitment_enrollments table was removed in migration 015
+    // No cleanup needed as we only use Stripe subscriptions now
 
     // Only support credit card payments now - ACH/wire transfers removed
     if (billingMethod !== 'credit_card') {

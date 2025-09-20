@@ -33,49 +33,29 @@ router.use(authMiddleware, requireAdmin);
  *         description: Forbidden - Admin only
  */
 router.get('/', async (req: Request, res: Response) => {
-  try {
-    const { status = 'all' } = req.query;
-    
-    const commitmentRepo = new CommitmentRepository();
-
-    let enrollments;
-    
-    switch (status) {
-      case 'pending':
-        enrollments = await commitmentRepo.getPendingEnrollments();
-        break;
-      case 'active':
-        enrollments = await commitmentRepo.getActiveEnrollments();
-        break;
-      case 'all':
-      default:
-        // Get all enrollments
-        const query = `
-          SELECT * FROM commitment_enrollments 
-          ORDER BY enrolled_at DESC
-        `;
-        const result = await DatabaseService.getInstance().getPool().query(query);
-        enrollments = result.rows.map((row: any) => commitmentRepo['mapSnakeToCamel'](row));
-        break;
-    }
-
-    res.json({
-      success: true,
-      data: enrollments
-    });
-
-  } catch (error) {
-    logger.error('Failed to get commitment enrollments', {
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
-    
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get commitment enrollments'
-    });
-  }
+  // Commitment system has been deprecated and replaced with Stripe subscriptions
+  // Return empty array for backward compatibility
+  logger.info('Commitment enrollments endpoint called - returning empty (system deprecated)');
+  
+  res.json({
+    success: true,
+    data: [],
+    message: 'Commitment system has been replaced with Stripe subscriptions. Use /api/admin/shops endpoint to view subscription status.'
+  });
 });
 
+// Deprecated endpoint - commitment system replaced with Stripe subscriptions
+router.post('/:enrollmentId/activate', async (req: Request, res: Response) => {
+  res.status(410).json({
+    success: false,
+    error: 'Commitment system has been deprecated. Please use Stripe subscription system instead.'
+  });
+});
+
+// Export router
+export default router;
+
+/* Legacy documentation kept for reference:
 /**
  * @swagger
  * /api/admin/commitments/{enrollmentId}/activate:
