@@ -91,7 +91,19 @@ export const useAuth = () => {
       
       if (profile) {
         try {
-          const tokenData = await authApi.generateToken(account.address);
+          // Use role-specific authentication endpoint based on user type
+          let tokenData = null;
+          switch (profile.type) {
+            case 'admin':
+              tokenData = await authApi.authenticateAdmin(account.address);
+              break;
+            case 'shop':
+              tokenData = await authApi.authenticateShop(account.address);
+              break;
+            case 'customer':
+              tokenData = await authApi.authenticateCustomer(account.address);
+              break;
+          }
           
           if (tokenData && tokenData.token) {
             profile.token = tokenData.token;

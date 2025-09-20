@@ -35,22 +35,7 @@ const clearToken = (type?: 'admin' | 'shop' | 'customer') => {
   localStorage.removeItem('token');
 };
 
-/**
- * Generate a generic auth token
- */
-export const generateToken = async (address: string, signature?: string): Promise<AuthToken | null> => {
-  try {
-    const response = await apiClient.post<AuthToken>('/auth/token', { address, signature });
-    if (response.data) {
-      storeToken(response.data.token, 'customer');
-      return response.data;
-    }
-    return null;
-  } catch (error) {
-    console.error('Error generating token:', error);
-    return null;
-  }
-};
+// Note: Generic /auth/token endpoint removed - use role-specific authentication instead
 
 /**
  * Check user type and registration status
@@ -175,7 +160,6 @@ export const logout = (type?: 'admin' | 'shop' | 'customer'): void => {
 
 // Named exports grouped as namespace for convenience
 export const authApi = {
-  generateToken,
   checkUser,
   getProfile,
   getSession,
