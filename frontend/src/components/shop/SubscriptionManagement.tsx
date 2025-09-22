@@ -18,6 +18,10 @@ interface Subscription {
   enrolledAt: string;
   cancelledAt?: string;
   cancellationReason?: string;
+  cancelAtPeriodEnd?: boolean;
+  currentPeriodEnd?: string;
+  termMonths?: number;
+  totalCommitment?: number;
 }
 
 interface SubscriptionManagementProps {
@@ -81,12 +85,20 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
 
       const result = await response.json();
       if (result.success && result.data.currentSubscription) {
-        setSubscription(result.data.currentSubscription);
+        const sub = result.data.currentSubscription;
+        setSubscription({
+          ...sub,
+          // Map backend fields to frontend interface
+          cancelAtPeriodEnd: sub.cancelAtPeriodEnd,
+          currentPeriodEnd: sub.currentPeriodEnd || sub.nextPaymentDate
+        });
         console.log('✅ SUBSCRIPTION STATUS: TRUE - Active subscription found:', {
-          subscriptionId: result.data.currentSubscription.id,
-          status: result.data.currentSubscription.status,
-          subscriptionType: result.data.currentSubscription.subscriptionType,
-          monthlyAmount: result.data.currentSubscription.monthlyAmount
+          subscriptionId: sub.id,
+          status: sub.status,
+          subscriptionType: sub.subscriptionType,
+          monthlyAmount: sub.monthlyAmount,
+          cancelAtPeriodEnd: sub.cancelAtPeriodEnd,
+          currentPeriodEnd: sub.currentPeriodEnd
         });
       } else {
         console.log('❌ SUBSCRIPTION STATUS: FALSE - No active subscription found');
@@ -247,10 +259,10 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
       }
 
       // Update subscription state
-      if (result.data.enrollment) {
+      if (result.data.subscription) {
         setSubscription({
-          ...result.data.enrollment,
-          subscriptionType: 'monthly_subscription'
+          ...result.data.subscription,
+          subscriptionType: 'stripe_subscription'
         });
       } else {
         // Reload to get updated status
@@ -287,10 +299,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          paymentMethod: 'credit_card'
-        })
+        }
       });
 
       const result = await response.json();
@@ -299,12 +308,21 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
         throw new Error(result.error || 'Failed to reactivate subscription');
       }
 
-      setSubscription(result.data);
+      // Update subscription state
+      if (result.data.subscription) {
+        setSubscription({
+          ...result.data.subscription,
+          subscriptionType: 'stripe_subscription'
+        });
+      }
       
       // Show success message
-      alert('Subscription reactivated successfully! Welcome back!');
+      setSuccessMessage(result.data.message || 'Subscription reactivated successfully! Your subscription will continue as normal.');
       
-      // Reload to update status
+      // Clear success message after 10 seconds
+      setTimeout(() => setSuccessMessage(null), 10000);
+      
+      // Reload to ensure we have the latest status
       await loadSubscriptionStatus();
     } catch (error) {
       console.error('Error reactivating subscription:', error);
@@ -351,20 +369,48 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
       {subscription && subscription.status === 'active' ? (
         <div className="space-y-6">
           {/* Active Subscription Status */}
-          <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <CheckCircle className="w-6 h-6 text-green-400" />
-                <div>
-                  <h4 className="text-lg font-semibold text-green-400">Active Subscription</h4>
-                  <p className="text-sm text-gray-400">Your shop is operationally qualified</p>
+          {subscription.cancelAtPeriodEnd ? (
+            <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="w-6 h-6 text-yellow-400" />
+                  <div>
+                    <h4 className="text-lg font-semibold text-yellow-400">Subscription Ending</h4>
+                    <p className="text-sm text-gray-400">Your subscription will end on {subscription.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString() : 'end of billing period'}</p>
+                  </div>
                 </div>
+                <span className="px-3 py-1 bg-yellow-500/20 text-yellow-400 rounded-full text-sm font-medium">
+                  Cancelling
+                </span>
               </div>
-              <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-sm font-medium">
-                Active
-              </span>
+              <div className="mt-4 p-3 bg-gray-800 rounded-lg">
+                <p className="text-sm text-gray-300">
+                  <strong>What happens when your subscription ends:</strong>
+                </p>
+                <ul className="mt-2 space-y-1 text-sm text-gray-400">
+                  <li>• You won't be able to issue RCN rewards</li>
+                  <li>• You won't be able to process redemptions</li>
+                  <li>• Your shop will lose operational status</li>
+                  <li>• You can resubscribe anytime to restore access</li>
+                </ul>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="w-6 h-6 text-green-400" />
+                  <div>
+                    <h4 className="text-lg font-semibold text-green-400">Active Subscription</h4>
+                    <p className="text-sm text-gray-400">Your shop is operationally qualified</p>
+                  </div>
+                </div>
+                <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-sm font-medium">
+                  Active
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Subscription Details */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -398,18 +444,34 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
             </div>
           </div>
 
-          {/* Cancel Button */}
+          {/* Cancel/Reactivate Button */}
           <div className="pt-4 border-t border-gray-700">
-            <Button
-              onClick={() => setShowCancelModal(true)}
-              variant="destructive"
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Cancel Subscription
-            </Button>
-            <p className="text-sm text-gray-400 mt-2">
-              You can cancel anytime and resubscribe when needed.
-            </p>
+            {subscription.cancelAtPeriodEnd ? (
+              <div>
+                <Button
+                  onClick={handleReactivate}
+                  className="bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold"
+                >
+                  Reactivate Subscription
+                </Button>
+                <p className="text-sm text-gray-400 mt-2">
+                  Changed your mind? Reactivate to keep your subscription after {subscription.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString() : 'the current period'}.
+                </p>
+              </div>
+            ) : (
+              <div>
+                <Button
+                  onClick={() => setShowCancelModal(true)}
+                  variant="destructive"
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  Cancel Subscription
+                </Button>
+                <p className="text-sm text-gray-400 mt-2">
+                  You can cancel anytime and resubscribe when needed.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       ) : subscription && subscription.status === 'pending' ? (

@@ -74,6 +74,13 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
         currentPeriodEnd: stripeSubscription.currentPeriodEnd
       });
 
+      // Calculate payments made (months since creation)
+      const createdDate = new Date(stripeSubscription.createdAt);
+      const now = new Date();
+      const monthsDiff = Math.floor((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
+      const paymentsMade = Math.max(1, monthsDiff); // At least 1 if subscription is active
+      const monthlyAmount = stripeSubscription.stripePriceId === process.env.STRIPE_MONTHLY_PRICE_ID ? 500 : 0;
+      
       // Return Stripe subscription data
       res.json({
         success: true,
@@ -81,12 +88,16 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
           currentSubscription: {
             id: stripeSubscription.id,
             status: stripeSubscription.status,
-            monthlyAmount: stripeSubscription.stripePriceId === process.env.STRIPE_MONTHLY_PRICE_ID ? 500 : 0,
+            monthlyAmount: monthlyAmount,
             subscriptionType: 'stripe_subscription',
             billingMethod: 'credit_card',
             nextPaymentDate: new Date(stripeSubscription.currentPeriodEnd).toISOString(),
             lastPaymentDate: null, // Stripe subscriptions don't track lastPaymentDate in our current schema
-            enrolledAt: stripeSubscription.createdAt
+            enrolledAt: stripeSubscription.createdAt,
+            cancelAtPeriodEnd: stripeSubscription.cancelAtPeriodEnd || false,
+            currentPeriodEnd: stripeSubscription.currentPeriodEnd ? new Date(stripeSubscription.currentPeriodEnd).toISOString() : null,
+            paymentsMade: paymentsMade,
+            totalPaid: paymentsMade * monthlyAmount
           },
           hasActiveSubscription: true
         }
@@ -479,6 +490,184 @@ router.post('/subscription/subscribe', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to create subscription'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/shops/subscription/cancel:
+ *   post:
+ *     summary: Cancel shop subscription
+ *     tags: [Shop Subscriptions]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 description: Reason for cancellation
+ *     responses:
+ *       200:
+ *         description: Subscription cancelled successfully
+ *       404:
+ *         description: No active subscription found
+ *       401:
+ *         description: Unauthorized
+ */
+router.post('/subscription/cancel', async (req: Request, res: Response) => {
+  try {
+    const shopId = req.user?.shopId;
+    const { reason } = req.body;
+    
+    if (!shopId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Shop ID not found in token'
+      });
+    }
+
+    const subscriptionService = getSubscriptionService();
+    
+    // Check for active Stripe subscription
+    const activeSubscription = await subscriptionService.getActiveSubscription(shopId);
+    
+    if (!activeSubscription) {
+      return res.status(404).json({
+        success: false,
+        error: 'No active subscription found'
+      });
+    }
+
+    // Cancel the subscription at period end (graceful cancellation)
+    const updatedSubscription = await subscriptionService.cancelSubscription(shopId, false);
+
+    logger.info('Subscription cancelled', {
+      shopId,
+      subscriptionId: activeSubscription.stripeSubscriptionId,
+      reason
+    });
+
+    res.json({
+      success: true,
+      data: {
+        message: 'Subscription cancelled successfully. Your subscription will remain active until the end of the current billing period.',
+        subscription: updatedSubscription
+      }
+    });
+
+  } catch (error) {
+    logger.error('Failed to cancel subscription', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      shopId: req.user?.shopId
+    });
+    
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to cancel subscription'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/shops/subscription/reactivate:
+ *   post:
+ *     summary: Reactivate a cancelled subscription
+ *     tags: [Shop Subscriptions]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Subscription reactivated successfully
+ *       404:
+ *         description: No subscription found
+ *       400:
+ *         description: Subscription is not cancelled
+ *       401:
+ *         description: Unauthorized
+ */
+router.post('/subscription/reactivate', async (req: Request, res: Response) => {
+  try {
+    const shopId = req.user?.shopId;
+    
+    if (!shopId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Shop ID not found in token'
+      });
+    }
+
+    const subscriptionService = getSubscriptionService();
+    
+    // Get active subscription (including ones pending cancellation)
+    const activeSubscription = await subscriptionService.getActiveSubscription(shopId);
+    
+    if (!activeSubscription) {
+      return res.status(404).json({
+        success: false,
+        error: 'No subscription found'
+      });
+    }
+
+    if (!activeSubscription.cancelAtPeriodEnd) {
+      return res.status(400).json({
+        success: false,
+        error: 'Subscription is not pending cancellation'
+      });
+    }
+
+    // Reactivate the subscription in Stripe
+    const stripeService = getStripeService();
+    const stripe = stripeService.getStripe();
+    
+    const updatedStripeSubscription = await stripe.subscriptions.update(
+      activeSubscription.stripeSubscriptionId,
+      {
+        cancel_at_period_end: false
+      }
+    );
+
+    // Update subscription in database
+    const db = DatabaseService.getInstance();
+    const updateQuery = `
+      UPDATE stripe_subscriptions 
+      SET 
+        cancel_at_period_end = false,
+        canceled_at = NULL,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE stripe_subscription_id = $1
+      RETURNING *
+    `;
+
+    const updateResult = await db.query(updateQuery, [activeSubscription.stripeSubscriptionId]);
+
+    logger.info('Subscription reactivated', {
+      shopId,
+      subscriptionId: activeSubscription.stripeSubscriptionId
+    });
+
+    res.json({
+      success: true,
+      data: {
+        message: 'Subscription reactivated successfully! Your subscription will continue as normal.',
+        subscription: updateResult.rows[0]
+      }
+    });
+
+  } catch (error) {
+    logger.error('Failed to reactivate subscription', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      shopId: req.user?.shopId
+    });
+    
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to reactivate subscription'
     });
   }
 });
