@@ -1,5 +1,6 @@
 import { Pool, PoolClient } from 'pg';
 import { logger } from '../utils/logger';
+import { getSharedPool } from '../utils/database-pool';
 
 export interface PaginationParams {
   page: number;
@@ -21,32 +22,9 @@ export abstract class BaseRepository {
   protected pool: Pool;
 
   constructor() {
-    // Support DATABASE_URL from DigitalOcean
-    if (process.env.DATABASE_URL) {
-      this.pool = new Pool({
-        connectionString: process.env.DATABASE_URL,
-        ssl: process.env.NODE_ENV === 'production' ? {
-          rejectUnauthorized: false
-        } : false,
-        max: 20,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 10000,
-        keepAlive: true,
-      });
-    } else {
-      this.pool = new Pool({
-        host: process.env.DB_HOST || 'localhost',
-        port: parseInt(process.env.DB_PORT || '5432'),
-        database: process.env.DB_NAME || 'repaircoin',
-        user: process.env.DB_USER || 'repaircoin',
-        password: process.env.DB_PASSWORD || 'repaircoin123',
-        max: 20,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 10000,
-        keepAlive: true,
-      });
-    }
-
+    // Use shared pool for all repositories
+    this.pool = getSharedPool();
+    
     // Test connection on startup
     this.testConnection();
   }

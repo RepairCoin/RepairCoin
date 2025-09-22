@@ -34,15 +34,28 @@ export class StripeService {
 
   constructor(config: StripeConfig) {
     this.config = config;
-    this.stripe = new Stripe(config.secretKey, {
-      apiVersion: '2025-08-27.basil',
-      typescript: true,
-    });
+    
+    try {
+      this.stripe = new Stripe(config.secretKey, {
+        apiVersion: '2025-08-27.basil',
+        typescript: true,
+      });
 
-    logger.info('StripeService initialized', {
-      testMode: config.isTestMode,
-      priceId: config.priceId
-    });
+      logger.info('StripeService initialized', {
+        testMode: config.isTestMode,
+        priceId: config.priceId,
+        hasSecretKey: !!config.secretKey,
+        secretKeyPrefix: config.secretKey ? config.secretKey.substring(0, 7) : 'missing',
+        hasWebhookSecret: !!config.webhookSecret
+      });
+    } catch (error) {
+      logger.error('Failed to initialize Stripe client', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        hasSecretKey: !!config.secretKey,
+        secretKeyLength: config.secretKey?.length || 0
+      });
+      throw new Error(`Failed to initialize Stripe: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   /**

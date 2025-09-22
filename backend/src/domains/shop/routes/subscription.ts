@@ -15,6 +15,7 @@ router.use(authMiddleware);
 // Create a separate router for public endpoints
 const publicRouter = Router();
 
+
 /**
  * @swagger
  * /api/shops/subscription/status:
@@ -446,8 +447,22 @@ router.post('/subscription/subscribe', async (req: Request, res: Response) => {
     } catch (stripeError) {
       logger.error('Stripe subscription creation failed', {
         error: stripeError instanceof Error ? stripeError.message : 'Unknown error',
-        shopId
+        shopId,
+        stack: stripeError instanceof Error ? stripeError.stack : undefined
       });
+      
+      // Check for specific Stripe configuration errors
+      if (stripeError instanceof Error) {
+        if (stripeError.message.includes('STRIPE_SECRET_KEY') || 
+            stripeError.message.includes('STRIPE_WEBHOOK_SECRET') || 
+            stripeError.message.includes('STRIPE_MONTHLY_PRICE_ID')) {
+          return res.status(503).json({
+            success: false,
+            error: 'Payment service is not properly configured. Please contact support.',
+            details: process.env.NODE_ENV === 'development' ? stripeError.message : undefined
+          });
+        }
+      }
       
       return res.status(500).json({
         success: false,
@@ -1052,6 +1067,56 @@ router.post('/subscription/cancel', async (req: Request, res: Response) => {
     success: false,
     error: 'Commitment cancellation has been deprecated. Please use Stripe subscription cancellation instead.'
   });
+});
+
+/**
+ * @swagger
+ * /api/shops/subscription/health:
+ *   get:
+ *     summary: Check Stripe service health and configuration
+ *     tags: [Shop Subscriptions]
+ *     responses:
+ *       200:
+ *         description: Service is healthy
+ *       503:
+ *         description: Service is unhealthy or misconfigured
+ */
+publicRouter.get('/subscription/health', async (req: Request, res: Response) => {
+  try {
+    // Check if Stripe service can be initialized
+    const stripeService = getStripeService();
+    
+    // Check required environment variables
+    const config = {
+      hasSecretKey: !!process.env.STRIPE_SECRET_KEY,
+      hasWebhookSecret: !!process.env.STRIPE_WEBHOOK_SECRET,
+      hasPriceId: !!process.env.STRIPE_MONTHLY_PRICE_ID,
+      secretKeyPrefix: process.env.STRIPE_SECRET_KEY ? process.env.STRIPE_SECRET_KEY.substring(0, 7) : 'missing',
+      priceId: process.env.STRIPE_MONTHLY_PRICE_ID || 'missing',
+      environment: process.env.NODE_ENV || 'development'
+    };
+    
+    const isHealthy = config.hasSecretKey && config.hasWebhookSecret && config.hasPriceId;
+    
+    res.status(isHealthy ? 200 : 503).json({
+      success: isHealthy,
+      status: isHealthy ? 'healthy' : 'unhealthy',
+      config: config,
+      message: isHealthy ? 'Stripe service is properly configured' : 'Stripe service is missing required configuration'
+    });
+    
+  } catch (error) {
+    logger.error('Stripe health check failed', {
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+    
+    res.status(503).json({
+      success: false,
+      status: 'error',
+      error: error instanceof Error ? error.message : 'Failed to check Stripe service health',
+      message: 'Stripe service initialization failed'
+    });
+  }
 });
 
 /**

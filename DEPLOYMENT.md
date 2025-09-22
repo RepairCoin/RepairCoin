@@ -1,218 +1,323 @@
-# RepairCoin Deployment Guide
+# Digital Ocean Deployment Guide for RepairCoin
 
-This guide explains how to set up automatic deployment to Digital Ocean App Platform using GitHub Actions.
+This guide covers deploying the RepairCoin platform to Digital Ocean using App Platform and Managed Database.
 
 ## Prerequisites
 
-1. Digital Ocean account with App Platform enabled
-2. Digital Ocean app already created for the backend
-3. GitHub repository with admin access to configure secrets
+1. Digital Ocean account with billing enabled
+2. Domain name (optional but recommended)
+3. Stripe account for payment processing
+4. Thirdweb account for blockchain integration
+5. Git repository (GitHub/GitLab) with your code
 
-## Setting Up Automatic Deployment
+## Architecture Overview
 
-### Step 1: Get Your Digital Ocean Access Token
+- **Frontend**: Next.js app on App Platform
+- **Backend**: Node.js/Express API on App Platform  
+- **Database**: Managed PostgreSQL
+- **File Storage**: Spaces (if needed)
 
-1. Log in to your Digital Ocean account
-2. Go to **API** → **Tokens/Keys** in the left sidebar
-3. Click **Generate New Token**
-4. Name it "GitHub Actions Deployment" or similar
-5. Select **Read & Write** scopes
-6. Copy the token immediately (you won't see it again)
+## Step 1: Database Setup
 
-### Step 2: Get Your App ID
+### Create Managed PostgreSQL Database
 
-1. Go to your Digital Ocean App Platform dashboard
-2. Click on your RepairCoin backend app
-3. Look at the URL - it should be something like:
-   ```
-   https://cloud.digitalocean.com/apps/12345678-90ab-cdef-1234-567890abcdef
-   ```
-4. The App ID is the UUID part: `12345678-90ab-cdef-1234-567890abcdef`
+1. Go to Digital Ocean → Databases → Create Database Cluster
+2. Choose PostgreSQL 15
+3. Select your region (same as your apps)
+4. Choose plan (Basic $15/month for start)
+5. Name: `repaircoin-db`
+6. Create Database Cluster
 
-### Step 3: Configure GitHub Secrets
+### Configure Database
 
-1. Go to your GitHub repository
-2. Navigate to **Settings** → **Secrets and variables** → **Actions**
-3. Add the following secrets:
+1. Wait for cluster to provision (~5 minutes)
+2. Go to Settings → Trusted Sources
+3. Add your IP for initial setup
+4. Connect using provided credentials:
+```bash
+psql -h your-db-host.db.ondigitalocean.com -p 25060 -U doadmin -d defaultdb --set=sslmode=require
+```
 
-   **DIGITALOCEAN_ACCESS_TOKEN**
-   - Click "New repository secret"
-   - Name: `DIGITALOCEAN_ACCESS_TOKEN`
-   - Value: The token you copied from Digital Ocean
-   
-   **DIGITALOCEAN_APP_ID**
-   - Click "New repository secret"
-   - Name: `DIGITALOCEAN_APP_ID`
-   - Value: Your backend app's UUID from the URL
-   
-   **DIGITALOCEAN_FRONTEND_APP_ID** (if deploying frontend)
-   - Click "New repository secret"
-   - Name: `DIGITALOCEAN_FRONTEND_APP_ID`
-   - Value: Your frontend app's UUID
-   
-   **NEXT_PUBLIC_API_URL** (optional)
-   - Click "New repository secret"
-   - Name: `NEXT_PUBLIC_API_URL`
-   - Value: Your backend API URL (e.g., `https://your-backend.ondigitalocean.app/api`)
-   - If not set, defaults to staging URL in workflow
+5. Create database and user:
+```sql
+CREATE DATABASE repaircoin;
+CREATE USER repaircoin_user WITH ENCRYPTED PASSWORD 'your-secure-password';
+GRANT ALL PRIVILEGES ON DATABASE repaircoin TO repaircoin_user;
+```
 
-### Step 4: Verify Your App Settings
+## Step 2: Environment Variables
 
-Ensure your Digital Ocean app is configured correctly:
+Prepare your production environment variables:
 
-1. **Build Command**: Should be set to `npm run build` or handled by the Dockerfile
-2. **Run Command**: Should be `npm start` or `node dist/app.js`
-3. **Environment Variables**: All required env vars should be configured in the app settings
-4. **Health Check Path**: Should be `/api/health`
+```env
+# Backend Production .env
+NODE_ENV=production
+PORT=8080
 
-## How Automatic Deployment Works
+# Database (from DO Managed Database)
+DATABASE_URL=postgresql://repaircoin_user:password@your-db-host.db.ondigitalocean.com:25060/repaircoin?sslmode=require
 
-### Trigger Conditions
+# Thirdweb
+THIRDWEB_CLIENT_ID=your-client-id
+THIRDWEB_SECRET_KEY=your-secret-key
+PRIVATE_KEY=your-wallet-private-key-without-0x
+REPAIRCOIN_CONTRACT_ADDRESS=0xd92ced7c3f4D8E42C05A4c558F37dA6DC731d5f5
+RCG_CONTRACT_ADDRESS=0x973D8b27E7CD72270F9C07d94381f522bC9D4304
 
-The deployment will automatically trigger when:
+# Authentication
+JWT_SECRET=your-production-jwt-secret-min-32-chars
+ADMIN_ADDRESSES=your-admin-wallet-addresses
 
-1. **Code is pushed to the `main` branch** AND
-2. **Changes are detected in the `backend/` directory** OR
-3. **The workflow file itself is modified**
+# Stripe
+STRIPE_SECRET_KEY=sk_live_your-stripe-secret
+STRIPE_WEBHOOK_SECRET=whsec_your-webhook-secret
+STRIPE_PRICE_ID=price_your-subscription-price-id
 
-You can also manually trigger a deployment:
-1. Go to **Actions** tab in GitHub
-2. Select "Deploy Backend to Digital Ocean"
-3. Click "Run workflow"
-4. Optionally check "Force deployment" to deploy even without backend changes
+# CORS
+CORS_ORIGIN=https://your-frontend-domain.com
+```
 
-### Deployment Process
+## Step 3: Backend Deployment
 
-1. **Build Phase**
-   - Checks out the latest code
-   - Sets up Node.js 18
-   - Runs `npm ci` to install dependencies
-   - Runs `npm run build` to compile TypeScript
+### Prepare Backend for Production
 
-2. **Deploy Phase**
-   - Uses Digital Ocean CLI to create a new deployment
-   - Forces a rebuild to ensure fresh container
-   - Waits for deployment to complete
+1. Update `backend/package.json`:
+```json
+{
+  "scripts": {
+    "start": "node dist/app.js",
+    "build": "tsc",
+    "postinstall": "npm run build"
+  }
+}
+```
 
-3. **Monitor Phase**
-   - Polls deployment status every 10 seconds
-   - Maximum wait time: 10 minutes
-   - Fails fast if deployment errors occur
+2. Create `backend/.do/app.yaml`:
+```yaml
+name: repaircoin-backend
+region: nyc
+services:
+  - name: api
+    github:
+      repo: your-github-username/repaircoin
+      branch: main
+      deploy_on_push: true
+    source_dir: backend
+    environment_slug: node-js
+    instance_size_slug: basic-xs
+    instance_count: 1
+    http_port: 8080
+    routes:
+      - path: /api
+    envs:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: ${repaircoin-db.DATABASE_URL}
+        type: SECRET
+      - key: JWT_SECRET
+        value: "your-jwt-secret"
+        type: SECRET
+      - key: THIRDWEB_CLIENT_ID
+        value: "your-client-id"
+        type: SECRET
+      - key: THIRDWEB_SECRET_KEY
+        value: "your-secret-key"
+        type: SECRET
+      - key: STRIPE_SECRET_KEY
+        value: "your-stripe-key"
+        type: SECRET
+    run_command: node dist/app.js
+    build_command: npm install && npm run build
+```
 
-4. **Verify Phase**
-   - Waits 30 seconds for app to stabilize
-   - Checks `/api/health` endpoint
-   - Reports deployment summary
+### Deploy Backend
 
-## Monitoring Deployments
+1. Install DO CLI: `brew install doctl`
+2. Authenticate: `doctl auth init`
+3. Create app: `doctl apps create --spec backend/.do/app.yaml`
+4. Note the app ID and URL
 
-### GitHub Actions UI
+## Step 4: Frontend Deployment
 
-1. Go to the **Actions** tab in your repository
-2. Click on a workflow run to see detailed logs
-3. Each step shows its status and output
+### Prepare Frontend for Production
 
-### Digital Ocean Dashboard
+1. Update `frontend/next.config.js`:
+```javascript
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  output: 'standalone',
+  env: {
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+    NEXT_PUBLIC_THIRDWEB_CLIENT_ID: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID,
+  }
+}
 
-1. Go to your app in Digital Ocean App Platform
-2. Click on **Activity** tab to see deployment history
-3. Click on any deployment for detailed logs
+module.exports = nextConfig
+```
+
+2. Create `frontend/.do/app.yaml`:
+```yaml
+name: repaircoin-frontend
+region: nyc
+services:
+  - name: web
+    github:
+      repo: your-github-username/repaircoin
+      branch: main
+      deploy_on_push: true
+    source_dir: frontend
+    environment_slug: node-js
+    instance_size_slug: basic-xs
+    instance_count: 1
+    http_port: 3000
+    routes:
+      - path: /
+    envs:
+      - key: NEXT_PUBLIC_API_URL
+        value: "https://repaircoin-backend-xxxxx.ondigitalocean.app"
+      - key: NEXT_PUBLIC_THIRDWEB_CLIENT_ID
+        value: "your-client-id"
+    build_command: npm install && npm run build
+    run_command: npm start
+```
+
+### Deploy Frontend
+
+```bash
+doctl apps create --spec frontend/.do/app.yaml
+```
+
+## Step 5: Database Migrations
+
+1. Connect to your app's console:
+```bash
+doctl apps console <backend-app-id> --type=RUN
+```
+
+2. Run migrations:
+```bash
+cd backend
+npm run migrate
+```
+
+## Step 6: Configure Stripe Webhooks
+
+1. Go to Stripe Dashboard → Developers → Webhooks
+2. Add endpoint: `https://your-backend-app.ondigitalocean.app/api/webhooks/stripe`
+3. Select events:
+   - `checkout.session.completed`
+   - `customer.subscription.created`
+   - `customer.subscription.updated`
+   - `customer.subscription.deleted`
+4. Copy the webhook signing secret
+5. Update backend environment variable `STRIPE_WEBHOOK_SECRET`
+
+## Step 7: Custom Domain Setup (Optional)
+
+### For Frontend
+
+1. Go to your frontend app → Settings → Domains
+2. Add your domain (e.g., `app.repaircoin.com`)
+3. Update DNS records as instructed
+4. Enable Force HTTPS
+
+### For Backend
+
+1. Go to your backend app → Settings → Domains
+2. Add API subdomain (e.g., `api.repaircoin.com`)
+3. Update DNS records
+4. Update frontend `NEXT_PUBLIC_API_URL` to use custom domain
+
+## Step 8: Monitoring & Maintenance
+
+### Enable Monitoring
+
+1. Go to each app → Insights
+2. Enable monitoring and alerts
+3. Set up alerts for:
+   - High CPU usage
+   - High memory usage
+   - Response time > 1s
+   - Error rate > 5%
+
+### Database Backups
+
+1. Go to Database → Settings → Backups
+2. Ensure daily backups are enabled
+3. Test restore procedure
+
+### Logs
+
+Access logs via:
+```bash
+doctl apps logs <app-id> --tail --follow
+```
+
+## Step 9: Security Checklist
+
+- [ ] All environment variables marked as SECRET
+- [ ] Database connection uses SSL
+- [ ] HTTPS enforced on all domains
+- [ ] CORS configured for production domains only
+- [ ] Rate limiting enabled
+- [ ] Database backups configured
+- [ ] Monitoring alerts set up
+
+## Production Environment Variables Summary
+
+### Backend Required:
+- `DATABASE_URL` (from DO Managed Database)
+- `JWT_SECRET` (generate secure 32+ char string)
+- `THIRDWEB_CLIENT_ID` & `THIRDWEB_SECRET_KEY`
+- `PRIVATE_KEY` (admin wallet private key)
+- `STRIPE_SECRET_KEY` & `STRIPE_WEBHOOK_SECRET`
+- `ADMIN_ADDRESSES` (comma-separated admin wallets)
+
+### Frontend Required:
+- `NEXT_PUBLIC_API_URL` (backend URL)
+- `NEXT_PUBLIC_THIRDWEB_CLIENT_ID`
 
 ## Troubleshooting
 
-### Common Issues
+### Database Connection Issues
+- Ensure app is in trusted sources
+- Check SSL mode is required
+- Verify credentials and database name
 
-1. **"Authentication required" error**
-   - Verify your `DIGITALOCEAN_ACCESS_TOKEN` is correct
-   - Ensure the token has read/write permissions
+### Build Failures
+- Check Node.js version compatibility
+- Ensure all dependencies are in package.json
+- Check build logs: `doctl apps logs <app-id> --type=BUILD`
 
-2. **"App not found" error**
-   - Double-check your `DIGITALOCEAN_APP_ID`
-   - Ensure the app exists and is accessible
+### Webhook Issues
+- Verify webhook secret matches
+- Check endpoint URL is accessible
+- Monitor webhook logs in Stripe dashboard
 
-3. **Build failures**
-   - Check that all dependencies are in `package.json`
-   - Ensure TypeScript compiles locally with `npm run build`
+## Scaling
 
-4. **Health check failures**
-   - Verify `/api/health` endpoint exists and returns 200
-   - Check app logs in Digital Ocean for startup errors
+When ready to scale:
 
-### Debugging Steps
+1. **Backend**: Increase instance size or count
+2. **Database**: Upgrade to larger cluster
+3. **Frontend**: Enable CDN for static assets
+4. **Add Redis**: For session management and caching
 
-1. **Check GitHub Action logs**
-   ```bash
-   # Each step provides detailed output
-   # Look for error messages in red
-   ```
+## Cost Estimate
 
-2. **Check Digital Ocean logs**
-   ```bash
-   # In your app dashboard:
-   # Runtime Logs → View logs
-   ```
-
-3. **Test locally**
-   ```bash
-   cd backend
-   npm run build
-   npm start
-   # Verify it starts without errors
-   ```
-
-## Best Practices
-
-1. **Test before pushing to main**
-   - Use feature branches
-   - Test builds locally
-   - Merge only after verification
-
-2. **Monitor deployments**
-   - Watch the GitHub Actions tab after pushing
-   - Check Digital Ocean activity logs
-   - Verify API endpoints are working
-
-3. **Environment variables**
-   - Keep production secrets in Digital Ocean app settings
-   - Never commit sensitive data to the repository
-   - Use different values for staging vs production
-
-4. **Database migrations**
-   - Run migrations separately, not during deployment
-   - Test migrations on a backup first
-   - Have a rollback plan
-
-## Manual Deployment (Fallback)
-
-If automatic deployment fails, you can deploy manually:
-
-```bash
-# Install Digital Ocean CLI
-brew install doctl  # macOS
-# or follow instructions at https://docs.digitalocean.com/reference/doctl/how-to/install/
-
-# Authenticate
-doctl auth init
-
-# List your apps
-doctl apps list
-
-# Create deployment
-doctl apps create-deployment YOUR_APP_ID
-
-# Monitor deployment
-doctl apps get YOUR_APP_ID
-```
-
-## Next Steps
-
-1. Make a small change to the backend code
-2. Commit and push to `main` branch
-3. Watch the deployment in GitHub Actions
-4. Verify the API is working with the new changes
+- Database (Basic): $15/month
+- Backend (1x basic): $5/month  
+- Frontend (1x basic): $5/month
+- **Total**: ~$25/month starting
 
 ## Support
 
-- Digital Ocean App Platform docs: https://docs.digitalocean.com/products/app-platform/
-- GitHub Actions docs: https://docs.github.com/en/actions
-- RepairCoin backend issues: Check error logs in Digital Ocean dashboard
+For Digital Ocean specific issues:
+- DO Community: https://www.digitalocean.com/community
+- Support Ticket: From DO dashboard
+
+For RepairCoin issues:
+- Check logs first
+- Review environment variables
+- Ensure database migrations ran
