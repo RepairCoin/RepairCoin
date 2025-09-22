@@ -460,5 +460,6 @@ router.post('/:enrollmentId/cancel', async (req: Request, res: Response) => {
     });
   }
 });
+*/
 
-export default router;
+// Router already exported above
