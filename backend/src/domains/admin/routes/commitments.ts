@@ -56,7 +56,6 @@ router.post('/:enrollmentId/activate', async (req: Request, res: Response) => {
 export default router;
 
 /* Legacy documentation kept for reference:
-/**
  * @swagger
  * /api/admin/commitments/{enrollmentId}/activate:
  *   post:
