@@ -1,132 +1,74 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { router } from "expo-router";
+import { useState } from "react";
 import {
-  Dimensions,
-  FlatList,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
   Text,
   View,
-  Image,
+  SafeAreaView,
+  ImageBackground,
+  Pressable
 } from "react-native";
-import Screen from "@/components/Screen";
-import PrimaryButton from "@/components/PrimaryButton";
-import { Link, useRouter } from "expo-router";
 
-const { width } = Dimensions.get("window");
-
-// const heroDots = require('@/assets/images/hero-dots.png');
 const girl = require("@/assets/images/shop_girl.png");
 const guy = require("@/assets/images/shop_boy.png");
 const globe = require("@/assets/images/global_spin.png");
 
-type Slide = {
-  key: string;
-  title: string;
-  subtitle: string;
-  cta: string;
-  img: any;
-  buttonType?: "next" | "connect";
-};
-
 export default function Onboarding() {
-  const router = useRouter();
-  const flatRef = useRef<FlatList<Slide>>(null);
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(2);
 
-  const slides: Slide[] = useMemo(
-    () => [
-      {
-        key: "1",
-        title: "Join the revolution in\ndevice repair loyalty",
-        subtitle:
-          "Reward your clients, grow your business, and\nstand out from competitors.",
-        cta: "Next",
-        img: guy,
-      },
-      {
-        key: "2",
-        title: "Smart Loyalty for\nEveryday Repairs",
-        subtitle:
-          "From cracked screens to car service, every\nrepair now comes with real value back to you.",
-        cta: "Next",
-        img: girl,
-      },
-      {
-        key: "3",
-        title: "One Community,\nEndless Rewards",
-        subtitle:
-          "From phones to cars to salons — RepairCoin is\nchanging how the world sees loyalty.",
-        cta: "Connect Wallet",
-        img: globe,
-        buttonType: "connect",
-      },
-    ],
-    []
-  );
-
-  const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const x = e.nativeEvent.contentOffset.x;
-    setIndex(Math.round(x / width));
-  }, []);
-
-  const goNext = useCallback(() => {
-    if (index < slides.length - 1) {
-      flatRef.current?.scrollToIndex({ index: index + 1, animated: true });
-    } else {
-      router.push("/auth/wallet");
-    }
-  }, [index, slides.length, router]);
+  const Slides = [
+    {
+      title: "Join the Revolution in\nDevice Repair Loyalty",
+      paragraph:
+        "Reward your clients, grow your business, and\nstand out from competitors.",
+      img: guy,
+    },
+    {
+      title: "Smart Loyalty for\nEveryday Repairs",
+      paragraph:
+        "From cracked screens to car service, every repair\nnow comes with real value back to you.",
+      img: girl,
+    },
+    {
+      title: "One Community,\nEndless Rewards",
+      paragraph:
+        "From phones to cars to salons — RepairCoin is\nchanging how the world sees loyalty.",
+      img: globe,
+    },
+  ];
 
   return (
-    <Screen>
-      <FlatList
-        ref={flatRef}
-        data={slides}
-        keyExtractor={(item) => item.key}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onScroll={onScroll}
-        scrollEventThrottle={16}
-        renderItem={({ item }) => (
-          <View style={{ width }} className="flex-1">
-            <Image
-              source={item.img}
-              resizeMode="cover"
-              className="h-[70%] w-full"
-            />
-
-            <View className="py-8 px-4 mt-4">
-              <Text className="font-extrabold text-white text-center leading-snug text-[30px] mt-2">
-                {item.title}
-              </Text>
-              <Text className="mt-8 mx-4 text-lg leading-5 text-neutral-300 text-center text-[16px]">
-                {item.subtitle}
-              </Text>
+    <SafeAreaView>
+      <ImageBackground
+        source={Slides[index].img}
+        resizeMode="cover"
+        className="h-full w-full px-8"
+      >
+        <View className="mt-auto mb-20 h-[26%] w-full bg-black rounded-3xl px-6 py-8">
+          <Text className="text-white text-3xl font-bold">
+            {Slides[index].title}
+          </Text>
+          <Text className="text-gray-400 mt-4">{Slides[index].paragraph}</Text>
+          <View className="flex-row justify-between mt-auto items-end">
+            <View className="flex-row gap-2 items-center">
+              {[0, 1, 2].map((i) => (
+                <View
+                  key={i}
+                  className={`h-2 w-${i === index ? "10" : "2"} rounded-full bg-[#FFCC00] ${i === index ? "" : "opacity-50"}`}
+                />
+              ))}
             </View>
+            {index === 2  ? (
+              <Pressable className="bg-[#FFCC00] border-gray-400 rounded-xl" onPress={() => router.push("/auth/wallet")}>
+                <Text className="mx-8 my-4 font-bold">Connect Wallet</Text>
+              </Pressable>
+            ) : (
+              <Pressable className="border-2 border-gray-400 rounded-xl" onPress={() => setIndex(index + 1)}>
+                <Text className="text-gray-400 mx-8 my-4 font-bold">Next</Text>
+              </Pressable>
+            )}
           </View>
-        )}
-      />
-      <View className="mb-20">
-        <View className="flex-row mt-auto mb-6 items-center justify-center gap-2">
-          {slides.map((_, i) => (
-            <View
-              key={i}
-              className={`h-1.5 rounded-full ${i === index ? "w-10 bg-[#FFCC00]" : "w-4 bg-[#D9D9D9]"}`}
-            />
-          ))}
         </View>
-
-        <View className="mx-8">
-          {slides[index].buttonType === "connect" ? (
-            <Link href="/auth/wallet" asChild>
-              <PrimaryButton title={slides[index].cta} />
-            </Link>
-          ) : (
-            <PrimaryButton title={slides[index].cta} onPress={goNext} />
-          )}
-        </View>
-      </View>
-    </Screen>
+      </ImageBackground>
+    </SafeAreaView>
   );
 }

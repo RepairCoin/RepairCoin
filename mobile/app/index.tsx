@@ -7,15 +7,20 @@ import { useAuthStore } from "@/store/authStore";
 const logo = require("@/assets/images/logo.png");
 
 export default function Splash() {
-  const { isAuthenticated, isAdmin, isCustomer, isShop } = useAuthStore(state => state);
+  const { isAuthenticated, isAdmin, isCustomer, isShop } = useAuthStore(
+    (state) => state
+  );
   const [hasHydrated, setHasHydrated] = useState<boolean>(false);
 
   useEffect(() => {
-    const unsub = useAuthStore.persist.onFinishHydration(() => {
+    if (useAuthStore.persist.hasHydrated()) {
       setHasHydrated(true);
-    });
-
-    return () => unsub();
+    } else {
+      const unsub = useAuthStore.persist.onFinishHydration(() => {
+        setHasHydrated(true);
+      });
+      return () => unsub();
+    }
   }, []);
 
   useEffect(() => {
