@@ -1,25 +1,50 @@
 import PrimaryButton from "@/components/PrimaryButton";
 import Screen from "@/components/Screen";
+import { Entypo, MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { View, Image, Text } from "react-native";
+import { View, Image, Text, ImageBackground, Pressable } from "react-native";
 
 export default function ChoosePage() {
   return (
     <Screen>
-      <Image source={require("@/assets/images/image_register.png")} resizeMode="cover" />
-
-      <Text className="font-extrabold text-white text-[30px] text-center mt-8">
-        Start Your RepairCoin{'\n'}Journey
-      </Text>
-      <Text className="leading-5 text-neutral-300 text-center text-[12.5px] mt-4">
-        Choose your role to get started - register as a customer to earn{'\n'}
-        rewards, or as a shop owner to grow your bussiness
-      </Text>
-
-      <View className="flex-col gap-4 mx-8 mt-8">
-        <PrimaryButton title="Register as Customer" onPress={() => router.push("/auth/register/customer")} />
-        <PrimaryButton title="Register as Shop" onPress={() => router.push("/auth/register/shop")} />
-      </View>
+      <ImageBackground
+        source={require("@/assets/images/bg_register.png")}
+        className="h-full w-full"
+        resizeMode="cover"
+      >
+        <View className="px-6 pt-16 pb-20 h-full">
+          <Text className="text-4xl text-white">Welcome to</Text>
+          <Text className="text-6xl text-[#FFCC00] font-extrabold mt-4">
+            RepairCoin
+          </Text>
+          <Text className="text-gray-400 mt-4">
+            Choose how you'd like to join our blockchain-powered{"\n"}repair
+            ecosystem
+          </Text>
+          <Pressable
+            onPress={() => router.push("/auth/register/customer")}
+            className="w-full items-center justify-centerl py-4 bg-[#FFCC00] mt-auto rounded-full flex-row justify-center gap-2"
+            style={{ minHeight: 50 }}
+            android_ripple={{ color: "rgba(0,0,0,0.08)", borderless: false }}
+          >
+            <MaterialIcons name="person" color="#000" size={24} />
+            <Text className="text-xl font-extrabold text-black">
+              I'm a Customer
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push("/auth/register/shop")}
+            className="w-full items-center justify-centerl py-4 bg-[#FFCC00] mt-6 rounded-full flex-row justify-center gap-3"
+            style={{ minHeight: 50 }}
+            android_ripple={{ color: "rgba(0,0,0,0.08)", borderless: false }}
+          >
+            <Entypo name="shop" color="#000" size={24} />
+            <Text className="text-xl font-extrabold text-black">
+              I'm a Shop Owner
+            </Text>
+          </Pressable>
+        </View>
+      </ImageBackground>
     </Screen>
   );
 }

@@ -241,9 +241,6 @@ export const useAuthStore = create<AuthState>()(
           );
 
           // Clear any stored data
-          if (typeof window !== "undefined") {
-            sessionStorage.clear();
-          }
         },
 
         // Refresh profile
