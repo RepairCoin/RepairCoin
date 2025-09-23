@@ -1406,18 +1406,18 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                     !redeemAmount ||
                     redeemAmount <= 0;
                   
-                  // Debug info - remove in production
-                  if (isDisabled) {
-                    console.log("Button disabled because:", {
-                      sessionNotIdle: sessionStatus !== "idle",
-                      noCustomer: !selectedCustomer,
-                      noAmount: !redeemAmount,
-                      amountNotPositive: redeemAmount <= 0,
-                      sessionStatus,
-                      selectedCustomer,
-                      redeemAmount
-                    });
-                  }
+                  // Debug info - commented out for production
+                  // if (isDisabled) {
+                  //   console.log("Button disabled because:", {
+                  //     sessionNotIdle: sessionStatus !== "idle",
+                  //     noCustomer: !selectedCustomer,
+                  //     noAmount: !redeemAmount,
+                  //     amountNotPositive: redeemAmount <= 0,
+                  //     sessionStatus,
+                  //     selectedCustomer,
+                  //     redeemAmount
+                  //   });
+                  // }
                   
                   return (
                     <button

@@ -102,8 +102,8 @@ export default function ShopDashboardClient() {
       setActiveTab(tab);
     }
     
-    // Handle Stripe payment success redirect
-    if (payment === 'success' && purchaseId) {
+    // Handle Stripe payment success redirect (only if modal not already shown)
+    if (payment === 'success' && purchaseId && !showSuccessModal) {
       setSuccessMessage(`✅ Payment successful! Your RCN tokens have been added to your account.`);
       setShowSuccessModal(true);
       // Reload shop data to show updated balance
@@ -639,7 +639,14 @@ export default function ShopDashboardClient() {
               </div>
               <DialogFooter className="sm:justify-center">
                 <Button 
-                  onClick={() => setShowSuccessModal(false)}
+                  onClick={() => {
+                    setShowSuccessModal(false);
+                    // Clear the payment success params from URL
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('payment');
+                    url.searchParams.delete('purchase_id');
+                    window.history.replaceState({}, '', url);
+                  }}
                   className="bg-green-600 hover:bg-green-700 text-white px-8"
                 >
                   Continue
