@@ -355,13 +355,12 @@ export default function AdminsTab() {
           {/* Search, Filter and Export */}
           <div className="flex gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search by name, ID, email, or wallet address..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-yellow-400"
+                className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
             <button
@@ -380,7 +379,6 @@ export default function AdminsTab() {
           loading={loading}
           loadingRows={5}
           emptyMessage="No admins found"
-          emptyIcon={<AlertCircle className="w-12 h-12 text-gray-400" />}
           className=""
           headerClassName="bg-gray-900/60 border-gray-800"
           rowClassName="border-gray-800 hover:bg-gray-800/30"
@@ -417,7 +415,7 @@ export default function AdminsTab() {
                     setFormData({ ...formData, walletAddress: e.target.value })
                   }
                   disabled={showEditModal}
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="0x..."
                 />
               </div>
@@ -432,7 +430,7 @@ export default function AdminsTab() {
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
                   }
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Admin Name"
                 />
               </div>
@@ -447,7 +445,7 @@ export default function AdminsTab() {
                   onChange={(e) =>
                     setFormData({ ...formData, email: e.target.value })
                   }
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="admin@example.com"
                 />
               </div>
@@ -456,7 +454,7 @@ export default function AdminsTab() {
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Permissions <span className="text-red-500">*</span>
                 </label>
-                <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-700 rounded-lg p-3 bg-gray-800">
+                <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-700 rounded-lg p-3 bg-[#2F2F2F">
                   {AVAILABLE_PERMISSIONS.map((perm) => (
                     <label
                       key={perm.value}
@@ -483,7 +481,7 @@ export default function AdminsTab() {
                             });
                           }
                         }}
-                        className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500"
+                        className="w-4 h-4 text-purple-600 bg-[#2F2F2F] border-gray-600 rounded focus:ring-purple-500"
                       />
                       <span className="ml-3 flex items-center gap-2">
                         <span>{perm.icon}</span>
@@ -500,7 +498,7 @@ export default function AdminsTab() {
                 onClick={
                   showCreateModal ? handleCreateAdmin : handleUpdateAdmin
                 }
-                className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white py-2.5 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all font-medium"
+                className="flex-1 bg-[#FFCC00] to-blue-600 text-black py-2.5 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all font-medium"
               >
                 {showCreateModal ? "Create Admin" : "Update Admin"}
               </button>
