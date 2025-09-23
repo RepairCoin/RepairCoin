@@ -160,6 +160,11 @@ router.post('/shops/:shopId/sell-rcn',
   asyncHandler(adminController.sellRcnToShop.bind(adminController))
 );
 
+// Get shops with pending mints (database balance > blockchain balance)
+router.get('/shops/pending-mints',
+  asyncHandler(adminController.getPendingMints.bind(adminController))
+);
+
 // Mint shop's purchased RCN balance to blockchain
 router.post('/shops/:shopId/mint-balance',
   asyncHandler(adminController.mintShopBalance.bind(adminController))

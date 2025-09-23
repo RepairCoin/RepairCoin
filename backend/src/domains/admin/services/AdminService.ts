@@ -11,6 +11,7 @@ import { TokenMinter } from '../../../contracts/TokenMinter';
 import { TierManager, CustomerData, TierLevel } from '../../../contracts/TierManager';
 import { logger } from '../../../utils/logger';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
+import { TokenService } from '../../token/services/TokenService';
 
 export interface AdminStats {
   totalCustomers: number;
@@ -1492,6 +1493,46 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
       return admin;
     } catch (error) {
       logger.error('Error getting admin profile:', error);
+      throw error;
+    }
+  }
+
+  async getShopsWithPendingMints() {
+    try {
+      // Get all shops with a high limit to ensure we get all shops
+      const shopsResult = await shopRepository.getShopsPaginated({ 
+        page: 1, 
+        limit: 10000 
+      });
+      const shops = shopsResult.items;
+      
+      // Filter shops that have purchased RCN balance (database balance) > 0
+      const shopsWithPendingMints = [];
+      
+      for (const shop of shops) {
+        if (shop.purchasedRcnBalance > 0) {
+          // Get blockchain balance
+          const tokenService = new TokenService();
+          const blockchainBalance = await tokenService.getBalance(shop.walletAddress);
+          
+          shopsWithPendingMints.push({
+            shop_id: shop.shopId,
+            name: shop.name,
+            wallet_address: shop.walletAddress,
+            purchased_rcn_balance: shop.purchasedRcnBalance,
+            blockchain_balance: blockchainBalance,
+            pending_mint_amount: shop.purchasedRcnBalance
+          });
+        }
+      }
+      
+      logger.info('Retrieved shops with pending mints', { 
+        count: shopsWithPendingMints.length 
+      });
+      
+      return shopsWithPendingMints;
+    } catch (error) {
+      logger.error('Error getting shops with pending mints:', error);
       throw error;
     }
   }

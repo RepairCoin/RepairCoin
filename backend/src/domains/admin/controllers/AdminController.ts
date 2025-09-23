@@ -322,6 +322,16 @@ export class AdminController {
     }
   }
 
+  async getPendingMints(req: Request, res: Response) {
+    try {
+      const result = await this.adminService.getShopsWithPendingMints();
+      
+      ResponseHelper.success(res, result, 'Pending mints retrieved successfully');
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message, 500);
+    }
+  }
+
   async mintShopBalance(req: Request, res: Response) {
     try {
       const { shopId } = req.params;

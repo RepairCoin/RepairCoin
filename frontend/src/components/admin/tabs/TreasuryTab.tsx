@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { useAdminDashboard } from '@/hooks/useAdminDashboard';
+import { CheckCircle, Clock, AlertCircle, Zap, RefreshCw } from 'lucide-react';
+import { PendingMintsSection } from './PendingMintsSection';
 
 interface TreasuryData {
   totalSupply: number | string;
@@ -444,6 +446,9 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
           </div>
         )}
       </div>
+
+      {/* Pending Blockchain Mints */}
+      <PendingMintsSection />
 
         </>
       ) : (
