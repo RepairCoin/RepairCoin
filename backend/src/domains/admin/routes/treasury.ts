@@ -1,13 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { TokenMinter } from '../../../contracts/TokenMinter';
-import jwt from 'jsonwebtoken';
 import { TreasuryRepository } from '../../../repositories/TreasuryRepository';
 import { ShopRepository } from '../../../repositories/ShopRepository';
 import { getRCGService } from '../../../services/RCGService';
 // TODO: Implement treasury methods in repository
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // Lazy loading helper
 let tokenMinter: TokenMinter | null = null;
@@ -126,7 +124,7 @@ router.get('/treasury', async (req: Request, res: Response) => {
 });
 
 // Get RCG metrics for treasury
-router.get('/treasury/rcg', verifyAdminToken, async (req: Request, res: Response) => {
+router.get('/treasury/rcg', async (req: Request, res: Response) => {
     try {
         const rcgService = getRCGService();
         const rcgMetrics = await rcgService.getRCGMetrics();
@@ -146,7 +144,7 @@ router.get('/treasury/rcg', verifyAdminToken, async (req: Request, res: Response
 });
 
 // Update shop tier based on current RCG balance
-router.post('/treasury/update-shop-tier/:shopId', verifyAdminToken, async (req: Request, res: Response) => {
+router.post('/treasury/update-shop-tier/:shopId', async (req: Request, res: Response) => {
     try {
         const { shopId } = req.params;
         const rcgService = getRCGService();
@@ -169,7 +167,7 @@ router.post('/treasury/update-shop-tier/:shopId', verifyAdminToken, async (req: 
 });
 
 // Update treasury calculations
-router.post('/treasury/update', verifyAdminToken, async (req: Request, res: Response) => {
+router.post('/treasury/update', async (req: Request, res: Response) => {
     try {
         const treasuryRepo = new TreasuryRepository();
         
