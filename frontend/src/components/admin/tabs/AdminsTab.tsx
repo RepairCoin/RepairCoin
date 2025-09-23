@@ -526,7 +526,7 @@ export default function AdminsTab() {
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedAdmin && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 border border-gray-800 rounded-xl shadow-2xl w-full max-w-md transform transition-all">
+          <div className="bg-[#212121] border border-gray-800 rounded-xl shadow-2xl w-full max-w-md transform transition-all">
             <div className="p-6">
               <div className="flex items-center gap-4 mb-4">
                 <div className="p-3 bg-red-900/30 rounded-full">
