@@ -382,6 +382,9 @@ export default function AdminsTab() {
           className=""
           headerClassName="bg-gray-900/60 border-gray-800"
           rowClassName="border-gray-800 hover:bg-gray-800/30"
+          showPagination={true}
+          itemsPerPage={10}
+          paginationClassName="pb-4"
         />
       </div>
 
