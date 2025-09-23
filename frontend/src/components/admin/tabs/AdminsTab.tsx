@@ -390,15 +390,18 @@ export default function AdminsTab() {
       {/* Create/Edit Modal */}
       {(showCreateModal || showEditModal) && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 border border-gray-800 rounded-xl shadow-2xl w-full max-w-lg transform transition-all">
-            <div className="p-6 border-b border-gray-800">
-              <h3 className="text-xl font-bold text-white">
+          <div className="bg-[#212121] border border-gray-800 rounded-xl shadow-2xl w-full max-w-lg transform transition-all">
+            <div
+              className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-3xl"
+              style={{
+                backgroundImage: `url('/img/cust-ref-widget3.png')`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                backgroundRepeat: "no-repeat",
+              }}
+            >
+              <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
                 {showCreateModal ? "Create New Admin" : "Edit Admin"}
-              </h3>
-              <p className="text-gray-400 text-sm mt-1">
-                {showCreateModal
-                  ? "Add a new administrator to the platform"
-                  : "Update administrator information"}
               </p>
             </div>
 
