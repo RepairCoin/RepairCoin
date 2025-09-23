@@ -11,7 +11,7 @@ import {
   AlertCircle,
   UserPlus,
   Search,
-  User
+  User,
 } from "lucide-react";
 import apiClient from "@/utils/apiClient";
 import { showToast } from "@/utils/toast";
@@ -138,7 +138,6 @@ export default function AdminsTab() {
     }
   };
 
-
   const openEditModal = (admin: Admin) => {
     setSelectedAdmin(admin);
     setFormData({
@@ -180,54 +179,33 @@ export default function AdminsTab() {
       sortable: true,
       accessor: (admin: Admin) => (
         <div className="flex items-center gap-3">
-          <div
-            className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm ${
-              admin.isSuperAdmin
-                ? "bg-gradient-to-br from-purple-500 to-pink-500"
-                : "bg-gradient-to-br from-blue-500 to-cyan-500"
-            }`}
-          >
-            {admin.name.charAt(0).toUpperCase()}
-          </div>
           <div>
             <p className="font-medium text-gray-200">{admin.name}</p>
-            <div className="flex items-center gap-2 mt-0.5">
-              <code className="text-xs bg-gray-800 px-1.5 py-0.5 rounded text-gray-400 font-mono">
-                {admin.walletAddress.slice(0, 6)}...
-                {admin.walletAddress.slice(-4)}
-              </code>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  copyWalletAddress(admin.walletAddress);
-                }}
-                className="text-gray-500 hover:text-gray-300 transition-colors"
-                title="Copy wallet address"
-              >
-                <Copy className="w-3 h-3" />
-              </button>
-            </div>
-            {admin.isSuperAdmin && (
-              <span className="inline-flex items-center gap-1 mt-1 text-xs bg-purple-900/30 text-purple-400 px-2 py-0.5 rounded-full">
-                <Shield className="w-3 h-3" />
-                Super Admin
-              </span>
-            )}
           </div>
         </div>
       ),
     },
     {
-      key: "email",
-      header: "Contact",
+      key: "walletAddress",
+      header: "Wallet Address",
       sortable: true,
       accessor: (admin: Admin) => (
         <div className="flex items-center gap-2">
-          <Mail className="w-4 h-4 text-gray-500" />
           <span className="text-gray-300 text-sm">
-            {admin.email || (
-              <span className="text-gray-500 italic">No email</span>
-            )}
+            <code className="text-xs bg-gray-800 px-1.5 py-0.5 rounded text-gray-400 font-mono">
+              {admin.walletAddress.slice(0, 6)}...
+              {admin.walletAddress.slice(-4)}
+            </code>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                copyWalletAddress(admin.walletAddress);
+              }}
+              className="text-gray-500 hover:text-gray-300 transition-colors"
+              title="Copy wallet address"
+            >
+              <Copy className="w-3 h-3" />
+            </button>
           </span>
         </div>
       ),
@@ -355,11 +333,23 @@ export default function AdminsTab() {
       <DashboardHeader
         title="Admin Management"
         subtitle="Manage all admin applications and active admin"
-        icon={User}
       />
 
       {/* Data Table */}
-      <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700/50">
+      <div className="bg-[#212121] rounded-3xl lg:col-span-3 h-auto">
+        <div
+          className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-3xl"
+          style={{
+            backgroundImage: `url('/img/cust-ref-widget3.png')`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+          }}
+        >
+          <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
+            Monitor Admins
+          </p>
+        </div>
         {/* Controls */}
         <div className="p-6 border-b border-gray-700/50">
           {/* Search, Filter and Export */}
