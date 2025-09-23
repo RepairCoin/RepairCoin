@@ -24,21 +24,28 @@ router.get('/treasury', async (req: Request, res: Response) => {
         const shopRepo = new ShopRepository();
         
         // Get treasury data from database
-        // Calculate total sold from shop_rcn_purchases table
-        const shopPurchases = await treasuryRepo.query(`
-            SELECT 
-                COALESCE(SUM(amount), 0) as total_sold,
-                COALESCE(SUM(total_cost), 0) as total_revenue
-            FROM shop_rcn_purchases
-            WHERE status = 'completed'
-        `);
-        
-        const treasuryData = {
+        // Calculate total sold from shop_rcn_purchases table (if it exists)
+        let treasuryData = {
           totalSupply: 'unlimited', // Unlimited supply as per v3.0 spec
-          totalSold: parseFloat(shopPurchases.rows[0]?.total_sold || '0'),
-          totalRevenue: parseFloat(shopPurchases.rows[0]?.total_revenue || '0'),
+          totalSold: 0,
+          totalRevenue: 0,
           lastUpdated: new Date()
         };
+
+        try {
+            const shopPurchases = await treasuryRepo.query(`
+                SELECT 
+                    COALESCE(SUM(amount), 0) as total_sold,
+                    COALESCE(SUM(total_cost), 0) as total_revenue
+                FROM shop_rcn_purchases
+                WHERE status = 'completed'
+            `);
+            
+            treasuryData.totalSold = parseFloat(shopPurchases.rows[0]?.total_sold || '0');
+            treasuryData.totalRevenue = parseFloat(shopPurchases.rows[0]?.total_revenue || '0');
+        } catch (error) {
+            console.warn('shop_rcn_purchases table not found, using default values:', error);
+        }
         
         // Get actual circulating supply from blockchain
         let circulatingSupply = 0;
@@ -54,42 +61,52 @@ router.get('/treasury', async (req: Request, res: Response) => {
         }
         
         // Get top RCN buyers (shops with most purchases)
-        const topBuyersQuery = await treasuryRepo.query(`
-            SELECT 
-                s.shop_id,
-                s.name as shop_name,
-                COALESCE(SUM(p.amount), 0) as total_purchased,
-                COALESCE(SUM(p.total_cost), 0) as total_spent,
-                COUNT(p.id) as purchase_count,
-                MAX(p.created_at) as last_purchase
-            FROM shops s
-            LEFT JOIN shop_rcn_purchases p ON s.shop_id = p.shop_id AND p.status = 'completed'
-            GROUP BY s.shop_id, s.name
-            HAVING COALESCE(SUM(p.amount), 0) > 0
-            ORDER BY total_purchased DESC
-            LIMIT 10
-        `);
-        const topBuyers = topBuyersQuery.rows;
+        let topBuyers = [];
+        try {
+            const topBuyersQuery = await treasuryRepo.query(`
+                SELECT 
+                    s.shop_id,
+                    s.name as shop_name,
+                    COALESCE(SUM(p.amount), 0) as total_purchased,
+                    COALESCE(SUM(p.total_cost), 0) as total_spent,
+                    COUNT(p.id) as purchase_count,
+                    MAX(p.created_at) as last_purchase
+                FROM shops s
+                LEFT JOIN shop_rcn_purchases p ON s.shop_id = p.shop_id AND p.status = 'completed'
+                GROUP BY s.shop_id, s.name
+                HAVING COALESCE(SUM(p.amount), 0) > 0
+                ORDER BY total_purchased DESC
+                LIMIT 10
+            `);
+            topBuyers = topBuyersQuery.rows;
+        } catch (error) {
+            console.warn('Error fetching top buyers, using empty list:', error);
+        }
         
         // Get recent RCN purchases
-        const recentPurchasesQuery = await treasuryRepo.query(`
-            SELECT 
-                p.id,
-                p.shop_id,
-                s.name as shop_name,
-                p.amount as rcn_amount,
-                p.price_per_rcn,
-                p.total_cost,
-                p.payment_method,
-                p.payment_reference,
-                p.created_at as purchase_date
-            FROM shop_rcn_purchases p
-            JOIN shops s ON s.shop_id = p.shop_id
-            WHERE p.status = 'completed'
-            ORDER BY p.created_at DESC
-            LIMIT 20
-        `);
-        const recentPurchases = recentPurchasesQuery.rows;
+        let recentPurchases = [];
+        try {
+            const recentPurchasesQuery = await treasuryRepo.query(`
+                SELECT 
+                    p.id,
+                    p.shop_id,
+                    s.name as shop_name,
+                    p.amount as rcn_amount,
+                    p.price_per_rcn,
+                    p.total_cost,
+                    p.payment_method,
+                    p.payment_reference,
+                    p.created_at as purchase_date
+                FROM shop_rcn_purchases p
+                JOIN shops s ON s.shop_id = p.shop_id
+                WHERE p.status = 'completed'
+                ORDER BY p.created_at DESC
+                LIMIT 20
+            `);
+            recentPurchases = recentPurchasesQuery.rows;
+        } catch (error) {
+            console.warn('Error fetching recent purchases, using empty list:', error);
+        }
         
         // With unlimited supply, we can't calculate percentage sold
         // Instead, show circulating supply info
