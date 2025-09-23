@@ -325,12 +325,12 @@ export default function ShopDashboardClient() {
   };
 
   // Check if shop is operational
-  // If operational_status is not available (legacy), fall back to subscription status
+  // If operational_status is not available (legacy), assume operational if shop is active and verified
   const isOperational = shopData && (
     shopData.operational_status === 'rcg_qualified' || 
     shopData.operational_status === 'subscription_qualified' ||
-    // Fallback: Check if shop has active subscription when operational_status is missing
-    (!shopData.operational_status && subscriptionData?.subscription?.status === 'active')
+    // Fallback: If operational_status is missing but shop is active and verified, assume operational
+    (!shopData.operational_status && shopData.active && shopData.verified)
   );
 
   // Error state (shop not found)
