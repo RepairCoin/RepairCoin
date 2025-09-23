@@ -82,7 +82,6 @@ export default function ShopDashboardClient() {
   
   // Purchase form state
   const [purchaseAmount, setPurchaseAmount] = useState<number>(1);
-  const [paymentMethod, setPaymentMethod] = useState<'usdc' | 'eth'>('usdc');
   const [purchasing, setPurchasing] = useState(false);
   
   // Payment flow state
@@ -96,11 +95,25 @@ export default function ShopDashboardClient() {
   useEffect(() => {
     // Set active tab from URL query param
     const tab = searchParams.get('tab');
+    const payment = searchParams.get('payment');
+    const purchaseId = searchParams.get('purchase_id');
     
     if (tab) {
       setActiveTab(tab);
     }
-  }, [searchParams]);
+    
+    // Handle Stripe payment success redirect
+    if (payment === 'success' && purchaseId) {
+      setSuccessMessage(`✅ Payment successful! Your RCN tokens have been added to your account.`);
+      setShowSuccessModal(true);
+      // Reload shop data to show updated balance
+      if (account?.address) {
+        loadShopData();
+      }
+    } else if (payment === 'cancelled') {
+      setError('Payment was cancelled. Please try again.');
+    }
+  }, [searchParams, account?.address]);
 
   useEffect(() => {
     if (account?.address) {
@@ -241,46 +254,46 @@ export default function ShopDashboardClient() {
     setError(null);
     
     try {
-      console.log('Initiating purchase:', {
+      console.log('Creating Stripe checkout session:', {
         shopId: shopData.shopId,
         amount: purchaseAmount,
-        paymentMethod: paymentMethod
+        shopData: shopData
       });
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/purchase/initiate`, {
+      const authToken = localStorage.getItem('shopAuthToken') || sessionStorage.getItem('shopAuthToken');
+      console.log('Auth token found:', !!authToken);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/purchase/stripe-checkout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': authToken ? `Bearer ${authToken}` : ''
         },
         body: JSON.stringify({
-          shopId: shopData.shopId,
-          amount: purchaseAmount,
-          paymentMethod: paymentMethod
+          amount: purchaseAmount
         }),
       });
 
       const responseData = await response.json();
-      console.log('Purchase initiation response:', { 
+      console.log('Stripe checkout response:', { 
         status: response.status, 
         data: responseData 
       });
 
       if (!response.ok) {
         const errorMessage = responseData.error || `HTTP ${response.status}: ${response.statusText}`;
-        console.error('Purchase initiation failed:', errorMessage);
+        console.error('Stripe checkout creation failed:', errorMessage);
         throw new Error(errorMessage);
       }
 
-      const purchaseId = responseData.data?.purchaseId;
-      if (!purchaseId) {
-        throw new Error('No purchase ID received from server');
+      const checkoutUrl = responseData.data?.checkoutUrl;
+      if (!checkoutUrl) {
+        throw new Error('No checkout URL received from server');
       }
       
-      console.log('Purchase initiated successfully:', { purchaseId });
+      console.log('Redirecting to Stripe checkout...');
       
-      // Set up payment flow
-      setCurrentPurchaseId(purchaseId);
-      setShowPayment(true);
+      // Redirect to Stripe checkout
+      window.location.href = checkoutUrl;
       
     } catch (err) {
       console.error('Error initiating purchase:', err);
@@ -501,8 +514,6 @@ export default function ShopDashboardClient() {
               <PurchaseTab
                 purchaseAmount={purchaseAmount}
                 setPurchaseAmount={setPurchaseAmount}
-                paymentMethod={paymentMethod}
-                setPaymentMethod={setPaymentMethod}
                 purchasing={purchasing}
                 purchases={purchases}
                 onInitiatePurchase={initiatePurchase}

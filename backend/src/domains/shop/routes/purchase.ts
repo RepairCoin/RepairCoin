@@ -2,6 +2,9 @@
 import { Router, Request, Response } from 'express';
 import { shopPurchaseService, PurchaseRequest } from '../services/ShopPurchaseService';
 import { logger } from '../../../utils/logger';
+import { DatabaseService } from '../../../services/DatabaseService';
+import { getStripeService } from '../../../services/StripeService';
+import { shopRepository } from '../../../repositories';
 
 const router = Router();
 
@@ -305,6 +308,173 @@ router.get('/history/:shopId', async (req: Request, res: Response) => {
     res.status(404).json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to retrieve purchase history'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/shops/purchase/stripe-checkout:
+ *   post:
+ *     summary: Create Stripe checkout session for RCN purchase
+ *     tags: [Shop Purchase]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - amount
+ *             properties:
+ *               amount:
+ *                 type: number
+ *                 minimum: 100
+ *                 description: Amount of RCN to purchase
+ *     responses:
+ *       200:
+ *         description: Checkout session created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     checkoutUrl:
+ *                       type: string
+ *                       description: Stripe checkout URL
+ *                     sessionId:
+ *                       type: string
+ *                       description: Stripe session ID
+ *                     purchaseId:
+ *                       type: string
+ *                       description: Internal purchase ID
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Unauthorized
+ */
+router.post('/stripe-checkout', async (req: Request, res: Response) => {
+  try {
+    const shopId = req.user?.shopId;
+    const { amount } = req.body;
+    
+    if (!shopId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Shop ID not found in token'
+      });
+    }
+
+    if (!amount || amount < 100) {
+      return res.status(400).json({
+        success: false,
+        error: 'Minimum purchase amount is 100 RCN'
+      });
+    }
+
+    // Get shop details
+    const shop = await shopRepository.getShop(shopId);
+    if (!shop) {
+      throw new Error('Shop not found');
+    }
+
+    // Create purchase record first
+    const purchaseRequest: PurchaseRequest = {
+      shopId,
+      amount: Number(amount),
+      paymentMethod: 'credit_card',
+      paymentReference: 'stripe_checkout_pending'
+    };
+
+    const purchaseResult = await shopPurchaseService.purchaseRcn(purchaseRequest);
+    const unitPrice = purchaseResult.totalCost / amount;
+
+    // Get or create Stripe customer
+    const stripeService = getStripeService();
+    const db = DatabaseService.getInstance();
+    
+    let stripeCustomer;
+    const customerQuery = `SELECT stripe_customer_id FROM stripe_customers WHERE shop_id = $1`;
+    const customerResult = await db.query(customerQuery, [shopId]);
+    
+    if (customerResult.rows.length > 0) {
+      stripeCustomer = { id: customerResult.rows[0].stripe_customer_id };
+    } else {
+      // Create new Stripe customer
+      const customer = await stripeService.createCustomer({
+        email: shop.email,
+        name: shop.name,
+        shopId: shopId
+      });
+      
+      // Save to database
+      await db.query(
+        `INSERT INTO stripe_customers (shop_id, stripe_customer_id, email, name) 
+         VALUES ($1, $2, $3, $4)`,
+        [shopId, customer.id, shop.email, shop.name]
+      );
+      
+      stripeCustomer = customer;
+    }
+
+    // Create Stripe checkout session
+    const stripe = stripeService.getStripe();
+    const session = await stripe.checkout.sessions.create({
+      customer: stripeCustomer.id,
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: 'RepairCoin (RCN) Tokens',
+            description: `${amount} RCN tokens at $${unitPrice.toFixed(2)} per token`
+          },
+          unit_amount: Math.round(unitPrice * 100), // Convert to cents
+        },
+        quantity: amount,
+      }],
+      mode: 'payment',
+      success_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/shop?tab=purchase&payment=success&purchase_id=${purchaseResult.purchaseId}`,
+      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/shop?tab=purchase&payment=cancelled`,
+      metadata: {
+        shopId: shopId,
+        purchaseId: purchaseResult.purchaseId,
+        amount: amount.toString(),
+        type: 'rcn_purchase'
+      }
+    });
+
+    logger.info('Stripe checkout session created for RCN purchase', {
+      shopId,
+      sessionId: session.id,
+      purchaseId: purchaseResult.purchaseId,
+      amount,
+      totalCost: purchaseResult.totalCost
+    });
+
+    res.json({
+      success: true,
+      data: {
+        checkoutUrl: session.url,
+        sessionId: session.id,
+        purchaseId: purchaseResult.purchaseId,
+        amount,
+        totalCost: purchaseResult.totalCost
+      }
+    });
+
+  } catch (error) {
+    logger.error('Error creating Stripe checkout for RCN purchase:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create checkout session'
     });
   }
 });

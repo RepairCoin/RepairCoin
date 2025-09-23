@@ -50,9 +50,9 @@ import tierBonusRoutes from './tierBonus';
 
 const router = Router();
 
-// Register sub-routes
-router.use('/purchase', purchaseRoutes);
-router.use('/tier-bonus', tierBonusRoutes);
+// Register sub-routes (protected by auth)
+router.use('/purchase', authMiddleware, requireRole(['shop']), purchaseRoutes);
+router.use('/tier-bonus', authMiddleware, requireRole(['shop']), tierBonusRoutes);
 
 // Lazy loading helpers
 let tokenMinter: TokenMinter | null = null;

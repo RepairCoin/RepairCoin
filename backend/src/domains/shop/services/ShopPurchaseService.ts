@@ -3,6 +3,7 @@ import { shopRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
 import { revenueDistributionService } from '../../../services/RevenueDistributionService';
 import { RCGTokenReader } from '../../../contracts/RCGTokenReader';
+import { getBlockchainService } from './BlockchainService';
 
 interface ShopRcnPurchase {
   id: string;
@@ -24,7 +25,7 @@ interface CreateResult {
 export interface PurchaseRequest {
   shopId: string;
   amount: number;
-  paymentMethod: 'credit_card' | 'bank_transfer' | 'usdc' | 'eth';
+  paymentMethod: 'credit_card';
   paymentReference?: string;
 }
 
@@ -153,14 +154,40 @@ export class ShopPurchaseService {
    */
   async completePurchase(purchaseId: string, paymentReference?: string): Promise<PurchaseResponse> {
     try {
-      // Complete the purchase and update shop balance
+      // Get purchase details
+      const purchase = await shopRepository.getShopPurchase(purchaseId);
+      if (!purchase) {
+        throw new Error('Purchase not found');
+      }
+
+      // Complete the purchase and update shop balance in database
       await shopRepository.completeShopPurchase(purchaseId, paymentReference);
 
-      logger.info(`RCN purchase completed: ${purchaseId}`);
+      // Get shop details for blockchain minting
+      const shop = await shopRepository.getShop(purchase.shopId);
+      if (shop && shop.walletAddress) {
+        // Attempt blockchain minting (will log if not enabled)
+        const blockchainService = getBlockchainService();
+        const mintResult = await blockchainService.processMintRequest({
+          shopAddress: shop.walletAddress,
+          amount: purchase.amount,
+          purchaseId: purchaseId,
+          transactionType: 'shop_purchase'
+        });
+
+        logger.info(`RCN purchase completed with blockchain status:`, {
+          purchaseId,
+          shopId: purchase.shopId,
+          amount: purchase.amount,
+          blockchainEnabled: mintResult.blockchainEnabled,
+          blockchainSuccess: mintResult.success,
+          transactionHash: mintResult.transactionHash
+        });
+      }
 
       return {
         purchaseId,
-        totalCost: 0, // Would need to fetch from purchase record if needed
+        totalCost: purchase.totalCost,
         status: 'completed',
         message: 'RCN purchase completed successfully. Tokens have been added to your shop balance.'
       };

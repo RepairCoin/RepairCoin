@@ -6,6 +6,7 @@ import { logger } from '../../../utils/logger';
 import { eventBus } from '../../../events/EventBus';
 import { Pool } from 'pg';
 import { DatabaseService } from '../../../services/DatabaseService';
+import { shopPurchaseService } from '../services/ShopPurchaseService';
 import Stripe from 'stripe';
 
 const router = Router();
@@ -582,7 +583,8 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event, subscriptionS
     sessionId: session.id,
     customerId: session.customer,
     subscriptionId: session.subscription,
-    metadata: session.metadata
+    metadata: session.metadata,
+    type: session.metadata?.type
   });
 
   try {
@@ -592,6 +594,47 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event, subscriptionS
       return;
     }
 
+    // Check if this is an RCN purchase
+    if (session.metadata?.type === 'rcn_purchase') {
+      const purchaseId = session.metadata.purchaseId;
+      const amount = parseInt(session.metadata.amount);
+      
+      logger.info('Processing RCN purchase completion', {
+        shopId,
+        purchaseId,
+        amount,
+        sessionId: session.id
+      });
+
+      // Complete the purchase
+      await shopPurchaseService.completePurchase(purchaseId, session.id);
+      
+      // Publish event
+      eventBus.publish({
+        type: 'rcn.purchase.completed',
+        aggregateId: shopId,
+        timestamp: new Date(),
+        source: 'StripeWebhook',
+        version: 1,
+        data: {
+          shopId,
+          purchaseId,
+          amount,
+          sessionId: session.id,
+          webhookEventId: event.id
+        }
+      });
+      
+      logger.info('RCN purchase completed successfully', {
+        shopId,
+        purchaseId,
+        amount
+      });
+      
+      return; // Exit early for RCN purchases
+    }
+
+    // Original subscription logic
     if (session.subscription && typeof session.subscription === 'string') {
       // Get the full subscription details from Stripe
       const stripeService = getStripeService();
