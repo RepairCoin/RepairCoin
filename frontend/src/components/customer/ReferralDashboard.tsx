@@ -24,7 +24,7 @@ const client = createThirdwebClient({
 const contract = getContract({
   client,
   chain: baseSepolia,
-  address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS!,
+  address: (process.env.NEXT_PUBLIC_RCN_CONTRACT_ADDRESS || process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0xBFE793d78B6B83859b528F191bd6F2b8555D951C") as `0x${string}`,
 });
 
 interface ReferralStats {
