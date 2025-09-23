@@ -18,28 +18,9 @@ const getTokenMinter = (): TokenMinter => {
     return tokenMinter;
 };
 
-// Middleware to verify admin JWT token
-const verifyAdminToken = (req: Request, res: Response, next: Function) => {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-        return res.status(401).json({ success: false, error: 'No token provided' });
-    }
-    
-    try {
-        const decoded = jwt.verify(token, JWT_SECRET) as any;
-        if (decoded.role !== 'admin') {
-            return res.status(403).json({ success: false, error: 'Admin access required' });
-        }
-        (req as any).admin = decoded;
-        next();
-    } catch (error) {
-        return res.status(401).json({ success: false, error: 'Invalid token' });
-    }
-};
-
 // Get treasury statistics
-router.get('/treasury', verifyAdminToken, async (req: Request, res: Response) => {
+// Note: Authentication is already handled by the admin router middleware
+router.get('/treasury', async (req: Request, res: Response) => {
     try {
         const treasuryRepo = new TreasuryRepository();
         const shopRepo = new ShopRepository();
