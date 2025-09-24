@@ -1513,6 +1513,7 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
         try {
           // Get total purchased RCN from shop_rcn_purchases table
           // Include both completed and pending (for Stripe payments that are processing)
+          // Exclude already minted purchases
           const purchaseQuery = await treasuryRepository.query(`
             SELECT 
               COALESCE(SUM(amount), 0) as total_purchased
@@ -1565,16 +1566,25 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
         throw new Error('Shop not found');
       }
 
-      // Check if shop has unminted balance
-      const unmintedBalance = shop.purchasedRcnBalance || 0;
+      // Get total purchased RCN from shop_rcn_purchases table (only unminted purchases)
+      const purchaseQuery = await treasuryRepository.query(`
+        SELECT 
+          COALESCE(SUM(amount), 0) as total_purchased
+        FROM shop_rcn_purchases 
+        WHERE shop_id = $1 AND status IN ('completed', 'pending')
+      `, [shopId]);
+      
+      const totalPurchased = parseFloat(purchaseQuery.rows[0]?.total_purchased || '0');
+      
+      // Get current blockchain balance
+      const tokenService = new TokenService();
+      const blockchainBalance = await tokenService.getBalance(shop.walletAddress);
+      
+      // Calculate unminted balance (total purchased - blockchain balance)
+      const unmintedBalance = totalPurchased - blockchainBalance;
+      
       if (unmintedBalance <= 0) {
         throw new Error('No balance to mint');
-      }
-
-      // Get shop wallet address
-      const shopWallet = await shopRepository.getShopByWallet(shop.walletAddress);
-      if (!shopWallet) {
-        throw new Error('Shop wallet not found');
       }
 
       // Transfer tokens from admin wallet to shop wallet
@@ -1591,23 +1601,39 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
         throw new Error(`Transfer failed: ${result?.error || 'Unknown error'}`);
       }
 
-      // Reset the shop's purchased balance to 0 after successful transfer
-      await shopRepository.updateShop(shopId, {
-        purchasedRcnBalance: 0
-      });
+      // Mark all pending purchases as minted
+      try {
+        await treasuryRepository.query(`
+          UPDATE shop_rcn_purchases 
+          SET 
+            status = 'minted',
+            minted_at = NOW(),
+            transaction_hash = $2
+          WHERE 
+            shop_id = $1 
+            AND status IN ('completed', 'pending')
+        `, [shopId, result.transactionHash]);
+      } catch (updateError: any) {
+        // If minted_at or transaction_hash columns don't exist, try simpler update
+        if (updateError.message?.includes('column') && (updateError.message?.includes('minted_at') || updateError.message?.includes('transaction_hash'))) {
+          logger.warn('minted_at or transaction_hash column not found, updating status only');
+          await treasuryRepository.query(`
+            UPDATE shop_rcn_purchases 
+            SET status = 'minted'
+            WHERE 
+              shop_id = $1 
+              AND status IN ('completed', 'pending')
+          `, [shopId]);
+        } else {
+          throw updateError;
+        }
+      }
       
-      logger.info('Shop balance transferred and reset', { 
+      logger.info('Shop balance transferred and purchases marked as minted', { 
         shopId, 
         amount: unmintedBalance,
-        walletAddress: shop.walletAddress
-      });
-
-      // Update shop's minted status (optional - you might want to track this)
-      logger.info('Shop balance minted successfully', { 
-        shopId, 
-        amount: unmintedBalance,
-        transactionHash: result.transactionHash,
-        walletAddress: shop.walletAddress
+        walletAddress: shop.walletAddress,
+        transactionHash: result.transactionHash
       });
 
       return {
