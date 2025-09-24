@@ -14,6 +14,7 @@ import treasuryRoutes from './treasury';
 import analyticsRoutes from './analytics';
 import customerRoutes from './customers';
 import revenueRoutes from '../../../routes/admin/revenue';
+import subscriptionRoutes from './subscription';
 
 const router = Router();
 
@@ -217,6 +218,9 @@ router.use('/customers', customerRoutes);
 
 // Revenue distribution routes
 router.use('/revenue', revenueRoutes);
+
+// Subscription management routes
+router.use('/subscription', subscriptionRoutes);
 
 // RCG management routes
 import rcgManagementRoutes from '../../../routes/admin/rcg-management';
