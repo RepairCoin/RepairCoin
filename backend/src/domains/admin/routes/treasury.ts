@@ -3,7 +3,7 @@ import { TokenMinter } from '../../../contracts/TokenMinter';
 import { TokenService } from '../../token/services/TokenService';
 import { TreasuryRepository } from '../../../repositories/TreasuryRepository';
 import { ShopRepository } from '../../../repositories/ShopRepository';
-import { getRCGService } from '../../../services/RCGService';
+// import { getRCGService } from '../../../services/RCGService';
 // TODO: Implement treasury methods in repository
 
 const router = Router();
@@ -153,12 +153,13 @@ router.get('/treasury', async (req: Request, res: Response) => {
 // Get RCG metrics for treasury
 router.get('/treasury/rcg', async (req: Request, res: Response) => {
     try {
-        const rcgService = getRCGService();
-        const rcgMetrics = await rcgService.getRCGMetrics();
+        // const rcgService = getRCGService();
+        // const rcgMetrics = await rcgService.getRCGMetrics();
         
         res.json({
             success: true,
-            data: rcgMetrics
+            message: 'RCG metrics not yet implemented',
+            data: {}
         });
     } catch (error) {
         console.error('Error fetching RCG metrics:', error);
@@ -173,13 +174,14 @@ router.get('/treasury/rcg', async (req: Request, res: Response) => {
 router.post('/treasury/update-shop-tier/:shopId', async (req: Request, res: Response) => {
     try {
         const { shopId } = req.params;
-        const rcgService = getRCGService();
+        // const rcgService = getRCGService();
         
-        const result = await rcgService.updateShopTier(shopId);
+        // const result = await rcgService.updateShopTier(shopId);
         
         res.json({
             success: true,
-            data: result
+            message: 'RCG service not yet implemented',
+            data: { shopId }
         });
     } catch (error) {
         console.error('Error updating shop tier:', error);
