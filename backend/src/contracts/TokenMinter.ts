@@ -56,8 +56,10 @@ export class TokenMinter {
     });
     
     // Use RCN contract address first, fall back to legacy
-    this.contractAddress = process.env.RCN_CONTRACT_ADDRESS || process.env.REPAIRCOIN_CONTRACT_ADDRESS!;
+    this.contractAddress = process.env.RCN_CONTRACT_ADDRESS || process.env.REPAIRCOIN_CONTRACT_ADDRESS || '0xd92ced7c3f4D8E42C05A4c558F37dA6DC731d5f5';
     this.tierManager = new TierManager();
+    
+    console.log(`🔗 TokenMinter initialized with contract: ${this.contractAddress}`);
   }
 
   // Transfer tokens from customer to shop for redemption
