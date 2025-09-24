@@ -88,26 +88,86 @@ export const PendingMintsSection: React.FC = () => {
 
       if (response.ok) {
         const result = await response.json();
+        const txHash = result.data?.transactionHash || result.transactionHash;
+        
         toast.success(
-          <>
-            <div>
-              <p className="font-semibold">Minting successful!</p>
-              <p className="text-sm">Minted {formatNumber(shop.pending_mint_amount)} RCN to {shop.name}</p>
-              {result.txHash && (
-                <p className="text-xs mt-1">
-                  Tx: {result.txHash.substring(0, 10)}...
-                </p>
-              )}
-            </div>
-          </>,
-          { duration: 5000 }
+          <div>
+            <p className="font-semibold">Minting Successful! 🎉</p>
+            <p className="text-sm mt-1">
+              Minted {formatNumber(shop.pending_mint_amount)} RCN to {shop.name}
+            </p>
+            {txHash && (
+              <div className="mt-2">
+                <p className="text-xs text-gray-300">Transaction Hash:</p>
+                <a 
+                  href={`https://sepolia.basescan.org/tx/${txHash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-400 hover:text-blue-300 underline"
+                >
+                  {txHash.substring(0, 10)}...{txHash.substring(txHash.length - 8)}
+                </a>
+              </div>
+            )}
+          </div>,
+          { duration: 8000 }
         );
         
         // Reload the data to update the list
         await loadPendingMints();
       } else {
         const errorData = await response.json();
-        onError(errorData.error || 'Failed to mint tokens');
+        const errorMessage = errorData.error || 'Failed to mint tokens';
+        
+        // Check for specific error types and show appropriate toast
+        if (errorMessage.includes('MINTER_ROLE') || errorMessage.includes('Insufficient permissions')) {
+          toast.error(
+            <div>
+              <p className="font-semibold">Permission Denied</p>
+              <p className="text-sm mt-1">Admin wallet lacks MINTER_ROLE on the contract.</p>
+              <p className="text-xs mt-2 text-gray-300">Contact the contract owner to grant minting permissions.</p>
+            </div>,
+            { duration: 8000 }
+          );
+        } else if (errorMessage.includes('Insufficient ETH') || errorMessage.includes('gas fees')) {
+          toast.error(
+            <div>
+              <p className="font-semibold">Insufficient Gas</p>
+              <p className="text-sm mt-1">Admin wallet needs Base Sepolia ETH for gas fees.</p>
+              <p className="text-xs mt-2 text-gray-300">Fund the admin wallet to continue minting.</p>
+            </div>,
+            { duration: 6000 }
+          );
+        } else if (errorMessage.includes('paused')) {
+          toast.error(
+            <div>
+              <p className="font-semibold">Contract Paused</p>
+              <p className="text-sm mt-1">The RCN contract is currently paused.</p>
+              <p className="text-xs mt-2 text-gray-300">Unpause the contract to enable minting.</p>
+            </div>,
+            { duration: 6000 }
+          );
+        } else if (errorMessage.includes('No balance to mint')) {
+          toast.error(
+            <div>
+              <p className="font-semibold">No Pending Balance</p>
+              <p className="text-sm mt-1">This shop has no unminted balance.</p>
+              <p className="text-xs mt-2 text-gray-300">The tokens may have already been minted.</p>
+            </div>,
+            { duration: 5000 }
+          );
+        } else {
+          // Generic error toast
+          toast.error(
+            <div>
+              <p className="font-semibold">Minting Failed</p>
+              <p className="text-sm mt-1">{errorMessage}</p>
+            </div>,
+            { duration: 5000 }
+          );
+        }
+        
+        onError(errorMessage);
       }
     } catch (error) {
       console.error('Error minting tokens:', error);
