@@ -1577,8 +1577,26 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
       const totalPurchased = parseFloat(purchaseQuery.rows[0]?.total_purchased || '0');
       
       // Get current blockchain balance
-      const tokenService = new TokenService();
-      const blockchainBalance = await tokenService.getBalance(shop.walletAddress);
+      let blockchainBalance = 0;
+      try {
+        const tokenService = new TokenService();
+        blockchainBalance = await tokenService.getBalance(shop.walletAddress);
+      } catch (balanceError) {
+        logger.warn('Could not fetch blockchain balance, assuming 0', {
+          shopId,
+          walletAddress: shop.walletAddress,
+          error: balanceError
+        });
+        blockchainBalance = 0;
+      }
+      
+      logger.info('Mint balance calculation', {
+        shopId,
+        walletAddress: shop.walletAddress,
+        totalPurchased,
+        blockchainBalance,
+        unmintedBalance: totalPurchased - blockchainBalance
+      });
       
       // Calculate unminted balance (total purchased - blockchain balance)
       const unmintedBalance = totalPurchased - blockchainBalance;
