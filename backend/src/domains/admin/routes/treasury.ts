@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { TokenMinter } from '../../../contracts/TokenMinter';
+import { TokenService } from '../../token/services/TokenService';
 import { TreasuryRepository } from '../../../repositories/TreasuryRepository';
 import { ShopRepository } from '../../../repositories/ShopRepository';
 import { getRCGService } from '../../../services/RCGService';
@@ -254,8 +255,8 @@ router.get('/treasury/debug/:shopId', async (req: Request, res: Response) => {
         // Try to get blockchain balance
         if (shop?.wallet_address) {
             try {
-                const contractStats = await tokenMinter.getBalance(shop.wallet_address);
-                blockchainBalance = contractStats.balance || 0;
+                const tokenService = new TokenService();
+                blockchainBalance = await tokenService.getBalance(shop.wallet_address);
             } catch (error: any) {
                 balanceError = error.message;
             }
