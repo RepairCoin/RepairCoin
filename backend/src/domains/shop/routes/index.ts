@@ -1372,56 +1372,67 @@ router.get('/:shopId/transactions',
       
       // Get regular transactions if not filtering by purchase
       if (type !== 'purchases') {
-        const transactions = await transactionRepository.getShopTransactions(shopId, {
-          page,
-          limit,
-          type
-        });
-        
-        // Transform to match frontend expectations
-        const transformedTransactions = transactions.items.map((t: any) => ({
-          id: t.id,
-          type: t.type === 'mint' ? 'reward' : t.type === 'redeem' ? 'redemption' : t.type,
-          amount: parseFloat(t.amount),
-          customerAddress: t.customer_address,
-          customerName: t.customer_name,
-          repairAmount: t.metadata?.repairAmount,
-          status: t.status || 'completed',
-          createdAt: t.timestamp || t.created_at,
-          failureReason: t.error_message,
-          is_tier_bonus: t.metadata?.tierBonus > 0
-        }));
-        
-        allTransactions = [...transformedTransactions];
+        try {
+          const transactions = await transactionRepository.getShopTransactions(shopId, {
+            page,
+            limit,
+            type
+          });
+          
+          // Transform to match frontend expectations
+          const transformedTransactions = transactions.items.map((t: any) => ({
+            id: t.id,
+            type: t.type === 'mint' ? 'reward' : t.type === 'redeem' ? 'redemption' : t.type,
+            amount: parseFloat(t.amount),
+            customerAddress: t.customer_address,
+            customerName: t.customer_name,
+            repairAmount: t.metadata?.repairAmount,
+            status: t.status || 'completed',
+            createdAt: t.timestamp || t.created_at,
+            failureReason: t.error_message,
+            is_tier_bonus: t.metadata?.tierBonus > 0
+          }));
+          
+          allTransactions = [...transformedTransactions];
+        } catch (error: any) {
+          // If transactions table doesn't exist or has missing columns, return empty array
+          logger.warn(`Could not fetch transactions for shop ${shopId}:`, error.message);
+          allTransactions = [];
+        }
       }
       
       // Get RCN purchases if showing all or purchases
       if (!type || type === 'all' || type === 'purchases') {
-        const purchaseHistory = await shopRepository.getShopPurchaseHistory(shopId, {
-          page: 1,
-          limit: 100,
-          orderBy: 'created_at',
-          orderDirection: 'desc'
-        });
-        
-        // Transform purchases to match transaction format
-        const purchaseTransactions = purchaseHistory.items.map((p: any) => ({
-          id: p.id,
-          type: 'purchase',
-          amount: parseFloat(p.amount),
-          customerAddress: null,
-          customerName: 'RCN Purchase',
-          repairAmount: null,
-          status: p.status,
-          createdAt: p.created_at,
-          failureReason: null,
-          is_tier_bonus: false,
-          totalCost: parseFloat(p.total_cost),
-          paymentMethod: p.payment_method,
-          paymentReference: p.payment_reference
-        }));
-        
-        allTransactions = [...allTransactions, ...purchaseTransactions];
+        try {
+          const purchaseHistory = await shopRepository.getShopPurchaseHistory(shopId, {
+            page: 1,
+            limit: 100,
+            orderBy: 'created_at',
+            orderDirection: 'desc'
+          });
+          
+          // Transform purchases to match transaction format
+          const purchaseTransactions = purchaseHistory.items.map((p: any) => ({
+            id: p.id,
+            type: 'purchase',
+            amount: parseFloat(p.amount),
+            customerAddress: null,
+            customerName: 'RCN Purchase',
+            repairAmount: null,
+            status: p.status,
+            createdAt: p.created_at,
+            failureReason: null,
+            is_tier_bonus: false,
+            totalCost: parseFloat(p.total_cost),
+            paymentMethod: p.payment_method,
+            paymentReference: p.payment_reference
+          }));
+          
+          allTransactions = [...allTransactions, ...purchaseTransactions];
+        } catch (error: any) {
+          // If shop_rcn_purchases table doesn't exist, continue without purchase history
+          logger.warn(`Could not fetch purchase history for shop ${shopId}:`, error.message);
+        }
       }
       
       // Sort all transactions by date
