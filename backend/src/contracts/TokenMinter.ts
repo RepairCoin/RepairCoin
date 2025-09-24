@@ -626,7 +626,7 @@ async unpauseContract(): Promise<MintResult> {
       console.error("Error in mintTokens:", error);
       
       // Provide specific error messages
-      if (error.message.includes("AccessControl")) {
+      if (error.message.includes("AccessControl") || error.message.includes("not minter")) {
         return {
           success: false,
           error: "Insufficient permissions to mint tokens. Grant MINTER_ROLE to this wallet."

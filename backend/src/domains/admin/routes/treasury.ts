@@ -190,6 +190,31 @@ router.post('/treasury/update-shop-tier/:shopId', async (req: Request, res: Resp
     }
 });
 
+// Get admin wallet info
+router.get('/treasury/admin-wallet', async (req: Request, res: Response) => {
+    try {
+        const tokenMinter = getTokenMinter();
+        const account = (tokenMinter as any).account;
+        const walletAddress = account?.address || 'Not configured';
+        
+        res.json({
+            success: true,
+            data: {
+                adminWallet: walletAddress,
+                contractAddress: process.env.RCN_CONTRACT_ADDRESS || '0xd92ced7c3f4D8E42C05A4c558F37dA6DC731d5f5',
+                chainId: 84532,
+                chainName: 'Base Sepolia',
+                message: 'This wallet needs MINTER_ROLE on the RCN contract to mint tokens'
+            }
+        });
+    } catch (error: any) {
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get admin wallet info'
+        });
+    }
+});
+
 // Update treasury calculations
 router.post('/treasury/update', async (req: Request, res: Response) => {
     try {
