@@ -1605,18 +1605,16 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
         throw new Error('No balance to mint');
       }
 
-      // Transfer tokens from admin wallet to shop wallet
+      // Mint tokens directly to shop wallet
       const tokenMinter = new TokenMinter();
-      const transferResult = await tokenMinter.batchTransferTokens([{
-        address: shop.walletAddress,
-        amount: unmintedBalance,
-        reason: `Transferring purchased RCN balance to shop ${shopId}`
-      }]);
-      
-      const result = transferResult[0]; // Get first result from batch
+      const mintResult = await tokenMinter.adminMintTokens(
+        shop.walletAddress,
+        unmintedBalance,
+        `Shop purchase: ${shopId} bought ${unmintedBalance} RCN`
+      );
 
-      if (!result || !result.success) {
-        throw new Error(`Transfer failed: ${result?.error || 'Unknown error'}`);
+      if (!mintResult || !mintResult.success) {
+        throw new Error(`Minting failed: ${mintResult?.error || 'Unknown error'}`);
       }
 
       // Mark all pending purchases as minted
@@ -1630,7 +1628,7 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
           WHERE 
             shop_id = $1 
             AND status IN ('completed', 'pending')
-        `, [shopId, result.transactionHash]);
+        `, [shopId, mintResult.transactionHash]);
       } catch (updateError: any) {
         // If minted_at or transaction_hash columns don't exist, try simpler update
         if (updateError.message?.includes('column') && (updateError.message?.includes('minted_at') || updateError.message?.includes('transaction_hash'))) {
@@ -1647,26 +1645,26 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
         }
       }
       
-      logger.info('Shop balance transferred and purchases marked as minted', { 
+      logger.info('Shop balance minted and purchases marked as minted', { 
         shopId, 
         amount: unmintedBalance,
         walletAddress: shop.walletAddress,
-        transactionHash: result.transactionHash
+        transactionHash: mintResult.transactionHash
       });
 
       return {
         success: true,
-        message: `Successfully transferred ${unmintedBalance} RCN to shop wallet`,
+        message: `Successfully minted ${unmintedBalance} RCN to shop wallet`,
         data: {
           shopId,
           shopName: shop.name,
-          amountTransferred: unmintedBalance,
+          amountMinted: unmintedBalance,
           walletAddress: shop.walletAddress,
-          transactionHash: result.transactionHash
+          transactionHash: mintResult.transactionHash
         }
       };
     } catch (error) {
-      logger.error('Error transferring shop balance:', error);
+      logger.error('Error minting shop balance:', error);
       throw error;
     }
   }
