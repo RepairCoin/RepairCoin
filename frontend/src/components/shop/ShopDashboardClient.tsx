@@ -517,8 +517,7 @@ export default function ShopDashboardClient() {
         <div className="max-w-screen-2xl w-[96%] mx-auto">
           
           {/* Show onboarding banner if shop is not operational */}
-          {shopData && shopData.operational_status !== 'rcg_qualified' && 
-           shopData.operational_status !== 'subscription_qualified' && (
+          {shopData && !isOperational && (
             <OnboardingBanner shopData={shopData} />
           )}
           
