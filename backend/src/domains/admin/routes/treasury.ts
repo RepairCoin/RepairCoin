@@ -114,29 +114,38 @@ router.get('/treasury', async (req: Request, res: Response) => {
             ? (treasuryData.totalSold / circulatingSupply) * 100
             : 0;
         
-        res.json({
-            success: true,
-            data: {
-                totalSupply: treasuryData.totalSupply, // "unlimited"
-                availableSupply: 'unlimited', // Unlimited minting capability
-                totalSold: treasuryData.totalSold,
-                totalRevenue: treasuryData.totalRevenue,
-                percentageSold: 'N/A', // Can't calculate percentage of infinity
-                lastUpdated: treasuryData.lastUpdated,
-                topBuyers,
-                recentPurchases,
-                // Additional info about blockchain state
-                circulatingSupply: circulatingSupply,
-                mintedRewards: circulatingSupply // All minted tokens are rewards
-            }
-        });
-    } catch (error) {
+        // Calculate remaining treasury (for display purposes only)
+        const remainingInTreasury = circulatingSupply > 0 
+            ? circulatingSupply - treasuryData.totalSold
+            : 0;
+        
+        const data = {
+            ...treasuryData,
+            circulatingSupply,
+            percentageSold,
+            remainingInTreasury,
+            topBuyers,
+            recentPurchases
+        };
+        
+        res.json({ success: true, data });
+    } catch (error: any) {
         console.error('Treasury stats error:', error);
-        res.status(500).json({ 
-            success: false, 
-            error: 'Failed to fetch treasury data',
-            details: error instanceof Error ? error.message : 'Unknown error'
-        });
+        
+        // Check if it's a database table missing error
+        if (error.message?.includes('does not exist')) {
+            res.status(500).json({ 
+                success: false, 
+                error: 'Database tables not initialized. Please run migrations.',
+                details: process.env.NODE_ENV === 'development' ? error.message : undefined
+            });
+        } else {
+            res.status(500).json({ 
+                success: false, 
+                error: 'Failed to fetch treasury data',
+                details: process.env.NODE_ENV === 'development' ? error.message : undefined
+            });
+        }
     }
 });
 
@@ -151,11 +160,10 @@ router.get('/treasury/rcg', async (req: Request, res: Response) => {
             data: rcgMetrics
         });
     } catch (error) {
-        console.error('RCG metrics error:', error);
+        console.error('Error fetching RCG metrics:', error);
         res.status(500).json({ 
             success: false, 
-            error: 'Failed to fetch RCG metrics',
-            details: error instanceof Error ? error.message : 'Unknown error'
+            error: 'Failed to fetch RCG metrics' 
         });
     }
 });
@@ -166,19 +174,17 @@ router.post('/treasury/update-shop-tier/:shopId', async (req: Request, res: Resp
         const { shopId } = req.params;
         const rcgService = getRCGService();
         
-        await rcgService.updateShopTier(parseInt(shopId));
-        const tierInfo = await rcgService.getShopTierInfo(parseInt(shopId));
+        const result = await rcgService.updateShopTier(shopId);
         
         res.json({
             success: true,
-            data: tierInfo
+            data: result
         });
     } catch (error) {
-        console.error('Update shop tier error:', error);
+        console.error('Error updating shop tier:', error);
         res.status(500).json({ 
             success: false, 
-            error: 'Failed to update shop tier',
-            details: error instanceof Error ? error.message : 'Unknown error'
+            error: 'Failed to update shop tier' 
         });
     }
 });
@@ -189,75 +195,69 @@ router.post('/treasury/update', async (req: Request, res: Response) => {
         const treasuryRepo = new TreasuryRepository();
         
         // TODO: Implement treasury repository methods
-        // First, update total supply from blockchain
-        try {
-            const contractStats = await getTokenMinter().getContractStats();
-            if (contractStats && contractStats.totalSupplyReadable > 0) {
-                // await treasuryRepository.updateTreasuryTotalSupply(contractStats.totalSupplyReadable);
-            }
-        } catch (error) {
-            console.warn('Could not update total supply from blockchain:', error);
-        }
-        
-        // Calculate revenue distribution for current period
-        const rcgService = getRCGService();
-        const revenueMetrics = await rcgService.calculateRevenueByTier();
-        const distribution = rcgService.getRCGTokenReader().calculateDistribution(revenueMetrics.totalRevenue);
-        
-        // Store revenue distribution record
-        // First, calculate the total RCN sold this week
-        const weeklyRcnQuery = await treasuryRepo.query(`
-            SELECT COALESCE(SUM(amount), 0) as weekly_rcn_sold
-            FROM shop_rcn_purchases
-            WHERE status = 'completed'
-            AND created_at >= date_trunc('week', CURRENT_DATE)
-            AND created_at < date_trunc('week', CURRENT_DATE) + INTERVAL '7 days'
-        `);
-        const weeklyRcnSold = parseFloat(weeklyRcnQuery.rows[0]?.weekly_rcn_sold || '0');
-        
-        await treasuryRepo.query(`
-            INSERT INTO revenue_distributions (
-                week_start, week_end, total_rcn_sold, total_revenue_usd,
-                operations_share, stakers_share, dao_treasury_share
-            ) VALUES (
-                date_trunc('week', CURRENT_DATE),
-                date_trunc('week', CURRENT_DATE) + INTERVAL '6 days',
-                $1, $2, $3, $4, $5
-            ) ON CONFLICT (week_start, week_end) DO UPDATE SET
-                total_rcn_sold = EXCLUDED.total_rcn_sold,
-                total_revenue_usd = EXCLUDED.total_revenue_usd,
-                operations_share = EXCLUDED.operations_share,
-                stakers_share = EXCLUDED.stakers_share,
-                dao_treasury_share = EXCLUDED.dao_treasury_share,
-                created_at = NOW()
-        `, [
-            weeklyRcnSold,
-            revenueMetrics.totalRevenue,
-            distribution.operations,
-            distribution.stakers,
-            distribution.daoTreasury
-        ]);
-        
-        // Get updated treasury data
-        const treasuryData = {
-            totalSupply: 'unlimited',
-            totalSold: 0,
-            totalRevenue: revenueMetrics.totalRevenue,
-            distribution,
-            lastUpdated: new Date()
-        };
+        // await treasuryRepo.updateCalculations();
         
         res.json({
             success: true,
-            message: 'Treasury data updated successfully',
-            data: treasuryData
+            message: 'Treasury calculations updated'
         });
     } catch (error) {
-        console.error('Treasury update error:', error);
+        console.error('Error updating treasury calculations:', error);
         res.status(500).json({ 
             success: false, 
-            error: 'Failed to update treasury data',
-            details: error instanceof Error ? error.message : 'Unknown error'
+            error: 'Failed to update treasury calculations' 
+        });
+    }
+});
+
+// Debug endpoint to check purchases for a specific shop
+router.get('/treasury/debug/:shopId', async (req: Request, res: Response) => {
+    try {
+        const { shopId } = req.params;
+        const treasuryRepo = new TreasuryRepository();
+        
+        // Get all purchases for this shop
+        const purchasesQuery = await treasuryRepo.query(`
+            SELECT 
+                id,
+                shop_id,
+                amount,
+                total_cost,
+                status,
+                payment_method,
+                payment_reference,
+                created_at
+            FROM shop_rcn_purchases
+            WHERE shop_id = $1
+            ORDER BY created_at DESC
+        `, [shopId]);
+        
+        // Get shop details
+        const shopQuery = await treasuryRepo.query(`
+            SELECT 
+                shop_id,
+                name,
+                wallet_address,
+                active,
+                verified,
+                purchased_rcn_balance,
+                operational_status
+            FROM shops
+            WHERE shop_id = $1
+        `, [shopId]);
+        
+        res.json({
+            success: true,
+            data: {
+                shop: shopQuery.rows[0] || null,
+                purchases: purchasesQuery.rows,
+                totalPurchased: purchasesQuery.rows.reduce((sum: number, p: any) => sum + parseFloat(p.amount || '0'), 0)
+            }
+        });
+    } catch (error: any) {
+        res.status(500).json({
+            success: false,
+            error: error.message
         });
     }
 });
