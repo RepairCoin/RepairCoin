@@ -38,6 +38,26 @@ router.get('/subscriptions', async (req: Request, res: Response) => {
     query += ` LIMIT ${Number(limit)} OFFSET ${offset}`;
 
     const result = await db.query(query, params);
+    
+    // Transform the data to match frontend expectations
+    const transformedRows = result.rows.map((row: any) => ({
+      id: row.id,
+      shopId: row.shop_id,
+      shopName: row.shop_name || 'Unknown Shop',
+      email: row.shop_email || row.stripe_email || '',
+      status: row.status || 'unknown',
+      currentPeriodStart: row.current_period_start,
+      currentPeriodEnd: row.current_period_end,
+      cancelAtPeriodEnd: row.cancel_at_period_end || false,
+      monthlyAmount: 500, // $500/month subscription
+      totalPaid: row.total_paid || 0,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      stripeSubscriptionId: row.stripe_subscription_id,
+      stripeCustomerId: row.stripe_customer_id,
+      daysOverdue: row.status === 'past_due' ? 
+        Math.floor((Date.now() - new Date(row.current_period_end).getTime()) / (1000 * 60 * 60 * 24)) : 0
+    }));
 
     // Get total count
     let countQuery = `
@@ -51,16 +71,15 @@ router.get('/subscriptions', async (req: Request, res: Response) => {
     const countResult = await db.query(countQuery, status ? [status] : []);
     const total = parseInt(countResult.rows[0].total);
 
+    // Return subscriptions array directly in data for frontend compatibility
     res.json({
       success: true,
-      data: {
-        subscriptions: result.rows,
-        pagination: {
-          page: Number(page),
-          limit: Number(limit),
-          total,
-          pages: Math.ceil(total / Number(limit))
-        }
+      data: transformedRows,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        pages: Math.ceil(total / Number(limit))
       }
     });
   } catch (error) {
