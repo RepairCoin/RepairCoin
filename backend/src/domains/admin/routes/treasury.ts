@@ -38,7 +38,7 @@ router.get('/treasury', async (req: Request, res: Response) => {
                     COALESCE(SUM(amount), 0) as total_sold,
                     COALESCE(SUM(total_cost), 0) as total_revenue
                 FROM shop_rcn_purchases
-                WHERE status = 'completed'
+                WHERE status IN ('completed', 'pending')
             `);
             
             treasuryData.totalSold = parseFloat(shopPurchases.rows[0]?.total_sold || '0');
@@ -72,7 +72,7 @@ router.get('/treasury', async (req: Request, res: Response) => {
                     COUNT(p.id) as purchase_count,
                     MAX(p.created_at) as last_purchase
                 FROM shops s
-                LEFT JOIN shop_rcn_purchases p ON s.shop_id = p.shop_id AND p.status = 'completed'
+                LEFT JOIN shop_rcn_purchases p ON s.shop_id = p.shop_id AND p.status IN ('completed', 'pending')
                 GROUP BY s.shop_id, s.name
                 HAVING COALESCE(SUM(p.amount), 0) > 0
                 ORDER BY total_purchased DESC
@@ -99,7 +99,7 @@ router.get('/treasury', async (req: Request, res: Response) => {
                     p.created_at as purchase_date
                 FROM shop_rcn_purchases p
                 JOIN shops s ON s.shop_id = p.shop_id
-                WHERE p.status = 'completed'
+                WHERE p.status IN ('completed', 'pending')
                 ORDER BY p.created_at DESC
                 LIMIT 20
             `);

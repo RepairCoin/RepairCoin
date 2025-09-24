@@ -1506,23 +1506,43 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
       });
       const shops = shopsResult.items;
       
-      // Filter shops that have purchased RCN balance (database balance) > 0
+      // Get pending mints based on completed purchases that haven't been minted
       const shopsWithPendingMints = [];
       
       for (const shop of shops) {
-        if (shop.purchasedRcnBalance > 0) {
-          // Get blockchain balance
-          const tokenService = new TokenService();
-          const blockchainBalance = await tokenService.getBalance(shop.walletAddress);
+        try {
+          // Get total purchased RCN from shop_rcn_purchases table
+          // Include both completed and pending (for Stripe payments that are processing)
+          const purchaseQuery = await treasuryRepository.query(`
+            SELECT 
+              COALESCE(SUM(amount), 0) as total_purchased
+            FROM shop_rcn_purchases 
+            WHERE shop_id = $1 AND status IN ('completed', 'pending')
+          `, [shop.shopId]);
           
-          shopsWithPendingMints.push({
-            shop_id: shop.shopId,
-            name: shop.name,
-            wallet_address: shop.walletAddress,
-            purchased_rcn_balance: shop.purchasedRcnBalance,
-            blockchain_balance: blockchainBalance,
-            pending_mint_amount: shop.purchasedRcnBalance
-          });
+          const totalPurchased = parseFloat(purchaseQuery.rows[0]?.total_purchased || '0');
+          
+          if (totalPurchased > 0) {
+            // Get blockchain balance
+            const tokenService = new TokenService();
+            const blockchainBalance = await tokenService.getBalance(shop.walletAddress);
+            
+            // If database balance > blockchain balance, there are pending mints
+            const pendingAmount = totalPurchased - blockchainBalance;
+            
+            if (pendingAmount > 0) {
+              shopsWithPendingMints.push({
+                shop_id: shop.shopId,
+                name: shop.name,
+                wallet_address: shop.walletAddress,
+                purchased_rcn_balance: totalPurchased,
+                blockchain_balance: blockchainBalance,
+                pending_mint_amount: pendingAmount
+              });
+            }
+          }
+        } catch (error) {
+          logger.warn(`Could not get purchase data for shop ${shop.shopId}:`, error);
         }
       }
       
