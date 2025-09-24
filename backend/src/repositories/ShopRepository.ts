@@ -472,7 +472,8 @@ export class ShopRepository extends BaseRepository {
     status: string;
   }): Promise<{ id: string }> {
     try {
-      const query = `
+      // Temporary workaround for staging: try with price_per_rcn first, fall back without it
+      let query = `
         INSERT INTO shop_rcn_purchases (
           shop_id, amount, price_per_rcn, total_cost, 
           payment_method, payment_reference, status
@@ -480,7 +481,7 @@ export class ShopRepository extends BaseRepository {
         RETURNING id
       `;
       
-      const values = [
+      let values = [
         purchaseData.shopId,
         purchaseData.amount,
         purchaseData.pricePerRcn,
@@ -490,7 +491,35 @@ export class ShopRepository extends BaseRepository {
         purchaseData.status
       ];
       
-      const result = await this.pool.query(query, values);
+      let result;
+      try {
+        // Try with price_per_rcn column
+        result = await this.pool.query(query, values);
+      } catch (error: any) {
+        // If price_per_rcn column doesn't exist, try without it
+        if (error.message?.includes('column "price_per_rcn"')) {
+          logger.warn('price_per_rcn column not found, falling back to simple insert');
+          query = `
+            INSERT INTO shop_rcn_purchases (
+              shop_id, amount, total_cost, 
+              payment_method, payment_reference, status
+            ) VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id
+          `;
+          values = [
+            purchaseData.shopId,
+            purchaseData.amount,
+            purchaseData.totalCost,
+            purchaseData.paymentMethod,
+            purchaseData.paymentReference || null,
+            purchaseData.status
+          ];
+          result = await this.pool.query(query, values);
+        } else {
+          throw error;
+        }
+      }
+      
       logger.info('Shop purchase created:', { 
         id: result.rows[0].id,
         shopId: purchaseData.shopId,
@@ -519,7 +548,7 @@ export class ShopRepository extends BaseRepository {
         id: row.id,
         shopId: row.shop_id,
         amount: parseFloat(row.amount),
-        pricePerRcn: parseFloat(row.price_per_rcn),
+        pricePerRcn: row.price_per_rcn ? parseFloat(row.price_per_rcn) : (parseFloat(row.total_cost) / parseFloat(row.amount)),
         totalCost: parseFloat(row.total_cost),
         paymentMethod: row.payment_method,
         paymentReference: row.payment_reference,
