@@ -215,6 +215,7 @@ router.get('/treasury/debug/:shopId', async (req: Request, res: Response) => {
     try {
         const { shopId } = req.params;
         const treasuryRepo = new TreasuryRepository();
+        const tokenMinter = getTokenMinter();
         
         // Get all purchases for this shop
         const purchasesQuery = await treasuryRepo.query(`
@@ -246,12 +247,39 @@ router.get('/treasury/debug/:shopId', async (req: Request, res: Response) => {
             WHERE shop_id = $1
         `, [shopId]);
         
+        const shop = shopQuery.rows[0];
+        let blockchainBalance = 0;
+        let balanceError = null;
+        
+        // Try to get blockchain balance
+        if (shop?.wallet_address) {
+            try {
+                const contractStats = await tokenMinter.getBalance(shop.wallet_address);
+                blockchainBalance = contractStats.balance || 0;
+            } catch (error: any) {
+                balanceError = error.message;
+            }
+        }
+        
+        // Calculate totals by status
+        const totalsByStatus: Record<string, number> = {};
+        purchasesQuery.rows.forEach((p: any) => {
+            const status = p.status || 'unknown';
+            totalsByStatus[status] = (totalsByStatus[status] || 0) + parseFloat(p.amount || '0');
+        });
+        
         res.json({
             success: true,
             data: {
                 shop: shopQuery.rows[0] || null,
                 purchases: purchasesQuery.rows,
-                totalPurchased: purchasesQuery.rows.reduce((sum: number, p: any) => sum + parseFloat(p.amount || '0'), 0)
+                summary: {
+                    totalPurchased: purchasesQuery.rows.reduce((sum: number, p: any) => sum + parseFloat(p.amount || '0'), 0),
+                    totalsByStatus,
+                    blockchainBalance,
+                    balanceError,
+                    unmintedAmount: (totalsByStatus['completed'] || 0) + (totalsByStatus['pending'] || 0) - blockchainBalance
+                }
             }
         });
     } catch (error: any) {
