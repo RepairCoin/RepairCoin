@@ -87,16 +87,24 @@ export class ShopPurchaseService {
       }
 
       // Check if shop is qualified (either by RCG holdings or subscription)
+      // Add fallback for shops without operational_status but that are active and verified
       const isQualified = shop.operational_status === 'subscription_qualified' || 
-                          shop.operational_status === 'rcg_qualified';
+                          shop.operational_status === 'rcg_qualified' ||
+                          // Fallback: If operational_status is not set but shop is active and verified, assume qualified
+                          // This handles legacy shops that have subscriptions but operational_status wasn't set
+                          (!shop.operational_status && shop.active && shop.verified) ||
+                          // Additional fallback: If has enough RCG balance
+                          (rcgBalance >= 10000);
       
       // Debug logging to understand what's happening
       logger.info(`Shop purchase validation for ${shop.shopId}:`, {
         operational_status: shop.operational_status,
+        active: shop.active,
+        verified: shop.verified,
         isQualified,
         rcgBalance,
         walletAddress: shop.walletAddress,
-        shopData: shop
+        fallbackQualified: !shop.operational_status && shop.active && shop.verified
       });
 
       // Validate shop is operational (has proper qualification)
