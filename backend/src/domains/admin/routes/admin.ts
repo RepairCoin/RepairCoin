@@ -15,6 +15,7 @@ import analyticsRoutes from './analytics';
 import customerRoutes from './customers';
 import revenueRoutes from '../../../routes/admin/revenue';
 import subscriptionRoutes from './subscription';
+import adminsRoutes from './admins';
 
 const router = Router();
 
@@ -221,6 +222,9 @@ router.use('/revenue', revenueRoutes);
 
 // Subscription management routes
 router.use('/subscription', subscriptionRoutes);
+
+// Admin management routes (create, update, delete admins)
+router.use('/admins', adminsRoutes);
 
 // RCG management routes
 import rcgManagementRoutes from '../../../routes/admin/rcg-management';

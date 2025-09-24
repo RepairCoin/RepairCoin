@@ -12,6 +12,7 @@ export interface AdminProfile {
   email?: string;
   isSuperAdmin: boolean;
   permissions: string[];
+  role?: string;
 }
 
 export function useAdminAuth() {
@@ -20,6 +21,7 @@ export function useAdminAuth() {
   
   // Admin-specific state
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [adminRole, setAdminRole] = useState<string>("");
   const [adminPermissions, setAdminPermissions] = useState<string[]>([]);
   const [adminProfileLoading, setAdminProfileLoading] = useState(true);
   
@@ -114,11 +116,13 @@ export function useAdminAuth() {
   useEffect(() => {
     // Reset admin-specific state when account changes
     setIsSuperAdmin(false);
+    setAdminRole("");
     setAdminPermissions([]);
     
     // Clear any cached admin tokens
     authManager.clearToken("admin");
     localStorage.removeItem('isSuperAdmin');
+    localStorage.removeItem('adminRole');
     
     setAdminProfileLoading(true);
     
@@ -150,6 +154,11 @@ export function useAdminAuth() {
           const isSuper = profile.isSuperAdmin === true;
           setIsSuperAdmin(isSuper);
           
+          // Set role from profile
+          const role = profile.role || (isSuper ? 'super_admin' : 'admin');
+          setAdminRole(role);
+          localStorage.setItem('adminRole', role);
+          
           // Set permissions - super admin gets ['*'], others get specific permissions
           const perms = profile.permissions || [];
           setAdminPermissions(perms);
@@ -165,13 +174,17 @@ export function useAdminAuth() {
           // For backwards compatibility, assume super admin if first in env list
           if (isSuperAdminFromEnv) {
             setIsSuperAdmin(true);
+            setAdminRole('super_admin');
             setAdminPermissions(['*']); // Super admin gets all permissions
             localStorage.setItem('isSuperAdmin', 'true');
+            localStorage.setItem('adminRole', 'super_admin');
           } else {
             // Regular admin
             setIsSuperAdmin(false);
+            setAdminRole('admin');
             setAdminPermissions(['shops.view', 'customers.view', 'transactions.view']);
             localStorage.removeItem('isSuperAdmin');
+            localStorage.setItem('adminRole', 'admin');
           }
         }
       } catch (error) {
@@ -198,6 +211,7 @@ export function useAdminAuth() {
     account,
     isAdmin: isAdminFromAuth,
     isSuperAdmin,
+    adminRole,
     adminPermissions,
     loading,
     generateAdminToken,

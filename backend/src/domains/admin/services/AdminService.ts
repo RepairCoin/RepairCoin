@@ -785,9 +785,19 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
     }
   }
 
-  async createAdmin(adminData: { walletAddress: string; name?: string; email?: string; permissions: string[], createdBy?: string }) {
+  async createAdmin(adminData: { 
+    walletAddress: string; 
+    name?: string; 
+    email?: string; 
+    role?: string;
+    permissions?: string[];
+    createdBy?: string 
+  }) {
     try {
-      logger.info('Creating new admin', { walletAddress: adminData.walletAddress });
+      logger.info('Creating new admin', { 
+        walletAddress: adminData.walletAddress,
+        role: adminData.role 
+      });
 
       // Check if address is already an admin in database
       const existingAdmin = await adminRepository.getAdmin(adminData.walletAddress);
@@ -798,10 +808,36 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
       // Check if address is already an admin in environment variables (legacy check)
       const envAdmins = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
       if (envAdmins.includes(adminData.walletAddress.toLowerCase())) {
-        // Migrate this admin from env to database
-        logger.info('Migrating admin from environment variables to database', { 
-          walletAddress: adminData.walletAddress 
-        });
+        throw new Error('Cannot create admin for address that is in ADMIN_ADDRESSES env variable');
+      }
+
+      // Import permissions config
+      const permissionsModule = await import('../../../config/permissions');
+      const { roleToPermissions } = permissionsModule;
+      
+      // Determine role and permissions
+      let role = adminData.role || 'admin';
+      let permissions = adminData.permissions;
+      
+      // If role is provided, use role-based permissions
+      if (role) {
+        // Validate role
+        const validRoles = ['admin', 'moderator'];
+        if (!validRoles.includes(role)) {
+          throw new Error(`Invalid role. Valid roles are: ${validRoles.join(', ')}`);
+        }
+        
+        // Get permissions for the role
+        permissions = roleToPermissions(role as any);
+      } else if (!permissions || permissions.length === 0) {
+        // Default to admin role if no role or permissions provided
+        role = 'admin';
+        permissions = roleToPermissions('admin' as any);
+      }
+
+      // Prevent creating super admin through this method
+      if (role === 'super_admin') {
+        throw new Error('Super admin can only be set through ADMIN_ADDRESSES environment variable');
       }
 
       // Store admin in database
@@ -809,8 +845,9 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
         walletAddress: adminData.walletAddress,
         name: adminData.name,
         email: adminData.email,
-        permissions: adminData.permissions,
-        isSuperAdmin: false,
+        role: role,
+        permissions: permissions,
+        isSuperAdmin: false, // Only env can create super admins
         createdBy: adminData.createdBy
       });
 
@@ -818,13 +855,14 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
       await adminRepository.logAdminActivity({
         adminAddress: adminData.createdBy || 'system',
         actionType: 'admin_creation',
-        actionDescription: `Created new admin: ${adminData.name || adminData.walletAddress}`,
+        actionDescription: `Created new ${role}: ${adminData.name || adminData.walletAddress}`,
         entityType: 'admin',
         entityId: adminData.walletAddress,
         metadata: {
           name: adminData.name,
           email: adminData.email,
-          permissions: adminData.permissions
+          role: role,
+          permissions: permissions
         }
       });
 
@@ -837,6 +875,7 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
           walletAddress: newAdmin.walletAddress,
           name: newAdmin.name,
           email: newAdmin.email,
+          role: newAdmin.role,
           permissions: newAdmin.permissions,
           createdBy: adminData.createdBy
         },
@@ -845,17 +884,19 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
 
       logger.info('Admin successfully created in database and event published', {
         walletAddress: adminData.walletAddress,
-        name: adminData.name
+        name: adminData.name,
+        role: newAdmin.role
       });
 
       return {
         success: true,
-        message: 'Admin created successfully',
+        message: `${role} created successfully`,
         admin: {
           id: newAdmin.id,
           walletAddress: newAdmin.walletAddress,
           name: newAdmin.name,
           email: newAdmin.email,
+          role: newAdmin.role,
           permissions: newAdmin.permissions,
           isActive: newAdmin.isActive,
           isSuperAdmin: newAdmin.isSuperAdmin
@@ -1337,48 +1378,90 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
 
   async checkAdminAccess(walletAddress: string): Promise<boolean> {
     try {
+      const normalizedAddress = walletAddress.toLowerCase();
+      
       // Check if adminRepository is available and has the required method
       if (adminRepository && typeof adminRepository.isAdmin === 'function') {
-        // First check database
-        const isDbAdmin = await adminRepository.isAdmin(walletAddress);
-        if (isDbAdmin) {
-          // Update last login time
-          await adminRepository.updateAdminLastLogin(walletAddress);
-          return true;
-        }
-
         // Check if this is the super admin from .env (first address in ADMIN_ADDRESSES)
         const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
         const superAdminAddress = adminAddresses[0]; // First address is super admin
-        const isSuperAdmin = superAdminAddress === walletAddress.toLowerCase();
+        const isSuperAdminFromEnv = superAdminAddress === normalizedAddress;
         
-        if (isSuperAdmin && typeof adminRepository.createAdmin === 'function') {
-          // Auto-migrate super admin to database if not exists
+        // Get admin data from database
+        const adminData = await adminRepository.getAdminByWalletAddress(normalizedAddress);
+        
+        if (adminData) {
+          // Update last login time
+          await adminRepository.updateAdminLastLogin(normalizedAddress);
+          
+          // Sync super admin status with .env configuration
+          if (isSuperAdminFromEnv) {
+            // If this is the super admin from env but doesn't have super admin status, update it
+            if (!adminData.isSuperAdmin) {
+              // First, remove super admin status from all other admins
+              const allAdmins = await adminRepository.getAllAdmins();
+              for (const admin of allAdmins) {
+                if (admin.isSuperAdmin && admin.walletAddress.toLowerCase() !== normalizedAddress) {
+                  await adminRepository.updateAdmin(admin.walletAddress, { isSuperAdmin: false });
+                  logger.info('Removed super admin status from:', admin.walletAddress);
+                }
+              }
+              
+              // Then grant super admin status to the current admin
+              await adminRepository.updateAdmin(normalizedAddress, { isSuperAdmin: true });
+              logger.info('Granted super admin status to env admin:', normalizedAddress);
+            }
+          } else if (adminData.isSuperAdmin) {
+            // If this admin has super admin status but is NOT in env, check if we should remove it
+            if (superAdminAddress && superAdminAddress !== normalizedAddress) {
+              // There's a different super admin in env, so remove status from this one
+              await adminRepository.updateAdmin(normalizedAddress, { isSuperAdmin: false });
+              logger.info('Removed super admin status (env changed) from:', normalizedAddress);
+            }
+          }
+          
+          return true;
+        }
+        
+        // If not in database but is super admin from env, auto-create
+        if (isSuperAdminFromEnv && typeof adminRepository.createAdmin === 'function') {
           logger.info('Auto-migrating super admin from environment to database', { walletAddress });
           try {
+            // First, remove super admin status from all existing admins
+            const allAdmins = await adminRepository.getAllAdmins();
+            for (const admin of allAdmins) {
+              if (admin.isSuperAdmin) {
+                await adminRepository.updateAdmin(admin.walletAddress, { isSuperAdmin: false });
+                logger.info('Removed super admin status from:', admin.walletAddress);
+              }
+            }
+            
+            // Create the new super admin
             await adminRepository.createAdmin({
-              walletAddress,
+              walletAddress: normalizedAddress,
               name: 'Super Administrator',
               permissions: ['all'],
               isSuperAdmin: true,
               createdBy: 'system'
             });
+            
+            return true;
           } catch (migrationError: any) {
             // Admin might already exist, just log and continue
-            logger.debug('Super admin migration skipped (may already exist)', { 
-              walletAddress,
+            logger.debug('Super admin migration failed', { 
+              walletAddress: normalizedAddress,
               error: migrationError.message 
             });
           }
         }
         
-        return isSuperAdmin;
+        return isSuperAdminFromEnv;
       } else {
         // Fallback to env check if adminRepository not available
         logger.warn('AdminRepository not available, falling back to env check');
         const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
         const superAdminAddress = adminAddresses[0]; // First address is super admin
-        return superAdminAddress === walletAddress.toLowerCase();
+        return superAdminAddress === normalizedAddress;
       }
     } catch (error) {
       logger.error('Error checking admin access:', error);
@@ -1476,6 +1559,7 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
           walletAddress: adminAddresses[0],
           name: 'Super Admin',
           email: null,
+          role: 'super_admin',
           permissions: ['*'], // All permissions
           isActive: true,
           isSuperAdmin: true,

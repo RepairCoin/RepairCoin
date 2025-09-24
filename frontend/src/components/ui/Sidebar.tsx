@@ -52,6 +52,7 @@ interface SidebarProps {
   onTabChange?: (tab: string) => void;
   onCollapseChange?: (collapsed: boolean) => void;
   isSuperAdmin?: boolean;
+  adminRole?: string;
   adminPermissions?: string[];
 }
 
@@ -64,6 +65,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onTabChange,
   onCollapseChange,
   isSuperAdmin = false,
+  adminRole = "",
   adminPermissions = [],
 }) => {
   const pathname = usePathname();
@@ -220,9 +222,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     if (userRole === "admin") {
       const adminItems = [];
       
-      // Super admin (from env) gets all tabs
-      // Regular admins get tabs based on their permissions
-      const isFullAccess = isSuperAdmin === true || adminPermissions.includes('*');
+      // Role-based access control
+      // Super Admin: All tabs
+      // Admin: All tabs except Admins management
+      // Moderator: Read-only (Overview only)
       
       // Overview is always visible for any admin
       adminItems.push({
@@ -232,15 +235,25 @@ const Sidebar: React.FC<SidebarProps> = ({
         tabId: "overview",
       });
       
-      // If super admin, show ALL tabs
-      if (isFullAccess) {
-        adminItems.push(
-          {
+      // Check role for tab visibility
+      const isSuper = isSuperAdmin === true || adminRole === 'super_admin';
+      const isAdminRole = adminRole === 'admin';
+      const isModerator = adminRole === 'moderator';
+      
+      // Super Admin or Admin gets most tabs
+      if (isSuper || isAdminRole) {
+        // Only Super Admin can manage other admins
+        if (isSuper) {
+          adminItems.push({
             title: "Admins",
             href: "/admin?tab=admins",
             icon: <span className="text-xl">🛡️</span>,
             tabId: "admins",
-          },
+          });
+        }
+        
+        // Both Super Admin and Admin get these tabs
+        adminItems.push(
           {
             title: "Customers",
             href: "/admin?tab=customers",
@@ -312,108 +325,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             tabId: "promo-codes",
           }
         );
-      } else {
-        // Only show Admins tab if they have manage_admins permission
-        if (adminPermissions.includes('manage_admins')) {
-          adminItems.push({
-            title: "Admins",
-            href: "/admin?tab=admins",
-            icon: <span className="text-xl">🛡️</span>,
-            tabId: "admins",
-          });
-        }
-        
-        // Show Customers tab if user has manage_customers permission
-        if (adminPermissions.includes('manage_customers')) {
-          adminItems.push({
-            title: "Customers",
-            href: "/admin?tab=customers",
-            icon: <span className="text-xl">👥</span>,
-            tabId: "customers",
-            subItems: [
-              {
-                title: "Grouped by Shop",
-                href: "/admin?tab=customers&view=grouped",
-                icon: <span className="text-sm">🏪</span>,
-                tabId: "customers-grouped",
-              },
-              {
-                title: "All Customers",
-                href: "/admin?tab=customers&view=all",
-                icon: <span className="text-sm">👤</span>,
-                tabId: "customers-all",
-              },
-              {
-                title: "Unsuspend Requests",
-                href: "/admin?tab=customers&view=unsuspend",
-                icon: <span className="text-sm">🔓</span>,
-                tabId: "customers-unsuspend",
-              },
-            ],
-          });
-        }
-        
-        // Show Shops tab if user has manage_shops permission
-        if (adminPermissions.includes('manage_shops')) {
-          adminItems.push({
-            title: "Shops",
-            href: "/admin?tab=shops-management",
-            icon: <span className="text-xl">🏪</span>,
-            tabId: "shops-management",
-            subItems: [
-              {
-                title: "All Shops",
-                href: "/admin?tab=shops-management&view=all",
-                icon: <span className="text-sm">📋</span>,
-                tabId: "shops-all",
-              },
-              {
-                title: "Unsuspend Requests",
-                href: "/admin?tab=shops-management&view=unsuspend",
-                icon: <span className="text-sm">🔓</span>,
-                tabId: "shops-unsuspend",
-              },
-            ],
-          });
-          
-          // Also add Subscriptions if they can manage shops
-          adminItems.push({
-            title: "Subscriptions",
-            href: "/admin?tab=subscriptions",
-            icon: <span className="text-xl">💳</span>,
-            tabId: "subscriptions",
-          });
-        }
-        
-        // Show Treasury tab if user has manage_treasury permission
-        if (adminPermissions.includes('manage_treasury')) {
-          adminItems.push({
-            title: "Treasury",
-            href: "/admin?tab=treasury",
-            icon: <span className="text-xl">💰</span>,
-            tabId: "treasury",
-          });
-        }
-        
-        // Show Analytics tab if user has view_analytics permission
-        if (adminPermissions.includes('view_analytics')) {
-          adminItems.push({
-            title: "Analytics",
-            href: "/admin?tab=analytics",
-            icon: <span className="text-xl">📈</span>,
-            tabId: "analytics",
-          });
-        }
-        
-        // Show Promo Codes tab if user has manage_shops permission
-        if (adminPermissions.includes('manage_shops')) {
-          adminItems.push({
-            title: "Promo Codes",
-            href: "/admin?tab=promo-codes",
-            icon: <span className="text-xl">🏷️</span>,
-            tabId: "promo-codes",
-          });
-        }
       }
       
       return adminItems;

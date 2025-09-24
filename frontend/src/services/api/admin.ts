@@ -381,6 +381,7 @@ export const getAdminProfile = async (): Promise<{
   email?: string;
   isSuperAdmin: boolean;
   permissions: string[];
+  role?: string;
 } | null> => {
   try {
     const response = await apiClient.get<{
@@ -390,6 +391,7 @@ export const getAdminProfile = async (): Promise<{
         email?: string;
         isSuperAdmin: boolean;
         permissions: string[];
+        role?: string;
       }
     }>('/admin/me');
     return response.data?.data || null;

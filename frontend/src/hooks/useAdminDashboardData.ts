@@ -42,6 +42,7 @@ export interface Shop {
 export function useAdminDashboardData(
   isAdmin: boolean,
   isSuperAdmin: boolean,
+  adminRole: string,
   adminPermissions: string[],
   generateAdminToken: (forceRefresh?: boolean) => Promise<string | null>,
   hasPermission: (permission: string) => boolean
@@ -89,8 +90,8 @@ export function useAdminDashboardData(
         }
       }
 
-      // Only fetch shops if user has manage_shops permission
-      const canManageShops = hasPermission('manage_shops');
+      // Only fetch shops if user is super admin or admin (not moderator)
+      const canManageShops = isSuperAdmin || adminRole === 'super_admin' || adminRole === 'admin';
       if (canManageShops) {
         // Fetch ALL shops to get complete data using API service
         const allShops = await adminApi.getShops({ active: 'all' as any, verified: 'all' as any });
@@ -124,16 +125,17 @@ export function useAdminDashboardData(
     } finally {
       setLoading(false);
     }
-  }, [isAdmin, generateAdminToken, hasPermission, isSuperAdmin]);
+  }, [isAdmin, generateAdminToken, hasPermission, isSuperAdmin, adminRole]);
 
   useEffect(() => {
     // Load dashboard data when admin is confirmed and either:
-    // - Has permissions set, or
-    // - Is a super admin (who has all permissions implicitly)
-    if (isAdmin && (adminPermissions.length > 0 || isSuperAdmin)) {
+    // - Has a role set (super_admin, admin, or moderator), or
+    // - Is a super admin, or
+    // - Has permissions set (for backward compatibility)
+    if (isAdmin && (adminRole || isSuperAdmin || adminPermissions.length > 0)) {
       loadDashboardData();
     }
-  }, [isAdmin, isSuperAdmin, adminPermissions.length, loadDashboardData]);
+  }, [isAdmin, isSuperAdmin, adminRole, adminPermissions.length, loadDashboardData]);
 
   // Shop action handlers
   const suspendShop = async (shopId: string) => {

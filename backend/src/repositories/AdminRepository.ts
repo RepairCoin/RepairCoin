@@ -42,6 +42,7 @@ export interface Admin {
   walletAddress: string;
   name?: string;
   email?: string;
+  role?: string;
   permissions: string[];
   isActive: boolean;
   isSuperAdmin: boolean;
@@ -431,26 +432,39 @@ export class AdminRepository extends BaseRepository {
     walletAddress: string;
     name?: string;
     email?: string;
+    role?: string;
     permissions?: string[];
     isSuperAdmin?: boolean;
     createdBy?: string;
   }): Promise<Admin> {
     try {
+      // Format wallet address properly with checksummed format
+      const formattedAddress = this.formatWalletAddress(adminData.walletAddress);
+      
+      // Determine role based on isSuperAdmin flag or provided role
+      let role = adminData.role;
+      if (adminData.isSuperAdmin) {
+        role = 'super_admin';
+      } else if (!role) {
+        role = 'admin'; // Default role
+      }
+      
       const query = `
         INSERT INTO admins (
-          wallet_address, name, email, permissions, 
+          wallet_address, name, email, role, permissions, 
           is_super_admin, created_by, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
         RETURNING *
       `;
       
       const result = await this.pool.query(query, [
-        adminData.walletAddress.toLowerCase(),
+        formattedAddress,
         adminData.name,
         adminData.email,
+        role,
         JSON.stringify(adminData.permissions || []),
         adminData.isSuperAdmin || false,
-        adminData.createdBy?.toLowerCase()
+        adminData.createdBy ? this.formatWalletAddress(adminData.createdBy) : null
       ]);
       
       return this.mapAdminFromDb(result.rows[0]);
@@ -501,6 +515,7 @@ export class AdminRepository extends BaseRepository {
   async updateAdmin(walletAddress: string, updates: {
     name?: string;
     email?: string;
+    role?: string;
     permissions?: string[];
     isActive?: boolean;
     isSuperAdmin?: boolean;
@@ -522,6 +537,25 @@ export class AdminRepository extends BaseRepository {
         paramCount++;
         fields.push(`email = $${paramCount}`);
         values.push(updates.email);
+      }
+
+      if (updates.role !== undefined) {
+        paramCount++;
+        fields.push(`role = $${paramCount}`);
+        values.push(updates.role);
+        
+        // Only update is_super_admin based on role if it wasn't explicitly set
+        if (updates.isSuperAdmin === undefined) {
+          if (updates.role === 'super_admin') {
+            paramCount++;
+            fields.push(`is_super_admin = $${paramCount}`);
+            values.push(true);
+          } else {
+            paramCount++;
+            fields.push(`is_super_admin = $${paramCount}`);
+            values.push(false);
+          }
+        }
       }
 
       if (updates.permissions !== undefined) {
@@ -559,7 +593,7 @@ export class AdminRepository extends BaseRepository {
       }
 
       paramCount++;
-      values.push(walletAddress.toLowerCase());
+      values.push(walletAddress.trim());
 
       const query = `
         UPDATE admins 
@@ -605,22 +639,28 @@ export class AdminRepository extends BaseRepository {
           wallet_address as "walletAddress",
           name,
           email,
+          role,
           permissions,
           is_active as "isActive",
           is_super_admin as "isSuperAdmin",
           created_at as "createdAt",
-          last_login as "lastLogin"
+          last_login as "lastLogin",
+          updated_at as "updatedAt"
         FROM admins 
         WHERE LOWER(wallet_address) = LOWER($1) AND is_active = true
       `;
       
-      const result = await this.pool.query(query, [walletAddress]);
+      const result = await this.pool.query(query, [walletAddress.trim()]);
       
       if (result.rows.length === 0) {
         return null;
       }
       
-      return result.rows[0];
+      const row = result.rows[0];
+      // Ensure role is set
+      row.role = row.role || (row.isSuperAdmin ? 'super_admin' : 'admin');
+      
+      return row;
     } catch (error) {
       logger.error('Error getting admin by wallet address:', error);
       return null;
@@ -650,11 +690,38 @@ export class AdminRepository extends BaseRepository {
         WHERE LOWER(wallet_address) = LOWER($1)
       `;
       
-      await this.pool.query(query, [walletAddress]);
+      await this.pool.query(query, [walletAddress.trim()]);
     } catch (error) {
       logger.error('Error updating admin last login:', error);
       // Don't throw - this is a non-critical operation
     }
+  }
+
+  // Helper method to format wallet address to checksummed format
+  private formatWalletAddress(address: string): string {
+    // Remove any whitespace
+    const cleaned = address.trim();
+    
+    // Ensure it starts with 0x
+    if (!cleaned.startsWith('0x')) {
+      throw new Error('Invalid wallet address format: must start with 0x');
+    }
+    
+    // Convert to checksummed address format (preserves case properly)
+    // For now, we'll just ensure it's in the right format
+    // The proper checksumming would require keccak256 hashing
+    const addressPart = cleaned.substring(2);
+    if (addressPart.length !== 40) {
+      throw new Error('Invalid wallet address format: must be 42 characters long (0x + 40 hex chars)');
+    }
+    
+    // Validate it's all hex characters
+    if (!/^[a-fA-F0-9]{40}$/.test(addressPart)) {
+      throw new Error('Invalid wallet address format: must contain only hexadecimal characters');
+    }
+    
+    // Return the properly formatted address
+    return '0x' + addressPart;
   }
 
   // Helper method to map database row to Admin interface
@@ -664,6 +731,7 @@ export class AdminRepository extends BaseRepository {
       walletAddress: row.wallet_address,
       name: row.name,
       email: row.email,
+      role: row.role || (row.is_super_admin ? 'super_admin' : 'admin'),
       permissions: row.permissions || [],
       isActive: row.is_active,
       isSuperAdmin: row.is_super_admin,

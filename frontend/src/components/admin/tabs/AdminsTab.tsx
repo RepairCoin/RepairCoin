@@ -23,6 +23,7 @@ interface Admin {
   walletAddress: string;
   name: string;
   email: string | null;
+  role?: string;
   permissions: string[];
   isActive: boolean;
   isSuperAdmin: boolean;
@@ -34,32 +35,8 @@ interface AdminFormData {
   walletAddress: string;
   name: string;
   email: string;
-  permissions: string[];
+  role: 'admin' | 'moderator';
 }
-
-const AVAILABLE_PERMISSIONS = [
-  {
-    value: "manage_customers",
-    label: "Manage Customers",
-    icon: "👥",
-    color: "blue",
-  },
-  { value: "manage_shops", label: "Manage Shops", icon: "🏪", color: "green" },
-  {
-    value: "manage_treasury",
-    label: "Manage Treasury",
-    icon: "💰",
-    color: "yellow",
-  },
-  {
-    value: "view_analytics",
-    label: "View Analytics",
-    icon: "📊",
-    color: "purple",
-  },
-  { value: "create_admin", label: "Create Admins", icon: "➕", color: "pink" },
-  { value: "manage_admins", label: "Manage Admins", icon: "⚙️", color: "gray" },
-];
 
 export default function AdminsTab() {
   const [admins, setAdmins] = useState<Admin[]>([]);
@@ -73,7 +50,7 @@ export default function AdminsTab() {
     walletAddress: "",
     name: "",
     email: "",
-    permissions: [],
+    role: "admin",
   });
 
   useEffect(() => {
@@ -95,10 +72,10 @@ export default function AdminsTab() {
 
   const handleCreateAdmin = async () => {
     try {
-      await apiClient.post("/admin/create-admin", formData, { role: "admin" });
-      showToast.success("Admin created successfully");
+      await apiClient.post("/admin/admins/create", formData, { role: "admin" });
+      showToast.success(`${formData.role === 'admin' ? 'Admin' : 'Moderator'} created successfully`);
       setShowCreateModal(false);
-      setFormData({ walletAddress: "", name: "", email: "", permissions: [] });
+      setFormData({ walletAddress: "", name: "", email: "", role: "admin" });
       fetchAdmins();
     } catch (error: any) {
       showToast.error(error.response?.data?.error || "Failed to create admin");
@@ -109,13 +86,13 @@ export default function AdminsTab() {
     if (!selectedAdmin) return;
 
     try {
-      await apiClient.put(`/admin/admins/${selectedAdmin.id}`, formData, {
+      await apiClient.put(`/admin/admins/${selectedAdmin.walletAddress}`, formData, {
         role: "admin",
       });
       showToast.success("Admin updated successfully");
       setShowEditModal(false);
       setSelectedAdmin(null);
-      setFormData({ walletAddress: "", name: "", email: "", permissions: [] });
+      setFormData({ walletAddress: "", name: "", email: "", role: "admin" });
       fetchAdmins();
     } catch (error: any) {
       showToast.error(error.response?.data?.error || "Failed to update admin");
@@ -126,7 +103,7 @@ export default function AdminsTab() {
     if (!selectedAdmin) return;
 
     try {
-      await apiClient.delete(`/admin/admins/${selectedAdmin.id}`, {
+      await apiClient.delete(`/admin/admins/${selectedAdmin.walletAddress}`, {
         role: "admin",
       });
       showToast.success("Admin deleted successfully");
@@ -144,7 +121,7 @@ export default function AdminsTab() {
       walletAddress: admin.walletAddress,
       name: admin.name,
       email: admin.email || "",
-      permissions: admin.permissions,
+      role: admin.role as 'admin' | 'moderator' || (admin.isSuperAdmin ? 'admin' : 'moderator'),
     });
     setShowEditModal(true);
   };
@@ -234,37 +211,22 @@ export default function AdminsTab() {
       ),
     },
     {
-      key: "permissions",
-      header: "Permissions",
+      key: "role",
+      header: "Role",
       accessor: (admin: Admin) => (
-        <div className="flex flex-wrap gap-1 max-w-xs">
+        <div className="flex items-center">
           {admin.isSuperAdmin ? (
-            <span className="text-xs bg-purple-900/30 text-purple-400 px-2.5 py-1 rounded-full">
-              All Permissions
+            <span className="text-xs bg-purple-900/30 text-purple-400 px-2.5 py-1 rounded-full font-medium">
+              Super Admin
             </span>
-          ) : admin.permissions.length > 0 ? (
-            <>
-              {admin.permissions.slice(0, 2).map((perm, index) => {
-                const permission = AVAILABLE_PERMISSIONS.find(
-                  (p) => p.value === perm
-                );
-                return (
-                  <span
-                    key={index}
-                    className="text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded"
-                  >
-                    {permission?.icon} {permission?.label || perm}
-                  </span>
-                );
-              })}
-              {admin.permissions.length > 2 && (
-                <span className="text-xs bg-blue-900/30 text-blue-400 px-2 py-1 rounded">
-                  +{admin.permissions.length - 2} more
-                </span>
-              )}
-            </>
+          ) : admin.role === 'moderator' ? (
+            <span className="text-xs bg-yellow-900/30 text-yellow-400 px-2.5 py-1 rounded-full font-medium">
+              Moderator
+            </span>
           ) : (
-            <span className="text-xs text-gray-500 italic">No permissions</span>
+            <span className="text-xs bg-blue-900/30 text-blue-400 px-2.5 py-1 rounded-full font-medium">
+              Admin
+            </span>
           )}
         </div>
       ),
@@ -455,43 +417,25 @@ export default function AdminsTab() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Permissions <span className="text-red-500">*</span>
+                  Role <span className="text-red-500">*</span>
                 </label>
-                <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-700 rounded-lg p-3 bg-[#2F2F2F">
-                  {AVAILABLE_PERMISSIONS.map((perm) => (
-                    <label
-                      key={perm.value}
-                      className="flex items-center p-2 hover:bg-gray-700 rounded cursor-pointer transition-colors"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={formData.permissions.includes(perm.value)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setFormData({
-                              ...formData,
-                              permissions: [
-                                ...formData.permissions,
-                                perm.value,
-                              ],
-                            });
-                          } else {
-                            setFormData({
-                              ...formData,
-                              permissions: formData.permissions.filter(
-                                (p) => p !== perm.value
-                              ),
-                            });
-                          }
-                        }}
-                        className="w-4 h-4 text-purple-600 bg-[#2F2F2F] border-gray-600 rounded focus:ring-purple-500"
-                      />
-                      <span className="ml-3 flex items-center gap-2">
-                        <span>{perm.icon}</span>
-                        <span className="text-gray-200">{perm.label}</span>
-                      </span>
-                    </label>
-                  ))}
+                <select
+                  value={formData.role}
+                  onChange={(e) =>
+                    setFormData({ ...formData, role: e.target.value as 'admin' | 'moderator' })
+                  }
+                  className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="admin">Admin - Full control (except admin management)</option>
+                  <option value="moderator">Moderator - Read-only access</option>
+                </select>
+                <div className="mt-2 p-3 bg-gray-800/50 rounded-lg">
+                  <p className="text-xs text-gray-400">
+                    {formData.role === 'admin' 
+                      ? "✅ Can manage customers, shops, treasury, and all operations except creating/deleting admins"
+                      : "👁️ Can only view data across all sections (read-only access)"
+                    }
+                  </p>
                 </div>
               </div>
             </div>
@@ -514,7 +458,7 @@ export default function AdminsTab() {
                     walletAddress: "",
                     name: "",
                     email: "",
-                    permissions: [],
+                    role: "admin",
                   });
                 }}
                 className="flex-1 bg-gray-800 text-gray-300 py-2.5 rounded-lg hover:bg-gray-700 transition-all font-medium"

@@ -109,9 +109,13 @@ router.post('/check-user', async (req, res) => {
     const normalizedAddress = address.toLowerCase();
 
     // Check if this is the super admin from .env (first address in ADMIN_ADDRESSES)
-    const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
+    const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => {
+      const trimmed = addr.trim();
+      // Keep the original case for addresses from env to match database constraint
+      return trimmed;
+    });
     const superAdminAddress = adminAddresses[0]; // First address is super admin
-    const isSuperAdminFromEnv = superAdminAddress === normalizedAddress;
+    const isSuperAdminFromEnv = superAdminAddress && superAdminAddress.toLowerCase() === normalizedAddress;
     
     // Check admin in database
     let adminData = await adminRepository.getAdminByWalletAddress(normalizedAddress);
@@ -120,7 +124,7 @@ router.post('/check-user', async (req, res) => {
     if (isSuperAdminFromEnv && !adminData) {
       try {
         await adminRepository.createAdmin({
-          walletAddress: normalizedAddress,
+          walletAddress: superAdminAddress, // Use original case from env
           name: 'Super Administrator',
           permissions: ['all'],
           isSuperAdmin: true,
@@ -149,10 +153,43 @@ router.post('/check-user', async (req, res) => {
       // Update last login
       await adminRepository.updateAdminLastLogin(normalizedAddress);
       
-      // For super admin from env, always ensure they have super admin privileges
-      if (isSuperAdminFromEnv && !adminData.isSuperAdmin) {
-        await adminRepository.updateAdmin(adminData.id.toString(), { isSuperAdmin: true });
-        adminData.isSuperAdmin = true;
+      // Sync super admin status with .env configuration
+      if (isSuperAdminFromEnv) {
+        // If this is the super admin from env but doesn't have super admin status, update it
+        if (!adminData.isSuperAdmin || adminData.role !== 'super_admin') {
+          // First, remove super admin status from all other admins
+          const allAdmins = await adminRepository.getAllAdmins();
+          for (const admin of allAdmins) {
+            if (admin.isSuperAdmin && admin.walletAddress.toLowerCase() !== normalizedAddress) {
+              await adminRepository.updateAdmin(admin.walletAddress, { 
+                isSuperAdmin: false,
+                role: admin.role === 'super_admin' ? 'admin' : admin.role 
+              });
+              logger.info('Removed super admin status from:', admin.walletAddress);
+            }
+          }
+          
+          // Then grant super admin status and role to the current admin
+          await adminRepository.updateAdmin(adminData.walletAddress, { 
+            isSuperAdmin: true,
+            role: 'super_admin'
+          });
+          adminData.isSuperAdmin = true;
+          adminData.role = 'super_admin';
+          logger.info('Granted super admin status to env admin:', normalizedAddress);
+        }
+      } else if (adminData.isSuperAdmin) {
+        // If this admin has super admin status but is NOT in env, check if we should remove it
+        if (superAdminAddress && superAdminAddress !== normalizedAddress) {
+          // There's a different super admin in env, so remove status from this one
+          await adminRepository.updateAdmin(normalizedAddress, { 
+            isSuperAdmin: false,
+            role: 'admin' 
+          });
+          adminData.isSuperAdmin = false;
+          adminData.role = 'admin';
+          logger.info('Removed super admin status (env changed) from:', normalizedAddress);
+        }
       }
       
       return res.json({
@@ -164,6 +201,7 @@ router.post('/check-user', async (req, res) => {
           walletAddress: normalizedAddress,
           name: adminData.name || 'Administrator',
           email: adminData.email,
+          role: adminData.role || (adminData.isSuperAdmin ? 'super_admin' : 'admin'),
           permissions: isSuperAdminFromEnv ? ['all'] : adminData.permissions,
           isSuperAdmin: isSuperAdminFromEnv || adminData.isSuperAdmin,
           active: adminData.isActive,
@@ -257,9 +295,13 @@ router.post('/profile', async (req, res) => {
     const normalizedAddress = address.toLowerCase();
 
     // Check if this is the super admin from .env (first address in ADMIN_ADDRESSES)
-    const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
+    const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => {
+      const trimmed = addr.trim();
+      // Keep the original case for addresses from env to match database constraint
+      return trimmed;
+    });
     const superAdminAddress = adminAddresses[0]; // First address is super admin
-    const isSuperAdminFromEnv = superAdminAddress === normalizedAddress;
+    const isSuperAdminFromEnv = superAdminAddress && superAdminAddress.toLowerCase() === normalizedAddress;
     
     // Check admin first from database
     const adminData = await adminRepository.getAdminByWalletAddress(normalizedAddress);
@@ -451,9 +493,13 @@ router.post('/admin', async (req, res) => {
     const normalizedAddress = address.toLowerCase();
 
     // Check if this is the super admin from .env (first address in ADMIN_ADDRESSES)
-    const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
+    const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => {
+      const trimmed = addr.trim();
+      // Keep the original case for addresses from env to match database constraint
+      return trimmed;
+    });
     const superAdminAddress = adminAddresses[0]; // First address is super admin
-    const isSuperAdminFromEnv = superAdminAddress === normalizedAddress;
+    const isSuperAdminFromEnv = superAdminAddress && superAdminAddress.toLowerCase() === normalizedAddress;
     
     // Check admin in database
     let adminData = await adminRepository.getAdminByWalletAddress(normalizedAddress);
@@ -462,7 +508,7 @@ router.post('/admin', async (req, res) => {
     if (isSuperAdminFromEnv && !adminData) {
       try {
         await adminRepository.createAdmin({
-          walletAddress: normalizedAddress,
+          walletAddress: superAdminAddress, // Use original case from env
           name: 'Super Administrator',
           permissions: ['all'],
           isSuperAdmin: true,
@@ -493,14 +539,47 @@ router.post('/admin', async (req, res) => {
       });
     }
 
-    // Update last login if admin exists in DB
+    // Update last login and sync super admin status
     if (adminData && adminData.id !== 0) {
       await adminRepository.updateAdminLastLogin(normalizedAddress);
       
-      // For super admin from env, always ensure they have super admin privileges
-      if (isSuperAdminFromEnv && !adminData.isSuperAdmin) {
-        await adminRepository.updateAdmin(adminData.id.toString(), { isSuperAdmin: true });
-        adminData.isSuperAdmin = true;
+      // Sync super admin status with .env configuration
+      if (isSuperAdminFromEnv) {
+        // If this is the super admin from env but doesn't have super admin status, update it
+        if (!adminData.isSuperAdmin || adminData.role !== 'super_admin') {
+          // First, remove super admin status from all other admins
+          const allAdmins = await adminRepository.getAllAdmins();
+          for (const admin of allAdmins) {
+            if (admin.isSuperAdmin && admin.walletAddress.toLowerCase() !== normalizedAddress) {
+              await adminRepository.updateAdmin(admin.walletAddress, { 
+                isSuperAdmin: false,
+                role: admin.role === 'super_admin' ? 'admin' : admin.role 
+              });
+              logger.info('Removed super admin status from:', admin.walletAddress);
+            }
+          }
+          
+          // Then grant super admin status and role to the current admin
+          await adminRepository.updateAdmin(adminData.walletAddress, { 
+            isSuperAdmin: true,
+            role: 'super_admin'
+          });
+          adminData.isSuperAdmin = true;
+          adminData.role = 'super_admin';
+          logger.info('Granted super admin status to env admin:', normalizedAddress);
+        }
+      } else if (adminData.isSuperAdmin) {
+        // If this admin has super admin status but is NOT in env, check if we should remove it
+        if (superAdminAddress && superAdminAddress !== normalizedAddress) {
+          // There's a different super admin in env, so remove status from this one
+          await adminRepository.updateAdmin(normalizedAddress, { 
+            isSuperAdmin: false,
+            role: 'admin' 
+          });
+          adminData.isSuperAdmin = false;
+          adminData.role = 'admin';
+          logger.info('Removed super admin status (env changed) from:', normalizedAddress);
+        }
       }
     }
 

@@ -29,8 +29,33 @@ export const requirePermission = (permission: string) => {
         return ResponseHelper.error(res, 'Admin not found', 403);
       }
       
-      // Check if admin is super admin or has the required permission
-      if (admin.isSuperAdmin || admin.permissions.includes('*') || admin.permissions.includes(permission)) {
+      // Check role-based access
+      // Super Admin: All permissions
+      // Admin: All permissions except admin management
+      // Moderator: Read-only permissions
+      
+      if (admin.isSuperAdmin || admin.role === 'super_admin') {
+        return next(); // Super admin has all permissions
+      }
+      
+      if (admin.role === 'admin') {
+        // Admin role has all permissions except admin management
+        const adminOnlyPermissions = ['manage_admins', 'create_admin', 'delete_admin', 'update_admin'];
+        if (!adminOnlyPermissions.includes(permission)) {
+          return next();
+        }
+      }
+      
+      if (admin.role === 'moderator') {
+        // Moderator has read-only permissions
+        const readOnlyPermissions = ['view_customers', 'view_shops', 'view_treasury', 'view_analytics', 'view_admins'];
+        if (readOnlyPermissions.includes(permission) || permission.startsWith('view_')) {
+          return next();
+        }
+      }
+      
+      // Fallback to checking individual permissions for backward compatibility
+      if (admin.permissions.includes('*') || admin.permissions.includes(permission)) {
         return next();
       }
       

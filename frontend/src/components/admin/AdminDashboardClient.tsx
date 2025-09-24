@@ -30,6 +30,7 @@ export default function AdminDashboardClient() {
     account,
     isAdmin,
     isSuperAdmin,
+    adminRole,
     adminPermissions,
     loading: authLoading,
     generateAdminToken,
@@ -46,6 +47,7 @@ export default function AdminDashboardClient() {
   } = useAdminDashboardData(
     isAdmin,
     isSuperAdmin,
+    adminRole,
     adminPermissions,
     generateAdminToken,
     hasPermission
@@ -164,6 +166,7 @@ export default function AdminDashboardClient() {
       activeSubTab={activeSubTab}
       onTabChange={handleTabChange}
       isSuperAdmin={isSuperAdmin}
+      adminRole={adminRole}
       adminPermissions={adminPermissions}
     >
       <Toaster position="top-right" />
@@ -202,14 +205,15 @@ export default function AdminDashboardClient() {
             />
           )}
 
-          {activeTab === "customers" && hasPermission('manage_customers') && (
+          {/* Role-based tab content visibility */}
+          {activeTab === "customers" && (isSuperAdmin || adminRole === 'super_admin' || adminRole === 'admin') && (
             <CustomersTabEnhanced
               initialView={customerView}
             />
           )}
 
           {/* New Combined Shop Management Tab */}
-          {activeTab === "shops-management" && hasPermission('manage_shops') && (
+          {activeTab === "shops-management" && (isSuperAdmin || adminRole === 'super_admin' || adminRole === 'admin') && (
             <ShopsManagementTab
               initialView={shopView}
             />
@@ -217,11 +221,11 @@ export default function AdminDashboardClient() {
 
 
           {/* Other tabs - TODO: Create components for these */}
-          {activeTab === "treasury" && hasPermission('manage_treasury') && (
+          {activeTab === "treasury" && (isSuperAdmin || adminRole === 'super_admin' || adminRole === 'admin') && (
             <TreasuryTab />
           )}
 
-          {activeTab === "admins" && (isSuperAdmin || hasPermission('manage_admins')) && (
+          {activeTab === "admins" && (isSuperAdmin || adminRole === 'super_admin') && (
             authLoading ? (
               <div className="flex justify-center items-center h-64">
                 <div className="text-gray-600">Loading admin management...</div>
@@ -235,13 +239,13 @@ export default function AdminDashboardClient() {
             <CreateAdminTab />
           )}
 
-          {activeTab === "analytics" && hasPermission('view_analytics') && (
+          {activeTab === "analytics" && (isSuperAdmin || adminRole === 'super_admin' || adminRole === 'admin') && (
             <AnalyticsTab />
           )}
-          {activeTab === "subscriptions" && hasPermission('manage_shops') && (
+          {activeTab === "subscriptions" && (isSuperAdmin || adminRole === 'super_admin' || adminRole === 'admin') && (
             <SubscriptionManagementTab />
           )}
-          {activeTab === "promo-codes" && hasPermission('manage_shops') && (
+          {activeTab === "promo-codes" && (isSuperAdmin || adminRole === 'super_admin' || adminRole === 'admin') && (
             <PromoCodesAnalyticsTab/>
           )}
         </div>
