@@ -20,13 +20,31 @@ export interface PaginatedResult<T> {
 
 export abstract class BaseRepository {
   protected pool: Pool;
+  private static connectionTestQueue: Promise<void> = Promise.resolve();
+  private static connectionTestDelay = 100; // ms between tests
 
   constructor() {
     // Use shared pool for all repositories
     this.pool = getSharedPool();
     
-    // Test connection on startup
-    this.testConnection();
+    // Queue connection tests to avoid overwhelming the database
+    this.queueConnectionTest();
+  }
+
+  private queueConnectionTest(): void {
+    // Skip connection tests if disabled or in production with limited connections
+    if (process.env.SKIP_DB_CONNECTION_TESTS === 'true') {
+      return;
+    }
+    
+    // Chain connection tests with a small delay to avoid timeouts
+    BaseRepository.connectionTestQueue = BaseRepository.connectionTestQueue
+      .then(() => new Promise(resolve => setTimeout(resolve, BaseRepository.connectionTestDelay)))
+      .then(() => this.testConnection())
+      .catch(error => {
+        // Don't let one failed test break the chain
+        logger.error(`Connection test failed for ${this.constructor.name}:`, error);
+      });
   }
 
   private async testConnection(): Promise<void> {
