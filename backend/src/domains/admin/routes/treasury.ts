@@ -94,7 +94,6 @@ router.get('/treasury', async (req: Request, res: Response) => {
                     p.shop_id,
                     s.name as shop_name,
                     p.amount as rcn_amount,
-                    p.price_per_rcn,
                     p.total_cost,
                     p.payment_method,
                     p.payment_reference,

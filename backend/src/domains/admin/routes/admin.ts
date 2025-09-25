@@ -187,6 +187,85 @@ router.get('/debug/purchase-status/:shopId',
   })
 );
 
+// Debug route to check pending mints for a specific shop
+router.get('/debug/pending-mints/:shopId',
+  asyncHandler(async (req, res) => {
+    const { shopId } = req.params;
+    const db = require('../../../services/DatabaseService').DatabaseService.getInstance();
+    const tokenService = require('../../../services/TokenService').TokenService;
+    
+    console.log(`[PENDING_MINTS_DEBUG] Checking pending mints for shop: ${shopId}`);
+    
+    // Get shop details
+    const shopQuery = await db.query('SELECT * FROM shops WHERE shop_id = $1', [shopId]);
+    const shop = shopQuery.rows[0];
+    
+    if (!shop) {
+      return res.json({ success: false, error: 'Shop not found' });
+    }
+    
+    // Get completed purchases
+    let completedPurchasesQuery;
+    try {
+      completedPurchasesQuery = await db.query(`
+        SELECT 
+          COUNT(*) as count,
+          COALESCE(SUM(amount), 0) as total_amount
+        FROM shop_rcn_purchases 
+        WHERE shop_id = $1 AND status = 'completed' AND minted_at IS NULL
+      `, [shopId]);
+    } catch (error) {
+      // Fallback without minted_at
+      completedPurchasesQuery = await db.query(`
+        SELECT 
+          COUNT(*) as count,
+          COALESCE(SUM(amount), 0) as total_amount
+        FROM shop_rcn_purchases 
+        WHERE shop_id = $1 AND status = 'completed'
+      `, [shopId]);
+    }
+    
+    // Get all purchases by status
+    const allPurchasesQuery = await db.query(`
+      SELECT 
+        status, 
+        COUNT(*) as count, 
+        COALESCE(SUM(amount), 0) as total_amount
+      FROM shop_rcn_purchases 
+      WHERE shop_id = $1
+      GROUP BY status
+    `, [shopId]);
+    
+    // Get blockchain balance
+    const tokenServiceInstance = new tokenService();
+    const blockchainBalance = await tokenServiceInstance.getBalance(shop.walletAddress);
+    
+    const totalCompleted = parseFloat(completedPurchasesQuery.rows[0]?.total_amount || '0');
+    const pendingAmount = totalCompleted - blockchainBalance;
+    
+    res.json({
+      success: true,
+      data: {
+        shop: {
+          shopId: shop.shopId,
+          name: shop.name,
+          walletAddress: shop.walletAddress
+        },
+        purchases: {
+          completed: completedPurchasesQuery.rows[0],
+          byStatus: allPurchasesQuery.rows
+        },
+        balances: {
+          totalCompletedPurchases: totalCompleted,
+          blockchainBalance: blockchainBalance,
+          pendingMintAmount: pendingAmount
+        },
+        shouldShowInPendingMints: pendingAmount > 0
+      }
+    });
+  })
+);
+
 // Mint shop's purchased RCN balance to blockchain
 router.post('/shops/:shopId/mint-balance',
   asyncHandler(adminController.mintShopBalance.bind(adminController))
