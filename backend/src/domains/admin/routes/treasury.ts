@@ -28,6 +28,7 @@ router.get('/treasury', async (req: Request, res: Response) => {
         // Calculate total sold from shop_rcn_purchases table (if it exists)
         let treasuryData = {
           totalSupply: 'unlimited', // Unlimited supply as per v3.0 spec
+          availableSupply: 'unlimited', // Also unlimited
           totalSold: 0,
           totalRevenue: 0,
           lastUpdated: new Date()
