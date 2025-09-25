@@ -3,7 +3,6 @@ import { ShopRepository } from '../../../repositories/ShopRepository';
 import { TokenService } from '../../token/services/TokenService';
 import { DatabaseService } from '../../../services/DatabaseService';
 import { logger } from '../../../utils/logger';
-import { ethers } from 'ethers';
 
 const router = Router();
 const shopRepository = new ShopRepository();
@@ -12,6 +11,8 @@ const db = DatabaseService.getInstance();
 
 interface AuthenticatedRequest extends Request {
   walletAddress?: string;
+  body: any;
+  query: any;
 }
 
 // Get deposit information (wallet balance vs operational balance)
