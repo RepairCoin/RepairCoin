@@ -176,7 +176,7 @@ router.post('/treasury/update-shop-tier/:shopId', async (req: Request, res: Resp
         const { shopId } = req.params;
         // const rcgService = getRCGService();
         
-        // const result = await rcgService.updateShopTier(shopId);
+        // const result = await rcgService.updateShopTier(parseInt(shopId));
         
         res.json({
             success: true,

@@ -37,7 +37,7 @@ router.get('/deposit/info', authMiddleware, async (req: AuthenticatedRequest, re
       SELECT COALESCE(SUM(amount), 0) as pending_amount
       FROM shop_deposits
       WHERE shop_id = $1 AND status = 'pending'
-    `, [shop.shop_id]);
+    `, [shop.shopId]);
     const pendingDeposits = parseFloat(pendingQuery.rows[0]?.pending_amount || '0');
 
     // Calculate available to deposit (blockchain balance - pending deposits)
@@ -46,9 +46,9 @@ router.get('/deposit/info', authMiddleware, async (req: AuthenticatedRequest, re
     res.json({
       success: true,
       data: {
-        shopId: shop.shop_id,
-        walletAddress: shop.wallet_address,
-        operationalBalance: shop.purchased_rcn_balance || 0,
+        shopId: shop.shopId,
+        walletAddress: shop.walletAddress,
+        operationalBalance: shop.purchasedRcnBalance || 0,
         blockchainBalance: blockchainBalance,
         pendingDeposits: pendingDeposits,
         availableToDeposit: availableToDeposit
@@ -98,7 +98,7 @@ router.post('/deposit', authMiddleware, async (req: AuthenticatedRequest, res: R
       SELECT COUNT(*) as count
       FROM shop_deposits
       WHERE shop_id = $1 AND status = 'pending'
-    `, [shop.shop_id]);
+    `, [shop.shopId]);
 
     if (parseInt(pendingCheck.rows[0].count) > 0) {
       return res.status(400).json({ 
@@ -119,9 +119,9 @@ router.post('/deposit', authMiddleware, async (req: AuthenticatedRequest, res: R
       ) VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
     `, [
-      shop.shop_id,
+      shop.shopId,
       amount,
-      shop.wallet_address,
+      shop.walletAddress,
       'pending',
       new Date().toISOString(),
       'wallet_to_operational'
@@ -154,7 +154,7 @@ router.post('/deposit', authMiddleware, async (req: AuthenticatedRequest, res: R
         UPDATE shops 
         SET purchased_rcn_balance = COALESCE(purchased_rcn_balance, 0) + $1
         WHERE shop_id = $2
-      `, [amount, shop.shop_id]);
+      `, [amount, shop.shopId]);
 
       await db.query(`COMMIT`);
 
@@ -167,7 +167,7 @@ router.post('/deposit', authMiddleware, async (req: AuthenticatedRequest, res: R
         data: {
           depositId: deposit.id,
           amount: amount,
-          newOperationalBalance: updatedShop?.purchased_rcn_balance || 0,
+          newOperationalBalance: updatedShop?.purchasedRcnBalance || 0,
           status: 'completed'
         }
       });
@@ -210,13 +210,13 @@ router.get('/deposit/history', authMiddleware, async (req: AuthenticatedRequest,
       WHERE shop_id = $1
       ORDER BY created_at DESC
       LIMIT $2 OFFSET $3
-    `, [shop.shop_id, Number(limit), offset]);
+    `, [shop.shopId, Number(limit), offset]);
 
     const countQuery = await db.query(`
       SELECT COUNT(*) as total
       FROM shop_deposits
       WHERE shop_id = $1
-    `, [shop.shop_id]);
+    `, [shop.shopId]);
 
     const total = parseInt(countQuery.rows[0].total);
 
