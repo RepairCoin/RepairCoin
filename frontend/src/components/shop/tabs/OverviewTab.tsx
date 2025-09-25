@@ -282,6 +282,26 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         </div>
       </div>
     </div>
+    
+    {/* Deposit Modal */}
+    {shopData && (
+      <DepositModal
+        isOpen={showDepositModal}
+        onClose={() => setShowDepositModal(false)}
+        shopData={{
+          shopId: shopData.shopId,
+          walletAddress: shopData.walletAddress || '',
+          purchasedRcnBalance: shopData.purchasedRcnBalance
+        }}
+        onDepositComplete={() => {
+          setShowDepositModal(false);
+          if (onRefreshData) {
+            onRefreshData();
+          }
+        }}
+      />
+    )}
+  </>
   );
 };
 
@@ -436,26 +456,6 @@ const BalanceAlertCard: React.FC<{ balance: number }> = ({ balance }) => {
         )}
       </div>
     </div>
-    
-    {/* Deposit Modal */}
-    {shopData && (
-      <DepositModal
-        isOpen={showDepositModal}
-        onClose={() => setShowDepositModal(false)}
-        shopData={{
-          shopId: shopData.shopId,
-          walletAddress: shopData.walletAddress || '',
-          purchasedRcnBalance: shopData.purchasedRcnBalance
-        }}
-        onDepositComplete={() => {
-          setShowDepositModal(false);
-          if (onRefreshData) {
-            onRefreshData();
-          }
-        }}
-      />
-    )}
-  </>
   );
 };
 
