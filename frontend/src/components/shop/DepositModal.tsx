@@ -3,8 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { AlertCircle, Wallet, ArrowDown } from 'lucide-react';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from 'react-hot-toast';
@@ -169,15 +167,15 @@ export function DepositModal({ isOpen, onClose, shopData, onDepositComplete }: D
 
             {/* Deposit Amount Input */}
             <div className="space-y-2">
-              <Label htmlFor="amount">Amount to Deposit</Label>
+              <label htmlFor="amount" className="text-sm font-medium">Amount to Deposit</label>
               <div className="relative">
-                <Input
+                <input
                   id="amount"
                   type="number"
                   value={depositAmount}
                   onChange={(e) => setDepositAmount(e.target.value)}
                   placeholder="0.00"
-                  className="pr-16"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white placeholder-gray-400 focus:outline-none focus:border-yellow-500 pr-16"
                   step="0.01"
                   min="0"
                   max={depositInfo.availableToDeposit}
