@@ -1596,8 +1596,8 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
       for (const shop of shops) {
         try {
           // Get total purchased RCN from shop_rcn_purchases table
-          // Include both completed and pending purchases (pending = awaiting Stripe confirmation)
-          // For now, until migration is run, we include all non-failed purchases
+          // Only include completed purchases (pending = awaiting payment confirmation)
+          // This ensures we only mint for confirmed payments
           let purchaseQuery;
           try {
             // Try with minted_at column first
@@ -1606,7 +1606,7 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
                 COALESCE(SUM(amount), 0) as total_purchased
               FROM shop_rcn_purchases 
               WHERE shop_id = $1 
-                AND status IN ('completed', 'pending')
+                AND status = 'completed'
                 AND minted_at IS NULL
             `, [shop.shopId]);
           } catch (error: any) {
@@ -1617,7 +1617,7 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
                   COALESCE(SUM(amount), 0) as total_purchased
                 FROM shop_rcn_purchases 
                 WHERE shop_id = $1 
-                  AND status IN ('completed', 'pending')
+                  AND status = 'completed'
               `, [shop.shopId]);
             } else {
               throw error;
@@ -1670,7 +1670,7 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
       }
 
       // Get total purchased RCN from shop_rcn_purchases table (only unminted purchases)
-      // Include both completed and pending purchases that haven't been minted yet
+      // Only include completed purchases to ensure we mint only confirmed payments
       let purchaseQuery;
       try {
         // Try with minted_at column first
@@ -1679,7 +1679,7 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
             COALESCE(SUM(amount), 0) as total_purchased
           FROM shop_rcn_purchases 
           WHERE shop_id = $1 
-            AND status IN ('completed', 'pending')
+            AND status = 'completed'
             AND minted_at IS NULL
         `, [shopId]);
       } catch (error: any) {
@@ -1690,7 +1690,7 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
               COALESCE(SUM(amount), 0) as total_purchased
             FROM shop_rcn_purchases 
             WHERE shop_id = $1 
-              AND status IN ('completed', 'pending')
+              AND status = 'completed'
           `, [shopId]);
         } else {
           throw error;
