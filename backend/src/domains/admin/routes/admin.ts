@@ -206,6 +206,7 @@ router.get('/debug/pending-mints/:shopId',
     
     // Get completed purchases
     let completedPurchasesQuery;
+    let usingMintedAt = false;
     try {
       completedPurchasesQuery = await db.query(`
         SELECT 
@@ -214,6 +215,7 @@ router.get('/debug/pending-mints/:shopId',
         FROM shop_rcn_purchases 
         WHERE shop_id = $1 AND status = 'completed' AND minted_at IS NULL
       `, [shopId]);
+      usingMintedAt = true;
     } catch (error) {
       // Fallback without minted_at
       completedPurchasesQuery = await db.query(`
@@ -260,7 +262,45 @@ router.get('/debug/pending-mints/:shopId',
           blockchainBalance: blockchainBalance,
           pendingMintAmount: pendingAmount
         },
-        shouldShowInPendingMints: pendingAmount > 0
+        shouldShowInPendingMints: pendingAmount > 0,
+        debug: {
+          usingMintedAtColumn: usingMintedAt
+        }
+      }
+    });
+  })
+);
+
+// Debug route to check all shops with purchases
+router.get('/debug/all-shops-purchases',
+  asyncHandler(async (req, res) => {
+    const db = require('../../../services/DatabaseService').DatabaseService.getInstance();
+    
+    // Get all shops with any purchases
+    const shopsQuery = await db.query(`
+      SELECT 
+        s.shop_id,
+        s.name,
+        s.wallet_address,
+        s.active,
+        s.verified,
+        COUNT(DISTINCT p.id) as total_purchases,
+        COUNT(DISTINCT CASE WHEN p.status = 'completed' THEN p.id END) as completed_purchases,
+        COUNT(DISTINCT CASE WHEN p.status = 'pending' THEN p.id END) as pending_purchases,
+        COALESCE(SUM(CASE WHEN p.status = 'completed' THEN p.amount ELSE 0 END), 0) as total_completed_amount,
+        COALESCE(SUM(p.amount), 0) as total_all_amount
+      FROM shops s
+      LEFT JOIN shop_rcn_purchases p ON s.shop_id = p.shop_id
+      GROUP BY s.shop_id, s.name, s.wallet_address, s.active, s.verified
+      HAVING COUNT(p.id) > 0
+      ORDER BY total_completed_amount DESC
+    `);
+    
+    res.json({
+      success: true,
+      data: {
+        totalShopsWithPurchases: shopsQuery.rows.length,
+        shops: shopsQuery.rows
       }
     });
   })
