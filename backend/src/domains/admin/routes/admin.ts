@@ -444,5 +444,8 @@ router.use('/rcg', rcgManagementRoutes);
 import shopManagementRoutes from './shopManagement';
 router.use('', shopManagementRoutes);
 
+// System settings routes
+import settingsRoutes from './settings';
+router.use('/settings', settingsRoutes);
 
 export default router;

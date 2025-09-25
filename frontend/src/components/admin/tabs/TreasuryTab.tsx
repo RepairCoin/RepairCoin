@@ -5,6 +5,7 @@ import { toast } from 'react-hot-toast';
 import { useAdminDashboard } from '@/hooks/useAdminDashboard';
 import { CheckCircle, Clock, AlertCircle, Zap, RefreshCw } from 'lucide-react';
 import { PendingMintsSection } from './PendingMintsSection';
+import { BlockchainMintingToggle } from '../settings/BlockchainMintingToggle';
 
 interface TreasuryData {
   totalSupply: number | string;
@@ -449,6 +450,12 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
 
       {/* Pending Blockchain Mints */}
       <PendingMintsSection />
+      
+      {/* Blockchain Minting Settings */}
+      <div className="mt-6">
+        <h3 className="text-xl font-bold text-white mb-4">Minting Settings</h3>
+        <BlockchainMintingToggle />
+      </div>
 
         </>
       ) : (
