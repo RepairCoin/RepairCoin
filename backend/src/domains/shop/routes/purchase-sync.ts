@@ -167,4 +167,79 @@ router.get('/pending', asyncHandler(async (req: AuthenticatedRequest, res: Respo
   }
 }));
 
+/**
+ * Manually complete a purchase (shop owner override)
+ * Use when payment was successful but webhook failed
+ */
+router.post('/manual-complete/:purchaseId', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { purchaseId } = req.params;
+    const { confirmationCode } = req.body;
+    const shopId = req.shop?.shopId;
+    
+    if (!shopId) {
+      return res.status(401).json({ success: false, error: 'Shop not authenticated' });
+    }
+    
+    // Verify confirmation code (simple verification)
+    const expectedCode = `CONFIRM-${purchaseId.slice(-6).toUpperCase()}`;
+    if (confirmationCode !== expectedCode) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid confirmation code',
+        hint: `Please enter: ${expectedCode}`
+      });
+    }
+    
+    // Get purchase from database
+    const purchase = await shopRepository.getShopPurchase(purchaseId);
+    
+    if (!purchase) {
+      return res.status(404).json({ success: false, error: 'Purchase not found' });
+    }
+    
+    if (purchase.shopId !== shopId) {
+      return res.status(403).json({ success: false, error: 'Unauthorized' });
+    }
+    
+    if (purchase.status !== 'pending') {
+      return res.json({
+        success: false,
+        message: 'Purchase already processed',
+        data: { status: purchase.status }
+      });
+    }
+    
+    // Complete the purchase
+    await shopRepository.completeShopPurchase(
+      purchaseId, 
+      `MANUAL_SHOP_${Date.now()}`
+    );
+    
+    logger.info('Shop manually completed purchase', {
+      purchaseId,
+      shopId,
+      amount: purchase.amount,
+      shopWallet: req.shop?.walletAddress
+    });
+    
+    return res.json({
+      success: true,
+      message: 'Purchase completed successfully!',
+      data: {
+        status: 'completed',
+        amount: purchase.amount,
+        message: 'Your RCN will be processed according to current minting settings'
+      }
+    });
+    
+  } catch (error) {
+    logger.error('Error manually completing purchase:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to complete purchase'
+    });
+  }
+}));
+
 export default router;
