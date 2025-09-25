@@ -333,20 +333,6 @@ export default function ShopDashboardClient() {
     (!shopData.operational_status && shopData.active && shopData.verified)
   );
 
-  // Debug logging for shop operational status
-  if (shopData) {
-    console.log('🏪 Shop Operational Status Debug:');
-    console.log('  Shop ID:', shopData.shopId);
-    console.log('  Name:', shopData.name);
-    console.log('  Active:', shopData.active);
-    console.log('  Verified:', shopData.verified);
-    console.log('  Operational Status:', shopData.operational_status || 'NOT SET');
-    console.log('  Is RCG Qualified:', shopData.operational_status === 'rcg_qualified');
-    console.log('  Is Subscription Qualified:', shopData.operational_status === 'subscription_qualified');
-    console.log('  Fallback (active && verified):', shopData.active && shopData.verified);
-    console.log('  ✅ Final isOperational:', isOperational);
-    console.log('  📊 Full Shop Data:', shopData);
-  }
 
   // Error state (shop not found)
   if (error && !shopData && !existingApplication.hasApplication) {

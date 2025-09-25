@@ -6,6 +6,7 @@ import { useAdminDashboard } from '@/hooks/useAdminDashboard';
 import { CheckCircle, Clock, AlertCircle, Zap, RefreshCw } from 'lucide-react';
 import { PendingMintsSection } from './PendingMintsSection';
 import { BlockchainMintingToggle } from '../settings/BlockchainMintingToggle';
+import { AutoCompletePurchases } from '../AutoCompletePurchases';
 
 interface TreasuryData {
   totalSupply: number | string;
@@ -448,6 +449,9 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
         )}
       </div>
 
+      {/* Auto-Complete Purchases */}
+      <AutoCompletePurchases />
+      
       {/* Pending Blockchain Mints */}
       <PendingMintsSection />
       

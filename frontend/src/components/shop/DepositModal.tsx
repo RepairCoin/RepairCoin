@@ -48,11 +48,6 @@ export function DepositModal({ isOpen, onClose, shopData, onDepositComplete }: D
       setIsLoadingInfo(true);
       const token = localStorage.getItem('shopAuthToken') || sessionStorage.getItem('shopAuthToken');
       
-      // Debug logging
-      console.log('[DepositModal] Fetching deposit info with token:', token ? 'Token exists' : 'No token found');
-      console.log('[DepositModal] Token length:', token?.length);
-      console.log('[DepositModal] API URL:', `${process.env.NEXT_PUBLIC_API_URL}/shops/deposit/info`);
-      
       if (!token) {
         console.error('[DepositModal] No auth token found in storage');
         throw new Error('Authentication required. Please refresh the page.');
@@ -64,9 +59,6 @@ export function DepositModal({ isOpen, onClose, shopData, onDepositComplete }: D
           'Content-Type': 'application/json'
         }
       });
-      
-      console.log('[DepositModal] Response status:', response.status);
-      console.log('[DepositModal] Response headers:', response.headers);
 
       if (!response.ok) {
         console.error('[DepositModal] API response not ok:', response.status, response.statusText);
@@ -128,8 +120,6 @@ export function DepositModal({ isOpen, onClose, shopData, onDepositComplete }: D
     try {
       setIsLoading(true);
       const token = localStorage.getItem('shopAuthToken') || sessionStorage.getItem('shopAuthToken');
-      
-      console.log('[DepositModal] Processing deposit with token:', token ? 'Token exists' : 'No token found');
       
       if (!token) {
         console.error('[DepositModal] No auth token found for deposit');

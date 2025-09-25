@@ -448,4 +448,8 @@ router.use('', shopManagementRoutes);
 import settingsRoutes from './settings';
 router.use('/settings', settingsRoutes);
 
+// Purchase auto-complete routes
+import purchaseAutoCompleteRoutes from '../../shop/routes/purchase-auto-complete';
+router.use('/purchases', purchaseAutoCompleteRoutes);
+
 export default router;

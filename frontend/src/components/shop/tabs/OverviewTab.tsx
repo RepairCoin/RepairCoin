@@ -10,7 +10,6 @@ import { useRCGBalance } from "@/hooks/useRCGBalance";
 import { formatRCGBalance } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { DepositModal } from "@/components/shop/DepositModal";
-import { PurchaseSyncButton } from "@/components/shop/PurchaseSyncButton";
 
 interface ShopData {
   shopId: string;
@@ -103,22 +102,14 @@ const purchaseColumns: Column<PurchaseHistory>[] = [
       };
 
       return (
-        <div className="flex items-center gap-2">
-          <span
-            className={`px-2 py-1 rounded-full text-xs font-medium ${
-              statusColors[purchase.status as keyof typeof statusColors] ||
-              statusColors.pending
-            }`}
-          >
-            {purchase.status}
-          </span>
-          {purchase.status === "pending" && (
-            <PurchaseSyncButton
-              purchaseId={String(purchase.id)}
-              amount={purchase.amount}
-            />
-          )}
-        </div>
+        <span
+          className={`px-2 py-1 rounded-full text-xs font-medium ${
+            statusColors[purchase.status as keyof typeof statusColors] ||
+            statusColors.pending
+          }`}
+        >
+          {purchase.status}
+        </span>
       );
     },
   },
@@ -187,7 +178,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   alert('Please refresh the page to authenticate');
                   return;
                 }
-                console.log('[OverviewTab] Opening deposit modal with auth token present');
                 setShowDepositModal(true);
               }}
               title="Deposit RCN"
