@@ -167,6 +167,26 @@ router.get('/shops/pending-mints',
   asyncHandler(adminController.getPendingMints.bind(adminController))
 );
 
+// Debug route to check purchase statuses
+router.get('/debug/purchase-status/:shopId',
+  asyncHandler(async (req, res) => {
+    const { shopId } = req.params;
+    const db = require('../../../services/DatabaseService').DatabaseService.getInstance();
+    
+    const purchases = await db.query(`
+      SELECT id, shop_id, amount, status, created_at, completed_at
+      FROM shop_rcn_purchases 
+      WHERE shop_id = $1
+      ORDER BY created_at DESC
+    `, [shopId]);
+    
+    res.json({
+      success: true,
+      data: purchases.rows
+    });
+  })
+);
+
 // Mint shop's purchased RCN balance to blockchain
 router.post('/shops/:shopId/mint-balance',
   asyncHandler(adminController.mintShopBalance.bind(adminController))

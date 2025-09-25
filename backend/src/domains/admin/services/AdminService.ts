@@ -1596,14 +1596,33 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
       for (const shop of shops) {
         try {
           // Get total purchased RCN from shop_rcn_purchases table
-          // Include both completed and pending (for Stripe payments that are processing)
-          // Exclude already minted purchases
-          const purchaseQuery = await treasuryRepository.query(`
-            SELECT 
-              COALESCE(SUM(amount), 0) as total_purchased
-            FROM shop_rcn_purchases 
-            WHERE shop_id = $1 AND status IN ('completed', 'pending') AND status != 'minted'
-          `, [shop.shopId]);
+          // Include both completed and pending purchases (pending = awaiting Stripe confirmation)
+          // For now, until migration is run, we include all non-failed purchases
+          let purchaseQuery;
+          try {
+            // Try with minted_at column first
+            purchaseQuery = await treasuryRepository.query(`
+              SELECT 
+                COALESCE(SUM(amount), 0) as total_purchased
+              FROM shop_rcn_purchases 
+              WHERE shop_id = $1 
+                AND status IN ('completed', 'pending')
+                AND minted_at IS NULL
+            `, [shop.shopId]);
+          } catch (error: any) {
+            // Fallback if minted_at column doesn't exist
+            if (error.message?.includes('minted_at')) {
+              purchaseQuery = await treasuryRepository.query(`
+                SELECT 
+                  COALESCE(SUM(amount), 0) as total_purchased
+                FROM shop_rcn_purchases 
+                WHERE shop_id = $1 
+                  AND status IN ('completed', 'pending')
+              `, [shop.shopId]);
+            } else {
+              throw error;
+            }
+          }
           
           const totalPurchased = parseFloat(purchaseQuery.rows[0]?.total_purchased || '0');
           
@@ -1651,12 +1670,32 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
       }
 
       // Get total purchased RCN from shop_rcn_purchases table (only unminted purchases)
-      const purchaseQuery = await treasuryRepository.query(`
-        SELECT 
-          COALESCE(SUM(amount), 0) as total_purchased
-        FROM shop_rcn_purchases 
-        WHERE shop_id = $1 AND status IN ('completed', 'pending') AND status != 'minted'
-      `, [shopId]);
+      // Include both completed and pending purchases that haven't been minted yet
+      let purchaseQuery;
+      try {
+        // Try with minted_at column first
+        purchaseQuery = await treasuryRepository.query(`
+          SELECT 
+            COALESCE(SUM(amount), 0) as total_purchased
+          FROM shop_rcn_purchases 
+          WHERE shop_id = $1 
+            AND status IN ('completed', 'pending')
+            AND minted_at IS NULL
+        `, [shopId]);
+      } catch (error: any) {
+        // Fallback if minted_at column doesn't exist
+        if (error.message?.includes('minted_at')) {
+          purchaseQuery = await treasuryRepository.query(`
+            SELECT 
+              COALESCE(SUM(amount), 0) as total_purchased
+            FROM shop_rcn_purchases 
+            WHERE shop_id = $1 
+              AND status IN ('completed', 'pending')
+          `, [shopId]);
+        } else {
+          throw error;
+        }
+      }
       
       const totalPurchased = parseFloat(purchaseQuery.rows[0]?.total_purchased || '0');
       
@@ -1701,28 +1740,28 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
         throw new Error(`Minting failed: ${mintResult?.error || 'Unknown error'}`);
       }
 
-      // Mark all pending purchases as minted
+      // Mark all unminted completed purchases as minted
       try {
         await treasuryRepository.query(`
           UPDATE shop_rcn_purchases 
           SET 
-            status = 'minted',
             minted_at = NOW(),
             transaction_hash = $2
           WHERE 
             shop_id = $1 
-            AND status IN ('completed', 'pending')
+            AND status = 'completed'
+            AND minted_at IS NULL
         `, [shopId, mintResult.transactionHash]);
       } catch (updateError: any) {
-        // If minted_at or transaction_hash columns don't exist, try simpler update
+        // If minted_at or transaction_hash columns don't exist, fallback to status update
         if (updateError.message?.includes('column') && (updateError.message?.includes('minted_at') || updateError.message?.includes('transaction_hash'))) {
-          logger.warn('minted_at or transaction_hash column not found, updating status only');
+          logger.warn('minted_at or transaction_hash column not found, updating status to minted');
           await treasuryRepository.query(`
             UPDATE shop_rcn_purchases 
             SET status = 'minted'
             WHERE 
               shop_id = $1 
-              AND status IN ('completed', 'pending')
+              AND status = 'completed'
           `, [shopId]);
         } else {
           throw updateError;
