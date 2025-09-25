@@ -355,7 +355,8 @@ router.post('/shops/:shopId/complete-purchase/:purchaseId',
         purchaseId,
         shopId,
         amount: purchase.amount,
-        adminAddress: req.user?.address
+        adminAddress: req.user?.address,
+        timestamp: new Date().toISOString()
       });
       
       res.json({
