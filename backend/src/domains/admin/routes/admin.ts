@@ -16,6 +16,7 @@ import customerRoutes from './customers';
 import revenueRoutes from '../../../routes/admin/revenue';
 import subscriptionRoutes from './subscription';
 import adminsRoutes from './admins';
+import { logger } from '../../../utils/logger';
 
 const router = Router();
 
