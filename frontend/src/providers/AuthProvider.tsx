@@ -12,8 +12,7 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const router = useRouter();
-  const { disconnect } = useAuth();
-
+  
   // Handle unauthorized errors globally
   const handleUnauthorized = useCallback((event: CustomEvent) => {
     const { role, endpoint } = event.detail;

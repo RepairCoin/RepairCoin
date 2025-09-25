@@ -1,20 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Users,
   Store,
-  DollarSign,
-  Sparkles,
-  Download,
-  TrendingUp,
-  Activity
+  DollarSign
 } from 'lucide-react';
 import { DashboardHeader } from '@/components/ui/DashboardHeader';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { RecentActivityTimeline } from './RecentActivityTimeline';
-import { RecentActivitySection } from './RecentActivitySection';
 import { useAdminDashboard } from '@/hooks/useAdminDashboard';
 import { StatCard } from '@/components/ui/StatCard';
 
@@ -36,15 +30,22 @@ interface OverviewTabProps {
   onQuickAction?: (action: "mint" | "shops" | "reports") => void;
 }
 
-export const OverviewTab: React.FC<OverviewTabProps> = () => {
+export const OverviewTab: React.FC<OverviewTabProps> = React.memo(() => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(true);
   const [transactionFilter, setTransactionFilter] = useState('all');
   
-  const { loading, stats, pendingShops, generateAdminToken } = useAdminDashboard();
+  const { stats, pendingShops, generateAdminToken } = useAdminDashboard();
   const pendingShopsCount = pendingShops?.length || 0;
 
-  // Fetch transactions
+  // Memoize filtered transactions
+  const filteredTransactions = useMemo(() => 
+    transactions.filter((tx) => 
+      transactionFilter === "all" || tx.type === transactionFilter
+    ),
+  [transactions, transactionFilter]);
+
+  // Fetch transactions with optimized parallel loading
   useEffect(() => {
     const loadTransactions = async () => {
       if (!generateAdminToken) {
@@ -64,82 +65,80 @@ export const OverviewTab: React.FC<OverviewTabProps> = () => {
           "Content-Type": "application/json",
         };
 
-        const transactionsData: Transaction[] = [];
-
-        // Get treasury data for shop RCN purchases
-        try {
-          const treasuryResponse = await fetch(
+        // Parallel fetch both data sources
+        const [treasuryResponse, customersResponse] = await Promise.allSettled([
+          fetch(
             `${process.env.NEXT_PUBLIC_API_URL}/admin/treasury`,
             { headers }
-          );
-          if (treasuryResponse.ok) {
-            const treasuryData = await treasuryResponse.json();
-            if (treasuryData.data?.recentPurchases) {
-              treasuryData.data.recentPurchases.forEach((purchase: any) => {
-                transactionsData.push({
-                  id: purchase.id,
-                  shopId: purchase.shop_id,
-                  shopName: purchase.shop_name,
-                  customerAddress: "", // Not applicable for purchases
-                  type: "purchase",
-                  amount: purchase.rcn_amount,
-                  status: "completed",
-                  createdAt: purchase.purchase_date,
-                  details: {
-                    paymentMethod: purchase.payment_method,
-                    paymentReference: purchase.payment_reference,
-                    usdAmount: purchase.total_cost,
-                  },
-                });
-              });
-            }
-          }
-        } catch (err) {
-          console.warn("Failed to load treasury data:", err);
-        }
-
-        // Get recent customer rewards (mints)
-        try {
-          const customersResponse = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/admin/customers?limit=25&orderBy=last_earned_date&order=DESC`,
+          ),
+          fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/admin/customers?limit=2&orderBy=last_earned_date&order=DESC`,
             { headers }
-          );
-          if (customersResponse.ok) {
-            const customerData = await customersResponse.json();
-            // Filter customers who have earned recently
-            customerData.data?.customers?.forEach((customer: any, index: number) => {
-              if (customer.lifetimeEarnings > 0 && customer.lastEarnedDate) {
-                transactionsData.push({
-                  id: `reward-${customer.id || customer.address || index}`,
-                  shopId: customer.homeShopId || 'Unknown',
-                  shopName: customer.homeShopName || 'Unknown Shop',
-                  customerAddress: customer.address,
-                  customerName: `${customer.address.slice(
-                    0,
-                    6
-                  )}...${customer.address.slice(-4)}`,
-                  type: "mint",
-                  amount: customer.lastEarnedAmount || 10, // Default reward amount
-                  status: "completed",
-                  createdAt: customer.lastEarnedDate,
-                  details: {
-                    tier: customer.tier,
-                    lifetimeEarnings: customer.lifetimeEarnings,
-                  },
-                });
-              }
+          )
+        ]);
+
+        const transactionsData: Transaction[] = [];
+
+        // Process treasury data
+        if (treasuryResponse.status === 'fulfilled' && treasuryResponse.value.ok) {
+          const treasuryData = await treasuryResponse.value.json();
+          if (treasuryData.data?.recentPurchases) {
+            treasuryData.data.recentPurchases.forEach((purchase: any) => {
+              transactionsData.push({
+                id: purchase.id,
+                shopId: purchase.shop_id,
+                shopName: purchase.shop_name,
+                customerAddress: "", // Not applicable for purchases
+                type: "purchase",
+                amount: purchase.rcn_amount,
+                status: "completed",
+                createdAt: purchase.purchase_date,
+                details: {
+                  paymentMethod: purchase.payment_method,
+                  paymentReference: purchase.payment_reference,
+                  usdAmount: purchase.total_cost,
+                },
+              });
             });
           }
-        } catch (err) {
-          console.warn("Failed to load customer rewards data:", err);
         }
 
-        // Sort by date descending and take more transactions for pagination
+        // Process customer rewards data
+        if (customersResponse.status === 'fulfilled' && customersResponse.value.ok) {
+          const customerData = await customersResponse.value.json();
+          console.log("customerData1: ", customerData)
+          // Filter customers who have earned recently
+          customerData.data?.customers?.forEach((customer: any, index: number) => {
+            if (customer.lifetimeEarnings > 0 && customer.lastEarnedDate) {
+              transactionsData.push({
+                id: `reward-${customer.id || customer.address || index}`,
+                shopId: customer.homeShopId || 'Unknown',
+                shopName: customer.homeShopName || 'Unknown Shop',
+                customerAddress: customer.address,
+                customerName: `${customer.address.slice(
+                  0,
+                  6
+                )}...${customer.address.slice(-4)}`,
+                type: "mint",
+                amount: customer.lastEarnedAmount || 10, // Default reward amount
+                status: "completed",
+                createdAt: customer.lastEarnedDate,
+                details: {
+                  tier: customer.tier,
+                  lifetimeEarnings: customer.lifetimeEarnings,
+                },
+              });
+            }
+          });
+        }
+
+        // Sort by date descending
         transactionsData.sort(
           (a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
-        setTransactions(transactionsData.slice(0, 50)); // Increased to 50 for better pagination
+        
+        setTransactions(transactionsData.slice(0, 30)); // Limit to 30 for better performance
       } catch (error) {
         console.error("Error loading transactions:", error);
         setTransactions([]);
@@ -150,17 +149,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = () => {
 
     loadTransactions();
   }, [generateAdminToken]);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-yellow-400 border-t-transparent mx-auto mb-4"></div>
-          <p className="text-gray-400">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -232,10 +220,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = () => {
           </div>
           <div className="overflow-x-auto my-4">
             <TransactionsTable
-              transactions={transactions.filter(
-                (tx) =>
-                  transactionFilter === "all" || tx.type === transactionFilter
-              )}
+              transactions={filteredTransactions}
               loading={transactionsLoading}
             />
           </div>
@@ -246,14 +231,16 @@ export const OverviewTab: React.FC<OverviewTabProps> = () => {
       </div>
     </div>
   );
-};
+});
 
-// Transactions Table Component
+OverviewTab.displayName = 'OverviewTab';
+
+// Memoized Transactions Table Component
 const TransactionsTable: React.FC<{
   transactions: Transaction[];
   loading: boolean;
-}> = ({ transactions, loading }) => {
-  const columns: Column<Transaction>[] = [
+}> = React.memo(({ transactions, loading }) => {
+  const columns: Column<Transaction>[] = useMemo(() => [
     {
       key: "date",
       header: "DATE",
@@ -352,7 +339,7 @@ const TransactionsTable: React.FC<{
       ),
       headerClassName: "uppercase text-xs tracking-wider",
     },
-  ];
+  ], []);
 
   return (
     <DataTable
@@ -374,4 +361,6 @@ const TransactionsTable: React.FC<{
       paginationClassName=""
     />
   );
-};
+});
+
+TransactionsTable.displayName = 'TransactionsTable';
