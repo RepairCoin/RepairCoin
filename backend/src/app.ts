@@ -349,7 +349,7 @@ class RepairCoinApp {
     }
   }
 
-  start(): void {
+  async start(): Promise<void> {
     const port = parseInt(process.env.PORT || '5000');
     
     console.log('\n🔍 BACKEND PORT CONFIGURATION:');
@@ -358,6 +358,11 @@ class RepairCoinApp {
     console.log(`- Actually using port: ${port}`);
     console.log(`- Full backend URL: http://localhost:${port}`);
     console.log('');
+    
+    // Warm up database connection pool before starting server
+    console.log('🔥 Warming up database connection pool...');
+    const { warmUpPool } = await import('./utils/database-pool');
+    await warmUpPool();
     
     this.app.listen(port, () => {
       console.log('\n==============================================');
@@ -404,7 +409,7 @@ async function main() {
   try {
     const app = new RepairCoinApp();
     await app.initialize();
-    app.start();
+    await app.start();
   } catch (error) {
     logger.error('Failed to start application:', error);
     process.exit(1);

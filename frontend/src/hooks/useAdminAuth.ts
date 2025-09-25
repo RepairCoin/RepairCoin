@@ -132,13 +132,16 @@ export function useAdminAuth() {
         return;
       }
 
-      // First, check if this is the super admin from env
+      // Check if this is a super admin from env (all addresses in ADMIN_ADDRESSES are super admins)
       const adminAddresses = (process.env.NEXT_PUBLIC_ADMIN_ADDRESSES || "")
         .split(",")
         .map((addr) => addr.toLowerCase().trim())
         .filter(addr => addr.length > 0);
       
-      const isSuperAdminFromEnv = adminAddresses.length > 0 && adminAddresses[0] === account.address.toLowerCase();
+      // All addresses in ADMIN_ADDRESSES are super admins
+      const isSuperAdminFromEnv = adminAddresses.includes(account.address.toLowerCase());
+
+      console.log("isSuperAdminFromEnv: ", isSuperAdminFromEnv)
 
       try {
         // Small delay to ensure wallet is fully ready
@@ -171,7 +174,7 @@ export function useAdminAuth() {
           }
         } else {
           // Fallback: If no profile endpoint exists, use env-based determination
-          // For backwards compatibility, assume super admin if first in env list
+          // All addresses in ADMIN_ADDRESSES are super admins
           if (isSuperAdminFromEnv) {
             setIsSuperAdmin(true);
             setAdminRole('super_admin');

@@ -13,12 +13,11 @@ export const requirePermission = (permission: string) => {
         return ResponseHelper.error(res, 'Authentication required', 401);
       }
       
-      // Check if this is the super admin from .env (first address in ADMIN_ADDRESSES)
-      const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
-      const superAdminAddress = adminAddresses[0];
+      // Check if this is a super admin from .env (all addresses in ADMIN_ADDRESSES are super admins)
+      const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim()).filter(addr => addr.length > 0);
       
-      // Super admin has all permissions
-      if (superAdminAddress === userAddress.toLowerCase()) {
+      // Any address in ADMIN_ADDRESSES has all permissions
+      if (adminAddresses.includes(userAddress.toLowerCase())) {
         return next();
       }
       
@@ -75,11 +74,11 @@ export const requireSuperAdmin = async (req: Request, res: Response, next: NextF
       return ResponseHelper.error(res, 'Authentication required', 401);
     }
     
-    // Check if this is the super admin from .env
-    const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
-    const superAdminAddress = adminAddresses[0];
+    // Check if this is a super admin from .env (all addresses in ADMIN_ADDRESSES are super admins)
+    const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim()).filter(addr => addr.length > 0);
     
-    if (superAdminAddress === userAddress.toLowerCase()) {
+    // Any address in ADMIN_ADDRESSES is a super admin
+    if (adminAddresses.includes(userAddress.toLowerCase())) {
       return next();
     }
     

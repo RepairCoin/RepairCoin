@@ -1382,10 +1382,9 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
       
       // Check if adminRepository is available and has the required method
       if (adminRepository && typeof adminRepository.isAdmin === 'function') {
-        // Check if this is the super admin from .env (first address in ADMIN_ADDRESSES)
-        const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
-        const superAdminAddress = adminAddresses[0]; // First address is super admin
-        const isSuperAdminFromEnv = superAdminAddress === normalizedAddress;
+        // Check if this is a super admin from .env (all addresses in ADMIN_ADDRESSES are super admins)
+        const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim()).filter(addr => addr.length > 0);
+        const isSuperAdminFromEnv = adminAddresses.includes(normalizedAddress);
         
         // Get admin data from database
         const adminData = await adminRepository.getAdminByWalletAddress(normalizedAddress);
@@ -1412,12 +1411,9 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
               logger.info('Granted super admin status to env admin:', normalizedAddress);
             }
           } else if (adminData.isSuperAdmin) {
-            // If this admin has super admin status but is NOT in env, check if we should remove it
-            if (superAdminAddress && superAdminAddress !== normalizedAddress) {
-              // There's a different super admin in env, so remove status from this one
-              await adminRepository.updateAdmin(normalizedAddress, { isSuperAdmin: false });
-              logger.info('Removed super admin status (env changed) from:', normalizedAddress);
-            }
+            // If this admin has super admin status but is NOT in env list, remove it
+            await adminRepository.updateAdmin(normalizedAddress, { isSuperAdmin: false });
+            logger.info('Removed super admin status (not in env) from:', normalizedAddress);
           }
           
           return true;
@@ -1459,16 +1455,16 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
       } else {
         // Fallback to env check if adminRepository not available
         logger.warn('AdminRepository not available, falling back to env check');
-        const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
-        const superAdminAddress = adminAddresses[0]; // First address is super admin
-        return superAdminAddress === normalizedAddress;
+        const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim()).filter(addr => addr.length > 0);
+        // All addresses in ADMIN_ADDRESSES are super admins
+        return adminAddresses.includes(normalizedAddress);
       }
     } catch (error) {
       logger.error('Error checking admin access:', error);
       // In case of database error, fallback to env check
-      const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
-      const superAdminAddress = adminAddresses[0]; // First address is super admin
-      return superAdminAddress === walletAddress.toLowerCase();
+      const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim()).filter(addr => addr.length > 0);
+      // All addresses in ADMIN_ADDRESSES are super admins
+      return adminAddresses.includes(walletAddress.toLowerCase());
     }
   }
 
@@ -1476,7 +1472,26 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
   
   async getAllAdmins() {
     try {
-      return await adminRepository.getAllAdmins();
+      const admins = await adminRepository.getAllAdmins();
+      
+      // Get env super admins to mark them as protected
+      const envAdminAddresses = (process.env.ADMIN_ADDRESSES || '')
+        .split(',')
+        .map(addr => addr.toLowerCase().trim())
+        .filter(addr => addr.length > 0);
+      
+      // Add protected status and ensure role is correct for env super admins
+      return admins.map(admin => {
+        const isEnvSuperAdmin = envAdminAddresses.includes(admin.walletAddress.toLowerCase());
+        return {
+          ...admin,
+          isProtected: isEnvSuperAdmin,
+          // Ensure env super admins show as super_admin role
+          role: isEnvSuperAdmin ? 'super_admin' : (admin.role || 'admin'),
+          // Ensure isSuperAdmin flag is set for env admins
+          isSuperAdmin: isEnvSuperAdmin || admin.isSuperAdmin
+        };
+      });
     } catch (error) {
       logger.error('Error getting all admins:', error);
       throw error;
@@ -1548,21 +1563,23 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
 
   async getAdminProfile(walletAddress: string) {
     try {
-      // First check if this is the super admin from .env
-      const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
-      const isSuperAdminFromEnv = adminAddresses[0] === walletAddress.toLowerCase();
+      // First check if this is a super admin from .env
+      const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim()).filter(addr => addr.length > 0);
+      const isSuperAdminFromEnv = adminAddresses.includes(walletAddress.toLowerCase());
       
       if (isSuperAdminFromEnv) {
         // Return super admin profile even if not in database
+        const envAddress = adminAddresses.find(addr => addr === walletAddress.toLowerCase()) || walletAddress.toLowerCase();
         return {
           id: 0,
-          walletAddress: adminAddresses[0],
+          walletAddress: envAddress,
           name: 'Super Admin',
           email: null,
           role: 'super_admin',
           permissions: ['*'], // All permissions
           isActive: true,
           isSuperAdmin: true,
+          isProtected: true, // Mark as protected since it's from env
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
@@ -1574,7 +1591,12 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
         throw new Error('Admin not found');
       }
       
-      return admin;
+      // Add protected status if this admin is in env list
+      return {
+        ...admin,
+        isProtected: adminAddresses.includes(admin.walletAddress.toLowerCase()),
+        role: adminAddresses.includes(admin.walletAddress.toLowerCase()) ? 'super_admin' : (admin.role || 'admin')
+      };
     } catch (error) {
       logger.error('Error getting admin profile:', error);
       throw error;
