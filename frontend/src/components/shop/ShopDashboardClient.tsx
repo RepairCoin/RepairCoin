@@ -527,7 +527,7 @@ export default function ShopDashboardClient() {
               shopData={shopData} 
               purchases={purchases} 
               blockchainBalance={blockchainBalance} 
-              onRefreshData={fetchData}
+              onRefreshData={loadShopData}
             />
           )}
 
