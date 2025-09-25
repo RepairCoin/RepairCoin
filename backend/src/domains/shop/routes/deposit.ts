@@ -10,7 +10,11 @@ const tokenService = new TokenService();
 const db = DatabaseService.getInstance();
 
 interface AuthenticatedRequest extends Request {
-  walletAddress?: string;
+  user?: {
+    address: string;
+    role: string;
+    shopId?: string;
+  };
   body: any;
   query: any;
 }
@@ -18,7 +22,7 @@ interface AuthenticatedRequest extends Request {
 // Get deposit information (wallet balance vs operational balance)
 router.get('/info', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const walletAddress = req.walletAddress;
+    const walletAddress = req.user?.address;
     if (!walletAddress) {
       return res.status(401).json({ success: false, error: 'Wallet address not found' });
     }
@@ -63,7 +67,7 @@ router.get('/info', async (req: AuthenticatedRequest, res: Response) => {
 // Create deposit request
 router.post('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const walletAddress = req.walletAddress;
+    const walletAddress = req.user?.address;
     const { amount } = req.body;
 
     if (!walletAddress) {
@@ -184,7 +188,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
 // Get deposit history
 router.get('/history', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const walletAddress = req.walletAddress;
+    const walletAddress = req.user?.address;
     if (!walletAddress) {
       return res.status(401).json({ success: false, error: 'Wallet address not found' });
     }
