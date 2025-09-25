@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../../../middleware/errorHandler';
-import { shopAuthMiddleware } from '../../../middleware/shopAuth';
+import { authMiddleware, requireRole } from '../../../middleware/auth';
 import { logger } from '../../../utils/logger';
 import { shopRepository } from '../../../repositories';
 import { getStripeService } from '../../../services/StripeService';
@@ -8,7 +8,8 @@ import { getStripeService } from '../../../services/StripeService';
 const router = Router();
 
 // Apply shop authentication to all routes
-router.use(shopAuthMiddleware);
+router.use(authMiddleware);
+router.use(requireRole(['shop']));
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -19,6 +20,8 @@ interface AuthenticatedRequest extends Request {
     shopId: string;
     walletAddress: string;
   };
+  params: any;
+  body: any;
 }
 
 /**
@@ -58,7 +61,7 @@ router.post('/check-payment/:purchaseId', asyncHandler(async (req: Authenticated
       const stripeService = getStripeService();
       
       try {
-        const session = await stripeService.stripe.checkout.sessions.retrieve(
+        const session = await stripeService.getCheckoutSession(
           purchase.paymentReference
         );
         

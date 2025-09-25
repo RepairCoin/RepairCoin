@@ -424,6 +424,22 @@ export class StripeService {
   getStripe(): Stripe {
     return this.stripe;
   }
+
+  /**
+   * Retrieve a checkout session by ID
+   */
+  async getCheckoutSession(sessionId: string): Promise<Stripe.Checkout.Session> {
+    try {
+      const session = await this.stripe.checkout.sessions.retrieve(sessionId);
+      return session;
+    } catch (error) {
+      logger.error('Failed to retrieve checkout session', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        sessionId
+      });
+      throw error;
+    }
+  }
 }
 
 // Singleton instance
