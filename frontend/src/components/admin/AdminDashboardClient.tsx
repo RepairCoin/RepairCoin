@@ -17,6 +17,7 @@ import PromoCodesAnalyticsTab from "@/components/admin/tabs/PromoCodesAnalyticsT
 import { CreateAdminTab } from "@/components/admin/tabs/CreateAdminTab";
 import { ShopReviewModal } from "@/components/admin/tabs/ShopReviewModal";
 import DashboardLayout from "@/components/ui/DashboardLayout";
+import { useAuth } from "@/hooks/useAuth";
 
 const client = createThirdwebClient({
   clientId:
@@ -36,6 +37,9 @@ export default function AdminDashboardClient() {
     generateAdminToken,
     hasPermission,
   } = useAdminAuth();
+  const {
+    isAuthenticated,
+  } = useAuth();
 
   // Dashboard data hook
   const {
@@ -63,8 +67,12 @@ export default function AdminDashboardClient() {
   });
   const [activeTab, setActiveTab] = useState("overview");
   const [activeSubTab, setActiveSubTab] = useState<string>("");
-  const [customerView, setCustomerView] = useState<"grouped" | "all" | "unsuspend-requests">("grouped");
-  const [shopView, setShopView] = useState<"all" | "active" | "pending" | "rejected" | "unsuspend-requests">("all");
+  const [customerView, setCustomerView] = useState<
+    "grouped" | "all" | "unsuspend-requests"
+  >("grouped");
+  const [shopView, setShopView] = useState<
+    "all" | "active" | "pending" | "rejected" | "unsuspend-requests"
+  >("all");
 
   const handleTabChange = (tab: string) => {
     // Handle customer sub-navigation
@@ -85,7 +93,7 @@ export default function AdminDashboardClient() {
       setActiveTab("customers");
       setActiveSubTab("customers-grouped");
       setCustomerView("grouped");
-    } 
+    }
     // Handle shop sub-navigation
     else if (tab === "shops-all") {
       setActiveTab("shops-management");
@@ -119,16 +127,23 @@ export default function AdminDashboardClient() {
     }
   };
 
-  if (!account) {
+  if (!account && !isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-pink-100">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-          <div className="text-center">
-            <div className="text-6xl mb-6">⚡</div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">
+      <div className="min-h-screen bg-gray-50">
+        <div
+          className="min-h-screen py-8 bg-[#0D0D0D] flex items-center justify-center"
+          style={{
+            backgroundImage: `url('/img/dashboard-bg.png')`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+          }}
+        >
+          <div className="text-center rounded-lg p-8 border-gray-800 border-2 bg-[#212121]">
+            <h1 className="text-3xl font-bold text-[#FFCC00] mb-4">
               Admin Dashboard
             </h1>
-            <p className="text-gray-600 mb-8">
+            <p className="text-gray-300 mb-8">
               Connect your admin wallet to access the dashboard
             </p>
             <ConnectButton client={client} />
@@ -138,26 +153,7 @@ export default function AdminDashboardClient() {
     );
   }
 
-  if (!isAdmin) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-pink-100">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-          <div className="text-center">
-            <div className="text-6xl mb-6">🚫</div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">
-              Access Denied
-            </h1>
-            <p className="text-gray-600 mb-8">
-              You do not have admin privileges
-            </p>
-            <p className="text-sm text-gray-500">
-              Connected wallet: {account.address}
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  console.log("isAdminisAdminisAdmin: ", isAdmin)
 
   return (
     <DashboardLayout
@@ -167,7 +163,6 @@ export default function AdminDashboardClient() {
       onTabChange={handleTabChange}
       isSuperAdmin={isSuperAdmin}
       adminRole={adminRole}
-      adminPermissions={adminPermissions}
     >
       <Toaster position="top-right" />
       <div
@@ -206,48 +201,51 @@ export default function AdminDashboardClient() {
           )}
 
           {/* Role-based tab content visibility */}
-          {activeTab === "customers" && (isSuperAdmin || adminRole === 'super_admin' || adminRole === 'admin') && (
-            <CustomersTabEnhanced
-              initialView={customerView}
-            />
-          )}
+          {activeTab === "customers" &&
+            (isSuperAdmin ||
+              adminRole === "super_admin" ||
+              adminRole === "admin") && (
+              <CustomersTabEnhanced initialView={customerView} />
+            )}
 
           {/* New Combined Shop Management Tab */}
-          {activeTab === "shops-management" && (isSuperAdmin || adminRole === 'super_admin' || adminRole === 'admin') && (
-            <ShopsManagementTab
-              initialView={shopView}
-            />
-          )}
-
+          {activeTab === "shops-management" &&
+            (isSuperAdmin ||
+              adminRole === "super_admin" ||
+              adminRole === "admin") && (
+              <ShopsManagementTab initialView={shopView} />
+            )}
 
           {/* Other tabs - TODO: Create components for these */}
-          {activeTab === "treasury" && (isSuperAdmin || adminRole === 'super_admin' || adminRole === 'admin') && (
-            <TreasuryTab />
-          )}
+          {activeTab === "treasury" &&
+            (isSuperAdmin ||
+              adminRole === "super_admin" ||
+              adminRole === "admin") && <TreasuryTab />}
 
-          {activeTab === "admins" && (isSuperAdmin || adminRole === 'super_admin') && (
-            authLoading ? (
+          {activeTab === "admins" &&
+            (isSuperAdmin || adminRole === "super_admin") &&
+            (authLoading ? (
               <div className="flex justify-center items-center h-64">
                 <div className="text-gray-600">Loading admin management...</div>
               </div>
             ) : (
               <AdminsTab />
-            )
-          )}
+            ))}
 
-          {activeTab === "create-admin" && (
-            <CreateAdminTab />
-          )}
+          {activeTab === "create-admin" && <CreateAdminTab />}
 
-          {activeTab === "analytics" && (isSuperAdmin || adminRole === 'super_admin' || adminRole === 'admin') && (
-            <AnalyticsTab />
-          )}
-          {activeTab === "subscriptions" && (isSuperAdmin || adminRole === 'super_admin' || adminRole === 'admin') && (
-            <SubscriptionManagementTab />
-          )}
-          {activeTab === "promo-codes" && (isSuperAdmin || adminRole === 'super_admin' || adminRole === 'admin') && (
-            <PromoCodesAnalyticsTab/>
-          )}
+          {activeTab === "analytics" &&
+            (isSuperAdmin ||
+              adminRole === "super_admin" ||
+              adminRole === "admin") && <AnalyticsTab />}
+          {activeTab === "subscriptions" &&
+            (isSuperAdmin ||
+              adminRole === "super_admin" ||
+              adminRole === "admin") && <SubscriptionManagementTab />}
+          {activeTab === "promo-codes" &&
+            (isSuperAdmin ||
+              adminRole === "super_admin" ||
+              adminRole === "admin") && <PromoCodesAnalyticsTab />}
         </div>
       </div>
 

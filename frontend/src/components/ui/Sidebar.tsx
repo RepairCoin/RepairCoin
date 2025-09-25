@@ -8,11 +8,8 @@ import { useAuth } from "@/hooks/useAuth";
 
 import {
   LayoutGrid,
-  Receipt,
-  DollarSign,
   Users,
   Settings,
-  BarChart3,
   LogOut,
   Menu,
   X,
@@ -26,11 +23,7 @@ import {
   RedeemIcon, 
   OverviewIcon,
   CustomerIcon,
-  LookupIcon,
   BuyRcnIcon,
-  TransactionIcon,
-  BonusesIcon,
-  AnalyticsIcon,
   SettingsIcon,
   LogoutIcon
 } from "../icon";
@@ -53,7 +46,6 @@ interface SidebarProps {
   onCollapseChange?: (collapsed: boolean) => void;
   isSuperAdmin?: boolean;
   adminRole?: string;
-  adminPermissions?: string[];
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -66,7 +58,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   onCollapseChange,
   isSuperAdmin = false,
   adminRole = "",
-  adminPermissions = [],
 }) => {
   const pathname = usePathname();
   const router = useRouter();
@@ -237,95 +228,84 @@ const Sidebar: React.FC<SidebarProps> = ({
       
       // Check role for tab visibility
       const isSuper = isSuperAdmin === true || adminRole === 'super_admin';
-      const isAdminRole = adminRole === 'admin';
-      const isModerator = adminRole === 'moderator';
       
-      // Super Admin or Admin gets most tabs
-      if (isSuper || isAdminRole) {
-        // Only Super Admin can manage other admins
-        if (isSuper) {
-          adminItems.push({
-            title: "Admins",
-            href: "/admin?tab=admins",
-            icon: <span className="text-xl">🛡️</span>,
-            tabId: "admins",
-          });
-        }
-        
-        // Both Super Admin and Admin get these tabs
-        adminItems.push(
-          {
-            title: "Customers",
-            href: "/admin?tab=customers",
-            icon: <span className="text-xl">👥</span>,
-            tabId: "customers",
-            subItems: [
-              {
-                title: "Grouped by Shop",
-                href: "/admin?tab=customers&view=grouped",
-                icon: <span className="text-sm">🏪</span>,
-                tabId: "customers-grouped",
-              },
-              {
-                title: "All Customers",
-                href: "/admin?tab=customers&view=all",
-                icon: <span className="text-sm">👤</span>,
-                tabId: "customers-all",
-              },
-              {
-                title: "Unsuspend Requests",
-                href: "/admin?tab=customers&view=unsuspend",
-                icon: <span className="text-sm">🔓</span>,
-                tabId: "customers-unsuspend",
-              },
-            ],
-          },
-          {
-            title: "Shops",
-            href: "/admin?tab=shops-management",
-            icon: <span className="text-xl">🏪</span>,
-            tabId: "shops-management",
-            subItems: [
-              {
-                title: "All Shops",
-                href: "/admin?tab=shops-management&view=all",
-                icon: <span className="text-sm">📋</span>,
-                tabId: "shops-all",
-              },
-              {
-                title: "Unsuspend Requests",
-                href: "/admin?tab=shops-management&view=unsuspend",
-                icon: <span className="text-sm">🔓</span>,
-                tabId: "shops-unsuspend",
-              },
-            ],
-          },
-          {
-            title: "Subscriptions",
-            href: "/admin?tab=subscriptions",
-            icon: <span className="text-xl">💳</span>,
-            tabId: "subscriptions",
-          },
-          {
-            title: "Treasury",
-            href: "/admin?tab=treasury",
-            icon: <span className="text-xl">💰</span>,
-            tabId: "treasury",
-          },
-          // {
-          //   title: "Analytics",
-          //   href: "/admin?tab=analytics",
-          //   icon: <span className="text-xl">📈</span>,
-          //   tabId: "analytics",
-          // },
-          {
-            title: "Promo Codes",
-            href: "/admin?tab=promo-codes",
-            icon: <span className="text-xl">🏷️</span>,
-            tabId: "promo-codes",
-          }
-        );
+      // Only Super Admin can manage other admins
+      if (isSuper) {
+        adminItems.push({
+          title: "Admins",
+          href: "/admin?tab=admins",
+          icon: <span className="text-xl">🛡️</span>,
+          tabId: "admins",
+        });
       }
+      
+      // These tabs are always visible for all admin roles
+      adminItems.push(
+        {
+          title: "Customers",
+          href: "/admin?tab=customers",
+          icon: <span className="text-xl">👥</span>,
+          tabId: "customers",
+          subItems: [
+            {
+              title: "Grouped by Shop",
+              href: "/admin?tab=customers&view=grouped",
+              icon: <span className="text-sm">🏪</span>,
+              tabId: "customers-grouped",
+            },
+            {
+              title: "All Customers",
+              href: "/admin?tab=customers&view=all",
+              icon: <span className="text-sm">👤</span>,
+              tabId: "customers-all",
+            },
+            {
+              title: "Unsuspend Requests",
+              href: "/admin?tab=customers&view=unsuspend",
+              icon: <span className="text-sm">🔓</span>,
+              tabId: "customers-unsuspend",
+            },
+          ],
+        },
+        {
+          title: "Shops",
+          href: "/admin?tab=shops-management",
+          icon: <span className="text-xl">🏪</span>,
+          tabId: "shops-management",
+          subItems: [
+            {
+              title: "All Shops",
+              href: "/admin?tab=shops-management&view=all",
+              icon: <span className="text-sm">📋</span>,
+              tabId: "shops-all",
+            },
+            {
+              title: "Unsuspend Requests",
+              href: "/admin?tab=shops-management&view=unsuspend",
+              icon: <span className="text-sm">🔓</span>,
+              tabId: "shops-unsuspend",
+            },
+          ],
+        },
+        {
+          title: "Subscriptions",
+          href: "/admin?tab=subscriptions",
+          icon: <span className="text-xl">💳</span>,
+          tabId: "subscriptions",
+        },
+        {
+          title: "Treasury",
+          href: "/admin?tab=treasury",
+          icon: <span className="text-xl">💰</span>,
+          tabId: "treasury",
+        },
+        {
+          title: "Promo Codes",
+          href: "/admin?tab=promo-codes",
+          icon: <span className="text-xl">🏷️</span>,
+          tabId: "promo-codes",
+        }
+      );
       
       return adminItems;
     }

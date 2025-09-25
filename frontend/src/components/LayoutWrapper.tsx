@@ -5,13 +5,17 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
 export default function LayoutWrapper({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading, account } = useAuth();
+
+  console.log("isLoadingisLoading: ", isLoading)
+  console.log("accountaccount: ", account)
+  console.log("isAuthenticatedisAuthenticated1: ", isAuthenticated)
 
   return (
     <>
-      {!isAuthenticated && <Header />}
+      {!isAuthenticated && !isLoading && !account && <Header />}
       {children}
-      {!isAuthenticated && <Footer />}
+      {!isAuthenticated && !isLoading && !account && <Footer />}
     </>
   );
 }
