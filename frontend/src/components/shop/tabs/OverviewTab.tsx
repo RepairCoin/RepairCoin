@@ -167,8 +167,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             />
             <Button
               size="sm"
-              variant="ghost"
-              className="absolute top-2 right-2 h-8 w-8 p-0"
+              className="absolute top-2 right-2 h-8 w-8 p-0 bg-yellow-500 hover:bg-yellow-600 text-black"
               onClick={() => setShowDepositModal(true)}
               title="Deposit RCN"
             >
