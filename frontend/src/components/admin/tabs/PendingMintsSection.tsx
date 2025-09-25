@@ -27,6 +27,8 @@ export const PendingMintsSection: React.FC = () => {
 
   const loadPendingMints = async () => {
     setLoading(true);
+    console.log('[PENDING_MINTS_DEBUG] Starting loadPendingMints');
+    
     try {
       const adminToken = await generateAdminToken();
       if (!adminToken) {
@@ -34,22 +36,37 @@ export const PendingMintsSection: React.FC = () => {
         return;
       }
 
+      const url = `${process.env.NEXT_PUBLIC_API_URL}/admin/shops/pending-mints`;
+      console.log('[PENDING_MINTS_DEBUG] Fetching from:', url);
+      
       // Fetch shops with pending mints
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/shops/pending-mints`, {
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${adminToken}`
         }
       });
       
+      console.log('[PENDING_MINTS_DEBUG] Response status:', response.status);
+      
       if (response.ok) {
         const result = await response.json();
+        console.log('[PENDING_MINTS_DEBUG] API Response:', result);
+        console.log('[PENDING_MINTS_DEBUG] Shops data:', result.data);
+        
         setShops(result.data || []);
+        
+        if (result.data && result.data.length > 0) {
+          console.log('[PENDING_MINTS_DEBUG] Found pending mints for shops:', result.data.map((s: any) => s.shop_id));
+        } else {
+          console.log('[PENDING_MINTS_DEBUG] No pending mints found');
+        }
       } else {
         const errorData = await response.json();
+        console.error('[PENDING_MINTS_DEBUG] API Error:', errorData);
         onError(errorData.error || 'Failed to load pending mints');
       }
     } catch (error) {
-      console.error('Error loading pending mints:', error);
+      console.error('[PENDING_MINTS_DEBUG] Error loading pending mints:', error);
       onError('Failed to load pending mints data');
     } finally {
       setLoading(false);

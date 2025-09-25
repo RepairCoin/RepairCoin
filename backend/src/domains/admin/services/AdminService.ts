@@ -1583,6 +1583,8 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
 
   async getShopsWithPendingMints() {
     try {
+      console.log('[PENDING_MINTS_DEBUG] Starting getShopsWithPendingMints');
+      
       // Get all shops with a high limit to ensure we get all shops
       const shopsResult = await shopRepository.getShopsPaginated({ 
         page: 1, 
@@ -1590,31 +1592,42 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
       });
       const shops = shopsResult.items;
       
+      console.log(`[PENDING_MINTS_DEBUG] Found ${shops.length} total shops`);
+      
       // Get pending mints based on completed purchases that haven't been minted
       const shopsWithPendingMints = [];
       
       for (const shop of shops) {
         try {
+          console.log(`[PENDING_MINTS_DEBUG] Checking shop: ${shop.shopId} (${shop.name})`);
+          
           // Get total purchased RCN from shop_rcn_purchases table
           // Only include completed purchases (pending = awaiting payment confirmation)
           // This ensures we only mint for confirmed payments
           let purchaseQuery;
+          let usingMintedAt = false;
+          
           try {
             // Try with minted_at column first
             purchaseQuery = await treasuryRepository.query(`
               SELECT 
-                COALESCE(SUM(amount), 0) as total_purchased
+                COALESCE(SUM(amount), 0) as total_purchased,
+                COUNT(*) as purchase_count
               FROM shop_rcn_purchases 
               WHERE shop_id = $1 
                 AND status = 'completed'
                 AND minted_at IS NULL
             `, [shop.shopId]);
+            usingMintedAt = true;
+            console.log(`[PENDING_MINTS_DEBUG] Using minted_at column for ${shop.shopId}`);
           } catch (error: any) {
             // Fallback if minted_at column doesn't exist
+            console.log(`[PENDING_MINTS_DEBUG] minted_at column not available for ${shop.shopId}, using fallback`);
             if (error.message?.includes('minted_at')) {
               purchaseQuery = await treasuryRepository.query(`
                 SELECT 
-                  COALESCE(SUM(amount), 0) as total_purchased
+                  COALESCE(SUM(amount), 0) as total_purchased,
+                  COUNT(*) as purchase_count
                 FROM shop_rcn_purchases 
                 WHERE shop_id = $1 
                   AND status = 'completed'
@@ -1625,14 +1638,31 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
           }
           
           const totalPurchased = parseFloat(purchaseQuery.rows[0]?.total_purchased || '0');
+          const purchaseCount = purchaseQuery.rows[0]?.purchase_count || 0;
+          
+          console.log(`[PENDING_MINTS_DEBUG] Shop ${shop.shopId}: totalPurchased=${totalPurchased}, purchaseCount=${purchaseCount}`);
+          
+          // Also check all purchase statuses for debugging
+          const allPurchasesQuery = await treasuryRepository.query(`
+            SELECT status, COUNT(*) as count, SUM(amount) as total 
+            FROM shop_rcn_purchases 
+            WHERE shop_id = $1 
+            GROUP BY status
+          `, [shop.shopId]);
+          
+          console.log(`[PENDING_MINTS_DEBUG] All purchases for ${shop.shopId}:`, allPurchasesQuery.rows);
           
           if (totalPurchased > 0) {
             // Get blockchain balance
             const tokenService = new TokenService();
             const blockchainBalance = await tokenService.getBalance(shop.walletAddress);
             
+            console.log(`[PENDING_MINTS_DEBUG] Shop ${shop.shopId}: blockchainBalance=${blockchainBalance}`);
+            
             // If database balance > blockchain balance, there are pending mints
             const pendingAmount = totalPurchased - blockchainBalance;
+            
+            console.log(`[PENDING_MINTS_DEBUG] Shop ${shop.shopId}: pendingAmount=${pendingAmount} (${totalPurchased} - ${blockchainBalance})`);
             
             if (pendingAmount > 0) {
               shopsWithPendingMints.push({
@@ -1643,12 +1673,17 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
                 blockchain_balance: blockchainBalance,
                 pending_mint_amount: pendingAmount
               });
+              console.log(`[PENDING_MINTS_DEBUG] Added ${shop.shopId} to pending mints list`);
             }
           }
         } catch (error) {
+          console.error(`[PENDING_MINTS_DEBUG] Error checking shop ${shop.shopId}:`, error);
           logger.warn(`Could not get purchase data for shop ${shop.shopId}:`, error);
         }
       }
+      
+      console.log(`[PENDING_MINTS_DEBUG] Final result: ${shopsWithPendingMints.length} shops with pending mints`);
+      console.log('[PENDING_MINTS_DEBUG] Shops with pending mints:', JSON.stringify(shopsWithPendingMints, null, 2));
       
       logger.info('Retrieved shops with pending mints', { 
         count: shopsWithPendingMints.length 
@@ -1656,6 +1691,7 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
       
       return shopsWithPendingMints;
     } catch (error) {
+      console.error('[PENDING_MINTS_DEBUG] Error in getShopsWithPendingMints:', error);
       logger.error('Error getting shops with pending mints:', error);
       throw error;
     }
