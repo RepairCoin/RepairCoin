@@ -1,5 +1,4 @@
 import { Router, Request, Response } from 'express';
-import { authMiddleware } from '../../../middleware/auth';
 import { ShopRepository } from '../../../repositories/ShopRepository';
 import { TokenService } from '../../token/services/TokenService';
 import { DatabaseService } from '../../../services/DatabaseService';
@@ -16,7 +15,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 // Get deposit information (wallet balance vs operational balance)
-router.get('/deposit/info', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/info', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const walletAddress = req.walletAddress;
     if (!walletAddress) {
@@ -61,7 +60,7 @@ router.get('/deposit/info', authMiddleware, async (req: AuthenticatedRequest, re
 });
 
 // Create deposit request
-router.post('/deposit', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const walletAddress = req.walletAddress;
     const { amount } = req.body;
@@ -182,7 +181,7 @@ router.post('/deposit', authMiddleware, async (req: AuthenticatedRequest, res: R
 });
 
 // Get deposit history
-router.get('/deposit/history', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/history', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const walletAddress = req.walletAddress;
     if (!walletAddress) {
