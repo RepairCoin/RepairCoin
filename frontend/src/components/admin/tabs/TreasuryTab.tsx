@@ -478,7 +478,7 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
                   <div className="bg-gradient-to-br from-pink-900 to-pink-800 rounded-xl p-6 border border-pink-700">
                     <div className="text-3xl mb-2">🏪</div>
                     <p className="text-sm text-gray-400 mb-1">Total Shops</p>
-                    <p className="text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.total}</p>
+                    <p className="text-2xl font-bold text-white">{rcgMetrics?.shopTierDistribution?.total || 0}</p>
                     <p className="text-xs text-pink-400 mt-1">Active partners</p>
                   </div>
                 </div>

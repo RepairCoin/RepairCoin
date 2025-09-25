@@ -156,10 +156,37 @@ router.get('/treasury/rcg', async (req: Request, res: Response) => {
         // const rcgService = getRCGService();
         // const rcgMetrics = await rcgService.getRCGMetrics();
         
+        // Mock RCG metrics until service is implemented
+        const mockRcgMetrics = {
+            totalSupply: "100000000", // 100M fixed supply
+            circulatingSupply: "20000000", // 20M circulating
+            allocations: {
+                team: "30000000", // 30%
+                investors: "30000000", // 30%
+                publicSale: "20000000", // 20%
+                daoTreasury: "15000000", // 15%
+                stakingRewards: "5000000" // 5%
+            },
+            shopTierDistribution: {
+                standard: 0,
+                premium: 0,
+                elite: 0,
+                none: 0,
+                total: 0
+            },
+            revenueImpact: {
+                standardRevenue: 0,
+                premiumRevenue: 0,
+                eliteRevenue: 0,
+                totalRevenue: 0,
+                discountsGiven: 0
+            },
+            topHolders: []
+        };
+        
         res.json({
             success: true,
-            message: 'RCG metrics not yet implemented',
-            data: {}
+            data: mockRcgMetrics
         });
     } catch (error) {
         console.error('Error fetching RCG metrics:', error);

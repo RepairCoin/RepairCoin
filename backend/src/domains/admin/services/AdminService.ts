@@ -1602,7 +1602,7 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
             SELECT 
               COALESCE(SUM(amount), 0) as total_purchased
             FROM shop_rcn_purchases 
-            WHERE shop_id = $1 AND status IN ('completed', 'pending')
+            WHERE shop_id = $1 AND status IN ('completed', 'pending') AND status != 'minted'
           `, [shop.shopId]);
           
           const totalPurchased = parseFloat(purchaseQuery.rows[0]?.total_purchased || '0');
@@ -1655,7 +1655,7 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
         SELECT 
           COALESCE(SUM(amount), 0) as total_purchased
         FROM shop_rcn_purchases 
-        WHERE shop_id = $1 AND status IN ('completed', 'pending')
+        WHERE shop_id = $1 AND status IN ('completed', 'pending') AND status != 'minted'
       `, [shopId]);
       
       const totalPurchased = parseFloat(purchaseQuery.rows[0]?.total_purchased || '0');
