@@ -17,6 +17,7 @@ import apiClient from "@/utils/apiClient";
 import { showToast } from "@/utils/toast";
 import { DataTable } from "@/components/ui/DataTable";
 import { DashboardHeader } from "@/components/ui/DashboardHeader";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 interface Admin {
   id: number;
@@ -27,6 +28,7 @@ interface Admin {
   permissions: string[];
   isActive: boolean;
   isSuperAdmin: boolean;
+  isProtected?: boolean;
   createdAt: string;
   lastLogin: string | null;
 }
@@ -116,6 +118,9 @@ export default function AdminsTab() {
   };
 
   const openEditModal = (admin: Admin) => {
+    // Don't allow editing protected admins
+    if (admin.isProtected) return;
+    
     setSelectedAdmin(admin);
     setFormData({
       walletAddress: admin.walletAddress,
@@ -127,6 +132,9 @@ export default function AdminsTab() {
   };
 
   const openDeleteModal = (admin: Admin) => {
+    // Don't allow deleting protected admins
+    if (admin.isProtected) return;
+    
     setSelectedAdmin(admin);
     setShowDeleteModal(true);
   };
@@ -157,7 +165,14 @@ export default function AdminsTab() {
       accessor: (admin: Admin) => (
         <div className="flex items-center gap-3">
           <div>
-            <p className="font-medium text-gray-200">{admin.name}</p>
+            <div className="flex items-center gap-2">
+              <p className="font-medium text-gray-200">{admin.name}</p>
+              {admin.isProtected && (
+                <span title="Protected - Configured in environment">
+                  <Shield className="w-3.5 h-3.5 text-purple-400" />
+                </span>
+              )}
+            </div>
           </div>
         </div>
       ),
@@ -215,7 +230,7 @@ export default function AdminsTab() {
       header: "Role",
       accessor: (admin: Admin) => (
         <div className="flex items-center">
-          {admin.isSuperAdmin ? (
+          {admin.isSuperAdmin || admin.role === 'super_admin' ? (
             <span className="text-xs bg-purple-900/30 text-purple-400 px-2.5 py-1 rounded-full font-medium">
               Super Admin
             </span>
@@ -258,7 +273,7 @@ export default function AdminsTab() {
       className: "text-right",
       accessor: (admin: Admin) => (
         <div className="relative">
-          {!admin.isSuperAdmin ? (
+          {!admin.isProtected ? (
             <div className="flex justify-end items-center gap-1">
               <button
                 onClick={(e) => {

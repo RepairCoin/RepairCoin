@@ -482,11 +482,11 @@ export class AdminController {
         return ResponseHelper.error(res, 'Only super admin can delete admins', 403);
       }
       
-      // Prevent deletion of super admin from env
+      // Prevent deletion of super admins from env
       const admin = await this.adminService.getAdminById(adminId);
-      const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
-      if (admin?.walletAddress?.toLowerCase() === adminAddresses[0]) {
-        return ResponseHelper.error(res, 'Cannot delete the primary super admin', 400);
+      const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim()).filter(addr => addr.length > 0);
+      if (adminAddresses.includes(admin?.walletAddress?.toLowerCase() || '')) {
+        return ResponseHelper.error(res, 'Cannot delete a super admin from the environment configuration', 400);
       }
       
       await this.adminService.deleteAdmin(adminId);
@@ -547,10 +547,9 @@ export class AdminController {
   private async checkIfSuperAdmin(address?: string): Promise<boolean> {
     if (!address) return false;
     
-    // Check if this is the super admin from .env (first address in ADMIN_ADDRESSES)
-    const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
-    const superAdminAddress = adminAddresses[0]; // First address is super admin
-    if (superAdminAddress === address.toLowerCase()) {
+    // Check if this is a super admin from .env (all addresses in ADMIN_ADDRESSES are super admins)
+    const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim()).filter(addr => addr.length > 0);
+    if (adminAddresses.includes(address.toLowerCase())) {
       return true;
     }
     

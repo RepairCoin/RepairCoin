@@ -6,7 +6,7 @@ async function main() {
   try {
     const app = new RepairCoinApp();
     await app.initialize();
-    app.start();
+    await app.start();
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);

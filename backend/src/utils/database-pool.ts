@@ -20,8 +20,8 @@ export function getSharedPool(): Pool {
       connectionString: process.env.DATABASE_URL,
       ssl: sslConfig,
       max: parseInt(process.env.DB_POOL_MAX || '10'), // Single pool with 10 connections
-      idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT_MS || '10000'),
-      connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT_MS || '5000'),
+      idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT_MS || '30000'), // Increased to 30 seconds
+      connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT_MS || '10000'), // Increased to 10 seconds
       keepAlive: true,
     };
 
@@ -84,5 +84,17 @@ export async function closeSharedPool(): Promise<void> {
     await sharedPool.end();
     sharedPool = null;
     logger.info('Shared database pool closed');
+  }
+}
+
+// Warm up the connection pool by pre-establishing connections
+export async function warmUpPool(): Promise<void> {
+  const pool = getSharedPool();
+  try {
+    // Execute a simple query to establish connection
+    await pool.query('SELECT 1');
+    logger.info('Database pool warmed up successfully');
+  } catch (error) {
+    logger.error('Failed to warm up database pool:', error);
   }
 }
