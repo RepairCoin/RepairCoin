@@ -42,7 +42,7 @@ export function DepositModal({ isOpen, onClose, shopData, onDepositComplete }: D
   const fetchDepositInfo = async () => {
     try {
       setIsLoadingInfo(true);
-      const token = localStorage.getItem('authToken');
+      const token = localStorage.getItem('shopAuthToken') || sessionStorage.getItem('shopAuthToken');
       
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/deposit/info`, {
         headers: {
@@ -86,7 +86,7 @@ export function DepositModal({ isOpen, onClose, shopData, onDepositComplete }: D
 
     try {
       setIsLoading(true);
-      const token = localStorage.getItem('authToken');
+      const token = localStorage.getItem('shopAuthToken') || sessionStorage.getItem('shopAuthToken');
       
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/deposit`, {
         method: 'POST',
