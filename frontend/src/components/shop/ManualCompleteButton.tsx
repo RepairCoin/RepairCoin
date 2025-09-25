@@ -19,7 +19,7 @@ export const ManualCompleteButton: React.FC<ManualCompleteButtonProps> = ({
   const [confirmCode, setConfirmCode] = useState('');
   const [completing, setCompleting] = useState(false);
   
-  const expectedCode = `CONFIRM-${purchaseId.slice(-6).toUpperCase()}`;
+  const expectedCode = `CONFIRM-${String(purchaseId).slice(-6).toUpperCase()}`;
 
   const handleComplete = async () => {
     if (confirmCode !== expectedCode) {

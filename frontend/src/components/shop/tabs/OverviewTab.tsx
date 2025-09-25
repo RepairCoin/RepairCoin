@@ -34,10 +34,11 @@ interface ShopData {
 }
 
 interface PurchaseHistory {
-  id: string;
+  id: string | number;
   amount: number;
   totalCost?: number;
   paymentMethod: string;
+  paymentReference?: string;
   status: string;
   createdAt: string;
 }
@@ -111,9 +112,9 @@ const purchaseColumns: Column<PurchaseHistory>[] = [
           >
             {purchase.status}
           </span>
-          {purchase.status === "pending" && purchase.paymentReference && (
+          {purchase.status === "pending" && (
             <PurchaseSyncButton
-              purchaseId={purchase.id}
+              purchaseId={String(purchase.id)}
               amount={purchase.amount}
             />
           )}

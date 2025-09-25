@@ -182,7 +182,7 @@ router.post('/manual-complete/:purchaseId', asyncHandler(async (req: Authenticat
     }
     
     // Verify confirmation code (simple verification)
-    const expectedCode = `CONFIRM-${purchaseId.slice(-6).toUpperCase()}`;
+    const expectedCode = `CONFIRM-${String(purchaseId).slice(-6).toUpperCase()}`;
     if (confirmationCode !== expectedCode) {
       return res.status(400).json({ 
         success: false, 
