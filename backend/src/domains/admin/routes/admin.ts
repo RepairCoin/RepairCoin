@@ -174,7 +174,7 @@ router.get('/debug/purchase-status/:shopId',
     const db = require('../../../services/DatabaseService').DatabaseService.getInstance();
     
     const purchases = await db.query(`
-      SELECT id, shop_id, amount, status, created_at, completed_at
+      SELECT id, shop_id, amount, total_cost, status, payment_method, payment_reference, created_at, completed_at, minted_at
       FROM shop_rcn_purchases 
       WHERE shop_id = $1
       ORDER BY created_at DESC
@@ -182,7 +182,13 @@ router.get('/debug/purchase-status/:shopId',
     
     res.json({
       success: true,
-      data: purchases.rows
+      data: purchases.rows,
+      summary: {
+        total: purchases.rows.length,
+        pending: purchases.rows.filter(p => p.status === 'pending').length,
+        completed: purchases.rows.filter(p => p.status === 'completed').length,
+        minted: purchases.rows.filter(p => p.minted_at).length
+      }
     });
   })
 );
@@ -309,6 +315,67 @@ router.get('/debug/all-shops-purchases',
 // Mint shop's purchased RCN balance to blockchain
 router.post('/shops/:shopId/mint-balance',
   asyncHandler(adminController.mintShopBalance.bind(adminController))
+);
+
+// Manually complete a pending purchase (admin override)
+router.post('/shops/:shopId/complete-purchase/:purchaseId',
+  asyncHandler(async (req, res) => {
+    try {
+      const { shopId, purchaseId } = req.params;
+      const { paymentReference } = req.body;
+      
+      const db = require('../../../services/DatabaseService').DatabaseService.getInstance();
+      
+      // Verify the purchase exists and belongs to this shop
+      const purchaseQuery = await db.query(
+        'SELECT * FROM shop_rcn_purchases WHERE id = $1 AND shop_id = $2 AND status = $3',
+        [purchaseId, shopId, 'pending']
+      );
+      
+      if (purchaseQuery.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'Pending purchase not found for this shop'
+        });
+      }
+      
+      const purchase = purchaseQuery.rows[0];
+      
+      // Complete the purchase
+      await db.query(`
+        UPDATE shop_rcn_purchases 
+        SET status = 'completed', 
+            completed_at = NOW(), 
+            payment_reference = COALESCE($2, payment_reference)
+        WHERE id = $1
+      `, [purchaseId, paymentReference || `ADMIN_MANUAL_${Date.now()}`]);
+      
+      logger.info('Admin manually completed purchase', {
+        purchaseId,
+        shopId,
+        amount: purchase.amount,
+        adminAddress: req.user?.address
+      });
+      
+      res.json({
+        success: true,
+        message: 'Purchase completed successfully',
+        data: {
+          purchaseId,
+          shopId,
+          amount: purchase.amount,
+          totalCost: purchase.total_cost,
+          status: 'completed'
+        }
+      });
+    } catch (error: any) {
+      logger.error('Error completing purchase:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to complete purchase'
+      });
+    }
+  })
 );
 
 // Unsuspend requests management
