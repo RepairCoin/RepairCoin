@@ -4,10 +4,12 @@ import React, { useState, useEffect } from "react";
 import { WalletIcon } from "../../icon/index";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatCard } from "@/components/ui/StatCard";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Download } from "lucide-react";
 import { RCGBalanceCard } from "@/components/shop/RCGBalanceCard";
 import { useRCGBalance } from "@/hooks/useRCGBalance";
 import { formatRCGBalance } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { DepositModal } from "@/components/shop/DepositModal";
 
 interface ShopData {
   shopId: string;
@@ -20,6 +22,7 @@ interface ShopData {
   purchasedRcnBalance: number;
   totalRcnPurchased: number;
   lastPurchaseDate?: string;
+  walletAddress?: string;
   operational_status?:
     | "pending"
     | "rcg_qualified"
@@ -42,6 +45,7 @@ interface OverviewTabProps {
   shopData: ShopData | null;
   purchases: PurchaseHistory[];
   blockchainBalance?: number;
+  onRefreshData?: () => void;
 }
 
 // Purchase columns for DataTable
@@ -113,6 +117,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   shopData,
   purchases,
   blockchainBalance = 0,
+  onRefreshData,
 }) => {
   const { rcgInfo } = useRCGBalance(shopData?.shopId);
 
@@ -120,6 +125,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const [filter, setFilter] = useState<
     "all" | "completed" | "pending" | "failed"
   >("all");
+  const [showDepositModal, setShowDepositModal] = useState(false);
 
   // Filter purchases based on selected filter
   const filteredPurchases = purchases.filter((purchase) => {
@@ -152,11 +158,22 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       <div className="space-y-8">
         {/* Shop Statistics */}
         <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard
-            title="RCN Balance"
-            value={(Number(shopData.purchasedRcnBalance) || 0).toFixed(2)}
-            icon={<WalletIcon />}
-          />
+          <div className="relative">
+            <StatCard
+              title="RCN Balance"
+              value={(Number(shopData.purchasedRcnBalance) || 0).toFixed(2)}
+              icon={<WalletIcon />}
+            />
+            <Button
+              size="sm"
+              variant="ghost"
+              className="absolute top-2 right-2 h-8 w-8 p-0"
+              onClick={() => setShowDepositModal(true)}
+              title="Deposit RCN"
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+          </div>
           <StatCard
             title="Tokens Issued"
             value={shopData.totalTokensIssued || 0}
@@ -418,6 +435,25 @@ const BalanceAlertCard: React.FC<{ balance: number }> = ({ balance }) => {
         )}
       </div>
     </div>
+    
+    {/* Deposit Modal */}
+    {shopData && (
+      <DepositModal
+        isOpen={showDepositModal}
+        onClose={() => setShowDepositModal(false)}
+        shopData={{
+          shopId: shopData.shopId,
+          walletAddress: shopData.walletAddress || '',
+          purchasedRcnBalance: shopData.purchasedRcnBalance
+        }}
+        onDepositComplete={() => {
+          setShowDepositModal(false);
+          if (onRefreshData) {
+            onRefreshData();
+          }
+        }}
+      />
+    )}
   );
 };
 

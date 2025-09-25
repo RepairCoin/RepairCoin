@@ -523,7 +523,12 @@ export default function ShopDashboardClient() {
           
           {/* Tab Content */}
           {activeTab === 'overview' && (
-            <OverviewTab shopData={shopData} purchases={purchases} blockchainBalance={blockchainBalance} />
+            <OverviewTab 
+              shopData={shopData} 
+              purchases={purchases} 
+              blockchainBalance={blockchainBalance} 
+              onRefreshData={fetchData}
+            />
           )}
 
           {activeTab === 'purchase' && (

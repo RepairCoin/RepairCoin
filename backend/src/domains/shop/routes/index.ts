@@ -47,12 +47,14 @@ interface ShopData {
 // Import new route modules
 import purchaseRoutes from './purchase';
 import tierBonusRoutes from './tierBonus';
+import depositRoutes from './deposit';
 
 const router = Router();
 
 // Register sub-routes (protected by auth)
 router.use('/purchase', authMiddleware, requireRole(['shop']), purchaseRoutes);
 router.use('/tier-bonus', authMiddleware, requireRole(['shop']), tierBonusRoutes);
+router.use('/deposit', authMiddleware, requireRole(['shop']), depositRoutes);
 
 // Lazy loading helpers
 let tokenMinter: TokenMinter | null = null;

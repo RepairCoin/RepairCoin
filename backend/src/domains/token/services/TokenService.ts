@@ -577,6 +577,16 @@
       }
     }
 
+    async getRCNBalance(address: string): Promise<number> {
+      try {
+        const balance = await this.getTokenMinter().getCustomerBalance(address);
+        return balance || 0;
+      } catch (error) {
+        logger.error('Error getting RCN balance:', error);
+        return 0;
+      }
+    }
+
     // Validate token operation before execution
     async validateTokenOperation(
       operation: 'mint' | 'redeem' | 'transfer',
