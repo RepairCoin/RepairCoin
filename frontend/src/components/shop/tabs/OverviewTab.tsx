@@ -158,12 +158,13 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="space-y-8">
         {/* Shop Statistics */}
-        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-6">
           <div className="relative">
             <StatCard
-              title="RCN Balance"
+              title="Operational RCN"
               value={(Number(shopData.purchasedRcnBalance) || 0).toFixed(2)}
               icon={<WalletIcon />}
+              subtitle="For rewards"
             />
             <Button
               size="sm"
@@ -184,6 +185,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             </Button>
           </div>
           <StatCard
+            title="Total Purchased"
+            value={(Number(shopData.totalRcnPurchased) || 0).toFixed(2)}
+            icon={<WalletIcon />}
+            subtitle="Lifetime"
+          />
+          <StatCard
             title="Tokens Issued"
             value={shopData.totalTokensIssued || 0}
             icon={<WalletIcon />}
@@ -194,7 +201,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             icon={<WalletIcon />}
           />
           <StatCard
-            title="RCG Token"
+            title="RCG Balance"
             value={formatRCGBalance(rcgInfo?.balance || 0)}
             icon={<WalletIcon />}
           />
