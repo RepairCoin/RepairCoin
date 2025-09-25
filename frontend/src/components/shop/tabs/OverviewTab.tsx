@@ -168,7 +168,16 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <Button
               size="sm"
               className="absolute top-2 right-2 h-8 w-8 p-0 bg-yellow-500 hover:bg-yellow-600 text-black"
-              onClick={() => setShowDepositModal(true)}
+              onClick={() => {
+                const token = localStorage.getItem('shopAuthToken') || sessionStorage.getItem('shopAuthToken');
+                if (!token) {
+                  console.error('[OverviewTab] No auth token found when trying to open deposit modal');
+                  alert('Please refresh the page to authenticate');
+                  return;
+                }
+                console.log('[OverviewTab] Opening deposit modal with auth token present');
+                setShowDepositModal(true);
+              }}
               title="Deposit RCN"
             >
               <Download className="h-4 w-4" />

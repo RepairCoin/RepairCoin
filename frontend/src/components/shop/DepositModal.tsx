@@ -34,15 +34,29 @@ export function DepositModal({ isOpen, onClose, shopData, onDepositComplete }: D
   const [isLoadingInfo, setIsLoadingInfo] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && shopData.shopId && shopData.walletAddress) {
       fetchDepositInfo();
+    } else if (isOpen && (!shopData.shopId || !shopData.walletAddress)) {
+      console.error('[DepositModal] Missing shop data:', { shopId: shopData.shopId, walletAddress: shopData.walletAddress });
+      toast.error('Shop information is incomplete. Please refresh the page.');
+      onClose();
     }
-  }, [isOpen, shopData.shopId]);
+  }, [isOpen, shopData.shopId, shopData.walletAddress]);
 
   const fetchDepositInfo = async () => {
     try {
       setIsLoadingInfo(true);
       const token = localStorage.getItem('shopAuthToken') || sessionStorage.getItem('shopAuthToken');
+      
+      // Debug logging
+      console.log('[DepositModal] Fetching deposit info with token:', token ? 'Token exists' : 'No token found');
+      console.log('[DepositModal] Token length:', token?.length);
+      console.log('[DepositModal] API URL:', `${process.env.NEXT_PUBLIC_API_URL}/shops/deposit/info`);
+      
+      if (!token) {
+        console.error('[DepositModal] No auth token found in storage');
+        throw new Error('Authentication required. Please refresh the page.');
+      }
       
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/deposit/info`, {
         headers: {
@@ -50,9 +64,28 @@ export function DepositModal({ isOpen, onClose, shopData, onDepositComplete }: D
           'Content-Type': 'application/json'
         }
       });
+      
+      console.log('[DepositModal] Response status:', response.status);
+      console.log('[DepositModal] Response headers:', response.headers);
 
       if (!response.ok) {
-        throw new Error('Failed to fetch deposit info');
+        console.error('[DepositModal] API response not ok:', response.status, response.statusText);
+        
+        // Try to get error details
+        let errorMessage = 'Failed to fetch deposit info';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+          console.error('[DepositModal] Error details:', errorData);
+        } catch (e) {
+          console.error('[DepositModal] Could not parse error response');
+        }
+        
+        if (response.status === 401) {
+          errorMessage = 'Authentication failed. Please refresh the page and try again.';
+        }
+        
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
@@ -65,7 +98,15 @@ export function DepositModal({ isOpen, onClose, shopData, onDepositComplete }: D
       }
     } catch (error) {
       console.error('Error fetching deposit info:', error);
-      toast.error('Failed to load deposit information');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load deposit information';
+      
+      // If it's an auth error and this is the first attempt, suggest refreshing
+      if (errorMessage.includes('Authentication')) {
+        toast.error(errorMessage);
+        onClose(); // Close the modal to force re-authentication
+      } else {
+        toast.error(errorMessage);
+      }
     } finally {
       setIsLoadingInfo(false);
     }
@@ -87,6 +128,13 @@ export function DepositModal({ isOpen, onClose, shopData, onDepositComplete }: D
     try {
       setIsLoading(true);
       const token = localStorage.getItem('shopAuthToken') || sessionStorage.getItem('shopAuthToken');
+      
+      console.log('[DepositModal] Processing deposit with token:', token ? 'Token exists' : 'No token found');
+      
+      if (!token) {
+        console.error('[DepositModal] No auth token found for deposit');
+        throw new Error('Authentication required. Please refresh the page.');
+      }
       
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/deposit`, {
         method: 'POST',
