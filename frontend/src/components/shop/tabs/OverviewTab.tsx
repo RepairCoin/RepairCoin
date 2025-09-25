@@ -10,6 +10,7 @@ import { useRCGBalance } from "@/hooks/useRCGBalance";
 import { formatRCGBalance } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { DepositModal } from "@/components/shop/DepositModal";
+import { PurchaseSyncButton } from "@/components/shop/PurchaseSyncButton";
 
 interface ShopData {
   shopId: string;
@@ -97,17 +98,26 @@ const purchaseColumns: Column<PurchaseHistory>[] = [
         completed: "bg-green-500/10 text-green-400",
         pending: "bg-yellow-500/10 text-yellow-400",
         failed: "bg-red-500/10 text-red-400",
+        minted: "bg-blue-500/10 text-blue-400",
       };
 
       return (
-        <span
-          className={`px-2 py-1 rounded-full text-xs font-medium ${
-            statusColors[purchase.status as keyof typeof statusColors] ||
-            statusColors.pending
-          }`}
-        >
-          {purchase.status}
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className={`px-2 py-1 rounded-full text-xs font-medium ${
+              statusColors[purchase.status as keyof typeof statusColors] ||
+              statusColors.pending
+            }`}
+          >
+            {purchase.status}
+          </span>
+          {purchase.status === "pending" && purchase.paymentReference && (
+            <PurchaseSyncButton
+              purchaseId={purchase.id}
+              amount={purchase.amount}
+            />
+          )}
+        </div>
       );
     },
   },

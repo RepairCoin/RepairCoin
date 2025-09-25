@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fix Pending Purchases - RepairCoin Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-8">RepairCoin - Fix Pending Purchases</h1>
+        
+        <div id="status" class="mb-6 p-4 bg-gray-800 rounded-lg">
+            <p>Status: <span id="statusText">Not connected</span></p>
+            <p>Wallet: <span id="walletAddress">-</span></p>
+        </div>
+
+        <div class="space-y-6">
+            <div class="bg-gray-800 p-6 rounded-lg">
+                <h2 class="text-xl font-semibold mb-4">Step 1: Connect Wallet</h2>
+                <button onclick="connectWallet()" class="bg-blue-600 px-4 py-2 rounded hover:bg-blue-700">
+                    Connect MetaMask
+                </button>
+            </div>
+
+            <div class="bg-gray-800 p-6 rounded-lg">
+                <h2 class="text-xl font-semibold mb-4">Step 2: Generate Admin Token</h2>
+                <button onclick="getAdminToken()" class="bg-green-600 px-4 py-2 rounded hover:bg-green-700">
+                    Generate Admin Token
+                </button>
+                <div id="tokenStatus" class="mt-2 text-sm text-gray-400"></div>
+            </div>
+
+            <div class="bg-gray-800 p-6 rounded-lg">
+                <h2 class="text-xl font-semibold mb-4">Step 3: Check Purchases</h2>
+                <input type="text" id="shopId" value="zwift-tech" placeholder="Shop ID" 
+                    class="bg-gray-700 px-3 py-2 rounded mr-2">
+                <button onclick="checkPurchases()" class="bg-purple-600 px-4 py-2 rounded hover:bg-purple-700">
+                    Load Purchases
+                </button>
+                <div id="purchases" class="mt-4"></div>
+            </div>
+
+            <div class="bg-gray-800 p-6 rounded-lg">
+                <h2 class="text-xl font-semibold mb-4">Step 4: Complete Pending Purchase</h2>
+                <input type="text" id="purchaseId" placeholder="Purchase ID" 
+                    class="bg-gray-700 px-3 py-2 rounded mr-2 w-64">
+                <button onclick="completePurchase()" class="bg-red-600 px-4 py-2 rounded hover:bg-red-700">
+                    Complete Purchase
+                </button>
+                <div id="completeStatus" class="mt-2 text-sm"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://repaircoin-staging-s7743.ondigitalocean.app/api';
+        let adminToken = null;
+        let currentAddress = null;
+
+        async function connectWallet() {
+            if (typeof window.ethereum === 'undefined') {
+                alert('Please install MetaMask!');
+                return;
+            }
+
+            try {
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                currentAddress = accounts[0];
+                document.getElementById('walletAddress').textContent = currentAddress;
+                document.getElementById('statusText').textContent = 'Wallet connected';
+                updateStatus('Wallet connected: ' + currentAddress, 'green');
+            } catch (error) {
+                console.error('Failed to connect wallet:', error);
+                updateStatus('Failed to connect wallet', 'red');
+            }
+        }
+
+        async function getAdminToken() {
+            if (!currentAddress) {
+                alert('Please connect wallet first!');
+                return;
+            }
+
+            try {
+                document.getElementById('tokenStatus').textContent = 'Checking admin status...';
+                
+                // Check if user is admin
+                const checkRes = await fetch(`${API_URL}/auth/check-user`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        walletAddress: currentAddress,
+                        requestedUserType: 'admin'
+                    })
+                });
+
+                const checkData = await checkRes.json();
+                console.log('Check user response:', checkData);
+
+                if (checkData.userType !== 'admin') {
+                    updateStatus('Not an admin wallet!', 'red');
+                    return;
+                }
+
+                // For this manual process, we'll use a simple approach
+                // In production, you'd implement proper signature-based auth
+                adminToken = 'manual_admin_' + Date.now(); // Placeholder
+                
+                document.getElementById('tokenStatus').textContent = '✅ Admin verified! You can now check purchases.';
+                updateStatus('Admin access confirmed', 'green');
+            } catch (error) {
+                console.error('Admin token error:', error);
+                updateStatus('Failed to verify admin status', 'red');
+            }
+        }
+
+        async function checkPurchases() {
+            const shopId = document.getElementById('shopId').value;
+            if (!shopId) {
+                alert('Please enter shop ID!');
+                return;
+            }
+
+            try {
+                // Since we can't get a real token easily, let's show the manual SQL approach
+                const purchasesDiv = document.getElementById('purchases');
+                purchasesDiv.innerHTML = `
+                    <div class="bg-yellow-900/20 border border-yellow-600 rounded p-4 mt-4">
+                        <p class="font-semibold mb-2">Manual Database Check Required</p>
+                        <p class="text-sm mb-3">Since the API requires authentication, you'll need to check the database directly.</p>
+                        <p class="font-mono text-xs bg-gray-800 p-3 rounded">
+                            SELECT id, shop_id, amount, total_cost, status, created_at<br>
+                            FROM shop_rcn_purchases<br>
+                            WHERE shop_id = 'zwift-tech'<br>
+                            ORDER BY created_at DESC;
+                        </p>
+                        <p class="text-sm mt-3">Your pending purchases should show status = 'pending'</p>
+                        <p class="text-sm">Copy the purchase ID for the pending purchase you want to complete.</p>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error checking purchases:', error);
+                updateStatus('Failed to load purchases', 'red');
+            }
+        }
+
+        async function completePurchase() {
+            const purchaseId = document.getElementById('purchaseId').value;
+            const shopId = document.getElementById('shopId').value;
+            
+            if (!purchaseId || !shopId) {
+                alert('Please enter both Shop ID and Purchase ID!');
+                return;
+            }
+
+            const completeDiv = document.getElementById('completeStatus');
+            completeDiv.innerHTML = `
+                <div class="bg-green-900/20 border border-green-600 rounded p-4 mt-4">
+                    <p class="font-semibold mb-2">Manual SQL to Complete Purchase</p>
+                    <p class="text-sm mb-3">Run this SQL command to complete the purchase:</p>
+                    <p class="font-mono text-xs bg-gray-800 p-3 rounded">
+                        UPDATE shop_rcn_purchases<br>
+                        SET status = 'completed',<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;completed_at = NOW(),<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;payment_reference = 'ADMIN_MANUAL_FIX'<br>
+                        WHERE id = '${purchaseId}'<br>
+                        AND shop_id = '${shopId}'<br>
+                        AND status = 'pending';
+                    </p>
+                    <p class="text-sm mt-3 text-yellow-400">⚠️ After running this SQL:</p>
+                    <ul class="text-sm mt-2 list-disc list-inside">
+                        <li>If auto-minting is ON: Tokens will mint automatically</li>
+                        <li>If auto-minting is OFF: Purchase will appear in pending mints</li>
+                    </ul>
+                </div>
+            `;
+        }
+
+        function updateStatus(message, color = 'gray') {
+            const statusText = document.getElementById('statusText');
+            statusText.textContent = message;
+            statusText.className = `text-${color}-400`;
+        }
+    </script>
+</body>
+</html>
