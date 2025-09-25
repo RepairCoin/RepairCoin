@@ -54,7 +54,7 @@ const router = Router();
 // Register sub-routes (protected by auth)
 router.use('/purchase', authMiddleware, requireRole(['shop']), purchaseRoutes);
 router.use('/tier-bonus', authMiddleware, requireRole(['shop']), tierBonusRoutes);
-router.use('/deposit', authMiddleware, requireRole(['shop']), depositRoutes);
+router.use('/deposit', authMiddleware, requireRole(['shop']), depositRoutes); // RCN deposit routes
 
 // Lazy loading helpers
 let tokenMinter: TokenMinter | null = null;
