@@ -14,11 +14,8 @@ router.use(requireRole(['shop']));
 interface AuthenticatedRequest extends Request {
   user?: {
     address: string;
-    userType: string;
-  };
-  shop?: {
-    shopId: string;
-    walletAddress: string;
+    role: string;
+    shopId?: string;
   };
   params: any;
   body: any;
@@ -31,7 +28,7 @@ interface AuthenticatedRequest extends Request {
 router.post('/check-payment/:purchaseId', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { purchaseId } = req.params;
-    const shopId = req.shop?.shopId;
+    const shopId = req.user?.shopId;
     
     if (!shopId) {
       return res.status(401).json({ success: false, error: 'Shop not authenticated' });
@@ -140,7 +137,7 @@ router.post('/check-payment/:purchaseId', asyncHandler(async (req: Authenticated
  */
 router.get('/pending', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const shopId = req.shop?.shopId;
+    const shopId = req.user?.shopId;
     
     if (!shopId) {
       return res.status(401).json({ success: false, error: 'Shop not authenticated' });
@@ -178,7 +175,7 @@ router.post('/manual-complete/:purchaseId', asyncHandler(async (req: Authenticat
   try {
     const { purchaseId } = req.params;
     const { confirmationCode } = req.body;
-    const shopId = req.shop?.shopId;
+    const shopId = req.user?.shopId;
     
     if (!shopId) {
       return res.status(401).json({ success: false, error: 'Shop not authenticated' });
@@ -223,7 +220,7 @@ router.post('/manual-complete/:purchaseId', asyncHandler(async (req: Authenticat
       purchaseId,
       shopId,
       amount: purchase.amount,
-      shopWallet: req.shop?.walletAddress
+      shopWallet: req.user?.address
     });
     
     return res.json({
