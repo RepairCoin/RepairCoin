@@ -658,7 +658,7 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                 placeholder="Search by name, address, email, or referral code..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
             {/* Filter controls - only show for customer views */}
@@ -691,7 +691,7 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="py-6">
           {viewMode === "grouped" && (
             <div className="space-y-4">
               {data.shopsWithCustomers.map((shop) => {
@@ -807,6 +807,7 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                 columns={customerColumns}
                 keyExtractor={(customer) => customer.address}
                 emptyMessage="No customers found"
+                headerClassName="bg-gray-900/60 border-gray-800"
                 showPagination={true}
                 itemsPerPage={10}
                 emptyIcon={

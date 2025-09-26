@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { toast } from 'react-hot-toast';
-import { X } from 'lucide-react';
+import React, { useState } from "react";
+import { toast } from "react-hot-toast";
+import { X } from "lucide-react";
 
 interface AddShopModalProps {
   isOpen: boolean;
@@ -15,50 +15,62 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
   isOpen,
   onClose,
   generateAdminToken,
-  onSuccess
+  onSuccess,
 }) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    shop_id: '',
-    name: '',
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    wallet_address: '',
-    address: '',
-    city: '',
-    country: '',
-    website: '',
-    description: '',
-    companySize: '',
-    monthlyRevenue: '',
-    referralCode: '',
+    shop_id: "",
+    name: "",
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    wallet_address: "",
+    address: "",
+    city: "",
+    country: "",
+    website: "",
+    description: "",
+    companySize: "",
+    monthlyRevenue: "",
+    referralCode: "",
     verified: false,
     active: true,
-    cross_shop_enabled: false
+    cross_shop_enabled: false,
   });
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
     const { name, value, type } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
+      [name]:
+        type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
     }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate required fields
-    if (!formData.shop_id || !formData.name || !formData.email || !formData.phone || !formData.wallet_address || !formData.address) {
-      toast.error('Please fill in all required fields');
+    if (
+      !formData.shop_id ||
+      !formData.name ||
+      !formData.email ||
+      !formData.phone ||
+      !formData.wallet_address ||
+      !formData.address
+    ) {
+      toast.error("Please fill in all required fields");
       return;
     }
 
     // Validate wallet address format
     if (!formData.wallet_address.match(/^0x[a-fA-F0-9]{40}$/)) {
-      toast.error('Invalid wallet address format');
+      toast.error("Invalid wallet address format");
       return;
     }
 
@@ -66,72 +78,75 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
     try {
       const adminToken = await generateAdminToken();
       if (!adminToken) {
-        toast.error('Failed to authenticate as admin');
+        toast.error("Failed to authenticate as admin");
         return;
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/create-shop`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${adminToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          shop_id: formData.shop_id,
-          name: formData.name,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          phone: formData.phone,
-          wallet_address: formData.wallet_address.toLowerCase(),
-          address: formData.address,
-          city: formData.city,
-          country: formData.country,
-          website: formData.website,
-          description: formData.description,
-          companySize: formData.companySize,
-          monthlyRevenue: formData.monthlyRevenue,
-          referralCode: formData.referralCode,
-          verified: formData.verified,
-          active: formData.active,
-          cross_shop_enabled: formData.cross_shop_enabled
-        })
-      });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/create-shop`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${adminToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            shop_id: formData.shop_id,
+            name: formData.name,
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            email: formData.email,
+            phone: formData.phone,
+            wallet_address: formData.wallet_address.toLowerCase(),
+            address: formData.address,
+            city: formData.city,
+            country: formData.country,
+            website: formData.website,
+            description: formData.description,
+            companySize: formData.companySize,
+            monthlyRevenue: formData.monthlyRevenue,
+            referralCode: formData.referralCode,
+            verified: formData.verified,
+            active: formData.active,
+            cross_shop_enabled: formData.cross_shop_enabled,
+          }),
+        }
+      );
 
       if (response.ok) {
-        toast.success('Shop created successfully!');
-        
+        toast.success("Shop created successfully!");
+
         // Reset form
         setFormData({
-          shop_id: '',
-          name: '',
-          firstName: '',
-          lastName: '',
-          email: '',
-          phone: '',
-          wallet_address: '',
-          address: '',
-          city: '',
-          country: '',
-          website: '',
-          description: '',
-          companySize: '',
-          monthlyRevenue: '',
-          referralCode: '',
+          shop_id: "",
+          name: "",
+          firstName: "",
+          lastName: "",
+          email: "",
+          phone: "",
+          wallet_address: "",
+          address: "",
+          city: "",
+          country: "",
+          website: "",
+          description: "",
+          companySize: "",
+          monthlyRevenue: "",
+          referralCode: "",
           verified: false,
           active: true,
-          cross_shop_enabled: false
+          cross_shop_enabled: false,
         });
-        
+
         onSuccess();
         onClose();
       } else {
         const errorData = await response.json();
-        toast.error(errorData.error || 'Failed to create shop');
+        toast.error(errorData.error || "Failed to create shop");
       }
     } catch (error) {
-      console.error('Error creating shop:', error);
-      toast.error('Network error while creating shop');
+      console.error("Error creating shop:", error);
+      toast.error("Network error while creating shop");
     } finally {
       setLoading(false);
     }
@@ -140,17 +155,26 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-        {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-white">Add New Shop</h2>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-[#212121] border border-gray-800 rounded-xl shadow-2xl w-full max-w-lg transform transition-all">
+        <div
+          className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-3xl"
+          style={{
+            backgroundImage: `url('/img/cust-ref-widget3.png')`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+          }}
+        >
+          <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
+            Add New Shop
+          </p>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+            className="p-2 rounded-lg transition-colors"
             disabled={loading}
           >
-            <X className="w-5 h-5 text-gray-400" />
+            <X className="w-5 h-5 text-gray-900" />
           </button>
         </div>
 
@@ -159,7 +183,9 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Shop Information */}
             <div className="border-b border-gray-700 pb-6">
-              <h3 className="text-lg font-semibold text-white mb-4">Shop Information</h3>
+              <h3 className="text-lg font-semibold text-[#FFCC00] mb-4">
+                Shop Information
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -171,12 +197,12 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                     value={formData.shop_id}
                     onChange={handleInputChange}
                     placeholder="unique-shop-id"
-                    className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-yellow-400 focus:outline-none"
+                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                     disabled={loading}
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Shop Name <span className="text-red-500">*</span>
@@ -187,7 +213,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                     value={formData.name}
                     onChange={handleInputChange}
                     placeholder="My Repair Shop"
-                    className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-yellow-400 focus:outline-none"
+                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                     disabled={loading}
                   />
@@ -197,7 +223,9 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
 
             {/* Contact Information */}
             <div className="border-b border-gray-700 pb-6">
-              <h3 className="text-lg font-semibold text-white mb-4">Contact Information</h3>
+              <h3 className="text-lg font-semibold text-[#FFCC00] mb-4">
+                Contact Information
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -208,11 +236,11 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                     name="firstName"
                     value={formData.firstName}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-yellow-400 focus:outline-none"
+                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     disabled={loading}
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Last Name
@@ -222,11 +250,11 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                     name="lastName"
                     value={formData.lastName}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-yellow-400 focus:outline-none"
+                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     disabled={loading}
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Email <span className="text-red-500">*</span>
@@ -236,12 +264,12 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-yellow-400 focus:outline-none"
+                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                     disabled={loading}
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Phone <span className="text-red-500">*</span>
@@ -251,7 +279,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                     name="phone"
                     value={formData.phone}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-yellow-400 focus:outline-none"
+                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                     disabled={loading}
                   />
@@ -261,7 +289,9 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
 
             {/* Wallet Information */}
             <div className="border-b border-gray-700 pb-6">
-              <h3 className="text-lg font-semibold text-white mb-4">Wallet Information</h3>
+              <h3 className="text-lg font-semibold text-[#FFCC00] mb-4">
+                Wallet Information
+              </h3>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Wallet Address <span className="text-red-500">*</span>
@@ -272,7 +302,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                   value={formData.wallet_address}
                   onChange={handleInputChange}
                   placeholder="0x..."
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-yellow-400 focus:outline-none font-mono"
+                  className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                   disabled={loading}
                 />
@@ -281,7 +311,9 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
 
             {/* Location Information */}
             <div className="border-b border-gray-700 pb-6">
-              <h3 className="text-lg font-semibold text-white mb-4">Location Information</h3>
+              <h3 className="text-lg font-semibold text-[#FFCC00] mb-4">
+                Location Information
+              </h3>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -292,12 +324,12 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                     name="address"
                     value={formData.address}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-yellow-400 focus:outline-none"
+                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                     disabled={loading}
                   />
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -308,11 +340,11 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                       name="city"
                       value={formData.city}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-yellow-400 focus:outline-none"
+                      className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       disabled={loading}
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Country
@@ -322,7 +354,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                       name="country"
                       value={formData.country}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-yellow-400 focus:outline-none"
+                      className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       disabled={loading}
                     />
                   </div>
@@ -332,7 +364,9 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
 
             {/* Business Information */}
             <div className="border-b border-gray-700 pb-6">
-              <h3 className="text-lg font-semibold text-white mb-4">Business Information</h3>
+              <h3 className="text-lg font-semibold text-[#FFCC00] mb-4">
+                Business Information
+              </h3>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -344,11 +378,11 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                     value={formData.website}
                     onChange={handleInputChange}
                     placeholder="https://example.com"
-                    className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-yellow-400 focus:outline-none"
+                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     disabled={loading}
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Description
@@ -358,12 +392,12 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                     value={formData.description}
                     onChange={handleInputChange}
                     rows={3}
-                    className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-yellow-400 focus:outline-none"
+                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Brief description of the shop..."
                     disabled={loading}
                   />
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -373,7 +407,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                       name="companySize"
                       value={formData.companySize}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-yellow-400 focus:outline-none"
+                      className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       disabled={loading}
                     >
                       <option value="">Select size</option>
@@ -383,7 +417,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                       <option value="100+">100+ employees</option>
                     </select>
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Monthly Revenue
@@ -392,7 +426,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                       name="monthlyRevenue"
                       value={formData.monthlyRevenue}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-yellow-400 focus:outline-none"
+                      className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       disabled={loading}
                     >
                       <option value="">Select revenue</option>
@@ -403,7 +437,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                     </select>
                   </div>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Referral Code
@@ -413,7 +447,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                     name="referralCode"
                     value={formData.referralCode}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-yellow-400 focus:outline-none"
+                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     disabled={loading}
                   />
                 </div>
@@ -422,7 +456,9 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
 
             {/* Settings */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-white mb-4">Settings</h3>
+              <h3 className="text-lg font-semibold text-white mb-4">
+                Settings
+              </h3>
               <div className="space-y-3">
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
@@ -435,7 +471,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                   />
                   <span className="text-gray-300">Shop is verified</span>
                 </label>
-                
+
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
@@ -447,7 +483,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                   />
                   <span className="text-gray-300">Shop is active</span>
                 </label>
-                
+
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
@@ -457,7 +493,9 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                     className="w-5 h-5 bg-gray-800 border-gray-600 rounded text-yellow-400 focus:ring-yellow-400"
                     disabled={loading}
                   />
-                  <span className="text-gray-300">Enable cross-shop transactions</span>
+                  <span className="text-gray-300">
+                    Enable cross-shop transactions
+                  </span>
                 </label>
               </div>
             </div>
@@ -470,16 +508,16 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50"
+            className="px-4 py-2 bg-gray-700 text-white rounded-3xl hover:bg-gray-600 transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={loading}
-            className="px-4 py-2 bg-gradient-to-r from-yellow-400 to-orange-400 text-black rounded-lg hover:from-yellow-500 hover:to-orange-500 transition-all disabled:opacity-50"
+            className="px-4 py-2 bg-[#FFCC00] text-black rounded-3xl hover:from-yellow-500 hover:to-orange-500 transition-all disabled:opacity-50"
           >
-            {loading ? 'Creating...' : 'Create Shop'}
+            {loading ? "Creating..." : "Create Shop"}
           </button>
         </div>
       </div>
