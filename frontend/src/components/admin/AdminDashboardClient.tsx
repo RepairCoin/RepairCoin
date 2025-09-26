@@ -5,7 +5,6 @@ import { ConnectButton } from "thirdweb/react";
 import { createThirdwebClient } from "thirdweb";
 import { Toaster } from "react-hot-toast";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
-import { useAdminDashboardData } from "@/hooks/useAdminDashboardData";
 import { OverviewTab } from "@/components/admin/tabs/OverviewTab";
 import AdminsTab from "@/components/admin/tabs/AdminsTab";
 import { CustomersTabEnhanced } from "@/components/admin/tabs/CustomersTabEnhanced";
@@ -15,9 +14,8 @@ import { AnalyticsTab } from "@/components/admin/tabs/AnalyticsTab";
 import SubscriptionManagementTab from "@/components/admin/tabs/SubscriptionManagementTab";
 import PromoCodesAnalyticsTab from "@/components/admin/tabs/PromoCodesAnalyticsTab";
 import { CreateAdminTab } from "@/components/admin/tabs/CreateAdminTab";
-import { ShopReviewModal } from "@/components/admin/tabs/ShopReviewModal";
 import DashboardLayout from "@/components/ui/DashboardLayout";
-import { useAuth } from "@/hooks/useAuth";
+import { LazyTabWrapper } from "@/components/admin/LazyTabWrapper";
 
 const client = createThirdwebClient({
   clientId:
@@ -26,42 +24,15 @@ const client = createThirdwebClient({
 });
 
 export default function AdminDashboardClient() {
-  // Authentication hook
+  // Authentication hook only - no data fetching here
   const {
     account,
     isAdmin,
     isSuperAdmin,
     adminRole,
-    adminPermissions,
-    loading: authLoading,
-    generateAdminToken,
-    hasPermission,
   } = useAdminAuth();
 
-  // Dashboard data hook
-  const {
-    loading: dataLoading,
-    error,
-    pendingShops,
-    approveShop,
-    rejectShop,
-  } = useAdminDashboardData(
-    isAdmin,
-    isSuperAdmin,
-    adminRole,
-    adminPermissions,
-    generateAdminToken,
-    hasPermission
-  );
-
   // UI state
-  const [reviewModal, setReviewModal] = useState<{
-    isOpen: boolean;
-    shop: any | null;
-  }>({
-    isOpen: false,
-    shop: null,
-  });
   const [activeTab, setActiveTab] = useState("overview");
   const [activeSubTab, setActiveSubTab] = useState<string>("");
   const [customerView, setCustomerView] = useState<
@@ -171,15 +142,10 @@ export default function AdminDashboardClient() {
         }}
       >
         <div className="max-w-7xl px-8 mx-auto py-8">
-          {error && (
-            <div className="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
-              {error}
-            </div>
-          )}
-
-          {/* Tab Content */}
+          {/* Tab Content with Lazy Loading */}
           {activeTab === "overview" && (
-            <OverviewTab
+            <LazyTabWrapper isActive={activeTab === "overview"}>
+              <OverviewTab
               onQuickAction={(action) => {
                 switch (action) {
                   case "mint":
@@ -194,66 +160,79 @@ export default function AdminDashboardClient() {
                 }
               }}
             />
+            </LazyTabWrapper>
           )}
 
-          {/* Role-based tab content visibility */}
+          {/* Role-based tab content visibility with Lazy Loading */}
           {activeTab === "customers" &&
             (isSuperAdmin ||
               adminRole === "super_admin" ||
               adminRole === "admin") && (
-              <CustomersTabEnhanced initialView={customerView} />
+              <LazyTabWrapper isActive={activeTab === "customers"}>
+                <CustomersTabEnhanced initialView={customerView} />
+              </LazyTabWrapper>
             )}
 
-          {/* New Combined Shop Management Tab */}
+          {/* New Combined Shop Management Tab with Lazy Loading */}
           {activeTab === "shops-management" &&
             (isSuperAdmin ||
               adminRole === "super_admin" ||
               adminRole === "admin") && (
-              <ShopsManagementTab initialView={shopView} />
+              <LazyTabWrapper isActive={activeTab === "shops-management"}>
+                <ShopsManagementTab initialView={shopView} />
+              </LazyTabWrapper>
             )}
 
-          {/* Other tabs - TODO: Create components for these */}
+          {/* Other tabs with Lazy Loading */}
           {activeTab === "treasury" &&
             (isSuperAdmin ||
               adminRole === "super_admin" ||
-              adminRole === "admin") && <TreasuryTab />}
+              adminRole === "admin") && (
+              <LazyTabWrapper isActive={activeTab === "treasury"}>
+                <TreasuryTab />
+              </LazyTabWrapper>
+            )}
 
           {activeTab === "admins" &&
             (isSuperAdmin || adminRole === "super_admin") && (
-              <AdminsTab />
+              <LazyTabWrapper isActive={activeTab === "admins"}>
+                <AdminsTab />
+              </LazyTabWrapper>
             )}
 
-          {activeTab === "create-admin" && <CreateAdminTab />}
+          {activeTab === "create-admin" && (
+            <LazyTabWrapper isActive={activeTab === "create-admin"}>
+              <CreateAdminTab />
+            </LazyTabWrapper>
+          )}
 
           {activeTab === "analytics" &&
             (isSuperAdmin ||
               adminRole === "super_admin" ||
-              adminRole === "admin") && <AnalyticsTab />}
+              adminRole === "admin") && (
+              <LazyTabWrapper isActive={activeTab === "analytics"}>
+                <AnalyticsTab />
+              </LazyTabWrapper>
+            )}
           {activeTab === "subscriptions" &&
             (isSuperAdmin ||
               adminRole === "super_admin" ||
-              adminRole === "admin") && <SubscriptionManagementTab />}
+              adminRole === "admin") && (
+              <LazyTabWrapper isActive={activeTab === "subscriptions"}>
+                <SubscriptionManagementTab />
+              </LazyTabWrapper>
+            )}
           {activeTab === "promo-codes" &&
             (isSuperAdmin ||
               adminRole === "super_admin" ||
-              adminRole === "admin") && <PromoCodesAnalyticsTab />}
+              adminRole === "admin") && (
+              <LazyTabWrapper isActive={activeTab === "promo-codes"}>
+                <PromoCodesAnalyticsTab />
+              </LazyTabWrapper>
+            )}
         </div>
       </div>
 
-      {/* Shop Review Modal */}
-      <ShopReviewModal
-        isOpen={reviewModal.isOpen}
-        onClose={() => setReviewModal({ isOpen: false, shop: null })}
-        shop={reviewModal.shop}
-        onApprove={(shopId) => {
-          approveShop(shopId);
-          setReviewModal({ isOpen: false, shop: null });
-        }}
-        onReject={(shopId) => {
-          rejectShop(shopId);
-          setReviewModal({ isOpen: false, shop: null });
-        }}
-      />
     </DashboardLayout>
   );
 }

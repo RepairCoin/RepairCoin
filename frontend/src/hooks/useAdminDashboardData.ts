@@ -69,7 +69,7 @@ export function useAdminDashboardData(
       }
 
       // Fetch platform statistics using API service
-      const statsData = await adminApi.getStats();
+      const statsData: any = await adminApi.getStats();
       if (statsData) {
         setStats(statsData);
       } else {
@@ -77,7 +77,7 @@ export function useAdminDashboardData(
         authManager.clearToken("admin");
         const newToken = await generateAdminToken(true);
         if (newToken) {
-          const retryStats = await adminApi.getStats();
+          const retryStats: any = await adminApi.getStats();
           if (retryStats) {
             setStats(retryStats);
           }
@@ -100,13 +100,13 @@ export function useAdminDashboardData(
         const shopsArray = Array.isArray(allShops) ? allShops : [];
 
         // Separate shops based on their status
-        const activeVerifiedShops = shopsArray.filter(
+        const activeVerifiedShops: any[] = shopsArray.filter(
           (shop: any) => shop.active && shop.verified && !shop.suspended_at
         );
-        const pendingShops = shopsArray.filter(
+        const pendingShops: any[] = shopsArray.filter(
           (shop: any) => !shop.verified && !shop.suspended_at
         );
-        const rejectedShops = shopsArray.filter(
+        const rejectedShops: any[] = shopsArray.filter(
           (shop: any) => shop.suspended_at || (!shop.active && shop.verified)
         );
 
