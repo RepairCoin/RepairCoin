@@ -9,7 +9,9 @@ import {
 import { DashboardHeader } from '@/components/ui/DashboardHeader';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { RecentActivityTimeline } from './RecentActivityTimeline';
-import { useAdminDashboard } from '@/hooks/useAdminDashboard';
+import { useOverviewData } from '@/hooks/useOverviewData';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { useShopsData } from '@/hooks/useShopsData';
 import { StatCard } from '@/components/ui/StatCard';
 
 interface Transaction {
@@ -35,7 +37,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = React.memo(() => {
   const [transactionsLoading, setTransactionsLoading] = useState(true);
   const [transactionFilter, setTransactionFilter] = useState('all');
   
-  const { stats, pendingShops, generateAdminToken } = useAdminDashboard();
+  // Fetch overview data only for this tab
+  const { stats, loading: statsLoading, error: statsError } = useOverviewData();
+  const { generateAdminToken } = useAdminAuth();
+  const { pendingShops } = useShopsData();
   const pendingShopsCount = pendingShops?.length || 0;
 
   // Memoize filtered transactions
