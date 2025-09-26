@@ -154,7 +154,7 @@ export class TreasuryRepository extends BaseRepository {
             COALESCE(SUM(total_cost), 0) as total_revenue,
             COALESCE(AVG(price_per_rcn), 0.10) as avg_price
           FROM shop_rcn_purchases
-          WHERE status = 'completed'
+          WHERE status IN ('completed', 'minted')
         )
         SELECT 
           'unlimited'::text as total_supply, -- Unlimited supply per v3.0
@@ -199,7 +199,7 @@ export class TreasuryRepository extends BaseRepository {
           SUM(total_cost) as revenue,
           COUNT(*) as purchases
         FROM shop_rcn_purchases
-        WHERE status = 'completed'
+        WHERE status IN ('completed', 'minted')
         AND created_at >= $1
         AND created_at <= $2
         GROUP BY DATE(created_at)

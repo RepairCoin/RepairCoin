@@ -100,8 +100,8 @@ export const AutoCompletePurchases: React.FC = () => {
           
           <div className="space-y-2 text-sm text-gray-400 mb-4">
             <p>Total pending: <span className="text-white font-medium">{stats.total_pending}</span></p>
-            <p>Pending >30 min: <span className="text-yellow-400 font-medium">{stats.old_pending}</span></p>
-            <p>Pending >1 hour: <span className="text-orange-400 font-medium">{stats.very_old_pending}</span></p>
+            <p>Pending {'>'}30 min: <span className="text-yellow-400 font-medium">{stats.old_pending}</span></p>
+            <p>Pending {'>'}1 hour: <span className="text-orange-400 font-medium">{stats.very_old_pending}</span></p>
             <p>Total amount: <span className="text-white font-medium">{stats.total_amount_pending} RCN</span></p>
           </div>
 

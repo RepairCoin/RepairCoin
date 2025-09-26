@@ -160,7 +160,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="space-y-8">
         {/* Shop Statistics */}
-        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
           <div className="relative">
             <StatCard
               title="Operational RCN"
@@ -205,6 +205,13 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             title="RCG Balance"
             value={formatRCGBalance(rcgInfo?.balance || 0)}
             icon={<WalletIcon />}
+          />
+          <StatCard
+            title="Wallet RCN"
+            value={blockchainBalance.toFixed(2)}
+            icon={<WalletIcon />}
+            subtitle="On-chain"
+            valueClassName="text-2xl md:text-3xl font-bold text-blue-400"
           />
         </div>
 

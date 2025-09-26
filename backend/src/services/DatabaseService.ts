@@ -15,9 +15,12 @@ export class DatabaseService {
       const dbUrl = process.env.DATABASE_URL;
       this.pool = new Pool({
         connectionString: dbUrl,
-        ssl: process.env.NODE_ENV === 'production' ? {
+        ssl: dbUrl.includes('sslmode=require') ? {
           rejectUnauthorized: false
         } : false,
+        max: 20,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 10000,
       });
       
       // Extract host for logging (hide password)
@@ -31,7 +34,7 @@ export class DatabaseService {
       const database = process.env.DB_NAME || 'repaircoin';
       const user = process.env.DB_USER || 'repaircoin';
       
-      this.pool = new Pool({
+      const poolConfig: any = {
         host,
         port: parseInt(port),
         database,
@@ -40,7 +43,18 @@ export class DatabaseService {
         max: 20,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 10000,
-      });
+      };
+      
+      // Add SSL configuration if DB_SSL is set or if it's a DigitalOcean connection
+      if (process.env.DB_SSL === 'true' || host.includes('digitalocean')) {
+        poolConfig.ssl = {
+          rejectUnauthorized: false,
+          require: true
+        };
+        console.log('🔒 SSL enabled for database connection');
+      }
+      
+      this.pool = new Pool(poolConfig);
       
       this.connectionInfo = `${user}@${host}:${port}/${database}`;
     }

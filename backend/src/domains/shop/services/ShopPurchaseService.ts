@@ -96,16 +96,6 @@ export class ShopPurchaseService {
                           // Additional fallback: If has enough RCG balance
                           (rcgBalance >= 10000);
       
-      // Debug logging to understand what's happening
-      logger.info(`Shop purchase validation for ${shop.shopId}:`, {
-        operational_status: shop.operational_status,
-        active: shop.active,
-        verified: shop.verified,
-        isQualified,
-        rcgBalance,
-        walletAddress: shop.walletAddress,
-        fallbackQualified: !shop.operational_status && shop.active && shop.verified
-      });
 
       // Validate shop is operational (has proper qualification)
       if (!isQualified) {

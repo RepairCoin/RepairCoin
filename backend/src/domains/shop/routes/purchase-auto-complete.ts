@@ -25,7 +25,7 @@ router.post('/auto-complete-old-purchases', asyncHandler(async (req: Request, re
       WHERE 
         status = 'pending'
         AND created_at < NOW() - INTERVAL '30 minutes'
-        AND payment_method = 'CREDIT_CARD'
+        AND payment_method = 'credit_card'
       RETURNING id, shop_id, amount, created_at
     `);
     
@@ -37,7 +37,7 @@ router.post('/auto-complete-old-purchases', asyncHandler(async (req: Request, re
         purchases: oldPendingPurchases.rows
       });
       
-      // Log each completed purchase
+      // Update shop balances for each completed purchase
       for (const purchase of oldPendingPurchases.rows) {
         logger.info('Auto-completed purchase', {
           purchaseId: purchase.id,
@@ -45,6 +45,15 @@ router.post('/auto-complete-old-purchases', asyncHandler(async (req: Request, re
           amount: purchase.amount,
           ageMinutes: Math.floor((Date.now() - new Date(purchase.created_at).getTime()) / 60000)
         });
+        
+        // Update shop's purchased_rcn_balance
+        await db.query(`
+          UPDATE shops
+          SET 
+            purchased_rcn_balance = COALESCE(purchased_rcn_balance, 0) + $1,
+            total_rcn_purchased = COALESCE(total_rcn_purchased, 0) + $1
+          WHERE shop_id = $2
+        `, [purchase.amount, purchase.shop_id]);
       }
     }
     

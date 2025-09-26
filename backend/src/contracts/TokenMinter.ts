@@ -58,8 +58,6 @@ export class TokenMinter {
     // Use RCN contract address first, fall back to legacy
     this.contractAddress = process.env.RCN_CONTRACT_ADDRESS || process.env.REPAIRCOIN_CONTRACT_ADDRESS || '0xd92ced7c3f4D8E42C05A4c558F37dA6DC731d5f5';
     this.tierManager = new TierManager();
-    
-    console.log(`🔗 TokenMinter initialized with contract: ${this.contractAddress}`);
   }
 
   // Transfer tokens from customer to shop for redemption
@@ -73,7 +71,6 @@ export class TokenMinter {
     reason: string = "Shop redemption"
   ): Promise<MintResult> {
     try {
-      console.log(`🔥 Attempting to burn ${amount} RCN from ${customerAddress} for redemption at ${shopId}`);
 
       if (!this.isValidAddress(customerAddress)) {
         return {
@@ -103,7 +100,6 @@ export class TokenMinter {
       
       try {
         // First try burnFrom if available (requires approval from customer)
-        console.log(`🔥 Attempting burnFrom for ${amount} RCN from ${customerAddress}`);
         
         const burnTx = prepareContractCall({
           contract,
@@ -116,8 +112,6 @@ export class TokenMinter {
           account: this.account,
         });
         
-        console.log(`✅ Successfully burned ${amount} RCN from customer wallet`);
-        console.log(`Transaction hash: ${result.transactionHash}`);
         
         return {
           success: true,
@@ -128,7 +122,6 @@ export class TokenMinter {
         };
         
       } catch (burnError: any) {
-        console.log('BurnFrom not available or not approved, falling back to burn address transfer');
         
         // Fallback: Transfer from admin to burn address to simulate
         try {
@@ -145,8 +138,6 @@ export class TokenMinter {
             account: this.account,
           });
           
-          console.log(`✅ Simulated burn by transferring ${amount} RCN to burn address`);
-          console.log(`Transaction hash: ${result.transactionHash}`);
           
           return {
             success: true,
@@ -208,7 +199,6 @@ export class TokenMinter {
     customerData: CustomerData
   ): Promise<MintResult> {
     try {
-      console.log(`🔨 Processing repair: $${repairAmount} for ${customerAddress} at shop ${shopId}`);
 
       // Validate inputs
       if (repairAmount < 50) {
@@ -287,7 +277,6 @@ export class TokenMinter {
     shopId?: string
   ): Promise<MintResult> {
     try {
-      console.log(`👥 Processing referral: ${referrerAddress} → ${refereeAddress}`);
 
       // Validate addresses
       if (!this.isValidAddress(referrerAddress) || !this.isValidAddress(refereeAddress)) {
@@ -346,7 +335,6 @@ export class TokenMinter {
   // Mint tokens for platform engagement (ads, forms, etc.)
   async mintEngagementTokens(params: EngagementMintParams): Promise<MintResult> {
     try {
-      console.log(`🎯 Processing engagement: ${params.engagementType} for ${params.customerAddress}`);
 
       // Get tier multiplier
       const multiplier = this.tierManager.getEngagementMultiplier(params.customerData.tier);
@@ -399,7 +387,6 @@ export class TokenMinter {
     reason: string = "Admin manual mint"
   ): Promise<MintResult> {
     try {
-      console.log(`👑 Admin minting ${amount} RCN to ${customerAddress}. Reason: ${reason}`);
 
       if (!this.isValidAddress(customerAddress)) {
         return {
@@ -419,10 +406,7 @@ export class TokenMinter {
       const result = await this.mintTokens(customerAddress, amount, `Admin: ${reason}`);
       
       if (result.success) {
-        console.log(`✅ Admin mint successful: ${amount} RCN to ${customerAddress}`);
-        console.log(`📝 Transaction: ${result.transactionHash}`);
       } else {
-        console.log(`❌ Admin mint failed: ${result.error || result.message}`);
       }
 
       return result;
@@ -439,7 +423,6 @@ export class TokenMinter {
   // Emergency functions for admin use
 async pauseContract(): Promise<MintResult> {
     try {
-      console.log("⏸️  Attempting to pause contract...");
       
       const contract = await this.getContract();
       
@@ -460,7 +443,6 @@ async pauseContract(): Promise<MintResult> {
         transactionHash: result.transactionHash
       };
     } catch (error: any) {
-      console.log("Pause method not supported on this contract");
       return {
         success: false,
         error: "Pause not supported: " + error.message
@@ -470,7 +452,6 @@ async pauseContract(): Promise<MintResult> {
 
 async unpauseContract(): Promise<MintResult> {
     try {
-      console.log("▶️  Attempting to unpause contract...");
       
       const contract = await this.getContract();
       
@@ -491,7 +472,6 @@ async unpauseContract(): Promise<MintResult> {
         transactionHash: result.transactionHash
       };
     } catch (error: any) {
-      console.log("Unpause method not supported on this contract");
       return {
         success: false,
         error: "Unpause not supported: " + error.message
@@ -511,11 +491,9 @@ async unpauseContract(): Promise<MintResult> {
           method: "paused" as any, // Type assertion to bypass strict typing
           params: []
         });
-        console.log(`✅ Pause status: ${paused}`);
         return !!paused; // Convert to boolean
       } catch (error) {
         // If pause method doesn't exist, just assume not paused
-        console.log("ℹ️  No pause method found, assuming unpaused");
         return false;
       }
     } catch (error) {
@@ -590,7 +568,6 @@ async unpauseContract(): Promise<MintResult> {
   // Private function to mint tokens to an address
   private async mintTokens(toAddress: string, amount: number, reference?: string): Promise<MintResult> {
     try {
-      console.log(`🪙 Minting ${amount} RCN to ${toAddress}${reference ? ` (ref: ${reference})` : ''}`);
 
       // Check if contract is paused
       const paused = await this.isContractPaused();
@@ -615,7 +592,6 @@ async unpauseContract(): Promise<MintResult> {
         account: this.account,
       });
 
-      console.log(`✅ Minted ${amount} RCN successfully. TX: ${result.transactionHash}`);
 
       return {
         success: true,

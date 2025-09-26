@@ -121,6 +121,63 @@ export default function ShopDashboardClient() {
     }
   }, [account?.address]);
 
+  // Check pending purchases on shop data load
+  useEffect(() => {
+    const checkPendingPurchases = async () => {
+      if (!shopData || !account?.address) return;
+      
+      try {
+        const authToken = localStorage.getItem('shopAuthToken') || sessionStorage.getItem('shopAuthToken');
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/shops/purchase-sync/pending`,
+          {
+            headers: {
+              'Authorization': authToken ? `Bearer ${authToken}` : ''
+            }
+          }
+        );
+        
+        if (response.ok) {
+          const result = await response.json();
+          if (result.data && result.data.length > 0) {
+            // Silently check each pending purchase
+            for (const purchase of result.data) {
+              if (purchase.payment_reference && purchase.payment_reference.startsWith('cs_')) {
+                try {
+                  const checkResponse = await fetch(
+                    `${process.env.NEXT_PUBLIC_API_URL}/shops/purchase-sync/check-payment/${purchase.id}`,
+                    {
+                      method: 'POST',
+                      headers: {
+                        'Authorization': authToken ? `Bearer ${authToken}` : '',
+                        'Content-Type': 'application/json'
+                      }
+                    }
+                  );
+                  
+                  const checkResult = await checkResponse.json();
+                  if (checkResult.success && checkResult.data.status === 'completed') {
+                    // Reload to show updated balance
+                    await loadShopData();
+                  }
+                } catch (err) {
+                  console.error('Error checking purchase:', purchase.id, err);
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error checking pending purchases:', error);
+      }
+    };
+    
+    // Check pending purchases after shop data loads
+    if (shopData) {
+      checkPendingPurchases();
+    }
+  }, [shopData?.shopId]);
+
   const loadShopData = async () => {
     setLoading(true);
     setError(null);
@@ -324,6 +381,38 @@ export default function ShopDashboardClient() {
     setCurrentPurchaseId(null);
   };
 
+  const checkPurchaseStatus = async (purchaseId: string) => {
+    try {
+      const authToken = localStorage.getItem('shopAuthToken') || sessionStorage.getItem('shopAuthToken');
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/shops/purchase-sync/check-payment/${purchaseId}`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': authToken ? `Bearer ${authToken}` : '',
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      const result = await response.json();
+      
+      if (result.success && result.data.status === 'completed') {
+        setSuccessMessage(`✅ Payment verified! ${result.data.amount} RCN has been added to your account.`);
+        setShowSuccessModal(true);
+        // Reload data to show updated balance
+        await loadShopData();
+      } else if (result.success === false && result.data?.stripeStatus) {
+        setError(`Payment status: ${result.data.stripeStatus}. Please wait a moment and try again.`);
+      } else {
+        setError(result.message || 'Could not verify payment status');
+      }
+    } catch (error) {
+      console.error('Error checking purchase status:', error);
+      setError('Failed to check payment status');
+    }
+  };
+
   // Check if shop is operational
   // If operational_status is not available (legacy), assume operational if shop is active and verified
   const isOperational = shopData && (
@@ -525,6 +614,7 @@ export default function ShopDashboardClient() {
                 purchasing={purchasing}
                 purchases={purchases}
                 onInitiatePurchase={initiatePurchase}
+                onCheckPurchaseStatus={checkPurchaseStatus}
               />
             ) : (
               <OperationalRequiredTab feature="RCN token purchasing" />

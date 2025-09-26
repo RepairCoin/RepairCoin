@@ -3,30 +3,11 @@
 import React, { useState } from "react";
 import {
   CreditCard,
-  DollarSign,
-  TrendingUp,
   Clock,
   CheckCircle,
   AlertCircle,
-  ShoppingCart,
-  Coins,
-  Wallet,
   Info,
-  ChevronRight,
-  Package,
-  Receipt,
-  Calculator,
-  Zap,
-  Shield,
-  Star,
-  ArrowRight,
-  Plus,
-  Minus,
-  History,
-  ChevronDown,
-  ExternalLink,
   Sparkles,
-  Gift,
 } from "lucide-react";
 
 interface PurchaseHistory {
@@ -44,6 +25,7 @@ interface PurchaseTabProps {
   purchasing: boolean;
   purchases: PurchaseHistory[];
   onInitiatePurchase: () => void;
+  onCheckPurchaseStatus?: (purchaseId: string) => void;
   shopBalance?: number;
   shopName?: string;
 }
@@ -54,18 +36,14 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
   purchasing,
   purchases,
   onInitiatePurchase,
-  shopBalance = 0,
-  shopName = "Your Shop",
+  onCheckPurchaseStatus,
 }) => {
-  const [showAllHistory, setShowAllHistory] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
 
   // Quick purchase amounts
   const quickAmounts = [100, 500, 1000, 5000, 10000];
 
   // Calculate pricing
-  const unitPrice = 0.1;
-  const totalCost = purchaseAmount * unitPrice;
   const bonusAmount =
     purchaseAmount >= 10000
       ? Math.floor(purchaseAmount * 0.05)
@@ -74,12 +52,6 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
       : purchaseAmount >= 1000
       ? Math.floor(purchaseAmount * 0.02)
       : 0;
-  const totalTokens = purchaseAmount + bonusAmount;
-
-  // Calculate total purchased
-  const totalPurchased = purchases
-    .filter((p) => p.status === "completed")
-    .reduce((sum, p) => sum + (p.amount || 0), 0);
 
   const getStatusDetails = (status: string) => {
     switch (status) {
@@ -350,29 +322,50 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
               <p className="text-gray-400 text-center">No purchases yet</p>
             ) : (
               <div className="space-y-3">
-                {purchases.map((purchase) => (
-                  <div
-                    key={purchase.id}
-                    className="bg-[#2F2F2F] rounded-lg p-4 flex items-center justify-between"
-                  >
-                    <div>
-                      <p className="text-white font-medium">
-                        {purchase.amount.toLocaleString()} RCN
-                      </p>
-                      <p className="text-gray-400 text-sm">
-                        {new Date(purchase.createdAt).toLocaleDateString()}
-                      </p>
+                {purchases.map((purchase) => {
+                  const statusInfo = getStatusDetails(purchase.status);
+                  return (
+                    <div
+                      key={purchase.id}
+                      className="bg-[#2F2F2F] rounded-lg p-4"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-white font-medium">
+                            {purchase.amount.toLocaleString()} RCN
+                          </p>
+                          <p className="text-gray-400 text-sm">
+                            {new Date(purchase.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[#FFCC00] font-medium">
+                            ${(purchase.totalCost || purchase.amount * 0.1).toFixed(2)}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className={`text-sm flex items-center gap-1 ${statusInfo.color} px-2 py-1 rounded border`}>
+                              {statusInfo.icon}
+                              {statusInfo.label}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      {purchase.status === 'pending' && (
+                        <div className="mt-3 pt-3 border-t border-gray-700">
+                          <button
+                            onClick={() => onCheckPurchaseStatus ? onCheckPurchaseStatus(purchase.id) : window.location.reload()}
+                            className="text-sm bg-[#FFCC00] text-[#1A1A1A] hover:bg-[#FFCC00]/90 px-3 py-1 rounded font-medium"
+                          >
+                            Check Payment Status
+                          </button>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Payment may take a moment to process
+                          </p>
+                        </div>
+                      )}
                     </div>
-                    <div className="text-right">
-                      <p className="text-[#FFCC00] font-medium">
-                        ${(purchase.totalCost || purchase.amount * 0.1).toFixed(2)}
-                      </p>
-                      <p className="text-gray-400 text-sm">
-                        STRIPE
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

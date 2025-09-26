@@ -5,11 +5,20 @@ let sharedPool: Pool | null = null;
 
 export function getSharedPool(): Pool {
   if (!sharedPool) {
-    const config = {
+    let sslConfig: any = false;
+    
+    // Determine SSL configuration
+    if (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('sslmode=require')) {
+      sslConfig = { rejectUnauthorized: false };
+      logger.info('SSL enabled for DATABASE_URL with sslmode=require');
+    } else if (process.env.DB_SSL === 'true') {
+      sslConfig = { rejectUnauthorized: false };
+      logger.info('SSL enabled via DB_SSL environment variable');
+    }
+    
+    const config: any = {
       connectionString: process.env.DATABASE_URL,
-      ssl: process.env.NODE_ENV === 'production' ? {
-        rejectUnauthorized: false
-      } : false,
+      ssl: sslConfig,
       max: parseInt(process.env.DB_POOL_MAX || '10'), // Single pool with 10 connections
       idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT_MS || '10000'),
       connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT_MS || '5000'),
@@ -18,23 +27,39 @@ export function getSharedPool(): Pool {
 
     if (!process.env.DATABASE_URL) {
       config.connectionString = undefined as any;
+      const host = process.env.DB_HOST || 'localhost';
       Object.assign(config, {
-        host: process.env.DB_HOST || 'localhost',
+        host,
         port: parseInt(process.env.DB_PORT || '5432'),
         database: process.env.DB_NAME || 'repaircoin',
         user: process.env.DB_USER || 'repaircoin',
         password: process.env.DB_PASSWORD || 'repaircoin123',
       });
+      
+      // Enable SSL for DigitalOcean connections
+      if (process.env.DB_SSL === 'true' || host.includes('digitalocean')) {
+        config.ssl = {
+          rejectUnauthorized: false
+        };
+        logger.info('SSL enabled for DigitalOcean host connection');
+      }
     }
 
-    sharedPool = new Pool(config);
-    
-    // Log pool creation
-    logger.info('Created shared database pool', {
+    // Log full configuration for debugging
+    logger.info('Creating shared database pool with config:', {
+      hasConnectionString: !!config.connectionString,
+      connectionString: config.connectionString ? config.connectionString.substring(0, 50) + '...' : 'none',
+      sslEnabled: !!config.ssl,
+      sslConfig: config.ssl,
+      host: config.host,
+      port: config.port,
+      database: config.database,
       max: config.max,
       idleTimeout: config.idleTimeoutMillis,
       connectionTimeout: config.connectionTimeoutMillis
     });
+    
+    sharedPool = new Pool(config);
 
     // Handle pool errors
     sharedPool.on('error', (err) => {
