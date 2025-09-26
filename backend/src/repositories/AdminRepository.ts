@@ -464,7 +464,7 @@ export class AdminRepository extends BaseRepository {
         role,
         JSON.stringify(adminData.permissions || []),
         adminData.isSuperAdmin || false,
-        adminData.createdBy ? this.formatWalletAddress(adminData.createdBy) : null
+        adminData.createdBy === 'SYSTEM' ? 'SYSTEM' : (adminData.createdBy ? this.formatWalletAddress(adminData.createdBy) : null)
       ]);
       
       return this.mapAdminFromDb(result.rows[0]);
