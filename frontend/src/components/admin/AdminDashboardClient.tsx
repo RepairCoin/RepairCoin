@@ -37,8 +37,6 @@ export default function AdminDashboardClient() {
     generateAdminToken,
     hasPermission,
   } = useAdminAuth();
-  const { isAuthenticated } = useAuth();
-
 
   // Dashboard data hook
   const {
@@ -126,7 +124,7 @@ export default function AdminDashboardClient() {
     }
   };
 
-  if (!account && !isAuthenticated) {
+  if (!account) {
     return (
       <div className="min-h-screen bg-gray-50">
         <div
