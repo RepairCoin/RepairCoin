@@ -39,7 +39,6 @@ export default function AdminDashboardClient() {
   } = useAdminAuth();
   const { isAuthenticated } = useAuth();
 
-  console.log("adminRoleadminRoleadminRole: ", adminRole)
 
   // Dashboard data hook
   const {
@@ -153,7 +152,6 @@ export default function AdminDashboardClient() {
     );
   }
 
-  console.log("isAdminisAdminisAdmin: ", isAdmin);
 
   return (
     <DashboardLayout
@@ -223,17 +221,9 @@ export default function AdminDashboardClient() {
               adminRole === "admin") && <TreasuryTab />}
 
           {activeTab === "admins" &&
-            (isSuperAdmin || adminRole === "super_admin") &&
-            (authLoading ? (
-              <div className="flex items-center justify-center h-96">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-16 w-16 border-4 border-yellow-400 border-t-transparent mx-auto mb-4"></div>
-                  <p className="text-gray-400">Loading admin data...</p>
-                </div>
-              </div>
-            ) : (
+            (isSuperAdmin || adminRole === "super_admin") && (
               <AdminsTab />
-            ))}
+            )}
 
           {activeTab === "create-admin" && <CreateAdminTab />}
 

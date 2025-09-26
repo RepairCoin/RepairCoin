@@ -3,6 +3,7 @@ import { eventBus, createDomainEvent } from '../../events/EventBus';
 import { logger } from '../../utils/logger';
 import adminRoutes from './routes/admin'; 
 import { AdminService } from './services/AdminService';
+import { adminSyncService } from '../../services/AdminSyncService';
 
 export class AdminDomain implements DomainModule {
   name = 'admin';
@@ -11,6 +12,28 @@ export class AdminDomain implements DomainModule {
 
   async initialize(): Promise<void> {
     this.adminService = new AdminService();
+    
+    // Sync admin addresses from environment variables
+    try {
+      logger.info('Syncing admin addresses from environment...');
+      await adminSyncService.syncAdminsFromEnvironment();
+      
+      // Optionally clean up removed admins (keep them as regular admins)
+      await adminSyncService.cleanupRemovedAdmins(true);
+      
+      // Log sync status
+      const syncStatus = await adminSyncService.getSyncStatus();
+      logger.info('Admin sync status:', {
+        environmentAdmins: syncStatus.envAdmins.length,
+        databaseAdmins: syncStatus.dbAdmins.length,
+        needsSync: syncStatus.syncNeeded.length,
+        toRemove: syncStatus.toRemove.length
+      });
+    } catch (error) {
+      logger.error('Failed to sync admin addresses:', error);
+      // Don't fail initialization if sync fails
+    }
+    
     this.setupEventSubscriptions();
     logger.info('Admin domain initialized');
   }

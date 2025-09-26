@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Shield,
   Mail,
@@ -17,7 +17,6 @@ import apiClient from "@/utils/apiClient";
 import { showToast } from "@/utils/toast";
 import { DataTable } from "@/components/ui/DataTable";
 import { DashboardHeader } from "@/components/ui/DashboardHeader";
-import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 interface Admin {
   id: number;
@@ -42,7 +41,9 @@ interface AdminFormData {
 
 export default function AdminsTab() {
   const [admins, setAdmins] = useState<Admin[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // Start with true to show skeleton on initial load
+  const [dataFetched, setDataFetched] = useState(false); // Track if data has been fetched
+  const [isFetching, setIsFetching] = useState(false); // Track active fetch to prevent duplicates
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -55,36 +56,39 @@ export default function AdminsTab() {
     role: "admin",
   });
 
-  useEffect(() => {
-    fetchAdmins();
-  }, []);
-
-  const fetchAdmins = async () => {
+  const fetchAdmins = useCallback(async () => {
+    if (dataFetched || isFetching) return; // Prevent duplicate fetches
+    
     try {
+      setIsFetching(true);
       setLoading(true);
       const response = await apiClient.get("/admin/admins", { role: "admin" });
       setAdmins(response.data || []);
+      setDataFetched(true);
     } catch (error: any) {
       console.error("Error fetching admins:", error);
       showToast.error(error.response?.data?.error || "Failed to fetch admins");
+      // Don't set dataFetched on error to allow retry
     } finally {
       setLoading(false);
+      setIsFetching(false);
     }
-  };
+  }, [dataFetched, isFetching]);
 
-  const handleCreateAdmin = async () => {
+  const handleCreateAdmin = useCallback(async () => {
     try {
       await apiClient.post("/admin/admins/create", formData, { role: "admin" });
       showToast.success(`${formData.role === 'admin' ? 'Admin' : 'Moderator'} created successfully`);
       setShowCreateModal(false);
       setFormData({ walletAddress: "", name: "", email: "", role: "admin" });
+      setDataFetched(false); // Force refresh
       fetchAdmins();
     } catch (error: any) {
       showToast.error(error.response?.data?.error || "Failed to create admin");
     }
-  };
+  }, [formData, fetchAdmins]);
 
-  const handleUpdateAdmin = async () => {
+  const handleUpdateAdmin = useCallback(async () => {
     if (!selectedAdmin) return;
 
     try {
@@ -95,13 +99,14 @@ export default function AdminsTab() {
       setShowEditModal(false);
       setSelectedAdmin(null);
       setFormData({ walletAddress: "", name: "", email: "", role: "admin" });
+      setDataFetched(false); // Force refresh
       fetchAdmins();
     } catch (error: any) {
       showToast.error(error.response?.data?.error || "Failed to update admin");
     }
-  };
+  }, [selectedAdmin, formData, fetchAdmins]);
 
-  const handleDeleteAdmin = async () => {
+  const handleDeleteAdmin = useCallback(async () => {
     if (!selectedAdmin) return;
 
     try {
@@ -111,13 +116,14 @@ export default function AdminsTab() {
       showToast.success("Admin deleted successfully");
       setShowDeleteModal(false);
       setSelectedAdmin(null);
+      setDataFetched(false); // Force refresh
       fetchAdmins();
     } catch (error: any) {
       showToast.error(error.response?.data?.error || "Failed to delete admin");
     }
-  };
+  }, [selectedAdmin, fetchAdmins]);
 
-  const openEditModal = (admin: Admin) => {
+  const openEditModal = useCallback((admin: Admin) => {
     // Don't allow editing protected admins
     if (admin.isProtected) return;
     
@@ -129,35 +135,35 @@ export default function AdminsTab() {
       role: admin.role as 'admin' | 'moderator' || (admin.isSuperAdmin ? 'admin' : 'moderator'),
     });
     setShowEditModal(true);
-  };
+  }, []);
 
-  const openDeleteModal = (admin: Admin) => {
+  const openDeleteModal = useCallback((admin: Admin) => {
     // Don't allow deleting protected admins
     if (admin.isProtected) return;
     
     setSelectedAdmin(admin);
     setShowDeleteModal(true);
-  };
+  }, []);
 
-  const copyWalletAddress = (address: string) => {
+  const copyWalletAddress = useCallback((address: string) => {
     navigator.clipboard.writeText(address);
     showToast.success("Wallet address copied!");
-  };
+  }, []);
 
-  // Filter admins based on search term
-  const filteredAdmins = admins.filter((admin) => {
-    if (!searchTerm) return true;
+  // Memoize filtered admins to prevent unnecessary recalculations
+  const filteredAdmins = useMemo(() => {
+    if (!searchTerm) return admins;
     const search = searchTerm.toLowerCase();
-    return (
+    return admins.filter((admin) => 
       admin.name.toLowerCase().includes(search) ||
       admin.email?.toLowerCase().includes(search) ||
       admin.walletAddress.toLowerCase().includes(search) ||
       admin.id.toString().includes(search)
     );
-  });
+  }, [admins, searchTerm]);
 
-  // Define columns for DataTable
-  const columns = [
+  // Define columns for DataTable - memoized to prevent re-creation
+  const columns = useMemo(() => [
     {
       key: "admin",
       header: "Admin",
@@ -302,7 +308,19 @@ export default function AdminsTab() {
         </div>
       ),
     },
-  ];
+  ], [copyWalletAddress, openEditModal, openDeleteModal]);
+
+  useEffect(() => {
+    let mounted = true;
+    
+    if (!dataFetched && mounted) {
+      fetchAdmins();
+    }
+    
+    return () => {
+      mounted = false;
+    };
+  }, [dataFetched, fetchAdmins]);
 
   return (
     <div className="">
