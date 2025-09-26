@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { useCustomer } from "@/hooks/useCustomer";
+import { customerApi } from "@/services/api/customer";
 import toast from "react-hot-toast";
 import {
   Mail,
@@ -71,24 +72,16 @@ export function SettingsTab() {
 
     setLoading(true);
     try {
-      const token = localStorage.getItem("customerAuthToken");
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/customers/${account.address}`,
+      const updatedCustomer = await customerApi.updateProfile(
+        account.address,
         {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            name: formData.name,
-            email: formData.email,
-            phone: formData.phone,
-          }),
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
         }
       );
 
-      if (response.ok) {
+      if (updatedCustomer) {
         toast.success("Profile updated successfully!");
         setIsEditing(false);
         fetchCustomerData(true); // Force refresh data after update
@@ -97,7 +90,7 @@ export function SettingsTab() {
       }
     } catch (error) {
       console.error("Error updating profile:", error);
-      toast.error("Failed to update profile");
+      toast.error("Failed to update profile. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -250,7 +243,7 @@ export function SettingsTab() {
       <div className="w-full flex flex-col md:flex-row gap-8">
 
         {/* Notification Preferences */}
-        <div className="bg-[#212121] w-full rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
+        {/* <div className="bg-[#212121] w-full rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
           <div
             className="w-full flex justify-between items-center px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
             style={{
@@ -282,11 +275,11 @@ export function SettingsTab() {
               />
             </label>
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* Security Settings */}
-      <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
+      {/* <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
         <div
           className="w-full flex justify-between items-center px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
           style={{
@@ -371,7 +364,7 @@ export function SettingsTab() {
             </p>
           </div>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }
