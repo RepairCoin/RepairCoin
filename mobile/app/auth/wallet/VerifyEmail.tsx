@@ -29,10 +29,11 @@ export default function VerifyEmailPage() {
       if (!userCheck.exists) {
         router.push("/auth/register");
       } else {
-        await login();
-        if (isCustomer) {
-          router.push("/dashboard/customer");
-        }
+        await login().then(() => {
+          if (isCustomer) {
+            router.push("/dashboard/customer");
+          }
+        });
       }
     }
   };

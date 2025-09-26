@@ -1,39 +1,20 @@
 import { Image, Text, View } from "react-native";
 import Screen from "@/components/Screen";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { router } from "expo-router";
-import { useAuthStore } from "@/store/authStore";
 
 const logo = require("@/assets/images/logo.png");
 
 export default function Splash() {
-  const { isAuthenticated, isAdmin, isCustomer, isShop } = useAuthStore(
-    (state) => state
-  );
-  const [hasHydrated, setHasHydrated] = useState<boolean>(false);
-
   useEffect(() => {
-    if (useAuthStore.persist.hasHydrated()) {
-      setHasHydrated(true);
-    } else {
-      const unsub = useAuthStore.persist.onFinishHydration(() => {
-        setHasHydrated(true);
-      });
-      return () => unsub();
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!hasHydrated) return;
-
-    if (isAuthenticated) {
-      if (isCustomer) {
-        router.push("/dashboard/customer");
-      }
-    } else {
+    const timer = setTimeout(() => {
       router.push("/onboarding");
-    }
-  }, [hasHydrated, isAuthenticated, isCustomer]);
+    }, 3000);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, []);
 
   return (
     <Screen>

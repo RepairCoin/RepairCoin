@@ -1,3 +1,4 @@
+import { useAuthStore } from "@/store/authStore";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
@@ -5,7 +6,7 @@ import {
   View,
   SafeAreaView,
   ImageBackground,
-  Pressable
+  Pressable,
 } from "react-native";
 
 const girl = require("@/assets/images/shop_girl.png");
@@ -13,7 +14,10 @@ const guy = require("@/assets/images/shop_boy.png");
 const globe = require("@/assets/images/global_spin.png");
 
 export default function Onboarding() {
-  const [index, setIndex] = useState(2);
+  const { isAuthenticated, isAdmin, isCustomer, isShop } = useAuthStore(
+    (state) => state
+  );
+  const [index, setIndex] = useState(0);
 
   const Slides = [
     {
@@ -36,6 +40,16 @@ export default function Onboarding() {
     },
   ];
 
+  const handleGoNext = () => {
+    if (isAuthenticated) {
+      if (isCustomer) {
+        router.push("/dashboard/customer");
+      }
+    } else {
+      router.push("/auth/wallet");
+    }
+  };
+
   return (
     <SafeAreaView>
       <ImageBackground
@@ -53,16 +67,22 @@ export default function Onboarding() {
               {[0, 1, 2].map((i) => (
                 <View
                   key={i}
-                  className={`h-2 w-${i === index ? "10" : "2"} rounded-full bg-[#FFCC00] ${i === index ? "" : "opacity-50"}`}
+                  className={`h-2 ${i === index ? "w-10" : "w-2"} rounded-full bg-[#FFCC00] ${i === index ? "" : "opacity-50"}`}
                 />
               ))}
             </View>
-            {index === 2  ? (
-              <Pressable className="bg-[#FFCC00] border-gray-400 rounded-xl" onPress={() => router.push("/auth/wallet")}>
+            {index === 2 ? (
+              <Pressable
+                className="bg-[#FFCC00] border-gray-400 rounded-xl"
+                onPress={handleGoNext}
+              >
                 <Text className="mx-8 my-4 font-bold">Connect Wallet</Text>
               </Pressable>
             ) : (
-              <Pressable className="border-2 border-gray-400 rounded-xl" onPress={() => setIndex(index + 1)}>
+              <Pressable
+                className="border-2 border-gray-400 rounded-xl"
+                onPress={() => setIndex(index + 1)}
+              >
                 <Text className="text-gray-400 mx-8 my-4 font-bold">Next</Text>
               </Pressable>
             )}
