@@ -19,6 +19,24 @@ export interface RedemptionSessionData {
 export class RedemptionSessionRepository extends BaseRepository {
   async createSession(session: RedemptionSessionData): Promise<RedemptionSessionData> {
     try {
+      // Validate required fields before database insert
+      const requiredFields = {
+        sessionId: session.sessionId,
+        customerAddress: session.customerAddress,
+        shopId: session.shopId,
+        maxAmount: session.maxAmount,
+        status: session.status,
+        createdAt: session.createdAt,
+        expiresAt: session.expiresAt
+      };
+      
+      const nullFields = Object.entries(requiredFields)
+        .filter(([key, value]) => value === null || value === undefined)
+        .map(([key]) => key);
+        
+      if (nullFields.length > 0) {
+        throw new Error(`Required fields are null/undefined: ${nullFields.join(', ')}`);
+      }
       const query = `
         INSERT INTO redemption_sessions (
           session_id, customer_address, shop_id, max_amount,
@@ -38,6 +56,19 @@ export class RedemptionSessionRepository extends BaseRepository {
         session.qrCode || null,
         JSON.stringify(session.metadata || {})
       ];
+      
+      // Debug logging to see exact values
+      logger.info('Creating redemption session with values:', {
+        sessionId: session.sessionId,
+        customerAddress: session.customerAddress,
+        shopId: session.shopId,
+        maxAmount: session.maxAmount,
+        status: session.status,
+        createdAt: session.createdAt,
+        expiresAt: session.expiresAt,
+        qrCode: session.qrCode ? 'present' : 'null',
+        metadata: session.metadata || {}
+      });
       
       const result = await this.pool.query(query, values);
       return this.mapRowToSession(result.rows[0]);

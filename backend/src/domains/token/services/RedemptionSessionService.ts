@@ -124,7 +124,7 @@ export class RedemptionSessionService {
       expiresAt: new Date(Date.now() + this.QR_EXPIRY),
       approvedAt: new Date(),
       qrCode: JSON.stringify(qrData)
-    };
+    } as any; // Cast to include metadata field
 
     // Store session in database
     await redemptionSessionRepository.createSession(session);
