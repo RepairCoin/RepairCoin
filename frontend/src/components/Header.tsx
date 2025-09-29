@@ -50,7 +50,7 @@ const Header: React.FC = () => {
   return (
     <>
       <header
-        className={`fixed top-0 left-0 z-50 w-full transition-all duration-300 ${scrolled
+        className={`${isAuthenticated && 'hidden'} fixed top-0 left-0 z-50 w-full transition-all duration-300 ${scrolled
           ? "bg-gray-900/90 backdrop-blur-sm shadow-md"
           : "bg-transparent"
           }`}

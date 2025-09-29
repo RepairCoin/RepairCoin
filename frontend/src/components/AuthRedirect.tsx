@@ -9,9 +9,6 @@ export default function AuthRedirect() {
   const router = useRouter();
   const pathname = usePathname();
 
-  console.log("userType: ", userType)
-  console.log("isAuthenticated: ", isAuthenticated)
-
   useEffect(() => {
     // Only redirect if authenticated and not already on the correct dashboard
     if (isAuthenticated && userType) {

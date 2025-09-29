@@ -1,3 +1,5 @@
+'use client'
+
 import { useEffect, useCallback } from 'react';
 import { useActiveAccount } from "thirdweb/react";
 import { useAuthStore, UserProfile } from '../stores/authStore';

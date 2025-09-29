@@ -2,8 +2,9 @@ import type { Metadata } from 'next'
 import { Poppins } from 'next/font/google'
 import { Toaster } from 'react-hot-toast'
 import { Providers } from './providers'
-import LayoutWrapper from '@/components/LayoutWrapper'
 import AuthRedirect from '@/components/AuthRedirect'
+import Footer from '@/components/Footer'
+import Header from '@/components/Header'
 import '@/styles/globals.css'
 
 const poppins = Poppins({ 
@@ -52,9 +53,9 @@ export default function RootLayout({
             }}
           />
           <AuthRedirect />
-          <LayoutWrapper>
-            {children}
-          </LayoutWrapper>
+          <Header/>
+          {children}
+          <Footer/>
         </Providers>
       </body>
     </html>
