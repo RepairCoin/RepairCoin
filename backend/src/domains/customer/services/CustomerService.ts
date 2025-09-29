@@ -259,14 +259,30 @@ export class CustomerService {
         throw new Error('Can only view your own transaction history');
       }
 
-      // For now, return a mock transaction history since the method is missing
-      // TODO: Implement getTransactionHistory in DatabaseService
-      const transactions = []; // await databaseService.getTransactionHistory(address, limit);
+      // Get transactions from repository
+      const transactions = await transactionRepository.getTransactionsByCustomer(address, limit);
+      
+      // Transform transaction types for frontend expectations
+      const transformedTransactions = transactions.map((tx: any) => ({
+        id: tx.id,
+        type: tx.type === 'mint' ? 'earned' : tx.type === 'redeem' ? 'redeemed' : tx.type,
+        amount: parseFloat(tx.amount),
+        shopId: tx.shopId,
+        shopName: tx.shopName,
+        description: tx.reason || tx.description || 
+          (tx.type === 'mint' ? 'Repair reward' : 
+           tx.type === 'redeem' ? 'Redeemed at shop' : 
+           tx.type === 'referral' ? 'Referral bonus' : 
+           tx.type === 'tier_bonus' ? 'Tier bonus' :
+           'Transaction'),
+        createdAt: tx.timestamp,
+        metadata: tx.metadata
+      }));
       
       // Filter by type if specified
-      let filteredTransactions = transactions;
-      if (type && ['mint', 'redeem', 'transfer'].includes(type)) {
-        filteredTransactions = transactions.filter((t: any) => t.type === type);
+      let filteredTransactions = transformedTransactions;
+      if (type && ['earned', 'redeemed', 'bonus', 'referral'].includes(type)) {
+        filteredTransactions = transformedTransactions.filter((t: any) => t.type === type);
       }
 
       return {

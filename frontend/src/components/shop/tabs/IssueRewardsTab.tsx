@@ -12,7 +12,7 @@ interface IssueRewardsTabProps {
   onRewardIssued: () => void;
 }
 
-type RepairType = "small" | "large";
+type RepairType = "minor" | "small" | "large" | "custom";
 
 interface CustomerInfo {
   tier: "BRONZE" | "SILVER" | "GOLD";
@@ -21,6 +21,34 @@ interface CustomerInfo {
   monthlyEarnings: number;
 }
 
+interface RepairOption {
+  type: RepairType;
+  label: string;
+  rcn: string | number;
+  description: string;
+}
+
+const TIER_BONUSES = {
+  BRONZE: 10,
+  SILVER: 20,
+  GOLD: 30,
+} as const;
+
+const TIER_STYLES = {
+  GOLD: "bg-gradient-to-r from-yellow-500 to-yellow-600 text-white",
+  SILVER: "bg-gradient-to-r from-gray-400 to-gray-500 text-white",
+  BRONZE: "bg-gradient-to-r from-orange-500 to-orange-600 text-white",
+} as const;
+
+const DAILY_LIMIT = 50;
+const MONTHLY_LIMIT = 500;
+const MINOR_REPAIR_RCN = 5;
+const SMALL_REPAIR_RCN = 10;
+const LARGE_REPAIR_RCN = 25;
+const MINOR_REPAIR_VALUE = 30;
+const SMALL_REPAIR_VALUE = 75;
+const LARGE_REPAIR_VALUE = 100;
+
 export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
   shopId,
   shopData,
@@ -28,44 +56,66 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
 }) => {
   const [customerAddress, setCustomerAddress] = useState("");
   const [repairType, setRepairType] = useState<RepairType>("small");
+  const [customAmount, setCustomAmount] = useState("");
+  const [customRcn, setCustomRcn] = useState("");
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [fetchingCustomer, setFetchingCustomer] = useState(false);
 
-  // Calculate rewards based on repair type
   const calculateBaseReward = () => {
-    return repairType === "large" ? 25 : 10;
+    if (repairType === "custom") {
+      const rcn = parseFloat(customRcn);
+      return isNaN(rcn) ? 0 : rcn;
+    }
+    switch (repairType) {
+      case "minor": return MINOR_REPAIR_RCN;
+      case "small": return SMALL_REPAIR_RCN;
+      case "large": return LARGE_REPAIR_RCN;
+      default: return 0;
+    }
   };
 
-  // Get repair amount for API call
   const getRepairAmount = () => {
-    return repairType === "large" ? 100 : 75; // Use 75 for small repairs (middle of $50-99 range)
+    if (repairType === "custom") {
+      return parseFloat(customAmount) || 0;
+    }
+    switch (repairType) {
+      case "minor": return MINOR_REPAIR_VALUE;
+      case "small": return SMALL_REPAIR_VALUE;
+      case "large": return LARGE_REPAIR_VALUE;
+      default: return 0;
+    }
   };
 
   const getTierBonus = (tier: string) => {
-    switch (tier) {
-      case "BRONZE":
-        return 10;
-      case "SILVER":
-        return 20;
-      case "GOLD":
-        return 30;
-      default:
-        return 10;
-    }
+    return TIER_BONUSES[tier as keyof typeof TIER_BONUSES] || TIER_BONUSES.BRONZE;
   };
 
   const baseReward = calculateBaseReward();
   const tierBonus = customerInfo ? getTierBonus(customerInfo.tier) : 0;
   const totalReward = baseReward + tierBonus;
+  const hasSufficientBalance = (shopData?.purchasedRcnBalance || 0) >= totalReward;
 
-  // Check if shop has sufficient balance for total reward (base + tier bonus)
-  const hasSufficientBalance =
-    (shopData?.purchasedRcnBalance || 0) >= totalReward;
+  const checkLimit = (current: number, limit: number) => {
+    const remaining = limit - current;
+    return {
+      withinLimit: current + totalReward <= limit,
+      remaining: Math.max(0, remaining),
+    };
+  };
 
-  // Fetch customer info when address changes
+  const dailyLimit = customerInfo 
+    ? checkLimit(customerInfo.dailyEarnings, DAILY_LIMIT)
+    : { withinLimit: true, remaining: DAILY_LIMIT };
+
+  const monthlyLimit = customerInfo
+    ? checkLimit(customerInfo.monthlyEarnings, MONTHLY_LIMIT)
+    : { withinLimit: true, remaining: MONTHLY_LIMIT };
+
+  const canIssueReward = dailyLimit.withinLimit && monthlyLimit.withinLimit;
+
   useEffect(() => {
     if (customerAddress && customerAddress.length === 42) {
       fetchCustomerInfo();
@@ -85,14 +135,14 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
 
       if (response.ok) {
         const result = await response.json();
+        const customerData = result.data.customer || result.data;
         setCustomerInfo({
-          tier: result.data.tier || "BRONZE",
-          lifetimeEarnings: result.data.lifetimeEarnings || 0,
-          dailyEarnings: result.data.dailyEarnings || 0,
-          monthlyEarnings: result.data.monthlyEarnings || 0,
+          tier: customerData.tier || "BRONZE",
+          lifetimeEarnings: customerData.lifetimeEarnings || 0,
+          dailyEarnings: customerData.dailyEarnings || 0,
+          monthlyEarnings: customerData.monthlyEarnings || 0,
         });
       } else {
-        // New customer
         setCustomerInfo({
           tier: "BRONZE",
           lifetimeEarnings: 0,
@@ -102,7 +152,6 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
       }
     } catch (err) {
       console.error("Error fetching customer:", err);
-      // Assume new customer on error
       setCustomerInfo({
         tier: "BRONZE",
         lifetimeEarnings: 0,
@@ -120,6 +169,14 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
       return;
     }
 
+    if (repairType === "custom") {
+      const amount = parseFloat(customAmount);
+      if (!customAmount || isNaN(amount) || amount <= 0) {
+        setError("Please enter a valid repair amount");
+        return;
+      }
+    }
+
     if (!hasSufficientBalance) {
       setError(
         `Insufficient RCN balance. Need ${totalReward} RCN but only have ${
@@ -134,7 +191,6 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
     setSuccess(null);
 
     try {
-      // Get auth token
       const authToken =
         localStorage.getItem("shopAuthToken") ||
         sessionStorage.getItem("shopAuthToken");
@@ -151,16 +207,26 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
         );
       }
 
+      const requestBody: any = {
+        customerAddress,
+        repairAmount: getRepairAmount(),
+        skipTierBonus: false,
+      };
+
+      // If using custom repair type, send the custom base reward
+      if (repairType === "custom") {
+        const customBase = parseFloat(customRcn);
+        if (!isNaN(customBase) && customBase >= 0) {
+          requestBody.customBaseReward = customBase;
+        }
+      }
+
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/issue-reward`,
         {
           method: "POST",
           headers,
-          body: JSON.stringify({
-            customerAddress,
-            repairAmount: getRepairAmount(),
-            skipTierBonus: false, // Always include tier bonus in total calculation
-          }),
+          body: JSON.stringify(requestBody),
         }
       );
 
@@ -175,12 +241,21 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
         `Successfully issued ${result.data.totalReward} RCN to customer!`
       );
 
-      // Reset form
-      setCustomerAddress("");
-      setRepairType("small");
-      setCustomerInfo(null);
+      // Update customer info with new earnings
+      if (customerInfo) {
+        setCustomerInfo({
+          ...customerInfo,
+          dailyEarnings: customerInfo.dailyEarnings + totalReward,
+          monthlyEarnings: customerInfo.monthlyEarnings + totalReward,
+          lifetimeEarnings: customerInfo.lifetimeEarnings + totalReward
+        });
+      }
 
-      // Notify parent to refresh data
+      // Clear form but keep customer address for convenience
+      setRepairType("small");
+      setCustomAmount("");
+      setCustomRcn("");
+
       onRewardIssued();
     } catch (err) {
       console.error("Error issuing reward:", err);
@@ -196,34 +271,122 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
     }
   };
 
-  const checkDailyLimit = () => {
-    if (!customerInfo) return { withinLimit: true, remaining: 40 };
-    const remaining = 40 - customerInfo.dailyEarnings;
-    return {
-      withinLimit: customerInfo.dailyEarnings + totalReward <= 40,
-      remaining: Math.max(0, remaining),
-    };
-  };
+  const repairOptions: RepairOption[] = [
+    {
+      type: "minor",
+      label: "$30 Repair",
+      rcn: MINOR_REPAIR_RCN,
+      description: "Rewards 5 RCN",
+    },
+    {
+      type: "small",
+      label: "Small Repair",
+      rcn: SMALL_REPAIR_RCN,
+      description: "$50 - $99 repair value",
+    },
+    {
+      type: "large",
+      label: "Large Repair",
+      rcn: LARGE_REPAIR_RCN,
+      description: "$100+ repair value",
+    },
+    {
+      type: "custom",
+      label: "Custom Amount",
+      rcn: customRcn || "0",
+      description: "Enter custom values",
+    },
+  ];
 
-  const checkMonthlyLimit = () => {
-    if (!customerInfo) return { withinLimit: true, remaining: 500 };
-    const remaining = 500 - customerInfo.monthlyEarnings;
-    return {
-      withinLimit: customerInfo.monthlyEarnings + totalReward <= 500,
-      remaining: Math.max(0, remaining),
-    };
-  };
+  const RepairRadioButton = ({ option }: { option: RepairOption }) => (
+    <label className="relative cursor-pointer">
+      <input
+        type="radio"
+        name="repairType"
+        value={option.type}
+        checked={repairType === option.type}
+        onChange={(e) => setRepairType(e.target.value as RepairType)}
+        className="sr-only"
+      />
+      <div
+        className={`p-4 rounded-xl border transition-all ${
+          repairType === option.type
+            ? "bg-[#2F2F2F] bg-opacity-10 border-[#FFCC00]"
+            : "bg-[#0D0D0D] border-gray-700 hover:border-gray-600"
+        }`}
+      >
+        <div className="flex justify-between items-start mb-2">
+          <div className="flex items-center">
+            <div
+              className={`w-4 h-4 rounded-full border-2 mr-3 ${
+                repairType === option.type
+                  ? "border-[#FFCC00] bg-[#FFCC00]"
+                  : "border-gray-500"
+              }`}
+            >
+              {repairType === option.type && (
+                <svg
+                  className="w-full h-full text-black"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              )}
+            </div>
+            <span className="font-semibold text-white">{option.label}</span>
+          </div>
+          <span className={`font-bold ${option.rcn === 0 && option.type !== "custom" ? "text-gray-500" : "text-[#FFCC00]"}`}>
+            {option.type === "custom" 
+              ? customRcn ? `${customRcn} RCN` : "Custom"
+              : `${option.rcn} RCN`}
+          </span>
+        </div>
+        <p className="text-gray-400 text-sm ml-7">{option.description}</p>
+      </div>
+    </label>
+  );
 
-  const dailyLimit = checkDailyLimit();
-  const monthlyLimit = checkMonthlyLimit();
-  const canIssueReward = dailyLimit.withinLimit && monthlyLimit.withinLimit;
+  const LimitProgressBar = ({
+    current,
+    limit,
+    label,
+  }: {
+    current: number;
+    limit: number;
+    label: string;
+  }) => {
+    const percentage = Math.min((current / limit) * 100, 100);
+    const isExceeded = current >= limit;
+
+    return (
+      <div>
+        <div className="flex justify-between text-xs mb-1">
+          <span className="text-gray-400">{label}</span>
+          <span className={isExceeded ? "text-red-400" : "text-gray-400"}>
+            {current}/{limit} RCN
+          </span>
+        </div>
+        <div className="w-full bg-gray-700 rounded-full h-2">
+          <div
+            className={`h-2 rounded-full transition-all ${
+              isExceeded ? "bg-red-500" : "bg-[#FFCC00]"
+            }`}
+            style={{ width: `${percentage}%` }}
+          />
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Form Section - Left Side */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Customer Input Card */}
           <div className="bg-[#212121] rounded-3xl">
             <div
               className="w-full px-4 md:px-8 py-4 text-white rounded-t-3xl"
@@ -266,30 +429,25 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                           r="10"
                           stroke="currentColor"
                           strokeWidth="4"
-                        ></circle>
+                        />
                         <path
                           className="opacity-75"
                           fill="currentColor"
                           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
+                        />
                       </svg>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Customer Status Bar */}
               {customerInfo && (
                 <div className="bg-[#0D0D0D] rounded-xl p-4 border border-gray-700">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div
                         className={`px-3 py-1 rounded-full text-xs font-bold ${
-                          customerInfo.tier === "GOLD"
-                            ? "bg-gradient-to-r from-yellow-500 to-yellow-600 text-white"
-                            : customerInfo.tier === "SILVER"
-                            ? "bg-gradient-to-r from-gray-400 to-gray-500 text-white"
-                            : "bg-gradient-to-r from-orange-500 to-orange-600 text-white"
+                          TIER_STYLES[customerInfo.tier]
                         }`}
                       >
                         {customerInfo.tier} TIER
@@ -311,7 +469,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                               : "text-green-500"
                           }`}
                         >
-                          {customerInfo.dailyEarnings}/50
+                          {customerInfo.dailyEarnings}/{DAILY_LIMIT}
                         </span>
                       </div>
                       <div>
@@ -323,7 +481,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                               : "text-green-500"
                           }`}
                         >
-                          {customerInfo.monthlyEarnings}/500
+                          {customerInfo.monthlyEarnings}/{MONTHLY_LIMIT}
                         </span>
                       </div>
                     </div>
@@ -348,109 +506,54 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full p-4 md:p-8 text-white">
-              <label className={`relative cursor-pointer`}>
-                <input
-                  type="radio"
-                  name="repairType"
-                  value="small"
-                  checked={repairType === "small"}
-                  onChange={(e) => setRepairType(e.target.value as RepairType)}
-                  className="sr-only"
-                />
-                <div
-                  className={`p-4 rounded-xl border transition-all ${
-                    repairType === "small"
-                      ? "bg-[#2F2F2F] bg-opacity-10 border-[#FFCC00]"
-                      : "bg-[#0D0D0D] border-gray-700 hover:border-gray-600"
-                  }`}
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center">
-                      <div
-                        className={`w-4 h-4 rounded-full border-2 mr-3 ${
-                          repairType === "small"
-                            ? "border-[#FFCC00] bg-[#FFCC00]"
-                            : "border-gray-500"
-                        }`}
-                      >
-                        {repairType === "small" && (
-                          <svg
-                            className="w-full h-full text-black"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        )}
-                      </div>
-                      <span className="font-semibold text-white">
-                        Small Repair
-                      </span>
-                    </div>
-                    <span className="text-[#FFCC00] font-bold">10 RCN</span>
-                  </div>
-                  <p className="text-gray-400 text-sm ml-7">
-                    $50 - $99 repair value
-                  </p>
-                </div>
-              </label>
-
-              <label className={`relative cursor-pointer`}>
-                <input
-                  type="radio"
-                  name="repairType"
-                  value="large"
-                  checked={repairType === "large"}
-                  onChange={(e) => setRepairType(e.target.value as RepairType)}
-                  className="sr-only"
-                />
-                <div
-                  className={`p-4 rounded-xl border transition-all ${
-                    repairType === "large"
-                      ? "bg-[#2F2F2F] bg-opacity-10 border-[#FFCC00]"
-                      : "bg-[#0D0D0D] border-gray-700 hover:border-gray-600"
-                  }`}
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center">
-                      <div
-                        className={`w-4 h-4 rounded-full border-2 mr-3 ${
-                          repairType === "large"
-                            ? "border-[#FFCC00] bg-[#FFCC00]"
-                            : "border-gray-500"
-                        }`}
-                      >
-                        {repairType === "large" && (
-                          <svg
-                            className="w-full h-full text-black"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        )}
-                      </div>
-                      <span className="font-semibold text-white">
-                        Large Repair
-                      </span>
-                    </div>
-                    <span className="text-[#FFCC00] font-bold">25 RCN</span>
-                  </div>
-                  <p className="text-gray-400 text-sm ml-7">
-                    $100+ repair value
-                  </p>
-                </div>
-              </label>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full p-4 md:p-8 text-white">
+              {repairOptions.map((option) => (
+                <RepairRadioButton key={option.type} option={option} />
+              ))}
             </div>
+
+            {repairType === "custom" && (
+              <div className="w-full p-4 md:p-8 pt-0">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Repair Amount ($)
+                    </label>
+                    <input
+                      type="number"
+                      value={customAmount}
+                      onChange={(e) => setCustomAmount(e.target.value)}
+                      placeholder="0"
+                      min="0"
+                      step="0.01"
+                      className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      RCN Reward (Base Amount)
+                    </label>
+                    <input
+                      type="number"
+                      value={customRcn}
+                      onChange={(e) => setCustomRcn(e.target.value)}
+                      placeholder="0"
+                      min="0"
+                      step="1"
+                      className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent transition-all"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Tier bonus will be added automatically
+                    </p>
+                  </div>
+                </div>
+                {(customAmount || customRcn) && (
+                  <p className="mt-2 text-sm text-gray-400">
+                    Total reward: {calculateBaseReward()} RCN base{customerInfo && ` + ${getTierBonus(customerInfo.tier)} RCN tier bonus = ${calculateBaseReward() + getTierBonus(customerInfo.tier)} RCN`}
+                  </p>
+                )}
+              </div>
+            )}
 
             {!hasSufficientBalance && totalReward > 0 && (
               <div className="w-full px-8 pb-8 text-white">
@@ -502,9 +605,9 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                       </h4>
                       <p className="text-sm text-red-400">
                         {!dailyLimit.withinLimit &&
-                          `Daily limit reached. ${dailyLimit.remaining} RCN remaining today.`}
+                          `This reward (${totalReward} RCN) would exceed the daily limit. Customer has ${dailyLimit.remaining} RCN remaining today.`}
                         {!monthlyLimit.withinLimit &&
-                          `Monthly limit reached. ${monthlyLimit.remaining} RCN remaining this month.`}
+                          `This reward (${totalReward} RCN) would exceed the monthly limit. Customer has ${monthlyLimit.remaining} RCN remaining this month.`}
                       </p>
                     </div>
                   </div>
@@ -514,12 +617,9 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
           </div>
         </div>
 
-        {/* Right Sidebar - Reward Calculator */}
         <div className="lg:col-span-1">
           <div className="sticky top-8">
-            {/* Enhanced Reward Summary Card */}
             <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#1C1C1C] to-[#252525] border border-gray-800">
-              {/* Decorative Header */}
               <div className="p-1">
                 <div className="bg-[#1C1C1C] px-6 py-4 rounded-t-3xl">
                   <div className="flex items-center gap-2">
@@ -544,7 +644,6 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                 </div>
               </div>
 
-              {/* Balance Display */}
               <div className="px-6 py-4 border-b border-gray-800">
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400 text-sm">
@@ -571,7 +670,6 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                 </div>
               </div>
 
-              {/* Calculation Breakdown */}
               <div className="px-6 py-4 space-y-4">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
@@ -599,7 +697,6 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                   )}
                 </div>
 
-                {/* Total Display */}
                 <div className="border-t border-gray-700 pt-4">
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-white font-semibold text-md">
@@ -612,73 +709,22 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                     </div>
                   </div>
 
-                  {/* Progress Bars for Limits */}
                   {customerInfo && (
                     <div className="space-y-3">
-                      <div>
-                        <div className="flex justify-between text-xs mb-1">
-                          <span className="text-gray-400">Daily</span>
-                          <span
-                            className={`${
-                              !dailyLimit.withinLimit
-                                ? "text-red-400"
-                                : "text-gray-400"
-                            }`}
-                          >
-                            {customerInfo.dailyEarnings}/50 RCN
-                          </span>
-                        </div>
-                        <div className="w-full bg-gray-700 rounded-full h-2">
-                          <div
-                            className={`h-2 rounded-full transition-all ${
-                              !dailyLimit.withinLimit
-                                ? "bg-red-500"
-                                : "bg-[#FFCC00]"
-                            }`}
-                            style={{
-                              width: `${Math.min(
-                                (customerInfo.dailyEarnings / 50) * 100,
-                                100
-                              )}%`,
-                            }}
-                          ></div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="flex justify-between text-xs mb-1">
-                          <span className="text-gray-400">Monthly</span>
-                          <span
-                            className={`${
-                              !monthlyLimit.withinLimit
-                                ? "text-red-400"
-                                : "text-gray-400"
-                            }`}
-                          >
-                            {customerInfo.monthlyEarnings}/500 RCN
-                          </span>
-                        </div>
-                        <div className="w-full bg-gray-700 rounded-full h-2">
-                          <div
-                            className={`h-2 rounded-full transition-all ${
-                              !monthlyLimit.withinLimit
-                                ? "bg-red-500"
-                                : "bg-[#FFCC00]"
-                            }`}
-                            style={{
-                              width: `${Math.min(
-                                (customerInfo.monthlyEarnings / 500) * 100,
-                                100
-                              )}%`,
-                            }}
-                          ></div>
-                        </div>
-                      </div>
+                      <LimitProgressBar
+                        current={customerInfo.dailyEarnings}
+                        limit={DAILY_LIMIT}
+                        label="Daily"
+                      />
+                      <LimitProgressBar
+                        current={customerInfo.monthlyEarnings}
+                        limit={MONTHLY_LIMIT}
+                        label="Monthly"
+                      />
                     </div>
                   )}
                 </div>
 
-                {/* Issue Button */}
                 <button
                   onClick={issueReward}
                   disabled={
@@ -733,7 +779,6 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                   )}
                 </button>
 
-                {/* Helper Text */}
                 <p className="text-center text-xs text-gray-500">
                   Tier bonuses are automatically added
                 </p>
@@ -743,7 +788,6 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
         </div>
       </div>
 
-      {/* Success/Error Messages */}
       {success && (
         <div className="mt-6 bg-green-900 bg-opacity-20 border border-green-500 rounded-xl p-4">
           <div className="flex items-center">

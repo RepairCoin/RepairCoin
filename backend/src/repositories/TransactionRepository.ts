@@ -31,13 +31,12 @@ export class TransactionRepository extends BaseRepository {
     try {
       const query = `
         INSERT INTO transactions (
-          id, type, customer_address, shop_id, amount, reason,
+          type, customer_address, shop_id, amount, reason,
           transaction_hash, block_number, timestamp, status, metadata
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       `;
       
       await this.pool.query(query, [
-        transaction.id,
         transaction.type,
         transaction.customerAddress.toLowerCase(),
         transaction.shopId,

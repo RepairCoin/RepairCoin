@@ -1092,7 +1092,7 @@ router.post('/:shopId/issue-reward',
   async (req: Request, res: Response) => {
     try {
       const { shopId } = req.params;
-      const { customerAddress, repairAmount, skipTierBonus = false } = req.body;
+      const { customerAddress, repairAmount, skipTierBonus = false, customBaseReward } = req.body;
       
       const shop = await shopRepository.getShop(shopId);
       if (!shop) {
@@ -1150,17 +1150,22 @@ router.post('/:shopId/issue-reward',
         });
       }
 
-      // Calculate base reward based on repair amount
+      // Calculate base reward - use custom if provided, otherwise calculate based on repair amount
       let baseReward = 0;
-      if (repairAmount >= 100) {
-        baseReward = 25;
-      } else if (repairAmount >= 50) {
-        baseReward = 10;
+      if (customBaseReward !== undefined && customBaseReward >= 0) {
+        // Use custom base reward (can be any non-negative value)
+        baseReward = customBaseReward;
       } else {
-        return res.status(400).json({
-          success: false,
-          error: 'Repair amount must be at least $50 to earn rewards'
-        });
+        // Standard calculation based on repair amount
+        if (repairAmount >= 100) {
+          baseReward = 25;
+        } else if (repairAmount >= 50) {
+          baseReward = 10;
+        } else if (repairAmount >= 30) {
+          baseReward = 5;
+        } else {
+          baseReward = 0; // Allow any repair amount, just no reward for under $30
+        }
       }
 
       // Get tier bonus based on customer tier
@@ -1236,7 +1241,7 @@ router.post('/:shopId/issue-reward',
 
       // Process the reward - Deduct from shop's purchased RCN balance (off-chain)
       // This is managed in the database, not on blockchain
-      let transactionHash = `offchain_${Date.now()}_${shopId}_${customerAddress}`;
+      let transactionHash = `offchain_${Date.now()}`;
       
       try {
         // Update shop's balance and statistics atomically
