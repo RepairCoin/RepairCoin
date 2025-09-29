@@ -74,7 +74,7 @@ export function QRCodeModal({
                 <div className="w-64 h-64 flex items-center justify-center">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
                 </div>
-              ) : (
+              ) : qrImageUrl ? (
                 <img
                   src={qrImageUrl}
                   alt="QR Code"
@@ -83,6 +83,10 @@ export function QRCodeModal({
                     console.error("Failed to load QR code image");
                   }}
                 />
+              ) : (
+                <div className="w-64 h-64 flex items-center justify-center text-red-500">
+                  No QR code data available
+                </div>
               )}
             </div>
 
