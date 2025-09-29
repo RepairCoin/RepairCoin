@@ -73,13 +73,24 @@ export class RedemptionSessionRepository extends BaseRepository {
       const result = await this.pool.query(query, values);
       return this.mapRowToSession(result.rows[0]);
     } catch (error: any) {
-      logger.error('Error creating redemption session:', {
-        error: error.message,
+      const errorDetails = {
+        message: error.message,
         code: error.code,
         detail: error.detail,
-        stack: error.stack
-      });
-      throw new Error(`Failed to create redemption session: ${error.message}`);
+        constraint: error.constraint,
+        column: error.column,
+        table: error.table
+      };
+      
+      logger.error('Error creating redemption session:', errorDetails);
+      
+      // Create a more specific error message
+      let specificError = error.message;
+      if (error.constraint && error.constraint.includes('not_null')) {
+        specificError = `Null constraint violation: ${error.constraint} (column: ${error.column || 'unknown'})`;
+      }
+      
+      throw new Error(`Database error: ${specificError}`);
     }
   }
 
