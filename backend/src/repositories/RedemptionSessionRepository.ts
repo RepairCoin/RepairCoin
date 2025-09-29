@@ -37,6 +37,8 @@ export class RedemptionSessionRepository extends BaseRepository {
       if (nullFields.length > 0) {
         throw new Error(`Required fields are null/undefined: ${nullFields.join(', ')}`);
       }
+      // Note: The table has both 'id' (auto-increment) and 'session_id' columns
+      // We don't insert 'id' as it's auto-generated
       const query = `
         INSERT INTO redemption_sessions (
           session_id, customer_address, shop_id, max_amount,
