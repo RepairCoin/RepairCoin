@@ -27,6 +27,27 @@ async function checkDatabase() {
             console.log(`  - ${row.schema_name}`);
         });
         
+        // Check for redemption_sessions table specifically
+        const redemptionTable = await pool.query(`
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_name = 'redemption_sessions'
+        `);
+        console.log('\nRedemption sessions table exists:', redemptionTable.rows.length > 0);
+        
+        if (redemptionTable.rows.length > 0) {
+            const columns = await pool.query(`
+                SELECT column_name, data_type, is_nullable
+                FROM information_schema.columns 
+                WHERE table_name = 'redemption_sessions' 
+                ORDER BY ordinal_position
+            `);
+            console.log('Redemption sessions table columns:');
+            columns.rows.forEach(col => {
+                console.log(`  - ${col.column_name}: ${col.data_type} (nullable: ${col.is_nullable})`);
+            });
+        }
+        
         // Check if we can see any tables
         const tablesResult = await pool.query(`
             SELECT table_schema, table_name 
