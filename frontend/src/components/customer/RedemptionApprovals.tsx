@@ -49,14 +49,37 @@ export function RedemptionApprovals() {
   const [qrAmount, setQrAmount] = useState(0);
   const [generatedQR, setGeneratedQR] = useState<string | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
+  
+  // Shop list for dropdown
+  const [shops, setShops] = useState<Array<{shopId: string; name: string; verified: boolean}>>([]);
+  const [loadingShops, setLoadingShops] = useState(true);
 
   useEffect(() => {
     if (account?.address) {
       loadSessions();
+      loadShops();
       const interval = setInterval(loadSessions, 5000);
       return () => clearInterval(interval);
     }
   }, [account?.address]);
+
+  const loadShops = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops`);
+      if (response.ok) {
+        const result = await response.json();
+        // Filter for active and verified shops only
+        const activeShops = result.data.shops.filter(
+          (shop: any) => shop.active && shop.verified
+        );
+        setShops(activeShops);
+      }
+    } catch (error) {
+      console.error("Error loading shops:", error);
+    } finally {
+      setLoadingShops(false);
+    }
+  };
 
   const loadSessions = async () => {
     if (!account?.address) return;
@@ -470,15 +493,26 @@ export function RedemptionApprovals() {
         <div className="flex flex-col w-2/3 p-4 md:p-8 gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Shop ID
+              Select Shop
             </label>
-            <input
-              type="text"
-              value={qrShopId}
-              onChange={(e) => setQrShopId(e.target.value)}
-              placeholder="Enter shop ID"
-              className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+            {loadingShops ? (
+              <div className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-gray-400 rounded-xl">
+                Loading shops...
+              </div>
+            ) : (
+              <select
+                value={qrShopId}
+                onChange={(e) => setQrShopId(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Select a shop</option>
+                {shops.map((shop) => (
+                  <option key={shop.shopId} value={shop.shopId}>
+                    {shop.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           <div>
@@ -544,7 +578,7 @@ export function RedemptionApprovals() {
           onClose={() => setShowQRModal(false)}
           qrData={generatedQR}
           title="Redemption QR Code"
-          description={`Redeem ${qrAmount} RCN at ${qrShopId}`}
+          description={`Redeem ${qrAmount} RCN at ${shops.find(s => s.shopId === qrShopId)?.name || qrShopId}`}
         />
       )}
     </div>
