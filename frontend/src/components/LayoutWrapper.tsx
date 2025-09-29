@@ -13,9 +13,9 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
 
   return (
     <>
-      {!isAuthenticated && !isLoading && !account && <Header />}
+      {!isAuthenticated && <Header />}
       {children}
-      {!isAuthenticated && !isLoading && !account && <Footer />}
+      {!isAuthenticated && <Footer />}
     </>
   );
 }

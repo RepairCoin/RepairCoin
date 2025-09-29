@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from '../../../hooks/useAuth';
+import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { toast, Toaster } from 'react-hot-toast';
 import Link from 'next/link';
@@ -19,7 +19,7 @@ interface CustomerData {
 }
 
 export default function CustomerSettingsPage() {
-  const { user, loading: authLoading, isCustomer, userType } = useAuth();
+  const { user, isLoading: authLoading, isCustomer, userType } = useAuth();
   const router = useRouter();
   const [customer, setCustomer] = useState<CustomerData | null>(null);
   const [loading, setLoading] = useState(true);

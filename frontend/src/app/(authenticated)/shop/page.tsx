@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import ShopDashboardClient from "../../components/shop/ShopDashboardClient";
+import ShopDashboardClient from "@/components/shop/ShopDashboardClient";
 
 // Loading component for the Suspense boundary
 function LoadingFallback() {
