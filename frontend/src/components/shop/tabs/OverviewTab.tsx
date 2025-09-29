@@ -113,6 +113,16 @@ const purchaseColumns: Column<PurchaseHistory>[] = [
       );
     },
   },
+  {
+    key: "runningBalance",
+    header: "Balance",
+    sortable: true,
+    accessor: (purchase: any) => (
+      <span className="text-sm font-semibold text-green-400">
+        {purchase.runningBalance ? `${purchase.runningBalance} RCN` : '0 RCN'}
+      </span>
+    ),
+  },
 ];
 
 export const OverviewTab: React.FC<OverviewTabProps> = ({
@@ -134,6 +144,39 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     if (filter === "all") return true;
     return purchase.status === filter;
   });
+
+  // Calculate running balances for purchases
+  const purchasesWithBalance = React.useMemo(() => {
+    if (!purchases || purchases.length === 0) return [];
+    
+    // Sort purchases by date (newest first)
+    const sortedPurchases = [...filteredPurchases].sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    
+    // Start from current balance and work backwards
+    let runningBalance = shopData?.purchasedRcnBalance || 0;
+    
+    const purchasesWithRunningBalance = sortedPurchases.map((purchase, index) => {
+      // For the first item (most recent), the running balance is current balance + amount
+      // For subsequent items, we add the previous purchase amount
+      if (index > 0 && (sortedPurchases[index - 1].status === 'completed' || sortedPurchases[index - 1].status === 'minted')) {
+        runningBalance += sortedPurchases[index - 1].amount;
+      }
+      
+      // Include current purchase in balance if it's completed
+      const balanceAfterPurchase = (purchase.status === 'completed' || purchase.status === 'minted') 
+        ? runningBalance + purchase.amount 
+        : runningBalance;
+      
+      return {
+        ...purchase,
+        runningBalance: balanceAfterPurchase
+      };
+    });
+    
+    return purchasesWithRunningBalance;
+  }, [filteredPurchases, purchases, shopData?.purchasedRcnBalance]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -286,7 +329,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
           <div className="space-y-4 py-8">
             <DataTable
-              data={filteredPurchases}
+              data={purchasesWithBalance}
               columns={purchaseColumns}
               keyExtractor={(purchase) => purchase.id}
               loading={false}

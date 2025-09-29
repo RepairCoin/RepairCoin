@@ -12,6 +12,7 @@ interface TreasuryData {
   totalSupply: number | string;
   availableSupply: number | string;
   totalSold: number;
+  totalMinted?: number;
   totalRevenue: number;
   lastUpdated: string;
   circulatingSupply?: number;
@@ -85,17 +86,10 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [activeTab, setActiveTab] = useState<'rcn' | 'rcg'>('rcn');
-  
-  // Sell RCN form state
-  const [showSellModal, setShowSellModal] = useState(false);
-  const [selectedShopId, setSelectedShopId] = useState('');
-  const [sellAmount, setSellAmount] = useState(100);
-  const [shops, setShops] = useState<Array<{shopId: string; name: string}>>([]);
 
   useEffect(() => {
     loadTreasuryData();
     loadRCGMetrics();
-    loadShops();
   }, []);
 
   const loadTreasuryData = async () => {
@@ -154,34 +148,6 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
     }
   };
 
-  const loadShops = async () => {
-    try {
-      const adminToken = await generateAdminToken();
-      if (!adminToken) {
-        onError('Failed to authenticate as admin');
-        return;
-      }
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/shops?verified=true`, {
-        headers: {
-          'Authorization': `Bearer ${adminToken}`
-        }
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        const shopsData = result.data?.shops || result.data || [];
-        setShops(shopsData.map((shop: any) => ({
-          shopId: shop.shop_id || shop.shopId,
-          name: shop.name
-        })));
-      } else {
-        console.error('Failed to load shops:', response.status);
-      }
-    } catch (error) {
-      console.error('Error loading shops:', error);
-    }
-  };
 
   const updateTreasuryData = async () => {
     setUpdating(true);
@@ -214,45 +180,6 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
     }
   };
 
-  const handleSellRCN = async () => {
-    if (!selectedShopId || sellAmount <= 0) return;
-    
-    try {
-      const adminToken = await generateAdminToken();
-      if (!adminToken) {
-        onError('Failed to authenticate as admin');
-        return;
-      }
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/shops/${selectedShopId}/sell-rcn`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${adminToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          amount: sellAmount,
-          pricePerToken: 0.10,
-          paymentMethod: 'manual',
-          paymentReference: `ADMIN-${Date.now()}`
-        })
-      });
-
-      if (response.ok) {
-        toast.success(`Successfully sold ${sellAmount} RCN to shop`);
-        setShowSellModal(false);
-        setSellAmount(100);
-        setSelectedShopId('');
-        await loadTreasuryData();
-      } else {
-        const errorData = await response.json();
-        onError(errorData.error || 'Failed to sell RCN');
-      }
-    } catch (error) {
-      console.error('Error selling RCN:', error);
-      onError('Failed to sell RCN to shop');
-    }
-  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -320,24 +247,16 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
           <div className="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-white">RCN Treasury Overview</h2>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowSellModal(true)}
-                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-                >
-                  Sell RCN to Shop
-                </button>
-                <button
-                  onClick={updateTreasuryData}
-                  disabled={updating}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                >
-                  {updating ? 'Updating...' : 'Update Data'}
-                </button>
-              </div>
+              <button
+                onClick={updateTreasuryData}
+                disabled={updating}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {updating ? 'Updating...' : 'Update Data'}
+              </button>
             </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
           <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-xl p-6 border border-blue-700">
             <div className="text-3xl mb-2">💎</div>
             <p className="text-sm text-gray-400 mb-1">Total Supply</p>
@@ -363,6 +282,13 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
             <p className="text-sm text-gray-400 mb-1">Total Sold to Shops</p>
             <p className="text-2xl font-bold text-white">{formatNumber(treasuryData.totalSold)} RCN</p>
             <p className="text-sm text-purple-400 mt-1">Shops purchased @ $0.10/RCN</p>
+          </div>
+
+          <div className="bg-gradient-to-br from-orange-900 to-orange-800 rounded-xl p-6 border border-orange-700">
+            <div className="text-3xl mb-2">🎁</div>
+            <p className="text-sm text-gray-400 mb-1">Total Minted (Rewards)</p>
+            <p className="text-2xl font-bold text-white">{formatNumber(treasuryData.totalMinted || 0)} RCN</p>
+            <p className="text-sm text-orange-400 mt-1">Issued to customers</p>
           </div>
 
           <div className="bg-gradient-to-br from-yellow-900 to-yellow-800 rounded-xl p-6 border border-yellow-700">
@@ -673,60 +599,6 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
         </>
       )}
 
-      {/* Sell RCN Modal */}
-      {showSellModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 border border-gray-700">
-            <h3 className="text-xl font-bold text-white mb-4">Sell RCN to Shop</h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Select Shop</label>
-                <select
-                  value={selectedShopId}
-                  onChange={(e) => setSelectedShopId(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Choose a shop...</option>
-                  {shops.map((shop) => (
-                    <option key={shop.shopId} value={shop.shopId}>
-                      {shop.name} ({shop.shopId})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Amount (RCN)</label>
-                <input
-                  type="number"
-                  value={sellAmount}
-                  onChange={(e) => setSellAmount(parseInt(e.target.value) || 0)}
-                  min="1"
-                  className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <p className="text-sm text-gray-400 mt-1">Total: {formatCurrency(sellAmount * 0.10)}</p>
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-3 mt-6">
-              <button
-                onClick={() => setShowSellModal(false)}
-                className="px-4 py-2 border border-gray-600 rounded-lg text-gray-300 hover:bg-gray-700"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSellRCN}
-                disabled={!selectedShopId || sellAmount <= 0}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Sell {sellAmount} RCN
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
