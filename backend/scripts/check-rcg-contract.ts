@@ -5,7 +5,7 @@ import * as dotenv from 'dotenv';
 
 dotenv.config();
 
-const RCG_CONTRACT_ADDRESS = '0x973D8b27E7CD72270F9C07d94381f522bC9D4304';
+const RCG_CONTRACT_ADDRESS = '0xdaFCC0552d976339cA28EF2e84ca1c6561379c9D';
 const YOUR_WALLET = '0x761E5E59485ec6feb263320f5d636042bD9EBc8c';
 
 async function checkRCGContract() {

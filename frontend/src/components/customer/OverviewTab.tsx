@@ -6,6 +6,7 @@ import { getContract, createThirdwebClient } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
 import { WalletIcon, TrophyIcon, RepairsIcon, CheckShieldIcon } from "../icon";
 import { useCustomer } from "@/hooks/useCustomer";
+import { useCustomerStore } from "@/stores/customerStore";
 import { StatCard } from "../ui/StatCard";
 import { DataTable, type Column } from "../ui/DataTable";
 
@@ -18,7 +19,7 @@ const client = createThirdwebClient({
 const contract = getContract({
   client,
   chain: baseSepolia,
-  address: (process.env.NEXT_PUBLIC_RCN_CONTRACT_ADDRESS || process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0xBFE793d78B6B83859b528F191bd6F2b8555D951C") as `0x${string}`,
+  address: (process.env.NEXT_PUBLIC_RCN_CONTRACT_ADDRESS || "0xBFE793d78B6B83859b528F191bd6F2b8555D951C") as `0x${string}`,
 });
 
 // Helper function to get next tier information
@@ -144,9 +145,10 @@ export const OverviewTab: React.FC = () => {
 
   // Update blockchain balance from contract
   useEffect(() => {
-    if (tokenBalance) {
+    if (tokenBalance !== undefined) {
       const formattedBalance = Number(tokenBalance) / 1e18;
-      // You could update the context here if needed
+      // Update the store with the actual blockchain balance
+      useCustomerStore.getState().setBlockchainBalance(formattedBalance);
     }
   }, [tokenBalance]);
 
@@ -198,8 +200,8 @@ export const OverviewTab: React.FC = () => {
           title="RCN Balance"
           value={`${blockchainBalance || 0} RCN`}
           subtitle={
-            earnedBalanceData && earnedBalanceData.marketBalance > 0
-              ? `${earnedBalanceData.earnedBalance} earned, ${earnedBalanceData.marketBalance} bought`
+            earnedBalanceData
+              ? `${earnedBalanceData.lifetimeEarned || 0} earned, ${earnedBalanceData.totalRedeemed || 0} redeemed`
               : undefined
           }
           icon={<WalletIcon />}

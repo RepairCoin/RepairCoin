@@ -1239,11 +1239,37 @@ router.post('/:shopId/issue-reward',
         });
       }
 
-      // Process the reward - Deduct from shop's purchased RCN balance (off-chain)
-      // This is managed in the database, not on blockchain
+      // Process the reward - Transfer tokens on-chain AND deduct from shop's balance
       let transactionHash = `offchain_${Date.now()}`;
+      let onChainSuccess = false;
       
       try {
+        // First, try to transfer tokens on-chain from admin wallet to customer
+        try {
+          const tokenMinter = new (require('../../../contracts/TokenMinter').TokenMinter)();
+          const transferResult = await tokenMinter.transferTokens(
+            customerAddress,
+            totalReward,
+            `Shop ${shop.name} reward - $${repairAmount} repair`
+          );
+          
+          if (transferResult.success && transferResult.transactionHash) {
+            transactionHash = transferResult.transactionHash;
+            onChainSuccess = true;
+            logger.info('On-chain token transfer successful', {
+              customerAddress,
+              amount: totalReward,
+              txHash: transactionHash
+            });
+          } else {
+            logger.warn('On-chain transfer failed, continuing with off-chain only', {
+              error: transferResult.error
+            });
+          }
+        } catch (transferError) {
+          logger.warn('On-chain transfer error, continuing with off-chain only', transferError);
+        }
+        
         // Update shop's balance and statistics atomically
         await shopRepository.updateShop(shopId, {
           purchasedRcnBalance: shopBalance - totalReward,
@@ -1254,7 +1280,8 @@ router.post('/:shopId/issue-reward',
           shopId,
           previousBalance: shopBalance,
           rewardIssued: totalReward,
-          newBalance: shopBalance - totalReward
+          newBalance: shopBalance - totalReward,
+          onChainTransfer: onChainSuccess
         });
       } catch (updateError) {
         logger.error('Failed to update shop balance:', updateError);
@@ -1348,10 +1375,14 @@ router.post('/:shopId/issue-reward',
           tierBonus: skipTierBonus ? 0 : tierBonus,
           totalReward: totalReward,
           txHash: transactionHash,
+          onChainTransfer: onChainSuccess,
           customerNewBalance: customer.lifetimeEarnings + totalReward,
           shopNewBalance: shopBalance - totalReward,
           referralCompleted,
-          referralMessage
+          referralMessage,
+          message: onChainSuccess 
+            ? `Successfully issued ${totalReward} RCN tokens to customer wallet` 
+            : `Reward recorded (${totalReward} RCN) - tokens will be distributed later`
         }
       });
 

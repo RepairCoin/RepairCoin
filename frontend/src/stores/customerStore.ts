@@ -26,6 +26,8 @@ export interface EarnedBalanceData {
   earnedBalance: number;
   marketBalance: number;
   totalBalance: number;
+  lifetimeEarned: number;
+  totalRedeemed: number;
   earningHistory?: {
     fromRepairs: number;
     fromReferrals: number;

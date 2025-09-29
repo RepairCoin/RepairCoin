@@ -17,6 +17,8 @@ export interface EarnedBalanceInfo {
   earnedBalance: number;
   totalBalance: number;
   marketBalance: number;
+  lifetimeEarned: number;
+  totalRedeemed: number;
   earningHistory: {
     fromRepairs: number;
     fromReferrals: number;
@@ -212,8 +214,9 @@ export class VerificationService {
       
       // Calculate balances safely
       const earnedBalance = Math.max(0, (rcnBreakdown.earned || 0) - totalRedeemed);
-      const totalBalance = earnedBalance + (rcnBreakdown.marketBought || 0);
-      const marketBalance = rcnBreakdown.marketBought || 0;
+      // Customers cannot buy tokens, only earn them
+      const marketBalance = 0;
+      const totalBalance = earnedBalance;
 
       // Get earning breakdown by type with safe access
       const earningHistory = {
@@ -227,6 +230,8 @@ export class VerificationService {
         earnedBalance,
         totalBalance,
         marketBalance,
+        lifetimeEarned: rcnBreakdown.earned || 0,
+        totalRedeemed,
         earningHistory
       };
 
@@ -237,6 +242,8 @@ export class VerificationService {
         earnedBalance: 0,
         totalBalance: 0,
         marketBalance: 0,
+        lifetimeEarned: 0,
+        totalRedeemed: 0,
         earningHistory: {
           fromRepairs: 0,
           fromReferrals: 0,

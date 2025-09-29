@@ -147,13 +147,19 @@ router.post('/verify-redemption',
  *                   properties:
  *                     earnedBalance:
  *                       type: number
- *                       description: RCN earned from shops (redeemable)
+ *                       description: Available RCN balance earned from shops (after redemptions)
  *                     totalBalance:
  *                       type: number
  *                       description: Total RCN balance (including market-bought)
  *                     marketBalance:
  *                       type: number
  *                       description: RCN bought on market (not redeemable)
+ *                     lifetimeEarned:
+ *                       type: number
+ *                       description: Total RCN earned from shops (before redemptions)
+ *                     totalRedeemed:
+ *                       type: number
+ *                       description: Total RCN redeemed at shops
  *                     earningHistory:
  *                       type: object
  *                       properties:

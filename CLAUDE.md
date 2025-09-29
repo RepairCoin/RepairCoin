@@ -59,8 +59,8 @@ docker-compose up postgres -d       # Start PostgreSQL
 **Key Services**: DomainRegistry, EventBus, DatabaseService
 
 **Contracts**:
-- RCN: `0xd92ced7c3f4D8E42C05A4c558F37dA6DC731d5f5`  
-- RCG: `0x973D8b27E7CD72270F9C07d94381f522bC9D4304`
+- RCN: `0xBFE793d78B6B83859b528F191bd6F2b8555D951C`  
+- RCG: `0xdaFCC0552d976339cA28EF2e84ca1c6561379c9D`
 
 ## Environment Setup
 
