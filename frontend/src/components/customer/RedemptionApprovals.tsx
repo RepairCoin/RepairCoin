@@ -259,8 +259,8 @@ export function RedemptionApprovals() {
   };
 
   const generateQRCode = async () => {
-    if (!qrShopId || !qrAmount) {
-      toast.error("Please select shop and enter amount");
+    if (!qrShopId || !qrAmount || qrAmount < 1) {
+      toast.error("Please select shop and enter a valid amount (minimum 1 RCN)");
       return;
     }
 
@@ -289,9 +289,11 @@ export function RedemptionApprovals() {
         toast.success("QR code generated! Show this to the shop.");
       } else {
         const error = await response.json();
-        toast.error(error.error || "Failed to generate QR code");
+        console.error("QR generation error:", error);
+        toast.error(error.error || `Failed to generate QR code (${response.status})`);
       }
     } catch (error) {
+      console.error("QR generation error:", error);
       toast.error("Failed to generate QR code");
     }
   };
@@ -523,7 +525,10 @@ export function RedemptionApprovals() {
               type="number"
               min="1"
               value={qrAmount || ""}
-              onChange={(e) => setQrAmount(parseInt(e.target.value) || 0)}
+              onChange={(e) => {
+                const value = parseInt(e.target.value);
+                setQrAmount(isNaN(value) ? 0 : Math.max(0, value));
+              }}
               placeholder="Enter amount"
               className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
