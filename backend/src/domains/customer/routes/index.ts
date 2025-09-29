@@ -21,6 +21,44 @@ const router = Router();
 // Register sub-routes
 router.use('/cross-shop', crossShopRoutes);
 
+// Public endpoint to get shops for customers (QR code generation)
+router.get('/shops',
+  asyncHandler(async (req, res) => {
+    const { shopRepository } = require('../../../repositories');
+    
+    try {
+      // Get active and verified shops only (public information)
+      const result = await shopRepository.getShopsPaginated({
+        page: 1,
+        limit: 1000,
+        active: true,
+        verified: true
+      });
+      
+      // Return only necessary public information
+      const publicShops = result.items.map((shop: any) => ({
+        shopId: shop.shopId,
+        name: shop.name,
+        verified: shop.verified,
+        active: shop.active
+      }));
+      
+      res.json({
+        success: true,
+        data: {
+          shops: publicShops,
+          count: publicShops.length
+        }
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to fetch shops'
+      });
+    }
+  })
+);
+
 // Initialize service and controller
 const customerService = new CustomerService();
 const customerController = new CustomerController(customerService);

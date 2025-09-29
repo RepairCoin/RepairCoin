@@ -65,7 +65,7 @@ export function RedemptionApprovals() {
 
   const loadShops = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/customers/shops`);
       if (response.ok) {
         const result = await response.json();
         // Filter for active and verified shops only
