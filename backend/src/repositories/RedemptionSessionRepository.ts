@@ -41,9 +41,14 @@ export class RedemptionSessionRepository extends BaseRepository {
       
       const result = await this.pool.query(query, values);
       return this.mapRowToSession(result.rows[0]);
-    } catch (error) {
-      logger.error('Error creating redemption session:', error);
-      throw new Error('Failed to create redemption session');
+    } catch (error: any) {
+      logger.error('Error creating redemption session:', {
+        error: error.message,
+        code: error.code,
+        detail: error.detail,
+        stack: error.stack
+      });
+      throw new Error(`Failed to create redemption session: ${error.message}`);
     }
   }
 
