@@ -14,6 +14,7 @@ import {
 } from "../../components/icon";
 import { DataTable, type Column } from "../ui/DataTable";
 import { StatCard } from "../ui/StatCard";
+import { DashboardHeader } from "../ui/DashboardHeader";
 
 const client = createThirdwebClient({
   clientId:
@@ -192,6 +193,12 @@ export function ReferralDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Header with gradient background */}
+      <DashboardHeader
+        title="Referral Program"
+        subtitle="Build your network and earn together"
+      />
+
       {/* Referral Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <StatCard

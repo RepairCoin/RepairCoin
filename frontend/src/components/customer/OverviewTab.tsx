@@ -9,6 +9,7 @@ import { useCustomer } from "@/hooks/useCustomer";
 import { useCustomerStore } from "@/stores/customerStore";
 import { StatCard } from "../ui/StatCard";
 import { DataTable, type Column } from "../ui/DataTable";
+import { DashboardHeader } from "../ui/DashboardHeader";
 
 const client = createThirdwebClient({
   clientId:
@@ -19,7 +20,9 @@ const client = createThirdwebClient({
 const contract = getContract({
   client,
   chain: baseSepolia,
-  address: (process.env.NEXT_PUBLIC_RCN_CONTRACT_ADDRESS || "0xBFE793d78B6B83859b528F191bd6F2b8555D951C") as `0x${string}`,
+  address: (process.env.NEXT_PUBLIC_RCN_CONTRACT_ADDRESS ||
+    process.env.NEXT_PUBLIC_CONTRACT_ADDRESS ||
+    "0xBFE793d78B6B83859b528F191bd6F2b8555D951C") as `0x${string}`,
 });
 
 // Helper function to get next tier information
@@ -35,14 +38,14 @@ const getNextTier = (currentTier: string) => {
 };
 
 export const OverviewTab: React.FC = () => {
-  const { 
-    customerData, 
-    earnedBalanceData, 
-    transactions, 
+  const {
+    customerData,
+    earnedBalanceData,
+    transactions,
     blockchainBalance,
     isLoading,
     error,
-    fetchCustomerData
+    fetchCustomerData,
   } = useCustomer();
 
   // Use dummy data if no real transactions
@@ -77,9 +80,7 @@ export const OverviewTab: React.FC = () => {
       key: "shop",
       header: "Shop",
       accessor: (transaction: any) => (
-        <span className="text-gray-400">
-          {transaction.shopName || "—"}
-        </span>
+        <span className="text-gray-400">{transaction.shopName || "—"}</span>
       ),
       className: "text-sm hidden md:table-cell",
       headerClassName: "hidden md:table-cell",
@@ -180,7 +181,7 @@ export const OverviewTab: React.FC = () => {
     return (
       <div className="bg-red-50 rounded-xl p-6 text-center">
         <p className="text-red-600">{error}</p>
-        <button 
+        <button
           onClick={() => fetchCustomerData(true)}
           className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
         >
@@ -193,6 +194,11 @@ export const OverviewTab: React.FC = () => {
   // Display cached data immediately, even if refreshing in background
   return (
     <>
+      {/* Header with gradient background */}
+      <DashboardHeader
+        title={`Welcome, ${customerData?.name}`}
+        subtitle="Overview of your account"
+      />
       {/* Stats Grid - Responsive */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
         {/* RCN Balance Card */}
@@ -263,7 +269,9 @@ export const OverviewTab: React.FC = () => {
             emptyIcon={
               <div className="text-center">
                 <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">📋</div>
-                <p className="text-gray-500 text-sm sm:text-base mb-2">No transactions yet</p>
+                <p className="text-gray-500 text-sm sm:text-base mb-2">
+                  No transactions yet
+                </p>
                 <p className="text-xs sm:text-sm text-gray-400">
                   Start earning RCN by visiting participating repair shops!
                 </p>

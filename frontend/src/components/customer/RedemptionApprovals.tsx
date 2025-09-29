@@ -9,6 +9,7 @@ import { baseSepolia } from "thirdweb/chains";
 import { createThirdwebClient } from "thirdweb";
 import { QRCodeModal } from "../QRCodeModal";
 import { DataTable, type Column } from "../ui/DataTable";
+import { DashboardHeader } from "../ui/DashboardHeader";
 
 const client = createThirdwebClient({
   clientId:
@@ -482,6 +483,11 @@ export function RedemptionApprovals() {
 
   return (
     <div className="space-y-6">
+      {/* Header with gradient background */}
+      <DashboardHeader
+        title="Redemption Approvals"
+        subtitle="Approve or reject redemption requests"
+      />
       {/* Pending Approvals Alert */}
       {pendingCount > 0 && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
