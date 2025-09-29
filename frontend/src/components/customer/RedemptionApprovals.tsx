@@ -592,7 +592,7 @@ export function RedemptionApprovals() {
           </p>
         </div>
 
-        <div className="bg-[#212121] p-4 md:p-8">
+        <div className="bg-[#212121] py-4 md:py-8">
           <DataTable
             data={sessions}
             columns={redemptionColumns}
@@ -601,9 +601,11 @@ export function RedemptionApprovals() {
             emptyIcon={
               <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">🔄</div>
             }
+            headerClassName="bg-gray-900/60 border-gray-800"
+            showPagination={true}
+            itemsPerPage={10}
             loading={loading}
             className="text-white"
-            headerClassName="bg-gray-800/50"
           />
         </div>
       </div>

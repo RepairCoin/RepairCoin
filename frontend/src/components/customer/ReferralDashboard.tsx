@@ -356,7 +356,9 @@ export function ReferralDashboard() {
               <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">👥</div>
             }
             className="text-white"
-            headerClassName="bg-gray-800/50"
+            headerClassName="bg-gray-900/60 border-gray-800"
+            showPagination={true}
+            itemsPerPage={10}
             rowClassName="text-gray-300"
           />
         </div>
