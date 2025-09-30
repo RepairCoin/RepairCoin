@@ -118,7 +118,7 @@ const purchaseColumns: Column<PurchaseHistory>[] = [
     sortable: true,
     accessor: (purchase: any) => (
       <span className="text-sm font-semibold text-green-400">
-        {purchase.runningBalance ? `${purchase.runningBalance} RCN` : '0 RCN'}
+        {purchase.runningBalance ? `${purchase.runningBalance} RCN` : "0 RCN"}
       </span>
     ),
   },
@@ -146,33 +146,41 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   // Calculate running balances for purchases
   const purchasesWithBalance = React.useMemo(() => {
     if (!purchases || purchases.length === 0) return [];
-    
+
     // Sort purchases by date (newest first)
-    const sortedPurchases = [...filteredPurchases].sort((a, b) => 
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    const sortedPurchases = [...filteredPurchases].sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-    
+
     // Start from current balance and work backwards
     let runningBalance = shopData?.purchasedRcnBalance || 0;
-    
-    const purchasesWithRunningBalance = sortedPurchases.map((purchase, index) => {
-      // For the first item (most recent), the running balance is current balance + amount
-      // For subsequent items, we add the previous purchase amount
-      if (index > 0 && (sortedPurchases[index - 1].status === 'completed' || sortedPurchases[index - 1].status === 'minted')) {
-        runningBalance += sortedPurchases[index - 1].amount;
+
+    const purchasesWithRunningBalance = sortedPurchases.map(
+      (purchase, index) => {
+        // For the first item (most recent), the running balance is current balance + amount
+        // For subsequent items, we add the previous purchase amount
+        if (
+          index > 0 &&
+          (sortedPurchases[index - 1].status === "completed" ||
+            sortedPurchases[index - 1].status === "minted")
+        ) {
+          runningBalance += sortedPurchases[index - 1].amount;
+        }
+
+        // Include current purchase in balance if it's completed
+        const balanceAfterPurchase =
+          purchase.status === "completed" || purchase.status === "minted"
+            ? runningBalance + purchase.amount
+            : runningBalance;
+
+        return {
+          ...purchase,
+          runningBalance: balanceAfterPurchase,
+        };
       }
-      
-      // Include current purchase in balance if it's completed
-      const balanceAfterPurchase = (purchase.status === 'completed' || purchase.status === 'minted') 
-        ? runningBalance + purchase.amount 
-        : runningBalance;
-      
-      return {
-        ...purchase,
-        runningBalance: balanceAfterPurchase
-      };
-    });
-    
+    );
+
     return purchasesWithRunningBalance;
   }, [filteredPurchases, purchases, shopData?.purchasedRcnBalance]);
 
@@ -200,163 +208,162 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     <>
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="space-y-8">
-        {/* Shop Statistics */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
-          <div className="relative">
-            <StatCard
-              title="Operational RCN"
-              value={(Number(shopData.purchasedRcnBalance) || 0).toFixed(2)}
-              icon={<WalletIcon />}
-              subtitle="For rewards"
-            />
-            <Button
-              size="sm"
-              className="absolute top-2 right-2 h-8 w-8 p-0 bg-yellow-500 hover:bg-yellow-600 text-black"
-              onClick={() => {
-                const token = localStorage.getItem('shopAuthToken') || sessionStorage.getItem('shopAuthToken');
-                if (!token) {
-                  console.error('[OverviewTab] No auth token found when trying to open deposit modal');
-                  alert('Please refresh the page to authenticate');
-                  return;
-                }
-                setShowDepositModal(true);
-              }}
-              title="Deposit RCN"
-            >
-              <Download className="h-4 w-4" />
-            </Button>
-          </div>
-          <StatCard
-            title="Total Purchased"
-            value={(Number(shopData.totalRcnPurchased) || 0).toFixed(2)}
-            icon={<WalletIcon />}
-            subtitle="Lifetime"
-          />
-          <StatCard
-            title="Tokens Issued"
-            value={shopData.totalTokensIssued || 0}
-            icon={<WalletIcon />}
-          />
-          <StatCard
-            title="Redemptions"
-            value={shopData.totalRedemptions || 0}
-            icon={<WalletIcon />}
-          />
-          <StatCard
-            title="RCG Balance"
-            value={formatRCGBalance(rcgInfo?.balance || 0)}
-            icon={<WalletIcon />}
-          />
-        </div>
-
-        {/* Status Card */}
-        <div className="grid grid-cols-1 gap-6">
-          <StatusCard shopData={shopData} />
-        </div>
-
-        {/* Recent Credit Purchases with DataTable */}
-        <div className="bg-[#212121] rounded-3xl">
-          <div
-            className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-3xl"
-            style={{
-              backgroundImage: `url('/img/cust-ref-widget3.png')`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              backgroundRepeat: "no-repeat",
-            }}
-          >
-            <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
-              Recent Credit Purchases
-            </p>
-            {/* Filter Dropdown */}
-            <div className="relative filter-dropdown-container">
-              <button
-                onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-                className="px-4 py-2 bg-[#101010] rounded-3xl transition-colors flex items-center gap-2"
-                title="Filter purchases"
+          {/* Shop Statistics */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="relative">
+              <StatCard
+                title="Operational RCN"
+                value={(Number(shopData.purchasedRcnBalance) || 0).toFixed(2)}
+                icon={<WalletIcon />}
+              />
+              <Button
+                size="sm"
+                className="absolute top-2 right-2 h-8 w-8 p-0 bg-yellow-500 hover:bg-yellow-600 text-black"
+                onClick={() => {
+                  const token =
+                    localStorage.getItem("shopAuthToken") ||
+                    sessionStorage.getItem("shopAuthToken");
+                  if (!token) {
+                    console.error(
+                      "[OverviewTab] No auth token found when trying to open deposit modal"
+                    );
+                    alert("Please refresh the page to authenticate");
+                    return;
+                  }
+                  setShowDepositModal(true);
+                }}
+                title="Deposit RCN"
               >
-                <span className="hidden sm:inline capitalize">
-                  {filter === "all" ? "All" : filter}
-                </span>
-                <ChevronDown
-                  className={`w-4 h-4 transition-transform ${
-                    showFilterDropdown ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
+                <Download className="h-4 w-4" />
+              </Button>
+            </div>
+            <StatCard
+              title="Total Purchased"
+              value={(Number(shopData.totalRcnPurchased) || 0).toFixed(2)}
+              icon={<WalletIcon />}
+            />
+            <StatCard
+              title="Tokens Issued"
+              value={shopData.totalTokensIssued || 0}
+              icon={<WalletIcon />}
+            />
+            <StatCard
+              title="RCG Balance"
+              value={formatRCGBalance(rcgInfo?.balance || 0)}
+              icon={<WalletIcon />}
+            />
+          </div>
 
-              {/* Dropdown Menu */}
-              {showFilterDropdown && (
-                <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50">
-                  {(["all", "completed", "pending", "failed"] as const).map(
-                    (filterOption) => (
-                      <button
-                        key={filterOption}
-                        onClick={() => {
-                          setFilter(filterOption);
-                          setShowFilterDropdown(false);
-                        }}
-                        className={`w-full text-left px-4 py-2 text-sm transition-colors ${
-                          filter === filterOption
-                            ? "bg-yellow-500/20 text-yellow-400"
-                            : "text-gray-300 hover:bg-gray-700"
-                        } ${filterOption === "all" ? "rounded-t-lg" : ""} ${
-                          filterOption === "failed" ? "rounded-b-lg" : ""
-                        }`}
-                      >
-                        <span className="capitalize">{filterOption}</span>
-                        {filter === filterOption && (
-                          <span className="ml-2">✓</span>
-                        )}
-                      </button>
-                    )
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            {/* Recent Credit Purchases with DataTable */}
+            <div className="bg-[#212121] rounded-3xl lg:col-span-3 h-auto">
+              <div
+                className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-3xl"
+                style={{
+                  backgroundImage: `url('/img/cust-ref-widget3.png')`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                  backgroundRepeat: "no-repeat",
+                }}
+              >
+                <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
+                  Recent Credit Purchases
+                </p>
+                {/* Filter Dropdown */}
+                <div className="relative filter-dropdown-container">
+                  <button
+                    onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+                    className="px-4 py-2 bg-[#101010] rounded-3xl transition-colors flex items-center gap-2"
+                    title="Filter purchases"
+                  >
+                    <span className="hidden sm:inline capitalize">
+                      {filter === "all" ? "All" : filter}
+                    </span>
+                    <ChevronDown
+                      className={`w-4 h-4 transition-transform ${
+                        showFilterDropdown ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {showFilterDropdown && (
+                    <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50">
+                      {(["all", "completed", "pending", "failed"] as const).map(
+                        (filterOption) => (
+                          <button
+                            key={filterOption}
+                            onClick={() => {
+                              setFilter(filterOption);
+                              setShowFilterDropdown(false);
+                            }}
+                            className={`w-full text-left px-4 py-2 text-sm transition-colors ${
+                              filter === filterOption
+                                ? "bg-yellow-500/20 text-yellow-400"
+                                : "text-gray-300 hover:bg-gray-700"
+                            } ${filterOption === "all" ? "rounded-t-lg" : ""} ${
+                              filterOption === "failed" ? "rounded-b-lg" : ""
+                            }`}
+                          >
+                            <span className="capitalize">{filterOption}</span>
+                            {filter === filterOption && (
+                              <span className="ml-2">✓</span>
+                            )}
+                          </button>
+                        )
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
-          </div>
+              </div>
 
-          <div className="space-y-4 py-8">
-            <DataTable
-              data={purchasesWithBalance}
-              columns={purchaseColumns}
-              keyExtractor={(purchase) => purchase.id as string}
-              loading={false}
-              loadingRows={5}
-              emptyMessage="No purchases yet"
-              className=""
-              headerClassName="bg-[#3D3D3D]"
-              showPagination={true}
-              itemsPerPage={5}
-              paginationClassName=""
-              rowClassName={(purchase) =>
-                purchase.status === "failed" ? "bg-red-900/10" : ""
-              }
-            />
+              <div className="space-y-4 py-8">
+                <DataTable
+                  data={purchasesWithBalance}
+                  columns={purchaseColumns}
+                  keyExtractor={(purchase) => purchase.id as string}
+                  loading={false}
+                  loadingRows={5}
+                  emptyMessage="No purchases yet"
+                  className=""
+                  headerClassName="bg-[#3D3D3D]"
+                  showPagination={true}
+                  itemsPerPage={5}
+                  paginationClassName=""
+                  rowClassName={(purchase) =>
+                    purchase.status === "failed" ? "bg-red-900/10" : ""
+                  }
+                />
+              </div>
+            </div>
+
+            {/* Status Card */}
+            <div className="bg-[#212121] rounded-3xl lg:col-span-2 flex flex-col  lg:max-h-[100px] h-auto">
+              <StatusCard shopData={shopData} />
+            </div>
           </div>
         </div>
       </div>
-    </div>
-    
-    {/* Deposit Modal */}
-    {shopData && (
-      <DepositModal
-        isOpen={showDepositModal}
-        onClose={() => setShowDepositModal(false)}
-        shopData={{
-          shopId: shopData.shopId,
-          walletAddress: shopData.walletAddress || '',
-          purchasedRcnBalance: shopData.purchasedRcnBalance
-        }}
-        onDepositComplete={() => {
-          setShowDepositModal(false);
-          if (onRefreshData) {
-            onRefreshData();
-          }
-        }}
-      />
-    )}
-  </>
+
+      {/* Deposit Modal */}
+      {shopData && (
+        <DepositModal
+          isOpen={showDepositModal}
+          onClose={() => setShowDepositModal(false)}
+          shopData={{
+            shopId: shopData.shopId,
+            walletAddress: shopData.walletAddress || "",
+            purchasedRcnBalance: shopData.purchasedRcnBalance,
+          }}
+          onDepositComplete={() => {
+            setShowDepositModal(false);
+            if (onRefreshData) {
+              onRefreshData();
+            }
+          }}
+        />
+      )}
+    </>
   );
 };
 
