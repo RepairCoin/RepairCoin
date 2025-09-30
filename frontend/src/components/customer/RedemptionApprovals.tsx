@@ -53,6 +53,9 @@ export function RedemptionApprovals() {
   // Shop list for dropdown
   const [shops, setShops] = useState<Array<{shopId: string; name: string; verified: boolean}>>([]);
   const [loadingShops, setLoadingShops] = useState(true);
+  
+  // For showing approved session QR
+  const [selectedApprovedSession, setSelectedApprovedSession] = useState<RedemptionSession | null>(null);
 
   useEffect(() => {
     if (account?.address) {
@@ -434,6 +437,29 @@ export function RedemptionApprovals() {
               <XCircle className="w-4 h-4 inline mr-1" />
               Reject
             </button>
+            
+            {/* Show QR Button for Approved Sessions */}
+            {item.status === "approved" && (
+              <button
+                onClick={() => {
+                  // Create QR data for the approved session
+                  const qrData = JSON.stringify({
+                    sessionId: item.sessionId,
+                    amount: item.amount,
+                    shopId: item.shopId,
+                    customerAddress: account?.address,
+                    type: 'redemption_approved'
+                  });
+                  setGeneratedQR(qrData);
+                  setSelectedApprovedSession(item);
+                  setShowQRModal(true);
+                }}
+                className="px-2 md:px-3 py-1 bg-[#FFCC00] text-black hover:bg-[#FFD700] rounded-lg text-xs md:text-sm transition-all flex items-center gap-1"
+              >
+                <QrCode className="w-4 h-4" />
+                Show QR
+              </button>
+            )}
           </div>
         );
       },
@@ -580,10 +606,17 @@ export function RedemptionApprovals() {
       {generatedQR && (
         <QRCodeModal
           isOpen={showQRModal}
-          onClose={() => setShowQRModal(false)}
+          onClose={() => {
+            setShowQRModal(false);
+            setSelectedApprovedSession(null);
+          }}
           qrData={generatedQR}
-          title="Redemption QR Code"
-          description={`Redeem ${qrAmount} RCN at ${shops.find(s => s.shopId === qrShopId)?.name || qrShopId}`}
+          title={selectedApprovedSession ? "Approved Redemption QR" : "Redemption QR Code"}
+          description={
+            selectedApprovedSession 
+              ? `Show this QR to redeem ${selectedApprovedSession.amount} RCN at ${selectedApprovedSession.shopId}`
+              : `Redeem ${qrAmount} RCN at ${shops.find(s => s.shopId === qrShopId)?.name || qrShopId}`
+          }
         />
       )}
     </div>
