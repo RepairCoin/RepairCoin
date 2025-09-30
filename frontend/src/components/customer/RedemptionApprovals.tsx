@@ -2,22 +2,11 @@
 
 import React, { useState, useEffect } from "react";
 import { useActiveAccount } from "thirdweb/react";
-import { CheckCircle, XCircle, Clock, QrCode, Flame } from "lucide-react";
+import { CheckCircle, XCircle, Clock, QrCode } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { getContract, prepareContractCall, sendTransaction } from "thirdweb";
-import { baseSepolia } from "thirdweb/chains";
-import { createThirdwebClient } from "thirdweb";
 import { QRCodeModal } from "../QRCodeModal";
 import { DataTable, type Column } from "../ui/DataTable";
 import { DashboardHeader } from "../ui/DashboardHeader";
-
-const client = createThirdwebClient({
-  clientId:
-    process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID ||
-    "1969ac335e07ba13ad0f8d1a1de4f6ab",
-});
-
-const BURN_ADDRESS = "0x000000000000000000000000000000000000dEaD";
 
 interface RedemptionSession {
   sessionId: string;
@@ -26,15 +15,6 @@ interface RedemptionSession {
   status: string;
   createdAt: string;
   expiresAt: string;
-  burnTransactionHash?: string;
-}
-
-interface BurnStatus {
-  [sessionId: string]: {
-    burning: boolean;
-    burned: boolean;
-    transactionHash?: string;
-  };
 }
 
 export function RedemptionApprovals() {
@@ -43,7 +23,6 @@ export function RedemptionApprovals() {
   const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
-  const [burnStatus, setBurnStatus] = useState<BurnStatus>({});
 
   // For QR generation
   const [qrShopId, setQrShopId] = useState("");
@@ -119,73 +98,8 @@ export function RedemptionApprovals() {
     }
   };
 
-  const burnTokens = async (sessionId: string, amount: number) => {
-    if (!account) {
-      toast.error("Please connect your wallet");
-      return;
-    }
 
-    setBurnStatus((prev) => ({
-      ...prev,
-      [sessionId]: { burning: true, burned: false },
-    }));
-
-    try {
-      const contract = getContract({
-        client,
-        chain: baseSepolia,
-        address:
-          process.env.NEXT_PUBLIC_RCN_CONTRACT_ADDRESS ||
-          process.env.NEXT_PUBLIC_REPAIRCOIN_CONTRACT_ADDRESS ||
-          "0xBFE793d78B6B83859b528F191bd6F2b8555D951C",
-      });
-
-      const transaction = prepareContractCall({
-        contract,
-        method: "function transfer(address to, uint256 amount) returns (bool)",
-        params: [BURN_ADDRESS, BigInt(amount) * BigInt(10 ** 18)],
-      });
-
-      const result = await sendTransaction({
-        transaction,
-        account: account,
-      });
-
-      console.log("Burn transaction sent:", result.transactionHash);
-
-      setBurnStatus((prev) => ({
-        ...prev,
-        [sessionId]: {
-          burning: false,
-          burned: true,
-          transactionHash: result.transactionHash,
-        },
-      }));
-
-      toast.success(`Burned ${amount} RCN successfully!`);
-      return result.transactionHash;
-    } catch (error: any) {
-      console.error("Error burning tokens:", error);
-      setBurnStatus((prev) => ({
-        ...prev,
-        [sessionId]: { burning: false, burned: false },
-      }));
-
-      if (error.message?.includes("User rejected")) {
-        toast.error("Transaction cancelled");
-      } else if (error.message?.includes("insufficient") || error.message?.includes("exceeds balance")) {
-        toast.error("Insufficient RCN balance on blockchain. You can still approve without burning.");
-      } else {
-        toast.error(`Burn failed: ${error.message || "Unknown error"}. You can still approve without burning.`);
-      }
-      throw error;
-    }
-  };
-
-  const approveSession = async (
-    sessionId: string,
-    transactionHash?: string
-  ) => {
+  const approveSession = async (sessionId: string) => {
     setProcessing(sessionId);
 
     try {
@@ -193,7 +107,6 @@ export function RedemptionApprovals() {
         action: "approve_redemption",
         sessionId,
         timestamp: new Date().toISOString(),
-        burnTransactionHash: transactionHash,
       });
 
       const signature = `0x${Buffer.from(message).toString("hex")}`;
@@ -211,7 +124,6 @@ export function RedemptionApprovals() {
           body: JSON.stringify({
             sessionId,
             signature,
-            transactionHash,
           }),
         }
       );
@@ -377,63 +289,35 @@ export function RedemptionApprovals() {
       key: "actions",
       header: "Actions",
       accessor: (item) => {
-        const burnState = burnStatus[item.sessionId];
         const isPending = item.status === "pending";
         
         return (
           <div className="flex gap-2 items-center flex-wrap">
-            {/* Burn Button - Optional, only if user has blockchain balance */}
-            {isPending && !burnState?.burned ? (
-              <button
-                onClick={() => {
-                  if (window.confirm(`Optional: Burn ${item.amount} RCN from your wallet?\n\nNote: This will permanently destroy tokens from your blockchain balance. Only do this if you have purchased RCN tokens on-chain.\n\nYou can approve the redemption without burning.`)) {
-                    burnTokens(item.sessionId, item.amount);
-                  }
-                }}
-                disabled={processing === item.sessionId || burnState?.burning}
-                className="px-2 md:px-3 py-1 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-xs md:text-sm flex items-center gap-1 transition-all"
-                title="Optional: Burn tokens from blockchain (only if you have on-chain balance)"
-              >
-                {burnState?.burning ? (
-                  <>
-                    <span className="animate-spin">⏳</span> Burning...
-                  </>
-                ) : (
-                  <>
-                    <Flame className="w-3 h-3" /> Burn (Optional)
-                  </>
-                )}
-              </button>
-            ) : isPending && burnState?.burned ? (
-              <span className="text-xs text-green-600 flex items-center">
-                <CheckCircle className="w-3 h-3 mr-1" /> Burned
-              </span>
-            ) : null}
-
-            {/* Approve Button - Can approve with or without burning */}
+            {/* Approve Button */}
             <button
-              onClick={() => isPending && approveSession(item.sessionId, burnState?.transactionHash)}
-              disabled={!isPending || processing === item.sessionId || burnState?.burning}
+              onClick={() => isPending && approveSession(item.sessionId)}
+              disabled={!isPending || processing === item.sessionId}
               className={`px-2 md:px-3 py-1 rounded-lg text-xs md:text-sm transition-all ${
                 isPending
                   ? "bg-green-600 text-white hover:bg-green-700"
                   : "bg-gray-600 text-gray-400 cursor-not-allowed"
               } disabled:opacity-50`}
-              title={burnState?.burned ? "Approve with burn proof" : "Approve redemption"}
+              title="Approve redemption for shop to process"
             >
               <CheckCircle className="w-4 h-4 inline mr-1" />
-              {burnState?.burned ? "Approve (Burned)" : "Approve"}
+              Approve
             </button>
 
-            {/* Reject Button - Show for all pending items, disabled for non-pending */}
+            {/* Reject Button */}
             <button
               onClick={() => isPending && rejectSession(item.sessionId)}
-              disabled={!isPending || processing === item.sessionId || burnState?.burning}
+              disabled={!isPending || processing === item.sessionId}
               className={`px-2 md:px-3 py-1 rounded-lg text-xs md:text-sm transition-all ${
                 isPending
                   ? "bg-red-600 text-white hover:bg-red-700"
                   : "bg-gray-600 text-gray-400 cursor-not-allowed"
               } disabled:opacity-50`}
+              title="Decline this redemption request"
             >
               <XCircle className="w-4 h-4 inline mr-1" />
               Reject
@@ -488,6 +372,20 @@ export function RedemptionApprovals() {
         title="Redemption Approvals"
         subtitle="Approve or reject redemption requests"
       />
+
+      {/* Info Alert About Off-Chain Tokens */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+        <div className="flex items-start">
+          <div className="text-blue-600 mr-3">ℹ️</div>
+          <div className="flex-1">
+            <p className="text-sm text-blue-800">
+              <strong>How RepairCoin Works:</strong> Your RCN tokens are tracked securely in our system. 
+              When you approve a redemption, the shop can process your request and provide the service. 
+              Tokens are not stored in your crypto wallet.
+            </p>
+          </div>
+        </div>
+      </div>
       {/* Pending Approvals Alert */}
       {pendingCount > 0 && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
