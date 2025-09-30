@@ -201,7 +201,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="space-y-8">
         {/* Shop Statistics */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
           <div className="relative">
             <StatCard
               title="Operational RCN"
@@ -320,7 +320,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <DataTable
               data={purchasesWithBalance}
               columns={purchaseColumns}
-              keyExtractor={(purchase) => purchase.id}
+              keyExtractor={(purchase) => purchase.id as string}
               loading={false}
               loadingRows={5}
               emptyMessage="No purchases yet"
