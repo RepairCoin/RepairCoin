@@ -839,7 +839,8 @@ router.post('/:shopId/redeem',
       }
 
       // Get current balance for transaction processing
-      const currentBalance = customer.lifetimeEarnings - customer.lifetimeRedeemed;
+      // Use the verification service's calculated earned balance which already accounts for redemptions
+      const currentBalance = verification.earnedBalance;
       const isHomeShop = verification.isHomeShop;
 
       // Attempt to burn tokens from customer's wallet
