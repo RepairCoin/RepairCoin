@@ -78,7 +78,6 @@ export default function ShopDashboardClient() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('overview');
-  const [blockchainBalance, setBlockchainBalance] = useState<number>(0);
   
   // Purchase form state
   const [purchaseAmount, setPurchaseAmount] = useState<number>(1);
@@ -252,28 +251,6 @@ export default function ShopDashboardClient() {
               setTierStats(tierResult.data);
             }
 
-            // Fetch blockchain balance
-            if (shopResult.data.walletAddress) {
-              try {
-                const contract = getContract({
-                  client,
-                  chain: baseSepolia,
-                  address: (process.env.NEXT_PUBLIC_RCN_CONTRACT_ADDRESS || process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0xBFE793d78B6B83859b528F191bd6F2b8555D951C") as `0x${string}`,
-                });
-                
-                const balance = await readContract({
-                  contract,
-                  method: "function balanceOf(address account) view returns (uint256)",
-                  params: [shopResult.data.walletAddress as `0x${string}`],
-                });
-                
-                const rcnBalance = Number(balance) / 10**18;
-                setBlockchainBalance(rcnBalance);
-              } catch (error) {
-                console.error('Error fetching blockchain balance:', error);
-                setBlockchainBalance(0);
-              }
-            }
           }
         } else {
           setError('Invalid shop data received');
@@ -601,7 +578,6 @@ export default function ShopDashboardClient() {
             <OverviewTab 
               shopData={shopData} 
               purchases={purchases} 
-              blockchainBalance={blockchainBalance} 
               onRefreshData={loadShopData}
             />
           )}
