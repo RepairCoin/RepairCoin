@@ -668,7 +668,7 @@ const BalanceRow: React.FC<BalanceRowProps> = ({
         <p className="text-gray-100">{label}</p>
         <p className="text-xs text-gray-400">{subtext}</p>
       </div>
-      <p className={`text-2xl font-semibold text-lg ${colorClasses[color]}`}>
+      <p className={`font-semibold text-lg ${colorClasses[color]}`}>
         {value} RCN
       </p>
     </div>
