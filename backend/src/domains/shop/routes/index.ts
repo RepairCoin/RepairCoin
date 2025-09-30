@@ -839,40 +839,12 @@ router.post('/:shopId/redeem',
       }
 
       // Get current balance for transaction processing
-      const currentBalance = await getTokenMinter().getCustomerBalance(customerAddress);
+      const currentBalance = customer.lifetimeEarnings - customer.lifetimeRedeemed;
       const isHomeShop = verification.isHomeShop;
 
-      // Attempt to burn tokens on blockchain
-      let burnResult;
-      let transactionHash = '';
-      
-      try {
-        burnResult = await getTokenMinter().burnTokens(
-          customerAddress,
-          amount,
-          shopId,
-          `Redemption at ${shop.name}`
-        );
-        
-        if (burnResult.success && burnResult.transactionHash) {
-          transactionHash = burnResult.transactionHash;
-          logger.info('Tokens burned on blockchain', { 
-            customerAddress, 
-            amount, 
-            transactionHash 
-          });
-        } else {
-          // If burn fails (e.g., contract doesn't support it), continue with off-chain tracking
-          logger.warn('Token burn failed or not supported, tracking redemption off-chain', {
-            reason: burnResult.message
-          });
-        }
-      } catch (burnError) {
-        // Don't fail the redemption if burn fails - track off-chain
-        logger.error('Token burn error, continuing with off-chain tracking', burnError);
-      }
-
-      // Record the redemption transaction (whether burn succeeded or not)
+      // Record the redemption transaction
+      // Note: We don't burn tokens on-chain because customers don't hold tokens in wallets
+      // Everything is tracked off-chain in the database
       const transactionRecord = {
         id: `redeem_${Date.now()}`,
         type: 'redeem' as const,
@@ -880,7 +852,7 @@ router.post('/:shopId/redeem',
         shopId,
         amount,
         reason: `Redemption at ${shop.name}`,
-        transactionHash, // Will be empty if burn failed
+        transactionHash: '', // No on-chain transaction since tokens are tracked off-chain
         timestamp: new Date().toISOString(),
         status: 'confirmed' as const,
         metadata: {
@@ -889,7 +861,7 @@ router.post('/:shopId/redeem',
           engagementType: 'redemption',
           redemptionLocation: shop.name,
           webhookId: `redeem_${Date.now()}`,
-          burnSuccessful: !!transactionHash
+          notes: notes || undefined
         }
       };
 
