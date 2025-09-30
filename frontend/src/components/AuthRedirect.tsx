@@ -2,10 +2,10 @@
 
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthStore } from '@/stores/authStore';
 
 export default function AuthRedirect() {
-  const { isAuthenticated, userType } = useAuth();
+  const { isAuthenticated, userType } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
 

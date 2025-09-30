@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ConnectButton } from "thirdweb/react";
+import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { createThirdwebClient } from "thirdweb";
-import { useAuth } from "@/hooks/useAuth";
 import { ReferralDashboard } from "@/components/customer/ReferralDashboard";
 import { RedemptionApprovals } from "@/components/customer/RedemptionApprovals";
 import { OverviewTab } from "@/components/customer/OverviewTab";
@@ -19,7 +18,7 @@ const client = createThirdwebClient({
 });
 
 export default function CustomerDashboardClient() {
-  const { account } = useAuth();
+  const account = useActiveAccount();
   const [activeTab, setActiveTab] = useState<
     "overview" | "referrals" | "approvals" | "findshop" | "settings"
   >("overview");

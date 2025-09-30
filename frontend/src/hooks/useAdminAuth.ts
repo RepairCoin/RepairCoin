@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "react-hot-toast";
 import { authManager } from "@/utils/auth";
-import { useAuth } from "./useAuth";
 import { adminApi } from "@/services/api/admin";
+import { useAuthStore } from "@/stores/authStore";
 
 export interface AdminProfile {
   address: string;
@@ -17,7 +17,7 @@ export interface AdminProfile {
 
 export function useAdminAuth() {
   // Leverage the existing useAuth hook for base authentication
-  const { account, isAdmin: isAdminFromAuth, isLoading: baseAuthLoading } = useAuth();
+  const { account, isAdmin: isAdminFromAuth, isLoading: baseAuthLoading } = useAuthStore();
   
   // Admin-specific state
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);

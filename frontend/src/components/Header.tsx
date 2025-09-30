@@ -2,15 +2,15 @@
 
 import React, { useState, useEffect } from "react";
 import { createThirdwebClient } from "thirdweb";
-import { useRouter } from "next/navigation";
-import { ConnectButton } from "thirdweb/react";
+import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import Section from "./Section";
 import { useAuth } from "@/hooks/useAuth";
 import Spinner from "./Spinner";
+import { useAuthStore } from "@/stores/authStore";
 
 const Header: React.FC = () => {
-  const { account, isAuthenticated, isLoading } = useAuth();
-  const router = useRouter();
+  const account = useActiveAccount();
+  const { isAuthenticated, isLoading } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -50,7 +50,7 @@ const Header: React.FC = () => {
   return (
     <>
       <header
-        className={`${isAuthenticated && 'hidden'} fixed top-0 left-0 z-50 w-full transition-all duration-300 ${scrolled
+        className={`fixed top-0 left-0 z-50 w-full transition-all duration-300 ${scrolled
           ? "bg-gray-900/90 backdrop-blur-sm shadow-md"
           : "bg-transparent"
           }`}

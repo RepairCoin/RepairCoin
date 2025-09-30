@@ -150,6 +150,8 @@ export const useAuth = () => {
 
   useEffect(() => {
     if (account?.address) {
+      console.log("LOGIN ATTEMPT")
+
       setAccount(account);
       login();
     } else {

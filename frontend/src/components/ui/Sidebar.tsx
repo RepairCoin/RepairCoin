@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useActiveWallet, useDisconnect } from "thirdweb/react";
-import { useAuth } from "@/hooks/useAuth";
 
 import {
   LayoutGrid,
@@ -27,6 +26,7 @@ import {
   SettingsIcon,
   LogoutIcon
 } from "../icon";
+import { useAuthStore } from "@/stores/authStore";
 
 interface SidebarItem {
   title: string;
@@ -63,7 +63,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const router = useRouter();
   const wallet = useActiveWallet();
   const { disconnect } = useDisconnect();
-  const { logout } = useAuth();
+  const { resetAuth } = useAuthStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
 
@@ -95,7 +95,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const handleLogout = () => {
     // Clear auth store state
-    logout();
+    resetAuth();
     
     // Disconnect wallet
     if (wallet && disconnect) {

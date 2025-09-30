@@ -4,17 +4,17 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useActiveAccount } from "thirdweb/react";
 import { useWalletDetection } from "@/hooks/useWalletDetection";
-import { useAuth } from "@/hooks/useAuth";
 import HowAndWhy from "@/components/landing/HowAndWhy";
 import FindARepairCoin from "@/components/landing/FindARepairCoin";
 import SuccessStories from "@/components/landing/SuccessStories";
 import CommunityBanner from "@/components/CommunityBanner";
 import LandingHero from "@/components/landing/LandingHero";
+import { useAuthStore } from "@/stores/authStore";
 
 export default function LandingPage() {
   const router = useRouter();
   const account = useActiveAccount();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuthStore();
   const { walletType, isRegistered, isDetecting } = useWalletDetection();
   const [showAuthModal, setShowAuthModal] = useState(false);
 

@@ -6,6 +6,7 @@ import AuthRedirect from '@/components/AuthRedirect'
 import Footer from '@/components/Footer'
 import Header from '@/components/Header'
 import '@/styles/globals.css'
+import LayoutProvider from '@/providers/LayoutProvider'
 
 const poppins = Poppins({ 
   subsets: ['latin'],
@@ -53,9 +54,9 @@ export default function RootLayout({
             }}
           />
           <AuthRedirect />
-          <Header/>
-          {children}
-          <Footer/>
+          <LayoutProvider>
+            {children}
+          </LayoutProvider>
         </Providers>
       </body>
     </html>

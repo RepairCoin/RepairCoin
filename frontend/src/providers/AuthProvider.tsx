@@ -3,7 +3,6 @@
 import React, { useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
-import { useAuth } from '@/hooks/useAuth';
 import { authManager } from '@/utils/auth';
 
 interface AuthProviderProps {

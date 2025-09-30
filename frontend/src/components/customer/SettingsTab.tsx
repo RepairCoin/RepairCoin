@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "../../hooks/useAuth";
 import { useCustomer } from "@/hooks/useCustomer";
 import { customerApi } from "@/services/api/customer";
 import toast from "react-hot-toast";
@@ -16,6 +15,7 @@ import {
   EyeOff,
   Key,
 } from "lucide-react";
+import { useActiveAccount } from "thirdweb/react";
 
 interface CustomerData {
   address: string;
@@ -28,7 +28,7 @@ interface CustomerData {
 }
 
 export function SettingsTab() {
-  const { account } = useAuth();
+  const account = useActiveAccount();
   const { 
     customerData, 
     isLoading,

@@ -8,12 +8,12 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Package, Shield, TrendingUp, AlertCircle, RefreshCw } from 'lucide-react';
 import { formatNumber } from '@/lib/utils';
-import { useAuth } from '@/hooks/useAuth';
 import { useRCGPrice } from '@/hooks/useRCGPrice';
+import { useActiveAccount } from 'thirdweb/react';
 
 export default function RCGOTCPurchase() {
   const router = useRouter();
-  const { account } = useAuth();
+  const account = useActiveAccount();
   const [selectedPackage, setSelectedPackage] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const { marketPrice, loading: priceLoading, error: priceError, lastUpdated, refetch } = useRCGPrice();

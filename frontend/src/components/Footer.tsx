@@ -1,10 +1,10 @@
 'use client'
 
-import { useAuth } from "@/hooks/useAuth";
 import Section from "./Section";
+import { useAuthStore } from "@/stores/authStore";
 
 const Footer = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuthStore();
 
   const currentYear = new Date().getFullYear();
 
@@ -63,7 +63,7 @@ const Footer = () => {
   ]
 
   return (
-    <footer className={`${isAuthenticated && 'hidden'} bg-[#0D0D0D] text-gray-300`}>
+    <footer className={`bg-[#0D0D0D] text-gray-300`}>
       <Section>
         <div className="container mx-auto px-4 py-12 md:py-16">
           {/* Top Section */}

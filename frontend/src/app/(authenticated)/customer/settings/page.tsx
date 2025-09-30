@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { toast, Toaster } from 'react-hot-toast';
 import Link from 'next/link';
+import { useAuthStore } from "@/stores/authStore";
 
 interface CustomerData {
   address: string;
@@ -19,7 +19,7 @@ interface CustomerData {
 }
 
 export default function CustomerSettingsPage() {
-  const { user, isLoading: authLoading, isCustomer, userType } = useAuth();
+  const { userProfile, isLoading: authLoading, isCustomer, userType } = useAuthStore();
   const router = useRouter();
   const [customer, setCustomer] = useState<CustomerData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,13 +38,13 @@ export default function CustomerSettingsPage() {
       return;
     }
     
-    // Check if user is authenticated
-    if (!user || !user.address) {
+    // Check if userProfile is authenticated
+    if (!userProfile || !userProfile.address) {
       router.push('/');
       return;
     }
 
-    // Check if user is a customer
+    // Check if userProfile is a customer
     if (!isCustomer) {
       router.push('/');
       return;
@@ -52,18 +52,18 @@ export default function CustomerSettingsPage() {
 
     // Fetch customer data
     fetchCustomerData();
-  }, [user, authLoading, isCustomer, router]);
+  }, [userProfile, authLoading, isCustomer, router]);
 
   const fetchCustomerData = async () => {
-    if (!user?.address) return;
+    if (!userProfile?.address) return;
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/customers/${user.address}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/customers/${userProfile.address}`,
         {
           headers: {
             'Content-Type': 'application/json',
-            ...(user.token && { Authorization: `Bearer ${user.token}` }),
+            ...(userProfile.token && { Authorization: `Bearer ${userProfile.token}` }),
           },
         }
       );
@@ -115,17 +115,17 @@ export default function CustomerSettingsPage() {
   };
 
   const handleSave = async () => {
-    if (!user?.address || !hasChanges) return;
+    if (!userProfile?.address || !hasChanges) return;
 
     setSaving(true);
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/customers/${user.address}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/customers/${userProfile.address}`,
         {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            ...(user.token && { Authorization: `Bearer ${user.token}` }),
+            ...(userProfile.token && { Authorization: `Bearer ${userProfile.token}` }),
           },
           body: JSON.stringify({
             name,
@@ -156,15 +156,15 @@ export default function CustomerSettingsPage() {
   };
 
   const exportData = async (format: 'json' | 'csv') => {
-    if (!user?.address) return;
+    if (!userProfile?.address) return;
 
     setExportLoading(true);
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/customers/${user.address}/export?format=${format}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/customers/${userProfile.address}/export?format=${format}`,
         {
           headers: {
-            ...(user.token && { Authorization: `Bearer ${user.token}` }),
+            ...(userProfile.token && { Authorization: `Bearer ${userProfile.token}` }),
           },
         }
       );
@@ -176,7 +176,7 @@ export default function CustomerSettingsPage() {
       // Get filename from Content-Disposition header or use default
       const contentDisposition = response.headers.get('Content-Disposition');
       const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
-      const filename = filenameMatch ? filenameMatch[1] : `repaircoin-data-${user.address}.${format}`;
+      const filename = filenameMatch ? filenameMatch[1] : `repaircoin-data-${userProfile.address}.${format}`;
 
       // Create blob and download
       const blob = await response.blob();
@@ -236,7 +236,7 @@ export default function CustomerSettingsPage() {
               <h1 className="text-2xl font-bold text-gray-900">Profile Settings</h1>
             </div>
             <div className="text-sm text-gray-500">
-              Connected: {user?.address?.slice(0, 6)}...{user?.address?.slice(-4)}
+              Connected: {userProfile?.address?.slice(0, 6)}...{userProfile?.address?.slice(-4)}
             </div>
           </div>
         </div>

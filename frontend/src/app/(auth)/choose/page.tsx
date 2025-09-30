@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
 import { ConnectButton } from "thirdweb/react";
 import { createThirdwebClient } from "thirdweb";
+import { useAuthStore } from "@/stores/authStore";
 const client = createThirdwebClient({
   clientId:
     process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID ||
@@ -12,8 +12,7 @@ const client = createThirdwebClient({
 });
 
 export default function ChoosePage() {
-  const { account, isAuthenticated, isLoading, userType, userProfile } =
-    useAuth();
+  const { account, isLoading } = useAuthStore();
   const router = useRouter();
   const [shopApplicationStatus, setShopApplicationStatus] = useState<{
     hasApplication: boolean;
