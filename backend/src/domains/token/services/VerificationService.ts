@@ -189,14 +189,23 @@ export class VerificationService {
         throw new Error('Customer not found');
       }
 
-      // Get RCN breakdown from ReferralRepository with fallback
-      let rcnBreakdown = { earned: 0, marketBought: 0, byShop: {}, byType: {} };
+      // Always use customer's lifetime earnings as the source of truth
+      // The transactions table may be incomplete for historical data
+      let rcnBreakdown = { 
+        earned: customer.lifetimeEarnings || 0, 
+        marketBought: 0, 
+        byShop: {}, 
+        byType: {} 
+      };
+      
+      // Try to get breakdown by type from ReferralRepository for additional details
       try {
-        rcnBreakdown = await this.referralRepository.getCustomerRcnBySource(customerAddress);
+        const detailedBreakdown = await this.referralRepository.getCustomerRcnBySource(customerAddress);
+        // Use the breakdown for type information, but keep lifetime earnings as the total
+        rcnBreakdown.byShop = detailedBreakdown.byShop || {};
+        rcnBreakdown.byType = detailedBreakdown.byType || {};
       } catch (error) {
-        logger.warn('Failed to get RCN breakdown, using fallback calculation', error);
-        // Fallback: calculate from customer's lifetime earnings
-        rcnBreakdown.earned = customer.lifetimeEarnings || 0;
+        logger.warn('Failed to get detailed RCN breakdown, using customer lifetime earnings only', error);
       }
       
       // Get redemptions to calculate current balance
