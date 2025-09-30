@@ -842,9 +842,56 @@ router.post('/:shopId/redeem',
       const currentBalance = customer.lifetimeEarnings - customer.lifetimeRedeemed;
       const isHomeShop = verification.isHomeShop;
 
-      // Record the redemption transaction
-      // Note: We don't burn tokens on-chain because customers don't hold tokens in wallets
-      // Everything is tracked off-chain in the database
+      // Attempt to burn tokens from customer's wallet
+      let burnResult;
+      let transactionHash = '';
+      let burnSuccessful = false;
+      
+      try {
+        // Get the customer's on-chain balance first
+        const onChainBalance = await getTokenMinter().getCustomerBalance(customerAddress);
+        
+        if (onChainBalance && onChainBalance >= amount) {
+          // Try to burn tokens from customer's wallet
+          // Note: This requires the customer to have tokens in their wallet
+          // For now, we'll transfer from admin to burn address as a workaround
+          const BURN_ADDRESS = '0x000000000000000000000000000000000000dEaD';
+          
+          burnResult = await getTokenMinter().burnTokensFromCustomer(
+            customerAddress,
+            amount,
+            BURN_ADDRESS,
+            `Redemption at ${shop.name}`
+          );
+          
+          if (burnResult.success && burnResult.transactionHash) {
+            transactionHash = burnResult.transactionHash;
+            burnSuccessful = true;
+            logger.info('Tokens burned from customer wallet', { 
+              customerAddress, 
+              amount, 
+              transactionHash,
+              onChainBalance
+            });
+          } else {
+            logger.warn('Token burn failed, continuing with off-chain tracking', {
+              reason: burnResult.message,
+              onChainBalance
+            });
+          }
+        } else {
+          logger.info('Insufficient on-chain balance for burn, tracking off-chain only', {
+            customerAddress,
+            required: amount,
+            available: onChainBalance || 0
+          });
+        }
+      } catch (burnError) {
+        // Don't fail the redemption if burn fails - track off-chain
+        logger.error('Token burn error, continuing with off-chain tracking', burnError);
+      }
+
+      // Record the redemption transaction (whether burn succeeded or not)
       const transactionRecord = {
         id: `redeem_${Date.now()}`,
         type: 'redeem' as const,
@@ -852,7 +899,7 @@ router.post('/:shopId/redeem',
         shopId,
         amount,
         reason: `Redemption at ${shop.name}`,
-        transactionHash: '', // No on-chain transaction since tokens are tracked off-chain
+        transactionHash, // Will contain burn tx hash if successful
         timestamp: new Date().toISOString(),
         status: 'confirmed' as const,
         metadata: {
@@ -861,6 +908,7 @@ router.post('/:shopId/redeem',
           engagementType: 'redemption',
           redemptionLocation: shop.name,
           webhookId: `redeem_${Date.now()}`,
+          burnSuccessful,
           notes: notes || undefined
         }
       };
