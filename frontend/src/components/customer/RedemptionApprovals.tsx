@@ -29,6 +29,7 @@ export function RedemptionApprovals() {
   const [qrAmount, setQrAmount] = useState(0);
   const [generatedQR, setGeneratedQR] = useState<string | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   
   // Shop list for dropdown
   const [shops, setShops] = useState<Array<{shopId: string; name: string; verified: boolean}>>([]);
@@ -201,6 +202,15 @@ export function RedemptionApprovals() {
       if (response.ok) {
         const result = await response.json();
         setGeneratedQR(result.data.qrCode);
+        
+        // Extract session ID from the QR code data
+        try {
+          const qrDataParsed = JSON.parse(result.data.qrCode);
+          setSessionId(qrDataParsed.sessionId);
+        } catch (e) {
+          console.log("Could not extract session ID from QR data");
+        }
+        
         setShowQRModal(true);
         toast.success("QR code generated! Show this to the shop.");
       } else {
@@ -515,6 +525,7 @@ export function RedemptionApprovals() {
           onClose={() => {
             setShowQRModal(false);
             setSelectedApprovedSession(null);
+            setSessionId(null);
           }}
           qrData={generatedQR}
           title={selectedApprovedSession ? "Approved Redemption QR" : "Redemption QR Code"}
@@ -523,6 +534,7 @@ export function RedemptionApprovals() {
               ? `Show this QR to redeem ${selectedApprovedSession.amount} RCN at ${selectedApprovedSession.shopId}`
               : `Redeem ${qrAmount} RCN at ${shops.find(s => s.shopId === qrShopId)?.name || qrShopId}`
           }
+          shareableLink={sessionId ? `${window.location.origin}/redeem/${sessionId}` : undefined}
         />
       )}
     </div>

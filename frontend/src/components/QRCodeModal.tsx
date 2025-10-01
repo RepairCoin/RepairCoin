@@ -10,6 +10,7 @@ interface QRCodeModalProps {
   qrData: string;
   title?: string;
   description?: string;
+  shareableLink?: string; // Optional shareable link instead of raw QR data
 }
 
 // QR Code generation using QR Server API
@@ -19,6 +20,7 @@ export function QRCodeModal({
   qrData,
   title = "QR Code",
   description = "Scan this QR code",
+  shareableLink,
 }: QRCodeModalProps) {
   const [qrImageUrl, setQrImageUrl] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -99,41 +101,43 @@ export function QRCodeModal({
               </p>
             )}
 
-            {/* Copy Link Section */}
-            <div className="mt-4 w-full max-w-xs">
-              <div className="flex items-center gap-2 bg-gray-800 rounded-lg p-2">
-                <input
-                  type="text"
-                  value={qrData}
-                  readOnly
-                  className="flex-1 bg-transparent text-xs text-gray-400 truncate outline-none"
-                  onClick={(e) => e.currentTarget.select()}
-                />
-                <button
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(qrData);
-                      setCopied(true);
-                      toast.success("Link copied to clipboard!");
-                      setTimeout(() => setCopied(false), 2000);
-                    } catch (err) {
-                      toast.error("Failed to copy link");
-                    }
-                  }}
-                  className="p-2 bg-[#FFCC00] hover:bg-[#FFD700] text-black rounded-lg transition-colors"
-                  title="Copy link"
-                >
-                  {copied ? (
-                    <Check className="w-4 h-4" />
-                  ) : (
-                    <Copy className="w-4 h-4" />
-                  )}
-                </button>
+            {/* Copy Link Section - Only show if there's a shareable link */}
+            {shareableLink && (
+              <div className="mt-4 w-full max-w-xs">
+                <div className="flex items-center gap-2 bg-gray-800 rounded-lg p-2">
+                  <input
+                    type="text"
+                    value={shareableLink}
+                    readOnly
+                    className="flex-1 bg-transparent text-xs text-gray-400 truncate outline-none"
+                    onClick={(e) => e.currentTarget.select()}
+                  />
+                  <button
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(shareableLink);
+                        setCopied(true);
+                        toast.success("Link copied to clipboard!");
+                        setTimeout(() => setCopied(false), 2000);
+                      } catch (err) {
+                        toast.error("Failed to copy link");
+                      }
+                    }}
+                    className="p-2 bg-[#FFCC00] hover:bg-[#FFD700] text-black rounded-lg transition-colors"
+                    title="Copy link"
+                  >
+                    {copied ? (
+                      <Check className="w-4 h-4" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-gray-500 text-center">
+                  Click to copy the shareable link
+                </p>
               </div>
-              <p className="mt-2 text-xs text-gray-500 text-center">
-                Click to copy the redemption link
-              </p>
-            </div>
+            )}
 
             {/* Expiry Notice */}
             <p className="mt-4 text-xs text-gray-400 text-center">
