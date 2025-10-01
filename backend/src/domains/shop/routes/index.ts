@@ -355,6 +355,65 @@ router.post('/register',
   }
 );
 
+// Update shop details (shop owner endpoint)
+router.put('/:shopId/details',
+  authMiddleware,
+  requireRole(['shop']),
+  requireShopOwnership,
+  async (req: Request, res: Response) => {
+    try {
+      const { shopId } = req.params;
+      const {
+        name,
+        email,
+        phone,
+        address,
+        website,
+        openingHours,
+        ownerName
+      } = req.body;
+
+      const shop = await shopRepository.getShop(shopId);
+      if (!shop) {
+        return res.status(404).json({
+          success: false,
+          error: 'Shop not found'
+        });
+      }
+
+      // Prepare updates
+      const updates: Partial<ShopData & { website?: string; openingHours?: string; ownerName?: string }> = {};
+      if (name !== undefined) updates.name = name;
+      if (email !== undefined) updates.email = email;
+      if (phone !== undefined) updates.phone = phone;
+      if (address !== undefined) updates.address = address;
+      if (website !== undefined) updates.website = website;
+      if (openingHours !== undefined) updates.openingHours = openingHours;
+      if (ownerName !== undefined) updates.ownerName = ownerName;
+
+      await shopRepository.updateShop(shopId, updates);
+
+      logger.info('Shop details updated', {
+        shopId,
+        updatedBy: req.user?.address,
+        updates
+      });
+
+      res.json({
+        success: true,
+        message: 'Shop details updated successfully'
+      });
+
+    } catch (error: any) {
+      logger.error('Shop details update error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to update shop details'
+      });
+    }
+  }
+);
+
 // Update shop information
 router.put('/:shopId',
   requireShopOrAdmin,
@@ -369,7 +428,10 @@ router.put('/:shopId',
         email,
         reimbursementAddress,
         crossShopEnabled,
-        location
+        location,
+        website,
+        openingHours,
+        ownerName
       } = req.body;
 
       const shop = await shopRepository.getShop(shopId);
@@ -381,13 +443,16 @@ router.put('/:shopId',
       }
 
       // Prepare updates
-      const updates: Partial<ShopData> = {};
+      const updates: Partial<ShopData & { website?: string; openingHours?: string; ownerName?: string }> = {};
       if (name !== undefined) updates.name = name;
       if (address !== undefined) updates.address = address;
       if (phone !== undefined) updates.phone = phone;
       if (email !== undefined) updates.email = email;
       if (reimbursementAddress !== undefined) updates.reimbursementAddress = reimbursementAddress;
       if (location !== undefined) updates.location = location;
+      if (website !== undefined) updates.website = website;
+      if (openingHours !== undefined) updates.openingHours = openingHours;
+      if (ownerName !== undefined) updates.ownerName = ownerName;
       
       // Only admin can change verification and cross-shop settings
       if (req.user?.role === 'admin') {
