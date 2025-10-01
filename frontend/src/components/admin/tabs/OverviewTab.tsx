@@ -60,10 +60,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = React.memo(() => {
       try {
         setTransactionsLoading(true);
         const adminToken = await generateAdminToken();
-        if (!adminToken) {
-          console.error("Authentication required");
-          return;
-        }
 
         const headers = {
           Authorization: `Bearer ${adminToken}`,

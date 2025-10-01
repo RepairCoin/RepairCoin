@@ -82,8 +82,12 @@ export function useAdminAuth() {
         }
       } else {
         const errorData = await response.json();
-        console.error("Admin auth failed:", response.status, errorData);
-        toast.error(errorData.error || "Admin authentication failed");
+        // Only show error if it's not a 403 (which is expected when switching from admin to non-admin)
+        if (response.status !== 403) {
+          console.error("Admin auth failed:", response.status, errorData);
+          toast.error(errorData.error || "Admin authentication failed");
+        }
+        // For 403, silently fail as this is expected when the user is not an admin
       }
     } catch (error) {
       console.error("Failed to generate admin token:", error);
@@ -97,10 +101,13 @@ export function useAdminAuth() {
   const fetchAdminProfile = useCallback(async () => {
     if (!account?.address) return null;
     
+    // Don't attempt to fetch admin profile if not an admin
+    if (!isAdminFromAuth) return null;
+    
     try {
       const adminToken = await generateAdminToken();
       if (!adminToken) {
-        console.error("Failed to generate admin token for profile fetch");
+        // Don't log error - this is expected when switching from admin to non-admin
         return null;
       }
       
@@ -110,7 +117,7 @@ export function useAdminAuth() {
     } catch (error) {
       return null;
     }
-  }, [account, generateAdminToken]);
+  }, [account, generateAdminToken, isAdminFromAuth]);
 
   // Check admin-specific permissions and status
   useEffect(() => {
