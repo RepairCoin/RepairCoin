@@ -70,10 +70,14 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
       return isNaN(rcn) ? 0 : rcn;
     }
     switch (repairType) {
-      case "minor": return MINOR_REPAIR_RCN;
-      case "small": return SMALL_REPAIR_RCN;
-      case "large": return LARGE_REPAIR_RCN;
-      default: return 0;
+      case "minor":
+        return MINOR_REPAIR_RCN;
+      case "small":
+        return SMALL_REPAIR_RCN;
+      case "large":
+        return LARGE_REPAIR_RCN;
+      default:
+        return 0;
     }
   };
 
@@ -82,21 +86,28 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
       return parseFloat(customAmount) || 0;
     }
     switch (repairType) {
-      case "minor": return MINOR_REPAIR_VALUE;
-      case "small": return SMALL_REPAIR_VALUE;
-      case "large": return LARGE_REPAIR_VALUE;
-      default: return 0;
+      case "minor":
+        return MINOR_REPAIR_VALUE;
+      case "small":
+        return SMALL_REPAIR_VALUE;
+      case "large":
+        return LARGE_REPAIR_VALUE;
+      default:
+        return 0;
     }
   };
 
   const getTierBonus = (tier: string) => {
-    return TIER_BONUSES[tier as keyof typeof TIER_BONUSES] || TIER_BONUSES.BRONZE;
+    return (
+      TIER_BONUSES[tier as keyof typeof TIER_BONUSES] || TIER_BONUSES.BRONZE
+    );
   };
 
   const baseReward = calculateBaseReward();
   const tierBonus = customerInfo ? getTierBonus(customerInfo.tier) : 0;
   const totalReward = baseReward + tierBonus;
-  const hasSufficientBalance = (shopData?.purchasedRcnBalance || 0) >= totalReward;
+  const hasSufficientBalance =
+    (shopData?.purchasedRcnBalance || 0) >= totalReward;
 
   const checkLimit = (current: number, limit: number) => {
     const remaining = limit - current;
@@ -106,7 +117,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
     };
   };
 
-  const dailyLimit = customerInfo 
+  const dailyLimit = customerInfo
     ? checkLimit(customerInfo.dailyEarnings, DAILY_LIMIT)
     : { withinLimit: true, remaining: DAILY_LIMIT };
 
@@ -247,7 +258,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
           ...customerInfo,
           dailyEarnings: customerInfo.dailyEarnings + totalReward,
           monthlyEarnings: customerInfo.monthlyEarnings + totalReward,
-          lifetimeEarnings: customerInfo.lifetimeEarnings + totalReward
+          lifetimeEarnings: customerInfo.lifetimeEarnings + totalReward,
         });
       }
 
@@ -290,12 +301,6 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
       rcn: LARGE_REPAIR_RCN,
       description: "$100+ repair value",
     },
-    {
-      type: "custom",
-      label: "Custom Amount",
-      rcn: customRcn || "0",
-      description: "Enter custom values",
-    },
   ];
 
   const RepairRadioButton = ({ option }: { option: RepairOption }) => (
@@ -305,7 +310,11 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
         name="repairType"
         value={option.type}
         checked={repairType === option.type}
-        onChange={(e) => setRepairType(e.target.value as RepairType)}
+        onChange={(e) => {
+          setRepairType(e.target.value as RepairType);
+          setCustomRcn("");
+          setCustomAmount("");
+        }}
         className="sr-only"
       />
       <div
@@ -340,9 +349,17 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
             </div>
             <span className="font-semibold text-white">{option.label}</span>
           </div>
-          <span className={`font-bold ${option.rcn === 0 && option.type !== "custom" ? "text-gray-500" : "text-[#FFCC00]"}`}>
-            {option.type === "custom" 
-              ? customRcn ? `${customRcn} RCN` : "Custom"
+          <span
+            className={`font-bold ${
+              option.rcn === 0 && option.type !== "custom"
+                ? "text-gray-500"
+                : "text-[#FFCC00]"
+            }`}
+          >
+            {option.type === "custom"
+              ? customRcn
+                ? `${customRcn} RCN`
+                : "Custom"
               : `${option.rcn} RCN`}
           </span>
         </div>
@@ -506,54 +523,110 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full p-4 md:p-8 text-white">
+            {/* Custom Amount Section */}
+            <div className="p-4 md:p-8 pb-0">
+              <div className="space-y-4">
+                <div className="p-4 bg-[#2F2F2F] rounded-xl">
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="radio"
+                      name="repairType"
+                      value="custom"
+                      checked={repairType === "custom"}
+                      onChange={(e) =>
+                        setRepairType(e.target.value as RepairType)
+                      }
+                      className="sr-only"
+                    />
+                    <div
+                      className={`w-5 h-5 rounded-full border-2 mr-3 ${
+                        repairType === "custom"
+                          ? "border-[#FFCC00] bg-[#FFCC00]"
+                          : "border-gray-500"
+                      }`}
+                    >
+                      {repairType === "custom" && (
+                        <svg
+                          className="w-full h-full text-black"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <span className="font-semibold text-white">
+                        Custom Amount
+                      </span>
+                      <p className="text-gray-400 text-sm mt-1">
+                        Enter specific RCN reward and repair value
+                      </p>
+                    </div>
+                  </label>
+
+                  {repairType === "custom" && (
+                    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-2">
+                          Repair Amount ($)
+                        </label>
+                        <input
+                          type="number"
+                          value={customAmount}
+                          onChange={(e) => setCustomAmount(e.target.value)}
+                          placeholder="0"
+                          min="0"
+                          step="0.01"
+                          className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-2">
+                          RCN Reward
+                        </label>
+                        <input
+                          type="number"
+                          value={customRcn}
+                          onChange={(e) => {
+                            setCustomRcn(e.target.value);
+                            if (!repairType || repairType !== "custom") {
+                              setRepairType("custom");
+                            }
+                          }}
+                          placeholder="0"
+                          min="0"
+                          step="1"
+                          className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent transition-all"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Divider with "Or" */}
+            <div className="px-4 md:px-8 py-4">
+              <div className="flex items-center">
+                <div className="flex-1 border-t border-gray-600"></div>
+                <span className="px-4 text-gray-400 text-sm font-medium">
+                  OR
+                </span>
+                <div className="flex-1 border-t border-gray-600"></div>
+              </div>
+            </div>
+
+            {/* Preset Options */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full px-4 md:px-8 pb-8 text-white">
               {repairOptions.map((option) => (
                 <RepairRadioButton key={option.type} option={option} />
               ))}
             </div>
-
-            {repairType === "custom" && (
-              <div className="w-full p-4 md:p-8 pt-0">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">
-                      Repair Amount ($)
-                    </label>
-                    <input
-                      type="number"
-                      value={customAmount}
-                      onChange={(e) => setCustomAmount(e.target.value)}
-                      placeholder="0"
-                      min="0"
-                      step="0.01"
-                      className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">
-                      RCN Reward (Base Amount)
-                    </label>
-                    <input
-                      type="number"
-                      value={customRcn}
-                      onChange={(e) => setCustomRcn(e.target.value)}
-                      placeholder="0"
-                      min="0"
-                      step="1"
-                      className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent transition-all"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Tier bonus will be added automatically
-                    </p>
-                  </div>
-                </div>
-                {(customAmount || customRcn) && (
-                  <p className="mt-2 text-sm text-gray-400">
-                    Total reward: {calculateBaseReward()} RCN base{customerInfo && ` + ${getTierBonus(customerInfo.tier)} RCN tier bonus = ${calculateBaseReward() + getTierBonus(customerInfo.tier)} RCN`}
-                  </p>
-                )}
-              </div>
-            )}
 
             {!hasSufficientBalance && totalReward > 0 && (
               <div className="w-full px-8 pb-8 text-white">
