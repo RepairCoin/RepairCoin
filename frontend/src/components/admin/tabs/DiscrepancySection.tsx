@@ -12,8 +12,10 @@ interface CustomerDiscrepancy {
   totalRedeemed: number;
   expectedBalance: number;
   offchainMints: number;
+  adminTransfers: number;
   status: string;
   needsTokenTransfer: boolean;
+  shopsInvolved?: string;
 }
 
 interface DiscrepancySummary {
@@ -121,8 +123,9 @@ export const DiscrepancySection: React.FC = () => {
 
   const openTransferModal = (customer: CustomerDiscrepancy) => {
     setSelectedCustomer(customer);
-    setTransferAmount(customer.expectedBalance.toString());
-    setReason(`Fixing missing tokens from previous rewards`);
+    const amountNeeded = customer.expectedBalance - customer.adminTransfers;
+    setTransferAmount(amountNeeded.toFixed(2));
+    setReason(`Fixing missing tokens from shop rewards`);
     setShowModal(true);
   };
 
@@ -206,7 +209,7 @@ export const DiscrepancySection: React.FC = () => {
                       
                       <div className="grid grid-cols-2 gap-4 mt-3">
                         <div>
-                          <p className="text-xs text-gray-500">Total Earned</p>
+                          <p className="text-xs text-gray-500">Earned from Shops</p>
                           <p className="text-sm text-white">{customer.totalEarned.toFixed(2)} RCN</p>
                         </div>
                         <div>
@@ -215,9 +218,23 @@ export const DiscrepancySection: React.FC = () => {
                         </div>
                       </div>
                       
+                      {customer.adminTransfers > 0 && (
+                        <div className="mt-2 p-2 bg-blue-900/30 rounded-lg border border-blue-700">
+                          <p className="text-xs text-blue-400">Already sent by admin</p>
+                          <p className="text-sm font-semibold text-blue-300">{customer.adminTransfers.toFixed(2)} RCN</p>
+                        </div>
+                      )}
+                      
                       <div className="mt-2">
-                        <p className="text-xs text-gray-500">Expected Balance</p>
-                        <p className="text-lg font-bold text-yellow-400">{customer.expectedBalance.toFixed(2)} RCN</p>
+                        <p className="text-xs text-gray-500">Amount Still Needed</p>
+                        <p className="text-lg font-bold text-yellow-400">
+                          {(customer.expectedBalance - customer.adminTransfers).toFixed(2)} RCN
+                        </p>
+                        {customer.shopsInvolved && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            Shops: {customer.shopsInvolved}
+                          </p>
+                        )}
                         {customer.offchainMints > 0 && (
                           <p className="text-xs text-orange-400 mt-1">
                             {customer.offchainMints} off-chain transaction{customer.offchainMints !== 1 ? 's' : ''}
@@ -276,9 +293,13 @@ export const DiscrepancySection: React.FC = () => {
                   min="0.01"
                   max="10000"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Recommended: {selectedCustomer.expectedBalance.toFixed(2)} RCN
-                </p>
+                <div className="text-xs text-gray-500 mt-1">
+                  <p>Shop rewards: {selectedCustomer.totalEarned.toFixed(2)} RCN</p>
+                  {selectedCustomer.adminTransfers > 0 && (
+                    <p>Already sent: -{selectedCustomer.adminTransfers.toFixed(2)} RCN</p>
+                  )}
+                  <p className="font-semibold text-blue-400">Still needed: {(selectedCustomer.expectedBalance - selectedCustomer.adminTransfers).toFixed(2)} RCN</p>
+                </div>
               </div>
               
               <div>

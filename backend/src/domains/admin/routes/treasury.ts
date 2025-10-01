@@ -357,20 +357,22 @@ router.get('/treasury/discrepancies', async (req: Request, res: Response) => {
         const query = `
             WITH customer_balances AS (
                 SELECT 
-                    t.customer_address,
-                    c.name as customer_name,
-                    SUM(CASE WHEN t.type = 'mint' THEN t.amount ELSE 0 END) as total_earned,
+                    LOWER(t.customer_address) as customer_address,
+                    MAX(c.name) as customer_name,
+                    SUM(CASE WHEN t.type = 'mint' AND t.shop_id IS NOT NULL THEN t.amount ELSE 0 END) as total_earned,
                     SUM(CASE WHEN t.type = 'redeem' THEN t.amount ELSE 0 END) as total_redeemed,
-                    SUM(CASE WHEN t.type = 'mint' THEN t.amount ELSE 0 END) - 
+                    SUM(CASE WHEN t.type = 'mint' AND t.shop_id IS NOT NULL THEN t.amount ELSE 0 END) - 
                     SUM(CASE WHEN t.type = 'redeem' THEN t.amount ELSE 0 END) as expected_balance,
-                    COUNT(CASE WHEN t.type = 'mint' AND (t.transaction_hash IS NULL OR t.transaction_hash = '' OR t.transaction_hash LIKE 'offchain_%') THEN 1 END) as offchain_mints,
-                    COUNT(CASE WHEN t.type = 'mint' THEN 1 END) as total_mints
+                    COUNT(CASE WHEN t.type = 'mint' AND t.shop_id IS NOT NULL AND (t.transaction_hash IS NULL OR t.transaction_hash = '' OR t.transaction_hash LIKE 'offchain_%') THEN 1 END) as offchain_mints,
+                    COUNT(CASE WHEN t.type = 'mint' AND t.shop_id IS NOT NULL THEN 1 END) as total_mints,
+                    STRING_AGG(DISTINCT t.shop_id::text, ', ' ORDER BY t.shop_id::text) FILTER (WHERE t.type = 'mint' AND t.shop_id IS NOT NULL) as shops_involved,
+                    SUM(CASE WHEN t.type = 'mint' AND t.shop_id IS NULL AND t.metadata::text LIKE '%admin_manual_transfer%' THEN t.amount ELSE 0 END) as admin_transfers
                 FROM transactions t
                 LEFT JOIN customers c ON LOWER(c.address) = LOWER(t.customer_address)
                 WHERE t.status = 'confirmed'
                 AND LOWER(t.customer_address) != LOWER('0x761E5E59485ec6feb263320f5d636042bD9EBc8c')
-                GROUP BY t.customer_address, c.name
-                HAVING SUM(CASE WHEN t.type = 'mint' THEN t.amount ELSE 0 END) > 0
+                GROUP BY LOWER(t.customer_address)
+                HAVING SUM(CASE WHEN t.type = 'mint' AND t.shop_id IS NOT NULL THEN t.amount ELSE 0 END) > 0
             )
             SELECT 
                 customer_address,
@@ -380,14 +382,17 @@ router.get('/treasury/discrepancies', async (req: Request, res: Response) => {
                 expected_balance,
                 offchain_mints,
                 total_mints,
+                shops_involved,
+                admin_transfers,
                 CASE 
+                    WHEN admin_transfers >= expected_balance THEN 'Already fixed by admin'
                     WHEN offchain_mints = total_mints AND expected_balance > 0 THEN 'All transactions off-chain only'
                     WHEN offchain_mints > 0 AND expected_balance > 0 THEN 'Some transactions off-chain'
                     WHEN expected_balance > 0 THEN 'May need tokens'
                     ELSE 'OK'
                 END as status
             FROM customer_balances
-            WHERE expected_balance > 0
+            WHERE expected_balance > 0 AND (admin_transfers IS NULL OR admin_transfers < expected_balance)
             ORDER BY expected_balance DESC, offchain_mints DESC
             LIMIT 100
         `;
@@ -402,8 +407,10 @@ router.get('/treasury/discrepancies', async (req: Request, res: Response) => {
             expectedBalance: parseFloat(row.expected_balance),
             offchainMints: parseInt(row.offchain_mints),
             totalMints: parseInt(row.total_mints),
+            adminTransfers: parseFloat(row.admin_transfers || 0),
             status: row.status,
-            needsTokenTransfer: parseFloat(row.expected_balance) > 0
+            needsTokenTransfer: parseFloat(row.expected_balance) > parseFloat(row.admin_transfers || 0),
+            shopsInvolved: row.shops_involved
         }));
         
         const summary = {
@@ -528,34 +535,35 @@ router.get('/treasury/stats-with-warnings', async (req: Request, res: Response) 
             WHERE status IN ('completed', 'pending')
         `);
         
-        // Get total minted to customers
+        // Get total minted to customers (excluding admin manual transfers)
         const mintedStats = await treasuryRepo.query(`
             SELECT 
                 SUM(CASE WHEN type = 'mint' AND shop_id IS NOT NULL THEN amount ELSE 0 END) as total_issued_by_shops,
-                SUM(CASE WHEN type = 'mint' THEN amount ELSE 0 END) as total_minted
+                SUM(CASE WHEN type = 'mint' AND shop_id IS NOT NULL THEN amount ELSE 0 END) as total_minted
             FROM transactions
             WHERE status = 'confirmed'
             AND LOWER(customer_address) != LOWER($1)
         `, [adminAddress]);
         
-        // Check for customers with positive expected balances
+        // Check for customers with positive expected balances (excluding admin transfers)
         const discrepancyCheck = await treasuryRepo.query(`
             WITH customer_balances AS (
                 SELECT 
                     customer_address,
-                    SUM(CASE WHEN type = 'mint' THEN amount ELSE 0 END) - 
-                    SUM(CASE WHEN type = 'redeem' THEN amount ELSE 0 END) as expected_balance
+                    SUM(CASE WHEN type = 'mint' AND shop_id IS NOT NULL THEN amount ELSE 0 END) as shop_rewards,
+                    SUM(CASE WHEN type = 'redeem' THEN amount ELSE 0 END) as redeemed,
+                    SUM(CASE WHEN type = 'mint' AND shop_id IS NULL AND metadata::text LIKE '%admin_manual_transfer%' THEN amount ELSE 0 END) as admin_transfers
                 FROM transactions
                 WHERE status = 'confirmed'
                 AND LOWER(customer_address) != LOWER($1)
                 GROUP BY customer_address
-                HAVING SUM(CASE WHEN type = 'mint' THEN amount ELSE 0 END) > 0
+                HAVING SUM(CASE WHEN type = 'mint' AND shop_id IS NOT NULL THEN amount ELSE 0 END) > 0
             )
             SELECT 
                 COUNT(*) as customers_with_positive_balance,
-                COALESCE(SUM(expected_balance), 0) as total_expected_balance
+                COALESCE(SUM(GREATEST(shop_rewards - redeemed - admin_transfers, 0)), 0) as total_expected_balance
             FROM customer_balances
-            WHERE expected_balance > 0
+            WHERE shop_rewards - redeemed - admin_transfers > 0
         `, [adminAddress]);
         
         const adminBalance = await minter.getCustomerBalance(adminAddress) || 0;
