@@ -363,10 +363,12 @@ router.get('/treasury/discrepancies', async (req: Request, res: Response) => {
                     SUM(CASE WHEN t.type = 'redeem' THEN t.amount ELSE 0 END) as total_redeemed,
                     SUM(CASE WHEN t.type = 'mint' THEN t.amount ELSE 0 END) - 
                     SUM(CASE WHEN t.type = 'redeem' THEN t.amount ELSE 0 END) as expected_balance,
-                    COUNT(CASE WHEN t.type = 'mint' AND t.transaction_hash LIKE 'offchain_%' THEN 1 END) as offchain_mints
+                    COUNT(CASE WHEN t.type = 'mint' AND (t.transaction_hash IS NULL OR t.transaction_hash = '' OR t.transaction_hash LIKE 'offchain_%') THEN 1 END) as offchain_mints,
+                    COUNT(CASE WHEN t.type = 'mint' THEN 1 END) as total_mints
                 FROM transactions t
                 LEFT JOIN customers c ON LOWER(c.address) = LOWER(t.customer_address)
                 WHERE t.status = 'confirmed'
+                AND LOWER(t.customer_address) != LOWER('0x761E5E59485ec6feb263320f5d636042bD9EBc8c')
                 GROUP BY t.customer_address, c.name
                 HAVING SUM(CASE WHEN t.type = 'mint' THEN t.amount ELSE 0 END) > 0
             )
@@ -377,13 +379,16 @@ router.get('/treasury/discrepancies', async (req: Request, res: Response) => {
                 total_redeemed,
                 expected_balance,
                 offchain_mints,
+                total_mints,
                 CASE 
-                    WHEN offchain_mints > 0 THEN 'Has off-chain only transactions'
+                    WHEN offchain_mints = total_mints AND expected_balance > 0 THEN 'All transactions off-chain only'
+                    WHEN offchain_mints > 0 AND expected_balance > 0 THEN 'Some transactions off-chain'
+                    WHEN expected_balance > 0 THEN 'May need tokens'
                     ELSE 'OK'
                 END as status
             FROM customer_balances
-            WHERE offchain_mints > 0 OR expected_balance > 0
-            ORDER BY expected_balance DESC
+            WHERE expected_balance > 0
+            ORDER BY expected_balance DESC, offchain_mints DESC
             LIMIT 100
         `;
         
@@ -396,8 +401,9 @@ router.get('/treasury/discrepancies', async (req: Request, res: Response) => {
             totalRedeemed: parseFloat(row.total_redeemed),
             expectedBalance: parseFloat(row.expected_balance),
             offchainMints: parseInt(row.offchain_mints),
+            totalMints: parseInt(row.total_mints),
             status: row.status,
-            needsTokenTransfer: parseInt(row.offchain_mints) > 0
+            needsTokenTransfer: parseFloat(row.expected_balance) > 0
         }));
         
         const summary = {
@@ -532,16 +538,25 @@ router.get('/treasury/stats-with-warnings', async (req: Request, res: Response) 
             AND LOWER(customer_address) != LOWER($1)
         `, [adminAddress]);
         
-        // Check for customers with off-chain only transactions
+        // Check for customers with positive expected balances
         const discrepancyCheck = await treasuryRepo.query(`
+            WITH customer_balances AS (
+                SELECT 
+                    customer_address,
+                    SUM(CASE WHEN type = 'mint' THEN amount ELSE 0 END) - 
+                    SUM(CASE WHEN type = 'redeem' THEN amount ELSE 0 END) as expected_balance
+                FROM transactions
+                WHERE status = 'confirmed'
+                AND LOWER(customer_address) != LOWER($1)
+                GROUP BY customer_address
+                HAVING SUM(CASE WHEN type = 'mint' THEN amount ELSE 0 END) > 0
+            )
             SELECT 
-                COUNT(DISTINCT customer_address) as customers_with_offchain_only,
-                SUM(amount) as total_offchain_amount
-            FROM transactions
-            WHERE type = 'mint'
-            AND transaction_hash LIKE 'offchain_%'
-            AND status = 'confirmed'
-        `);
+                COUNT(*) as customers_with_positive_balance,
+                COALESCE(SUM(expected_balance), 0) as total_expected_balance
+            FROM customer_balances
+            WHERE expected_balance > 0
+        `, [adminAddress]);
         
         const adminBalance = await minter.getCustomerBalance(adminAddress) || 0;
         const contractStats = await minter.getContractStats();
@@ -551,7 +566,7 @@ router.get('/treasury/stats-with-warnings', async (req: Request, res: Response) 
         const totalMinted = parseFloat(mintedStats.rows[0]?.total_minted || '0');
         const expectedAdminBalance = totalPurchasedByShops - totalIssuedByShops;
         
-        const hasDiscrepancies = parseInt(discrepancyCheck.rows[0]?.customers_with_offchain_only || '0') > 0;
+        const hasDiscrepancies = parseInt(discrepancyCheck.rows[0]?.customers_with_positive_balance || '0') > 0;
         
         res.json({
             success: true,
@@ -571,10 +586,10 @@ router.get('/treasury/stats-with-warnings', async (req: Request, res: Response) 
                 },
                 warnings: {
                     hasDiscrepancies,
-                    customersWithMissingTokens: parseInt(discrepancyCheck.rows[0]?.customers_with_offchain_only || '0'),
-                    totalMissingTokens: parseFloat(discrepancyCheck.rows[0]?.total_offchain_amount || '0'),
+                    customersWithMissingTokens: parseInt(discrepancyCheck.rows[0]?.customers_with_positive_balance || '0'),
+                    totalMissingTokens: parseFloat(discrepancyCheck.rows[0]?.total_expected_balance || '0'),
                     message: hasDiscrepancies 
-                        ? `${discrepancyCheck.rows[0].customers_with_offchain_only} customers may be missing tokens. Check discrepancies tab.`
+                        ? `${discrepancyCheck.rows[0].customers_with_positive_balance} customers may be missing tokens. Check discrepancies tab.`
                         : 'All customers have received their tokens on-chain'
                 }
             }

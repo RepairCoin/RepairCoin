@@ -218,9 +218,11 @@ export const DiscrepancySection: React.FC = () => {
                       <div className="mt-2">
                         <p className="text-xs text-gray-500">Expected Balance</p>
                         <p className="text-lg font-bold text-yellow-400">{customer.expectedBalance.toFixed(2)} RCN</p>
-                        <p className="text-xs text-orange-400 mt-1">
-                          {customer.offchainMints} off-chain transaction{customer.offchainMints !== 1 ? 's' : ''}
-                        </p>
+                        {customer.offchainMints > 0 && (
+                          <p className="text-xs text-orange-400 mt-1">
+                            {customer.offchainMints} off-chain transaction{customer.offchainMints !== 1 ? 's' : ''}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
