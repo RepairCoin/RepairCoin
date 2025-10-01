@@ -263,21 +263,28 @@ export class CustomerService {
       const transactions = await transactionRepository.getTransactionsByCustomer(address, limit);
       
       // Transform transaction types for frontend expectations
-      const transformedTransactions = transactions.map((tx: any) => ({
-        id: tx.id,
-        type: tx.type === 'mint' ? 'earned' : tx.type === 'redeem' ? 'redeemed' : tx.type,
-        amount: parseFloat(tx.amount),
-        shopId: tx.shopId,
-        shopName: tx.shopName,
-        description: tx.reason || tx.description || 
-          (tx.type === 'mint' ? 'Repair reward' : 
-           tx.type === 'redeem' ? 'Redeemed at shop' : 
-           tx.type === 'referral' ? 'Referral bonus' : 
-           tx.type === 'tier_bonus' ? 'Tier bonus' :
-           'Transaction'),
-        createdAt: tx.timestamp,
-        metadata: tx.metadata
-      }));
+      const transformedTransactions = transactions.map((tx: any) => {
+        // Check if this is an admin manual transfer
+        const isAdminTransfer = tx.type === 'mint' && !tx.shopId && 
+          (tx.metadata?.source === 'admin_manual_transfer' || 
+           tx.reason?.includes('Admin manual transfer'));
+        
+        return {
+          id: tx.id,
+          type: tx.type === 'mint' ? 'earned' : tx.type === 'redeem' ? 'redeemed' : tx.type,
+          amount: parseFloat(tx.amount),
+          shopId: tx.shopId,
+          shopName: isAdminTransfer ? 'RepairCoin Admin' : tx.shopName,
+          description: tx.reason || tx.description || 
+            (tx.type === 'mint' ? 'Repair reward' : 
+             tx.type === 'redeem' ? 'Redeemed at shop' : 
+             tx.type === 'referral' ? 'Referral bonus' : 
+             tx.type === 'tier_bonus' ? 'Tier bonus' :
+             'Transaction'),
+          createdAt: tx.timestamp,
+          metadata: tx.metadata
+        };
+      });
       
       // Filter by type if specified
       let filteredTransactions = transformedTransactions;
