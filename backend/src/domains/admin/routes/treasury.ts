@@ -3,6 +3,9 @@ import { TokenMinter } from '../../../contracts/TokenMinter';
 import { TokenService } from '../../token/services/TokenService';
 import { TreasuryRepository } from '../../../repositories/TreasuryRepository';
 import { ShopRepository } from '../../../repositories/ShopRepository';
+import { transactionRepository } from '../../../repositories';
+import { logger } from '../../../utils/logger';
+import { validateRequired, validateEthereumAddress, validateNumeric } from '../../../middleware/errorHandler';
 // import { getRCGService } from '../../../services/RCGService';
 // TODO: Implement treasury methods in repository
 
@@ -341,6 +344,247 @@ router.get('/treasury/debug/:shopId', async (req: Request, res: Response) => {
         res.status(500).json({
             success: false,
             error: error.message
+        });
+    }
+});
+
+// Get customers with token discrepancies  
+router.get('/treasury/discrepancies', async (req: Request, res: Response) => {
+    try {
+        const treasuryRepo = new TreasuryRepository();
+        
+        // Query to find customers who have earned tokens but may not have received them on-chain
+        const query = `
+            WITH customer_balances AS (
+                SELECT 
+                    t.customer_address,
+                    c.name as customer_name,
+                    SUM(CASE WHEN t.type = 'mint' THEN t.amount ELSE 0 END) as total_earned,
+                    SUM(CASE WHEN t.type = 'redeem' THEN t.amount ELSE 0 END) as total_redeemed,
+                    SUM(CASE WHEN t.type = 'mint' THEN t.amount ELSE 0 END) - 
+                    SUM(CASE WHEN t.type = 'redeem' THEN t.amount ELSE 0 END) as expected_balance,
+                    COUNT(CASE WHEN t.type = 'mint' AND t.transaction_hash LIKE 'offchain_%' THEN 1 END) as offchain_mints
+                FROM transactions t
+                LEFT JOIN customers c ON LOWER(c.address) = LOWER(t.customer_address)
+                WHERE t.status = 'confirmed'
+                GROUP BY t.customer_address, c.name
+                HAVING SUM(CASE WHEN t.type = 'mint' THEN t.amount ELSE 0 END) > 0
+            )
+            SELECT 
+                customer_address,
+                customer_name,
+                total_earned,
+                total_redeemed,
+                expected_balance,
+                offchain_mints,
+                CASE 
+                    WHEN offchain_mints > 0 THEN 'Has off-chain only transactions'
+                    ELSE 'OK'
+                END as status
+            FROM customer_balances
+            WHERE offchain_mints > 0 OR expected_balance > 0
+            ORDER BY expected_balance DESC
+            LIMIT 100
+        `;
+        
+        const result = await treasuryRepo.query(query);
+        
+        const discrepancies = result.rows.map((row: any) => ({
+            address: row.customer_address,
+            name: row.customer_name || 'Unknown',
+            totalEarned: parseFloat(row.total_earned),
+            totalRedeemed: parseFloat(row.total_redeemed),
+            expectedBalance: parseFloat(row.expected_balance),
+            offchainMints: parseInt(row.offchain_mints),
+            status: row.status,
+            needsTokenTransfer: parseInt(row.offchain_mints) > 0
+        }));
+        
+        const summary = {
+            totalCustomers: discrepancies.length,
+            customersNeedingTokens: discrepancies.filter((d: any) => d.needsTokenTransfer).length,
+            totalMissingTokens: discrepancies
+                .filter((d: any) => d.needsTokenTransfer)
+                .reduce((sum: number, d: any) => sum + d.expectedBalance, 0)
+        };
+        
+        res.json({
+            success: true,
+            data: {
+                discrepancies,
+                summary
+            }
+        });
+        
+    } catch (error: any) {
+        logger.error('Error fetching discrepancies:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch discrepancies'
+        });
+    }
+});
+
+// Manual token transfer to fix discrepancies
+router.post('/treasury/manual-transfer',
+    validateRequired(['customerAddress', 'amount', 'reason']),
+    validateEthereumAddress('customerAddress'),
+    validateNumeric('amount', 0.01, 10000),
+    async (req: Request, res: Response) => {
+        try {
+            const { customerAddress, amount, reason } = req.body;
+            
+            const minter = getTokenMinter();
+            
+            // Check current balance
+            const currentBalance = await minter.getCustomerBalance(customerAddress) || 0;
+            
+            // Transfer tokens
+            const result = await minter.transferTokens(
+                customerAddress,
+                amount,
+                `Admin manual transfer: ${reason}`
+            );
+            
+            if (!result.success) {
+                return res.status(400).json({
+                    success: false,
+                    error: result.error || 'Transfer failed'
+                });
+            }
+            
+            // Record in database - use any type to bypass the id requirement since it's auto-generated
+            await transactionRepository.recordTransaction({
+                type: 'mint',
+                customerAddress: customerAddress.toLowerCase(),
+                shopId: null,
+                amount,
+                reason: `Admin manual transfer: ${reason}`,
+                transactionHash: result.transactionHash || '',
+                timestamp: new Date().toISOString(),
+                status: 'confirmed',
+                metadata: {
+                    manual: true,
+                    adminAddress: req.user?.address,
+                    reason,
+                    previousBalance: currentBalance,
+                    source: 'admin_manual_transfer'
+                }
+            } as any);
+            
+            // Wait for confirmation and check new balance
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            const newBalance = await minter.getCustomerBalance(customerAddress) || 0;
+            
+            logger.info('Admin manual token transfer completed', {
+                customerAddress,
+                amount,
+                reason,
+                txHash: result.transactionHash,
+                adminAddress: req.user?.address
+            });
+            
+            res.json({
+                success: true,
+                data: {
+                    transactionHash: result.transactionHash,
+                    amount,
+                    customerAddress,
+                    previousBalance: currentBalance,
+                    newBalance,
+                    reason
+                }
+            });
+            
+        } catch (error: any) {
+            logger.error('Manual transfer error:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to process manual transfer'
+            });
+        }
+    }
+);
+
+// Get treasury stats with discrepancy warnings
+router.get('/treasury/stats-with-warnings', async (req: Request, res: Response) => {
+    try {
+        const treasuryRepo = new TreasuryRepository();
+        const minter = getTokenMinter();
+        const adminAddress = '0x761E5E59485ec6feb263320f5d636042bD9EBc8c';
+        
+        // Get existing treasury stats
+        const existingStats = await treasuryRepo.query(`
+            SELECT 
+                COALESCE(SUM(amount), 0) as total_sold,
+                COALESCE(SUM(total_cost), 0) as total_revenue
+            FROM shop_rcn_purchases
+            WHERE status IN ('completed', 'pending')
+        `);
+        
+        // Get total minted to customers
+        const mintedStats = await treasuryRepo.query(`
+            SELECT 
+                SUM(CASE WHEN type = 'mint' AND shop_id IS NOT NULL THEN amount ELSE 0 END) as total_issued_by_shops,
+                SUM(CASE WHEN type = 'mint' THEN amount ELSE 0 END) as total_minted
+            FROM transactions
+            WHERE status = 'confirmed'
+            AND LOWER(customer_address) != LOWER($1)
+        `, [adminAddress]);
+        
+        // Check for customers with off-chain only transactions
+        const discrepancyCheck = await treasuryRepo.query(`
+            SELECT 
+                COUNT(DISTINCT customer_address) as customers_with_offchain_only,
+                SUM(amount) as total_offchain_amount
+            FROM transactions
+            WHERE type = 'mint'
+            AND transaction_hash LIKE 'offchain_%'
+            AND status = 'confirmed'
+        `);
+        
+        const adminBalance = await minter.getCustomerBalance(adminAddress) || 0;
+        const contractStats = await minter.getContractStats();
+        
+        const totalPurchasedByShops = parseFloat(existingStats.rows[0]?.total_sold || '0');
+        const totalIssuedByShops = parseFloat(mintedStats.rows[0]?.total_issued_by_shops || '0');
+        const totalMinted = parseFloat(mintedStats.rows[0]?.total_minted || '0');
+        const expectedAdminBalance = totalPurchasedByShops - totalIssuedByShops;
+        
+        const hasDiscrepancies = parseInt(discrepancyCheck.rows[0]?.customers_with_offchain_only || '0') > 0;
+        
+        res.json({
+            success: true,
+            data: {
+                treasury: {
+                    totalSupply: contractStats.totalSupplyReadable || 0,
+                    totalSold: totalPurchasedByShops,
+                    totalRevenue: parseFloat(existingStats.rows[0]?.total_revenue || '0'),
+                    totalMinted: totalMinted,
+                    totalIssuedByShops: totalIssuedByShops
+                },
+                adminWallet: {
+                    address: adminAddress,
+                    onChainBalance: adminBalance,
+                    expectedBalance: expectedAdminBalance,
+                    discrepancy: adminBalance - expectedAdminBalance
+                },
+                warnings: {
+                    hasDiscrepancies,
+                    customersWithMissingTokens: parseInt(discrepancyCheck.rows[0]?.customers_with_offchain_only || '0'),
+                    totalMissingTokens: parseFloat(discrepancyCheck.rows[0]?.total_offchain_amount || '0'),
+                    message: hasDiscrepancies 
+                        ? `${discrepancyCheck.rows[0].customers_with_offchain_only} customers may be missing tokens. Check discrepancies tab.`
+                        : 'All customers have received their tokens on-chain'
+                }
+            }
+        });
+        
+    } catch (error: any) {
+        logger.error('Error getting treasury stats with warnings:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to retrieve treasury statistics'
         });
     }
 });

@@ -3,10 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { useAdminDashboard } from '@/hooks/useAdminDashboard';
-import { CheckCircle, Clock, AlertCircle, Zap, RefreshCw } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, Zap, RefreshCw, AlertTriangle } from 'lucide-react';
 import { PendingMintsSection } from './PendingMintsSection';
 import { BlockchainMintingToggle } from '../settings/BlockchainMintingToggle';
 import { AutoCompletePurchases } from '../AutoCompletePurchases';
+import { DiscrepancySection } from './DiscrepancySection';
 
 interface TreasuryData {
   totalSupply: number | string;
@@ -43,6 +44,25 @@ interface TreasuryData {
     payment_reference?: string;
     status?: string;
   }>;
+  treasury?: {
+    totalSupply: number;
+    totalSold: number;
+    totalRevenue: number;
+    totalMinted: number;
+    totalIssuedByShops: number;
+  };
+  adminWallet?: {
+    address: string;
+    onChainBalance: number;
+    expectedBalance: number;
+    discrepancy: number;
+  };
+  warnings?: {
+    hasDiscrepancies: boolean;
+    customersWithMissingTokens: number;
+    totalMissingTokens: number;
+    message: string;
+  };
 }
 
 interface TreasuryTabProps {}
@@ -101,15 +121,35 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
         return;
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/treasury`, {
-        headers: {
-          'Authorization': `Bearer ${adminToken}`
-        }
-      });
+      // Load both regular treasury data and the enhanced stats with warnings
+      const [response, warningsResponse] = await Promise.all([
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/treasury`, {
+          headers: {
+            'Authorization': `Bearer ${adminToken}`
+          }
+        }),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/treasury/stats-with-warnings`, {
+          headers: {
+            'Authorization': `Bearer ${adminToken}`
+          }
+        })
+      ]);
       
       if (response.ok) {
         const result = await response.json();
-        setTreasuryData(result.data);
+        let treasuryData = result.data;
+        
+        // Merge warnings data if available
+        if (warningsResponse.ok) {
+          const warningsResult = await warningsResponse.json();
+          treasuryData = {
+            ...treasuryData,
+            ...warningsResult.data,
+            totalMinted: warningsResult.data.treasury?.totalMinted || treasuryData.totalMinted
+          };
+        }
+        
+        setTreasuryData(treasuryData);
       } else {
         const errorData = await response.json();
         onError(errorData.error || 'Failed to load treasury data');
@@ -243,6 +283,22 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
 
       {activeTab === 'rcn' ? (
         <>
+          {/* Discrepancy Warning */}
+          {treasuryData.warnings?.hasDiscrepancies && (
+            <div className="bg-yellow-900/50 border border-yellow-700 rounded-xl p-6 mb-6">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-6 h-6 text-yellow-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="text-lg font-bold text-yellow-300 mb-1">Token Discrepancy Detected</h3>
+                  <p className="text-yellow-200 mb-2">{treasuryData.warnings.message}</p>
+                  <p className="text-sm text-yellow-300">
+                    Total missing: {formatNumber(treasuryData.warnings.totalMissingTokens)} RCN
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* RCN Treasury Overview */}
           <div className="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700">
             <div className="flex justify-between items-center mb-6">
@@ -386,6 +442,9 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
         <h3 className="text-xl font-bold text-white mb-4">Minting Settings</h3>
         <BlockchainMintingToggle />
       </div>
+
+      {/* Token Discrepancies Section */}
+      <DiscrepancySection />
 
         </>
       ) : (
