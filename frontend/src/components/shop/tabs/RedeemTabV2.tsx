@@ -21,7 +21,9 @@ import { showToast } from "@/utils/toast";
 
 interface RedeemTabProps {
   shopId: string;
+  isOperational: boolean | null;
   onRedemptionComplete: () => void;
+  setShowOnboardingModal: (show: boolean) => void;
 }
 
 interface RedemptionTransaction {
@@ -51,12 +53,13 @@ interface ShopCustomer {
   total_transactions: number;
 }
 
-
 type RedemptionFlow = "two-factor" | "qr-scan";
 
 export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   shopId,
+  isOperational,
   onRedemptionComplete,
+  setShowOnboardingModal,
 }) => {
   const [flow, setFlow] = useState<RedemptionFlow>("two-factor");
 
@@ -91,7 +94,6 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   const [transactions, setTransactions] = useState<RedemptionTransaction[]>([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-
 
   // Load shop customers and check for pending sessions on mount
   useEffect(() => {
@@ -411,66 +413,65 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   }, [currentSession, sessionStatus]);
 
   const createRedemptionSession = async () => {
-    console.log("Creating session with:", {
-      selectedCustomer,
-      customerAddress,
-      redeemAmount,
-      sessionStatus
-    });
-    
-    const finalAddress = selectedCustomer?.address || customerAddress;
+    if (!isOperational) {
+      setShowOnboardingModal(true);
+    } else {
+      const finalAddress = selectedCustomer?.address || customerAddress;
 
-    if (!finalAddress || !redeemAmount) {
-      setError("Please search and select a customer, then enter amount");
-      return;
-    }
-
-    setSessionStatus("creating");
-    setError(null);
-    setSuccess(null);
-
-    try {
-      const authToken =
-        localStorage.getItem("shopAuthToken") ||
-        sessionStorage.getItem("shopAuthToken");
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/tokens/redemption-session/create`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: authToken ? `Bearer ${authToken}` : "",
-          },
-          body: JSON.stringify({
-            customerAddress: finalAddress,
-            shopId,
-            amount: redeemAmount,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.error || "Failed to create redemption session"
-        );
+      if (!finalAddress || !redeemAmount) {
+        setError("Please search and select a customer, then enter amount");
+        return;
       }
 
-      const result = await response.json();
-      const newSession = {
-        sessionId: result.data.sessionId,
-        customerAddress: finalAddress,
-        amount: redeemAmount,
-        status: "pending" as const,
-        expiresAt: result.data.expiresAt,
-      };
-      setCurrentSession(newSession);
-      setSessionStatus("waiting");
-    } catch (err) {
-      console.error("Session creation error:", err);
-      setError(err instanceof Error ? err.message : "Failed to create session");
-      setSessionStatus("idle");
+      setSessionStatus("creating");
+      setError(null);
+      setSuccess(null);
+
+      try {
+        const authToken =
+          localStorage.getItem("shopAuthToken") ||
+          sessionStorage.getItem("shopAuthToken");
+
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/tokens/redemption-session/create`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: authToken ? `Bearer ${authToken}` : "",
+            },
+            body: JSON.stringify({
+              customerAddress: finalAddress,
+              shopId,
+              amount: redeemAmount,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(
+            errorData.error || "Failed to create redemption session"
+          );
+        }
+
+        const result = await response.json();
+        const newSession = {
+          sessionId: result.data.sessionId,
+          customerAddress: finalAddress,
+          amount: redeemAmount,
+          status: "pending" as const,
+          expiresAt: result.data.expiresAt,
+        };
+        setCurrentSession(newSession);
+        setSessionStatus("waiting");
+      } catch (err) {
+        console.error("Session creation error:", err);
+        setError(
+          err instanceof Error ? err.message : "Failed to create session"
+        );
+        setSessionStatus("idle");
+      }
     }
   };
 
@@ -630,7 +631,6 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
         return "bg-gradient-to-r from-gray-400 to-gray-500 text-white";
     }
   };
-
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -871,7 +871,10 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                             <button
                               key={customer.address}
                               onClick={() => {
-                                console.log("Customer button clicked:", customer);
+                                console.log(
+                                  "Customer button clicked:",
+                                  customer
+                                );
                                 handleCustomerSelect(customer);
                                 setCustomerSearch("");
                               }}
@@ -993,7 +996,6 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                   )}
                 </div>
               </div>
-
 
               {/* Amount Input Card */}
               <div className="bg-[#212121] rounded-3xl">
@@ -1400,12 +1402,12 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
 
                 {/* Process Button */}
                 {(() => {
-                  const isDisabled = 
+                  const isDisabled =
                     sessionStatus !== "idle" ||
                     !selectedCustomer ||
                     !redeemAmount ||
                     redeemAmount <= 0;
-                  
+
                   // Debug info - commented out for production
                   // if (isDisabled) {
                   //   console.log("Button disabled because:", {
@@ -1418,51 +1420,51 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                   //     redeemAmount
                   //   });
                   // }
-                  
+
                   return (
                     <button
                       onClick={createRedemptionSession}
                       disabled={isDisabled}
                       className="w-full bg-[#FFCC00] text-black font-bold py-4 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow-lg hover:shadow-yellow-500/25 transform hover:scale-105 disabled:transform-none"
                       title={
-                        sessionStatus !== "idle" 
-                          ? `Session in progress (${sessionStatus})` 
-                          : !selectedCustomer 
-                          ? "Please select a customer" 
-                          : !redeemAmount || redeemAmount <= 0 
-                          ? `Please enter redemption amount (current: ${redeemAmount})` 
+                        sessionStatus !== "idle"
+                          ? `Session in progress (${sessionStatus})`
+                          : !selectedCustomer
+                          ? "Please select a customer"
+                          : !redeemAmount || redeemAmount <= 0
+                          ? `Please enter redemption amount (current: ${redeemAmount})`
                           : "Click to request approval"
                       }
                     >
-                  {sessionStatus === "creating" ? (
-                    <div className="flex items-center justify-center">
-                      <svg
-                        className="animate-spin h-5 w-5 mr-2"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                      Processing...
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center gap-2">
-                      <Shield className="w-5 h-5" />
-                      <span>Request Approval</span>
-                    </div>
-                  )}
+                      {sessionStatus === "creating" ? (
+                        <div className="flex items-center justify-center">
+                          <svg
+                            className="animate-spin h-5 w-5 mr-2"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          Processing...
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center gap-2">
+                          <Shield className="w-5 h-5" />
+                          <span>Request Approval</span>
+                        </div>
+                      )}
                     </button>
                   );
                 })()}

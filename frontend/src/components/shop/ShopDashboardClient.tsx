@@ -1,33 +1,42 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { createThirdwebClient, getContract, readContract } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams } from "next/navigation";
 import DashboardLayout from "@/components/ui/DashboardLayout";
-import ThirdwebPayment from '../ThirdwebPayment';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import ThirdwebPayment from "../ThirdwebPayment";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
 // Import our new components
-import { OverviewTab } from '@/components/shop/tabs/OverviewTab';
-import { PurchaseTab } from '@/components/shop/tabs/PurchaseTab';
-import { BonusesTab } from '@/components/shop/tabs/BonusesTab';
-import { AnalyticsTab } from '@/components/shop/tabs/AnalyticsTab';
-import { RedeemTabV2 } from '@/components/shop/tabs/RedeemTabV2';
-import { IssueRewardsTab } from '@/components/shop/tabs/IssueRewardsTab';
-import { CustomerLookupTab } from '@/components/shop/tabs/CustomerLookupTab';
-import { SettingsTab } from '@/components/shop/tabs/SettingsTab';
-import { CustomersTab } from '@/components/shop/tabs/CustomersTab';
-import PromoCodesTab from '@/components/shop/tabs/PromoCodesTab';
-import { useShopRegistration } from '@/hooks/useShopRegistration';
-import { OnboardingBanner } from '@/components/shop/OnboardingBanner';
-import { OperationalRequiredTab } from '@/components/shop/OperationalRequiredTab';
-import { SubscriptionManagement } from '@/components/shop/SubscriptionManagement';
+import { OverviewTab } from "@/components/shop/tabs/OverviewTab";
+import { PurchaseTab } from "@/components/shop/tabs/PurchaseTab";
+import { BonusesTab } from "@/components/shop/tabs/BonusesTab";
+import { AnalyticsTab } from "@/components/shop/tabs/AnalyticsTab";
+import { RedeemTabV2 } from "@/components/shop/tabs/RedeemTabV2";
+import { IssueRewardsTab } from "@/components/shop/tabs/IssueRewardsTab";
+import { CustomerLookupTab } from "@/components/shop/tabs/CustomerLookupTab";
+import { SettingsTab } from "@/components/shop/tabs/SettingsTab";
+import { CustomersTab } from "@/components/shop/tabs/CustomersTab";
+import PromoCodesTab from "@/components/shop/tabs/PromoCodesTab";
+import { useShopRegistration } from "@/hooks/useShopRegistration";
+import { OnboardingModal } from "@/components/shop/OnboardingModal";
+import { OperationalRequiredTab } from "@/components/shop/OperationalRequiredTab";
+import { SubscriptionManagement } from "@/components/shop/SubscriptionManagement";
 
 const client = createThirdwebClient({
-  clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "1969ac335e07ba13ad0f8d1a1de4f6ab",
+  clientId:
+    process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID ||
+    "1969ac335e07ba13ad0f8d1a1de4f6ab",
 });
 
 interface ShopData {
@@ -45,7 +54,11 @@ interface ShopData {
   purchasedRcnBalance: number;
   totalRcnPurchased: number;
   lastPurchaseDate?: string;
-  operational_status?: 'pending' | 'rcg_qualified' | 'subscription_qualified' | 'not_qualified';
+  operational_status?:
+    | "pending"
+    | "rcg_qualified"
+    | "subscription_qualified"
+    | "not_qualified";
   rcg_tier?: string;
   rcg_balance?: number;
 }
@@ -69,48 +82,53 @@ interface TierBonusStats {
 export default function ShopDashboardClient() {
   const account = useActiveAccount();
   const searchParams = useSearchParams();
-  const {
-    existingApplication,
-  } = useShopRegistration();
+  const { existingApplication } = useShopRegistration();
   const [shopData, setShopData] = useState<ShopData | null>(null);
   const [purchases, setPurchases] = useState<PurchaseHistory[]>([]);
   const [tierStats, setTierStats] = useState<TierBonusStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<string>('overview');
-  
+  const [activeTab, setActiveTab] = useState<string>("overview");
+
   // Purchase form state
   const [purchaseAmount, setPurchaseAmount] = useState<number>(1);
   const [purchasing, setPurchasing] = useState(false);
-  
+
   // Payment flow state
-  const [currentPurchaseId, setCurrentPurchaseId] = useState<string | null>(null);
+  const [currentPurchaseId, setCurrentPurchaseId] = useState<string | null>(
+    null
+  );
   const [showPayment, setShowPayment] = useState(false);
-  
+
   // Success modal state
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState("");
+
+  // Onboarding modal state
+  const [showOnboardingModal, setShowOnboardingModal] = useState(false);
 
   useEffect(() => {
     // Set active tab from URL query param
-    const tab = searchParams.get('tab');
-    const payment = searchParams.get('payment');
-    const purchaseId = searchParams.get('purchase_id');
-    
+    const tab = searchParams.get("tab");
+    const payment = searchParams.get("payment");
+    const purchaseId = searchParams.get("purchase_id");
+
     if (tab) {
       setActiveTab(tab);
     }
-    
+
     // Handle Stripe payment success redirect (only if modal not already shown)
-    if (payment === 'success' && purchaseId && !showSuccessModal) {
-      setSuccessMessage(`✅ Payment successful! Your RCN tokens have been added to your account.`);
+    if (payment === "success" && purchaseId && !showSuccessModal) {
+      setSuccessMessage(
+        `✅ Payment successful! Your RCN tokens have been added to your account.`
+      );
       setShowSuccessModal(true);
       // Reload shop data to show updated balance
       if (account?.address) {
         loadShopData();
       }
-    } else if (payment === 'cancelled') {
-      setError('Payment was cancelled. Please try again.');
+    } else if (payment === "cancelled") {
+      setError("Payment was cancelled. Please try again.");
     }
   }, [searchParams, account?.address]);
 
@@ -120,57 +138,83 @@ export default function ShopDashboardClient() {
     }
   }, [account?.address]);
 
+  // Check if shop is operational
+  // If operational_status is not available (legacy), assume operational if shop is active and verified
+  const isOperational =
+    shopData &&
+    (shopData.operational_status === "rcg_qualified" ||
+      shopData.operational_status === "subscription_qualified" ||
+      // Fallback: If operational_status is missing but shop is active and verified, assume operational
+      (!shopData.operational_status && shopData.active && shopData.verified));
+
+  // Show onboarding modal when shop data loads and shop is not operational
+  useEffect(() => {
+    if (shopData && !isOperational) {
+      setShowOnboardingModal(true);
+    } else {
+      setShowOnboardingModal(false);
+    }
+  }, [shopData, isOperational]);
+
   // Check pending purchases on shop data load
   useEffect(() => {
     const checkPendingPurchases = async () => {
       if (!shopData || !account?.address) return;
-      
+
       try {
-        const authToken = localStorage.getItem('shopAuthToken') || sessionStorage.getItem('shopAuthToken');
+        const authToken =
+          localStorage.getItem("shopAuthToken") ||
+          sessionStorage.getItem("shopAuthToken");
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/shops/purchase-sync/pending`,
           {
             headers: {
-              'Authorization': authToken ? `Bearer ${authToken}` : ''
-            }
+              Authorization: authToken ? `Bearer ${authToken}` : "",
+            },
           }
         );
-        
+
         if (response.ok) {
           const result = await response.json();
           if (result.data && result.data.length > 0) {
             // Silently check each pending purchase
             for (const purchase of result.data) {
-              if (purchase.payment_reference && purchase.payment_reference.startsWith('cs_')) {
+              if (
+                purchase.payment_reference &&
+                purchase.payment_reference.startsWith("cs_")
+              ) {
                 try {
                   const checkResponse = await fetch(
                     `${process.env.NEXT_PUBLIC_API_URL}/shops/purchase-sync/check-payment/${purchase.id}`,
                     {
-                      method: 'POST',
+                      method: "POST",
                       headers: {
-                        'Authorization': authToken ? `Bearer ${authToken}` : '',
-                        'Content-Type': 'application/json'
-                      }
+                        Authorization: authToken ? `Bearer ${authToken}` : "",
+                        "Content-Type": "application/json",
+                      },
                     }
                   );
-                  
+
                   const checkResult = await checkResponse.json();
-                  if (checkResult.success && checkResult.data.status === 'completed') {
+                  if (
+                    checkResult.success &&
+                    checkResult.data.status === "completed"
+                  ) {
                     // Reload to show updated balance
                     await loadShopData();
                   }
                 } catch (err) {
-                  console.error('Error checking purchase:', purchase.id, err);
+                  console.error("Error checking purchase:", purchase.id, err);
                 }
               }
             }
           }
         }
       } catch (error) {
-        console.error('Error checking pending purchases:', error);
+        console.error("Error checking pending purchases:", error);
       }
     };
-    
+
     // Check pending purchases after shop data loads
     if (shopData) {
       checkPendingPurchases();
@@ -183,12 +227,12 @@ export default function ShopDashboardClient() {
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-      
+
       // First, authenticate and get JWT token
       const authResponse = await fetch(`${apiUrl}/auth/shop`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ address: account?.address }),
       });
@@ -196,155 +240,183 @@ export default function ShopDashboardClient() {
       if (authResponse.ok) {
         const authResult = await authResponse.json();
         // Store token for future requests
-        localStorage.setItem('shopAuthToken', authResult.token);
-        sessionStorage.setItem('shopAuthToken', authResult.token);
-        console.log('Shop authenticated successfully');
+        localStorage.setItem("shopAuthToken", authResult.token);
+        sessionStorage.setItem("shopAuthToken", authResult.token);
+        console.log("Shop authenticated successfully");
       } else if (authResponse.status === 403) {
         const errorData = await authResponse.json();
-        setError(errorData.error || 'Shop authentication failed');
+        setError(errorData.error || "Shop authentication failed");
         setLoading(false);
         return;
       } else {
-        console.error('Shop auth failed:', authResponse.status);
-        setError('Authentication failed. Please try again.');
+        console.error("Shop auth failed:", authResponse.status);
+        setError("Authentication failed. Please try again.");
         setLoading(false);
         return;
       }
-      
+
       // Get auth token for authenticated requests
-      const authToken = localStorage.getItem('shopAuthToken') || sessionStorage.getItem('shopAuthToken');
-      
+      const authToken =
+        localStorage.getItem("shopAuthToken") ||
+        sessionStorage.getItem("shopAuthToken");
+
       // Load shop data with authentication
-      const shopResponse = await fetch(`${apiUrl}/shops/wallet/${account?.address}`, {
-        cache: 'no-store',
-        headers: {
-          'Authorization': authToken ? `Bearer ${authToken}` : '',
-          'Content-Type': 'application/json'
+      const shopResponse = await fetch(
+        `${apiUrl}/shops/wallet/${account?.address}`,
+        {
+          cache: "no-store",
+          headers: {
+            Authorization: authToken ? `Bearer ${authToken}` : "",
+            "Content-Type": "application/json",
+          },
         }
-      });
-      
+      );
+
       if (shopResponse.ok) {
         const shopResult = await shopResponse.json();
         if (shopResult.success && shopResult.data) {
           setShopData(shopResult.data);
-          
+
           // Load purchase history
           if (shopResult.data.shopId) {
-            const purchaseResponse = await fetch(`${apiUrl}/shops/purchase/history/${shopResult.data.shopId}`, {
-              headers: {
-                'Authorization': `Bearer ${authToken}`
+            const purchaseResponse = await fetch(
+              `${apiUrl}/shops/purchase/history/${shopResult.data.shopId}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${authToken}`,
+                },
               }
-            });
+            );
             if (purchaseResponse.ok) {
               const purchaseResult = await purchaseResponse.json();
               setPurchases(purchaseResult.data.purchases || []);
             }
 
             // Load tier bonus stats
-            const tierResponse = await fetch(`${apiUrl}/shops/tier-bonus/stats/${shopResult.data.shopId}`, {
-              headers: {
-                'Authorization': `Bearer ${authToken}`
+            const tierResponse = await fetch(
+              `${apiUrl}/shops/tier-bonus/stats/${shopResult.data.shopId}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${authToken}`,
+                },
               }
-            });
+            );
             if (tierResponse.ok) {
               const tierResult = await tierResponse.json();
               setTierStats(tierResult.data);
             }
-
           }
         } else {
-          setError('Invalid shop data received');
+          setError("Invalid shop data received");
         }
       } else {
         const errorText = await shopResponse.text();
-        console.error('Shop API error:', shopResponse.status, errorText);
-        
+        console.error("Shop API error:", shopResponse.status, errorText);
+
         if (shopResponse.status === 404) {
           setError(
-            `Shop not found for wallet ${account?.address}. ` + 
-            'Please check if your wallet is registered as a shop.'
+            `Shop not found for wallet ${account?.address}. ` +
+              "Please check if your wallet is registered as a shop."
           );
         } else if (shopResponse.status === 401) {
-          setError('Authentication failed. Please try refreshing the page.');
+          setError("Authentication failed. Please try refreshing the page.");
         } else {
-          setError(`API Error (${shopResponse.status}): ${errorText || 'Failed to load shop data'}`);
+          setError(
+            `API Error (${shopResponse.status}): ${
+              errorText || "Failed to load shop data"
+            }`
+          );
         }
       }
     } catch (err) {
-      console.error('Error loading shop data:', err);
-      setError('Failed to load shop data');
+      console.error("Error loading shop data:", err);
+      setError("Failed to load shop data");
     } finally {
       setLoading(false);
     }
   };
 
   const initiatePurchase = async () => {
-    if (!shopData || !account?.address) {
-      setError('Shop data not loaded or wallet not connected');
-      return;
-    }
-
-    setPurchasing(true);
-    setError(null);
-    
-    try {
-      console.log('Creating Stripe checkout session:', {
-        shopId: shopData.shopId,
-        amount: purchaseAmount,
-        shopData: shopData
-      });
-
-      const authToken = localStorage.getItem('shopAuthToken') || sessionStorage.getItem('shopAuthToken');
-      console.log('Auth token found:', !!authToken);
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/purchase/stripe-checkout`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': authToken ? `Bearer ${authToken}` : ''
-        },
-        body: JSON.stringify({
-          amount: purchaseAmount
-        }),
-      });
-
-      const responseData = await response.json();
-      console.log('Stripe checkout response:', { 
-        status: response.status, 
-        data: responseData 
-      });
-
-      if (!response.ok) {
-        const errorMessage = responseData.error || `HTTP ${response.status}: ${response.statusText}`;
-        console.error('Stripe checkout creation failed:', errorMessage);
-        throw new Error(errorMessage);
+    if (!isOperational) {
+      setShowOnboardingModal(true);
+    } else {
+      if (!shopData || !account?.address) {
+        setError("Shop data not loaded or wallet not connected");
+        return;
       }
 
-      const checkoutUrl = responseData.data?.checkoutUrl;
-      if (!checkoutUrl) {
-        throw new Error('No checkout URL received from server');
+      setPurchasing(true);
+      setError(null);
+
+      try {
+        console.log("Creating Stripe checkout session:", {
+          shopId: shopData.shopId,
+          amount: purchaseAmount,
+          shopData: shopData,
+        });
+
+        const authToken =
+          localStorage.getItem("shopAuthToken") ||
+          sessionStorage.getItem("shopAuthToken");
+        console.log("Auth token found:", !!authToken);
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/shops/purchase/stripe-checkout`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: authToken ? `Bearer ${authToken}` : "",
+            },
+            body: JSON.stringify({
+              amount: purchaseAmount,
+            }),
+          }
+        );
+
+        const responseData = await response.json();
+        console.log("Stripe checkout response:", {
+          status: response.status,
+          data: responseData,
+        });
+
+        if (!response.ok) {
+          const errorMessage =
+            responseData.error ||
+            `HTTP ${response.status}: ${response.statusText}`;
+          console.error("Stripe checkout creation failed:", errorMessage);
+          throw new Error(errorMessage);
+        }
+
+        const checkoutUrl = responseData.data?.checkoutUrl;
+        if (!checkoutUrl) {
+          throw new Error("No checkout URL received from server");
+        }
+
+        console.log("Redirecting to Stripe checkout...");
+
+        // Redirect to Stripe checkout
+        window.location.href = checkoutUrl;
+      } catch (err) {
+        console.error("Error initiating purchase:", err);
+        setError(
+          err instanceof Error ? err.message : "Purchase initiation failed"
+        );
+      } finally {
+        setPurchasing(false);
       }
-      
-      console.log('Redirecting to Stripe checkout...');
-      
-      // Redirect to Stripe checkout
-      window.location.href = checkoutUrl;
-      
-    } catch (err) {
-      console.error('Error initiating purchase:', err);
-      setError(err instanceof Error ? err.message : 'Purchase initiation failed');
-    } finally {
-      setPurchasing(false);
     }
   };
 
   const handlePaymentSuccess = async () => {
     setShowPayment(false);
     setCurrentPurchaseId(null);
-    
+
     // Show success message using custom modal
-    setSuccessMessage(`✅ Payment successful! ${purchaseAmount} distribution credits have been added to your account.`);
+    setSuccessMessage(
+      `✅ Payment successful! ${purchaseAmount} distribution credits have been added to your account.`
+    );
     setShowSuccessModal(true);
-    
+
     // Reload shop data to show updated balance
     await loadShopData();
   };
@@ -360,45 +432,41 @@ export default function ShopDashboardClient() {
 
   const checkPurchaseStatus = async (purchaseId: string) => {
     try {
-      const authToken = localStorage.getItem('shopAuthToken') || sessionStorage.getItem('shopAuthToken');
+      const authToken =
+        localStorage.getItem("shopAuthToken") ||
+        sessionStorage.getItem("shopAuthToken");
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/shops/purchase-sync/check-payment/${purchaseId}`,
         {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Authorization': authToken ? `Bearer ${authToken}` : '',
-            'Content-Type': 'application/json'
-          }
+            Authorization: authToken ? `Bearer ${authToken}` : "",
+            "Content-Type": "application/json",
+          },
         }
       );
 
       const result = await response.json();
-      
-      if (result.success && result.data.status === 'completed') {
-        setSuccessMessage(`✅ Payment verified! ${result.data.amount} RCN has been added to your account.`);
+
+      if (result.success && result.data.status === "completed") {
+        setSuccessMessage(
+          `✅ Payment verified! ${result.data.amount} RCN has been added to your account.`
+        );
         setShowSuccessModal(true);
         // Reload data to show updated balance
         await loadShopData();
       } else if (result.success === false && result.data?.stripeStatus) {
-        setError(`Payment status: ${result.data.stripeStatus}. Please wait a moment and try again.`);
+        setError(
+          `Payment status: ${result.data.stripeStatus}. Please wait a moment and try again.`
+        );
       } else {
-        setError(result.message || 'Could not verify payment status');
+        setError(result.message || "Could not verify payment status");
       }
     } catch (error) {
-      console.error('Error checking purchase status:', error);
-      setError('Failed to check payment status');
+      console.error("Error checking purchase status:", error);
+      setError("Failed to check payment status");
     }
   };
-
-  // Check if shop is operational
-  // If operational_status is not available (legacy), assume operational if shop is active and verified
-  const isOperational = shopData && (
-    shopData.operational_status === 'rcg_qualified' || 
-    shopData.operational_status === 'subscription_qualified' ||
-    // Fallback: If operational_status is missing but shop is active and verified, assume operational
-    (!shopData.operational_status && shopData.active && shopData.verified)
-  );
-
 
   // Error state (shop not found)
   if (error && !shopData && !existingApplication.hasApplication) {
@@ -407,16 +475,18 @@ export default function ShopDashboardClient() {
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
           <div className="text-center">
             <div className="text-red-500 text-4xl mb-4">🚫</div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">Shop Not Found</h3>
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">
+              Shop Not Found
+            </h3>
             <p className="text-gray-600 mb-6">{error}</p>
-            <a 
+            <a
               href="/shop/register"
               className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-3 px-4 rounded-xl transition duration-200 transform hover:scale-105 inline-block"
             >
               Register Shop
             </a>
             <div className="mt-6 pt-6 border-t border-gray-200">
-              <ConnectButton 
+              <ConnectButton
                 client={client}
                 theme="light"
                 connectModal={{ size: "compact" }}
@@ -435,11 +505,13 @@ export default function ShopDashboardClient() {
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
           <div className="text-center">
             <div className="text-6xl mb-6">🏪</div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">Shop Dashboard</h1>
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">
+              Shop Dashboard
+            </h1>
             <p className="text-gray-600 mb-8">
               Connect your shop wallet to access the dashboard
             </p>
-            <ConnectButton 
+            <ConnectButton
               client={client}
               theme="light"
               connectModal={{ size: "wide" }}
@@ -451,13 +523,20 @@ export default function ShopDashboardClient() {
   }
 
   // Show loading state if shop is verified but data is still loading
-  if (existingApplication.hasApplication && !shopData && existingApplication.status === "verified" && loading) {
+  if (
+    existingApplication.hasApplication &&
+    !shopData &&
+    existingApplication.status === "verified" &&
+    loading
+  ) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] py-32">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
           <div className="text-center">
             <div className="text-blue-500 text-4xl mb-4">⏳</div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">Loading Dashboard</h3>
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">
+              Loading Dashboard
+            </h3>
             <p className="text-gray-600 mb-6">
               Your shop is verified! Loading your dashboard data...
             </p>
@@ -468,15 +547,24 @@ export default function ShopDashboardClient() {
   }
 
   // If shop is verified but data failed to load, show error with retry option
-  if (existingApplication.hasApplication && !shopData && existingApplication.status === "verified" && !loading && error) {
+  if (
+    existingApplication.hasApplication &&
+    !shopData &&
+    existingApplication.status === "verified" &&
+    !loading &&
+    error
+  ) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] py-32">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
           <div className="text-center">
             <div className="text-red-500 text-4xl mb-4">⚠️</div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">Connection Issue</h3>
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">
+              Connection Issue
+            </h3>
             <p className="text-gray-600 mb-6">
-              Your shop is verified, but we're having trouble loading your dashboard data.
+              Your shop is verified, but we're having trouble loading your
+              dashboard data.
             </p>
             <p className="text-sm text-red-600 mb-4">{error}</p>
             <button
@@ -492,26 +580,37 @@ export default function ShopDashboardClient() {
   }
 
   // Only show pending message if application exists but is not verified
-  if (existingApplication.hasApplication && !shopData && existingApplication.status !== "verified") {
+  if (
+    existingApplication.hasApplication &&
+    !shopData &&
+    existingApplication.status !== "verified"
+  ) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] py-32">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
           <div className="text-center">
             <div className="text-yellow-500 text-4xl mb-4">⏳</div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">Application Pending</h3>
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">
+              Application Pending
+            </h3>
             <p className="text-gray-600 mb-6">
-              Your shop registration has been submitted and is awaiting admin verification. 
-              You'll be able to access the full dashboard once approved.
+              Your shop registration has been submitted and is awaiting admin
+              verification. You'll be able to access the full dashboard once
+              approved.
             </p>
-            
+
             <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-600">Shop Name:</span>
-                <span className="font-medium text-gray-900">{existingApplication.shopName}</span>
+                <span className="font-medium text-gray-900">
+                  {existingApplication.shopName}
+                </span>
               </div>
               <div className="flex items-center justify-between text-sm mt-2">
                 <span className="text-gray-600">Shop ID:</span>
-                <span className="font-medium text-gray-900">{existingApplication.shopId}</span>
+                <span className="font-medium text-gray-900">
+                  {existingApplication.shopId}
+                </span>
               </div>
               <div className="flex items-center justify-between text-sm mt-2">
                 <span className="text-gray-600">Status:</span>
@@ -532,7 +631,7 @@ export default function ShopDashboardClient() {
             </div>
 
             <div className="mt-6 pt-6 border-t border-gray-200">
-              <ConnectButton 
+              <ConnectButton
                 client={client}
                 theme="light"
                 connectModal={{ size: "compact" }}
@@ -546,17 +645,21 @@ export default function ShopDashboardClient() {
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
-    
+
     // Update URL
     const url = new URL(window.location.href);
-    url.searchParams.set('tab', tab);
-    url.searchParams.delete('filter');
-    window.history.pushState({}, '', url);
+    url.searchParams.set("tab", tab);
+    url.searchParams.delete("filter");
+    window.history.pushState({}, "", url);
   };
 
   // Main dashboard
   return (
-    <DashboardLayout userRole="shop" activeTab={activeTab} onTabChange={handleTabChange}>
+    <DashboardLayout
+      userRole="shop"
+      activeTab={activeTab}
+      onTabChange={handleTabChange}
+    >
       <div
         className="min-h-screen py-8 bg-[#0D0D0D]"
         style={{
@@ -567,93 +670,75 @@ export default function ShopDashboardClient() {
         }}
       >
         <div className="max-w-screen-2xl w-[96%] mx-auto">
-          
-          {/* Show onboarding banner if shop is not operational */}
-          {shopData && !isOperational && (
-            <OnboardingBanner shopData={shopData} />
-          )}
-          
+          {/* Onboarding Modal is rendered at the bottom of the component */}
+
           {/* Tab Content */}
-          {activeTab === 'overview' && (
-            <OverviewTab 
-              shopData={shopData} 
-              purchases={purchases} 
+          {activeTab === "overview" && (
+            <OverviewTab
+              shopData={shopData}
+              purchases={purchases}
               onRefreshData={loadShopData}
             />
           )}
 
-          {activeTab === 'purchase' && (
-            isOperational ? (
-              <PurchaseTab
-                purchaseAmount={purchaseAmount}
-                setPurchaseAmount={setPurchaseAmount}
-                purchasing={purchasing}
-                purchases={purchases}
-                onInitiatePurchase={initiatePurchase}
-                onCheckPurchaseStatus={checkPurchaseStatus}
-              />
-            ) : (
-              <OperationalRequiredTab feature="RCN token purchasing" />
-            )
-          )}
-
-          {activeTab === 'bonuses' && (
-            <BonusesTab tierStats={tierStats} shopData={shopData} />
-          )}
-
-          {activeTab === 'analytics' && (
-            <AnalyticsTab 
-              shopData={shopData} 
-              tierStats={tierStats} 
-              purchases={purchases} 
+          {activeTab === "purchase" && (
+            <PurchaseTab
+              purchaseAmount={purchaseAmount}
+              setPurchaseAmount={setPurchaseAmount}
+              purchasing={purchasing}
+              purchases={purchases}
+              onInitiatePurchase={initiatePurchase}
+              onCheckPurchaseStatus={checkPurchaseStatus}
             />
           )}
 
-          {activeTab === 'redeem' && shopData && (
-            isOperational ? (
-              <RedeemTabV2 
-                shopId={shopData.shopId} 
-                onRedemptionComplete={loadShopData}
-              />
-            ) : (
-              <OperationalRequiredTab feature="customer redemptions" />
-            )
+          {activeTab === "bonuses" && (
+            <BonusesTab tierStats={tierStats} shopData={shopData} />
           )}
 
-          {activeTab === 'issue-rewards' && shopData && (
-            isOperational ? (
-              <IssueRewardsTab 
-                shopId={shopData.shopId}
-                shopData={shopData}
-                onRewardIssued={loadShopData}
-              />
-            ) : (
-              <OperationalRequiredTab feature="issuing rewards" />
-            )
+          {activeTab === "analytics" && (
+            <AnalyticsTab
+              shopData={shopData}
+              tierStats={tierStats}
+              purchases={purchases}
+            />
           )}
 
-          {activeTab === 'customers' && shopData && (
+          {activeTab === "redeem" && shopData && (
+            <RedeemTabV2
+              shopId={shopData.shopId}
+              isOperational={isOperational}
+              onRedemptionComplete={loadShopData}
+              setShowOnboardingModal={setShowOnboardingModal}
+            />
+          )}
+
+          {activeTab === "issue-rewards" && shopData && (
+            <IssueRewardsTab
+              shopId={shopData.shopId}
+              shopData={shopData}
+              onRewardIssued={loadShopData}
+            />
+          )}
+
+          {activeTab === "customers" && shopData && (
             <CustomersTab shopId={shopData.shopId} />
           )}
 
-          {activeTab === 'lookup' && shopData && (
+          {activeTab === "lookup" && shopData && (
             <CustomerLookupTab shopId={shopData.shopId} />
           )}
-          
-          {activeTab === 'promo-codes' && shopData && (
-            isOperational ? (
-              <PromoCodesTab shopId={shopData.shopId} />
-            ) : (
-              <OperationalRequiredTab feature="promo codes" />
-            )
+
+          {activeTab === "promo-codes" && shopData && (
+            <PromoCodesTab shopId={shopData.shopId} />
           )}
 
-          {activeTab === 'subscription' && shopData && (
+          {activeTab === "subscription" && shopData && (
             <SubscriptionManagement shopId={shopData.shopId} />
           )}
 
-          {activeTab === 'settings' && shopData && (
-            <SettingsTab 
+          {activeTab === "settings" && shopData && (
+            <SettingsTab
               shopId={shopData.shopId}
               shopData={shopData}
               onSettingsUpdate={loadShopData}
@@ -680,12 +765,12 @@ export default function ShopDashboardClient() {
                 <ThirdwebPayment
                   purchaseId={currentPurchaseId}
                   amount={purchaseAmount}
-                  totalCost={purchaseAmount * 0.10} // $0.10 per RCN
+                  totalCost={purchaseAmount * 0.1} // $0.10 per RCN
                   onSuccess={handlePaymentSuccess}
                   onError={handlePaymentError}
                   onCancel={cancelPayment}
                 />
-                
+
                 {/* Cancel Button */}
                 <div className="mt-4 text-center">
                   <button
@@ -703,7 +788,9 @@ export default function ShopDashboardClient() {
           <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle className="text-2xl text-center">Payment Successful!</DialogTitle>
+                <DialogTitle className="text-2xl text-center">
+                  Payment Successful!
+                </DialogTitle>
                 <DialogDescription className="text-center text-lg pt-4">
                   {successMessage}
                 </DialogDescription>
@@ -712,14 +799,14 @@ export default function ShopDashboardClient() {
                 <div className="text-6xl animate-bounce">🎉</div>
               </div>
               <DialogFooter className="sm:justify-center">
-                <Button 
+                <Button
                   onClick={() => {
                     setShowSuccessModal(false);
                     // Clear the payment success params from URL
                     const url = new URL(window.location.href);
-                    url.searchParams.delete('payment');
-                    url.searchParams.delete('purchase_id');
-                    window.history.replaceState({}, '', url);
+                    url.searchParams.delete("payment");
+                    url.searchParams.delete("purchase_id");
+                    window.history.replaceState({}, "", url);
                   }}
                   className="bg-green-600 hover:bg-green-700 text-white px-8"
                 >
@@ -728,6 +815,15 @@ export default function ShopDashboardClient() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
+          {/* Onboarding Modal */}
+          {shopData && (
+            <OnboardingModal
+              shopData={shopData}
+              open={showOnboardingModal}
+              onClose={() => setShowOnboardingModal(false)}
+            />
+          )}
         </div>
       </div>
     </DashboardLayout>
