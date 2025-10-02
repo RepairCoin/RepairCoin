@@ -285,9 +285,9 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
   const repairOptions: RepairOption[] = [
     {
       type: "minor",
-      label: "$30 Repair",
+      label: "XS Repair",
       rcn: MINOR_REPAIR_RCN,
-      description: "Rewards 5 RCN",
+      description: "$30 - $50 repair value",
     },
     {
       type: "small",
@@ -304,7 +304,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
   ];
 
   const RepairRadioButton = ({ option }: { option: RepairOption }) => (
-    <label className="relative cursor-pointer">
+    <label className="relative cursor-pointer block group h-full">
       <input
         type="radio"
         name="repairType"
@@ -318,52 +318,83 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
         className="sr-only"
       />
       <div
-        className={`p-4 rounded-xl border transition-all ${
+        className={`relative overflow-hidden rounded-2xl border-2 transition-all duration-300 h-full min-h-[120px] ${
           repairType === option.type
-            ? "bg-[#2F2F2F] bg-opacity-10 border-[#FFCC00]"
-            : "bg-[#0D0D0D] border-gray-700 hover:border-gray-600"
+            ? "bg-gradient-to-r from-[#FFCC00]/10 to-[#FFCC00]/5 border-[#FFCC00] shadow-lg shadow-[#FFCC00]/20"
+            : "bg-[#1A1A1A] border-gray-700 hover:border-gray-500 hover:bg-[#222222]"
         }`}
       >
-        <div className="flex justify-between items-start mb-2">
-          <div className="flex items-center">
-            <div
-              className={`w-4 h-4 rounded-full border-2 mr-3 ${
-                repairType === option.type
-                  ? "border-[#FFCC00] bg-[#FFCC00]"
-                  : "border-gray-500"
-              }`}
-            >
-              {repairType === option.type && (
-                <svg
-                  className="w-full h-full text-black"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
+        <div className="p-5 h-full flex flex-col justify-between">
+          <div className="flex justify-between items-start gap-4">
+            <div className="flex items-start gap-3 flex-1">
+              <div className="relative flex-shrink-0 mt-1">
+                <div
+                  className={`w-5 h-5 rounded-full border-2 transition-all duration-300 ${
+                    repairType === option.type
+                      ? "border-[#FFCC00] bg-[#FFCC00]"
+                      : "border-gray-500 bg-transparent group-hover:border-gray-400"
+                  }`}
                 >
-                  <path
-                    fillRule="evenodd"
-                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              )}
+                  <svg
+                    className={`w-full h-full text-black transition-all duration-300 ${
+                      repairType === option.type ? "opacity-100 scale-100" : "opacity-0 scale-50"
+                    }`}
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </div>
+                {repairType === option.type && (
+                  <div className="absolute inset-0 rounded-full bg-[#FFCC00] animate-ping opacity-30" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className={`font-semibold text-base md:text-base transition-colors leading-tight ${
+                  repairType === option.type ? "text-white" : "text-gray-200 group-hover:text-white"
+                }`}>
+                  {option.label}
+                </h3>
+                <p className={`text-xs mt-1 transition-colors leading-snug ${
+                  repairType === option.type ? "text-gray-300" : "text-gray-500 group-hover:text-gray-400"
+                }`}>
+                  {option.description}
+                </p>
+              </div>
             </div>
-            <span className="font-semibold text-white">{option.label}</span>
+            <div className="text-right flex-shrink-0">
+              <div className="flex flex-col items-end">
+                <span
+                  className={`text-xl md:text-2xl font-bold transition-colors leading-none ${
+                    repairType === option.type 
+                      ? "text-[#FFCC00]" 
+                      : option.rcn === 0 && option.type !== "custom"
+                        ? "text-gray-600"
+                        : "text-gray-400 group-hover:text-[#FFCC00]/70"
+                  }`}
+                >
+                  {option.type === "custom"
+                    ? customRcn
+                      ? customRcn
+                      : "?"
+                    : option.rcn}
+                </span>
+                <span className={`text-xs uppercase tracking-wide mt-1 leading-none ${
+                  repairType === option.type ? "text-[#FFCC00]" : "text-gray-500"
+                }`}>
+                  RCN
+                </span>
+              </div>
+            </div>
           </div>
-          <span
-            className={`font-bold ${
-              option.rcn === 0 && option.type !== "custom"
-                ? "text-gray-500"
-                : "text-[#FFCC00]"
-            }`}
-          >
-            {option.type === "custom"
-              ? customRcn
-                ? `${customRcn} RCN`
-                : "Custom"
-              : `${option.rcn} RCN`}
-          </span>
         </div>
-        <p className="text-gray-400 text-sm ml-7">{option.description}</p>
+        {repairType === option.type && (
+          <div className="absolute top-0 right-0 w-24 h-24 bg-[#FFCC00] opacity-5 rounded-full -translate-y-12 translate-x-12 pointer-events-none" />
+        )}
       </div>
     </label>
   );
@@ -379,22 +410,55 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
   }) => {
     const percentage = Math.min((current / limit) * 100, 100);
     const isExceeded = current >= limit;
+    const isNearLimit = current >= limit * 0.8;
 
     return (
-      <div>
-        <div className="flex justify-between text-xs mb-1">
-          <span className="text-gray-400">{label}</span>
-          <span className={isExceeded ? "text-red-400" : "text-gray-400"}>
-            {current}/{limit} RCN
-          </span>
+      <div className="space-y-2">
+        <div className="flex justify-between items-center">
+          <span className="text-sm font-medium text-gray-300">{label}</span>
+          <div className="flex items-center gap-2">
+            <span className={`text-sm font-semibold transition-colors ${
+              isExceeded ? "text-red-400" : isNearLimit ? "text-yellow-400" : "text-gray-400"
+            }`}>
+              {current}/{limit} RCN
+            </span>
+            {isExceeded && (
+              <span className="text-xs px-2 py-0.5 bg-red-500/20 text-red-400 rounded-full font-medium">
+                LIMIT REACHED
+              </span>
+            )}
+          </div>
         </div>
-        <div className="w-full bg-gray-700 rounded-full h-2">
-          <div
-            className={`h-2 rounded-full transition-all ${
-              isExceeded ? "bg-red-500" : "bg-[#FFCC00]"
-            }`}
-            style={{ width: `${percentage}%` }}
-          />
+        <div className="relative">
+          <div className="w-full bg-gray-800 rounded-full h-3 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-gray-700 to-gray-800 opacity-50" />
+            <div
+              className={`relative h-3 rounded-full transition-all duration-500 ease-out ${
+                isExceeded 
+                  ? "bg-gradient-to-r from-red-500 to-red-600" 
+                  : isNearLimit
+                    ? "bg-gradient-to-r from-yellow-500 to-yellow-400"
+                    : "bg-gradient-to-r from-[#FFCC00] to-yellow-500"
+              }`}
+              style={{ 
+                width: `${percentage}%`,
+                boxShadow: isExceeded 
+                  ? "0 0 10px rgba(239, 68, 68, 0.5)" 
+                  : isNearLimit
+                    ? "0 0 10px rgba(251, 191, 36, 0.5)"
+                    : "0 0 10px rgba(255, 204, 0, 0.3)"
+              }}
+            >
+              {!isExceeded && (
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full animate-pulse" />
+              )}
+            </div>
+          </div>
+          <div className="flex justify-between mt-1">
+            <span className="text-xs text-gray-600">0%</span>
+            <span className="text-xs text-gray-600">50%</span>
+            <span className="text-xs text-gray-600">100%</span>
+          </div>
         </div>
       </div>
     );
@@ -628,7 +692,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
               ))}
             </div>
 
-            {!hasSufficientBalance && totalReward > 0 && (
+            {/* {!hasSufficientBalance && totalReward > 0 && (
               <div className="w-full px-8 pb-8 text-white">
                 <div className="bg-[#2F2F2F] border-b border-yellow-500 rounded-xl p-4">
                   <div className="flex items-center">
@@ -655,7 +719,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                   </div>
                 </div>
               </div>
-            )}
+            )} */}
 
             {!canIssueReward && customerInfo && (
               <div className="w-full px-8 pb-8 text-white">
