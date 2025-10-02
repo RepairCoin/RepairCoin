@@ -112,9 +112,28 @@ export default function ShopDashboardClient() {
     const tab = searchParams.get("tab");
     const payment = searchParams.get("payment");
     const purchaseId = searchParams.get("purchase_id");
+    const shouldReload = searchParams.get("reload");
 
     if (tab) {
       setActiveTab(tab);
+    }
+
+    // Check if we should force reload shop data (coming from subscription success)
+    if (shouldReload === "true" || sessionStorage.getItem('forceReloadShopData') === 'true' || sessionStorage.getItem('subscriptionActivated') === 'true') {
+      console.log('Force reloading shop data after subscription activation...');
+      sessionStorage.removeItem('forceReloadShopData');
+      sessionStorage.removeItem('subscriptionActivated');
+      
+      // Clear cached data and force reload
+      localStorage.removeItem('shopData');
+      if (account?.address) {
+        loadShopData();
+      }
+      
+      // Clean up URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete("reload");
+      window.history.replaceState({}, '', url.toString());
     }
 
     // Handle Stripe payment success redirect (only if modal not already shown)

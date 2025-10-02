@@ -26,28 +26,118 @@ function SubscriptionSuccessContent() {
         // Wait a bit for webhook to process
         await new Promise(resolve => setTimeout(resolve, 3000));
         
-        // Check subscription status
         const token = localStorage.getItem('shopAuthToken');
-        if (token) {
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/subscription/status`, {
+        if (!token) {
+          setError('Authentication required');
+          setLoading(false);
+          return;
+        }
+
+        // First, sync the subscription to ensure we have the latest data from Stripe
+        console.log('Syncing subscription after payment...');
+        try {
+          const syncResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/subscription/sync`, {
+            method: 'POST',
             headers: {
-              'Authorization': `Bearer ${token}`
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
             }
           });
+
+          if (syncResponse.ok) {
+            const syncResult = await syncResponse.json();
+            console.log('✅ Subscription sync completed:', syncResult);
+          } else {
+            console.log('⚠️ Sync failed, but continuing...');
+          }
+        } catch (syncError) {
+          console.error('Sync error (non-critical):', syncError);
+        }
+
+        // Now check subscription status
+        const statusResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/subscription/status`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (statusResponse.ok) {
+          const result = await statusResponse.json();
+          console.log('Subscription status result:', result);
           
-          if (response.ok) {
-            const result = await response.json();
-            if (result.data?.hasActiveSubscription) {
-              console.log('✅ Subscription verified after payment');
-            } else {
-              console.log('⏳ Subscription not yet active, webhook may still be processing');
+          if (result.data?.hasActiveSubscription || result.data?.currentSubscription) {
+            console.log('✅ Subscription verified after payment');
+            
+            // Force reload shop data to update operational status
+            const walletAddress = localStorage.getItem('walletAddress');
+            if (walletAddress) {
+              try {
+                // Re-authenticate to get fresh shop data with updated operational status
+                const authResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/shop`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ walletAddress }),
+                });
+
+                if (authResponse.ok) {
+                  const authData = await authResponse.json();
+                  if (authData.success && authData.token) {
+                    // Store the fresh token
+                    localStorage.setItem('token', authData.token);
+                    localStorage.setItem('shopAuthToken', authData.token);
+                    
+                    // Get updated shop profile
+                    const profileResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/profile`, {
+                      headers: {
+                        'Authorization': `Bearer ${authData.token}`,
+                      },
+                    });
+
+                    if (profileResponse.ok) {
+                      const profileData = await profileResponse.json();
+                      if (profileData.success && profileData.data) {
+                        // Store updated shop data
+                        localStorage.setItem('shopData', JSON.stringify(profileData.data));
+                        console.log('✅ Shop operational status updated:', {
+                          operational_status: profileData.data.operational_status,
+                          subscription_active: profileData.data.subscription_active
+                        });
+                        
+                        // Set a flag to force reload on dashboard
+                        sessionStorage.setItem('subscriptionActivated', 'true');
+                      }
+                    }
+                  }
+                }
+              } catch (profileError) {
+                console.error('Error updating shop profile:', profileError);
+              }
             }
+          } else {
+            console.log('⏳ Subscription not yet active, webhook may still be processing');
+            // Try again in a few seconds
+            setTimeout(async () => {
+              const retryResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/subscription/sync`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                }
+              });
+              if (retryResponse.ok) {
+                console.log('✅ Retry sync completed');
+                window.location.reload();
+              }
+            }, 5000);
           }
         }
         
         setLoading(false);
       } catch (error) {
         console.error('Error verifying session:', error);
+        setError('Failed to verify subscription. Please check your dashboard.');
         setLoading(false);
       }
     };
@@ -104,7 +194,13 @@ function SubscriptionSuccessContent() {
           </div>
 
           <Button
-            onClick={() => router.push('/shop?tab=subscription')}
+            onClick={() => {
+              // Clear cached shop data to force reload
+              localStorage.removeItem('shopData');
+              // Set flag to force reload on dashboard
+              sessionStorage.setItem('forceReloadShopData', 'true');
+              router.push('/shop?tab=subscription&reload=true');
+            }}
             className="w-full bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold"
           >
             Go to Dashboard
