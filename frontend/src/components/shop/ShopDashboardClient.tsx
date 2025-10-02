@@ -148,8 +148,9 @@ export default function ShopDashboardClient() {
       (!shopData.operational_status && shopData.active && shopData.verified));
 
   // Show onboarding modal when shop data loads and shop is not operational
+  // Don't show if we're on the settings tab
   useEffect(() => {
-    if (shopData && !isOperational) {
+    if (shopData && !isOperational && activeTab !== "settings") {
       setShowOnboardingModal(true);
     } else {
       setShowOnboardingModal(false);

@@ -30,6 +30,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   shopData,
   onSettingsUpdate,
 }) => {
+  const [activeTab, setActiveTab] = useState<"information" | "subscription">("information");
   const [crossShopEnabled, setCrossShopEnabled] = useState(
     shopData?.crossShopEnabled || false
   );
@@ -68,41 +69,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     }
   }, [shopData]);
 
-  const saveCrossShopSettings = async () => {
-    setSaving(true);
-    setError(null);
-    setSuccess(null);
-
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/settings`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            crossShopEnabled,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to update settings");
-      }
-
-      setSuccess("Cross-shop settings updated successfully");
-      onSettingsUpdate();
-    } catch (err) {
-      console.error("Settings error:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to update settings"
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const saveAutoPurchaseSettings = async () => {
     // This would be implemented when auto-purchase backend is ready
@@ -123,6 +89,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       // Get the JWT token from localStorage
       const token = localStorage.getItem("token");
 
+      // First update shop details
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/details`,
         {
@@ -140,8 +107,29 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         throw new Error(errorData.error || "Failed to update shop details");
       }
 
+      // Then update cross-shop settings if changed
+      if (crossShopEnabled !== shopData?.crossShopEnabled) {
+        const settingsResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/settings`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              crossShopEnabled,
+            }),
+          }
+        );
+
+        if (!settingsResponse.ok) {
+          const errorData = await settingsResponse.json();
+          throw new Error(errorData.error || "Failed to update cross-shop settings");
+        }
+      }
+
       const data = await response.json();
-      toast.success(data.message || "Shop details updated successfully!");
+      toast.success(data.message || "Shop details and settings updated successfully!");
       setIsEditingShop(false);
       onSettingsUpdate();
     } catch (error: any) {
@@ -174,8 +162,35 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Shop Details Section */}
-      <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
+      {/* Tab Buttons */}
+      <div className="flex space-x-4 mb-6 border-b-[1px] border-gray-500 py-4">
+        <button
+          onClick={() => setActiveTab("information")}
+          className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+            activeTab === "information"
+              ? "bg-[#FFCC00] text-black"
+              : "bg-transparent text-gray-400 border border-gray-600 hover:text-white hover:border-gray-400"
+          }`}
+        >
+          Information
+        </button>
+        <button
+          onClick={() => setActiveTab("subscription")}
+          className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+            activeTab === "subscription"
+              ? "bg-[#FFCC00] text-black"
+              : "bg-transparent text-gray-400 border border-gray-600 hover:text-white hover:border-gray-400"
+          }`}
+        >
+          Subscription
+        </button>
+      </div>
+
+      {/* Information Tab Content */}
+      {activeTab === "information" && (
+        <>
+          {/* Shop Details Section */}
+          <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
         <div
           className="w-full flex justify-between items-center px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
           style={{
@@ -324,39 +339,17 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
           </div>
         </div>
-      </div>
-      {/* Monthly Subscription Management - Only show if not RCG qualified */}
-      {shopData && shopData.operational_status !== "rcg_qualified" && (
-        <SubscriptionManagement
-          shopId={shopId}
-          shopWallet={shopData.walletAddress}
-        />
-      )}
 
-      {/* Cross-Shop Settings */}
-      <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
-        <div
-          className="w-full flex justify-between items-center px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
-          style={{
-            backgroundImage: `url('/img/cust-ref-widget3.png')`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-          }}
-        >
-          <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
-            Cross-Shop Network Settings
-          </p>
-        </div>
-
-        <div className="space-y-6 px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
+        {/* Cross-Shop Settings */}
+        <div className="px-4 sm:px-6 lg:px-8 pb-6 sm:pb-10">
           <div className="flex items-start space-x-4">
             <input
               type="checkbox"
               id="crossShop"
               checked={crossShopEnabled}
               onChange={(e) => setCrossShopEnabled(e.target.checked)}
-              className="mt-1 h-5 w-5 text-[#FFCC00] bg-gray-700 border-gray-600 rounded focus:ring-[#FFCC00]"
+              disabled={!isEditingShop}
+              className="mt-1 h-5 w-5 text-[#FFCC00] bg-gray-700 border-gray-600 rounded focus:ring-[#FFCC00] disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <div className="flex-1">
               <label
@@ -372,16 +365,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </p>
             </div>
           </div>
-
-          <button
-            onClick={saveCrossShopSettings}
-            disabled={saving || crossShopEnabled === shopData?.crossShopEnabled}
-            className="w-full bg-[#FFCC00] hover:bg-yellow-500 text-black font-bold py-3 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition duration-200"
-          >
-            {saving ? "Saving..." : "Save Cross-Shop Settings"}
-          </button>
         </div>
       </div>
+
 
       {/* Auto-Purchase Settings */}
       {/* <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
@@ -484,6 +470,21 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           </button>
         </div>
       </div> */}
+        </>
+      )}
+
+      {/* Subscription Tab Content */}
+      {activeTab === "subscription" && (
+        <>
+          {/* Monthly Subscription Management - Only show if not RCG qualified */}
+          {shopData && shopData.operational_status !== "rcg_qualified" && (
+            <SubscriptionManagement
+              shopId={shopId}
+              shopWallet={shopData.walletAddress}
+            />
+          )}
+        </>
+      )}
 
       {/* Status Messages */}
       {error && (

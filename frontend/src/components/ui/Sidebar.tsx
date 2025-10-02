@@ -183,12 +183,12 @@ const Sidebar: React.FC<SidebarProps> = ({
           icon: <BuyRcnIcon width={24} height={24} />,
           tabId: "purchase",
         },
-        {
-          title: "Subscription",
-          href: "/shop?tab=subscription",
-          icon: <span className="text-xl">💳</span>,
-          tabId: "subscription",
-        },
+        // {
+        //   title: "Subscription",
+        //   href: "/shop?tab=subscription",
+        //   icon: <span className="text-xl">💳</span>,
+        //   tabId: "subscription",
+        // },
         // {
         //   title: "Bonuses",
         //   href: "/shop?tab=bonuses",
