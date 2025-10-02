@@ -116,7 +116,7 @@ export function OnboardingModal({ shopData, open, onClose }: OnboardingModalProp
                   <div>• No upfront token purchase</div>
                 </div>
                 {!hasSubscription && (
-                  <Link href="/shop?tab=subscription">
+                  <Link href="/shop/subscription-form">
                     <Button 
                       variant="outline" 
                       size="sm" 
