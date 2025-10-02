@@ -10,6 +10,8 @@ import { View, Text, Pressable, Image, ScrollView } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import React, { useEffect, useState } from "react";
 import DetailCard from "@/components/DetailCard";
+import TokenSummaryModal from "./TokenSummaryModal";
+import EarningByTypeModal from "./EarningByTypeModal";
 
 type HorizontalCardProps = {
   label: string;
@@ -56,7 +58,9 @@ const CopyableField = ({
 }: CopyableFieldProps) => (
   <Pressable
     onPress={handleCopyValue}
-    className={`p-4 ${isCopied ? "bg-[#FFCC00] justify-center" : "border-dashed justify-between"} border-2 border-[#FFCC00] flex-row  rounded-xl`}
+    className={`p-4 ${
+      isCopied ? "bg-[#FFCC00] justify-center" : "border-dashed justify-between"
+    } border-2 border-[#FFCC00] flex-row  rounded-xl`}
   >
     {isCopied ? (
       <Text className="text-xl text-white font-semibold">
@@ -77,6 +81,10 @@ const CopyableField = ({
 export default function ReferralTab() {
   const [codeCopied, setCodeCopied] = useState<boolean>(false);
   const [linkCopied, setLinkCopied] = useState<boolean>(false);
+  const [visibleTokenSummaryModal, setVisibleTokenSummaryModal] =
+    useState<boolean>(false);
+  const [visibleEarningByTypeModal, setVisibleEarningByTypeModal] =
+    useState<boolean>(false);
 
   const horizontalCardList: HorizontalCardProps[] = [
     {
@@ -143,7 +151,7 @@ export default function ReferralTab() {
 
   return (
     <View className="h-full w-full mt-4">
-      <ScrollView>
+      <ScrollView className="mb-[144px]">
         <View className="h-40">
           <View className="w-full h-full bg-[#FFCC00] rounded-3xl flex-row overflow-hidden relative">
             <View
@@ -197,11 +205,46 @@ export default function ReferralTab() {
           isCopied={linkCopied}
         />
         <View className="mt-5 gap-4">
-          <DetailCard />
-          <DetailCard />
-          <DetailCard />
+          <Pressable onPress={() => setVisibleTokenSummaryModal(true)}>
+            <DetailCard
+              icon={
+                <MaterialCommunityIcons
+                  name="hand-coin-outline"
+                  color="#000"
+                  size={20}
+                />
+              }
+              title="RCN Breakdown"
+              label="Tap to show breakdown"
+              badge="10 RCN"
+            />
+          </Pressable>
+          <Pressable
+            onPress={() => setVisibleEarningByTypeModal(true)}
+          >
+            <DetailCard
+              icon={
+                <MaterialCommunityIcons
+                  name="hand-coin-outline"
+                  color="#000"
+                  size={20}
+                />
+              }
+              title="Earning By Type"
+              label="Tap to show earnings."
+              badge="10 RCN"
+            />
+          </Pressable>
         </View>
       </ScrollView>
+      <TokenSummaryModal
+        visible={visibleTokenSummaryModal}
+        requestClose={() => setVisibleTokenSummaryModal(false)}
+      />
+      <EarningByTypeModal
+        visible={visibleEarningByTypeModal}
+        requestClose={() => setVisibleEarningByTypeModal(false)}
+      />
     </View>
   );
 }

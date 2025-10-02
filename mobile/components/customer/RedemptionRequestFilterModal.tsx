@@ -9,13 +9,15 @@ type Props = {
 };
 
 type FilterOptions = {
+  isApproved: boolean;
+  isRejected: boolean;
+  isPending: boolean;
+  isToday: boolean;
+  isThisWeek: boolean;
+  isThisMonth: boolean;
   date: string;
-  isCompleted: boolean;
-  isCancelled: boolean;
-  isSmallRepair: boolean;
-  isMajorRepair: boolean;
-  isPreventive: boolean;
-  isEmergency: boolean;
+  isLowToHigh: boolean;
+  isHighToLow: boolean;
 };
 
 type FilterItemProps = {
@@ -27,26 +29,32 @@ type FilterItemProps = {
 const FilterItem = ({ label, value, onChangeValue }: FilterItemProps) => (
   <Pressable
     onPress={onChangeValue}
-    className={`border-2 ${value ? "border-white bg-white flex-row justify-between items-center" : "border-[#535353] bg-transparent"} p-3 my-2`}
+    className={`border-2 ${
+      value
+        ? "border-white bg-white flex-row justify-between items-center"
+        : "border-[#535353] bg-transparent"
+    } p-3 my-2`}
   >
     <Text className={value ? "text-[#1A1A1C]" : "text-[#535353]"}>{label}</Text>
     {value && <Entypo name="check" color="#535353" size={16} />}
   </Pressable>
 );
 
-export default function TransactionHistoryFilterModal({
+export default function RedemptionRequestFilterModal({
   visible,
   requestClose,
 }: Props) {
   const [openDateModal, setOpenDateModal] = useState<boolean>(false);
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({
+    isApproved: false,
+    isRejected: false,
+    isPending: false,
+    isToday: false,
+    isThisWeek: false,
+    isThisMonth: false,
     date: "",
-    isCompleted: false,
-    isCancelled: false,
-    isSmallRepair: false,
-    isMajorRepair: false,
-    isPreventive: false,
-    isEmergency: false,
+    isLowToHigh: false,
+    isHighToLow: false,
   });
 
   const handleApply = () => {};
@@ -67,7 +75,68 @@ export default function TransactionHistoryFilterModal({
           </View>
           <View className="w-full h-0.5 bg-[#535353] my-2" />
           <View className="w-full px-4">
-            <Text className="text-[#535353]">Filter By Date</Text>
+            <Text className="text-[#535353]">Status</Text>
+            <FilterItem
+              label="Approved Request"
+              value={filterOptions.isApproved}
+              onChangeValue={() =>
+                setFilterOptions({
+                  ...filterOptions,
+                  isApproved: !filterOptions.isApproved,
+                })
+              }
+            />
+            <FilterItem
+              label="Rejected Request"
+              value={filterOptions.isRejected}
+              onChangeValue={() =>
+                setFilterOptions({
+                  ...filterOptions,
+                  isRejected: !filterOptions.isRejected,
+                })
+              }
+            />
+            <FilterItem
+              label="Pending Request"
+              value={filterOptions.isPending}
+              onChangeValue={() =>
+                setFilterOptions({
+                  ...filterOptions,
+                  isPending: !filterOptions.isPending,
+                })
+              }
+            />
+            <Text className="text-[#535353] mt-6">Date</Text>
+            <FilterItem
+              label="Today"
+              value={filterOptions.isToday}
+              onChangeValue={() =>
+                setFilterOptions({
+                  ...filterOptions,
+                  isToday: !filterOptions.isToday,
+                })
+              }
+            />
+            <FilterItem
+              label="This Week"
+              value={filterOptions.isThisWeek}
+              onChangeValue={() =>
+                setFilterOptions({
+                  ...filterOptions,
+                  isThisWeek: !filterOptions.isThisWeek,
+                })
+              }
+            />
+            <FilterItem
+              label="This Month"
+              value={filterOptions.isThisMonth}
+              onChangeValue={() =>
+                setFilterOptions({
+                  ...filterOptions,
+                  isThisMonth: !filterOptions.isThisMonth,
+                })
+              }
+            />
             <Pressable
               onPress={() => setOpenDateModal(true)}
               className="flex-row items-center border-2 border-[#535353] mt-2"
@@ -104,65 +173,24 @@ export default function TransactionHistoryFilterModal({
                 onCancel={() => setOpenDateModal(false)}
               />
             </Pressable>
-            <Text className="text-[#535353] mt-6">Status</Text>
+            <Text className="text-[#535353] mt-6">RCN Amount</Text>
             <FilterItem
-              label="Completed"
-              value={filterOptions.isCompleted}
+              label="Low to High"
+              value={filterOptions.isLowToHigh}
               onChangeValue={() =>
                 setFilterOptions({
                   ...filterOptions,
-                  isCompleted: !filterOptions.isCompleted,
+                  isLowToHigh: !filterOptions.isLowToHigh,
                 })
               }
             />
             <FilterItem
-              label="Cancelled"
-              value={filterOptions.isCancelled}
+              label="High to Low"
+              value={filterOptions.isHighToLow}
               onChangeValue={() =>
                 setFilterOptions({
                   ...filterOptions,
-                  isCancelled: !filterOptions.isCancelled,
-                })
-              }
-            />
-            <Text className="text-[#535353] mt-4">Repair Type</Text>
-            <FilterItem
-              label="Small Repair"
-              value={filterOptions.isSmallRepair}
-              onChangeValue={() =>
-                setFilterOptions({
-                  ...filterOptions,
-                  isSmallRepair: !filterOptions.isSmallRepair,
-                })
-              }
-            />
-            <FilterItem
-              label="Major Repair"
-              value={filterOptions.isMajorRepair}
-              onChangeValue={() =>
-                setFilterOptions({
-                  ...filterOptions,
-                  isMajorRepair: !filterOptions.isMajorRepair,
-                })
-              }
-            />
-            <FilterItem
-              label="Preventive Maintenance"
-              value={filterOptions.isPreventive}
-              onChangeValue={() =>
-                setFilterOptions({
-                  ...filterOptions,
-                  isPreventive: !filterOptions.isPreventive,
-                })
-              }
-            />
-            <FilterItem
-              label="Emergency Repair"
-              value={filterOptions.isEmergency}
-              onChangeValue={() =>
-                setFilterOptions({
-                  ...filterOptions,
-                  isEmergency: !filterOptions.isEmergency,
+                  isHighToLow: !filterOptions.isHighToLow,
                 })
               }
             />
@@ -177,13 +205,15 @@ export default function TransactionHistoryFilterModal({
             <Pressable
               onPress={() =>
                 setFilterOptions({
+                  isApproved: false,
+                  isRejected: false,
+                  isPending: false,
+                  isToday: false,
+                  isThisWeek: false,
+                  isThisMonth: false,
                   date: "",
-                  isCompleted: false,
-                  isCancelled: false,
-                  isSmallRepair: false,
-                  isMajorRepair: false,
-                  isPreventive: false,
-                  isEmergency: false,
+                  isLowToHigh: false,
+                  isHighToLow: false,
                 })
               }
               className="mt-6 mb-4 items-center"
