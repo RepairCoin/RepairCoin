@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, Pressable, ImageBackground } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
+import { router } from "expo-router";
 
 export default function CustomFooter() {
   const [active, setActive] = useState("Home");
@@ -16,7 +16,10 @@ export default function CustomFooter() {
         {/* Home */}
         <Pressable
           className="items-center flex-1 z-10"
-          onPress={() => setActive("Home")}
+          onPress={() => {
+            setActive("Home");
+            active !== "Home" && router.push("/dashboard/customer");
+          }}
         >
           <Ionicons
             name="home-outline"
@@ -37,42 +40,30 @@ export default function CustomFooter() {
         {/* Inbox */}
         <Pressable
           className="items-center flex-1 z-10"
-          onPress={() => setActive("Inbox")}
+          onPress={() => {
+            setActive("Notification");
+            active !== "Notification" &&
+              router.push("/dashboard/customer/Notification");
+          }}
         >
           <Ionicons
-            name="mail-outline"
+            name="notifications"
             size={30}
-            color={active === "Inbox" ? "#FFD600" : "#888"}
+            color={active === "Notification" ? "#FFD600" : "#888"}
           />
           <Text
             className={`text-xs mt-1 ${
-              active === "Inbox"
+              active === "Notification"
                 ? "text-yellow-400 font-semibold"
                 : "text-gray-400"
             }`}
           >
-            Inbox
+            Notification
           </Text>
         </Pressable>
 
         {/* Center QR Button */}
         <View className="-mt-12 items-center justify-center relative">
-          <View className="absolute items-center justify-center">
-            <Svg height={260} width={260}>
-              <Defs>
-                <RadialGradient id="glow" cx="50%" cy="50%" r="50%">
-                  <Stop offset="0%" stopColor="yellow" stopOpacity={0.2} />
-                  <Stop offset="25%" stopColor="yellow" stopOpacity={0.12} />
-                  <Stop offset="45%" stopColor="yellow" stopOpacity={0.08} />
-                  <Stop offset="65%" stopColor="yellow" stopOpacity={0.05} />
-                  <Stop offset="80%" stopColor="yellow" stopOpacity={0.03} />
-                  <Stop offset="90%" stopColor="yellow" stopOpacity={0.015} />
-                  <Stop offset="100%" stopColor="yellow" stopOpacity={0} />
-                </RadialGradient>
-              </Defs>
-              <Rect x="0" y="0" width="260" height="260" fill="url(#glow)" />
-            </Svg>
-          </View>
           <Pressable
             className="w-20 h-20 rounded-full bg-yellow-400 justify-center items-center"
             onPress={() => setActive("QR")}
@@ -84,28 +75,32 @@ export default function CustomFooter() {
         {/* History */}
         <Pressable
           className="items-center flex-1 z-10"
-          onPress={() => setActive("History")}
+          onPress={() => setActive("Shop")}
         >
           <Ionicons
-            name="time-outline"
+            name="location-outline"
             size={30}
-            color={active === "History" ? "#FFD600" : "#888"}
+            color={active === "Shop" ? "#FFD600" : "#888"}
           />
           <Text
             className={`text-xs mt-1 ${
-              active === "History"
+              active === "Shop"
                 ? "text-yellow-400 font-semibold"
                 : "text-gray-400"
             }`}
           >
-            History
+            Find Shop
           </Text>
         </Pressable>
 
         {/* Profile */}
         <Pressable
           className="items-center flex-1 z-10"
-          onPress={() => setActive("Profile")}
+          onPress={() => {
+            setActive("Profile");
+            active !== "Profile" &&
+              router.push("/dashboard/customer/MyProfile");
+          }}
         >
           <Ionicons
             name="person-outline"

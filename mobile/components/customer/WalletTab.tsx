@@ -1,6 +1,7 @@
 import { View, Text, Pressable, Image } from "react-native";
 import {
   Entypo,
+  MaterialCommunityIcons,
   MaterialIcons,
   Octicons,
   SimpleLineIcons,
@@ -25,7 +26,7 @@ export default function WalletTab() {
             className="w-[300px] h-[300px] border-[48px] border-[rgba(102,83,7,0.13)] rounded-full absolute"
             style={{
               right: -80,
-              top: -20
+              top: -20,
             }}
           />
           <Image
@@ -101,9 +102,40 @@ export default function WalletTab() {
         </View>
       </View>
       <View className="mt-5 gap-4">
-        <DetailCard />
-        <DetailCard />
-        <DetailCard />
+        <DetailCard
+          icon={
+            <MaterialCommunityIcons
+              name="hand-coin-outline"
+              color="#000"
+              size={16}
+            />
+          }
+          title="RCN Balance"
+          label="This is the total RCN tokens you currently have"
+          badge={
+            <>
+              <Text className="text-5xl font-semibold">0</Text> RCN
+            </>
+          }
+        />
+        <DetailCard
+          icon={<SimpleLineIcons name="badge" color="#000" size={16} />}
+          title="Your Tier Level"
+          label="You need to 200 RCN to get to Silver Tier"
+          badge="Bronze"
+        />
+        <DetailCard
+          icon={
+            <MaterialCommunityIcons name="screwdriver" color="#000" size={16} />
+          }
+          title="Total Repairs"
+          label="This is the total repairs you've availed"
+          badge={
+            <>
+              <Text className="text-5xl font-semibold">0</Text> RCN
+            </>
+          }
+        />
       </View>
       <TierBenefitsModal
         visible={tierModalVisible}

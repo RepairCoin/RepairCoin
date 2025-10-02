@@ -7,6 +7,7 @@ import React, { useState } from "react";
 import CustomFooter from "@/components/CustomFooter";
 import WalletTab from "@/components/customer/WalletTab";
 import ReferralTab from "@/components/customer/ReferralTab";
+import ApprovalTab from "@/components/customer/ApprovalTab";
 
 type CustomerTabs = "Wallet" | "Referral" | "Approval";
 
@@ -53,6 +54,7 @@ export default function CustomerDashboard() {
         {/* <PrimaryButton title="Logout" onPress={logout} /> */}
         {activeTab === "Wallet" && <WalletTab />}
         {activeTab === "Referral" && <ReferralTab />}
+        {activeTab === "Approval" && <ApprovalTab />}
       </View>
       
     </View>
