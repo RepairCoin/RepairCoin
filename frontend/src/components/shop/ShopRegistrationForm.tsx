@@ -202,7 +202,7 @@ export const ShopRegistrationForm: React.FC<ShopRegistrationFormProps> = ({
             disabled
           />
           <FormField
-            label="Fixflow Shop ID"
+            label="FixFlow Shop ID (Optional)"
             name="fixflowShopId"
             value={formData.fixflowShopId}
             onChange={onChange}

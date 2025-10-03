@@ -640,7 +640,7 @@ export default function ShopDashboardClient() {
               </div>
             </div>
 
-            <div className="text-sm text-gray-500 mb-6">
+            <div className="text-sm text-gray-500 mb-6 text-left">
               <p>What happens next:</p>
               <ul className="mt-2 text-left space-y-1">
                 <li>• Admin reviews your application</li>
