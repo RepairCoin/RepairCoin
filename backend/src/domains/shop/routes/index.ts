@@ -8,7 +8,7 @@ import {
   transactionRepository,
   redemptionSessionRepository 
 } from '../../../repositories';
-import { TokenMinter } from '../../../contracts/TokenMinter';
+import { TokenMinter, getTokenMinter } from '../../../contracts/TokenMinter';
 import { TierManager } from '../../../contracts/TierManager';
 import { logger } from '../../../utils/logger';
 import { RoleValidator } from '../../../utils/roleValidator';
@@ -1290,30 +1290,39 @@ router.post('/:shopId/issue-reward',
       let onChainSuccess = false;
       
       try {
-        // First, try to transfer tokens on-chain from admin wallet to customer
-        try {
-          const tokenMinter = new (require('../../../contracts/TokenMinter').TokenMinter)();
-          const transferResult = await tokenMinter.transferTokens(
-            customerAddress,
-            totalReward,
-            `Shop ${shop.name} reward - $${repairAmount} repair`
-          );
-          
-          if (transferResult.success && transferResult.transactionHash) {
-            transactionHash = transferResult.transactionHash;
-            onChainSuccess = true;
-            logger.info('On-chain token transfer successful', {
+        // Check if blockchain minting is enabled and attempt to mint
+        const blockchainEnabled = process.env.ENABLE_BLOCKCHAIN_MINTING === 'true';
+        
+        if (blockchainEnabled) {
+          try {
+            const tokenMinter = getTokenMinter();
+            const transferResult = await tokenMinter.transferTokens(
               customerAddress,
-              amount: totalReward,
-              txHash: transactionHash
-            });
-          } else {
-            logger.warn('On-chain transfer failed, continuing with off-chain only', {
-              error: transferResult.error
-            });
+              totalReward,
+              `Shop ${shop.name} reward - $${repairAmount} repair`
+            );
+            
+            if (transferResult.success && transferResult.transactionHash) {
+              transactionHash = transferResult.transactionHash;
+              onChainSuccess = true;
+              logger.info('On-chain token transfer successful', {
+                customerAddress,
+                amount: totalReward,
+                txHash: transactionHash
+              });
+            } else {
+              logger.warn('On-chain transfer failed, continuing with off-chain only', {
+                error: transferResult.error
+              });
+            }
+          } catch (transferError) {
+            logger.warn('On-chain transfer error, continuing with off-chain only', transferError);
           }
-        } catch (transferError) {
-          logger.warn('On-chain transfer error, continuing with off-chain only', transferError);
+        } else {
+          logger.info('Blockchain minting disabled - tracking tokens in database only', {
+            customerAddress,
+            amount: totalReward
+          });
         }
         
         // Update shop's balance and statistics atomically
