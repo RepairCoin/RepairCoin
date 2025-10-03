@@ -11,7 +11,7 @@ interface Shop {
   name: string;
   email?: string;
   phone?: string;
-  crossShopEnabled?: boolean;
+  // crossShopEnabled removed - universal redemption is now always enabled
   cross_shop_enabled?: boolean;
   active?: boolean;
   address?: string;
@@ -46,7 +46,7 @@ export const EditShopModal: React.FC<EditShopModalProps> = ({
     country: '',
     website: '',
     description: '',
-    crossShopEnabled: false
+    // crossShopEnabled removed - universal redemption is now always enabled
   });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -61,7 +61,7 @@ export const EditShopModal: React.FC<EditShopModalProps> = ({
         country: shop.country || '',
         website: shop.website || '',
         description: shop.description || '',
-        crossShopEnabled: shop.crossShopEnabled || shop.cross_shop_enabled || false
+        // crossShopEnabled removed - universal redemption is now always enabled
       });
     }
   }, [shop]);
@@ -94,7 +94,7 @@ export const EditShopModal: React.FC<EditShopModalProps> = ({
           country: formData.country,
           website: formData.website,
           description: formData.description,
-          cross_shop_enabled: formData.crossShopEnabled
+          // cross_shop_enabled removed - universal redemption is now always enabled
         })
       });
 
@@ -243,18 +243,11 @@ export const EditShopModal: React.FC<EditShopModalProps> = ({
             />
           </div>
           
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="crossShopEnabled"
-              name="crossShopEnabled"
-              checked={formData.crossShopEnabled}
-              onChange={handleChange}
-              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-            />
-            <label htmlFor="crossShopEnabled" className="ml-2 text-sm text-gray-700">
-              Enable Cross-Shop Network (Allow customers from other shops to use 20% of their balance here)
-            </label>
+          <div className="bg-green-50 p-4 rounded-lg">
+            <h4 className="text-sm font-medium text-green-700 mb-1">✅ Universal Redemption Active</h4>
+            <p className="text-sm text-green-600">
+              All RepairCoin customers can redeem 100% of their earned RCN at any participating shop.
+            </p>
           </div>
           
           <div className="bg-gray-50 p-4 rounded-lg">

@@ -43,18 +43,18 @@ export interface RepairTransaction {
 
 /**
  * Service for handling tier-based bonus system according to new requirements:
- * - Bronze: +10 RCN bonus per qualifying repair transaction
- * - Silver: +20 RCN bonus per qualifying repair transaction  
- * - Gold: +30 RCN bonus per qualifying repair transaction
+ * - Bronze: No bonus
+ * - Silver: +2 RCN bonus per qualifying repair transaction  
+ * - Gold: +5 RCN bonus per qualifying repair transaction
  * - Applied to every repair transaction meeting minimum $50 threshold
  * - Bonus deducted from shop's purchased RCN balance
  */
 export class TierBonusService {
   // Tier bonus amounts as per requirements
   private static readonly TIER_BONUSES = {
-    BRONZE: 10,
-    SILVER: 20,
-    GOLD: 30
+    BRONZE: 0,    // No bonus for Bronze tier
+    SILVER: 2,    // +2 RCN per repair
+    GOLD: 5       // +5 RCN per repair
   };
 
   private static readonly MINIMUM_REPAIR_AMOUNT = 50; // $50 minimum for tier bonus

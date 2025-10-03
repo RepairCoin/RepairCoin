@@ -29,6 +29,8 @@
 3. **Revenue Distribution**: 80% operations, 10% RCG stakers, 10% DAO treasury
 4. **Governance Control**: RCG holders vote on earning rates and platform parameters
 5. **No Public Trading**: RCN remains purely internal utility token
+6. **Universal Redemption**: Customers can redeem 20% of tokens at any participating shop
+7. **No Earning Limits**: Removed daily and monthly earning caps
 
 ## Shop Tier System
 
@@ -43,17 +45,21 @@
 ### Base Earnings
 - **Small Repairs ($50-$99):** 10 RCN
 - **Large Repairs ($100+):** 25 RCN
-- **Daily Limit:** 50 RCN
-- **Monthly Limit:** 500 RCN
+- **No Daily or Monthly Limits**
 
 ### Tier Bonuses (Auto-applied)
-- **Bronze (0-199 RCN):** +10 RCN per repair
-- **Silver (200-999 RCN):** +20 RCN per repair
-- **Gold (1000+ RCN):** +30 RCN per repair
+- **Bronze (0-199 RCN):** No bonus
+- **Silver (200-999 RCN):** +2 RCN per repair
+- **Gold (1000+ RCN):** +5 RCN per repair
 
 ### Referral System
 - **Referrer Reward:** 25 RCN (after referee's first repair)
 - **Referee Bonus:** 10 RCN on first repair
+
+### Redemption Rules
+- **Base Redemption:** 20% of earned tokens can be redeemed at any participating shop
+- **Home Shop:** 100% of tokens earned at a specific shop can be redeemed there
+- **No restrictions on which shop's tokens can be redeemed**
 
 ## Technical Integration
 
@@ -97,8 +103,7 @@ Total Revenue (100%)
 
 - Earning rates per repair size
 - Tier bonus amounts
-- Cross-shop redemption limits (currently 20%)
-- Daily/monthly earning caps
+- Base redemption percentage (currently 20% at all shops)
 - Shop onboarding requirements
 - Revenue distribution percentages
 

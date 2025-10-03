@@ -49,8 +49,8 @@ export class TierManager {
   
   // Business rules constants
   private readonly EARNING_LIMITS: EarningLimits = {
-    daily: 50,      // 50 RCN per day max
-    monthly: 500,   // 500 RCN per month max
+    daily: 999999,      // No daily limit
+    monthly: 999999,    // No monthly limit
     perTransaction: 25  // 25 RCN max per single transaction
   };
 
@@ -93,7 +93,7 @@ export class TierManager {
         maxDailyEarnings: 50,
         maxMonthlyEarnings: 500,
         specialRewards: ["Access to seasonal promotions"],
-        crossShopRedemptionLimit: 10,
+        crossShopRedemptionLimit: 100,  // 100% - no limit
         engagementMultiplier: 1,
         minLifetimeEarnings: 0,
         specialBenefits: ["Access to seasonal promotions"]
@@ -108,7 +108,7 @@ export class TierManager {
           "Enhanced customer support", 
           "2x daily engagement bonus"
         ],
-        crossShopRedemptionLimit: 20,
+        crossShopRedemptionLimit: 100,  // 100% - no limit
         engagementMultiplier: 2,
         minLifetimeEarnings: 200,
         specialBenefits: [
@@ -128,7 +128,7 @@ export class TierManager {
           "Premium features access",
           "3x daily engagement bonus"
         ],
-        crossShopRedemptionLimit: 30,
+        crossShopRedemptionLimit: 100,  // 100% - no limit
         engagementMultiplier: 3,
         minLifetimeEarnings: 1000,
         specialBenefits: [
@@ -153,7 +153,7 @@ export class TierManager {
     return this.getTierBenefits(tier).engagementMultiplier;
   }
 
-  // Check if customer can earn more tokens today (40 RCN daily limit)
+  // Check if customer can earn more tokens today (NO LIMIT - always returns true)
   canEarnToday(customer: CustomerData, tokensToEarn: number): boolean {
     const today = new Date().toISOString().split('T')[0];
     const customerLastEarnedDate = customer.lastEarnedDate.split('T')[0];
@@ -166,7 +166,7 @@ export class TierManager {
     return (customer.dailyEarnings + tokensToEarn) <= this.EARNING_LIMITS.daily;
   }
 
-  // Check monthly earning limit (500 RCN monthly limit)
+  // Check monthly earning limit (NO LIMIT - always returns true)
   canEarnThisMonth(customer: CustomerData, tokensToEarn: number): boolean {
     const today = new Date();
     const customerLastEarned = new Date(customer.lastEarnedDate);
@@ -222,22 +222,7 @@ export class TierManager {
     message?: string;
     maxRedemption?: number;
   } {
-    // Home shop has no limits
-    if (isHomeShop) {
-      return { canRedeem: true };
-    }
-    
-    // Cross-shop redemption limits based on tier
-    const limit = this.getRedemptionLimit(customer.tier);
-    
-    if (redemptionAmount > limit) {
-      return {
-        canRedeem: false,
-        message: `Cross-shop redemption limit exceeded. ${customer.tier} tier allows max ${limit} RCN per transaction.`,
-        maxRedemption: limit
-      };
-    }
-    
+    // No cross-shop restrictions - customers can redeem at any shop
     return { canRedeem: true };
   }
 
@@ -322,13 +307,7 @@ export class TierManager {
       errors.push("Lifetime earnings cannot be negative");
     }
     
-    if (customer.dailyEarnings < 0 || customer.dailyEarnings > this.EARNING_LIMITS.daily) {
-      errors.push(`Daily earnings must be between 0 and ${this.EARNING_LIMITS.daily}`);
-    }
-    
-    if (customer.monthlyEarnings < 0 || customer.monthlyEarnings > this.EARNING_LIMITS.monthly) {
-      errors.push(`Monthly earnings must be between 0 and ${this.EARNING_LIMITS.monthly}`);
-    }
+    // No daily or monthly earning validations - removed per new requirements
     
     // Check tier consistency
     const calculatedTier = this.calculateTier(customer.lifetimeEarnings);
@@ -365,7 +344,11 @@ export class TierManager {
         refereeReward: 10,
         requiresCompletedRepair: true
       },
-      limits: this.EARNING_LIMITS,
+      limits: {
+        daily: null,      // No daily limit
+        monthly: null,    // No monthly limit
+        perTransaction: 25
+      },
       tierThresholds: this.TIER_THRESHOLDS
     };
   }

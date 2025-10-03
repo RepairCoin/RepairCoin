@@ -112,10 +112,8 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
 
   const getMaxRedeemable = () => {
     if (!customerData) return 0;
-    const isHomeShop = customerData.homeShopId === shopId;
-    return isHomeShop
-      ? customerData.earnedBalance
-      : Math.floor(customerData.earnedBalance * 0.2);
+    // No cross-shop restrictions - customers can redeem full balance at any shop
+    return customerData.earnedBalance;
   };
 
   return (
@@ -419,9 +417,7 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
                                     : "text-yellow-300"
                                 }`}
                               >
-                                {customerData.homeShopId === shopId
-                                  ? "100% redeemable"
-                                  : "20% limit"}
+                                100% redeemable
                               </p>
                             </div>
                           </div>

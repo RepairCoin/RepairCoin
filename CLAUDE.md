@@ -46,7 +46,7 @@ docker-compose up postgres -d       # Start PostgreSQL
 - **RCN**: Utility token for rewards (1 RCN = $0.10 USD)
   - Shops purchase from admin at tiered pricing based on RCG holdings
   - Customers earn from repairs, redeem at shops
-  - 20% cross-shop redemption limit
+  - 20% base redemption at any shop (100% at shop where earned)
   
 - **RCG**: Governance token (100M fixed supply)
   - Shop tiers: Standard/Premium/Elite (10K/50K/200K+ RCG)
@@ -80,10 +80,10 @@ cp env.example .env
 ## Key Features
 
 ### Customer Features
-- Tier system: Bronze/Silver/Gold (+10/+20/+30 RCN bonuses)
+- Tier system: Bronze/Silver/Gold (0/+2/+5 RCN bonuses)
 - Referral rewards: 25 RCN referrer, 10 RCN referee
-- Daily limit: 50 RCN, Monthly limit: 500 RCN
-- 20% cross-shop redemption limit
+- No daily or monthly earning limits
+- 20% redemption at any shop, 100% at earning shop
 
 ### Shop Features  
 - $500/month Stripe subscription

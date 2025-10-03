@@ -47,14 +47,13 @@ export interface EarningSources {
 /**
  * Centralized Verification Service
  * 
- * This service implements the core business logic for preventing market-bought RCN
- * from being redeemed at shops. Only RCN earned through the RepairCoin ecosystem
- * (repairs, referrals, tier bonuses) can be redeemed for services.
+ * This service implements the core business logic for verifying RCN redemptions.
+ * Customers can redeem their earned RCN at any participating shop without restrictions.
  * 
  * Key Rules:
- * - 100% of earned RCN can be redeemed at the earning shop
- * - 20% of earned RCN can be redeemed at other participating shops
- * - Market-bought RCN cannot be redeemed at any shop
+ * - 100% of earned RCN can be redeemed at any participating shop
+ * - Market-bought RCN cannot be redeemed at any shop (customers cannot buy RCN)
+ * - No cross-shop redemption limits
  */
 export class VerificationService {
   private referralRepository: ReferralRepository;
@@ -104,27 +103,12 @@ export class VerificationService {
       // Determine if this is the customer's home shop (where they earn most RCN)
       const isHomeShop = await this.isCustomerHomeShop(customerAddress, shopId);
 
-      // Define tier-based redemption limits per transaction
-      const tierLimits = {
-        bronze: 10,
-        silver: 20,
-        gold: 30
-      };
-      
-      const maxPerTransaction = tierLimits[customer.tier as keyof typeof tierLimits] || 10;
+      // No tier-based redemption limits - removed per new requirements
 
       // Calculate maximum redeemable amount
-      let maxRedeemable: number;
-      let crossShopLimit = 0;
-
-      if (isHomeShop) {
-        // At home shop: limited by tier per transaction OR earned balance (whichever is lower)
-        maxRedeemable = Math.min(maxPerTransaction, earnedBalance);
-      } else {
-        // At other shops: limited by tier, 20% of earned balance, whichever is lower
-        crossShopLimit = Math.floor(earnedBalance * 0.2);
-        maxRedeemable = Math.min(maxPerTransaction, crossShopLimit);
-      }
+      // No cross-shop restrictions - customers can redeem their full earned balance at any shop
+      let maxRedeemable = earnedBalance;
+      let crossShopLimit = 0; // No limit
 
       // Check if requested amount can be redeemed
       const canRedeem = requestedAmount <= maxRedeemable && requestedAmount > 0;
@@ -133,20 +117,8 @@ export class VerificationService {
       if (canRedeem) {
         message = `Redemption approved for ${requestedAmount} RCN`;
       } else if (requestedAmount > maxRedeemable) {
-        // Determine which limit is restricting the redemption
-        const tierLimitReached = requestedAmount > maxPerTransaction;
-        const balanceLimitReached = requestedAmount > earnedBalance;
-        const crossShopLimitReached = !isHomeShop && requestedAmount > crossShopLimit;
-        
-        if (tierLimitReached) {
-          message = `${customer.tier.charAt(0).toUpperCase() + customer.tier.slice(1)} tier limit: ${maxPerTransaction} RCN per transaction`;
-        } else if (balanceLimitReached) {
-          message = `Insufficient earned balance. Available: ${earnedBalance} RCN`;
-        } else if (crossShopLimitReached) {
-          message = `Cross-shop limit: ${crossShopLimit} RCN (20% of earned balance)`;
-        } else {
-          message = `Maximum redeemable: ${maxRedeemable} RCN`;
-        }
+        // Only balance limit applies now
+        message = `Insufficient earned balance. Available: ${earnedBalance} RCN`;
       } else if (requestedAmount <= 0) {
         message = 'Invalid redemption amount';
       } else {

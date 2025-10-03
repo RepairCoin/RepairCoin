@@ -17,7 +17,7 @@ const options = {
         - Customer registration and management with tier system
         - Token minting for repairs and referrals (unlimited supply with burn mechanism)
         - Shop registration, verification, and RCN balance management
-        - Cross-shop network with redemption verification
+        - Universal redemption network (100% redemption at any shop)
         - Referral system with automated rewards
         - Admin operations, analytics, and treasury management
         - Webhook processing for external integrations
@@ -243,11 +243,7 @@ const options = {
               description: 'Shop active status',
               example: true
             },
-            isCrossShopEnabled: {
-              type: 'boolean',
-              description: 'Whether shop accepts cross-shop redemptions',
-              example: true
-            },
+            // Cross-shop setting removed - universal redemption is always enabled
             rcnBalance: {
               type: 'number',
               description: 'Shop\'s purchased RCN balance',
@@ -1277,12 +1273,7 @@ const options = {
               description: 'Filter by active status',
               schema: { type: 'boolean' }
             },
-            {
-              name: 'crossShopEnabled',
-              in: 'query',
-              description: 'Filter by cross-shop status',
-              schema: { type: 'boolean' }
-            },
+            // crossShopEnabled filter removed - all shops have universal redemption
             { $ref: '#/components/schemas/PaginationParams/properties/page' },
             { $ref: '#/components/schemas/PaginationParams/properties/limit' }
           ],
@@ -1769,7 +1760,7 @@ const options = {
                           reason: { type: 'string' },
                           availableBalance: { type: 'number' },
                           earnedBalance: { type: 'number' },
-                          isHomeShop: { type: 'boolean' }
+                          isHomeShop: { type: 'boolean', description: 'Legacy field - all shops now allow 100% redemption' }
                         }
                       }
                     }

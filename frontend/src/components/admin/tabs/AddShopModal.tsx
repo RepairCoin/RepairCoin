@@ -36,7 +36,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
     referralCode: "",
     verified: false,
     active: true,
-    cross_shop_enabled: false,
+    // cross_shop_enabled removed - universal redemption is now always enabled,
   });
 
   const handleInputChange = (
@@ -108,7 +108,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
             referralCode: formData.referralCode,
             verified: formData.verified,
             active: formData.active,
-            cross_shop_enabled: formData.cross_shop_enabled,
+            // cross_shop_enabled removed - universal redemption is now always enabled,
           }),
         }
       );
@@ -135,7 +135,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
           referralCode: "",
           verified: false,
           active: true,
-          cross_shop_enabled: false,
+          // cross_shop_enabled removed - universal redemption is now always enabled,
         });
 
         onSuccess();
@@ -484,19 +484,12 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                   <span className="text-gray-300">Shop is active</span>
                 </label>
 
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="cross_shop_enabled"
-                    checked={formData.cross_shop_enabled}
-                    onChange={handleInputChange}
-                    className="w-5 h-5 bg-gray-800 border-gray-600 rounded text-yellow-400 focus:ring-yellow-400"
-                    disabled={loading}
-                  />
-                  <span className="text-gray-300">
-                    Enable cross-shop transactions
-                  </span>
-                </label>
+                <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
+                  <p className="text-sm text-green-400">
+                    ✅ Universal redemption is automatically enabled for all shops - 
+                    customers can redeem 100% of earned RCN at any participating shop.
+                  </p>
+                </div>
               </div>
             </div>
           </form>

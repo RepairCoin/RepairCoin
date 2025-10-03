@@ -6,7 +6,7 @@ import { Store, Mail, Phone, MapPin, Globe, Clock, User } from "lucide-react";
 import toast from "react-hot-toast";
 
 interface ShopData {
-  crossShopEnabled: boolean;
+  // crossShopEnabled removed - universal redemption is now always enabled
   purchasedRcnBalance: number;
   walletAddress: string;
   operational_status?: string;
@@ -31,9 +31,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   onSettingsUpdate,
 }) => {
   const [activeTab, setActiveTab] = useState<"information" | "subscription">("information");
-  const [crossShopEnabled, setCrossShopEnabled] = useState(
-    shopData?.crossShopEnabled || false
-  );
+  // crossShopEnabled state removed - universal redemption is now always enabled
   const [autoPurchaseEnabled, setAutoPurchaseEnabled] = useState(false);
   const [autoPurchaseThreshold, setAutoPurchaseThreshold] = useState(50);
   const [autoPurchaseAmount, setAutoPurchaseAmount] = useState(100);
@@ -107,26 +105,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         throw new Error(errorData.error || "Failed to update shop details");
       }
 
-      // Then update cross-shop settings if changed
-      if (crossShopEnabled !== shopData?.crossShopEnabled) {
-        const settingsResponse = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/settings`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              crossShopEnabled,
-            }),
-          }
-        );
-
-        if (!settingsResponse.ok) {
-          const errorData = await settingsResponse.json();
-          throw new Error(errorData.error || "Failed to update cross-shop settings");
-        }
-      }
+      // Cross-shop settings removed - universal redemption is now always enabled
 
       const data = await response.json();
       toast.success(data.message || "Shop details and settings updated successfully!");
@@ -340,30 +319,16 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           </div>
         </div>
 
-        {/* Cross-Shop Settings */}
+        {/* Universal Redemption Notice */}
         <div className="px-4 sm:px-6 lg:px-8 pb-6 sm:pb-10">
-          <div className="flex items-start space-x-4">
-            <input
-              type="checkbox"
-              id="crossShop"
-              checked={crossShopEnabled}
-              onChange={(e) => setCrossShopEnabled(e.target.checked)}
-              disabled={!isEditingShop}
-              className="mt-1 h-5 w-5 text-[#FFCC00] bg-gray-700 border-gray-600 rounded focus:ring-[#FFCC00] disabled:opacity-50 disabled:cursor-not-allowed"
-            />
-            <div className="flex-1">
-              <label
-                htmlFor="crossShop"
-                className="font-semibold text-white cursor-pointer"
-              >
-                Enable Cross-Shop Redemptions
-              </label>
-              <p className="text-sm text-gray-400 mt-1">
-                Allow customers from other shops to redeem up to 20% of their
-                earned RCN at your shop. This increases foot traffic and
-                customer base.
-              </p>
-            </div>
+          <div className="bg-green-900/20 border border-green-700 rounded-xl p-4">
+            <h4 className="text-sm font-semibold text-green-400 mb-1">
+              ✅ Universal Redemption Enabled
+            </h4>
+            <p className="text-sm text-green-300">
+              All RepairCoin customers can redeem 100% of their earned RCN at your shop. 
+              This maximizes customer convenience and increases foot traffic to your business.
+            </p>
           </div>
         </div>
       </div>

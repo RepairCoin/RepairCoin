@@ -305,20 +305,7 @@ export class TokenMinter {
         };
       }
 
-      // Check earning limits
-      if (!this.tierManager.canEarnToday(customerData, tokensToMint)) {
-        return {
-          success: false,
-          message: "Daily earning limit (50 RCN) exceeded"
-        };
-      }
-
-      if (!this.tierManager.canEarnThisMonth(customerData, tokensToMint)) {
-        return {
-          success: false,
-          message: "Monthly earning limit (500 RCN) exceeded"
-        };
-      }
+      // No daily or monthly limits - removed per new requirements
 
       // Mint the tokens
       const result = await this.mintTokens(customerAddress, tokensToMint, `repair_${shopId}_${Date.now()}`);

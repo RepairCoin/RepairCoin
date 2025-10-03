@@ -196,7 +196,7 @@ export const RedeemTab: React.FC<RedeemTabProps> = ({ shopId, onRedemptionComple
                     <span className="font-medium">Market Balance:</span> {verificationResult.marketBalance} RCN
                   </p>
                   <p className="text-gray-700">
-                    <span className="font-medium">Customer Type:</span> {verificationResult.isHomeShop ? 'Home Shop Customer' : 'Cross-Shop Customer'}
+                    <span className="font-medium">Customer Type:</span> Verified Customer
                   </p>
                   <p className="text-gray-700">
                     <span className="font-medium">Max Redeemable:</span> {verificationResult.maxRedeemable} RCN
@@ -237,14 +237,14 @@ export const RedeemTab: React.FC<RedeemTabProps> = ({ shopId, onRedemptionComple
             <h3 className="text-xl font-bold text-gray-900 mb-4">Redemption Rules</h3>
             <div className="space-y-4">
               <RuleCard
-                icon="🏠"
-                title="Home Shop Customers"
-                description="Customers who earned RCN primarily from your shop can redeem 100% of their earned balance."
+                icon="✅"
+                title="Universal Redemption"
+                description="All customers can redeem 100% of their earned RCN balance at any participating shop."
               />
               <RuleCard
                 icon="🔄"
-                title="Cross-Shop Customers"
-                description="Customers from other shops can redeem up to 20% of their earned balance at your shop."
+                title="No Restrictions"
+                description="Customers are free to redeem their tokens at any shop in the RepairCoin network."
               />
               <RuleCard
                 icon="🚫"

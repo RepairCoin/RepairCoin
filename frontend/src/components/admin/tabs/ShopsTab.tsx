@@ -186,7 +186,7 @@ export const ShopsTab: React.FC<ShopsTabProps> = ({
                   Wallet Balance
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Cross-Shop
+                  Redemption
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -226,12 +226,8 @@ export const ShopsTab: React.FC<ShopsTabProps> = ({
                     {shopBalances[shop.shopId] !== undefined ? `${shopBalances[shop.shopId].toFixed(2)} RCN` : 'Loading...'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      (shop.crossShopEnabled || shop.cross_shop_enabled) 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {(shop.crossShopEnabled || shop.cross_shop_enabled) ? 'Enabled' : 'Disabled'}
+                    <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                      Universal
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">

@@ -328,17 +328,16 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
       }
     }
 
-    if (shop.crossShopEnabled || shop.cross_shop_enabled) {
-      badges.push(
-        <span
-          key="crossshop"
-          className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20"
-        >
-          <RefreshCw className="w-3 h-3" />
-          Cross-Shop
-        </span>
-      );
-    }
+    // All shops now have universal redemption
+    badges.push(
+      <span
+        key="universal"
+        className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20"
+      >
+        <RefreshCw className="w-3 h-3" />
+        Universal Redemption
+      </span>
+    );
 
     return <div className="flex flex-wrap gap-2">{badges}</div>;
   };

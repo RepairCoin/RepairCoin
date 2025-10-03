@@ -22,7 +22,7 @@ export const TIER_CONFIG: { [key: string]: TierInfo } = {
     name: 'BRONZE',
     displayName: 'Bronze',
     icon: '🥉',
-    bonusAmount: 10,
+    bonusAmount: 0,    // No bonus for Bronze
     color: 'orange',
     gradientClass: 'from-orange-500 to-orange-600',
     bgClass: 'bg-orange-500'
@@ -31,7 +31,7 @@ export const TIER_CONFIG: { [key: string]: TierInfo } = {
     name: 'SILVER',
     displayName: 'Silver',
     icon: '🥈',
-    bonusAmount: 20,
+    bonusAmount: 2,    // +2 RCN per repair
     color: 'gray',
     gradientClass: 'from-gray-400 to-gray-500',
     bgClass: 'bg-gray-500'
@@ -40,7 +40,7 @@ export const TIER_CONFIG: { [key: string]: TierInfo } = {
     name: 'GOLD',
     displayName: 'Gold',
     icon: '🥇',
-    bonusAmount: 30,
+    bonusAmount: 5,    // +5 RCN per repair
     color: 'yellow',
     gradientClass: 'from-yellow-500 to-yellow-600',
     bgClass: 'bg-yellow-500'

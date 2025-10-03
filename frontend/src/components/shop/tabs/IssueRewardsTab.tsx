@@ -29,9 +29,9 @@ interface RepairOption {
 }
 
 const TIER_BONUSES = {
-  BRONZE: 10,
-  SILVER: 20,
-  GOLD: 30,
+  BRONZE: 0,    // No bonus for Bronze
+  SILVER: 2,    // +2 RCN per repair
+  GOLD: 5,      // +5 RCN per repair
 } as const;
 
 const TIER_STYLES = {
@@ -40,8 +40,8 @@ const TIER_STYLES = {
   BRONZE: "bg-gradient-to-r from-orange-500 to-orange-600 text-white",
 } as const;
 
-const DAILY_LIMIT = 50;
-const MONTHLY_LIMIT = 500;
+const DAILY_LIMIT = null;    // No daily limit
+const MONTHLY_LIMIT = null;  // No monthly limit
 const MINOR_REPAIR_RCN = 5;
 const SMALL_REPAIR_RCN = 10;
 const LARGE_REPAIR_RCN = 25;
