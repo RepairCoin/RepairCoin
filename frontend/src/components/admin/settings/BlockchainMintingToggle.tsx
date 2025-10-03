@@ -38,8 +38,8 @@ export const BlockchainMintingToggle: React.FC = () => {
   const handleToggle = async () => {
     const newState = !enabled;
     const confirmMessage = newState 
-      ? 'Enable automatic blockchain minting? Purchases will be minted immediately upon completion.'
-      : 'Disable automatic blockchain minting? Purchases will need to be manually minted from the Treasury tab.';
+      ? 'Enable blockchain rewards? Customer rewards will be automatically sent to their wallets when shops issue them.'
+      : 'Disable blockchain rewards? Customer rewards will only be tracked in the database (off-chain).';
     
     if (!confirm(confirmMessage)) {
       return;
@@ -62,8 +62,8 @@ export const BlockchainMintingToggle: React.FC = () => {
         setEnabled(newState);
         toast.success(
           newState 
-            ? 'Blockchain minting enabled! Purchases will now auto-mint.'
-            : 'Blockchain minting disabled! Use Treasury tab to manually mint.'
+            ? 'Blockchain rewards enabled! Customers will receive tokens in their wallets.'
+            : 'Blockchain rewards disabled! Rewards will be tracked off-chain only.'
         );
       } else {
         const error = await response.json();
@@ -92,12 +92,12 @@ export const BlockchainMintingToggle: React.FC = () => {
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
             <Zap className={`w-6 h-6 ${enabled ? 'text-green-400' : 'text-gray-400'}`} />
-            <h3 className="text-lg font-semibold text-white">Automatic Blockchain Minting</h3>
+            <h3 className="text-lg font-semibold text-white">Automatic Customer Rewards on Blockchain</h3>
           </div>
           <p className="text-sm text-gray-400 mb-4">
             {enabled 
-              ? 'Purchases are automatically minted to blockchain when completed'
-              : 'Purchases must be manually minted from the Treasury tab'
+              ? 'Customer rewards are automatically sent to their blockchain wallets'
+              : 'Customer rewards are tracked in database only (off-chain)'
             }
           </p>
           
@@ -106,10 +106,10 @@ export const BlockchainMintingToggle: React.FC = () => {
               <div className="flex items-start gap-2">
                 <AlertCircle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
                 <div className="text-sm">
-                  <p className="text-yellow-400 font-medium">Manual Minting Required</p>
+                  <p className="text-yellow-400 font-medium">Off-Chain Mode</p>
                   <p className="text-gray-300 mt-1">
-                    When disabled, completed purchases will appear in the Treasury tab's 
-                    "Pending Blockchain Mints" section for manual minting.
+                    Customer rewards are tracked in the database only. Customers won't receive 
+                    actual blockchain tokens until this is enabled.
                   </p>
                 </div>
               </div>
