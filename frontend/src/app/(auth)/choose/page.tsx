@@ -595,7 +595,7 @@ export default function ChoosePage() {
                 2. Earn Tokens
               </h3>
               <p className="text-gray-300 text-sm tracking-wide text-center">
-                Receive RepairCoin tokens based on repair value and tier
+                Receive RepairCoin tokens based on repair value and tier.
               </p>
             </div>
 
@@ -612,7 +612,7 @@ export default function ChoosePage() {
                 3. Redeem Benefits
               </h3>
               <p className="text-gray-300 text-sm tracking-wide text-center">
-                Use tokens for discounts at any participating shop
+                Use tokens for discounts at any participating shop.
               </p>
             </div>
           </div>
