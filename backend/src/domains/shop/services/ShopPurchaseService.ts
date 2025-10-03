@@ -161,27 +161,15 @@ export class ShopPurchaseService {
       // Complete the purchase and update shop balance in database
       await shopRepository.completeShopPurchase(purchaseId, paymentReference);
 
-      // Get shop details for blockchain minting
-      const shop = await shopRepository.getShop(purchase.shopId);
-      if (shop && shop.walletAddress) {
-        // Attempt blockchain minting (will log if not enabled)
-        const blockchainService = getBlockchainService();
-        const mintResult = await blockchainService.processMintRequest({
-          shopAddress: shop.walletAddress,
-          amount: purchase.amount,
-          purchaseId: purchaseId,
-          transactionType: 'shop_purchase'
-        });
-
-        logger.info(`RCN purchase completed with blockchain status:`, {
-          purchaseId,
-          shopId: purchase.shopId,
-          amount: purchase.amount,
-          blockchainEnabled: mintResult.blockchainEnabled,
-          blockchainSuccess: mintResult.success,
-          transactionHash: mintResult.transactionHash
-        });
-      }
+      // Shop purchases are database-only to save gas
+      // No blockchain minting needed - tokens are minted directly to customers when rewards are issued
+      logger.info(`RCN purchase completed - database balance updated:`, {
+        purchaseId,
+        shopId: purchase.shopId,
+        amount: purchase.amount,
+        totalCost: purchase.totalCost,
+        note: 'Database-only update (no blockchain minting for shop purchases)'
+      });
 
       return {
         purchaseId,

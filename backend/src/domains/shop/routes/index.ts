@@ -1296,6 +1296,13 @@ router.post('/:shopId/issue-reward',
         if (blockchainEnabled) {
           try {
             const tokenMinter = getTokenMinter();
+            
+            // First try to transfer from admin wallet
+            logger.info('Attempting token transfer from admin wallet...', {
+              customerAddress,
+              amount: totalReward
+            });
+            
             const transferResult = await tokenMinter.transferTokens(
               customerAddress,
               totalReward,
@@ -1305,18 +1312,48 @@ router.post('/:shopId/issue-reward',
             if (transferResult.success && transferResult.transactionHash) {
               transactionHash = transferResult.transactionHash;
               onChainSuccess = true;
-              logger.info('On-chain token transfer successful', {
+              logger.info('✅ On-chain token transfer successful', {
                 customerAddress,
                 amount: totalReward,
-                txHash: transactionHash
+                txHash: transactionHash,
+                method: 'transfer'
               });
             } else {
-              logger.warn('On-chain transfer failed, continuing with off-chain only', {
-                error: transferResult.error
+              // If transfer fails, try minting new tokens as fallback
+              logger.warn('Transfer failed, attempting to mint new tokens...', {
+                transferError: transferResult.error
               });
+              
+              const mintResult = await tokenMinter.adminMintTokens(
+                customerAddress,
+                totalReward,
+                `Shop ${shop.name} reward - $${repairAmount} repair (mint fallback)`
+              );
+              
+              if (mintResult.success && mintResult.transactionHash) {
+                transactionHash = mintResult.transactionHash;
+                onChainSuccess = true;
+                logger.info('✅ On-chain token mint successful (fallback)', {
+                  customerAddress,
+                  amount: totalReward,
+                  txHash: transactionHash,
+                  method: 'mint'
+                });
+              } else {
+                logger.error('❌ Both transfer and mint failed', {
+                  transferError: transferResult.error,
+                  mintError: mintResult.error,
+                  customerAddress,
+                  amount: totalReward
+                });
+              }
             }
-          } catch (transferError) {
-            logger.warn('On-chain transfer error, continuing with off-chain only', transferError);
+          } catch (error) {
+            logger.error('On-chain operation error, continuing with off-chain only', {
+              error: error instanceof Error ? error.message : error,
+              customerAddress,
+              amount: totalReward
+            });
           }
         } else {
           logger.info('Blockchain minting disabled - tracking tokens in database only', {
