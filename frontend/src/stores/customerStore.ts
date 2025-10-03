@@ -86,9 +86,31 @@ export const useCustomerStore = create<CustomerStore>()(
 
       // Setters
       setCustomerData: (data) => set({ customerData: data }),
-      setEarnedBalanceData: (data) => set({ earnedBalanceData: data }),
-      setTransactions: (transactions) => set({ transactions }),
-      setBlockchainBalance: (balance) => set({ blockchainBalance: balance }),
+      setEarnedBalanceData: (data) => {
+        if (data) {
+          // Round all numeric values to 2 decimal places
+          const roundedData = {
+            ...data,
+            earnedBalance: Math.round(data.earnedBalance * 100) / 100,
+            marketBalance: Math.round(data.marketBalance * 100) / 100,
+            totalBalance: Math.round(data.totalBalance * 100) / 100,
+            lifetimeEarned: Math.round(data.lifetimeEarned * 100) / 100,
+            totalRedeemed: Math.round(data.totalRedeemed * 100) / 100,
+          };
+          set({ earnedBalanceData: roundedData });
+        } else {
+          set({ earnedBalanceData: data });
+        }
+      },
+      setTransactions: (transactions) => {
+        // Round transaction amounts to 2 decimal places
+        const roundedTransactions = transactions.map(tx => ({
+          ...tx,
+          amount: Math.round(tx.amount * 100) / 100
+        }));
+        set({ transactions: roundedTransactions });
+      },
+      setBlockchainBalance: (balance) => set({ blockchainBalance: Math.round(balance * 100) / 100 }),
       setLoading: (loading) => set({ isLoading: loading }),
       setError: (error) => set({ error }),
 
@@ -121,9 +143,9 @@ export const useCustomerStore = create<CustomerStore>()(
             const customerData = customerResult.data.customer || customerResult.data;
             set({ customerData });
             
-            // Store blockchain balance separately
+            // Store blockchain balance separately (rounded to 2 decimal places)
             if (customerResult.data.blockchainBalance !== undefined) {
-              set({ blockchainBalance: customerResult.data.blockchainBalance });
+              set({ blockchainBalance: Math.round(customerResult.data.blockchainBalance * 100) / 100 });
             }
           } else if (customerResponse.status === 404) {
             set({ error: 'Address not associated with a customer account.' });
@@ -161,7 +183,21 @@ export const useCustomerStore = create<CustomerStore>()(
           );
           if (balanceResponse.ok) {
             const balanceResult = await balanceResponse.json();
-            set({ earnedBalanceData: balanceResult.data });
+            const data = balanceResult.data;
+            // Round all numeric values to 2 decimal places
+            if (data) {
+              const roundedData = {
+                ...data,
+                earnedBalance: Math.round(data.earnedBalance * 100) / 100,
+                marketBalance: Math.round(data.marketBalance * 100) / 100,
+                totalBalance: Math.round(data.totalBalance * 100) / 100,
+                lifetimeEarned: Math.round(data.lifetimeEarned * 100) / 100,
+                totalRedeemed: Math.round(data.totalRedeemed * 100) / 100,
+              };
+              set({ earnedBalanceData: roundedData });
+            } else {
+              set({ earnedBalanceData: data });
+            }
           }
 
           // Fetch recent transactions
