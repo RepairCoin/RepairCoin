@@ -17,8 +17,7 @@ type RepairType = "minor" | "small" | "large" | "custom";
 interface CustomerInfo {
   tier: "BRONZE" | "SILVER" | "GOLD";
   lifetimeEarnings: number;
-  dailyEarnings: number;
-  monthlyEarnings: number;
+  // dailyEarnings and monthlyEarnings removed - no limits
 }
 
 interface RepairOption {
@@ -40,8 +39,7 @@ const TIER_STYLES = {
   BRONZE: "bg-gradient-to-r from-orange-500 to-orange-600 text-white",
 } as const;
 
-const DAILY_LIMIT = null;    // No daily limit
-const MONTHLY_LIMIT = null;  // No monthly limit
+// No earning limits - removed per new requirements
 const MINOR_REPAIR_RCN = 5;
 const SMALL_REPAIR_RCN = 10;
 const LARGE_REPAIR_RCN = 25;
@@ -109,23 +107,8 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
   const hasSufficientBalance =
     (shopData?.purchasedRcnBalance || 0) >= totalReward;
 
-  const checkLimit = (current: number, limit: number) => {
-    const remaining = limit - current;
-    return {
-      withinLimit: current + totalReward <= limit,
-      remaining: Math.max(0, remaining),
-    };
-  };
-
-  const dailyLimit = customerInfo
-    ? checkLimit(customerInfo.dailyEarnings, DAILY_LIMIT)
-    : { withinLimit: true, remaining: DAILY_LIMIT };
-
-  const monthlyLimit = customerInfo
-    ? checkLimit(customerInfo.monthlyEarnings, MONTHLY_LIMIT)
-    : { withinLimit: true, remaining: MONTHLY_LIMIT };
-
-  const canIssueReward = dailyLimit.withinLimit && monthlyLimit.withinLimit;
+  // No earning limits - customers can earn unlimited RCN
+  const canIssueReward = true;
 
   useEffect(() => {
     if (customerAddress && customerAddress.length === 42) {
@@ -150,15 +133,11 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
         setCustomerInfo({
           tier: customerData.tier || "BRONZE",
           lifetimeEarnings: customerData.lifetimeEarnings || 0,
-          dailyEarnings: customerData.dailyEarnings || 0,
-          monthlyEarnings: customerData.monthlyEarnings || 0,
         });
       } else {
         setCustomerInfo({
           tier: "BRONZE",
           lifetimeEarnings: 0,
-          dailyEarnings: 0,
-          monthlyEarnings: 0,
         });
       }
     } catch (err) {
@@ -166,8 +145,6 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
       setCustomerInfo({
         tier: "BRONZE",
         lifetimeEarnings: 0,
-        dailyEarnings: 0,
-        monthlyEarnings: 0,
       });
     } finally {
       setFetchingCustomer(false);
@@ -256,9 +233,8 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
       if (customerInfo) {
         setCustomerInfo({
           ...customerInfo,
-          dailyEarnings: customerInfo.dailyEarnings + totalReward,
-          monthlyEarnings: customerInfo.monthlyEarnings + totalReward,
           lifetimeEarnings: customerInfo.lifetimeEarnings + totalReward,
+          // dailyEarnings and monthlyEarnings removed - no limits
         });
       }
 
@@ -399,70 +375,6 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
     </label>
   );
 
-  const LimitProgressBar = ({
-    current,
-    limit,
-    label,
-  }: {
-    current: number;
-    limit: number;
-    label: string;
-  }) => {
-    const percentage = Math.min((current / limit) * 100, 100);
-    const isExceeded = current >= limit;
-    const isNearLimit = current >= limit * 0.8;
-
-    return (
-      <div className="space-y-2">
-        <div className="flex justify-between items-center">
-          <span className="text-sm font-medium text-gray-300">{label}</span>
-          <div className="flex items-center gap-2">
-            <span className={`text-sm font-semibold transition-colors ${
-              isExceeded ? "text-red-400" : isNearLimit ? "text-yellow-400" : "text-gray-400"
-            }`}>
-              {current}/{limit} RCN
-            </span>
-            {isExceeded && (
-              <span className="text-xs px-2 py-0.5 bg-red-500/20 text-red-400 rounded-full font-medium">
-                LIMIT REACHED
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="relative">
-          <div className="w-full bg-gray-800 rounded-full h-3 overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-gray-700 to-gray-800 opacity-50" />
-            <div
-              className={`relative h-3 rounded-full transition-all duration-500 ease-out ${
-                isExceeded 
-                  ? "bg-gradient-to-r from-red-500 to-red-600" 
-                  : isNearLimit
-                    ? "bg-gradient-to-r from-yellow-500 to-yellow-400"
-                    : "bg-gradient-to-r from-[#FFCC00] to-yellow-500"
-              }`}
-              style={{ 
-                width: `${percentage}%`,
-                boxShadow: isExceeded 
-                  ? "0 0 10px rgba(239, 68, 68, 0.5)" 
-                  : isNearLimit
-                    ? "0 0 10px rgba(251, 191, 36, 0.5)"
-                    : "0 0 10px rgba(255, 204, 0, 0.3)"
-              }}
-            >
-              {!isExceeded && (
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full animate-pulse" />
-              )}
-            </div>
-          </div>
-          <div className="flex justify-between mt-1">
-            <span className="text-xs text-gray-600">0%</span>
-            <span className="text-xs text-gray-600">50%</span>
-            <span className="text-xs text-gray-600">100%</span>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -540,31 +452,10 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                         </span>
                       </div>
                     </div>
-                    <div className="flex gap-4 text-sm">
-                      <div>
-                        <span className="text-gray-400">Today:</span>
-                        <span
-                          className={`ml-1 font-semibold ${
-                            !dailyLimit.withinLimit
-                              ? "text-red-500"
-                              : "text-green-500"
-                          }`}
-                        >
-                          {customerInfo.dailyEarnings}/{DAILY_LIMIT}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-gray-400">Month:</span>
-                        <span
-                          className={`ml-1 font-semibold ${
-                            !monthlyLimit.withinLimit
-                              ? "text-red-500"
-                              : "text-green-500"
-                          }`}
-                        >
-                          {customerInfo.monthlyEarnings}/{MONTHLY_LIMIT}
-                        </span>
-                      </div>
+                    <div className="text-sm">
+                      <span className="text-green-400 font-semibold">
+                        ✅ No Earning Limits
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -721,36 +612,6 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
               </div>
             )} */}
 
-            {!canIssueReward && customerInfo && (
-              <div className="w-full px-8 pb-8 text-white">
-                <div className="bg-red-900 bg-opacity-20 border border-red-500 rounded-xl p-4">
-                  <div className="flex items-start">
-                    <svg
-                      className="w-5 h-5 text-red-500 mt-0.5 mr-3"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <div>
-                      <h4 className="font-semibold text-red-500 mb-1">
-                        Earning Limit Exceeded
-                      </h4>
-                      <p className="text-sm text-red-400">
-                        {!dailyLimit.withinLimit &&
-                          `This reward (${totalReward} RCN) would exceed the daily limit. Customer has ${dailyLimit.remaining} RCN remaining today.`}
-                        {!monthlyLimit.withinLimit &&
-                          `This reward (${totalReward} RCN) would exceed the monthly limit. Customer has ${monthlyLimit.remaining} RCN remaining this month.`}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
@@ -846,20 +707,6 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                     </div>
                   </div>
 
-                  {customerInfo && (
-                    <div className="space-y-3">
-                      <LimitProgressBar
-                        current={customerInfo.dailyEarnings}
-                        limit={DAILY_LIMIT}
-                        label="Daily"
-                      />
-                      <LimitProgressBar
-                        current={customerInfo.monthlyEarnings}
-                        limit={MONTHLY_LIMIT}
-                        label="Monthly"
-                      />
-                    </div>
-                  )}
                 </div>
 
                 <button
