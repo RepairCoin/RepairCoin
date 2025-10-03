@@ -12,8 +12,6 @@ export interface CustomerData {
   isActive: boolean;
   lifetimeEarnings: number;
   tier: TierLevel;
-  dailyEarnings: number;
-  monthlyEarnings: number;
   lastEarnedDate: string;
   referralCount: number;
   joinDate: string; 
@@ -155,29 +153,14 @@ export class TierManager {
 
   // Check if customer can earn more tokens today (NO LIMIT - always returns true)
   canEarnToday(customer: CustomerData, tokensToEarn: number): boolean {
-    const today = new Date().toISOString().split('T')[0];
-    const customerLastEarnedDate = customer.lastEarnedDate.split('T')[0];
-    
-    // Reset daily earnings if it's a new day
-    if (customerLastEarnedDate !== today) {
-      return tokensToEarn <= this.EARNING_LIMITS.daily;
-    }
-    
-    return (customer.dailyEarnings + tokensToEarn) <= this.EARNING_LIMITS.daily;
+    // No earning limits - always return true
+    return true;
   }
 
   // Check monthly earning limit (NO LIMIT - always returns true)
   canEarnThisMonth(customer: CustomerData, tokensToEarn: number): boolean {
-    const today = new Date();
-    const customerLastEarned = new Date(customer.lastEarnedDate);
-    
-    // Reset monthly earnings if it's a new month
-    if (today.getMonth() !== customerLastEarned.getMonth() || 
-        today.getFullYear() !== customerLastEarned.getFullYear()) {
-      return tokensToEarn <= this.EARNING_LIMITS.monthly;
-    }
-    
-    return (customer.monthlyEarnings + tokensToEarn) <= this.EARNING_LIMITS.monthly;
+    // No earning limits - always return true
+    return true;
   }
 
   // Check if earning amount is within per-transaction limit
@@ -187,21 +170,7 @@ export class TierManager {
 
   // Update customer data after earning tokens
   updateCustomerAfterEarning(customer: CustomerData, tokensEarned: number): CustomerData {
-    const today = new Date().toISOString().split('T')[0];
-    const currentDate = new Date();
-    const lastEarnedDate = new Date(customer.lastEarnedDate);
-    const customerLastEarnedDateOnly = customer.lastEarnedDate.split('T')[0];
-    
-    // Reset daily earnings if new day
-    const dailyEarnings = (customerLastEarnedDateOnly === today) 
-      ? customer.dailyEarnings + tokensEarned 
-      : tokensEarned;
-    
-    // Reset monthly earnings if new month
-    const monthlyEarnings = (currentDate.getMonth() === lastEarnedDate.getMonth() && 
-                            currentDate.getFullYear() === lastEarnedDate.getFullYear())
-      ? customer.monthlyEarnings + tokensEarned
-      : tokensEarned;
+    const today = new Date().toISOString();
     
     const newLifetimeEarnings = customer.lifetimeEarnings + tokensEarned;
     const newTier = this.calculateTier(newLifetimeEarnings);
@@ -210,8 +179,6 @@ export class TierManager {
       ...customer,
       lifetimeEarnings: newLifetimeEarnings,
       tier: newTier,
-      dailyEarnings,
-      monthlyEarnings,
       lastEarnedDate: today
     };
   }
@@ -226,33 +193,19 @@ export class TierManager {
     return { canRedeem: true };
   }
 
-  // Get customer's current earning capacity
+  // Get customer's current earning capacity (NO LIMITS)
   getEarningCapacity(customer: CustomerData): {
     dailyRemaining: number;
     monthlyRemaining: number;
     canEarnToday: boolean;
     canEarnThisMonth: boolean;
   } {
-    const today = new Date().toISOString().split('T')[0];
-    const currentDate = new Date();
-    const lastEarnedDate = new Date(customer.lastEarnedDate);
-    const customerLastEarnedDateOnly = customer.lastEarnedDate.split('T')[0];
-    
-    // Calculate remaining daily capacity
-    const dailyUsed = (customerLastEarnedDateOnly === today) ? customer.dailyEarnings : 0;
-    const dailyRemaining = Math.max(0, this.EARNING_LIMITS.daily - dailyUsed);
-    
-    // Calculate remaining monthly capacity
-    const sameMonth = (currentDate.getMonth() === lastEarnedDate.getMonth() && 
-                      currentDate.getFullYear() === lastEarnedDate.getFullYear());
-    const monthlyUsed = sameMonth ? customer.monthlyEarnings : 0;
-    const monthlyRemaining = Math.max(0, this.EARNING_LIMITS.monthly - monthlyUsed);
-    
+    // No earning limits - return unlimited capacity
     return {
-      dailyRemaining,
-      monthlyRemaining,
-      canEarnToday: dailyRemaining > 0,
-      canEarnThisMonth: monthlyRemaining > 0
+      dailyRemaining: Infinity,
+      monthlyRemaining: Infinity,
+      canEarnToday: true,
+      canEarnThisMonth: true
     };
   }
 
@@ -381,9 +334,7 @@ export class TierManager {
       name,
       lifetimeEarnings: 0,
       tier: "BRONZE",
-      dailyEarnings: 0,
-      monthlyEarnings: 0,
-      lastEarnedDate: new Date().toISOString().split('T')[0],
+      lastEarnedDate: new Date().toISOString(),
       joinDate: new Date().toISOString(),
       fixflowCustomerId,
       isActive: true,

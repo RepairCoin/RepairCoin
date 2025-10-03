@@ -37,8 +37,6 @@ export class CustomerRepository extends BaseRepository {
         phone: row.phone,
         tier: row.tier,
         lifetimeEarnings: parseFloat(row.lifetime_earnings),
-        dailyEarnings: parseFloat(row.daily_earnings || 0),
-        monthlyEarnings: parseFloat(row.monthly_earnings),
         lastEarnedDate: row.last_earned_date ? new Date(row.last_earned_date).toISOString() : new Date().toISOString(),
         joinDate: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
         isActive: row.is_active,
@@ -98,8 +96,6 @@ export class CustomerRepository extends BaseRepository {
         phone: row.phone,
         tier: row.tier,
         lifetimeEarnings: parseFloat(row.lifetime_earnings),
-        dailyEarnings: parseFloat(row.daily_earnings || 0),
-        monthlyEarnings: parseFloat(row.monthly_earnings),
         lastEarnedDate: row.last_earned_date ? new Date(row.last_earned_date).toISOString() : new Date().toISOString(),
         joinDate: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
         isActive: row.is_active,
@@ -134,8 +130,6 @@ export class CustomerRepository extends BaseRepository {
         phone: row.phone,
         tier: row.tier,
         lifetimeEarnings: parseFloat(row.lifetime_earnings),
-        dailyEarnings: parseFloat(row.daily_earnings || 0),
-        monthlyEarnings: parseFloat(row.monthly_earnings),
         lastEarnedDate: row.last_earned_date ? new Date(row.last_earned_date).toISOString() : new Date().toISOString(),
         joinDate: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
         isActive: row.is_active,
@@ -157,9 +151,8 @@ export class CustomerRepository extends BaseRepository {
       const query = `
         INSERT INTO customers (
           address, wallet_address, name, email, phone, tier, lifetime_earnings,
-          daily_earnings, monthly_earnings,
           last_earned_date, is_active, referral_count
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       `;
       
       await this.pool.query(query, [
@@ -170,8 +163,6 @@ export class CustomerRepository extends BaseRepository {
         customer.phone,
         customer.tier,
         customer.lifetimeEarnings,
-        customer.dailyEarnings,
-        customer.monthlyEarnings,
         customer.lastEarnedDate,
         customer.isActive,
         customer.referralCount
@@ -199,7 +190,6 @@ export class CustomerRepository extends BaseRepository {
         lifetimeEarnings: 'lifetime_earnings',
         currentBalance: 'current_balance',
         totalRedemptions: 'total_redemptions',
-        monthlyEarnings: 'monthly_earnings',
         lastEarnedDate: 'last_earned_date',
         isActive: 'is_active',
         referralCount: 'referral_count',
@@ -264,66 +254,18 @@ export class CustomerRepository extends BaseRepository {
     newTier: TierLevel
   ): Promise<void> {
     try {
-      // First get the customer to check if we need to reset daily/monthly earnings
-      const customer = await this.getCustomer(address);
-      if (!customer) {
-        throw new Error('Customer not found');
-      }
-      
-      const today = new Date().toISOString().split('T')[0];
-      const customerLastEarnedDateOnly = customer.lastEarnedDate.split('T')[0];
-      const currentDate = new Date();
-      const lastEarnedDate = new Date(customer.lastEarnedDate);
-      
-      // Determine if we need to reset daily/monthly earnings
-      const isNewDay = customerLastEarnedDateOnly !== today;
-      const isNewMonth = (currentDate.getMonth() !== lastEarnedDate.getMonth() || 
-                         currentDate.getFullYear() !== lastEarnedDate.getFullYear());
-      
-      let query: string;
-      if (isNewDay && isNewMonth) {
-        // Reset both daily and monthly
-        query = `
-          UPDATE customers 
-          SET 
-            lifetime_earnings = lifetime_earnings + $1,
-            daily_earnings = $1,
-            monthly_earnings = $1,
-            tier = $2,
-            last_earned_date = NOW(),
-            updated_at = NOW()
-          WHERE address = $3
-        `;
-      } else if (isNewDay) {
-        // Reset only daily
-        query = `
-          UPDATE customers 
-          SET 
-            lifetime_earnings = lifetime_earnings + $1,
-            daily_earnings = $1,
-            monthly_earnings = monthly_earnings + $1,
-            tier = $2,
-            last_earned_date = NOW(),
-            updated_at = NOW()
-          WHERE address = $3
-        `;
-      } else {
-        // No reset needed
-        query = `
-          UPDATE customers 
-          SET 
-            lifetime_earnings = lifetime_earnings + $1,
-            daily_earnings = daily_earnings + $1,
-            monthly_earnings = monthly_earnings + $1,
-            tier = $2,
-            last_earned_date = NOW(),
-            updated_at = NOW()
-          WHERE address = $3
-        `;
-      }
+      const query = `
+        UPDATE customers 
+        SET 
+          lifetime_earnings = lifetime_earnings + $1,
+          tier = $2,
+          last_earned_date = NOW(),
+          updated_at = NOW()
+        WHERE address = $3
+      `;
       
       await this.pool.query(query, [amount, newTier, address.toLowerCase()]);
-      logger.info('Customer earnings updated', { address, amount, newTier, isNewDay, isNewMonth });
+      logger.info('Customer earnings updated', { address, amount, newTier });
     } catch (error) {
       logger.error('Error updating customer earnings:', error);
       throw new Error('Failed to update customer earnings');
@@ -440,8 +382,6 @@ export class CustomerRepository extends BaseRepository {
         phone: row.phone,
         tier: row.tier,
         lifetimeEarnings: parseFloat(row.lifetime_earnings),
-        dailyEarnings: parseFloat(row.daily_earnings || 0),
-        monthlyEarnings: parseFloat(row.monthly_earnings),
         lastEarnedDate: row.last_earned_date ? new Date(row.last_earned_date).toISOString() : new Date().toISOString(),
         joinDate: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
         isActive: row.is_active,
@@ -483,8 +423,6 @@ export class CustomerRepository extends BaseRepository {
         phone: row.phone,
         tier: row.tier,
         lifetimeEarnings: parseFloat(row.lifetime_earnings),
-        dailyEarnings: parseFloat(row.daily_earnings || 0),
-        monthlyEarnings: parseFloat(row.monthly_earnings),
         lastEarnedDate: row.last_earned_date,
         joinDate: row.join_date,
         isActive: row.is_active,
@@ -501,19 +439,4 @@ export class CustomerRepository extends BaseRepository {
     }
   }
 
-  async resetMonthlyEarnings(): Promise<void> {
-    try {
-      const query = `
-        UPDATE customers 
-        SET monthly_earnings = 0, updated_at = NOW()
-        WHERE monthly_earnings > 0
-      `;
-      
-      const result = await this.pool.query(query);
-      logger.info(`Monthly earnings reset for ${result.rowCount} customers`);
-    } catch (error) {
-      logger.error('Error resetting monthly earnings:', error);
-      throw new Error('Failed to reset monthly earnings');
-    }
-  }
 }

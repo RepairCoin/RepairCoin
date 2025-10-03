@@ -1205,8 +1205,6 @@ router.post('/:shopId/issue-reward',
             email: '',
             tier: 'BRONZE',
             lifetimeEarnings: 0,
-            dailyEarnings: 0,
-            monthlyEarnings: 0,
             referralCount: 0,
             referralCode: `REF_${customerAddress.slice(-8).toUpperCase()}`,
             joinDate: new Date().toISOString(),
@@ -1254,17 +1252,17 @@ router.post('/:shopId/issue-reward',
         }
       }
 
-      // Get tier bonus based on customer tier
+      // Get tier bonus based on customer tier - updated values
       let tierBonus = 0;
       switch (customer.tier) {
         case 'BRONZE':
-          tierBonus = 10;
+          tierBonus = 0;  // No bonus for Bronze
           break;
         case 'SILVER':
-          tierBonus = 20;
+          tierBonus = 2;  // +2 RCN for Silver
           break;
         case 'GOLD':
-          tierBonus = 30;
+          tierBonus = 5;  // +5 RCN for Gold
           break;
       }
       const totalReward = skipTierBonus ? baseReward : baseReward + tierBonus;
@@ -1285,45 +1283,7 @@ router.post('/:shopId/issue-reward',
         });
       }
 
-      // Check customer daily/monthly limits
-      const dailyLimit = 50;
-      const monthlyLimit = 500;
-      
-      // Check if it's a new day and reset daily earnings accordingly
-      const today = new Date().toISOString().split('T')[0];
-      const customerLastEarnedDateOnly = customer.lastEarnedDate ? customer.lastEarnedDate.split('T')[0] : '';
-      const effectiveDailyEarnings = (customerLastEarnedDateOnly === today) ? customer.dailyEarnings : 0;
-      
-      if (effectiveDailyEarnings + baseReward > dailyLimit) {
-        return res.status(400).json({
-          success: false,
-          error: 'Customer daily earning limit exceeded',
-          data: {
-            dailyLimit,
-            currentDaily: effectiveDailyEarnings,
-            attempted: baseReward
-          }
-        });
-      }
-
-      // Check if it's a new month and reset monthly earnings accordingly
-      const currentDate = new Date();
-      const lastEarnedDate = new Date(customer.lastEarnedDate);
-      const sameMonth = (currentDate.getMonth() === lastEarnedDate.getMonth() && 
-                        currentDate.getFullYear() === lastEarnedDate.getFullYear());
-      const effectiveMonthlyEarnings = sameMonth ? customer.monthlyEarnings : 0;
-      
-      if (effectiveMonthlyEarnings + baseReward > monthlyLimit) {
-        return res.status(400).json({
-          success: false,
-          error: 'Customer monthly earning limit exceeded',
-          data: {
-            monthlyLimit,
-            currentMonthly: effectiveMonthlyEarnings,
-            attempted: baseReward
-          }
-        });
-      }
+      // No earning limits - customers can earn unlimited RCN
 
       // Process the reward - Transfer tokens on-chain AND deduct from shop's balance
       let transactionHash = `offchain_${Date.now()}`;
