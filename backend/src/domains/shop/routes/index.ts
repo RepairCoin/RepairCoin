@@ -8,7 +8,7 @@ import {
   transactionRepository,
   redemptionSessionRepository 
 } from '../../../repositories';
-import { TokenMinter, getTokenMinter } from '../../../contracts/TokenMinter';
+import { TokenMinter } from '../../../contracts/TokenMinter';
 import { TierManager } from '../../../contracts/TierManager';
 import { logger } from '../../../utils/logger';
 import { RoleValidator } from '../../../utils/roleValidator';
@@ -65,9 +65,9 @@ let referralService: ReferralService | null = null;
 
 const getTokenMinter = (): TokenMinter => {
   if (!tokenMinter) {
-    tokenMinter = new TokenMinter();
-    console.log('Created new TokenMinter instance:', tokenMinter);
-    console.log('transferTokens method exists?', typeof tokenMinter.transferTokens);
+    // Import getTokenMinter from the module to use singleton
+    const { getTokenMinter: getTokenMinterInstance } = require('../../../contracts/TokenMinter');
+    tokenMinter = getTokenMinterInstance();
   }
   return tokenMinter;
 };
