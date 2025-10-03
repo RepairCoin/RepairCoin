@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useActiveAccount } from "thirdweb/react";
 import { customerApi } from '../services/api/customer';
 import { showToast } from '../utils/toast';
-import { useCustomerStore, type CustomerData, type EarnedBalanceData, type TransactionHistory } from '@/stores/customerStore';
+import { useCustomerStore, type CustomerData, type BalanceData, type TransactionHistory } from '@/stores/customerStore';
 
 interface RegistrationFormData {
   name: string;
@@ -22,7 +22,7 @@ interface UseCustomerReturn {
   
   // Customer data from store
   customerData: CustomerData | null;
-  earnedBalanceData: EarnedBalanceData | null;
+  balanceData: BalanceData | null;
   transactions: TransactionHistory[];
   blockchainBalance: number;
   isLoading: boolean;
@@ -47,7 +47,7 @@ export const useCustomer = (): UseCustomerReturn => {
   // Get data from Zustand store
   const {
     customerData,
-    earnedBalanceData,
+    balanceData,
     transactions,
     blockchainBalance,
     isLoading,
@@ -170,7 +170,7 @@ export const useCustomer = (): UseCustomerReturn => {
     
     // Customer data from store
     customerData,
-    earnedBalanceData,
+    balanceData,
     transactions,
     blockchainBalance,
     isLoading,

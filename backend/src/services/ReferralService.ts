@@ -202,9 +202,8 @@ export class ReferralService {
       
       return {
         totalBalance: blockchainBalance,
-        earnedBalance: breakdown.earned,
-        marketBalance: breakdown.marketBought,
-        redeemableBalance: breakdown.earned, // Only earned RCN can be redeemed
+        availableBalance: breakdown.earned,
+        redeemableBalance: breakdown.earned, // All earned RCN can be redeemed
         homeShop,
         breakdownByShop: breakdown.byShop,
         breakdownByType: breakdown.byType,

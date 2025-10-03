@@ -1,13 +1,15 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useActiveAccount } from "thirdweb/react";
+import { useActiveAccount, useSendTransaction } from "thirdweb/react";
 import { CheckCircle, XCircle, Clock, QrCode, Info } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { QRCodeModal } from "../QRCodeModal";
 import { DataTable, type Column } from "../ui/DataTable";
 import { DashboardHeader } from "../ui/DashboardHeader";
 import { useCustomer } from "@/hooks/useCustomer";
+import { createThirdwebClient, getContract, prepareContractCall } from "thirdweb";
+import { baseSepolia } from "thirdweb/chains";
 
 interface RedemptionSession {
   sessionId: string;
@@ -20,7 +22,7 @@ interface RedemptionSession {
 
 export function RedemptionApprovals() {
   const account = useActiveAccount();
-  const { earnedBalanceData } = useCustomer();
+  const { balanceData } = useCustomer();
   const [sessions, setSessions] = useState<RedemptionSession[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -39,6 +41,24 @@ export function RedemptionApprovals() {
   
   // For showing approved session QR
   const [selectedApprovedSession, setSelectedApprovedSession] = useState<RedemptionSession | null>(null);
+  
+  // Thirdweb setup for contract interactions
+  const client = createThirdwebClient({
+    clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "1969ac335e07ba13ad0f8d1a1de4f6ab",
+  });
+  
+  const contract = getContract({
+    client,
+    chain: baseSepolia,
+    address: (process.env.NEXT_PUBLIC_RCN_CONTRACT_ADDRESS ||
+      process.env.NEXT_PUBLIC_CONTRACT_ADDRESS ||
+      "0xBFE793d78B6B83859b528F191bd6F2b8555D951C") as `0x${string}`,
+  });
+  
+  const { mutate: sendTransaction } = useSendTransaction();
+  
+  // Admin wallet address for token approval
+  const ADMIN_WALLET = "0x761E5E59485ec6feb263320f5d636042bD9EBc8c";
 
   useEffect(() => {
     if (account?.address) {
@@ -106,6 +126,49 @@ export function RedemptionApprovals() {
     setProcessing(sessionId);
 
     try {
+      // Find the session to get the amount
+      const session = sessions.find(s => s.sessionId === sessionId);
+      if (!session) {
+        toast.error("Session not found");
+        return;
+      }
+
+      const amount = session.amount;
+      const amountInWei = BigInt(amount * 10 ** 18);
+
+      toast.loading("Step 1: Approving token spending...", { id: "approval-process" });
+
+      // Step 1: Approve the admin wallet to spend customer's tokens
+      const approvalTx = prepareContractCall({
+        contract,
+        method: "function approve(address spender, uint256 amount) returns (bool)",
+        params: [ADMIN_WALLET, amountInWei],
+      });
+
+      console.log("Prepared approval transaction:", {
+        contract: contract.address,
+        spender: ADMIN_WALLET,
+        amount: amount,
+        amountInWei: amountInWei.toString(),
+      });
+
+      // Wait for customer to approve the transaction
+      await new Promise((resolve, reject) => {
+        sendTransaction(approvalTx, {
+          onSuccess: (result) => {
+            console.log("Approval transaction successful:", result.transactionHash);
+            toast.loading("Step 2: Processing redemption...", { id: "approval-process" });
+            resolve(result);
+          },
+          onError: (error) => {
+            console.error("Approval transaction failed:", error);
+            toast.error("Token approval cancelled or failed", { id: "approval-process" });
+            reject(error);
+          },
+        });
+      });
+
+      // Step 2: Proceed with backend redemption approval
       const message = JSON.stringify({
         action: "approve_redemption",
         sessionId,
@@ -132,14 +195,18 @@ export function RedemptionApprovals() {
       );
 
       if (response.ok) {
-        toast.success("Redemption approved successfully");
+        toast.success("Redemption completed! Tokens have been burned from your wallet.", { 
+          id: "approval-process",
+          duration: 4000 
+        });
         await loadSessions();
       } else {
         const error = await response.json();
-        toast.error(error.error || "Failed to approve redemption");
+        toast.error(error.error || "Failed to complete redemption", { id: "approval-process" });
       }
     } catch (error) {
-      toast.error("Failed to approve redemption");
+      console.error("Approval process error:", error);
+      toast.error("Failed to complete redemption process", { id: "approval-process" });
     } finally {
       setProcessing(null);
     }
@@ -412,13 +479,13 @@ export function RedemptionApprovals() {
       )}
 
       {/* Balance Info */}
-      {earnedBalanceData && (
+      {balanceData && (
         <div className="bg-[#212121] border border-gray-700 rounded-xl p-4">
           <div className="flex items-start gap-3">
             <Info className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
             <div className="text-sm text-gray-300">
-              <p className="font-semibold text-white mb-1">Available Balance: {earnedBalanceData.earnedBalance} RCN</p>
-              <p>You can only approve redemptions up to your available balance. Each shop has per-transaction limits based on your tier.</p>
+              <p className="font-semibold text-white mb-1">Available Balance: {balanceData.availableBalance} RCN</p>
+              <p>You can redeem your full RCN balance at any participating shop (earned from repairs or received from others).</p>
             </div>
           </div>
         </div>
@@ -549,7 +616,7 @@ export function RedemptionApprovals() {
               ? `Show this QR to redeem ${selectedApprovedSession.amount} RCN at ${selectedApprovedSession.shopId}`
               : `Redeem ${qrAmount} RCN at ${shops.find(s => s.shopId === qrShopId)?.name || qrShopId}`
           }
-          shareableLink={sessionId ? `${window.location.origin}/redeem/${sessionId}` : undefined}
+          shareableLink={generatedQR}
         />
       )}
     </div>

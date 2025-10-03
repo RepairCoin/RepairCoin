@@ -5,18 +5,15 @@ import { logger } from '../../../utils/logger';
 
 export interface VerificationResult {
   canRedeem: boolean;
-  earnedBalance: number;
-  totalBalance: number;
+  availableBalance: number;
   maxRedeemable: number;
   isHomeShop: boolean;
   crossShopLimit: number;
   message: string;
 }
 
-export interface EarnedBalanceInfo {
-  earnedBalance: number;
-  totalBalance: number;
-  marketBalance: number;
+export interface BalanceInfo {
+  availableBalance: number;
   lifetimeEarned: number;
   totalRedeemed: number;
   earningHistory: {
@@ -48,11 +45,11 @@ export interface EarningSources {
  * Centralized Verification Service
  * 
  * This service implements the core business logic for verifying RCN redemptions.
- * Customers can redeem their earned RCN at any participating shop without restrictions.
+ * Customers can redeem ALL their RCN at any participating shop without restrictions.
  * 
  * Key Rules:
- * - 100% of earned RCN can be redeemed at any participating shop
- * - Market-bought RCN cannot be redeemed at any shop (customers cannot buy RCN)
+ * - 100% of customer's RCN balance can be redeemed at any participating shop
+ * - Includes RCN earned from repairs AND received from other customers
  * - No cross-shop redemption limits
  */
 export class VerificationService {
@@ -85,8 +82,7 @@ export class VerificationService {
       if (!shop.active || !shop.verified) {
         return {
           canRedeem: false,
-          earnedBalance: 0,
-          totalBalance: 0,
+          availableBalance: 0,
           maxRedeemable: 0,
           isHomeShop: false,
           crossShopLimit: 0,
@@ -94,11 +90,8 @@ export class VerificationService {
         };
       }
 
-      // Get earned balance (only redeemable tokens)
-      const earnedBalance = await this.calculateEarnedBalance(customerAddress);
-      
-      // Get total balance (includes market-bought tokens)
-      const totalBalance = customer.lifetimeEarnings || 0;
+      // Calculate available balance: lifetime earnings minus total redemptions
+      const availableBalance = await this.calculateAvailableBalance(customerAddress);
 
       // Determine if this is the customer's home shop (where they earn most RCN)
       const isHomeShop = await this.isCustomerHomeShop(customerAddress, shopId);
@@ -106,8 +99,8 @@ export class VerificationService {
       // No tier-based redemption limits - removed per new requirements
 
       // Calculate maximum redeemable amount
-      // No cross-shop restrictions - customers can redeem their full earned balance at any shop
-      let maxRedeemable = earnedBalance;
+      // Customers can redeem their full balance at any shop
+      let maxRedeemable = availableBalance;
       let crossShopLimit = 0; // No limit
 
       // Check if requested amount can be redeemed
@@ -118,7 +111,7 @@ export class VerificationService {
         message = `Redemption approved for ${requestedAmount} RCN`;
       } else if (requestedAmount > maxRedeemable) {
         // Only balance limit applies now
-        message = `Insufficient earned balance. Available: ${earnedBalance} RCN`;
+        message = `Insufficient balance. Available: ${availableBalance} RCN`;
       } else if (requestedAmount <= 0) {
         message = 'Invalid redemption amount';
       } else {
@@ -130,15 +123,14 @@ export class VerificationService {
         shopId,
         requestedAmount,
         canRedeem,
-        earnedBalance,
+        availableBalance,
         maxRedeemable,
         isHomeShop
       });
 
       return {
         canRedeem,
-        earnedBalance,
-        totalBalance,
+        availableBalance,
         maxRedeemable,
         isHomeShop,
         crossShopLimit,
@@ -152,17 +144,18 @@ export class VerificationService {
   }
 
   /**
-   * Get customer's earned balance (excludes market-bought tokens)
+   * Get customer's balance information
+   * All RCN is redeemable regardless of source (earned, received from others, etc)
    */
-  async getEarnedBalance(customerAddress: string): Promise<EarnedBalanceInfo> {
+  async getBalance(customerAddress: string): Promise<BalanceInfo> {
     try {
       const customer = await customerRepository.getCustomer(customerAddress);
       if (!customer) {
         throw new Error('Customer not found');
       }
 
-      // Always use customer's lifetime earnings as the source of truth
-      // The transactions table may be incomplete for historical data
+      // Use available balance calculation
+      const currentBalance = await this.calculateAvailableBalance(customerAddress);
       let rcnBreakdown = { 
         earned: customer.lifetimeEarnings || 0, 
         marketBought: 0, 
@@ -193,11 +186,9 @@ export class VerificationService {
         logger.warn('Failed to get redemption history', error);
       }
       
-      // Calculate balances safely
-      const earnedBalance = Math.max(0, (rcnBreakdown.earned || 0) - totalRedeemed);
-      // Customers cannot buy tokens, only earn them
-      const marketBalance = 0;
-      const totalBalance = earnedBalance;
+      // Use the customer's lifetime earnings as available balance
+      // All RCN is redeemable regardless of how it was obtained
+      const availableBalance = currentBalance;
 
       // Get earning breakdown by type with safe access
       const earningHistory = {
@@ -208,9 +199,7 @@ export class VerificationService {
       };
 
       return {
-        earnedBalance,
-        totalBalance,
-        marketBalance,
+        availableBalance,
         lifetimeEarned: rcnBreakdown.earned || 0,
         totalRedeemed,
         earningHistory
@@ -220,9 +209,7 @@ export class VerificationService {
       logger.error('Error getting earned balance:', error);
       // Return safe default values instead of throwing
       return {
-        earnedBalance: 0,
-        totalBalance: 0,
-        marketBalance: 0,
+        availableBalance: 0,
         lifetimeEarned: 0,
         totalRedeemed: 0,
         earningHistory: {
@@ -326,8 +313,7 @@ export class VerificationService {
           } catch (error) {
             return {
               canRedeem: false,
-              earnedBalance: 0,
-              totalBalance: 0,
+              availableBalance: 0,
               maxRedeemable: 0,
               isHomeShop: false,
               crossShopLimit: 0,
@@ -347,31 +333,37 @@ export class VerificationService {
   }
 
   /**
-   * Calculate earned balance from transaction history
-   * Excludes any tokens that might have been purchased on market
+   * Calculate customer's available balance
+   * Returns lifetime earnings minus total redemptions
    */
-  private async calculateEarnedBalance(customerAddress: string): Promise<number> {
+  private async calculateAvailableBalance(customerAddress: string): Promise<number> {
     try {
-      // Use the new ReferralRepository to get accurate earned balance
-      const rcnBreakdown = await this.referralRepository.getCustomerRcnBySource(customerAddress);
-      
-      // Get redemptions to subtract from earned balance
-      const transactions = await transactionRepository.getTransactionsByCustomer(customerAddress, 1000);
-      let totalRedeemed = 0;
-      
-      for (const tx of transactions) {
-        if (tx.type === 'redeem') {
-          totalRedeemed += tx.amount;
-        }
+      // Get customer's lifetime earnings
+      const customer = await customerRepository.getCustomer(customerAddress);
+      if (!customer) {
+        return 0;
       }
       
-      // Earned balance is all redeemable RCN minus redemptions
-      const earnedBalance = rcnBreakdown.earned - totalRedeemed;
+      const lifetimeEarnings = customer.lifetimeEarnings || 0;
       
-      return Math.max(0, earnedBalance);
+      // Get total redemptions from transactions
+      let totalRedeemed = 0;
+      try {
+        const transactions = await transactionRepository.getTransactionsByCustomer(customerAddress, 1000);
+        for (const tx of transactions) {
+          if (tx.type === 'redeem') {
+            totalRedeemed += tx.amount;
+          }
+        }
+      } catch (error) {
+        logger.warn('Failed to get redemption history for balance calculation', error);
+      }
+      
+      // Available balance = lifetime earnings - total redeemed
+      return Math.max(0, lifetimeEarnings - totalRedeemed);
 
     } catch (error) {
-      logger.error('Error calculating earned balance:', error);
+      logger.error('Error calculating available balance:', error);
       return 0;
     }
   }

@@ -11,6 +11,7 @@ export interface CustomerData {
   phone?: string;
   isActive: boolean;
   lifetimeEarnings: number;
+  currentBalance?: number;
   tier: TierLevel;
   lastEarnedDate: string;
   referralCount: number;

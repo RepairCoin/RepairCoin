@@ -71,12 +71,12 @@ const buildQueryString = (params: Record<string, any>): string => {
 };
 
 // Balance & Earnings
-export const getEarnedBalance = async (address: string): Promise<BalanceData | null> => {
+export const getBalance = async (address: string): Promise<BalanceData | null> => {
   try {
-    const response = await apiClient.get<BalanceData>(`/tokens/earned-balance/${address}`);
+    const response = await apiClient.get<BalanceData>(`/tokens/balance/${address}`);
     return response.data || null;
   } catch (error) {
-    console.error('Error getting earned balance:', error);
+    console.error('Error getting balance:', error);
     return null;
   }
 };
@@ -181,7 +181,7 @@ export const getCrossShopBalance = async (customerAddress: string): Promise<{
 // RCN Breakdown
 export const getRcnBreakdown = async (customerAddress: string): Promise<{
   onChainBalance: number;
-  earnedBalance: number;
+  availableBalance: number;
   referralBalance: number;
   bonusBalance: number;
   redeemedAmount: number;
@@ -191,7 +191,7 @@ export const getRcnBreakdown = async (customerAddress: string): Promise<{
   try {
     const response = await apiClient.get<{
       onChainBalance: number;
-      earnedBalance: number;
+      availableBalance: number;
       referralBalance: number;
       bonusBalance: number;
       redeemedAmount: number;

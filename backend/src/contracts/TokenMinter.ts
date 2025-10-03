@@ -191,7 +191,7 @@ export class TokenMinter {
     return this.processRedemption(customerAddress, '', amount, shopId, reason);
   }
 
-  // Burn tokens from customer wallet for redemption
+  // Burn tokens from customer wallet for redemption (requires customer approval)
   async burnTokensFromCustomer(
     customerAddress: string,
     amount: number,
@@ -218,42 +218,73 @@ export class TokenMinter {
       }
 
       const contract = await this.getContract();
+      const BURN_ADDRESS = burnAddress || '0x000000000000000000000000000000000000dEaD';
 
-      // Since we can't transfer from customer wallet without approval,
-      // we'll simulate burn by transferring equivalent amount from admin to burn address
-      // This maintains the total supply integrity
+      // Try to use burnFrom if customer has approved admin to burn tokens
       try {
-        const BURN_ADDRESS = burnAddress || '0x000000000000000000000000000000000000dEaD';
+        console.log(`🔥 Attempting direct burn from customer wallet...`);
         
-        const transferTx = prepareContractCall({
+        const burnTx = prepareContractCall({
           contract,
-          method: "function transfer(address to, uint256 amount) returns (bool)",
-          params: [BURN_ADDRESS, BigInt(amount * 10 ** 18)]
+          method: "function burnFrom(address account, uint256 amount)",
+          params: [customerAddress, BigInt(amount * 10 ** 18)]
         });
         
         const result = await sendTransaction({
-          transaction: transferTx,
+          transaction: burnTx,
           account: this.account,
         });
         
-        console.log(`✅ Burned ${amount} RCN by transferring to burn address`);
+        console.log(`✅ Successfully burned ${amount} RCN from customer wallet`);
         console.log(`📝 Transaction hash: ${result.transactionHash}`);
         
         return {
           success: true,
           tokensToMint: -amount,
           transactionHash: result.transactionHash,
-          message: `Successfully burned ${amount} RCN for redemption`,
+          message: `Successfully burned ${amount} RCN from customer wallet`,
           timestamp: new Date().toISOString()
         };
-      } catch (transferError: any) {
-        console.error('Transfer to burn address error:', transferError);
         
-        return {
-          success: false,
-          error: transferError.message || 'Failed to burn tokens',
-          message: `Burn failed: ${transferError.message || 'Unknown error'}`
-        };
+      } catch (burnError: any) {
+        console.log(`❌ Direct burn failed: ${burnError.message}`);
+        
+        // If burnFrom fails, try transferFrom (if approved) to burn address
+        try {
+          console.log(`🔥 Attempting transfer from customer to burn address...`);
+          
+          const transferTx = prepareContractCall({
+            contract,
+            method: "function transferFrom(address from, address to, uint256 amount) returns (bool)",
+            params: [customerAddress, BURN_ADDRESS, BigInt(amount * 10 ** 18)]
+          });
+          
+          const result = await sendTransaction({
+            transaction: transferTx,
+            account: this.account,
+          });
+          
+          console.log(`✅ Successfully transferred ${amount} RCN from customer to burn address`);
+          console.log(`📝 Transaction hash: ${result.transactionHash}`);
+          
+          return {
+            success: true,
+            tokensToMint: -amount,
+            transactionHash: result.transactionHash,
+            message: `Successfully burned ${amount} RCN from customer wallet via transfer`,
+            timestamp: new Date().toISOString()
+          };
+          
+        } catch (transferError: any) {
+          console.log(`❌ Transfer from customer failed: ${transferError.message}`);
+          
+          // Return error indicating customer needs to approve
+          return {
+            success: false,
+            error: "Customer approval required",
+            message: `Customer must approve token burning. Please approve the admin wallet to spend your tokens.`
+          };
+        }
       }
 
     } catch (error: any) {

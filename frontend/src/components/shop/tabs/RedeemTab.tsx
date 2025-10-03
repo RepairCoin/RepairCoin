@@ -9,8 +9,7 @@ interface RedeemTabProps {
 
 interface VerificationResult {
   canRedeem: boolean;
-  earnedBalance: number;
-  marketBalance: number;
+  availableBalance: number;
   isHomeShop: boolean;
   maxRedeemable: number;
   message?: string;
@@ -190,7 +189,7 @@ export const RedeemTab: React.FC<RedeemTabProps> = ({ shopId, onRedemptionComple
                 </h3>
                 <div className="space-y-1 text-sm">
                   <p className="text-gray-700">
-                    <span className="font-medium">Earned Balance:</span> {verificationResult.earnedBalance} RCN
+                    <span className="font-medium">Available Balance:</span> {verificationResult.availableBalance} RCN
                   </p>
                   <p className="text-gray-700">
                     <span className="font-medium">Market Balance:</span> {verificationResult.marketBalance} RCN

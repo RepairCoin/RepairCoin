@@ -119,10 +119,10 @@ router.post('/verify-redemption',
 
 /**
  * @swagger
- * /api/tokens/earned-balance/{address}:
+ * /api/tokens/balance/{address}:
  *   get:
- *     summary: Get customer's earned (redeemable) RCN balance
- *     description: Returns only RCN earned from repairs, referrals, and shop bonuses
+ *     summary: Get customer's available RCN balance
+ *     description: Returns customer's available balance for redemption
  *     tags: [Token Verification]
  *     parameters:
  *       - in: path
@@ -145,15 +145,9 @@ router.post('/verify-redemption',
  *                 data:
  *                   type: object
  *                   properties:
- *                     earnedBalance:
+ *                     availableBalance:
  *                       type: number
- *                       description: Available RCN balance earned from shops (after redemptions)
- *                     totalBalance:
- *                       type: number
- *                       description: Total RCN balance (including market-bought)
- *                     marketBalance:
- *                       type: number
- *                       description: RCN bought on market (not redeemable)
+ *                       description: Available RCN balance for redemption
  *                     lifetimeEarned:
  *                       type: number
  *                       description: Total RCN earned from shops (before redemptions)
@@ -176,7 +170,7 @@ router.post('/verify-redemption',
  *       500:
  *         description: Internal server error
  */
-router.get('/earned-balance/:address',
+router.get('/balance/:address',
   async (req: Request, res: Response) => {
     try {
       const { address } = req.params;
@@ -189,7 +183,7 @@ router.get('/earned-balance/:address',
         });
       }
 
-      const balanceInfo = await verificationService.getEarnedBalance(address);
+      const balanceInfo = await verificationService.getBalance(address);
 
       res.json({
         success: true,
@@ -197,10 +191,10 @@ router.get('/earned-balance/:address',
       });
 
     } catch (error) {
-      logger.error('Error getting earned balance:', error);
+      logger.error('Error getting balance:', error);
       res.status(error instanceof Error && error.message.includes('not found') ? 404 : 500).json({
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to get earned balance'
+        error: error instanceof Error ? error.message : 'Failed to get balance'
       });
     }
   }

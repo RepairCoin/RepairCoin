@@ -829,8 +829,7 @@ router.post('/:shopId/redeem',
           success: false,
           error: verification.message,
           data: {
-            earnedBalance: verification.earnedBalance,
-            totalBalance: verification.totalBalance,
+            availableBalance: verification.availableBalance,
             maxRedeemable: verification.maxRedeemable,
             isHomeShop: verification.isHomeShop,
             crossShopLimit: verification.crossShopLimit
@@ -839,8 +838,8 @@ router.post('/:shopId/redeem',
       }
 
       // Get current balance for transaction processing
-      // Use the verification service's calculated earned balance which already accounts for redemptions
-      const currentBalance = verification.earnedBalance;
+      // Use the verification service's calculated available balance which already accounts for redemptions
+      const currentBalance = verification.availableBalance;
       const isHomeShop = verification.isHomeShop;
 
       // Attempt to burn tokens from customer's wallet

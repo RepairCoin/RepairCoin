@@ -22,10 +22,8 @@ export interface CustomerData {
   twoFactorEnabled?: boolean;
 }
 
-export interface EarnedBalanceData {
-  earnedBalance: number;
-  marketBalance: number;
-  totalBalance: number;
+export interface BalanceData {
+  availableBalance: number;
   lifetimeEarned: number;
   totalRedeemed: number;
   earningHistory?: {
@@ -50,7 +48,7 @@ export interface TransactionHistory {
 export interface CustomerStore {
   // Data
   customerData: CustomerData | null;
-  earnedBalanceData: EarnedBalanceData | null;
+  balanceData: BalanceData | null;
   transactions: TransactionHistory[];
   blockchainBalance: number;
   
@@ -60,7 +58,7 @@ export interface CustomerStore {
   
   // Actions
   setCustomerData: (data: CustomerData | null) => void;
-  setEarnedBalanceData: (data: EarnedBalanceData | null) => void;
+  setBalanceData: (data: BalanceData | null) => void;
   setTransactions: (transactions: TransactionHistory[]) => void;
   setBlockchainBalance: (balance: number) => void;
   setLoading: (loading: boolean) => void;
@@ -78,7 +76,7 @@ export const useCustomerStore = create<CustomerStore>()(
     (set, get) => ({
       // Initial state
       customerData: null,
-      earnedBalanceData: null,
+      balanceData: null,
       transactions: [],
       blockchainBalance: 0,
       isLoading: false,
@@ -86,20 +84,18 @@ export const useCustomerStore = create<CustomerStore>()(
 
       // Setters
       setCustomerData: (data) => set({ customerData: data }),
-      setEarnedBalanceData: (data) => {
+      setBalanceData: (data) => {
         if (data) {
           // Round all numeric values to 2 decimal places
           const roundedData = {
             ...data,
-            earnedBalance: Math.round(data.earnedBalance * 100) / 100,
-            marketBalance: Math.round(data.marketBalance * 100) / 100,
-            totalBalance: Math.round(data.totalBalance * 100) / 100,
+            availableBalance: Math.round(data.availableBalance * 100) / 100,
             lifetimeEarned: Math.round(data.lifetimeEarned * 100) / 100,
             totalRedeemed: Math.round(data.totalRedeemed * 100) / 100,
           };
-          set({ earnedBalanceData: roundedData });
+          set({ balanceData: roundedData });
         } else {
-          set({ earnedBalanceData: data });
+          set({ balanceData: data });
         }
       },
       setTransactions: (transactions) => {
@@ -117,7 +113,7 @@ export const useCustomerStore = create<CustomerStore>()(
       // Clear cache
       clearCache: () => set({
         customerData: null,
-        earnedBalanceData: null,
+        balanceData: null,
         transactions: [],
         blockchainBalance: 0,
         error: null,
@@ -177,9 +173,9 @@ export const useCustomerStore = create<CustomerStore>()(
             }
           }
 
-          // Fetch earned balance data
+          // Fetch balance data
           const balanceResponse = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/tokens/earned-balance/${address}`
+            `${process.env.NEXT_PUBLIC_API_URL}/tokens/balance/${address}`
           );
           if (balanceResponse.ok) {
             const balanceResult = await balanceResponse.json();
@@ -188,15 +184,13 @@ export const useCustomerStore = create<CustomerStore>()(
             if (data) {
               const roundedData = {
                 ...data,
-                earnedBalance: Math.round(data.earnedBalance * 100) / 100,
-                marketBalance: Math.round(data.marketBalance * 100) / 100,
-                totalBalance: Math.round(data.totalBalance * 100) / 100,
+                availableBalance: Math.round(data.availableBalance * 100) / 100,
                 lifetimeEarned: Math.round(data.lifetimeEarned * 100) / 100,
                 totalRedeemed: Math.round(data.totalRedeemed * 100) / 100,
               };
-              set({ earnedBalanceData: roundedData });
+              get().setBalanceData(roundedData);
             } else {
-              set({ earnedBalanceData: data });
+              get().setBalanceData(data);
             }
           }
 

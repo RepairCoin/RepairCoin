@@ -96,6 +96,7 @@ export class CustomerRepository extends BaseRepository {
         phone: row.phone,
         tier: row.tier,
         lifetimeEarnings: parseFloat(row.lifetime_earnings),
+        currentBalance: row.current_balance ? parseFloat(row.current_balance) : 0,
         lastEarnedDate: row.last_earned_date ? new Date(row.last_earned_date).toISOString() : new Date().toISOString(),
         joinDate: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
         isActive: row.is_active,
@@ -130,6 +131,7 @@ export class CustomerRepository extends BaseRepository {
         phone: row.phone,
         tier: row.tier,
         lifetimeEarnings: parseFloat(row.lifetime_earnings),
+        currentBalance: row.current_balance ? parseFloat(row.current_balance) : 0,
         lastEarnedDate: row.last_earned_date ? new Date(row.last_earned_date).toISOString() : new Date().toISOString(),
         joinDate: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
         isActive: row.is_active,
@@ -236,12 +238,13 @@ export class CustomerRepository extends BaseRepository {
       const query = `
         UPDATE customers 
         SET total_redemptions = COALESCE(total_redemptions, 0) + $1,
+            lifetime_earnings = GREATEST(0, COALESCE(lifetime_earnings, 0) - $1),
             updated_at = NOW()
         WHERE address = $2
       `;
       
       await this.pool.query(query, [amount, address.toLowerCase()]);
-      logger.info('Customer redemption recorded', { address, amount });
+      logger.info('Customer redemption recorded - balance reduced', { address, amount });
     } catch (error) {
       logger.error('Error updating customer redemption:', error);
       throw new Error('Failed to update customer redemption');

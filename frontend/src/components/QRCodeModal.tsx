@@ -10,7 +10,7 @@ interface QRCodeModalProps {
   qrData: string;
   title?: string;
   description?: string;
-  shareableLink?: string; // Optional shareable link instead of raw QR data
+  shareableLink?: string; // Optional shareable QR data content for copy/paste
 }
 
 // QR Code generation using QR Server API
@@ -101,15 +101,16 @@ export function QRCodeModal({
               </p>
             )}
 
-            {/* Copy Link Section - Only show if there's a shareable link */}
+            {/* Copy QR Data Section - Only show if there's shareable data */}
             {shareableLink && (
-              <div className="mt-4 w-full max-w-xs">
-                <div className="flex items-center gap-2 bg-gray-800 rounded-lg p-2">
-                  <input
-                    type="text"
+              <div className="mt-4 w-full">
+                <p className="text-sm text-gray-300 mb-2 font-semibold">Shareable QR Data:</p>
+                <div className="bg-gray-800 rounded-lg p-3">
+                  <textarea
                     value={shareableLink}
                     readOnly
-                    className="flex-1 bg-transparent text-xs text-gray-400 truncate outline-none"
+                    rows={4}
+                    className="w-full bg-transparent text-xs text-gray-400 outline-none resize-none font-mono"
                     onClick={(e) => e.currentTarget.select()}
                   />
                   <button
@@ -117,31 +118,37 @@ export function QRCodeModal({
                       try {
                         await navigator.clipboard.writeText(shareableLink);
                         setCopied(true);
-                        toast.success("Link copied to clipboard!");
+                        toast.success("QR data copied to clipboard!");
                         setTimeout(() => setCopied(false), 2000);
                       } catch (err) {
-                        toast.error("Failed to copy link");
+                        toast.error("Failed to copy QR data");
                       }
                     }}
-                    className="p-2 bg-[#FFCC00] hover:bg-[#FFD700] text-black rounded-lg transition-colors"
-                    title="Copy link"
+                    className="mt-2 w-full flex items-center justify-center gap-2 p-2 bg-[#FFCC00] hover:bg-[#FFD700] text-black rounded-lg transition-colors"
+                    title="Copy QR data"
                   >
                     {copied ? (
-                      <Check className="w-4 h-4" />
+                      <>
+                        <Check className="w-4 h-4" />
+                        Copied!
+                      </>
                     ) : (
-                      <Copy className="w-4 h-4" />
+                      <>
+                        <Copy className="w-4 h-4" />
+                        Copy QR Data
+                      </>
                     )}
                   </button>
                 </div>
                 <p className="mt-2 text-xs text-gray-500 text-center">
-                  Click to copy the shareable link
+                  Copy this data and paste it directly in the shop's QR input field
                 </p>
               </div>
             )}
 
             {/* Expiry Notice */}
             <p className="mt-4 text-xs text-gray-400 text-center">
-              This QR code expires in 60 seconds
+              This QR code expires in 5 minutes
             </p>
           </div>
         </div>

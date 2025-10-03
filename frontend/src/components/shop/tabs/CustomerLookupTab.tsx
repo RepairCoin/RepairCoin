@@ -8,9 +8,7 @@ interface CustomerData {
   name?: string;
   tier: "BRONZE" | "SILVER" | "GOLD";
   lifetimeEarnings: number;
-  earnedBalance: number;
-  marketBalance: number;
-  totalBalance: number;
+  availableBalance: number;
   isActive: boolean;
   lastEarnedDate?: string;
   homeShopId?: string;
@@ -78,10 +76,8 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
         name: customerInfo?.name,
         tier: customerInfo?.tier || "BRONZE",
         lifetimeEarnings:
-          customerInfo?.lifetimeEarnings || earnedData.data.earnedBalance,
-        earnedBalance: earnedData.data.earnedBalance,
-        marketBalance: earnedData.data.marketBalance,
-        totalBalance: earnedData.data.totalBalance,
+          customerInfo?.lifetimeEarnings || earnedData.data.availableBalance,
+        availableBalance: earnedData.data.availableBalance,
         isActive: customerInfo?.isActive ?? true,
         lastEarnedDate: customerInfo?.lastEarnedDate,
         homeShopId: earnedData.data.homeShopId,
@@ -113,7 +109,7 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
   const getMaxRedeemable = () => {
     if (!customerData) return 0;
     // No cross-shop restrictions - customers can redeem full balance at any shop
-    return customerData.earnedBalance;
+    return customerData.availableBalance;
   };
 
   return (
@@ -474,7 +470,7 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
                           </p>
                         </div>
                         <p className="text-green-400 text-xl font-bold">
-                          {customerData.earnedBalance}
+                          {customerData.availableBalance}
                         </p>
                       </div>
                     </div>

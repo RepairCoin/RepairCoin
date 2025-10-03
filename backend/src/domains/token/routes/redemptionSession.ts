@@ -145,7 +145,7 @@ router.post('/generate-qr',
         success: true,
         data: {
           qrCode,
-          expiresIn: 60, // seconds
+          expiresIn: 300, // 5 minutes in seconds
           message: 'Show this QR code to the shop'
         }
       });
@@ -324,10 +324,16 @@ router.get('/my-sessions',
 
       const sessions = await redemptionSessionService.getCustomerSessions(customerAddress);
 
+      // Filter out customer-generated QR sessions from the approval list
+      const filteredSessions = sessions.filter(s => {
+        const metadata = s.metadata as any;
+        return !(metadata?.qrGenerated === true || metadata?.customerInitiated === true);
+      });
+
       res.json({
         success: true,
         data: {
-          sessions: sessions.map(s => ({
+          sessions: filteredSessions.map(s => ({
             sessionId: s.sessionId,
             shopId: s.shopId,
             amount: s.maxAmount,
@@ -337,7 +343,7 @@ router.get('/my-sessions',
             approvedAt: s.approvedAt,
             usedAt: s.usedAt
           })),
-          pendingCount: sessions.filter(s => s.status === 'pending').length
+          pendingCount: filteredSessions.filter(s => s.status === 'pending').length
         }
       });
 

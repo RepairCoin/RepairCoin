@@ -283,6 +283,13 @@ export class RedemptionSessionRepository extends BaseRepository {
   }
 
   private mapRowToSession(row: any): RedemptionSessionData {
+    let metadata;
+    try {
+      metadata = row.metadata ? JSON.parse(row.metadata) : {};
+    } catch (e) {
+      metadata = {};
+    }
+
     return {
       sessionId: row.session_id,
       customerAddress: row.customer_address,
@@ -295,7 +302,7 @@ export class RedemptionSessionRepository extends BaseRepository {
       usedAt: row.used_at ? new Date(row.used_at) : undefined,
       qrCode: row.qr_code,
       signature: row.signature,
-      metadata: row.metadata
+      metadata: metadata
     };
   }
 }

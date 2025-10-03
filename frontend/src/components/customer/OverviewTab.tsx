@@ -40,7 +40,7 @@ const getNextTier = (currentTier: string) => {
 export const OverviewTab: React.FC = () => {
   const {
     customerData,
-    earnedBalanceData,
+    balanceData,
     transactions,
     blockchainBalance,
     isLoading,
@@ -203,11 +203,11 @@ export const OverviewTab: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
         {/* RCN Balance Card */}
         <StatCard
-          title="RCN Balance"
-          value={`${blockchainBalance || 0} RCN`}
+          title="Available Balance"
+          value={`${balanceData?.availableBalance || 0} RCN`}
           subtitle={
-            earnedBalanceData
-              ? `${earnedBalanceData.lifetimeEarned || 0} earned, ${earnedBalanceData.totalRedeemed || 0} redeemed`
+            balanceData
+              ? `${balanceData.lifetimeEarned || 0} earned, ${balanceData.totalRedeemed || 0} redeemed`
               : undefined
           }
           icon={<WalletIcon />}
@@ -219,7 +219,7 @@ export const OverviewTab: React.FC = () => {
         {/* Total Repairs Card */}
         <StatCard
           title="Tokens Redeemed"
-          value={customerData?.totalRedemptions || 0}
+          value={balanceData?.totalRedeemed || 0}
           icon={<RepairsIcon />}
           titleClassName="text-yellow-400 text-sm md:text-base font-medium"
           valueClassName="text-white text-lg sm:text-xl md:text-2xl font-semibold"
@@ -228,7 +228,7 @@ export const OverviewTab: React.FC = () => {
         {/* Total Repairs Card */}
         <StatCard
           title="Tokens Earned"
-          value={customerData?.lifetimeEarnings || 0}
+          value={balanceData?.lifetimeEarned || 0}
           icon={<RepairsIcon />}
           titleClassName="text-yellow-400 text-sm md:text-base font-medium"
           valueClassName="text-white text-lg sm:text-xl md:text-2xl font-semibold"
