@@ -37,6 +37,8 @@
     "postinstall": "echo 'Development server: npm run dev' && echo 'API Documentation: npm run docs:open'",
     "db:init": "node scripts/init-db.js",
     "db:init:prod": "NODE_ENV=production node scripts/init-db.js",
+    "check-redemptions": "node scripts/check-redemptions.js",
+    "fix-invalid-redemptions": "node scripts/fix-invalid-redemptions.js",
     "db:test": "node scripts/init-db-simple.js",
     "admin": "ts-node src/cli/admin.ts",
     "admin:list": "ts-node src/cli/admin.ts list",

@@ -166,6 +166,25 @@ export class RedemptionSessionService {
       throw new Error('Session has expired');
     }
 
+    // Verify customer has sufficient balance
+    const { verificationService } = await import('./VerificationService');
+    const verification = await verificationService.verifyRedemption(
+      customerAddress,
+      session.shopId,
+      session.maxAmount
+    );
+
+    if (!verification.canRedeem) {
+      logger.warn('Customer attempted to approve redemption with insufficient balance', {
+        sessionId,
+        customerAddress,
+        requestedAmount: session.maxAmount,
+        availableBalance: verification.earnedBalance,
+        message: verification.message
+      });
+      throw new Error(`Cannot approve redemption: ${verification.message}`);
+    }
+
     // TODO: Verify signature
     // const isValidSignature = await this.verifySignature(session, signature);
     // if (!isValidSignature) {

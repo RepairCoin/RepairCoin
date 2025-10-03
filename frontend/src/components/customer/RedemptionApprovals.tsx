@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect } from "react";
 import { useActiveAccount } from "thirdweb/react";
-import { CheckCircle, XCircle, Clock, QrCode } from "lucide-react";
+import { CheckCircle, XCircle, Clock, QrCode, Info } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { QRCodeModal } from "../QRCodeModal";
 import { DataTable, type Column } from "../ui/DataTable";
 import { DashboardHeader } from "../ui/DashboardHeader";
+import { useCustomer } from "@/hooks/useCustomer";
 
 interface RedemptionSession {
   sessionId: string;
@@ -19,6 +20,7 @@ interface RedemptionSession {
 
 export function RedemptionApprovals() {
   const account = useActiveAccount();
+  const { earnedBalanceData } = useCustomer();
   const [sessions, setSessions] = useState<RedemptionSession[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -405,6 +407,19 @@ export function RedemptionApprovals() {
               You have {pendingCount} pending redemption request
               {pendingCount > 1 ? "s" : ""}
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Balance Info */}
+      {earnedBalanceData && (
+        <div className="bg-[#212121] border border-gray-700 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <Info className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
+            <div className="text-sm text-gray-300">
+              <p className="font-semibold text-white mb-1">Available Balance: {earnedBalanceData.earnedBalance} RCN</p>
+              <p>You can only approve redemptions up to your available balance. Each shop has per-transaction limits based on your tier.</p>
+            </div>
           </div>
         </div>
       )}
