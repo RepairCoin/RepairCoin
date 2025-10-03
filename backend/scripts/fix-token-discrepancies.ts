@@ -46,9 +46,8 @@ async function fixTokenDiscrepancies() {
         // Record the admin action in the database
         await pool.query(`
           INSERT INTO transactions (
-            id, type, customer_address, amount, 
-            balance_after, status, reference_id, 
-            blockchain_tx_hash, metadata
+            id, type, customer_address, shop_id, amount, 
+            transaction_hash, status, timestamp, metadata
           ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9
           )
@@ -56,11 +55,11 @@ async function fixTokenDiscrepancies() {
           `admin_fix_${Date.now()}_${customer.address}`,
           'transfer',
           customer.address.toLowerCase(),
+          'admin', // Use 'admin' as shop_id for admin actions
           customer.missingAmount,
-          0, // We don't know the exact balance after
-          'confirmed',
-          'admin_fix_discrepancy',
           result.transactionHash,
+          'confirmed',
+          new Date(),
           JSON.stringify({
             reason: 'Fix token discrepancy',
             shops: customer.shops,
