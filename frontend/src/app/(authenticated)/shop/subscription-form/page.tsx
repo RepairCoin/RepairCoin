@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useActiveAccount } from "thirdweb/react";
 import {
   CreditCard,
   Shield,
@@ -13,6 +14,7 @@ import {
 
 export default function SubscriptionForm() {
   const router = useRouter();
+  const account = useActiveAccount();
   const [formData, setFormData] = useState({
     shopName: "",
     email: "",
@@ -32,6 +34,72 @@ export default function SubscriptionForm() {
   const [subscribing, setSubscribing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [loadingShopData, setLoadingShopData] = useState(false);
+
+  // Load shop data to pre-fill form
+  useEffect(() => {
+    if (account?.address) {
+      loadShopData();
+    }
+  }, [account?.address]);
+
+  const loadShopData = async () => {
+    setLoadingShopData(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+      // First, authenticate and get JWT token
+      const authResponse = await fetch(`${apiUrl}/auth/shop`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ address: account?.address }),
+      });
+
+      if (authResponse.ok) {
+        const authResult = await authResponse.json();
+        // Store token for future requests
+        localStorage.setItem("shopAuthToken", authResult.token);
+        sessionStorage.setItem("shopAuthToken", authResult.token);
+      } else {
+        console.error("Shop auth failed:", authResponse.status);
+        return;
+      }
+
+      // Get auth token for authenticated requests
+      const authToken =
+        localStorage.getItem("shopAuthToken") ||
+        sessionStorage.getItem("shopAuthToken");
+
+      // Load shop data with authentication
+      const shopResponse = await fetch(
+        `${apiUrl}/shops/wallet/${account?.address}`,
+        {
+          cache: "no-store",
+          headers: {
+            Authorization: authToken ? `Bearer ${authToken}` : "",
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (shopResponse.ok) {
+        const shopResult = await shopResponse.json();
+        if (shopResult.success && shopResult.data) {
+          // Pre-fill the shop name in the form
+          setFormData(prev => ({
+            ...prev,
+            shopName: shopResult.data.name || ""
+          }));
+        }
+      }
+    } catch (err) {
+      console.error("Error loading shop data:", err);
+    } finally {
+      setLoadingShopData(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -233,8 +301,9 @@ export default function SubscriptionForm() {
                     value={formData.shopName}
                     onChange={handleInputChange}
                     required
-                    placeholder="Enter your shop name"
-                    className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none transition-colors"
+                    placeholder={loadingShopData ? "Loading your shop name..." : "Enter your shop name"}
+                    disabled={loadingShopData}
+                    className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
 
