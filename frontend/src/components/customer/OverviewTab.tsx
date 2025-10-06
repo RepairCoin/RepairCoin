@@ -196,7 +196,7 @@ export const OverviewTab: React.FC = () => {
     <>
       {/* Header with gradient background */}
       <DashboardHeader
-        title={`Welcome, ${customerData?.name}`}
+        title={`Hello 👋, ${customerData?.name || "Guest"}`}
         subtitle="Overview of your account"
       />
       {/* Stats Grid - Responsive */}
