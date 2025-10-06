@@ -206,11 +206,15 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
                     type="number"
                     min="1"
                     max="100000"
-                    onChange={(e) =>
-                      setPurchaseAmount(
-                        Math.max(1, parseInt(e.target.value) || 1)
-                      )
-                    }
+                    onChange={(e) => {
+                      if(e.target.value) {
+                        setPurchaseAmount(
+                          Math.max(1, parseInt(e.target.value) || 1)
+                        );
+                      } else {
+                        setPurchaseAmount(0);
+                      }
+                    }}
                     placeholder="Enter rcn amount"
                     className="w-full px-6 py-4 bg-[#2F2F2F] border border-gray-700 rounded-xl text-xl font-semibold text-[#FFCC00] placeholder-[#FFCC00] focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent "
                   />
@@ -298,9 +302,9 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
               <button
                 type="button"
                 onClick={onInitiatePurchase}
-                disabled={purchasing || purchaseAmount < 100}
+                disabled={purchasing || purchaseAmount < 1}
                 className={`w-full py-4 px-6 rounded-xl font-semibold transition-all ${
-                  purchasing || purchaseAmount < 100
+                  purchasing || purchaseAmount < 1
                     ? "bg-gray-700 text-gray-400 cursor-not-allowed"
                     : "bg-[#FFCC00] text-[#1A1A1A] hover:bg-[#FFCC00]/90"
                 }`}

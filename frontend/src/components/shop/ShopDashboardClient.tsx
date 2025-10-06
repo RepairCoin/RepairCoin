@@ -91,7 +91,7 @@ export default function ShopDashboardClient() {
   const [activeTab, setActiveTab] = useState<string>("overview");
 
   // Purchase form state
-  const [purchaseAmount, setPurchaseAmount] = useState<number>(1);
+  const [purchaseAmount, setPurchaseAmount] = useState<number>(0);
   const [purchasing, setPurchasing] = useState(false);
 
   // Payment flow state
