@@ -52,7 +52,7 @@ interface ShopCustomer {
   total_transactions: number;
 }
 
-type RedemptionFlow = "standard" | "customer-present";
+type RedemptionFlow = "approval";
 
 export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   shopId,
@@ -60,7 +60,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   onRedemptionComplete,
   setShowOnboardingModal,
 }) => {
-  const [flow, setFlow] = useState<RedemptionFlow>("customer-present");
+  const [flow, setFlow] = useState<RedemptionFlow>("approval");
 
   // Two-factor flow states
   const [customerAddress, setCustomerAddress] = useState("");
@@ -285,7 +285,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
             setSessionStatus("waiting");
             setCustomerAddress(latestSession.customerAddress);
             setRedeemAmount(latestSession.maxAmount);
-            setFlow("standard");
+            setFlow("approval");
 
             // Show notification
             setSuccess(
@@ -580,7 +580,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                     setSessionStatus("waiting");
                     setCustomerAddress(session.customerAddress);
                     setRedeemAmount(session.amount);
-                    setFlow("standard");
+                    setFlow("approval");
                   }}
                   className="px-4 py-2 bg-[#FFCC00] text-black rounded-lg font-medium hover:bg-yellow-400 transition-colors"
                 >
@@ -589,144 +589,17 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
               </div>
             </div>
           )}
-          {/* Method Selection Cards */}
-          <div className="bg-[#212121] rounded-3xl">
-            <div
-              className="w-full flex gap-2 px-4 md:px-8 py-4 text-white rounded-t-3xl"
-              style={{
-                backgroundImage: `url('/img/cust-ref-widget3.png')`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-                backgroundRepeat: "no-repeat",
-              }}
-            >
-              <RedeemIcon width={24} height={24} color={"black"} />
-              <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
-                Select Redeem Method
-              </p>
-            </div>
-            
-            {/* Security Notice */}
-            <div className="bg-blue-900 bg-opacity-20 border border-blue-500 rounded-xl p-4 mx-4 md:mx-8 mb-4">
-              <div className="flex items-start">
-                <Shield className="w-5 h-5 text-blue-500 mt-0.5 mr-3 flex-shrink-0" />
-                <div className="flex-1">
-                  <h4 className="font-semibold text-blue-400 mb-1">Secure Redemption Process</h4>
-                  <p className="text-sm text-blue-300">
-                    For security, all redemptions require customer approval on their own device. 
-                    Even when the customer is present, they must approve the transaction themselves.
-                  </p>
-                </div>
+          {/* Security Notice */}
+          <div className="bg-blue-900 bg-opacity-20 border border-blue-500 rounded-xl p-4">
+            <div className="flex items-start">
+              <Shield className="w-5 h-5 text-blue-500 mt-0.5 mr-3 flex-shrink-0" />
+              <div className="flex-1">
+                <h4 className="font-semibold text-blue-400 mb-1">Secure Redemption Process</h4>
+                <p className="text-sm text-blue-300">
+                  For security, all redemptions require customer approval on their own device. 
+                  Customer must approve the transaction themselves on their phone/device.
+                </p>
               </div>
-            </div>
-            <div className="grid md:grid-cols-2 gap-4 px-4 md:px-8 py-4">
-              {/* Customer Present Flow */}
-              <label className="relative cursor-pointer">
-                <input
-                  type="radio"
-                  name="redemptionFlow"
-                  value="customer-present"
-                  checked={flow === "customer-present"}
-                  onChange={() => setFlow("customer-present")}
-                  className="sr-only"
-                />
-                <div
-                  className={`p-4 rounded-xl border transition-all ${
-                    flow === "customer-present"
-                      ? "bg-[#2F2F2F] bg-opacity-10 border-[#FFCC00]"
-                      : "bg-[#0D0D0D] border-gray-700 hover:border-gray-600"
-                  }`}
-                >
-                  <div className="flex items-start space-x-3">
-                    <div
-                      className={`w-4 h-4 rounded-full border-2 mt-1 ${
-                        flow === "customer-present"
-                          ? "border-[#FFCC00] bg-[#FFCC00]"
-                          : "border-gray-500"
-                      }`}
-                    >
-                      {flow === "customer-present" && (
-                        <svg
-                          className="w-full h-full text-black"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-semibold text-white">
-                          Customer Present
-                        </span>
-                        <Smartphone className="w-5 h-5 text-[#FFCC00]" />
-                      </div>
-                      <p className="text-gray-400 text-sm">
-                        Customer approves on their device (recommended)
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </label>
-
-              {/* Standard Remote Flow */}
-              <label className="relative cursor-pointer">
-                <input
-                  type="radio"
-                  name="redemptionFlow"
-                  value="standard"
-                  checked={flow === "standard"}
-                  onChange={() => setFlow("standard")}
-                  className="sr-only"
-                />
-                <div
-                  className={`p-4 rounded-xl border transition-all ${
-                    flow === "standard"
-                      ? "bg-[#2F2F2F] bg-opacity-10 border-[#FFCC00]"
-                      : "bg-[#0D0D0D] border-gray-700 hover:border-gray-600"
-                  }`}
-                >
-                  <div className="flex items-start space-x-3">
-                    <div
-                      className={`w-4 h-4 rounded-full border-2 mt-1 ${
-                        flow === "standard"
-                          ? "border-[#FFCC00] bg-[#FFCC00]"
-                          : "border-gray-500"
-                      }`}
-                    >
-                      {flow === "standard" && (
-                        <svg
-                          className="w-full h-full text-black"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-semibold text-white">
-                          Remote Request
-                        </span>
-                        <Clock className="w-5 h-5 text-[#FFCC00]" />
-                      </div>
-                      <p className="text-gray-400 text-sm">
-                        Customer approves remotely
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </label>
             </div>
           </div>
 
@@ -1235,9 +1108,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                           ? "Please select a customer"
                           : !redeemAmount || redeemAmount <= 0
                           ? `Please enter redemption amount (current: ${redeemAmount})`
-                          : flow === "customer-present"
-                          ? "Send request to customer's device for approval"
-                          : "Send request to customer for remote approval"
+                          : "Send request to customer's device for approval"
                       }
                     >
                       {sessionStatus === "creating" ? (
@@ -1289,12 +1160,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                       ) : (
                         <div className="flex items-center justify-center gap-2">
                           <Shield className="w-5 h-5" />
-                          <span>
-                            {flow === "customer-present" 
-                              ? "Request Customer Approval" 
-                              : "Send Approval Request"
-                            }
-                          </span>
+                          <span>Request Customer Approval</span>
                         </div>
                       )}
                     </button>
