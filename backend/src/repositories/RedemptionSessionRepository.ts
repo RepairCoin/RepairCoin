@@ -11,7 +11,6 @@ export interface RedemptionSessionData {
   expiresAt: Date;
   approvedAt?: Date;
   usedAt?: Date;
-  qrCode?: string;
   signature?: string;
   metadata?: any;
 }
@@ -42,8 +41,8 @@ export class RedemptionSessionRepository extends BaseRepository {
       const query = `
         INSERT INTO redemption_sessions (
           session_id, customer_address, shop_id, max_amount,
-          status, created_at, expires_at, qr_code, metadata
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          status, created_at, expires_at, metadata
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
       `;
       
@@ -55,7 +54,6 @@ export class RedemptionSessionRepository extends BaseRepository {
         session.status,
         session.createdAt,
         session.expiresAt,
-        session.qrCode || null,
         JSON.stringify(session.metadata || {})
       ];
       
@@ -68,7 +66,6 @@ export class RedemptionSessionRepository extends BaseRepository {
         status: session.status,
         createdAt: session.createdAt,
         expiresAt: session.expiresAt,
-        qrCode: session.qrCode ? 'present' : 'null',
         metadata: session.metadata || {}
       });
       
@@ -242,27 +239,6 @@ export class RedemptionSessionRepository extends BaseRepository {
     }
   }
 
-  async getSessionByQRCode(qrCode: string): Promise<RedemptionSessionData | null> {
-    try {
-      const query = `
-        SELECT * FROM redemption_sessions 
-        WHERE qr_code = $1 
-        AND status IN ('pending', 'approved')
-        AND expires_at > NOW()
-      `;
-      
-      const result = await this.pool.query(query, [qrCode]);
-      
-      if (result.rows.length === 0) {
-        return null;
-      }
-      
-      return this.mapRowToSession(result.rows[0]);
-    } catch (error) {
-      logger.error('Error getting session by QR code:', error);
-      throw new Error('Failed to get session by QR code');
-    }
-  }
 
   async getShopPendingSessions(shopId: string): Promise<RedemptionSessionData[]> {
     try {
@@ -300,7 +276,6 @@ export class RedemptionSessionRepository extends BaseRepository {
       expiresAt: new Date(row.expires_at),
       approvedAt: row.approved_at ? new Date(row.approved_at) : undefined,
       usedAt: row.used_at ? new Date(row.used_at) : undefined,
-      qrCode: row.qr_code,
       signature: row.signature,
       metadata: metadata
     };

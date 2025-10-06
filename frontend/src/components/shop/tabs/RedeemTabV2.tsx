@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import {
-  QrCode,
   Clock,
   CheckCircle,
   XCircle,
@@ -16,7 +15,7 @@ import {
   Smartphone,
   RefreshCw,
 } from "lucide-react";
-import { LookupIcon, QrCodeIcon, RedeemIcon } from "../../icon";
+import { LookupIcon, RedeemIcon } from "../../icon";
 import { showToast } from "@/utils/toast";
 
 interface RedeemTabProps {
@@ -53,7 +52,7 @@ interface ShopCustomer {
   total_transactions: number;
 }
 
-type RedemptionFlow = "two-factor" | "qr-scan";
+type RedemptionFlow = "standard" | "customer-present";
 
 export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   shopId,
@@ -61,7 +60,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   onRedemptionComplete,
   setShowOnboardingModal,
 }) => {
-  const [flow, setFlow] = useState<RedemptionFlow>("two-factor");
+  const [flow, setFlow] = useState<RedemptionFlow>("customer-present");
 
   // Two-factor flow states
   const [customerAddress, setCustomerAddress] = useState("");
@@ -79,9 +78,6 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   >("idle");
   const [showingAllCustomers, setShowingAllCustomers] = useState(false);
 
-  // QR scan flow states
-  const [qrCode, setQrCode] = useState("");
-  const [scanResult, setScanResult] = useState<any>(null);
 
   // Common states
   const [error, setError] = useState<string | null>(null);
@@ -289,7 +285,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
             setSessionStatus("waiting");
             setCustomerAddress(latestSession.customerAddress);
             setRedeemAmount(latestSession.maxAmount);
-            setFlow("two-factor");
+            setFlow("standard");
 
             // Show notification
             setSuccess(
@@ -412,6 +408,8 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
     }
   }, [currentSession, sessionStatus]);
 
+  // All redemptions now require customer approval for security
+
   const createRedemptionSession = async () => {
     if (!isOperational) {
       setShowOnboardingModal(true);
@@ -526,85 +524,6 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
     }
   };
 
-  const validateQRCode = async () => {
-    if (!qrCode) {
-      setError("Please enter or scan a QR code");
-      return;
-    }
-
-    setError(null);
-    setSuccess(null);
-
-    try {
-      const authToken =
-        localStorage.getItem("shopAuthToken") ||
-        sessionStorage.getItem("shopAuthToken");
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/tokens/redemption-session/validate-qr`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: authToken ? `Bearer ${authToken}` : "",
-          },
-          body: JSON.stringify({ qrCode }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Invalid QR code");
-      }
-
-      const result = await response.json();
-      setScanResult(result.data);
-
-      await processQRRedemption(result.data);
-    } catch (err) {
-      console.error("QR validation error:", err);
-      setError(err instanceof Error ? err.message : "QR validation failed");
-    }
-  };
-
-  const processQRRedemption = async (sessionData: any) => {
-    try {
-      const authToken =
-        localStorage.getItem("shopAuthToken") ||
-        sessionStorage.getItem("shopAuthToken");
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/redeem`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: authToken ? `Bearer ${authToken}` : "",
-          },
-          body: JSON.stringify({
-            customerAddress: sessionData.customerAddress,
-            amount: sessionData.amount,
-            sessionId: sessionData.sessionId,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Redemption failed");
-      }
-
-      setSuccess(`Successfully redeemed ${sessionData.amount} RCN via QR code`);
-      setQrCode("");
-      setScanResult(null);
-      await loadRedemptionHistory();
-      await checkForPendingSessions();
-      onRedemptionComplete();
-    } catch (err) {
-      console.error("QR redemption error:", err);
-      setError(err instanceof Error ? err.message : "QR redemption failed");
-    }
-  };
 
   const getTimeRemaining = (expiresAt: string) => {
     const now = new Date().getTime();
@@ -661,7 +580,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                     setSessionStatus("waiting");
                     setCustomerAddress(session.customerAddress);
                     setRedeemAmount(session.amount);
-                    setFlow("two-factor");
+                    setFlow("standard");
                   }}
                   className="px-4 py-2 bg-[#FFCC00] text-black rounded-lg font-medium hover:bg-yellow-400 transition-colors"
                 >
@@ -686,19 +605,34 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                 Select Redeem Method
               </p>
             </div>
+            
+            {/* Security Notice */}
+            <div className="bg-blue-900 bg-opacity-20 border border-blue-500 rounded-xl p-4 mx-4 md:mx-8 mb-4">
+              <div className="flex items-start">
+                <Shield className="w-5 h-5 text-blue-500 mt-0.5 mr-3 flex-shrink-0" />
+                <div className="flex-1">
+                  <h4 className="font-semibold text-blue-400 mb-1">Secure Redemption Process</h4>
+                  <p className="text-sm text-blue-300">
+                    For security, all redemptions require customer approval on their own device. 
+                    Even when the customer is present, they must approve the transaction themselves.
+                  </p>
+                </div>
+              </div>
+            </div>
             <div className="grid md:grid-cols-2 gap-4 px-4 md:px-8 py-4">
+              {/* Customer Present Flow */}
               <label className="relative cursor-pointer">
                 <input
                   type="radio"
                   name="redemptionFlow"
-                  value="two-factor"
-                  checked={flow === "two-factor"}
-                  onChange={() => setFlow("two-factor")}
+                  value="customer-present"
+                  checked={flow === "customer-present"}
+                  onChange={() => setFlow("customer-present")}
                   className="sr-only"
                 />
                 <div
                   className={`p-4 rounded-xl border transition-all ${
-                    flow === "two-factor"
+                    flow === "customer-present"
                       ? "bg-[#2F2F2F] bg-opacity-10 border-[#FFCC00]"
                       : "bg-[#0D0D0D] border-gray-700 hover:border-gray-600"
                   }`}
@@ -706,12 +640,12 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                   <div className="flex items-start space-x-3">
                     <div
                       className={`w-4 h-4 rounded-full border-2 mt-1 ${
-                        flow === "two-factor"
+                        flow === "customer-present"
                           ? "border-[#FFCC00] bg-[#FFCC00]"
                           : "border-gray-500"
                       }`}
                     >
-                      {flow === "two-factor" && (
+                      {flow === "customer-present" && (
                         <svg
                           className="w-full h-full text-black"
                           fill="currentColor"
@@ -728,30 +662,31 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-2">
                         <span className="font-semibold text-white">
-                          Two-Factor Approval
+                          Customer Present
                         </span>
                         <Smartphone className="w-5 h-5 text-[#FFCC00]" />
                       </div>
                       <p className="text-gray-400 text-sm">
-                        Request customer approval
+                        Customer approves on their device (recommended)
                       </p>
                     </div>
                   </div>
                 </div>
               </label>
 
+              {/* Standard Remote Flow */}
               <label className="relative cursor-pointer">
                 <input
                   type="radio"
                   name="redemptionFlow"
-                  value="qr-scan"
-                  checked={flow === "qr-scan"}
-                  onChange={() => setFlow("qr-scan")}
+                  value="standard"
+                  checked={flow === "standard"}
+                  onChange={() => setFlow("standard")}
                   className="sr-only"
                 />
                 <div
                   className={`p-4 rounded-xl border transition-all ${
-                    flow === "qr-scan"
+                    flow === "standard"
                       ? "bg-[#2F2F2F] bg-opacity-10 border-[#FFCC00]"
                       : "bg-[#0D0D0D] border-gray-700 hover:border-gray-600"
                   }`}
@@ -759,12 +694,12 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                   <div className="flex items-start space-x-3">
                     <div
                       className={`w-4 h-4 rounded-full border-2 mt-1 ${
-                        flow === "qr-scan"
+                        flow === "standard"
                           ? "border-[#FFCC00] bg-[#FFCC00]"
                           : "border-gray-500"
                       }`}
                     >
-                      {flow === "qr-scan" && (
+                      {flow === "standard" && (
                         <svg
                           className="w-full h-full text-black"
                           fill="currentColor"
@@ -781,12 +716,12 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-2">
                         <span className="font-semibold text-white">
-                          QR Code Scan
+                          Remote Request
                         </span>
-                        <QrCode className="w-5 h-5 text-[#FFCC00]" />
+                        <Clock className="w-5 h-5 text-[#FFCC00]" />
                       </div>
                       <p className="text-gray-400 text-sm">
-                        Instant redemption
+                        Customer approves remotely
                       </p>
                     </div>
                   </div>
@@ -795,8 +730,8 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
             </div>
           </div>
 
-          {/* Two-Factor Flow */}
-          {flow === "two-factor" && sessionStatus === "idle" && (
+          {/* Customer Input Flow - Used by both immediate and session-based */}
+          {sessionStatus === "idle" && (
             <>
               {/* Customer Search Card */}
               <div className="bg-[#212121] rounded-3xl">
@@ -1052,139 +987,6 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
             </>
           )}
 
-          {/* QR Code Flow */}
-          {flow === "qr-scan" && (
-            <div className="bg-[#212121] rounded-3xl">
-              <div
-                className="w-full flex gap-2 px-4 md:px-8 py-4 text-white rounded-t-3xl"
-                style={{
-                  backgroundImage: `url('/img/cust-ref-widget3.png')`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                  backgroundRepeat: "no-repeat",
-                }}
-              >
-                <QrCodeIcon width={24} height={24} color={"black"} />
-                <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
-                  QR Code Redemption
-                </p>
-              </div>
-
-              <div className="space-y-4 px-4 md:px-8 py-4">
-                <div>
-                  <label className="block text-sm font-medium text-[#FFCC00] mb-2">
-                    QR Code Data
-                  </label>
-                  <div className="relative">
-                    <textarea
-                      value={qrCode}
-                      onChange={(e) => {
-                        setQrCode(e.target.value);
-                        setScanResult(null);
-                        setError(null);
-                      }}
-                      placeholder="Paste QR code data here or use camera scanner..."
-                      className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent transition-all h-32 font-mono text-sm pr-12"
-                    />
-                    {qrCode && (
-                      <button
-                        onClick={() => {
-                          setQrCode("");
-                          setScanResult(null);
-                          setError(null);
-                        }}
-                        className="absolute right-3 top-3 text-gray-500 hover:text-red-500 transition-colors"
-                      >
-                        <XCircle className="w-5 h-5" />
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Tip: Use a QR scanner app to copy the code data
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <button
-                    onClick={() => {
-                      // Simulate camera scanner (placeholder)
-                      showToast.warning(
-                        "Camera scanner not available - please paste QR code manually"
-                      );
-                    }}
-                    className="bg-[#FFCC00] hover:bg-yellow-500 text-black font-medium py-3 px-4 rounded-xl border border-gray-700 transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Smartphone className="w-5 h-5" />
-                    <span>Open Camera</span>
-                  </button>
-
-                  <button
-                    onClick={validateQRCode}
-                    disabled={!qrCode || !!scanResult}
-                    className="bg-[#FFCC00] text-black font-bold py-3 px-4 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow-lg hover:bg-yellow-500 flex items-center justify-center gap-2"
-                  >
-                    <Shield className="w-5 h-5" />
-                    <span>Validate</span>
-                  </button>
-                </div>
-
-                {scanResult && (
-                  <div className="space-y-3">
-                    <div className="bg-green-900 bg-opacity-20 border border-green-500 rounded-xl p-4">
-                      <div className="flex items-start">
-                        <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 mr-3" />
-                        <div className="flex-1">
-                          <h4 className="font-semibold text-green-500 mb-2">
-                            QR Code Validated
-                          </h4>
-                          <div className="bg-[#0D0D0D] rounded-lg p-3 space-y-2">
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm text-gray-400">
-                                Customer
-                              </span>
-                              <span className="text-sm font-mono text-white">
-                                {scanResult.customerAddress?.slice(0, 6)}...
-                                {scanResult.customerAddress?.slice(-4)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm text-gray-400">
-                                Amount
-                              </span>
-                              <span className="text-sm font-bold text-[#FFCC00]">
-                                {scanResult.amount} RCN
-                              </span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm text-gray-400">
-                                Session ID
-                              </span>
-                              <span className="text-sm font-mono text-gray-300">
-                                {scanResult.sessionId?.slice(0, 8)}...
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => processQRRedemption(scanResult)}
-                      disabled={!scanResult}
-                      className="w-full bg-gradient-to-r from-[#FFCC00] to-[#FFA500] text-black font-bold py-4 px-6 rounded-xl transition-all hover:shadow-lg hover:shadow-yellow-500/25 transform hover:scale-105"
-                    >
-                      <div className="flex items-center justify-center gap-2">
-                        <CreditCard className="w-5 h-5" />
-                        <span>
-                          Process Redemption ({scanResult.amount} RCN)
-                        </span>
-                      </div>
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* Waiting for Approval */}
           {sessionStatus === "waiting" && currentSession && (
@@ -1433,7 +1235,9 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                           ? "Please select a customer"
                           : !redeemAmount || redeemAmount <= 0
                           ? `Please enter redemption amount (current: ${redeemAmount})`
-                          : "Click to request approval"
+                          : flow === "customer-present"
+                          ? "Send request to customer's device for approval"
+                          : "Send request to customer for remote approval"
                       }
                     >
                       {sessionStatus === "creating" ? (
@@ -1459,10 +1263,38 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                           </svg>
                           Processing...
                         </div>
+                      ) : sessionStatus === "processing" ? (
+                        <div className="flex items-center justify-center">
+                          <svg
+                            className="animate-spin h-5 w-5 mr-2"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          Redeeming...
+                        </div>
                       ) : (
                         <div className="flex items-center justify-center gap-2">
                           <Shield className="w-5 h-5" />
-                          <span>Request Approval</span>
+                          <span>
+                            {flow === "customer-present" 
+                              ? "Request Customer Approval" 
+                              : "Send Approval Request"
+                            }
+                          </span>
                         </div>
                       )}
                     </button>

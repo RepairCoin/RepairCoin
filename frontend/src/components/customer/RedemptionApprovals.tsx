@@ -2,9 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { useActiveAccount, useSendTransaction } from "thirdweb/react";
-import { CheckCircle, XCircle, Clock, QrCode, Info } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Info } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { QRCodeModal } from "../QRCodeModal";
 import { DataTable, type Column } from "../ui/DataTable";
 import { DashboardHeader } from "../ui/DashboardHeader";
 import { useCustomer } from "@/hooks/useCustomer";
@@ -28,11 +27,6 @@ export function RedemptionApprovals() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
 
-  // For QR generation
-  const [qrShopId, setQrShopId] = useState("");
-  const [qrAmount, setQrAmount] = useState(0);
-  const [generatedQR, setGeneratedQR] = useState<string | null>(null);
-  const [showQRModal, setShowQRModal] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   
   // Shop list for dropdown
@@ -244,54 +238,6 @@ export function RedemptionApprovals() {
     }
   };
 
-  const generateQRCode = async () => {
-    if (!qrShopId || !qrAmount || qrAmount < 1) {
-      toast.error("Please select shop and enter a valid amount (minimum 1 RCN)");
-      return;
-    }
-
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/tokens/redemption-session/generate-qr`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${
-              localStorage.getItem("customerAuthToken") || ""
-            }`,
-          },
-          body: JSON.stringify({
-            shopId: qrShopId,
-            amount: qrAmount,
-          }),
-        }
-      );
-
-      if (response.ok) {
-        const result = await response.json();
-        setGeneratedQR(result.data.qrCode);
-        
-        // Extract session ID from the QR code data
-        try {
-          const qrDataParsed = JSON.parse(result.data.qrCode);
-          setSessionId(qrDataParsed.sessionId);
-        } catch (e) {
-          console.log("Could not extract session ID from QR data");
-        }
-        
-        setShowQRModal(true);
-        toast.success("QR code generated! Show this to the shop.");
-      } else {
-        const error = await response.json();
-        console.error("QR generation error:", error);
-        toast.error(error.error || `Failed to generate QR code (${response.status})`);
-      }
-    } catch (error) {
-      console.error("QR generation error:", error);
-      toast.error("Failed to generate QR code");
-    }
-  };
 
   const getTimeRemaining = (expiresAt: string) => {
     const now = new Date().getTime();
@@ -402,28 +348,6 @@ export function RedemptionApprovals() {
               Reject
             </button>
             
-            {/* Show QR Button for Approved Sessions */}
-            {item.status === "approved" && (
-              <button
-                onClick={() => {
-                  // Create QR data for the approved session
-                  const qrData = JSON.stringify({
-                    sessionId: item.sessionId,
-                    amount: item.amount,
-                    shopId: item.shopId,
-                    customerAddress: account?.address,
-                    type: 'redemption_approved'
-                  });
-                  setGeneratedQR(qrData);
-                  setSelectedApprovedSession(item);
-                  setShowQRModal(true);
-                }}
-                className="px-2 md:px-3 py-1 bg-[#FFCC00] text-black hover:bg-[#FFD700] rounded-lg text-xs md:text-sm transition-all flex items-center gap-1"
-              >
-                <QrCode className="w-4 h-4" />
-                Show QR
-              </button>
-            )}
           </div>
         );
       },
@@ -491,80 +415,6 @@ export function RedemptionApprovals() {
         </div>
       )}
 
-      {/* QR Generator */}
-      <div
-        className="bg-[#212121] rounded-xl md:rounded-2xl lg:rounded-3xl overflow-hidden"
-        style={{
-          backgroundImage: `url('/img/cus-approval-1.png')`,
-          backgroundSize: "cover",
-          backgroundPosition: "right",
-          backgroundRepeat: "no-repeat",
-        }}
-      >
-        <div
-          className="w-full px-4 md:px-6 lg:px-8 py-3 md:py-4 text-white rounded-t-xl md:rounded-t-2xl lg:rounded-t-3xl"
-          style={{
-            backgroundImage: `url('/img/cust-ref-widget3.png')`,
-            backgroundSize: "cover",
-            backgroundPosition: "right",
-            backgroundRepeat: "no-repeat",
-          }}
-        >
-          <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
-            Generate Redemption QR Code
-          </p>
-        </div>
-        <div className="flex flex-col w-2/3 p-4 md:p-8 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Select Shop
-            </label>
-            {loadingShops ? (
-              <div className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-gray-400 rounded-xl">
-                Loading shops...
-              </div>
-            ) : (
-              <select
-                value={qrShopId}
-                onChange={(e) => setQrShopId(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Select a shop</option>
-                {shops.map((shop) => (
-                  <option key={shop.shopId} value={shop.shopId}>
-                    {shop.name}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Amount (RCN)
-            </label>
-            <input
-              type="number"
-              min="1"
-              value={qrAmount || ""}
-              onChange={(e) => {
-                const value = parseInt(e.target.value);
-                setQrAmount(isNaN(value) ? 0 : Math.max(0, value));
-              }}
-              placeholder="Enter amount"
-              className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <button
-            onClick={generateQRCode}
-            className="w-full flex items-center justify-center gap-2 bg-[#FFCC00] text-black py-2 rounded-lg transition mt-10"
-          >
-            <QrCode className="w-5 h-5" />
-            Generate QR Code
-          </button>
-        </div>
-      </div>
 
       {/* Redemption Sessions Table */}
       <div className="bg-[#212121] rounded-xl md:rounded-2xl lg:rounded-3xl overflow-hidden">
@@ -600,25 +450,6 @@ export function RedemptionApprovals() {
         </div>
       </div>
 
-      {/* QR Code Modal */}
-      {generatedQR && (
-        <QRCodeModal
-          isOpen={showQRModal}
-          onClose={() => {
-            setShowQRModal(false);
-            setSelectedApprovedSession(null);
-            setSessionId(null);
-          }}
-          qrData={generatedQR}
-          title={selectedApprovedSession ? "Approved Redemption QR" : "Redemption QR Code"}
-          description={
-            selectedApprovedSession 
-              ? `Show this QR to redeem ${selectedApprovedSession.amount} RCN at ${selectedApprovedSession.shopId}`
-              : `Redeem ${qrAmount} RCN at ${shops.find(s => s.shopId === qrShopId)?.name || qrShopId}`
-          }
-          shareableLink={generatedQR}
-        />
-      )}
     </div>
   );
 }

@@ -13,7 +13,6 @@ export interface RedemptionSession {
   expiresAt: Date;
   approvedAt?: Date;
   usedAt?: Date;
-  qrCode?: string;
   signature?: string;
   metadata?: any;
 }
@@ -33,7 +32,6 @@ export interface ApproveSessionParams {
 
 export class RedemptionSessionService {
   private readonly SESSION_DURATION = 5 * 60 * 1000; // 5 minutes
-  private readonly QR_EXPIRY = 5 * 60 * 1000; // 5 minutes for QR codes
 
   constructor() {
     // Clean up expired sessions every minute
@@ -92,57 +90,6 @@ export class RedemptionSessionService {
     return session;
   }
 
-  /**
-   * Generate QR code for customer-initiated redemption
-   */
-  async generateRedemptionQR(customerAddress: string, shopId: string, amount: number): Promise<string> {
-    // Validate customer
-    const customer = await customerRepository.getCustomer(customerAddress);
-    if (!customer) {
-      throw new Error('Customer not found');
-    }
-
-    // Create QR data with short expiry
-    const qrData = {
-      type: 'repaircoin_redemption_request',
-      sessionId: crypto.randomUUID(),
-      customerAddress: customerAddress.toLowerCase(),
-      shopId,
-      amount,
-      timestamp: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + this.QR_EXPIRY).toISOString(),
-      nonce: crypto.randomBytes(16).toString('hex')
-    };
-
-    // Create a pre-approved session for QR redemptions
-    const session: RedemptionSession = {
-      sessionId: qrData.sessionId,
-      customerAddress: customerAddress.toLowerCase(),
-      shopId,
-      maxAmount: amount,
-      status: 'approved', // Pre-approved for QR
-      createdAt: new Date(),
-      expiresAt: new Date(Date.now() + this.QR_EXPIRY),
-      approvedAt: new Date(),
-      qrCode: JSON.stringify(qrData),
-      metadata: {
-        qrGenerated: true, // Mark this as a customer-generated QR session
-        customerInitiated: true
-      }
-    } as any; // Cast to include metadata field
-
-    // Store session in database
-    await redemptionSessionRepository.createSession(session);
-
-    logger.info('QR redemption session created', {
-      sessionId: session.sessionId,
-      customerAddress,
-      shopId,
-      amount
-    });
-
-    return JSON.stringify(qrData);
-  }
 
   /**
    * Customer approves a redemption session
@@ -278,45 +225,82 @@ export class RedemptionSessionService {
    * Validate and consume a session for redemption
    */
   async validateAndConsumeSession(sessionId: string, shopId: string, amount: number): Promise<RedemptionSession> {
+    logger.info('Attempting to validate and consume session', {
+      sessionId,
+      shopId,
+      amount
+    });
+
     const session = await redemptionSessionRepository.getSession(sessionId);
     if (!session) {
+      logger.error('Session not found during validation', { sessionId });
       throw new Error('Session not found');
     }
 
+    logger.info('Session found with details', {
+      sessionId: session.sessionId,
+      status: session.status,
+      usedAt: session.usedAt,
+      expiresAt: session.expiresAt,
+      shopId: session.shopId,
+      customerAddress: session.customerAddress
+    });
+
     // Verify shop matches
     if (session.shopId !== shopId) {
+      logger.error('Shop mismatch', { sessionShop: session.shopId, requestedShop: shopId });
       throw new Error('Session is for a different shop');
     }
 
     // Check status
     if (session.status !== 'approved') {
+      logger.error('Session status invalid', { 
+        currentStatus: session.status,
+        expectedStatus: 'approved',
+        sessionId
+      });
       throw new Error(`Session is ${session.status}, not approved`);
     }
 
     // Check if already used
     if (session.usedAt) {
+      logger.error('Session already used', { 
+        sessionId,
+        usedAt: session.usedAt
+      });
       throw new Error('Session has already been used');
     }
 
     // Check expiry
     if (session.expiresAt < new Date()) {
       session.status = 'expired';
+      logger.error('Session has expired', {
+        sessionId,
+        expiresAt: session.expiresAt,
+        now: new Date()
+      });
       throw new Error('Session has expired');
     }
 
     // Check amount
     if (amount > session.maxAmount) {
+      logger.error('Amount exceeds session limit', {
+        requestedAmount: amount,
+        maxAmount: session.maxAmount,
+        sessionId
+      });
       throw new Error(`Requested amount ${amount} exceeds session limit ${session.maxAmount}`);
     }
 
     // Mark as used in database
+    logger.info('Marking session as used', { sessionId });
     await redemptionSessionRepository.updateSessionStatus(sessionId, 'used');
     
     // Update local object
     session.status = 'used';
     session.usedAt = new Date();
 
-    logger.info('Redemption session consumed', {
+    logger.info('Redemption session consumed successfully', {
       sessionId,
       shopId,
       amount,
@@ -340,54 +324,6 @@ export class RedemptionSessionService {
     return await redemptionSessionRepository.getSession(sessionId);
   }
 
-  /**
-   * Validate QR code data
-   */
-  async validateQRCode(qrData: string): Promise<RedemptionSession> {
-    try {
-      logger.info('Validating QR code', { qrDataLength: qrData.length, qrData: qrData.substring(0, 100) });
-      
-      // Check if this looks like a URL instead of JSON data
-      if (qrData.startsWith('http://') || qrData.startsWith('https://')) {
-        logger.warn('QR code appears to be a URL, not JSON data', { qrData });
-        throw new Error('QR code format invalid - please scan the QR code directly, not a shared link');
-      }
-      
-      const data = JSON.parse(qrData);
-      logger.info('Parsed QR data', { 
-        type: data.type, 
-        sessionId: data.sessionId,
-        customerAddress: data.customerAddress,
-        amount: data.amount,
-        expiresAt: data.expiresAt 
-      });
-      
-      if (data.type !== 'repaircoin_redemption_request') {
-        throw new Error(`Invalid QR code type: ${data.type}`);
-      }
-
-      const session = await redemptionSessionRepository.getSessionByQRCode(qrData);
-      if (!session) {
-        logger.warn('Session not found for QR code', { sessionId: data.sessionId });
-        throw new Error('Session not found - QR code may have expired or been used');
-      }
-
-      if (new Date(data.expiresAt) < new Date()) {
-        logger.warn('QR code has expired', { expiresAt: data.expiresAt, now: new Date().toISOString() });
-        throw new Error('QR code has expired');
-      }
-
-      logger.info('QR code validation successful', { sessionId: session.sessionId });
-      return session;
-    } catch (error) {
-      if (error instanceof SyntaxError) {
-        logger.error('QR validation error - invalid JSON:', error);
-        throw new Error('Invalid QR code format - please scan the QR code directly');
-      }
-      logger.error('QR validation error:', error);
-      throw error; // Re-throw to preserve original error message
-    }
-  }
 
   /**
    * Clean up expired sessions

@@ -754,7 +754,76 @@ router.get('/:shopId/dashboard',
   }
 );
 
-// Process token redemption at shop
+/**
+ * @swagger
+ * /api/shops/{shopId}/redeem:
+ *   post:
+ *     summary: Process token redemption at shop
+ *     description: Process RCN token redemption after customer approval. All redemptions require a valid session ID for security.
+ *     tags: [Shop Operations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: shopId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The shop ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - customerAddress
+ *               - amount
+ *               - sessionId
+ *             properties:
+ *               customerAddress:
+ *                 type: string
+ *                 pattern: '^0x[a-fA-F0-9]{40}$'
+ *                 description: Customer's wallet address
+ *               amount:
+ *                 type: number
+ *                 minimum: 0.1
+ *                 maximum: 1000
+ *                 description: Amount of RCN to redeem
+ *               sessionId:
+ *                 type: string
+ *                 description: Required session ID from customer approval
+ *               customerPresent:
+ *                 type: boolean
+ *                 description: Optional flag to indicate customer is present at shop
+ *               notes:
+ *                 type: string
+ *                 description: Optional notes about the redemption
+ *           examples:
+ *             customer-present:
+ *               summary: Customer present redemption (still requires approval)
+ *               value:
+ *                 customerAddress: "0x1234567890123456789012345678901234567890"
+ *                 amount: 50
+ *                 sessionId: "session-uuid-12345"
+ *                 customerPresent: true
+ *                 notes: "Customer present at shop counter"
+ *             remote:
+ *               summary: Remote redemption
+ *               value:
+ *                 customerAddress: "0x1234567890123456789012345678901234567890"
+ *                 amount: 50
+ *                 sessionId: "session-uuid-12345"
+ *     responses:
+ *       200:
+ *         description: Redemption processed successfully
+ *       400:
+ *         description: Invalid request or insufficient balance
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Shop or customer not found
+ */
 router.post('/:shopId/redeem',
   authMiddleware,
   requireShopOrAdmin,
@@ -765,13 +834,14 @@ router.post('/:shopId/redeem',
   async (req: Request, res: Response) => {
     try {
       const { shopId } = req.params;
-      const { customerAddress, amount, notes, sessionId } = req.body;
+      const { customerAddress, amount, notes, sessionId, immediateRedeem, customerPresent } = req.body;
 
-      // NEW: Require session for redemption
+      // SECURITY: All redemptions require customer approval via session
+      // No immediate redemptions allowed - customer must always approve
       if (!sessionId) {
         return res.status(400).json({
           success: false,
-          error: 'Session ID is required. Customer must approve redemption first.'
+          error: 'Session ID is required. Customer must approve all redemptions for security.'
         });
       }
       
@@ -798,7 +868,7 @@ router.post('/:shopId/redeem',
         });
       }
 
-      // NEW: Validate and consume redemption session
+      // Validate and consume redemption session (required for all redemptions)
       const { redemptionSessionService } = await import('../../token/services/RedemptionSessionService');
       try {
         const session = await redemptionSessionService.validateAndConsumeSession(sessionId, shopId, amount);
@@ -806,7 +876,8 @@ router.post('/:shopId/redeem',
           sessionId,
           customerAddress: session.customerAddress,
           shopId,
-          amount
+          amount,
+          processedBy: req.user?.address
         });
       } catch (sessionError) {
         return res.status(400).json({
@@ -909,7 +980,10 @@ router.post('/:shopId/redeem',
           redemptionLocation: shop.name,
           webhookId: `redeem_${Date.now()}`,
           burnSuccessful,
-          notes: notes || undefined
+          notes: notes || undefined,
+          redemptionFlow: 'session-based',
+          customerPresent: customerPresent === true,
+          sessionId: sessionId
         }
       };
 
