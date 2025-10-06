@@ -257,7 +257,7 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
                       <div className="w-10 h-10 bg-blue-500/20 rounded-full flex items-center justify-center">
                         <CreditCard className="w-6 h-6 text-blue-400" />
                       </div>
-                      <div>
+                      <div className="flex flex-col items-center">
                         <p className="font-semibold text-white">Credit Card</p>
                         <p className="text-xs text-gray-400">
                           Secure payment via Stripe
