@@ -200,7 +200,7 @@ export const OverviewTab: React.FC = () => {
         subtitle="Overview of your account"
       />
       {/* Stats Grid - Responsive */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
         {/* RCN Balance Card */}
         <StatCard
           title="Available Balance"
@@ -238,7 +238,7 @@ export const OverviewTab: React.FC = () => {
         <StatCard
           title="Your Tier Level"
           value={customerData?.tier || "BRONZE"}
-          icon={<TrophyIcon />}
+          icon={<TrophyIcon tier={customerData?.tier || "BRONZE"} />}
           titleClassName="text-yellow-400 text-sm md:text-base font-medium"
           valueClassName="text-white text-lg sm:text-xl md:text-2xl font-semibold"
           subtitleClassName="text-gray-400 text-xs sm:text-sm"
