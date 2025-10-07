@@ -667,13 +667,13 @@ export default function SubscriptionManagementTab() {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">Enrolled Date</label>
-                  <p className="font-medium">{new Date(selectedSubscription.enrolledAt).toLocaleDateString()}</p>
+                  <p className="font-medium">{new Date(selectedSubscription.enrolledAt).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">Activated Date</label>
                   <p className="font-medium">
                     {selectedSubscription.activatedAt 
-                      ? new Date(selectedSubscription.activatedAt).toLocaleDateString()
+                      ? new Date(selectedSubscription.activatedAt).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })
                       : '-'}
                   </p>
                 </div>
@@ -689,7 +689,7 @@ export default function SubscriptionManagementTab() {
                   <label className="text-sm font-medium text-gray-500">Next Payment</label>
                   <p className="font-medium">
                     {selectedSubscription.nextPaymentDate 
-                      ? new Date(selectedSubscription.nextPaymentDate).toLocaleDateString()
+                      ? new Date(selectedSubscription.nextPaymentDate).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })
                       : '-'}
                   </p>
                 </div>
@@ -697,7 +697,7 @@ export default function SubscriptionManagementTab() {
                   <label className="text-sm font-medium text-gray-500">Last Payment</label>
                   <p className="font-medium">
                     {selectedSubscription.lastPaymentDate 
-                      ? new Date(selectedSubscription.lastPaymentDate).toLocaleDateString()
+                      ? new Date(selectedSubscription.lastPaymentDate).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })
                       : '-'}
                   </p>
                 </div>

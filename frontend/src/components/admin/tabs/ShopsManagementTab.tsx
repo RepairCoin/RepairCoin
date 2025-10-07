@@ -349,7 +349,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return "N/A";
     const date = new Date(dateStr);
-    return isNaN(date.getTime()) ? "N/A" : date.toLocaleDateString();
+    return isNaN(date.getTime()) ? "N/A" : date.toLocaleDateString('en-US', { timeZone: 'America/Chicago' });
   };
 
   const handleAction = async (
@@ -696,7 +696,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                     Submitted:{" "}
                     {new Date(
                       shop.unsuspendRequest.createdAt
-                    ).toLocaleDateString()}
+                    ).toLocaleString('en-US', { timeZone: 'America/Chicago' })}
                   </p>
                 </div>
               </div>
@@ -968,7 +968,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
                             {new Date(
                               request.createdAt || request.created_at
-                            ).toLocaleDateString()}
+                            ).toLocaleString('en-US', { timeZone: 'America/Chicago' })}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <button
@@ -1122,7 +1122,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                     <span className="font-medium text-white">Submitted:</span>{" "}
                     {new Date(
                       unsuspendReviewModal.shop.unsuspendRequest.createdAt
-                    ).toLocaleString()}
+                    ).toLocaleString('en-US', { timeZone: 'America/Chicago' })}
                   </p>
                 </>
               )}

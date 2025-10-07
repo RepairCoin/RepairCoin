@@ -166,7 +166,7 @@ export function RedemptionApprovals() {
       const message = JSON.stringify({
         action: "approve_redemption",
         sessionId,
-        timestamp: new Date().toISOString(),
+        timestamp: new Date().toISOString,
       });
 
       const signature = `0x${Buffer.from(message).toString("hex")}`;
@@ -272,7 +272,7 @@ export function RedemptionApprovals() {
       header: "Requested",
       accessor: (item) => (
         <span className="text-gray-400 text-xs">
-          {new Date(item.createdAt).toLocaleString()}
+          {new Date(item.createdAt).toLocaleString('en-US', { timeZone: 'America/Chicago' })}
         </span>
       ),
       sortable: true,

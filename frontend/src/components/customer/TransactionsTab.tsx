@@ -98,7 +98,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
                        transaction.type}
                     </span>
                     <span className="text-xs text-gray-400">
-                      {new Date(transaction.createdAt).toLocaleDateString()}
+                      {new Date(transaction.createdAt).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })}
                     </span>
                   </div>
                 </div>
@@ -132,9 +132,9 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
                   <tr key={transaction.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-600">
                       <div>
-                        <div className="font-medium">{new Date(transaction.createdAt).toLocaleDateString()}</div>
+                        <div className="font-medium">{new Date(transaction.createdAt).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })}</div>
                         <div className="text-xs text-gray-400 hidden lg:block">
-                          {new Date(transaction.createdAt).toLocaleTimeString()}
+                          {new Date(transaction.createdAt).toLocaleTimeString('en-US', { timeZone: 'America/Chicago' })}
                         </div>
                       </div>
                     </td>

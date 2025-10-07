@@ -47,7 +47,7 @@ const referralColumns: Column<ReferralStats['referrals'][0]>[] = [
   {
     key: "date",
     header: "Date",
-    accessor: (item) => new Date(item.createdAt).toLocaleDateString(),
+    accessor: (item) => new Date(item.createdAt).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }),
     sortable: true,
   },
   {
@@ -82,7 +82,7 @@ const referralColumns: Column<ReferralStats['referrals'][0]>[] = [
     key: "completed",
     header: "Completed",
     accessor: (item) => item.completedAt
-      ? new Date(item.completedAt).toLocaleDateString()
+      ? new Date(item.completedAt).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })
       : "-",
     sortable: true,
   },

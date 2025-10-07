@@ -909,7 +909,7 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
                             {new Date(
                               request.createdAt || request.created_at
-                            ).toLocaleDateString()}
+                            ).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <button
@@ -1058,7 +1058,10 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                     <Calendar className="w-4 h-4 text-gray-400" />
                     <span>
                       Joined:{" "}
-                      {new Date(selectedCustomer.joinDate).toLocaleDateString()}
+                      {new Date(selectedCustomer.joinDate).toLocaleDateString(
+                        "en-US",
+                        { timeZone: "America/Chicago" }
+                      )}
                     </span>
                   </div>
                 )}
@@ -1069,7 +1072,10 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                       Last Activity:{" "}
                       {new Date(
                         selectedCustomer.lastTransactionDate
-                      ).toLocaleDateString()}
+                      ).toLocaleDateString(
+                        "en-US",
+                        { timeZone: "America/Chicago" }
+                      )}
                     </span>
                   </div>
                 )}
@@ -1159,7 +1165,7 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                     <span className="font-medium text-white">Submitted:</span>{" "}
                     {new Date(
                       unsuspendReviewModal.customer.unsuspendRequest.createdAt
-                    ).toLocaleString()}
+                    ).toLocaleString('en-US', { timeZone: 'America/Chicago' })}
                   </p>
                 </>
               )}

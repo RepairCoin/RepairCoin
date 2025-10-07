@@ -59,10 +59,10 @@ export const OverviewTab: React.FC = () => {
       accessor: (transaction: any) => (
         <div>
           <div className="font-medium text-gray-300">
-            {new Date(transaction.createdAt).toLocaleDateString()}
+            {new Date(transaction.createdAt).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })}
           </div>
           <div className="text-xs text-gray-500">
-            {new Date(transaction.createdAt).toLocaleTimeString()}
+            {new Date(transaction.createdAt).toLocaleTimeString('en-US', { timeZone: 'America/Chicago' })}
           </div>
         </div>
       ),

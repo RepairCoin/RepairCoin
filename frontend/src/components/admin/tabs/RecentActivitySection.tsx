@@ -279,7 +279,7 @@ export const RecentActivitySection: React.FC<RecentActivitySectionProps> = ({ ge
         <div className="text-sm">
           <div className="text-gray-300">{getRelativeTime(activity.timestamp)}</div>
           <div className="text-gray-500 text-xs">
-            {new Date(activity.timestamp).toLocaleString()}
+            {new Date(activity.timestamp).toLocaleString('en-US', { timeZone: 'America/Chicago' })}
           </div>
         </div>
       ),
