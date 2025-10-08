@@ -8,16 +8,54 @@ import {
 } from "@expo/vector-icons";
 import DetailCard from "@/components/DetailCard";
 import TierBenefitsModal from "./TierBenefitsModal";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import TokenSummaryModal from "./TokenSummaryModal";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { useAuthStore } from "@/store/authStore";
+import { useCustomerStore } from "@/store/customerStore";
+import { Tier } from "@/utilities/GlobalTypes";
+
+const TIERS: Record<Tier, { color: [string, string]; label: string; intro: string; }> = {
+  GOLD: {
+    color: ["#FFCC00", "#FFEC9F"],
+    label: "Gold",
+    intro: "You are currently at Gold Tier"
+  },
+  SILVER: {
+    color: ["#ABABAB", "#FFFFFF"],
+    label: "Silver",
+    intro: "You need to 1000 RCN to get to Gold Tier"
+  },
+  BRONZE: {
+    color: ["#95602B", "#FFFFFF"],
+    label: "Bronze",
+    intro: "You need to 200 RCN to get to Silver Tier"
+  }
+}
 
 export default function WalletTab() {
+  const { userProfile } = useAuthStore((state) => state);
+  const { fetchRCNBalance, RCNBalance, customerData } = useCustomerStore((state) => state);
   const [tierModalVisible, setTierModalVisible] = useState<boolean>(false);
   const [tokenSummaryModalVisible, setTokenSummaryModalVisible] =
     useState<boolean>(false);
 
+  useEffect(() => {
+    if (!userProfile) return;
+    
+    const loadData = async () => {
+      try {
+        await fetchRCNBalance(userProfile.address);
+        console.log(RCNBalance);
+      } catch (error) {
+        console.error("Failed to fetch customer data:", error);
+      }
+    };
+
+    loadData();
+  }, []);
+  
   return (
     <View className="mt-4">
       <View className="h-40">
@@ -39,7 +77,7 @@ export default function WalletTab() {
               Your Current RCN Balance
             </Text>
             <Text className="text-black text-4xl font-extrabold mt-2">
-              1000 RCN <Entypo name="eye-with-line" color="#000" size={30} />
+              {RCNBalance?.totalBalance} RCN <Entypo name="eye-with-line" color="#000" size={30} />
             </Text>
             <View
               className="w-32 h-9 mt-4 rounded-full overflow-hidden"
@@ -52,7 +90,7 @@ export default function WalletTab() {
               }}
             >
               <LinearGradient
-                colors={["#FFCC00", "#FFEC9F"]}
+                colors={TIERS[customerData.customer.tier as Tier].color}
                 start={{ x: 0, y: 1 }}
                 end={{ x: 1, y: 1 }}
                 className="w-full h-full items-center justify-center"
@@ -60,7 +98,7 @@ export default function WalletTab() {
                 <View className="items-center justify-center flex-row">
                   <SimpleLineIcons name="badge" color="#000" size={15} />
                   <Text className="text-black font-semibold ml-2">
-                    Gold Tier
+                    {TIERS[customerData.customer.tier as Tier].label} Tier
                   </Text>
                 </View>
               </LinearGradient>
@@ -114,15 +152,15 @@ export default function WalletTab() {
           label="This is the total RCN tokens you currently have"
           badge={
             <>
-              <Text className="text-5xl font-semibold">0</Text> RCN
+              <Text className="text-5xl font-semibold">{RCNBalance?.totalBalance}</Text> RCN
             </>
           }
         />
         <DetailCard
           icon={<SimpleLineIcons name="badge" color="#000" size={16} />}
           title="Your Tier Level"
-          label="You need to 200 RCN to get to Silver Tier"
-          badge="Bronze"
+          label={TIERS[customerData.customer.tier as Tier].intro}
+          badge={TIERS[customerData.customer.tier as Tier].label}
         />
         <DetailCard
           icon={
@@ -132,7 +170,7 @@ export default function WalletTab() {
           label="This is the total repairs you've availed"
           badge={
             <>
-              <Text className="text-5xl font-semibold">0</Text> RCN
+              <Text className="text-5xl font-semibold">{RCNBalance?.earningHistory.fromRepairs}</Text> RCN
             </>
           }
         />

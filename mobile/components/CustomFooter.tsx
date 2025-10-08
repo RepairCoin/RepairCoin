@@ -75,7 +75,11 @@ export default function CustomFooter() {
         {/* History */}
         <Pressable
           className="items-center flex-1 z-10"
-          onPress={() => setActive("Shop")}
+          onPress={() => {
+            setActive("Shop");
+            active !== "Shop" &&
+              router.push("/showShop/Onboarding");
+          }}
         >
           <Ionicons
             name="location-outline"

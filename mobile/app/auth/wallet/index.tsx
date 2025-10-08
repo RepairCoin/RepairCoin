@@ -4,46 +4,78 @@ import { AntDesign } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
 import LoginButton from "@/components/LoginButton";
 import { router } from "expo-router";
+import { externalWalletConnectService } from "@/services/RegisterServices";
+import { WalletType } from "@/utilities/GlobalTypes";
+import { useAuthStore } from "@/store/authStore";
 
 export default function ConnectWalletPage() {
+  const { account, setAccount, checkUserExists, login, isCustomer } =
+    useAuthStore((state) => state);
+
   const loginOptions = [
     {
       title: "Social Login",
-      icon: require('@/assets/icons/icons8-at-sign-100.png'),
+      icon: require("@/assets/icons/icons8-at-sign-100.png"),
       className: "h-6 w-6",
-      onPress: () => router.push("/auth/wallet/Social")
+      onPress: () => router.push("/auth/wallet/Social"),
     },
     {
       title: "MetaMask",
-      icon: require('@/assets/icons/icons8-metamask-100.png'),
-      className: "h-6 w-6"
+      icon: require("@/assets/icons/icons8-metamask-100.png"),
+      className: "h-6 w-6",
+      onPress: () => handleConnectExternalWallet("io.metamask")
     },
     {
       title: "Coinbase Wallet",
-      icon: require('@/assets/icons/icons8-coinbase-100.png'),
-      className: "h-6 w-6"
+      icon: require("@/assets/icons/icons8-coinbase-100.png"),
+      className: "h-6 w-6",
+      onPress: () => handleConnectExternalWallet("com.coinbase.wallet")
     },
     {
       title: "Rainbow",
-      icon: require('@/assets/icons/icons8-rainbow-100.png'),
-      className: "h-6 w-6"
+      icon: require("@/assets/icons/icons8-rainbow-100.png"),
+      className: "h-6 w-6",
+      onPress: () => handleConnectExternalWallet("me.rainbow")
     },
     {
       title: "Rabby",
-      icon: require('@/assets/icons/Rabby.png'),
-      className: "h-6 w-6"
+      icon: require("@/assets/icons/Rabby.png"),
+      className: "h-6 w-6",
+      onPress: () => handleConnectExternalWallet("io.rabby")
     },
     {
       title: "Zerion",
-      icon: require('@/assets/icons/zerion.jpeg'),
-      className: "h-6 w-6"
+      icon: require("@/assets/icons/zerion.jpeg"),
+      className: "h-6 w-6",
+      onPress: () => handleConnectExternalWallet("io.zerion.wallet")
     },
     {
       title: "All Wallets 500+",
-      icon: require('@/assets/icons/icons8-wallet-100.png'),
-      className: "h-6 w-6"
+      icon: require("@/assets/icons/icons8-wallet-100.png"),
+      className: "h-6 w-6",
     },
   ];
+
+  const handleConnectExternalWallet = async (wallet: WalletType) => {
+    const connectedAccount = await externalWalletConnectService(wallet);
+    if (connectedAccount.address) {
+      setAccount({
+        ...account,
+        address: connectedAccount.address,
+      });
+      const userCheck = await checkUserExists(connectedAccount.address);
+      if (!userCheck.exists) {
+        router.push("/auth/register");
+      } else {
+        await login().then(() => {
+          console.log(isCustomer);
+          if (isCustomer) {
+            router.push("/dashboard/customer");
+          }
+        });
+      }
+    }
+  };
 
   return (
     <Screen>

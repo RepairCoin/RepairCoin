@@ -1,4 +1,20 @@
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.132.85:3000/api';
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
+
+export const getCustomerByWalletAddress = async (address: string) => {
+  const response = await fetch(`${API_URL}/customers/${address}`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    console.log(`Failed to fetch customer: ${response.status}`);
+  }
+
+  return response.json();
+}
 
 export const getRCNBalanceByWalletAddress = async (address: string) => {
   const response = await fetch(`${API_URL}/tokens/earned-balance/${address}`, {
@@ -10,23 +26,24 @@ export const getRCNBalanceByWalletAddress = async (address: string) => {
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch balance: ${response.status}`);
+    console.log(`Failed to fetch balance: ${response.status}`);
   }
 
   return response.json();
 }
 
-export const getEarningHistoryByWalletAddress = async (address: string) => {
-  const response = await fetch(`${API_URL}/tokens/earning-sources/${address}`, {
+export const getEarningHistoryByWalletAddress = async (address: string, token: string | undefined) => {
+  const response = await fetch(`${API_URL}/customers/${address}/transactions`, {
     method: "GET",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
     },
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch earning history: ${response.status}`);
+    console.log(`Failed to fetch earning history: ${response.status}`);
   }
 
   return response.json();
@@ -46,7 +63,7 @@ export const calculateTierByAddress = async (address: string, repairAmount: numb
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch tier status: ${response.status}`);
+    console.log(`Failed to fetch tier status: ${response.status}`);
   }
 
   return response.json();

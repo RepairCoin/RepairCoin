@@ -57,7 +57,7 @@ interface AuthState {
 }
 
 const API_URL =
-  process.env.EXPO_PUBLIC_API_URL || "http://192.168.132.85:3000/api";
+  process.env.EXPO_PUBLIC_API_URL;
 
 export const useAuthStore = create<AuthState>()(
   persist(

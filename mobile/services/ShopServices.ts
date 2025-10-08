@@ -1,4 +1,4 @@
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.132.85:3000/api';
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 export const listShops = async () => {
   const response = await fetch(`${API_URL}/shops`, {

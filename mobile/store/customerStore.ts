@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import { Tier } from "@/utilities/GlobalTypes";
-import { calculateTierByAddress, getEarningHistoryByWalletAddress, getRCNBalanceByWalletAddress } from "@/services/CustomerServices";
+import { calculateTierByAddress, getCustomerByWalletAddress, getEarningHistoryByWalletAddress, getRCNBalanceByWalletAddress } from "@/services/CustomerServices";
+import { useAuthStore } from "./authStore";
 
 export interface RCNBalanceData {
   earnedBalance: number;
@@ -41,14 +42,17 @@ export interface CustomerTierStatus {
 }
 
 interface CustomerState {
+  customerData: any;
   RCNBalance: RCNBalanceData | null;
   earningHistory: RCNEarningHistory | null;
   tier: CustomerTierStatus | null;
 
+  setCustomerData: (customerData: any) => void;
   setRCNBalance: (RCNBalance: RCNBalanceData | null) => void;
   setEarningHistory: (earningHistory: RCNEarningHistory | null) => void;
   setTier: (tier: CustomerTierStatus | null) => void;
 
+  fetchCustomerData: (address: string) => Promise<void>;
   fetchRCNBalance: (address: string) => Promise<void>;
   fetchEarningHistory: (address: string) => Promise<void>;
   fetchTier: (address: string, repairAmount: number) => Promise<void>;
@@ -56,10 +60,14 @@ interface CustomerState {
 
 export const useCustomerStore = create<CustomerState>()(
   devtools((set, get) => ({
+    customerData: null,
     RCNBalance: null,
     earningHistory: null,
     tier: null,
 
+    setCustomerData: (customerData) => {
+      set({ customerData }, false, "customerData");
+    },
     setRCNBalance: (RCNBalance) => {
       set({ RCNBalance }, false, "setRCNBalance");
     },
@@ -70,6 +78,14 @@ export const useCustomerStore = create<CustomerState>()(
       set({ tier }, false, "setTier");
     },
 
+    fetchCustomerData: async (address) => {
+      try {
+        const res = await getCustomerByWalletAddress(address);
+        get().setCustomerData(res.data);
+      } catch (error) {
+        console.error("An error occured:", error);
+      }
+    },
     fetchRCNBalance: async (address) => {
       try {
         const res = await getRCNBalanceByWalletAddress(address);
@@ -80,7 +96,8 @@ export const useCustomerStore = create<CustomerState>()(
     },
     fetchEarningHistory: async (address) => {
       try {
-        const res = await getEarningHistoryByWalletAddress(address);
+        const token = useAuthStore.getState().userProfile?.token;
+        const res = await getEarningHistoryByWalletAddress(address, token);
         get().setEarningHistory(res.data);
       } catch (error) {
         console.error("An error occured:", error);

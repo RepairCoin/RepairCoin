@@ -2,13 +2,31 @@ import TransactionHistoryCard from "@/components/customer/TransactionHistoryCard
 import TransactionHistoryFilterModal from "@/components/customer/TransactionHistoryFilterModal";
 import { AntDesign, Feather, FontAwesome } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, TextInput, ScrollView, Pressable } from "react-native";
+import { useAuthStore } from "@/store/authStore";
+import { useCustomerStore } from "@/store/customerStore";
 
 export default function TransactionHistory() {
+  const { userProfile } = useAuthStore((state) => state);
+  const { fetchEarningHistory, earningHistory } = useCustomerStore((state) => state);
   const [searchString, setSearchString] = useState<string>("");
   const [filterModalVisible, setFilterModalVisible] = useState<boolean>(false);
 
+  useEffect(() => {
+    if (!userProfile) return;
+    
+    const loadData = async () => {
+      try {
+        await fetchEarningHistory(userProfile.address);
+      } catch (error) {
+        console.error("Failed to fetch customer data:", error);
+      }
+    };
+
+    loadData();
+  }, []);
+  
   return (
     <View className="w-full h-full bg-zinc-950">
       <View className="pt-16 px-4 gap-4">

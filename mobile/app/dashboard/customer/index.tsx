@@ -1,10 +1,7 @@
-import PrimaryButton from "@/components/PrimaryButton";
-import Screen from "@/components/Screen";
-import { Entypo, MaterialIcons, Octicons } from "@expo/vector-icons";
 import { Image, View, Text, Pressable } from "react-native";
 import { useAuthStore } from "@/store/authStore";
-import React, { useState } from "react";
-import CustomFooter from "@/components/CustomFooter";
+import { useCustomerStore } from "@/store/customerStore";
+import React, { useEffect, useState } from "react";
 import WalletTab from "@/components/customer/WalletTab";
 import ReferralTab from "@/components/customer/ReferralTab";
 import ApprovalTab from "@/components/customer/ApprovalTab";
@@ -12,9 +9,25 @@ import ApprovalTab from "@/components/customer/ApprovalTab";
 type CustomerTabs = "Wallet" | "Referral" | "Approval";
 
 export default function CustomerDashboard() {
-  const { logout } = useAuthStore((state) => state);
+  const { userProfile } = useAuthStore((state) => state);
+  const { fetchCustomerData, customerData } = useCustomerStore((state) => state);
   const [activeTab, setActiveTab] = useState<CustomerTabs>("Wallet");
   const customerTabs: CustomerTabs[] = ["Wallet", "Referral", "Approval"];
+
+  useEffect(() => {
+    if (!userProfile) return;
+    
+    const loadData = async () => {
+      try {
+        await fetchCustomerData(userProfile.address);
+        console.log(customerData);
+      } catch (error) {
+        console.error("Failed to fetch customer data:", error);
+      }
+    };
+
+    loadData();
+  }, []);
 
   return (
     <View className="h-full w-full bg-zinc-950">
@@ -28,7 +41,7 @@ export default function CustomerDashboard() {
           <Text className="text-lg font-semibold text-[#FFCC00] mr-2">
             Hello!
           </Text>
-          <Text className="text-lg font-semibold text-white">John Doe!</Text>
+          <Text className="text-lg font-semibold text-white">{customerData.customer.name}</Text>
         </View>
         <View className="flex-row w-full h-12 bg-[#121212] rounded-xl justify-between">
           {customerTabs.map((tab, i) => (
@@ -56,7 +69,6 @@ export default function CustomerDashboard() {
         {activeTab === "Referral" && <ReferralTab />}
         {activeTab === "Approval" && <ApprovalTab />}
       </View>
-      
     </View>
   );
 }
