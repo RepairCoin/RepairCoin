@@ -8,6 +8,8 @@ export { WebhookRepository } from './WebhookRepository';
 export { TreasuryRepository } from './TreasuryRepository';
 export { RedemptionSessionRepository } from './RedemptionSessionRepository';
 export { ShopSubscriptionRepository } from './ShopSubscriptionRepository';
+export { HealthRepository } from './HealthRepository';
+export { PromoCodeRepository } from './PromoCodeRepository';
 
 // Create singleton instances
 import { CustomerRepository } from './CustomerRepository';
@@ -18,6 +20,8 @@ import { WebhookRepository } from './WebhookRepository';
 import { TreasuryRepository } from './TreasuryRepository';
 import { RedemptionSessionRepository } from './RedemptionSessionRepository';
 import { ShopSubscriptionRepository } from './ShopSubscriptionRepository';
+import { HealthRepository } from './HealthRepository';
+import { PromoCodeRepository } from './PromoCodeRepository';
 
 export const customerRepository = new CustomerRepository();
 export const shopRepository = new ShopRepository();
@@ -27,3 +31,5 @@ export const webhookRepository = new WebhookRepository();
 export const treasuryRepository = new TreasuryRepository();
 export const redemptionSessionRepository = new RedemptionSessionRepository();
 export const shopSubscriptionRepository = new ShopSubscriptionRepository();
+export const healthRepository = new HealthRepository();
+export const promoCodeRepository = new PromoCodeRepository();

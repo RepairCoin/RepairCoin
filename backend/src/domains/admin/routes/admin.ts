@@ -53,14 +53,6 @@ router.post('/mint',
   asyncHandler(adminController.manualMint.bind(adminController))
 );
 
-// Contract emergency controls
-router.post('/contract/pause', 
-  asyncHandler(adminController.pauseContract.bind(adminController))
-);
-
-router.post('/contract/unpause', 
-  asyncHandler(adminController.unpauseContract.bind(adminController))
-);
 
 // Shop creation (for admins)
 router.post('/create-shop',
@@ -407,14 +399,24 @@ router.post('/maintenance/archive-transactions',
   asyncHandler(adminController.archiveTransactions.bind(adminController))
 );
 
-// Manual redemption processing (temporary for testing)
-// TODO: Implement processManualRedemption in AdminController
-// router.post('/process-redemption',
-//   validateRequired(['customerAddress', 'shopId', 'amount']),
-//   validateEthereumAddress('customerAddress'),
-//   validateNumeric('amount', 0.1, 1000),
-//   asyncHandler(adminController.processManualRedemption.bind(adminController))
-// );
+// Contract monitoring
+router.get('/monitoring/status', 
+  asyncHandler(async (req, res) => {
+    const { contractMonitoringService } = await import('../../../services/ContractMonitoringService');
+    const status = contractMonitoringService.getStatus();
+    res.json({ success: true, data: status });
+  })
+);
+
+router.post('/monitoring/test-alert', 
+  requireSuperAdmin,
+  asyncHandler(async (req, res) => {
+    const { contractMonitoringService } = await import('../../../services/ContractMonitoringService');
+    await contractMonitoringService.sendTestAlert();
+    res.json({ success: true, message: 'Test alert sent' });
+  })
+);
+
 
 // Treasury management routes
 router.use('', treasuryRoutes);
@@ -447,6 +449,10 @@ router.use('', shopManagementRoutes);
 // System settings routes
 import settingsRoutes from './settings';
 router.use('/settings', settingsRoutes);
+
+// Contract management routes
+import contractRoutes from './contract';
+router.use('/contract', contractRoutes);
 
 // Purchase auto-complete routes
 import purchaseAutoCompleteRoutes from '../../shop/routes/purchase-auto-complete';

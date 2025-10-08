@@ -53,6 +53,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
   onRewardIssued,
 }) => {
   const [customerAddress, setCustomerAddress] = useState("");
+  const [promoCode, setPromoCode] = useState("");
   const [repairType, setRepairType] = useState<RepairType>("small");
   const [customAmount, setCustomAmount] = useState("");
   const [customRcn, setCustomRcn] = useState("");
@@ -199,6 +200,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
         customerAddress,
         repairAmount: getRepairAmount(),
         skipTierBonus: false,
+        promoCode: promoCode.trim() || undefined,
       };
 
       // If using custom repair type, send the custom base reward
@@ -242,6 +244,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
       setRepairType("small");
       setCustomAmount("");
       setCustomRcn("");
+      setPromoCode("");
 
       onRewardIssued();
     } catch (err) {
@@ -431,6 +434,19 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                       </svg>
                     </div>
                   )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Promo Code (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={promoCode}
+                    onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                    placeholder="Enter promo code"
+                    className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent transition-all"
+                  />
                 </div>
               </div>
 

@@ -1,5 +1,4 @@
 import { BaseRepository } from './BaseRepository';
-import { DatabaseService } from '../services/DatabaseService';
 import { Pool } from 'pg';
 
 export interface PromoCode {
@@ -56,11 +55,9 @@ export interface PromoCodeValidation {
   bonus_value?: number;
 }
 
-export class PromoCodeRepository {
-  private db: Pool;
-  
-  constructor(dbService: DatabaseService) {
-    this.db = dbService.getPool();
+export class PromoCodeRepository extends BaseRepository {
+  constructor() {
+    super();
   }
 
   async create(data: CreatePromoCodeData): Promise<PromoCode> {
@@ -86,7 +83,7 @@ export class PromoCodeRepository {
       data.per_customer_limit || 1
     ];
 
-    const result = await this.db.query<PromoCode>(query, values);
+    const result = await this.pool.query<PromoCode>(query, values);
     return result.rows[0];
   }
 
@@ -99,7 +96,7 @@ export class PromoCodeRepository {
       values.push(shopId);
     }
 
-    const result = await this.db.query<PromoCode>(query, values);
+    const result = await this.pool.query<PromoCode>(query, values);
     return result.rows[0] || null;
   }
 
@@ -113,7 +110,7 @@ export class PromoCodeRepository {
 
     query += ' ORDER BY created_at DESC';
 
-    const result = await this.db.query<PromoCode>(query, values);
+    const result = await this.pool.query<PromoCode>(query, values);
     return result.rows;
   }
 
@@ -148,7 +145,7 @@ export class PromoCodeRepository {
       RETURNING *
     `;
 
-    const result = await this.db.query<PromoCode>(query, values);
+    const result = await this.pool.query<PromoCode>(query, values);
     return result.rows[0] || null;
   }
 
@@ -156,7 +153,7 @@ export class PromoCodeRepository {
     const query = 'SELECT * FROM validate_promo_code($1, $2, $3)';
     const values = [code, shopId, customerAddress.toLowerCase()];
 
-    const result = await this.db.query<PromoCodeValidation>(query, values);
+    const result = await this.pool.query<PromoCodeValidation>(query, values);
     return result.rows[0];
   }
 
@@ -168,7 +165,7 @@ export class PromoCodeRepository {
     bonusAmount: number,
     transactionId?: number
   ): Promise<PromoCodeUse> {
-    const client = await this.db.connect();
+    const client = await this.pool.connect();
     
     try {
       await client.query('BEGIN');
@@ -245,8 +242,8 @@ export class PromoCodeRepository {
     `;
 
     const [statsResult, dailyResult] = await Promise.all([
-      this.db.query(statsQuery, [promoCodeId]),
-      this.db.query(dailyQuery, [promoCodeId])
+      this.pool.query(statsQuery, [promoCodeId]),
+      this.pool.query(dailyQuery, [promoCodeId])
     ]);
 
     return {
@@ -267,19 +264,19 @@ export class PromoCodeRepository {
       ORDER BY pcu.used_at DESC
     `;
 
-    const result = await this.db.query(query, [customerAddress.toLowerCase()]);
+    const result = await this.pool.query(query, [customerAddress.toLowerCase()]);
     return result.rows;
   }
 
   async deactivate(id: number): Promise<boolean> {
     const query = 'UPDATE promo_codes SET is_active = false WHERE id = $1';
-    const result = await this.db.query(query, [id]);
+    const result = await this.pool.query(query, [id]);
     return (result.rowCount ?? 0) > 0;
   }
 
   private async findById(id: number): Promise<PromoCode | null> {
     const query = 'SELECT * FROM promo_codes WHERE id = $1';
-    const result = await this.db.query<PromoCode>(query, [id]);
+    const result = await this.pool.query<PromoCode>(query, [id]);
     return result.rows[0] || null;
   }
 }

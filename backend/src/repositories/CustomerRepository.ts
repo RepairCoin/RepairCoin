@@ -442,4 +442,112 @@ export class CustomerRepository extends BaseRepository {
     }
   }
 
+  async getCustomerAnalytics(address: string): Promise<{
+    totalEarned: number;
+    totalSpent: number;
+    transactionCount: number;
+    favoriteShop: string | null;
+    successfulReferrals: number;
+    earningsTrend: Array<{ date: string; amount: number }>;
+    redemptionHistory: Array<{ date: string; amount: number; shopId: string; shopName: string }>;
+  }> {
+    try {
+      const customerAddr = address.toLowerCase();
+
+      // Get total earned (repair rewards + referral rewards + tier bonuses)
+      const earnedQuery = await this.pool.query(`
+        SELECT 
+          COALESCE(SUM(CASE WHEN type IN ('repair_reward', 'referral_reward', 'tier_bonus', 'admin_mint') THEN amount ELSE 0 END), 0) as total_earned,
+          COUNT(CASE WHEN type IN ('repair_reward', 'referral_reward', 'tier_bonus', 'admin_mint') THEN 1 END) as earning_transactions
+        FROM transactions 
+        WHERE customer_address = $1 AND amount > 0
+      `, [customerAddr]);
+
+      // Get total spent (redemptions)
+      const spentQuery = await this.pool.query(`
+        SELECT 
+          COALESCE(SUM(amount), 0) as total_spent,
+          COUNT(*) as redemption_count
+        FROM transactions 
+        WHERE customer_address = $1 AND type = 'redemption' AND amount > 0
+      `, [customerAddr]);
+
+      // Get favorite shop (most transactions with)
+      const favoriteShopQuery = await this.pool.query(`
+        SELECT 
+          t.shop_id,
+          s.name as shop_name,
+          COUNT(*) as transaction_count
+        FROM transactions t
+        LEFT JOIN shops s ON t.shop_id = s.shop_id
+        WHERE t.customer_address = $1 AND t.shop_id IS NOT NULL
+        GROUP BY t.shop_id, s.name
+        ORDER BY transaction_count DESC
+        LIMIT 1
+      `, [customerAddr]);
+
+      // Get successful referrals count
+      const referralsQuery = await this.pool.query(`
+        SELECT COUNT(*) as successful_referrals
+        FROM customers 
+        WHERE referred_by = $1 AND is_active = true
+      `, [customerAddr]);
+
+      // Get earnings trend (last 30 days)
+      const earningsTrendQuery = await this.pool.query(`
+        SELECT 
+          DATE(created_at) as date,
+          COALESCE(SUM(amount), 0) as amount
+        FROM transactions 
+        WHERE customer_address = $1 
+          AND type IN ('repair_reward', 'referral_reward', 'tier_bonus', 'admin_mint')
+          AND created_at >= NOW() - INTERVAL '30 days'
+        GROUP BY DATE(created_at)
+        ORDER BY date DESC
+        LIMIT 30
+      `, [customerAddr]);
+
+      // Get redemption history (last 20 redemptions)
+      const redemptionHistoryQuery = await this.pool.query(`
+        SELECT 
+          DATE(t.created_at) as date,
+          t.amount,
+          t.shop_id,
+          s.name as shop_name
+        FROM transactions t
+        LEFT JOIN shops s ON t.shop_id = s.shop_id
+        WHERE t.customer_address = $1 
+          AND t.type = 'redemption'
+        ORDER BY t.created_at DESC
+        LIMIT 20
+      `, [customerAddr]);
+
+      const earnedData = earnedQuery.rows[0];
+      const spentData = spentQuery.rows[0];
+      const favoriteShop = favoriteShopQuery.rows[0];
+      const referrals = referralsQuery.rows[0];
+
+      return {
+        totalEarned: parseFloat(earnedData.total_earned || '0'),
+        totalSpent: parseFloat(spentData.total_spent || '0'),
+        transactionCount: parseInt(earnedData.earning_transactions || '0') + parseInt(spentData.redemption_count || '0'),
+        favoriteShop: favoriteShop ? favoriteShop.shop_name : null,
+        successfulReferrals: parseInt(referrals.successful_referrals || '0'),
+        earningsTrend: earningsTrendQuery.rows.map(row => ({
+          date: row.date,
+          amount: parseFloat(row.amount || '0')
+        })),
+        redemptionHistory: redemptionHistoryQuery.rows.map(row => ({
+          date: row.date,
+          amount: parseFloat(row.amount || '0'),
+          shopId: row.shop_id,
+          shopName: row.shop_name || 'Unknown Shop'
+        }))
+      };
+    } catch (error) {
+      logger.error('Error getting customer analytics:', error);
+      throw new Error('Failed to get customer analytics');
+    }
+  }
+
 }

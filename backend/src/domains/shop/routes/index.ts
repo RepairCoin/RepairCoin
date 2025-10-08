@@ -14,6 +14,7 @@ import { logger } from '../../../utils/logger';
 import { RoleValidator } from '../../../utils/roleValidator';
 import { validateShopRoleConflict } from '../../../middleware/roleConflictValidator';
 import { ReferralService } from '../../../services/ReferralService';
+import { PromoCodeService } from '../../../services/PromoCodeService';
 import rcgRoutes from './rcg';
 
 interface ShopData {
@@ -1326,7 +1327,7 @@ router.post('/:shopId/issue-reward',
   async (req: Request, res: Response) => {
     try {
       const { shopId } = req.params;
-      const { customerAddress, repairAmount, skipTierBonus = false, customBaseReward } = req.body;
+      const { customerAddress, repairAmount, skipTierBonus = false, customBaseReward, promoCode } = req.body;
       
       const shop = await shopRepository.getShop(shopId);
       if (!shop) {
@@ -1413,7 +1414,50 @@ router.post('/:shopId/issue-reward',
           tierBonus = 5;  // +5 RCN for Gold
           break;
       }
-      const totalReward = skipTierBonus ? baseReward : baseReward + tierBonus;
+
+      // Calculate promo code bonus if provided
+      let promoBonus = 0;
+      let promoCodeRecord = null;
+      if (promoCode && promoCode.trim()) {
+        try {
+          const promoCodeService = new PromoCodeService();
+          
+          // Validate the promo code
+          const validation = await promoCodeService.validatePromoCode(promoCode.trim(), shopId, customerAddress);
+          if (validation.is_valid) {
+            promoCodeRecord = { id: validation.promo_code_id, bonus_type: validation.bonus_type, bonus_value: validation.bonus_value };
+            // Calculate bonus based on base reward + tier bonus
+            const rewardBeforePromo = skipTierBonus ? baseReward : baseReward + tierBonus;
+            const bonusResult = await promoCodeService.calculatePromoBonus(promoCode.trim(), shopId, customerAddress, rewardBeforePromo);
+            promoBonus = bonusResult.bonusAmount;
+            logger.info('Promo code applied', { 
+              promoCode: promoCode.trim(), 
+              promoBonus, 
+              customerAddress, 
+              shopId 
+            });
+          } else {
+            logger.warn('Invalid promo code attempted', { 
+              promoCode: promoCode.trim(), 
+              reason: validation.error_message, 
+              customerAddress, 
+              shopId 
+            });
+            return res.status(400).json({
+              success: false,
+              error: `Invalid promo code: ${validation.error_message}`
+            });
+          }
+        } catch (promoError: any) {
+          logger.error('Promo code processing error:', promoError);
+          return res.status(500).json({
+            success: false,
+            error: 'Failed to process promo code'
+          });
+        }
+      }
+
+      const totalReward = skipTierBonus ? baseReward + promoBonus : baseReward + tierBonus + promoBonus;
 
       // Check shop has sufficient purchased RCN balance (off-chain balance from database)
       const shopBalance = shop.purchasedRcnBalance || 0;
@@ -1426,7 +1470,9 @@ router.post('/:shopId/issue-reward',
             required: totalReward,
             available: shopBalance,
             baseReward,
-            tierBonus: skipTierBonus ? 0 : tierBonus
+            tierBonus: skipTierBonus ? 0 : tierBonus,
+            promoBonus,
+            promoCode: promoCode || null
           }
         });
       }
@@ -1557,10 +1603,36 @@ router.post('/:shopId/issue-reward',
           metadata: {
             repairAmount,
             baseReward,
-            tierBonus: skipTierBonus ? 0 : tierBonus
+            tierBonus: skipTierBonus ? 0 : tierBonus,
+            promoBonus,
+            promoCode: promoCode || null
           }
         });
         logger.info('Transaction recorded successfully');
+
+        // Record promo code usage if promo code was used
+        if (promoCodeRecord && promoBonus > 0) {
+          try {
+            const promoCodeService = new PromoCodeService();
+            const rewardBeforePromo = skipTierBonus ? baseReward : baseReward + tierBonus;
+            
+            await promoCodeService.recordPromoCodeUse(
+              promoCodeRecord.id,
+              customerAddress,
+              shopId,
+              rewardBeforePromo,
+              promoBonus
+            );
+            logger.info('Promo code usage recorded successfully', { 
+              promoCodeId: promoCodeRecord.id, 
+              customerAddress, 
+              promoBonus 
+            });
+          } catch (promoRecordError) {
+            logger.error('Failed to record promo code usage:', promoRecordError);
+            // Don't fail the transaction, just log the error
+          }
+        }
       } catch (txError) {
         // Log error but don't fail the reward since it was already processed
         logger.error('Failed to record transaction in database:', txError);
@@ -1603,6 +1675,8 @@ router.post('/:shopId/issue-reward',
         repairAmount,
         baseReward,
         tierBonus: skipTierBonus ? 0 : tierBonus,
+        promoBonus,
+        promoCode: promoCode || null,
         totalReward: totalReward,
         txHash: transactionHash,
         referralCompleted
@@ -1613,6 +1687,8 @@ router.post('/:shopId/issue-reward',
         data: {
           baseReward,
           tierBonus: skipTierBonus ? 0 : tierBonus,
+          promoBonus,
+          promoCode: promoCode || null,
           totalReward: totalReward,
           txHash: transactionHash,
           onChainTransfer: onChainSuccess,

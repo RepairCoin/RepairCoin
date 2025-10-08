@@ -9,6 +9,7 @@ import {
   validateNumeric,
   asyncHandler 
 } from '../../../middleware/errorHandler';
+import { RateLimiter, createRateLimitMiddleware } from '../../../utils/rateLimiter';
 import { CustomerController } from '../controllers/CustomerController';
 import { CustomerService } from '../services/CustomerService';
 
@@ -17,6 +18,18 @@ import crossShopRoutes from './crossShop';
 import exportDataRoutes from './exportData';
 
 const router = Router();
+
+// Rate limiter for unsuspension requests - limit to 3 requests per hour per address
+const unsuspendRateLimiter = new RateLimiter({
+  maxRequests: 3,
+  windowMs: 60 * 60 * 1000, // 1 hour
+  keyGenerator: (address: string) => `unsuspend_${address.toLowerCase()}_${Math.floor(Date.now() / (60 * 60 * 1000))}`
+});
+
+const unsuspendRateLimit = createRateLimitMiddleware(
+  unsuspendRateLimiter,
+  (req) => req.params.address || req.ip
+);
 
 // Register sub-routes
 router.use('/cross-shop', crossShopRoutes);
@@ -145,9 +158,9 @@ router.post('/:address/deactivate',
 );
 
 // Request unsuspension
-// Note: Temporarily removed auth requirement since suspended customers can't authenticate
-// TODO: Implement proper customer auth flow
+// Public endpoint (no auth required) with rate limiting to prevent abuse
 router.post('/:address/request-unsuspend',
+  unsuspendRateLimit,
   validateEthereumAddress('address'),
   validateRequired(['reason']),
   asyncHandler(customerController.requestUnsuspend.bind(customerController))

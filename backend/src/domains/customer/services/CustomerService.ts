@@ -34,7 +34,9 @@ export interface CustomerAnalyticsResult {
   totalSpent: number;
   transactionCount: number;
   favoriteShop: string | null;
-  earningTrend: Array<{ date: string; amount: number }>;
+  successfulReferrals: number;
+  earningsTrend: Array<{ date: string; amount: number }>;
+  redemptionHistory: Array<{ date: string; amount: number; shopId: string; shopName: string }>;
 }
 
 export interface ListCustomersParams {
@@ -314,15 +316,7 @@ export class CustomerService {
         throw new Error('Can only view your own analytics');
       }
 
-      // For now, return mock analytics since the method is missing
-      // TODO: Implement getCustomerAnalytics in DatabaseService
-      const analytics: CustomerAnalyticsResult = {
-        totalEarned: 0,
-        totalSpent: 0,
-        transactionCount: 0,
-        favoriteShop: null,
-        earningTrend: []
-      };
+      const analytics = await customerRepository.getCustomerAnalytics(address);
 
       return analytics;
     } catch (error) {
@@ -352,15 +346,7 @@ export class CustomerService {
         reason
       });
 
-      // TODO: Fix TokenMinter method access
-      // const result = await this.getTokenMinter().mintToCustomer(address, amount, `admin_${reason}`);
-      
-      // Temporary mock result to allow compilation
-      const result = {
-        success: true,
-        transactionHash: `mock_${Date.now()}`,
-        error: null
-      };
+      const result = await this.getTokenMinter().adminMintTokens(address, amount, `admin_${reason}`);
       
       if (!result.success) {
         throw new Error(result.error || 'Token minting failed');

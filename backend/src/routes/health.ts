@@ -3,7 +3,7 @@ import { Router, Request, Response } from 'express';
 import { TokenMinter } from '../contracts/TokenMinter';
 import { ResponseHelper } from '../utils/responseHelper';
 import { asyncHandler } from '../middleware/errorHandler';
-// TODO: Implement healthCheck in repositories
+import { healthRepository } from '../repositories';
 
 const router = Router();
 
@@ -79,11 +79,16 @@ router.get('/detailed', asyncHandler(async (req: Request, res: Response) => {
 
 // Database-specific health check
 router.get('/database', asyncHandler(async (req: Request, res: Response) => {
-  // TODO: Implement healthCheck in repository
-  const dbHealth = { status: 'healthy', details: { connection_pool: {}, database: {} } }; // await healthRepository.healthCheck();
+  const dbHealth = await healthRepository.healthCheck();
+  const tableHealth = await healthRepository.checkTableHealth();
+  
+  const response = {
+    ...dbHealth,
+    table_health: tableHealth
+  };
   
   if (dbHealth.status === 'healthy') {
-    ResponseHelper.success(res, dbHealth);
+    ResponseHelper.success(res, response);
   } else {
     ResponseHelper.serviceUnavailable(res, 'Database health check failed');
   }
@@ -103,11 +108,10 @@ router.get('/blockchain', asyncHandler(async (req: Request, res: Response) => {
 // Helper functions
 async function checkDatabaseHealth() {
   try {
-    // TODO: Implement healthCheck in repository
-  const dbHealth = { status: 'healthy', details: { connection_pool: {}, database: {} } }; // await healthRepository.healthCheck();
+    const dbHealth = await healthRepository.healthCheck();
     return {
       status: dbHealth.status,
-      responseTime: '<1000ms',
+      responseTime: `${dbHealth.details.database.response_time_ms}ms`,
       connectionPool: dbHealth.details.connection_pool,
       database: dbHealth.details.database
     };

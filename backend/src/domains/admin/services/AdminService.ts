@@ -247,8 +247,21 @@ export class AdminService {
     try {
       logger.info('Contract pause requested', { adminAddress });
       
-      // TODO: Implement actual contract pausing when TokenMinter is ready
-      // const result = await this.tokenMinter.pause();
+      // Check if already paused
+      const isPaused = await this.getTokenMinterInstance().isContractPaused();
+      if (isPaused) {
+        return {
+          success: false,
+          message: 'Contract is already paused'
+        };
+      }
+
+      // Pause the contract
+      const result = await this.getTokenMinterInstance().pauseContract();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to pause contract');
+      }
       
       // Log admin activity
       await adminRepository.logAdminActivity({
@@ -258,18 +271,24 @@ export class AdminService {
         entityType: 'contract',
         entityId: 'repaircoin',
         metadata: {
-          action: 'pause'
+          action: 'pause',
+          transactionHash: result.transactionHash
         }
+      });
+      
+      logger.info('Contract paused successfully', {
+        adminAddress,
+        transactionHash: result.transactionHash
       });
       
       return {
         success: true,
-        transactionHash: `mock_pause_${Date.now()}`,
-        message: 'Contract paused successfully'
+        transactionHash: result.transactionHash,
+        message: 'Contract paused successfully - All token operations are now disabled'
       };
     } catch (error) {
       logger.error('Contract pause error:', error);
-      throw new Error('Failed to pause contract');
+      throw new Error(`Failed to pause contract: ${error.message}`);
     }
   }
 
@@ -277,8 +296,21 @@ export class AdminService {
     try {
       logger.info('Contract unpause requested', { adminAddress });
       
-      // TODO: Implement actual contract unpausing when TokenMinter is ready
-      // const result = await this.tokenMinter.unpause();
+      // Check if already unpaused
+      const isPaused = await this.getTokenMinterInstance().isContractPaused();
+      if (!isPaused) {
+        return {
+          success: false,
+          message: 'Contract is already unpaused'
+        };
+      }
+
+      // Unpause the contract
+      const result = await this.getTokenMinterInstance().unpauseContract();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to unpause contract');
+      }
       
       // Log admin activity
       await adminRepository.logAdminActivity({
@@ -288,18 +320,216 @@ export class AdminService {
         entityType: 'contract',
         entityId: 'repaircoin',
         metadata: {
-          action: 'unpause'
+          action: 'unpause',
+          transactionHash: result.transactionHash
         }
+      });
+      
+      logger.info('Contract unpaused successfully', {
+        adminAddress,
+        transactionHash: result.transactionHash
       });
       
       return {
         success: true,
-        transactionHash: `mock_unpause_${Date.now()}`,
-        message: 'Contract unpaused successfully'
+        transactionHash: result.transactionHash,
+        message: 'Contract unpaused successfully - Token operations are now enabled'
       };
     } catch (error) {
       logger.error('Contract unpause error:', error);
-      throw new Error('Failed to unpause contract');
+      throw new Error(`Failed to unpause contract: ${error.message}`);
+    }
+  }
+
+  async getContractStatus() {
+    try {
+      const tokenMinter = this.getTokenMinterInstance();
+      
+      // Get contract pause status
+      const isPaused = await tokenMinter.isContractPaused();
+      
+      // Get contract statistics
+      const contractStats = await tokenMinter.getContractStats();
+      
+      return {
+        success: true,
+        status: {
+          isPaused,
+          contractAddress: contractStats?.contractAddress || 'Unknown',
+          totalSupply: contractStats?.totalSupplyReadable || 0,
+          lastChecked: new Date().toISOString()
+        },
+        message: `Contract is ${isPaused ? 'PAUSED' : 'ACTIVE'}`
+      };
+    } catch (error) {
+      logger.error('Error getting contract status:', error);
+      return {
+        success: false,
+        error: error.message,
+        status: {
+          isPaused: null,
+          contractAddress: 'Error',
+          totalSupply: 0,
+          lastChecked: new Date().toISOString()
+        }
+      };
+    }
+  }
+
+  async emergencyStop(adminAddress?: string, reason?: string) {
+    try {
+      logger.warn('EMERGENCY STOP requested', { 
+        adminAddress, 
+        reason: reason || 'Emergency stop activated by admin' 
+      });
+
+      // Check if already paused
+      const isPaused = await this.getTokenMinterInstance().isContractPaused();
+      if (isPaused) {
+        return {
+          success: false,
+          message: 'Contract is already in emergency stop (paused) state'
+        };
+      }
+
+      // Pause the contract
+      const result = await this.getTokenMinterInstance().pauseContract();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Emergency stop failed');
+      }
+      
+      // Log emergency activity with high priority
+      await adminRepository.logAdminActivity({
+        adminAddress: adminAddress || 'system',
+        actionType: 'emergency_stop',
+        actionDescription: `EMERGENCY STOP: ${reason || 'Contract paused immediately'}`,
+        entityType: 'contract',
+        entityId: 'repaircoin',
+        metadata: {
+          action: 'emergency_stop',
+          reason: reason || 'Emergency stop activated',
+          transactionHash: result.transactionHash,
+          timestamp: new Date().toISOString()
+        }
+      });
+      
+      logger.error('EMERGENCY STOP ACTIVATED', {
+        adminAddress,
+        reason,
+        transactionHash: result.transactionHash
+      });
+      
+      return {
+        success: true,
+        transactionHash: result.transactionHash,
+        message: '🚨 EMERGENCY STOP ACTIVATED - All token operations are immediately disabled'
+      };
+    } catch (error) {
+      logger.error('Emergency stop error:', error);
+      throw new Error(`Emergency stop failed: ${error.message}`);
+    }
+  }
+
+  async processManualRedemption(params: {
+    customerAddress: string;
+    amount: number;
+    shopId: string;
+    adminAddress?: string;
+    reason?: string;
+    forceProcess?: boolean;
+  }) {
+    try {
+      const { customerAddress, amount, shopId, adminAddress, reason } = params;
+      
+      logger.info('Manual redemption requested', { customerAddress, amount, shopId, adminAddress });
+      
+      // Validate customer exists
+      const customer = await customerRepository.getCustomer(customerAddress);
+      if (!customer) {
+        throw new Error('Customer not found');
+      }
+
+      // Validate shop exists
+      const shop = await shopRepository.getShop(shopId);
+      if (!shop) {
+        throw new Error('Shop not found');
+      }
+
+      // Check customer balance
+      const currentBalance = await this.getTokenMinterInstance().getCustomerBalance(customerAddress);
+      if (!currentBalance || currentBalance < amount) {
+        throw new Error(`Insufficient balance. Customer has ${currentBalance || 0} RCN, requested ${amount} RCN`);
+      }
+
+      // Process the redemption by burning tokens
+      const burnResult = await this.getTokenMinterInstance().burnTokensFromCustomer(
+        customerAddress,
+        amount,
+        '0x000000000000000000000000000000000000dEaD',
+        'Manual admin redemption'
+      );
+
+      if (!burnResult.success) {
+        throw new Error(burnResult.error || 'Failed to process redemption');
+      }
+
+      // Record transaction
+      await transactionRepository.recordTransaction({
+        id: `manual_redemption_${Date.now()}`,
+        type: 'redeem',
+        customerAddress: customerAddress.toLowerCase(),
+        shopId,
+        amount,
+        reason: `Manual redemption: ${reason || 'Admin processed'}`,
+        transactionHash: burnResult.transactionHash || '',
+        timestamp: new Date().toISOString(),
+        status: 'confirmed',
+        metadata: {
+          processedBy: adminAddress || 'admin',
+          manual: true,
+          adminReason: reason || 'Manual processing'
+        }
+      });
+
+      // Log admin activity
+      await adminRepository.logAdminActivity({
+        adminAddress: adminAddress || 'system',
+        actionType: 'manual_redemption',
+        actionDescription: `Manually processed redemption of ${amount} RCN for customer ${customerAddress}`,
+        entityType: 'transaction',
+        entityId: `manual_redemption_${Date.now()}`,
+        metadata: {
+          customerAddress,
+          shopId,
+          amount,
+          reason,
+          transactionHash: burnResult.transactionHash
+        }
+      });
+
+      logger.info('Manual redemption processed successfully', {
+        customerAddress,
+        amount,
+        shopId,
+        transactionHash: burnResult.transactionHash
+      });
+
+      return {
+        success: true,
+        transactionHash: burnResult.transactionHash,
+        message: `Successfully processed manual redemption of ${amount} RCN`,
+        details: {
+          customerAddress,
+          shopId: shop.shopId,
+          shopName: shop.name,
+          amount,
+          newBalance: (currentBalance - amount)
+        }
+      };
+    } catch (error) {
+      logger.error('Manual redemption error:', error);
+      throw new Error(`Manual redemption failed: ${error.message}`);
     }
   }
 
@@ -512,36 +742,57 @@ export class AdminService {
 
   private async getTotalTransactionsCount(): Promise<number> {
     try {
-      // TODO: Implement transaction count query in DatabaseService
-      return 0; // Mock for now
+      const result = await treasuryRepository.query(`
+        SELECT COUNT(*) as total_count 
+        FROM transactions
+      `);
+      return parseInt(result.rows[0]?.total_count || '0');
     } catch (error) {
+      logger.error('Error getting total transactions count:', error);
       return 0;
     }
   }
 
   private async getNewCustomersToday(): Promise<number> {
     try {
-      // TODO: Implement today's customer count query
-      return 0; // Mock for now
+      const result = await treasuryRepository.query(`
+        SELECT COUNT(*) as new_customers
+        FROM customers 
+        WHERE DATE(join_date) = CURRENT_DATE
+      `);
+      return parseInt(result.rows[0]?.new_customers || '0');
     } catch (error) {
+      logger.error('Error getting new customers today:', error);
       return 0;
     }
   }
 
   private async getTransactionsToday(): Promise<number> {
     try {
-      // TODO: Implement today's transaction count query
-      return 0; // Mock for now
+      const result = await treasuryRepository.query(`
+        SELECT COUNT(*) as transactions_today
+        FROM transactions 
+        WHERE DATE(created_at) = CURRENT_DATE
+      `);
+      return parseInt(result.rows[0]?.transactions_today || '0');
     } catch (error) {
+      logger.error('Error getting transactions today:', error);
       return 0;
     }
   }
 
   private async getTokensIssuedToday(): Promise<number> {
     try {
-      // TODO: Implement today's token issuance query
-      return 0; // Mock for now
+      const result = await treasuryRepository.query(`
+        SELECT COALESCE(SUM(amount), 0) as tokens_issued_today
+        FROM transactions 
+        WHERE DATE(created_at) = CURRENT_DATE
+          AND type IN ('repair_reward', 'referral_reward', 'tier_bonus', 'admin_mint')
+          AND amount > 0
+      `);
+      return parseFloat(result.rows[0]?.tokens_issued_today || '0');
     } catch (error) {
+      logger.error('Error getting tokens issued today:', error);
       return 0;
     }
   }

@@ -1,11 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { PromoCodeService } from '../../../services/PromoCodeService';
-import { DatabaseService } from '../../../services/DatabaseService';
 import { authMiddleware } from '../../../middleware/auth';
 
 const router = Router();
-const db = DatabaseService.getInstance();
-const promoCodeService = new PromoCodeService(db);
+const promoCodeService = new PromoCodeService();
 
 // Helper function to validate Ethereum address
 const isValidEthereumAddress = (address: string): boolean => {

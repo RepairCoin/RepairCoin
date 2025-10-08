@@ -94,6 +94,53 @@ export class AdminController {
     }
   }
 
+  async getContractStatus(req: Request, res: Response) {
+    try {
+      const status = await this.adminService.getContractStatus();
+      ResponseHelper.success(res, status);
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message, 500);
+    }
+  }
+
+  async emergencyStop(req: Request, res: Response) {
+    try {
+      const { reason } = req.body;
+      const result = await this.adminService.emergencyStop(req.user?.address, reason);
+      
+      ResponseHelper.success(res, {
+        message: result.message,
+        transactionHash: result.transactionHash
+      });
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message, 500);
+    }
+  }
+
+  async processManualRedemption(req: Request, res: Response) {
+    try {
+      const { customerAddress, shopId, amount, reason } = req.body;
+      const { forceProcess = false } = req.query;
+      
+      const result = await this.adminService.processManualRedemption({
+        customerAddress,
+        shopId,
+        amount,
+        reason,
+        adminAddress: req.user?.address,
+        forceProcess: forceProcess === 'true'
+      });
+      
+      ResponseHelper.success(res, result);
+    } catch (error: any) {
+      if (error.message.includes('not found') || error.message.includes('insufficient')) {
+        ResponseHelper.error(res, error.message, 400);
+      } else {
+        ResponseHelper.error(res, error.message, 500);
+      }
+    }
+  }
+
   async approveShop(req: Request, res: Response) {
     try {
       const { shopId } = req.params;
