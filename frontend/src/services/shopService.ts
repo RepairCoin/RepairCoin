@@ -1,8 +1,27 @@
 import { ShopRegistrationFormData, ExistingApplication } from '@/types/shop';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api';
 
 export class ShopService {
+  /**
+   * Get all active shops (public endpoint for customers to find shops)
+   */
+  static async getAllShops(): Promise<any[]> {
+    try {
+      const response = await fetch(`${API_URL}/shops`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch shops: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data.data?.shops || [];
+    } catch (error) {
+      console.error("Error fetching shops:", error);
+      throw error;
+    }
+  }
+
   /**
    * Check if a wallet has an existing shop application
    */

@@ -108,12 +108,20 @@ router.get('/', async (req: Request, res: Response) => {
     const publicShops = shops.map(shop => ({
       shopId: shop.shopId,
       name: shop.name,
+      email: shop.email,
+      active: shop.active,
       address: shop.address,
       phone: shop.phone,
       verified: shop.verified,
       crossShopEnabled: shop.crossShopEnabled,
-      location: shop.location,
-      joinDate: shop.joinDate
+      joinDate: shop.joinDate,
+      location: {
+        lat: shop.locationLat,
+        lng: shop.locationLng,
+        city: shop.locationCity,
+        state: shop.locationState,
+        zipCode: shop.locationZipCode
+      }
     }));
 
     res.json({

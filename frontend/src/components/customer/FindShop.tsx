@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
-import { Search, MapPin, Phone, Mail, Globe, Star } from "lucide-react";
+import { Search, MapPin, Phone, Mail, Globe } from "lucide-react";
+import { ShopService } from "@/services/shopService";
+import toast from "react-hot-toast";
 import "leaflet/dist/leaflet.css";
 
 // Dynamic import for map to avoid SSR issues
@@ -18,19 +20,25 @@ const Marker = dynamic(
   () => import("react-leaflet").then((mod) => mod.Marker),
   { ssr: false }
 );
-const Popup = dynamic(
-  () => import("react-leaflet").then((mod) => mod.Popup),
-  { ssr: false }
-);
+const Popup = dynamic(() => import("react-leaflet").then((mod) => mod.Popup), {
+  ssr: false,
+});
 
-// Fix for default marker icons in Leaflet
+// Custom marker icon configuration
 const L = typeof window !== "undefined" ? require("leaflet") : null;
+let customIcon: any = null;
+
 if (L) {
-  delete (L.Icon.Default.prototype as any)._getIconUrl;
-  L.Icon.Default.mergeOptions({
-    iconRetinaUrl: "/leaflet/marker-icon-2x.png",
-    iconUrl: "/leaflet/marker-icon.png",
+  // Create custom icon
+  customIcon = new L.Icon({
+    iconUrl: "/marker-icon.png",
+    iconRetinaUrl: "/marker-icon.png", // Use same icon for retina displays
     shadowUrl: "/leaflet/marker-shadow.png",
+    iconSize: [25, 41], // Size of the icon
+    iconAnchor: [12, 41], // Point of the icon which will correspond to marker's location
+    popupAnchor: [1, -34], // Point from which the popup should open relative to the iconAnchor
+    shadowSize: [41, 41], // Size of the shadow
+    shadowAnchor: [12, 41] // Point from which the shadow should open relative to the iconAnchor
   });
 }
 
@@ -39,18 +47,24 @@ const MapViewController = dynamic(
   () =>
     import("react-leaflet").then((mod) => {
       const { useMap } = mod;
-      return function MapViewComponent({ center, zoom }: { center: [number, number]; zoom: number }) {
+      return function MapViewComponent({
+        center,
+        zoom,
+      }: {
+        center: [number, number];
+        zoom: number;
+      }) {
         const map = useMap();
-        
+
         useEffect(() => {
           if (map && center && zoom) {
             map.flyTo(center, zoom, {
               animate: true,
-              duration: 1
+              duration: 1,
             });
           }
         }, [map, center, zoom]);
-        
+
         return null;
       };
     }),
@@ -58,146 +72,96 @@ const MapViewController = dynamic(
 );
 
 interface Shop {
-  shop_id: string;
+  shopId: string;
   name: string;
-  address: string;
-  phone: string;
-  email: string;
-  location_lat: number;
-  location_lng: number;
-  location_city: string;
-  location_state: string;
-  location_zip_code: string;
-  verified: boolean;
   active: boolean;
-  cross_shop_enabled: boolean;
-  rating?: number;
-  distance?: string;
+  address: string;
+  phone?: string;
+  verified: boolean;
+  crossShopEnabled: boolean;
+  location?: {
+    lat?: number;
+    lng?: number;
+    city?: string;
+    state?: string;
+    zipCode?: string;
+  };
+  joinDate: string;
 }
-
-// Dummy data for testing
-const DUMMY_SHOPS: Shop[] = [
-  {
-    shop_id: "SHOP001",
-    name: "Quick Fix Auto Repair",
-    address: "123 Main Street",
-    phone: "(555) 123-4567",
-    email: "info@quickfixauto.com",
-    location_lat: 40.7128,
-    location_lng: -74.0060,
-    location_city: "New York",
-    location_state: "NY",
-    location_zip_code: "10001",
-    verified: true,
-    active: true,
-    cross_shop_enabled: true,
-    rating: 4.8,
-    distance: "0.5 mi",
-  },
-  {
-    shop_id: "SHOP002",
-    name: "Elite Car Care Center",
-    address: "456 Broadway Avenue",
-    phone: "(555) 234-5678",
-    email: "service@elitecarcare.com",
-    location_lat: 40.7260,
-    location_lng: -73.9897,
-    location_city: "New York",
-    location_state: "NY",
-    location_zip_code: "10003",
-    verified: true,
-    active: true,
-    cross_shop_enabled: true,
-    rating: 4.6,
-    distance: "1.2 mi",
-  },
-  {
-    shop_id: "SHOP003",
-    name: "Precision Auto Works",
-    address: "789 Park Plaza",
-    phone: "(555) 345-6789",
-    email: "contact@precisionauto.com",
-    location_lat: 40.7489,
-    location_lng: -73.9680,
-    location_city: "New York",
-    location_state: "NY",
-    location_zip_code: "10016",
-    verified: true,
-    active: true,
-    cross_shop_enabled: false,
-    rating: 4.9,
-    distance: "2.0 mi",
-  },
-  {
-    shop_id: "SHOP004",
-    name: "Downtown Motor Service",
-    address: "321 Liberty Street",
-    phone: "(555) 456-7890",
-    email: "help@downtownmotor.com",
-    location_lat: 40.7074,
-    location_lng: -74.0113,
-    location_city: "New York",
-    location_state: "NY",
-    location_zip_code: "10006",
-    verified: true,
-    active: true,
-    cross_shop_enabled: true,
-    rating: 4.5,
-    distance: "0.8 mi",
-  },
-  {
-    shop_id: "SHOP005",
-    name: "Green Auto Solutions",
-    address: "555 Eco Drive",
-    phone: "(555) 567-8901",
-    email: "info@greenauto.com",
-    location_lat: 40.7614,
-    location_lng: -73.9776,
-    location_city: "New York",
-    location_state: "NY",
-    location_zip_code: "10019",
-    verified: true,
-    active: false,
-    cross_shop_enabled: false,
-    rating: 4.7,
-    distance: "3.5 mi",
-  },
-];
 
 export function FindShop() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
-  const [filteredShops, setFilteredShops] = useState<Shop[]>(DUMMY_SHOPS);
-  const [mapCenter, setMapCenter] = useState<[number, number]>([40.7128, -74.0060]);
+  const [shops, setShops] = useState<Shop[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([
+    14.5995, 120.9842,
+  ]); // Manila, Philippines
   const [mapZoom, setMapZoom] = useState(12);
 
+  // Fetch shops from API on component mount
   useEffect(() => {
-    // Filter shops based on search query
+    const fetchShops = async () => {
+      try {
+        setLoading(true);
+        const shopsData = await ShopService.getAllShops();
+        setShops(shopsData);
+
+        // Set map center to first shop with location data or keep default
+        const shopWithLocation = shopsData.find(
+          (shop) => shop.location?.lat && shop.location?.lng
+        );
+        if (shopWithLocation) {
+          setMapCenter([
+            shopWithLocation.location!.lat!,
+            shopWithLocation.location!.lng!,
+          ]);
+        }
+      } catch (error) {
+        console.error("Error fetching shops:", error);
+        toast.error("Failed to load shops. Please try again.");
+        setShops([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchShops();
+  }, []);
+
+  // Memoized filtered shops for performance optimization
+  const filteredShops = useMemo(() => {
     if (searchQuery.trim() === "") {
-      setFilteredShops(DUMMY_SHOPS);
-    } else {
-      const query = searchQuery.toLowerCase();
-      const filtered = DUMMY_SHOPS.filter(
-        (shop) =>
-          shop.name.toLowerCase().includes(query) ||
-          shop.address.toLowerCase().includes(query) ||
-          shop.location_city.toLowerCase().includes(query) ||
-          shop.shop_id.toLowerCase().includes(query)
-      );
-      setFilteredShops(filtered);
+      return shops;
     }
-  }, [searchQuery]);
+
+    const query = searchQuery.toLowerCase();
+    return shops.filter(
+      (shop) =>
+        shop.name.toLowerCase().includes(query) ||
+        shop.address.toLowerCase().includes(query) ||
+        shop.location?.city?.toLowerCase().includes(query) ||
+        shop.shopId.toLowerCase().includes(query)
+    );
+  }, [searchQuery, shops]);
 
   const handleShopSelect = (shop: Shop) => {
     setSelectedShop(shop);
-    setMapCenter([shop.location_lat, shop.location_lng]);
-    setMapZoom(16); // Increased zoom for better focus on the shop
+    if (shop.location?.lat && shop.location?.lng) {
+      setMapCenter([shop.location.lat, shop.location.lng]);
+      setMapZoom(16); // Increased zoom for better focus on the shop
+    } else {
+      // If shop has no coordinates, show a message
+      toast.error(`${shop.name} doesn't have map coordinates yet`);
+    }
   };
 
   const handleMarkerClick = (shop: Shop) => {
     setSelectedShop(shop);
-    setMapCenter([shop.location_lat, shop.location_lng]);
-    setMapZoom(16); // Also zoom when clicking on marker
+    if (shop.location?.lat && shop.location?.lng) {
+      setMapCenter([shop.location.lat, shop.location.lng]);
+      setMapZoom(16); // Also zoom when clicking on marker
+    }
   };
 
   return (
@@ -224,66 +188,99 @@ export function FindShop() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Shop List */}
         <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
-          <h3 className="text-lg font-semibold text-gray-800 mb-3">
-            Available Shops ({filteredShops.filter(s => s.active).length})
-          </h3>
-          {filteredShops.map((shop) => (
-            <div
-              key={shop.shop_id}
-              onClick={() => handleShopSelect(shop)}
-              className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                selectedShop?.shop_id === shop.shop_id
-                  ? "border-blue-500 bg-blue-50"
-                  : "border-gray-200 hover:border-gray-300 hover:shadow-md"
-              } ${!shop.active ? "opacity-60" : ""}`}
-            >
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <h4 className="font-semibold text-gray-900">{shop.name}</h4>
-                  <p className="text-sm text-gray-500">{shop.shop_id}</p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  {shop.verified && (
-                    <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
-                      Verified
-                    </span>
-                  )}
-                  {!shop.active && (
-                    <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
-                      Inactive
-                    </span>
-                  )}
-                </div>
-              </div>
-              
-              <p className="text-sm text-gray-600 mb-1">
-                <MapPin className="inline w-4 h-4 mr-1" />
-                {shop.address}, {shop.location_city}, {shop.location_state} {shop.location_zip_code}
+          <div className="mb-3">
+            <h3 className="text-lg font-semibold text-gray-800">
+              Available Shops (
+              {loading ? "..." : filteredShops.filter((s) => s.verified).length}
+              )
+            </h3>
+            {!loading && filteredShops.length > 0 && (
+              <p className="text-sm text-gray-500">
+                {
+                  filteredShops.filter(
+                    (s) => s.location?.lat && s.location?.lng
+                  ).length
+                }{" "}
+                shops on map,{" "}
+                {
+                  filteredShops.filter(
+                    (s) => !s.location?.lat || !s.location?.lng
+                  ).length
+                }{" "}
+                without coordinates
               </p>
-              
-              <div className="flex items-center justify-between mt-3">
-                <div className="flex items-center space-x-3 text-sm">
-                  {shop.rating && (
-                    <span className="flex items-center">
-                      <Star className="w-4 h-4 text-yellow-500 mr-1 fill-current" />
-                      {shop.rating}
+            )}
+          </div>
+
+          {loading && (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <span className="ml-3 text-gray-600">Loading shops...</span>
+            </div>
+          )}
+          {!loading &&
+            filteredShops.map((shop) => (
+              <div
+                key={shop.shopId}
+                onClick={() => handleShopSelect(shop)}
+                className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                  selectedShop?.shopId === shop.shopId
+                    ? "border-blue-500 bg-blue-50"
+                    : "border-gray-200 hover:border-gray-300 hover:shadow-md"
+                } ${!shop.verified ? "opacity-60" : ""}`}
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <h4 className="font-semibold text-gray-900">{shop.name}</h4>
+                    <p className="text-sm text-gray-500">{shop.shopId}</p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    {shop.verified && (
+                      <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+                        Verified
+                      </span>
+                    )}
+                    {!shop.verified && (
+                      <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full">
+                        Pending
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <p className="text-sm text-gray-600 mb-1">
+                  <MapPin
+                    className={`inline w-4 h-4 mr-1 ${
+                      !shop.location?.lat || !shop.location?.lng
+                        ? "text-gray-300"
+                        : ""
+                    }`}
+                  />
+                  {shop.address}
+                  {shop.location?.city && `, ${shop.location.city}`}
+                  {shop.location?.state && `, ${shop.location.state}`}
+                  {shop.location?.zipCode && ` ${shop.location.zipCode}`}
+                  {(!shop.location?.lat || !shop.location?.lng) && (
+                    <span className="text-xs text-gray-400 block mt-1">
+                      📍 Location coordinates not available
                     </span>
                   )}
-                  {shop.distance && (
-                    <span className="text-gray-500">{shop.distance}</span>
+                </p>
+
+                <div className="flex items-center justify-between mt-3">
+                  {shop.crossShopEnabled && (
+                    <span className="text-xs text-blue-600 font-medium">
+                      Cross-Shop ✓
+                    </span>
                   )}
                 </div>
-                {shop.cross_shop_enabled && (
-                  <span className="text-xs text-blue-600 font-medium">
-                    Cross-Shop ✓
-                  </span>
-                )}
               </div>
-            </div>
-          ))}
-          {filteredShops.length === 0 && (
+            ))}
+          {!loading && filteredShops.length === 0 && (
             <div className="text-center py-8 text-gray-500">
-              No shops found matching your search.
+              {shops.length === 0
+                ? "No shops available yet."
+                : "No shops found matching your search."}
             </div>
           )}
         </div>
@@ -303,31 +300,39 @@ export function FindShop() {
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
                 <MapViewController center={mapCenter} zoom={mapZoom} />
-                {filteredShops.map((shop) => (
-                  <Marker
-                    key={shop.shop_id}
-                    position={[shop.location_lat, shop.location_lng]}
-                    eventHandlers={{
-                      click: () => handleMarkerClick(shop),
-                    }}
-                  >
-                    <Popup>
-                      <div className="p-2">
-                        <h4 className="font-semibold">{shop.name}</h4>
-                        <p className="text-sm text-gray-600">{shop.address}</p>
-                        <p className="text-sm text-gray-600">
-                          {shop.location_city}, {shop.location_state} {shop.location_zip_code}
-                        </p>
-                        {shop.phone && (
-                          <p className="text-sm mt-1">
-                            <Phone className="inline w-3 h-3 mr-1" />
-                            {shop.phone}
+                {filteredShops
+                  .filter((shop) => shop.location?.lat && shop.location?.lng)
+                  .map((shop) => (
+                    <Marker
+                      key={shop.shopId}
+                      position={[shop.location!.lat!, shop.location!.lng!]}
+                      icon={customIcon || undefined}
+                      eventHandlers={{
+                        click: () => handleMarkerClick(shop),
+                      }}
+                    >
+                      <Popup>
+                        <div className="p-2">
+                          <h4 className="font-semibold">{shop.name}</h4>
+                          <p className="text-sm text-gray-600">
+                            {shop.address}
                           </p>
-                        )}
-                      </div>
-                    </Popup>
-                  </Marker>
-                ))}
+                          {shop.location?.city && shop.location?.state && (
+                            <p className="text-sm text-gray-600">
+                              {shop.location.city}, {shop.location.state}{" "}
+                              {shop.location.zipCode || ""}
+                            </p>
+                          )}
+                          {shop.phone && (
+                            <p className="text-sm mt-1">
+                              <Phone className="inline w-3 h-3 mr-1" />
+                              {shop.phone}
+                            </p>
+                          )}
+                        </div>
+                      </Popup>
+                    </Marker>
+                  ))}
               </MapContainer>
             )}
           </div>
@@ -342,69 +347,67 @@ export function FindShop() {
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <h4 className="font-semibold text-gray-800">{selectedShop.name}</h4>
-              <p className="text-sm text-gray-500 mb-3">{selectedShop.shop_id}</p>
-              
+              <h4 className="font-semibold text-gray-800">
+                {selectedShop.name}
+              </h4>
+              <p className="text-sm text-gray-500 mb-3">
+                {selectedShop.shopId}
+              </p>
+              <p className="text-xs text-gray-400 mb-3">
+                Joined: {new Date(selectedShop.joinDate).toLocaleDateString()}
+              </p>
+
               <div className="space-y-2">
-                <p className="text-sm flex items-center">
-                  <MapPin className="w-4 h-4 mr-2 text-gray-400" />
-                  {selectedShop.address}
-                  <br />
-                  <span className="ml-6">
-                    {selectedShop.location_city}, {selectedShop.location_state} {selectedShop.location_zip_code}
+                <p className="text-sm flex items-start">
+                  <MapPin className="w-4 h-4 mr-2 text-gray-400 mt-0.5" />
+                  <span>
+                    {selectedShop.address}
+                    {selectedShop.location?.city && (
+                      <>
+                        <br />
+                        <span className="ml-0">
+                          {selectedShop.location.city}
+                          {selectedShop.location.state &&
+                            `, ${selectedShop.location.state}`}
+                          {selectedShop.location.zipCode &&
+                            ` ${selectedShop.location.zipCode}`}
+                        </span>
+                      </>
+                    )}
                   </span>
                 </p>
-                
+
                 {selectedShop.phone && (
                   <p className="text-sm flex items-center">
                     <Phone className="w-4 h-4 mr-2 text-gray-400" />
                     {selectedShop.phone}
                   </p>
                 )}
-                
-                {selectedShop.email && (
-                  <p className="text-sm flex items-center">
-                    <Mail className="w-4 h-4 mr-2 text-gray-400" />
-                    {selectedShop.email}
-                  </p>
-                )}
               </div>
             </div>
-            
+
             <div className="flex flex-col justify-between">
               <div className="flex flex-wrap gap-2 mb-4">
-                {selectedShop.verified && (
+                {selectedShop.verified ? (
                   <span className="px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
                     ✓ Verified Shop
                   </span>
-                )}
-                {selectedShop.active ? (
-                  <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">
-                    Active
-                  </span>
                 ) : (
-                  <span className="px-3 py-1 bg-gray-100 text-gray-600 text-sm font-medium rounded-full">
-                    Inactive
+                  <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-sm font-medium rounded-full">
+                    Pending Verification
                   </span>
                 )}
-                {selectedShop.cross_shop_enabled && (
+                {selectedShop.crossShopEnabled && (
                   <span className="px-3 py-1 bg-purple-100 text-purple-800 text-sm font-medium rounded-full">
                     Cross-Shop Network
                   </span>
                 )}
               </div>
-              
-              {selectedShop.rating && (
-                <div className="flex items-center">
-                  <Star className="w-5 h-5 text-yellow-500 fill-current" />
-                  <span className="ml-1 font-semibold">{selectedShop.rating}</span>
-                  <span className="ml-2 text-gray-500 text-sm">Customer Rating</span>
-                </div>
-              )}
-              
               <button
                 className="mt-4 w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
-                onClick={() => console.log("Navigate to shop:", selectedShop.shop_id)}
+                onClick={() =>
+                  console.log("Navigate to shop:", selectedShop.shopId)
+                }
               >
                 Visit This Shop
               </button>

@@ -360,7 +360,7 @@ export class ShopRepository extends BaseRepository {
     try {
       const query = 'SELECT * FROM shops WHERE active = true AND verified = true';
       const result = await this.pool.query(query);
-      
+
       return result.rows.map(row => ({
         shopId: row.shop_id,
         name: row.name,
@@ -388,7 +388,12 @@ export class ShopRepository extends BaseRepository {
         operational_status: row.operational_status || 'pending',
         rcg_tier: row.rcg_tier || 'standard',
         rcg_balance: parseFloat(row.rcg_balance || 0),
-        tier_updated_at: row.tier_updated_at
+        tier_updated_at: row.tier_updated_at,
+        locationLat: row.location_lat,
+        locationLng: row.location_lng,
+        locationCity: row.location_city,
+        locationState: row.location_state,
+        locationZipCode: row.location_zip_code,
       }));
     } catch (error) {
       logger.error('Error getting active shops:', error);
