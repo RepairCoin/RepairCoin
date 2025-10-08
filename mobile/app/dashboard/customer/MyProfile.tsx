@@ -69,6 +69,11 @@ export default function MyProfile() {
     setIsNotificationEnabled(!isNotificationEnabled);
   };
 
+  const handleLogout = async () => {
+    logout();
+    router.push("/onboarding");
+  }
+
   return (
     <View className="w-full h-full bg-zinc-950 px-4 pt-24">
       <ScrollView>
@@ -158,7 +163,7 @@ export default function MyProfile() {
             </View>
             <AntDesign name="right" color="#fff" size={24} />
           </View>
-          <View className="flex-row justify-between items-center mt-4">
+          <Pressable onPress={handleLogout} className="flex-row justify-between items-center mt-4">
             <View className="flex-row items-center">
               <View className="rounded-full bg-[#FBCDCD] w-16 h-16 items-center justify-center">
                 <MaterialIcons name="logout" color="#E74C4C" size={24} />
@@ -173,7 +178,7 @@ export default function MyProfile() {
               </View>
             </View>
             <AntDesign name="right" color="#fff" size={24} />
-          </View>
+          </Pressable>
         </View>
       </ScrollView>
     </View>

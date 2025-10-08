@@ -6,38 +6,42 @@ import LoginButton from "@/components/LoginButton";
 import Screen from "@/components/Screen";
 import { useState } from "react";
 import { router } from "expo-router";
-import { SendCodeViaEmailService, SocialConnectWalletService } from "@/services/RegisterServices";
+import {
+  SendCodeViaEmailService,
+  SocialConnectWalletService,
+} from "@/services/RegisterServices";
 import { ThirdWebStrategy } from "@/utilities/GlobalTypes";
 import { useAuthStore } from "@/store/authStore";
 import { EmailValidation } from "@/utilities/Validation";
 
 export default function ConnectWalletWithSocialPage() {
   const [email, setEmail] = useState<string>("");
-  const { account, setAccount } = useAuthStore(state => state);
+  const { account, setAccount, checkUserExists, login, isCustomer } =
+    useAuthStore((state) => state);
 
   const SocialOptions: {
     title: string;
     icon: any;
     className: string;
-    strategy: ThirdWebStrategy
+    strategy: ThirdWebStrategy;
   }[] = [
     {
       title: "Continue with Google",
       icon: require("@/assets/icons/icons8-google-100.png"),
       className: "h-6 w-6",
-      strategy: "google"
+      strategy: "google",
     },
     {
       title: "Continue with Apple",
       icon: require("@/assets/icons/icons8-apple-100.png"),
       className: "h-6 w-6",
-      strategy: "apple"
+      strategy: "apple",
     },
     {
       title: "Continue with Facebook",
       icon: require("@/assets/icons/icons8-facebook-100.png"),
       className: "h-6 w-6",
-      strategy: "facebook"
+      strategy: "facebook",
     },
   ];
 
@@ -55,26 +59,37 @@ export default function ConnectWalletWithSocialPage() {
   ];
 
   const handleSendCode = async () => {
-    const response = await (SendCodeViaEmailService(email));
+    const response = await SendCodeViaEmailService(email);
+
     if (response.success) {
       setAccount({
         ...account,
-        email
+        email,
       });
       router.push("/auth/wallet/VerifyEmail");
     }
-  }
+  };
 
   const handleSocialWalletConnect = async (strategy: ThirdWebStrategy) => {
     const connectedAccount = await SocialConnectWalletService(strategy);
     if (connectedAccount.address) {
       setAccount({
         ...account,
-        address: connectedAccount.address
+        address: connectedAccount.address,
       });
-      router.push("/auth/register");
+      const userCheck = await checkUserExists(connectedAccount.address);
+      if (!userCheck.exists) {
+        router.push("/auth/register");
+      } else {
+        await login().then(() => {
+          console.log(isCustomer);
+          if (isCustomer) {
+            router.push("/dashboard/customer");
+          }
+        });
+      }
     }
-  }
+  };
 
   return (
     <Screen>
@@ -129,7 +144,13 @@ export default function ConnectWalletWithSocialPage() {
               keyboardType="email-address"
               className="color-[#666]"
             />
-            <Ionicons name="arrow-forward" color="#666" size={25} onPress={handleSendCode} disabled={!EmailValidation(email)} />
+            <Ionicons
+              name="arrow-forward"
+              color="#666"
+              size={25}
+              onPress={handleSendCode}
+              disabled={!EmailValidation(email)}
+            />
           </View>
         </View>
 

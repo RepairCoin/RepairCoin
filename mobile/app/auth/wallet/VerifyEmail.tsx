@@ -30,6 +30,7 @@ export default function VerifyEmailPage() {
         router.push("/auth/register");
       } else {
         await login().then(() => {
+          console.log(isCustomer);
           if (isCustomer) {
             router.push("/dashboard/customer");
           }

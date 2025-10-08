@@ -1,12 +1,25 @@
-import { ThirdWebStrategy } from "../utilities/GlobalTypes";
+import { ThirdWebStrategy, WalletType } from "../utilities/GlobalTypes";
 import { createThirdwebClient } from "thirdweb";
-import { useActiveAccount, useConnect } from "thirdweb/react";
-import { inAppWallet, preAuthenticate } from "thirdweb/wallets";
-import { router } from "expo-router";
+import { inAppWallet, preAuthenticate, createWallet } from "thirdweb/wallets";
+import { sepolia } from "thirdweb/chains";
 
 const clientId =
   process.env.EXPO_PUBLIC_THIRDWEB_CLIENT_ID ||
   "99f01d5781fadab9f6a42660090e824b";
+
+export const externalWalletConnectService = async (walletType: WalletType) => {
+  const client = createThirdwebClient({ clientId });
+  const wallet = inAppWallet();
+
+  const account = await wallet.connect({
+    client,
+    strategy: "wallet",
+    wallet: createWallet(walletType),
+    chain: sepolia,
+  });
+
+  return account;
+};
 
 export const SocialConnectWalletService = async (
   strategy: ThirdWebStrategy
@@ -23,7 +36,7 @@ export const SocialConnectWalletService = async (
   const account = await wallet.connect({
     client,
     strategy: strategy,
-    redirectUrl: "mobile://auth/wallet/Social",
+    // redirectUrl: "mobile://auth/wallet/Social",
   });
   // });
 
@@ -43,9 +56,10 @@ export const SendCodeViaEmailService = async (email: string) => {
     email,
   })
     .then(() => (response.success = true))
-    .catch(() => (response.success = false));
-
-  // console.log(response);
+    .catch((err) => {
+      response.success = false;
+      console.log(err.message);
+    });
   return response;
 };
 
@@ -78,8 +92,7 @@ export const RegisterAsCustomerService = async (registrationData: {
   walletAddress: string;
   fixflowCustomerId?: string;
 }) => {
-  const apiUrl =
-    process.env.EXPO_PUBLIC_API_URL || "http://192.168.132.85:3000/api";
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
   console.log(JSON.stringify(registrationData));
   console.log(apiUrl);
