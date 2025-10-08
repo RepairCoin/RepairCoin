@@ -16,6 +16,7 @@ import customerRoutes from './customers';
 import revenueRoutes from '../../../routes/admin/revenue';
 import subscriptionRoutes from './subscription';
 import adminsRoutes from './admins';
+import promoCodeRoutes from './promoCodes';
 import { logger } from '../../../utils/logger';
 
 const router = Router();
@@ -423,6 +424,9 @@ router.use('', treasuryRoutes);
 
 // Analytics routes
 router.use('/analytics', analyticsRoutes);
+
+// Promo code management routes (admin endpoints from shop promo codes)
+router.use('', promoCodeRoutes);
 
 // Customer management routes
 router.use('/customers', customerRoutes);

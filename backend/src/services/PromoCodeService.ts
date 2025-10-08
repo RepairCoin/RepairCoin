@@ -60,11 +60,12 @@ export class PromoCodeService {
       }
     });
 
-    return promoCode;
+    return this.mapDatabaseToFrontend(promoCode);
   }
 
   async getShopPromoCodes(shopId: string, onlyActive = false): Promise<PromoCode[]> {
-    return this.promoCodeRepo.findByShop(shopId, onlyActive);
+    const promoCodes = await this.promoCodeRepo.findByShop(shopId, onlyActive);
+    return promoCodes.map(pc => this.mapDatabaseToFrontend(pc));
   }
 
   async updatePromoCode(
@@ -102,7 +103,7 @@ export class PromoCodeService {
       }
     });
 
-    return updated;
+    return this.mapDatabaseToFrontend(updated);
   }
 
   async deactivatePromoCode(shopId: string, promoCodeId: number): Promise<void> {
@@ -234,7 +235,20 @@ export class PromoCodeService {
   // Admin methods
   async getAllPromoCodes(limit = 100, offset = 0) {
     const query = `
-      SELECT pc.*, s.company_name as shop_name
+      SELECT 
+        pc.id,
+        pc.code,
+        pc.code as name,
+        pc.shop_id,
+        s.name as shop_name,
+        pc.discount_type as bonus_type,
+        pc.discount_value as bonus_value,
+        pc.status = 'active' as is_active,
+        pc.used_count as times_used,
+        (pc.discount_value * pc.used_count) as total_bonus_issued,
+        pc.valid_from as start_date,
+        pc.valid_until as end_date,
+        pc.created_at
       FROM promo_codes pc
       JOIN shops s ON pc.shop_id = s.shop_id
       ORDER BY pc.created_at DESC
@@ -249,25 +263,25 @@ export class PromoCodeService {
     const query = `
       SELECT 
         COUNT(DISTINCT pc.id) as total_codes,
-        COUNT(DISTINCT CASE WHEN pc.is_active THEN pc.id END) as active_codes,
+        COUNT(DISTINCT CASE WHEN pc.status = 'active' THEN pc.id END) as active_codes,
         COUNT(DISTINCT pc.shop_id) as shops_with_codes,
-        SUM(pc.times_used) as total_uses,
-        SUM(pc.total_bonus_issued) as total_bonus_issued,
-        AVG(pc.times_used) as avg_uses_per_code
+        SUM(pc.used_count) as total_uses,
+        COALESCE(SUM(pc.discount_value * pc.used_count), 0) as total_bonus_issued,
+        AVG(pc.used_count) as avg_uses_per_code
       FROM promo_codes pc
     `;
 
     const topCodesQuery = `
       SELECT 
         pc.code,
-        pc.name,
+        pc.code as name,
         pc.shop_id,
-        s.company_name as shop_name,
-        pc.times_used,
-        pc.total_bonus_issued
+        s.name as shop_name,
+        pc.used_count as times_used,
+        (pc.discount_value * pc.used_count) as total_bonus_issued
       FROM promo_codes pc
       JOIN shops s ON pc.shop_id = s.shop_id
-      ORDER BY pc.times_used DESC
+      ORDER BY pc.used_count DESC
       LIMIT 10
     `;
 
@@ -279,6 +293,28 @@ export class PromoCodeService {
     return {
       summary: analyticsResult.rows[0],
       topCodes: topCodesResult.rows
+    };
+  }
+
+  private mapDatabaseToFrontend(dbRecord: any): PromoCode {
+    return {
+      id: dbRecord.id,
+      code: dbRecord.code,
+      shop_id: dbRecord.shop_id,
+      name: dbRecord.code, // Using code as name since name column doesn't exist
+      description: dbRecord.code, // Using code as description since description column doesn't exist
+      bonus_type: dbRecord.discount_type as 'fixed' | 'percentage',
+      bonus_value: dbRecord.discount_value,
+      max_bonus: null, // Not available in current schema
+      start_date: dbRecord.valid_from,
+      end_date: dbRecord.valid_until,
+      total_usage_limit: dbRecord.max_uses,
+      per_customer_limit: 1, // Default since not available in current schema
+      times_used: dbRecord.used_count || 0,
+      total_bonus_issued: (dbRecord.discount_value * (dbRecord.used_count || 0)) || 0,
+      is_active: dbRecord.status === 'active',
+      created_at: dbRecord.created_at,
+      updated_at: dbRecord.created_at // Using created_at since updated_at doesn't exist
     };
   }
 }

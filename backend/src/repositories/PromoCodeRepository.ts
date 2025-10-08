@@ -63,24 +63,22 @@ export class PromoCodeRepository extends BaseRepository {
   async create(data: CreatePromoCodeData): Promise<PromoCode> {
     const query = `
       INSERT INTO promo_codes (
-        code, shop_id, name, description, bonus_type, bonus_value, max_bonus,
-        start_date, end_date, total_usage_limit, per_customer_limit
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        code, shop_id, discount_type, discount_value, max_uses,
+        valid_from, valid_until, status, created_by
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
     `;
     
     const values = [
       data.code.toUpperCase(),
       data.shop_id,
-      data.name,
-      data.description || null,
-      data.bonus_type,
-      data.bonus_value,
-      data.max_bonus || null,
-      data.start_date,
-      data.end_date,
-      data.total_usage_limit || null,
-      data.per_customer_limit || 1
+      data.bonus_type, // maps to discount_type
+      data.bonus_value, // maps to discount_value  
+      data.total_usage_limit || null, // maps to max_uses
+      data.start_date, // maps to valid_from
+      data.end_date, // maps to valid_until
+      'active', // status
+      data.shop_id // created_by (using shop_id as creator)
     ];
 
     const result = await this.pool.query<PromoCode>(query, values);
@@ -105,7 +103,7 @@ export class PromoCodeRepository extends BaseRepository {
     const values: any[] = [shopId];
 
     if (onlyActive) {
-      query += ' AND is_active = true AND start_date <= CURRENT_TIMESTAMP AND end_date >= CURRENT_TIMESTAMP';
+      query += ' AND status = \'active\' AND valid_from <= CURRENT_TIMESTAMP AND valid_until >= CURRENT_TIMESTAMP';
     }
 
     query += ' ORDER BY created_at DESC';
@@ -116,9 +114,8 @@ export class PromoCodeRepository extends BaseRepository {
 
   async update(id: number, updates: Partial<PromoCode>): Promise<PromoCode | null> {
     const allowedFields = [
-      'name', 'description', 'bonus_type', 'bonus_value', 'max_bonus',
-      'start_date', 'end_date', 'total_usage_limit', 'per_customer_limit',
-      'is_active'
+      'discount_type', 'discount_value', 'max_uses',
+      'valid_from', 'valid_until', 'status', 'conditions'
     ];
 
     const filteredUpdates = Object.keys(updates)
@@ -195,12 +192,11 @@ export class PromoCodeRepository extends BaseRepository {
       // Update promo code stats
       const updateQuery = `
         UPDATE promo_codes
-        SET times_used = times_used + 1,
-            total_bonus_issued = total_bonus_issued + $2
+        SET used_count = used_count + 1
         WHERE id = $1
       `;
 
-      await client.query(updateQuery, [promoCodeId, bonusAmount]);
+      await client.query(updateQuery, [promoCodeId]);
 
       await client.query('COMMIT');
       return use;
@@ -257,7 +253,7 @@ export class PromoCodeRepository extends BaseRepository {
 
   async getCustomerUsage(customerAddress: string): Promise<PromoCodeUse[]> {
     const query = `
-      SELECT pcu.*, pc.code, pc.name as promo_name
+      SELECT pcu.*, pc.code, pc.code as promo_name
       FROM promo_code_uses pcu
       JOIN promo_codes pc ON pcu.promo_code_id = pc.id
       WHERE pcu.customer_address = $1
@@ -269,7 +265,7 @@ export class PromoCodeRepository extends BaseRepository {
   }
 
   async deactivate(id: number): Promise<boolean> {
-    const query = 'UPDATE promo_codes SET is_active = false WHERE id = $1';
+    const query = 'UPDATE promo_codes SET status = \'inactive\' WHERE id = $1';
     const result = await this.pool.query(query, [id]);
     return (result.rowCount ?? 0) > 0;
   }

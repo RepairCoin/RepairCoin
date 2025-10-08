@@ -193,9 +193,9 @@ export default function PromoCodesAnalyticsTab() {
               <h3 className="text-sm font-medium text-gray-500">Total Uses</h3>
               <ChartBarIcon className="h-8 w-8 text-gray-400" />
             </div>
-            <p className="text-2xl font-bold text-gray-900">{summary.total_uses.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-gray-900">{(summary.total_uses || 0).toLocaleString()}</p>
             <p className="text-sm text-gray-500 mt-2">
-              Avg {summary.avg_uses_per_code.toFixed(1)} uses per code
+              Avg {(summary.avg_uses_per_code || 0).toFixed(1)} uses per code
             </p>
           </div>
 
@@ -204,7 +204,7 @@ export default function PromoCodesAnalyticsTab() {
               <h3 className="text-sm font-medium text-gray-500">Total Bonus Issued</h3>
               <ArrowTrendingUpIcon className="h-8 w-8 text-gray-400" />
             </div>
-            <p className="text-2xl font-bold text-gray-900">{summary.total_bonus_issued.toLocaleString()} RCN</p>
+            <p className="text-2xl font-bold text-gray-900">{(summary.total_bonus_issued || 0).toLocaleString()} RCN</p>
             <p className="text-sm text-gray-500 mt-2">
               Across {summary.shops_with_codes} shops
             </p>
@@ -248,11 +248,11 @@ export default function PromoCodesAnalyticsTab() {
                       <div className="text-xs text-gray-500">{code.shop_id}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{code.times_used.toLocaleString()}</div>
+                      <div className="text-sm text-gray-900">{(code.times_used || 0).toLocaleString()}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
-                        {code.total_bonus_issued.toLocaleString()} RCN
+                        {(code.total_bonus_issued || 0).toLocaleString()} RCN
                       </div>
                     </td>
                   </tr>
