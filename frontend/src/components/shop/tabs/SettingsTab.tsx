@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { SubscriptionManagement } from "../SubscriptionManagement";
 import { Store, Mail, Phone, MapPin, Globe, Clock, User } from "lucide-react";
 import toast from "react-hot-toast";
+import { LocationPickerWrapper } from "../../maps/LocationPickerWrapper";
 
 interface ShopData {
   // crossShopEnabled removed - universal redemption is now always enabled
@@ -14,9 +15,13 @@ interface ShopData {
   email?: string;
   phone?: string;
   address?: string;
-  website?: string;
-  openingHours?: string;
-  ownerName?: string;
+  location?: {
+    city?: string;
+    state?: string;
+    zipCode?: string;
+    lat?: number;
+    lng?: number;
+  };
 }
 
 interface SettingsTabProps {
@@ -32,12 +37,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<"information" | "subscription">("information");
   // crossShopEnabled state removed - universal redemption is now always enabled
-  const [autoPurchaseEnabled, setAutoPurchaseEnabled] = useState(false);
-  const [autoPurchaseThreshold, setAutoPurchaseThreshold] = useState(50);
-  const [autoPurchaseAmount, setAutoPurchaseAmount] = useState(100);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [error] = useState<string | null>(null);
+  const [success] = useState<string | null>(null);
 
   // Shop Details State
   const [isEditingShop, setIsEditingShop] = useState(false);
@@ -46,32 +47,32 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     email: "",
     phone: "",
     address: "",
-    website: "",
-    openingHours: "",
-    ownerName: "",
+    location: {
+      lat: undefined as number | undefined,
+      lng: undefined as number | undefined,
+    }
   });
   const [loadingShopUpdate, setLoadingShopUpdate] = useState(false);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
 
   // Initialize shop form data
   useEffect(() => {
     if (shopData) {
+
       setShopFormData({
         name: shopData.name || "",
         email: shopData.email || "",
         phone: shopData.phone || "",
         address: shopData.address || "",
-        website: shopData.website || "",
-        openingHours: shopData.openingHours || "",
-        ownerName: shopData.ownerName || "",
+        location: {
+          lat: shopData.location?.lat,
+          lng: shopData.location?.lng,
+        }
       });
     }
   }, [shopData]);
 
 
-  const saveAutoPurchaseSettings = async () => {
-    // This would be implemented when auto-purchase backend is ready
-    setSuccess("Auto-purchase settings saved (feature coming soon)");
-  };
 
   const handleShopInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -84,8 +85,28 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const handleSaveShopDetails = async () => {
     setLoadingShopUpdate(true);
     try {
-      // Get the JWT token from localStorage
-      const token = localStorage.getItem("token");
+      // Get the JWT token from localStorage/sessionStorage (try both)
+      const token = localStorage.getItem("token") || 
+                   localStorage.getItem("shopAuthToken") ||
+                   sessionStorage.getItem("shopAuthToken");
+
+      if (!token) {
+        throw new Error("Authentication token not found. Please log in again.");
+      }
+
+      // Filter out fields that don't exist in the database
+      const validFields = {
+        name: shopFormData.name,
+        email: shopFormData.email,
+        phone: shopFormData.phone,
+        address: shopFormData.address,
+        location: {
+          lat: shopFormData.location.lat,
+          lng: shopFormData.location.lng,
+        }
+      };
+
+      console.log("Saving shop details with data:", validFields);
 
       // First update shop details
       const response = await fetch(
@@ -96,18 +117,22 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify(shopFormData),
+          body: JSON.stringify(validFields),
         }
       );
 
+      console.log("Shop update response status:", response.status);
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to update shop details");
+        const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+        console.error("Shop update error response:", errorData);
+        throw new Error(errorData.error || `Failed to update shop details (${response.status})`);
       }
 
       // Cross-shop settings removed - universal redemption is now always enabled
 
       const data = await response.json();
+      console.log("Shop update success response:", data);
       toast.success(data.message || "Shop details and settings updated successfully!");
       setIsEditingShop(false);
       onSettingsUpdate();
@@ -121,17 +146,38 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     }
   };
 
-  const handleCancelShopEdit = () => {
+  const handleCancelShopEdit = () => {    
     setShopFormData({
       name: shopData?.name || "",
       email: shopData?.email || "",
       phone: shopData?.phone || "",
       address: shopData?.address || "",
-      website: shopData?.website || "",
-      openingHours: shopData?.openingHours || "",
-      ownerName: shopData?.ownerName || "",
+      location: {
+        lat: shopData?.location?.lat,
+        lng: shopData?.location?.lng,
+      }
     });
     setIsEditingShop(false);
+    setShowLocationPicker(false);
+  };
+
+  const handleLocationSelect = (location: { latitude: number; longitude: number; address?: string }) => {
+    setShopFormData(prev => ({
+      ...prev,
+      location: {
+        lat: location.latitude,
+        lng: location.longitude,
+      },
+      // Update address if provided - allow overwriting existing address when picking new location
+      ...(location.address ? { address: location.address } : {})
+    }));
+    
+    // Show success message when address is auto-filled
+    if (location.address) {
+      toast.success("Location pinpointed! Address automatically updated.");
+    } else {
+      toast.success("Location coordinates updated.");
+    }
   };
 
   const copyToClipboard = (text: string, label: string) => {
@@ -259,6 +305,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           </div>
 
           <div className="flex flex-col gap-6">
+            {/* Website field temporarily hidden - not in database schema
             <div>
               <label className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
                 <Globe className="w-6 h-6 inline mr-1" />
@@ -274,6 +321,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 placeholder="https://www.example.com"
               />
             </div>
+            */}
 
             <div>
               <label className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
@@ -289,6 +337,27 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                 placeholder="123 Main St, City, State ZIP"
               />
+              
+              {/* Location Picker Button */}
+              {isEditingShop && (
+                <div className="mt-2 space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowLocationPicker(!showLocationPicker)}
+                    className="flex items-center gap-2 px-3 py-2 text-sm bg-[#FFCC00] text-black rounded-lg hover:bg-yellow-500 transition-colors"
+                  >
+                    <MapPin className="w-4 h-4" />
+                    {showLocationPicker ? "Hide Map" : "Pin Location on Map"}
+                  </button>
+                  
+                  {/* Current coordinates display */}
+                  {shopFormData.location.lat && shopFormData.location.lng && (
+                    <div className="text-xs text-gray-400">
+                      Current: {shopFormData.location.lat.toFixed(6)}, {shopFormData.location.lng.toFixed(6)}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>
@@ -318,6 +387,31 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Location Picker */}
+        {showLocationPicker && isEditingShop && (
+          <div className="px-4 sm:px-6 lg:px-8 pb-6">
+            <div className="bg-[#2F2F2F] rounded-xl p-4">
+              <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-[#FFCC00]" />
+                Pinpoint Your Shop Location
+              </h4>
+              <LocationPickerWrapper
+                initialLocation={
+                  shopFormData.location.lat && shopFormData.location.lng
+                    ? {
+                        latitude: shopFormData.location.lat,
+                        longitude: shopFormData.location.lng,
+                        address: shopFormData.address
+                      }
+                    : undefined
+                }
+                onLocationSelect={handleLocationSelect}
+                height="350px"
+              />
+            </div>
+          </div>
+        )}
 
         {/* Universal Redemption Notice */}
         <div className="px-4 sm:px-6 lg:px-8 pb-6 sm:pb-10">

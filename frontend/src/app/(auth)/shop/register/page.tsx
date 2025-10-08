@@ -20,6 +20,7 @@ export default function ShopRegistration() {
     existingApplication,
     account,
     handleInputChange,
+    handleLocationSelect,
     handleSubmit,
   } = useShopRegistration();
 
@@ -111,6 +112,7 @@ export default function ShopRegistration() {
               loading={loading}
               onSubmit={handleSubmit}
               onChange={handleInputChange}
+              onLocationSelect={handleLocationSelect}
             />
           </>
         )}

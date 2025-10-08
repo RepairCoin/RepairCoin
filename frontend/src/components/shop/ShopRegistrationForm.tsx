@@ -1,8 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { FormField } from "@/components/forms/FormField";
 import { ShopRegistrationFormData } from "@/types/shop";
+import { LocationPickerWrapper } from "@/components/maps/LocationPickerWrapper";
+import { MapPin } from "lucide-react";
 
 interface ShopRegistrationFormProps {
   formData: ShopRegistrationFormData;
@@ -11,6 +13,7 @@ interface ShopRegistrationFormProps {
   onChange: (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => void;
+  onLocationSelect?: (location: { latitude: number; longitude: number; address?: string }) => void;
 }
 
 export const ShopRegistrationForm: React.FC<ShopRegistrationFormProps> = ({
@@ -18,7 +21,9 @@ export const ShopRegistrationForm: React.FC<ShopRegistrationFormProps> = ({
   loading,
   onSubmit,
   onChange,
+  onLocationSelect,
 }) => {
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
   return (
     <form onSubmit={onSubmit} className="space-y-8">
       {/* Shop Information Section */}
@@ -103,6 +108,57 @@ export const ShopRegistrationForm: React.FC<ShopRegistrationFormProps> = ({
             placeholder="123 Main Street"
             required
           />
+          
+          {/* Location Picker Section */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-medium text-gray-300">
+                <MapPin className="w-4 h-4 inline mr-2" />
+                Shop Location (Optional)
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowLocationPicker(!showLocationPicker)}
+                className="flex items-center gap-2 px-3 py-2 text-sm bg-[#FFCC00] text-black rounded-lg hover:bg-yellow-500 transition-colors"
+              >
+                <MapPin className="w-4 h-4" />
+                {showLocationPicker ? "Hide Map" : "Pin Location on Map"}
+              </button>
+            </div>
+            
+            {/* Current coordinates display */}
+            {formData.location.lat && formData.location.lng && (
+              <div className="text-xs text-gray-400">
+                Current: {parseFloat(formData.location.lat).toFixed(6)}, {parseFloat(formData.location.lng).toFixed(6)}
+              </div>
+            )}
+            
+            {showLocationPicker && (
+              <div className="bg-[#2F2F2F] rounded-xl p-4">
+                <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-[#FFCC00]" />
+                  Pinpoint Your Shop Location
+                </h4>
+                <LocationPickerWrapper
+                  initialLocation={
+                    formData.location.lat && formData.location.lng
+                      ? {
+                          latitude: parseFloat(formData.location.lat),
+                          longitude: parseFloat(formData.location.lng),
+                          address: formData.address
+                        }
+                      : undefined
+                  }
+                  onLocationSelect={(location) => {
+                    if (onLocationSelect) {
+                      onLocationSelect(location);
+                    }
+                  }}
+                  height="350px"
+                />
+              </div>
+            )}
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
               label="City"

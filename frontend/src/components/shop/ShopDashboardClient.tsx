@@ -61,6 +61,13 @@ interface ShopData {
     | "not_qualified";
   rcg_tier?: string;
   rcg_balance?: number;
+  location?: {
+    city?: string;
+    state?: string;
+    zipCode?: string;
+    lat?: number;
+    lng?: number;
+  };
 }
 
 interface PurchaseHistory {

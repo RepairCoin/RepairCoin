@@ -57,7 +57,9 @@ export class ShopService {
       location:{
          city: formData.location.city,
          state: formData.location.state,
-         zipCode: formData.location.zipCode
+         zipCode: formData.location.zipCode,
+         lat: formData.location.lat,
+         lng: formData.location.lng
       },
       acceptTerms: formData.acceptTerms,
       walletAddress: walletAddress

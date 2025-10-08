@@ -133,6 +133,19 @@ export const useShopRegistration = () => {
     }
   }, [account?.address, formData, validateForm, router]);
 
+  const handleLocationSelect = useCallback((location: { latitude: number; longitude: number; address?: string }) => {
+    setFormData(prev => ({
+      ...prev,
+      location: {
+        ...prev.location,
+        lat: location.latitude.toString(),
+        lng: location.longitude.toString(),
+      },
+      // Optionally update address if provided and not already set
+      ...(location.address && !prev.address ? { address: location.address } : {})
+    }));
+  }, []);
+
   const resetForm = useCallback(() => {
     setFormData(initialShopFormData);
     setError(null);
@@ -151,6 +164,7 @@ export const useShopRegistration = () => {
     
     // Actions
     handleInputChange,
+    handleLocationSelect,
     handleSubmit,
     resetForm,
     setError,

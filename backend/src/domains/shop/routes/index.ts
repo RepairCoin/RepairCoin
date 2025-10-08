@@ -370,8 +370,15 @@ router.put('/:shopId/details',
         address,
         website,
         openingHours,
-        ownerName
+        ownerName,
+        location
       } = req.body;
+
+      logger.info('Shop details update request received:', {
+        shopId,
+        requestBody: req.body,
+        userId: req.user?.address
+      });
 
       const shop = await shopRepository.getShop(shopId);
       if (!shop) {
@@ -382,7 +389,16 @@ router.put('/:shopId/details',
       }
 
       // Prepare updates
-      const updates: Partial<ShopData & { website?: string; openingHours?: string; ownerName?: string }> = {};
+      const updates: Partial<ShopData & { 
+        website?: string; 
+        openingHours?: string; 
+        ownerName?: string;
+        locationLat?: number;
+        locationLng?: number;
+        locationCity?: string;
+        locationState?: string;
+        locationZipCode?: string;
+      }> = {};
       if (name !== undefined) updates.name = name;
       if (email !== undefined) updates.email = email;
       if (phone !== undefined) updates.phone = phone;
@@ -390,6 +406,50 @@ router.put('/:shopId/details',
       if (website !== undefined) updates.website = website;
       if (openingHours !== undefined) updates.openingHours = openingHours;
       if (ownerName !== undefined) updates.ownerName = ownerName;
+      
+      // Handle location updates - coordinates are stored in separate database columns
+      if (location !== undefined) {
+        // Validate and set coordinates if provided
+        if (location.lat !== undefined) {
+          const lat = typeof location.lat === 'string' ? parseFloat(location.lat) : location.lat;
+          if (isNaN(lat) || lat < -90 || lat > 90) {
+            throw new Error(`Invalid latitude value: ${location.lat}. Must be a number between -90 and 90.`);
+          }
+          updates.locationLat = lat;
+        }
+        
+        if (location.lng !== undefined) {
+          const lng = typeof location.lng === 'string' ? parseFloat(location.lng) : location.lng;
+          if (isNaN(lng) || lng < -180 || lng > 180) {
+            throw new Error(`Invalid longitude value: ${location.lng}. Must be a number between -180 and 180.`);
+          }
+          updates.locationLng = lng;
+        }
+
+        // Set other location fields
+        if (location.city !== undefined) {
+          updates.locationCity = location.city;
+        }
+        
+        if (location.state !== undefined) {
+          updates.locationState = location.state;
+        }
+        
+        if (location.zipCode !== undefined) {
+          updates.locationZipCode = location.zipCode;
+        }
+        
+        logger.info('Location updates prepared for details endpoint', {
+          shopId,
+          locationData: {
+            lat: updates.locationLat,
+            lng: updates.locationLng,
+            city: updates.locationCity,
+            state: updates.locationState,
+            zipCode: updates.locationZipCode
+          }
+        });
+      }
 
       await shopRepository.updateShop(shopId, updates);
 
@@ -405,10 +465,17 @@ router.put('/:shopId/details',
       });
 
     } catch (error: any) {
-      logger.error('Shop details update error:', error);
+      logger.error('Shop details update error:', {
+        error: error.message,
+        stack: error.stack,
+        shopId: req.params.shopId,
+        requestBody: req.body,
+        userId: req.user?.address
+      });
       res.status(500).json({
         success: false,
-        error: 'Failed to update shop details'
+        error: error.message || 'Failed to update shop details',
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }
   }

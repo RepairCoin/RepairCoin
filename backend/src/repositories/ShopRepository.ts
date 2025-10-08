@@ -25,6 +25,12 @@ interface ShopData {
     lat?: number;
     lng?: number;
   };
+  // Individual location fields as stored in database
+  locationLat?: number;
+  locationLng?: number;
+  locationCity?: string;
+  locationState?: string;
+  locationZipCode?: string;
   suspendedAt?: string;
   suspensionReason?: string;
   verifiedAt?: string;
@@ -119,8 +125,8 @@ export class ShopRepository extends BaseRepository {
         typeof shop.location === 'object' ? shop.location?.city : null,
         typeof shop.location === 'object' ? shop.location?.state : null,
         typeof shop.location === 'object' ? shop.location?.zipCode : null,
-        typeof shop.location === 'object' ? shop.location?.lat : null,
-        typeof shop.location === 'object' ? shop.location?.lng : null
+        typeof shop.location === 'object' && shop.location?.lat ? parseFloat(shop.location.lat) : null,
+        typeof shop.location === 'object' && shop.location?.lng ? parseFloat(shop.location.lng) : null
       ];
       
       const result = await this.pool.query(query, values);
@@ -133,10 +139,13 @@ export class ShopRepository extends BaseRepository {
   }
 
   async updateShop(shopId: string, updates: Partial<ShopData>): Promise<void> {
+    const fields: string[] = [];
+    const values: any[] = [];
+    let paramCount = 0;
+    let query = '';
+
     try {
-      const fields: string[] = [];
-      const values: any[] = [];
-      let paramCount = 0;
+      logger.info('ShopRepository.updateShop called:', { shopId, updates });
 
       const fieldMappings: { [key: string]: string } = {
         name: 'name',
@@ -163,7 +172,13 @@ export class ShopRepository extends BaseRepository {
         rcg_balance: 'rcg_balance',
         rcg_tier: 'rcg_tier',
         tier_updated_at: 'tier_updated_at',
-        operational_status: 'operational_status'
+        operational_status: 'operational_status',
+        // Location field mappings for separate database columns
+        locationLat: 'location_lat',
+        locationLng: 'location_lng',
+        locationCity: 'location_city',
+        locationState: 'location_state',
+        locationZipCode: 'location_zip_code'
       };
 
       for (const [key, value] of Object.entries(updates)) {
@@ -171,9 +186,7 @@ export class ShopRepository extends BaseRepository {
           paramCount++;
           fields.push(`${fieldMappings[key]} = $${paramCount}`);
           
-          if (key === 'location' && typeof value === 'object') {
-            values.push(JSON.stringify(value));
-          } else if (key === 'walletAddress' || key === 'reimbursementAddress') {
+          if (key === 'walletAddress' || key === 'reimbursementAddress') {
             values.push(value ? (value as string).toLowerCase() : null);
           } else {
             values.push(value);
@@ -188,17 +201,25 @@ export class ShopRepository extends BaseRepository {
       paramCount++;
       values.push(shopId);
 
-      const query = `
+      query = `
         UPDATE shops 
         SET ${fields.join(', ')}, updated_at = NOW()
         WHERE shop_id = $${paramCount}
       `;
 
+      logger.info('Executing shop update query:', { query, values, shopId });
       await this.pool.query(query, values);
       logger.info('Shop updated successfully', { shopId });
     } catch (error) {
-      logger.error('Error updating shop:', error);
-      throw new Error('Failed to update shop');
+      logger.error('Error updating shop:', {
+        error: error instanceof Error ? error.message : error,
+        shopId,
+        query,
+        values,
+        fieldsCount: fields.length,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      throw new Error(`Failed to update shop: ${error instanceof Error ? error.message : 'Unknown database error'}`);
     }
   }
 
