@@ -16,6 +16,7 @@ import { CustomerService } from '../services/CustomerService';
 // Import new route modules
 import crossShopRoutes from './crossShop';
 import exportDataRoutes from './exportData';
+import balanceRoutes from './balance';
 
 const router = Router();
 
@@ -33,6 +34,7 @@ const unsuspendRateLimit = createRateLimitMiddleware(
 
 // Register sub-routes
 router.use('/cross-shop', crossShopRoutes);
+router.use('/balance', balanceRoutes);
 
 // Public endpoint to get shops for customers (QR code generation)
 router.get('/shops',

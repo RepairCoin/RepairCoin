@@ -8,6 +8,7 @@ import { RedemptionApprovals } from "@/components/customer/RedemptionApprovals";
 import { OverviewTab } from "@/components/customer/OverviewTab";
 import { SettingsTab } from "@/components/customer/SettingsTab";
 import { FindShop } from "@/components/customer/FindShop";
+import { TokenGiftingTab } from "@/components/customer/TokenGiftingTab";
 import { Toaster } from "react-hot-toast";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 
@@ -20,7 +21,7 @@ const client = createThirdwebClient({
 export default function CustomerDashboardClient() {
   const account = useActiveAccount();
   const [activeTab, setActiveTab] = useState<
-    "overview" | "referrals" | "approvals" | "findshop" | "settings"
+    "overview" | "referrals" | "approvals" | "findshop" | "gifting" | "settings"
   >("overview");
 
   const handleTabChange = (tab: string) => {
@@ -79,6 +80,9 @@ export default function CustomerDashboardClient() {
 
           {/* Find Shop Tab */}
           {activeTab === "findshop" && <FindShop />}
+
+          {/* Token Gifting Tab */}
+          {activeTab === "gifting" && <TokenGiftingTab />}
 
           {/* Settings Tab */}
           {activeTab === "settings" && <SettingsTab />}

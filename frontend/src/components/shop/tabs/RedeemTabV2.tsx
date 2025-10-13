@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Clock,
   CheckCircle,
@@ -14,9 +14,13 @@ import {
   ChevronRight,
   Smartphone,
   RefreshCw,
+  Camera,
+  X,
 } from "lucide-react";
 import { LookupIcon, RedeemIcon } from "../../icon";
 import { showToast } from "@/utils/toast";
+import QrScanner from "qr-scanner";
+import toast from "react-hot-toast";
 
 interface RedeemTabProps {
   shopId: string;
@@ -90,6 +94,11 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   const [transactions, setTransactions] = useState<RedemptionTransaction[]>([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+
+  // QR Scanner states
+  const [showQRScanner, setShowQRScanner] = useState(false);
+  const [qrScanner, setQrScanner] = useState<QrScanner | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   // Load shop customers and check for pending sessions on mount
   useEffect(() => {
@@ -538,6 +547,74 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   };
 
+  // QR Scanner functions
+  const startQRScanner = async () => {
+    try {
+      setShowQRScanner(true);
+      if (videoRef.current) {
+        const scanner = new QrScanner(
+          videoRef.current,
+          (result) => {
+            const scannedText = result.data;
+            console.log("QR scan result:", scannedText);
+            
+            // Validate if it's an Ethereum address
+            const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
+            if (ethAddressRegex.test(scannedText)) {
+              setCustomerSearch(scannedText);
+              setCustomerAddress(scannedText);
+              stopQRScanner();
+              toast.success("Customer wallet address scanned successfully!");
+              
+              // Try to find and auto-select the customer
+              setTimeout(() => {
+                const customer = shopCustomers.find(
+                  c => c.address.toLowerCase() === scannedText.toLowerCase()
+                );
+                if (customer) {
+                  handleCustomerSelect(customer);
+                }
+              }, 100);
+            } else {
+              toast.error("Invalid wallet address in QR code");
+            }
+          },
+          { 
+            highlightScanRegion: true, 
+            highlightCodeOutline: true,
+            preferredCamera: 'environment' // Use back camera on mobile
+          }
+        );
+        
+        setQrScanner(scanner);
+        await scanner.start();
+      }
+    } catch (error) {
+      console.error("Error starting QR scanner:", error);
+      toast.error("Failed to start camera. Please check permissions.");
+      setShowQRScanner(false);
+    }
+  };
+
+  const stopQRScanner = () => {
+    if (qrScanner) {
+      qrScanner.stop();
+      qrScanner.destroy();
+      setQrScanner(null);
+    }
+    setShowQRScanner(false);
+  };
+
+  // Cleanup scanner on unmount
+  useEffect(() => {
+    return () => {
+      if (qrScanner) {
+        qrScanner.stop();
+        qrScanner.destroy();
+      }
+    };
+  }, [qrScanner]);
+
   const getTierColor = (tier: string) => {
     switch (tier?.toUpperCase()) {
       case "GOLD":
@@ -624,49 +701,61 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                 </div>
                 <div className="space-y-4 px-4 md:px-8 py-4">
                   <div>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={customerSearch}
-                        onChange={(e) => {
-                          setCustomerSearch(e.target.value);
-                          if (
-                            selectedCustomer &&
-                            !e.target.value.includes(
-                              selectedCustomer.address.slice(0, 6)
-                            )
-                          ) {
-                            setSelectedCustomer(null);
-                            setCustomerAddress("");
-                          }
-                        }}
-                        placeholder="Type customer name or wallet address..."
-                        className="w-full px-4 py-3 bg-[#2F2F2F] text-white rounded-xl transition-all pl-10 border-2 border-transparent focus:border-[#FFCC00]"
-                      />
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                      {loadingCustomers && (
-                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                          <svg
-                            className="animate-spin h-5 w-5 text-[#FFCC00]"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                          >
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            ></circle>
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            ></path>
-                          </svg>
-                        </div>
-                      )}
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <input
+                          type="text"
+                          value={customerSearch}
+                          onChange={(e) => {
+                            setCustomerSearch(e.target.value);
+                            if (
+                              selectedCustomer &&
+                              !e.target.value.includes(
+                                selectedCustomer.address.slice(0, 6)
+                              )
+                            ) {
+                              setSelectedCustomer(null);
+                              setCustomerAddress("");
+                            }
+                          }}
+                          placeholder="Type customer name or wallet address..."
+                          className="w-full px-4 py-3 bg-[#2F2F2F] text-white rounded-xl transition-all pl-10 pr-4 border-2 border-transparent focus:border-[#FFCC00]"
+                        />
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        {loadingCustomers && (
+                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                            <svg
+                              className="animate-spin h-5 w-5 text-[#FFCC00]"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              ></circle>
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                              ></path>
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <button
+                        onClick={startQRScanner}
+                        disabled={loadingCustomers}
+                        className="px-4 py-3 bg-blue-600 text-white font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:bg-blue-700 flex items-center justify-center gap-2 whitespace-nowrap"
+                        title="Scan customer's QR code"
+                      >
+                        <Camera className="w-5 h-5" />
+                        <span className="hidden sm:inline">Scan QR</span>
+                      </button>
                     </div>
                   </div>
 
@@ -1303,6 +1392,52 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
               />
             </svg>
             <p className="text-red-400">{error}</p>
+          </div>
+        </div>
+      )}
+
+      {/* QR Scanner Modal */}
+      {showQRScanner && (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#212121] rounded-2xl p-6 max-w-md w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <Camera className="w-6 h-6 text-blue-400" />
+                Scan Customer QR Code
+              </h3>
+              <button
+                onClick={stopQRScanner}
+                className="p-2 hover:bg-gray-600 rounded-full transition-colors"
+              >
+                <X className="w-6 h-6 text-gray-400" />
+              </button>
+            </div>
+            
+            <div className="relative rounded-xl overflow-hidden bg-black">
+              <video
+                ref={videoRef}
+                className="w-full h-64 object-cover rounded-xl"
+                playsInline
+                muted
+              />
+              <div className="absolute inset-0 border-2 border-blue-400 rounded-xl">
+                <div className="absolute top-4 left-4 w-6 h-6 border-t-2 border-l-2 border-blue-400"></div>
+                <div className="absolute top-4 right-4 w-6 h-6 border-t-2 border-r-2 border-blue-400"></div>
+                <div className="absolute bottom-4 left-4 w-6 h-6 border-b-2 border-l-2 border-blue-400"></div>
+                <div className="absolute bottom-4 right-4 w-6 h-6 border-b-2 border-r-2 border-blue-400"></div>
+              </div>
+            </div>
+            
+            <p className="text-gray-400 text-sm mt-4 text-center">
+              Position the customer's QR code within the frame to scan their wallet address
+            </p>
+            
+            <button
+              onClick={stopQRScanner}
+              className="w-full mt-4 px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-medium"
+            >
+              Cancel Scan
+            </button>
           </div>
         </div>
       )}

@@ -16,6 +16,7 @@ import {
   ChevronRight,
   ChevronDown,
   MapPin,
+  Gift,
 } from "lucide-react";
 import { 
   IssueRewardsIcon, 
@@ -24,7 +25,8 @@ import {
   CustomerIcon,
   BuyRcnIcon,
   SettingsIcon,
-  LogoutIcon
+  LogoutIcon,
+  LookupIcon
 } from "../icon";
 import { useAuthStore } from "@/stores/authStore";
 
@@ -142,6 +144,12 @@ const Sidebar: React.FC<SidebarProps> = ({
           icon: <MapPin className="w-5 h-5" />,
           tabId: "findshop",
         },
+        {
+          title: "Gift Tokens",
+          href: "/customer?tab=gifting",
+          icon: <Gift className="w-5 h-5" />,
+          tabId: "gifting",
+        },
       ];
     }
 
@@ -171,12 +179,12 @@ const Sidebar: React.FC<SidebarProps> = ({
           icon: <CustomerIcon width={24} height={24} />,
           tabId: "customers",
         },
-        // {
-        //   title: "Lookup",
-        //   href: "/shop?tab=lookup",
-        //   icon: <LookupIcon width={24} height={24} />,
-        //   tabId: "lookup",
-        // },
+        {
+          title: "Lookup",
+          href: "/shop?tab=lookup",
+          icon: <LookupIcon width={24} height={24} />,
+          tabId: "lookup",
+        },
         {
           title: "Buy Credits",
           href: "/shop?tab=purchase",

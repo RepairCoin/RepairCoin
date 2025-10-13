@@ -3,7 +3,7 @@ import { logger } from '../utils/logger';
 
 interface TransactionRecord {
   id: string;
-  type: 'mint' | 'redeem' | 'transfer' | 'tier_bonus' | 'shop_purchase';
+  type: 'mint' | 'redeem' | 'transfer' | 'transfer_in' | 'transfer_out' | 'tier_bonus' | 'shop_purchase';
   customerAddress: string;
   shopId?: string;
   amount: number;
@@ -11,10 +11,11 @@ interface TransactionRecord {
   transactionHash?: string;
   blockNumber?: number;
   timestamp: string;
-  status: 'pending' | 'confirmed' | 'failed';
+  status: 'pending' | 'confirmed' | 'failed' | 'completed';
   metadata?: any;
   shopName?: string;
   customerName?: string;
+  createdAt?: Date;
 }
 
 export interface TransactionFilters {
@@ -215,9 +216,105 @@ export class TransactionRepository extends BaseRepository {
     }
   }
 
+  async getByTransactionHash(transactionHash: string): Promise<TransactionRecord | null> {
+    try {
+      const query = 'SELECT * FROM transactions WHERE transaction_hash = $1';
+      const result = await this.pool.query(query, [transactionHash]);
+      
+      if (result.rows.length === 0) {
+        return null;
+      }
+      
+      return this.mapToTransactionRecord(result.rows[0]);
+    } catch (error) {
+      logger.error('Error fetching transaction by hash:', error);
+      throw new Error('Failed to fetch transaction by hash');
+    }
+  }
+
+  async create(transaction: Omit<TransactionRecord, 'id' | 'createdAt'>): Promise<TransactionRecord> {
+    try {
+      const query = `
+        INSERT INTO transactions (
+          type, customer_address, shop_id, amount, reason,
+          transaction_hash, block_number, timestamp, status, metadata
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING *
+      `;
+      
+      const result = await this.pool.query(query, [
+        transaction.type,
+        transaction.customerAddress.toLowerCase(),
+        transaction.shopId,
+        transaction.amount,
+        transaction.reason,
+        transaction.transactionHash,
+        transaction.blockNumber,
+        transaction.timestamp,
+        transaction.status,
+        JSON.stringify(transaction.metadata || {})
+      ]);
+      
+      const createdTransaction = this.mapToTransactionRecord(result.rows[0]);
+      logger.info('Transaction created', { 
+        id: createdTransaction.id, 
+        type: createdTransaction.type,
+        amount: createdTransaction.amount 
+      });
+      
+      return createdTransaction;
+    } catch (error) {
+      logger.error('Error creating transaction:', error);
+      throw new Error('Failed to create transaction');
+    }
+  }
+
+  async getTransferHistory(
+    customerAddress: string,
+    limit: number = 50,
+    offset: number = 0
+  ): Promise<TransactionRecord[]> {
+    try {
+      const query = `
+        SELECT * FROM transactions
+        WHERE customer_address = $1 
+        AND type IN ('transfer_in', 'transfer_out')
+        ORDER BY timestamp DESC
+        LIMIT $2 OFFSET $3
+      `;
+      
+      const result = await this.pool.query(query, [
+        customerAddress.toLowerCase(),
+        limit,
+        offset
+      ]);
+      
+      return result.rows.map(row => this.mapToTransactionRecord(row));
+    } catch (error) {
+      logger.error('Error fetching transfer history:', error);
+      throw new Error('Failed to fetch transfer history');
+    }
+  }
+
+  async getTransferHistoryCount(customerAddress: string): Promise<number> {
+    try {
+      const query = `
+        SELECT COUNT(*) as count FROM transactions
+        WHERE customer_address = $1 
+        AND type IN ('transfer_in', 'transfer_out')
+      `;
+      
+      const result = await this.pool.query(query, [customerAddress.toLowerCase()]);
+      return parseInt(result.rows[0].count);
+    } catch (error) {
+      logger.error('Error getting transfer history count:', error);
+      throw new Error('Failed to get transfer history count');
+    }
+  }
+
   async updateTransactionStatus(
     id: string, 
-    status: 'pending' | 'confirmed' | 'failed',
+    status: 'pending' | 'confirmed' | 'failed' | 'completed',
     blockNumber?: number
   ): Promise<void> {
     try {

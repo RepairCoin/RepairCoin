@@ -14,8 +14,12 @@ import {
   Eye,
   EyeOff,
   Key,
+  QrCode,
+  Download,
+  X,
 } from "lucide-react";
 import { useActiveAccount } from "thirdweb/react";
+import QRCode from "qrcode";
 
 interface CustomerData {
   address: string;
@@ -37,6 +41,8 @@ export function SettingsTab() {
   
   const [isEditing, setIsEditing] = useState(false);
   const [showPrivateKey, setShowPrivateKey] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [qrCodeData, setQrCodeData] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -110,6 +116,39 @@ export function SettingsTab() {
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     toast.success(`${label} copied to clipboard!`);
+  };
+
+  const generateQRCode = async () => {
+    if (!account?.address) {
+      toast.error("No wallet address found");
+      return;
+    }
+
+    try {
+      const qrData = await QRCode.toDataURL(account.address, {
+        width: 256,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+      setQrCodeData(qrData);
+      setShowQRModal(true);
+    } catch (error) {
+      console.error("Error generating QR code:", error);
+      toast.error("Failed to generate QR code");
+    }
+  };
+
+  const downloadQRCode = () => {
+    if (!qrCodeData) return;
+    
+    const link = document.createElement('a');
+    link.download = `wallet-qr-${account?.address?.slice(0, 6)}.png`;
+    link.href = qrCodeData;
+    link.click();
+    toast.success("QR code downloaded!");
   };
 
   // Only show loading on initial load, not when switching tabs
@@ -240,6 +279,37 @@ export function SettingsTab() {
         </div>
       </div>
 
+      {/* QR Code for Redemption */}
+      <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
+        <div
+          className="w-full flex justify-between items-center px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
+          style={{
+            backgroundImage: `url('/img/cust-ref-widget3.png')`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+          }}
+        >
+          <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
+            QR Code for Redemption
+          </p>
+        </div>
+        <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
+          <div className="text-center">
+            <QrCode className="w-16 h-16 mx-auto mb-4 text-[#FFCC00]" />
+            <p className="text-gray-300 text-sm sm:text-base mb-6">
+              Generate a QR code with your wallet address to share with shops for easy redemption
+            </p>
+            <button
+              onClick={generateQRCode}
+              className="px-6 py-3 bg-[#FFCC00] text-black rounded-3xl font-medium hover:bg-yellow-500 transition-colors"
+            >
+              Generate QR Code
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="w-full flex flex-col md:flex-row gap-8">
 
         {/* Notification Preferences */}
@@ -365,6 +435,59 @@ export function SettingsTab() {
           </div>
         </div>
       </div> */}
+
+      {/* QR Code Modal */}
+      {showQRModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#212121] rounded-2xl max-w-md w-full mx-4">
+            <div className="flex justify-between items-center p-6 border-b border-gray-700">
+              <h3 className="text-xl font-semibold text-white">Wallet Address QR Code</h3>
+              <button
+                onClick={() => setShowQRModal(false)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="p-6 text-center">
+              {qrCodeData && (
+                <div className="space-y-4">
+                  <img 
+                    src={qrCodeData} 
+                    alt="Wallet Address QR Code" 
+                    className="mx-auto bg-white p-4 rounded-lg"
+                  />
+                  
+                  <div className="text-sm text-gray-300 break-all bg-[#2F2F2F] p-3 rounded-lg">
+                    {account?.address}
+                  </div>
+                  
+                  <div className="flex gap-3 justify-center">
+                    <button
+                      onClick={() => copyToClipboard(account?.address || "", "Wallet address")}
+                      className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                    >
+                      Copy Address
+                    </button>
+                    <button
+                      onClick={downloadQRCode}
+                      className="px-4 py-2 bg-[#FFCC00] text-black rounded-lg hover:bg-yellow-500 transition-colors flex items-center gap-2"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download QR
+                    </button>
+                  </div>
+                  
+                  <p className="text-xs text-gray-400 mt-4">
+                    Share this QR code with shops to make redemption faster and easier
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

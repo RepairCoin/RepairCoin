@@ -21,6 +21,11 @@ export interface CustomerData {
   suspensionReason?: string | null;
   referralCode?: string;
   referredBy?: string | null;
+  // Enhanced balance tracking for hybrid database/blockchain system
+  currentRcnBalance?: number;
+  pendingMintBalance?: number;
+  totalRedemptions?: number;
+  lastBlockchainSync?: string | null;
 }
 
 // Single TierBenefits interface with all required properties

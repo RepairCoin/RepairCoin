@@ -2,13 +2,14 @@
 
 import React, { useState, useEffect } from "react";
 import { useActiveAccount, useSendTransaction } from "thirdweb/react";
-import { CheckCircle, XCircle, Clock, Info } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Info, QrCode, Download, X } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { DataTable, type Column } from "../ui/DataTable";
 import { DashboardHeader } from "../ui/DashboardHeader";
 import { useCustomer } from "@/hooks/useCustomer";
 import { createThirdwebClient, getContract, prepareContractCall } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
+import QRCode from "qrcode";
 
 interface RedemptionSession {
   sessionId: string;
@@ -26,6 +27,8 @@ export function RedemptionApprovals() {
   const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [qrCodeData, setQrCodeData] = useState("");
 
   const [sessionId, setSessionId] = useState<string | null>(null);
   
@@ -53,6 +56,44 @@ export function RedemptionApprovals() {
   
   // Admin wallet address for token approval
   const ADMIN_WALLET = "0x761E5E59485ec6feb263320f5d636042bD9EBc8c";
+
+  const generateQRCode = async () => {
+    if (!account?.address) {
+      toast.error("No wallet address found");
+      return;
+    }
+
+    try {
+      const qrData = await QRCode.toDataURL(account.address, {
+        width: 256,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+      setQrCodeData(qrData);
+      setShowQRModal(true);
+    } catch (error) {
+      console.error("Error generating QR code:", error);
+      toast.error("Failed to generate QR code");
+    }
+  };
+
+  const downloadQRCode = () => {
+    if (!qrCodeData) return;
+    
+    const link = document.createElement('a');
+    link.download = `wallet-qr-${account?.address?.slice(0, 6)}.png`;
+    link.href = qrCodeData;
+    link.click();
+    toast.success("QR code downloaded!");
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied to clipboard!`);
+  };
 
   useEffect(() => {
     if (account?.address) {
@@ -415,6 +456,36 @@ export function RedemptionApprovals() {
         </div>
       )}
 
+      {/* QR Code for Shop Scanning */}
+      <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
+        <div
+          className="w-full flex justify-between items-center px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
+          style={{
+            backgroundImage: `url('/img/cust-ref-widget3.png')`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+          }}
+        >
+          <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
+            QR Code for Shop Redemption
+          </p>
+        </div>
+        <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
+          <div className="text-center">
+            <QrCode className="w-16 h-16 mx-auto mb-4 text-[#FFCC00]" />
+            <p className="text-gray-300 text-sm sm:text-base mb-6">
+              Show this QR code to the shop for faster redemption. It contains your wallet address for easy lookup.
+            </p>
+            <button
+              onClick={generateQRCode}
+              className="px-6 py-3 bg-[#FFCC00] text-black rounded-3xl font-medium hover:bg-yellow-500 transition-colors"
+            >
+              Generate QR Code
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Redemption Sessions Table */}
       <div className="bg-[#212121] rounded-xl md:rounded-2xl lg:rounded-3xl overflow-hidden">
@@ -449,6 +520,59 @@ export function RedemptionApprovals() {
           />
         </div>
       </div>
+
+      {/* QR Code Modal */}
+      {showQRModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#212121] rounded-2xl max-w-md w-full mx-4">
+            <div className="flex justify-between items-center p-6 border-b border-gray-700">
+              <h3 className="text-xl font-semibold text-white">Wallet Address QR Code</h3>
+              <button
+                onClick={() => setShowQRModal(false)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="p-6 text-center">
+              {qrCodeData && (
+                <div className="space-y-4">
+                  <img 
+                    src={qrCodeData} 
+                    alt="Wallet Address QR Code" 
+                    className="mx-auto bg-white p-4 rounded-lg"
+                  />
+                  
+                  <div className="text-sm text-gray-300 break-all bg-[#2F2F2F] p-3 rounded-lg">
+                    {account?.address}
+                  </div>
+                  
+                  <div className="flex gap-3 justify-center">
+                    <button
+                      onClick={() => copyToClipboard(account?.address || "", "Wallet address")}
+                      className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                    >
+                      Copy Address
+                    </button>
+                    <button
+                      onClick={downloadQRCode}
+                      className="px-4 py-2 bg-[#FFCC00] text-black rounded-lg hover:bg-yellow-500 transition-colors flex items-center gap-2"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download QR
+                    </button>
+                  </div>
+                  
+                  <p className="text-xs text-gray-400 mt-4">
+                    Show this QR code to shops for instant wallet address lookup during redemption
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

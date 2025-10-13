@@ -105,7 +105,12 @@ export class CustomerRepository extends BaseRepository {
         suspendedAt: row.suspended_at,
         suspensionReason: row.suspension_reason,
         referralCode: row.referral_code,
-        referredBy: row.referred_by
+        referredBy: row.referred_by,
+        // Enhanced balance tracking fields
+        currentRcnBalance: row.current_rcn_balance ? parseFloat(row.current_rcn_balance) : 0,
+        pendingMintBalance: row.pending_mint_balance ? parseFloat(row.pending_mint_balance) : 0,
+        totalRedemptions: row.total_redemptions ? parseFloat(row.total_redemptions) : 0,
+        lastBlockchainSync: row.last_blockchain_sync ? new Date(row.last_blockchain_sync).toISOString() : null
       };
     } catch (error) {
       logger.error('Error fetching customer:', error);
@@ -140,7 +145,12 @@ export class CustomerRepository extends BaseRepository {
         suspendedAt: row.suspended_at,
         suspensionReason: row.suspension_reason,
         referralCode: row.referral_code,
-        referredBy: row.referred_by
+        referredBy: row.referred_by,
+        // Enhanced balance tracking fields
+        currentRcnBalance: row.current_rcn_balance ? parseFloat(row.current_rcn_balance) : 0,
+        pendingMintBalance: row.pending_mint_balance ? parseFloat(row.pending_mint_balance) : 0,
+        totalRedemptions: row.total_redemptions ? parseFloat(row.total_redemptions) : 0,
+        lastBlockchainSync: row.last_blockchain_sync ? new Date(row.last_blockchain_sync).toISOString() : null
       };
     } catch (error) {
       logger.error('Error fetching customer by referral code:', error);
@@ -272,6 +282,27 @@ export class CustomerRepository extends BaseRepository {
     } catch (error) {
       logger.error('Error updating customer earnings:', error);
       throw new Error('Failed to update customer earnings');
+    }
+  }
+
+  async updateBalanceAfterTransfer(
+    address: string,
+    amount: number
+  ): Promise<void> {
+    try {
+      const query = `
+        UPDATE customers 
+        SET 
+          lifetime_earnings = GREATEST(0, COALESCE(lifetime_earnings, 0) + $1),
+          updated_at = NOW()
+        WHERE address = $2
+      `;
+      
+      await this.pool.query(query, [amount, address.toLowerCase()]);
+      logger.info('Customer balance updated after transfer', { address, amount });
+    } catch (error) {
+      logger.error('Error updating customer balance after transfer:', error);
+      throw new Error('Failed to update customer balance after transfer');
     }
   }
 
@@ -547,6 +578,259 @@ export class CustomerRepository extends BaseRepository {
     } catch (error) {
       logger.error('Error getting customer analytics:', error);
       throw new Error('Failed to get customer analytics');
+    }
+  }
+
+  // Enhanced Balance Tracking Methods
+
+  /**
+   * Get customer's enhanced balance information for hybrid database/blockchain system
+   */
+  async getCustomerBalance(address: string): Promise<{
+    databaseBalance: number;
+    pendingMintBalance: number;
+    totalBalance: number;
+    lifetimeEarnings: number;
+    totalRedemptions: number;
+    lastBlockchainSync: string | null;
+    balanceSynced: boolean;
+  } | null> {
+    try {
+      const query = `
+        SELECT 
+          current_rcn_balance,
+          pending_mint_balance,
+          lifetime_earnings,
+          total_redemptions,
+          last_blockchain_sync,
+          (current_rcn_balance + COALESCE(pending_mint_balance, 0)) as total_balance,
+          ABS(current_rcn_balance - (lifetime_earnings - COALESCE(total_redemptions, 0))) < 0.00000001 as balance_synced
+        FROM customers 
+        WHERE address = $1
+      `;
+      
+      const result = await this.pool.query(query, [address.toLowerCase()]);
+      
+      if (result.rows.length === 0) {
+        return null;
+      }
+      
+      const row = result.rows[0];
+      return {
+        databaseBalance: parseFloat(row.current_rcn_balance || '0'),
+        pendingMintBalance: parseFloat(row.pending_mint_balance || '0'),
+        totalBalance: parseFloat(row.total_balance || '0'),
+        lifetimeEarnings: parseFloat(row.lifetime_earnings || '0'),
+        totalRedemptions: parseFloat(row.total_redemptions || '0'),
+        lastBlockchainSync: row.last_blockchain_sync ? new Date(row.last_blockchain_sync).toISOString() : null,
+        balanceSynced: row.balance_synced
+      };
+    } catch (error) {
+      logger.error('Error getting customer balance:', error);
+      throw new Error('Failed to get customer balance');
+    }
+  }
+
+  /**
+   * Update customer's database balance after earning
+   */
+  async updateBalanceAfterEarning(
+    address: string, 
+    amount: number, 
+    newTier: TierLevel
+  ): Promise<void> {
+    try {
+      const query = `
+        UPDATE customers 
+        SET 
+          lifetime_earnings = lifetime_earnings + $1,
+          current_rcn_balance = COALESCE(current_rcn_balance, 0) + $1,
+          tier = $2,
+          last_earned_date = NOW(),
+          updated_at = NOW()
+        WHERE address = $3
+      `;
+      
+      await this.pool.query(query, [amount, newTier, address.toLowerCase()]);
+      logger.info('Customer balance updated after earning', { address, amount, newTier });
+    } catch (error) {
+      logger.error('Error updating balance after earning:', error);
+      throw new Error('Failed to update balance after earning');
+    }
+  }
+
+  /**
+   * Update customer's database balance after redemption
+   */
+  async updateBalanceAfterRedemption(address: string, amount: number): Promise<void> {
+    try {
+      const query = `
+        UPDATE customers 
+        SET 
+          current_rcn_balance = GREATEST(0, COALESCE(current_rcn_balance, 0) - $1),
+          total_redemptions = COALESCE(total_redemptions, 0) + $1,
+          updated_at = NOW()
+        WHERE address = $2
+      `;
+      
+      await this.pool.query(query, [amount, address.toLowerCase()]);
+      logger.info('Customer balance updated after redemption', { address, amount });
+    } catch (error) {
+      logger.error('Error updating balance after redemption:', error);
+      throw new Error('Failed to update balance after redemption');
+    }
+  }
+
+  /**
+   * Move customer balance to pending mint queue (for mint-to-wallet feature)
+   */
+  async queueForMinting(address: string, amount: number): Promise<void> {
+    try {
+      const query = `
+        UPDATE customers 
+        SET 
+          current_rcn_balance = GREATEST(0, COALESCE(current_rcn_balance, 0) - $1),
+          pending_mint_balance = COALESCE(pending_mint_balance, 0) + $1,
+          updated_at = NOW()
+        WHERE address = $2 
+        AND COALESCE(current_rcn_balance, 0) >= $1
+      `;
+      
+      const result = await this.pool.query(query, [amount, address.toLowerCase()]);
+      
+      if (result.rowCount === 0) {
+        throw new Error('Insufficient balance for minting or customer not found');
+      }
+      
+      logger.info('Customer balance queued for minting', { address, amount });
+    } catch (error) {
+      logger.error('Error queueing balance for minting:', error);
+      throw new Error('Failed to queue balance for minting');
+    }
+  }
+
+  /**
+   * Complete blockchain mint and remove from pending queue
+   */
+  async completeMint(address: string, amount: number, blockchainTxHash: string): Promise<void> {
+    try {
+      const query = `
+        UPDATE customers 
+        SET 
+          pending_mint_balance = GREATEST(0, COALESCE(pending_mint_balance, 0) - $1),
+          last_blockchain_sync = NOW(),
+          updated_at = NOW()
+        WHERE address = $2 
+        AND COALESCE(pending_mint_balance, 0) >= $1
+      `;
+      
+      const result = await this.pool.query(query, [amount, address.toLowerCase()]);
+      
+      if (result.rowCount === 0) {
+        throw new Error('Insufficient pending balance or customer not found');
+      }
+      
+      logger.info('Customer mint completed', { address, amount, blockchainTxHash });
+    } catch (error) {
+      logger.error('Error completing mint:', error);
+      throw new Error('Failed to complete mint');
+    }
+  }
+
+  /**
+   * Get customers with pending mint balances (for batch processing)
+   */
+  async getCustomersWithPendingMints(limit: number = 100): Promise<Array<{
+    address: string;
+    name: string | null;
+    pendingAmount: number;
+  }>> {
+    try {
+      const query = `
+        SELECT address, name, pending_mint_balance as pending_amount
+        FROM customers 
+        WHERE pending_mint_balance > 0 
+        AND is_active = true
+        ORDER BY pending_mint_balance DESC
+        LIMIT $1
+      `;
+      
+      const result = await this.pool.query(query, [limit]);
+      
+      return result.rows.map(row => ({
+        address: row.address,
+        name: row.name,
+        pendingAmount: parseFloat(row.pending_amount)
+      }));
+    } catch (error) {
+      logger.error('Error getting customers with pending mints:', error);
+      throw new Error('Failed to get customers with pending mints');
+    }
+  }
+
+  /**
+   * Sync customer balance with calculated values (maintenance function)
+   */
+  async syncCustomerBalance(address: string): Promise<void> {
+    try {
+      // Calculate balance from transactions
+      const balanceQuery = `
+        WITH balance_calculation AS (
+          SELECT 
+            COALESCE(SUM(CASE WHEN type = 'mint' THEN amount ELSE 0 END), 0) as total_earned,
+            COALESCE(SUM(CASE WHEN type = 'redeem' THEN amount ELSE 0 END), 0) as total_redeemed
+          FROM transactions 
+          WHERE customer_address = $1
+        )
+        UPDATE customers 
+        SET 
+          current_rcn_balance = GREATEST(0, bc.total_earned - bc.total_redeemed),
+          total_redemptions = bc.total_redeemed,
+          updated_at = NOW()
+        FROM balance_calculation bc
+        WHERE address = $1
+      `;
+      
+      await this.pool.query(balanceQuery, [address.toLowerCase()]);
+      logger.info('Customer balance synced', { address });
+    } catch (error) {
+      logger.error('Error syncing customer balance:', error);
+      throw new Error('Failed to sync customer balance');
+    }
+  }
+
+  /**
+   * Get aggregate balance statistics for analytics
+   */
+  async getBalanceStatistics(): Promise<{
+    totalDatabaseBalance: number;
+    totalPendingMints: number;
+    totalCustomersWithBalance: number;
+    averageBalance: number;
+  }> {
+    try {
+      const query = `
+        SELECT 
+          COALESCE(SUM(current_rcn_balance), 0) as total_database_balance,
+          COALESCE(SUM(pending_mint_balance), 0) as total_pending_mints,
+          COUNT(CASE WHEN current_rcn_balance > 0 THEN 1 END) as customers_with_balance,
+          COALESCE(AVG(NULLIF(current_rcn_balance, 0)), 0) as average_balance
+        FROM customers 
+        WHERE is_active = true
+      `;
+
+      const result = await this.pool.query(query);
+      const row = result.rows[0];
+
+      return {
+        totalDatabaseBalance: parseFloat(row.total_database_balance || '0'),
+        totalPendingMints: parseFloat(row.total_pending_mints || '0'),
+        totalCustomersWithBalance: parseInt(row.customers_with_balance || '0'),
+        averageBalance: parseFloat(row.average_balance || '0')
+      };
+    } catch (error) {
+      logger.error('Error getting balance statistics:', error);
+      throw new Error('Failed to get balance statistics');
     }
   }
 
