@@ -1,14 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useActiveAccount, useSendTransaction } from "thirdweb/react";
+import { useActiveAccount } from "thirdweb/react";
 import { CheckCircle, XCircle, Clock, Info, QrCode, Download, X } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { DataTable, type Column } from "../ui/DataTable";
 import { DashboardHeader } from "../ui/DashboardHeader";
 import { useCustomer } from "@/hooks/useCustomer";
-import { createThirdwebClient, getContract, prepareContractCall } from "thirdweb";
-import { baseSepolia } from "thirdweb/chains";
 import QRCode from "qrcode";
 
 interface RedemptionSession {
@@ -38,24 +36,6 @@ export function RedemptionApprovals() {
   
   // For showing approved session QR
   const [selectedApprovedSession, setSelectedApprovedSession] = useState<RedemptionSession | null>(null);
-  
-  // Thirdweb setup for contract interactions
-  const client = createThirdwebClient({
-    clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "1969ac335e07ba13ad0f8d1a1de4f6ab",
-  });
-  
-  const contract = getContract({
-    client,
-    chain: baseSepolia,
-    address: (process.env.NEXT_PUBLIC_RCN_CONTRACT_ADDRESS ||
-      process.env.NEXT_PUBLIC_CONTRACT_ADDRESS ||
-      "0xBFE793d78B6B83859b528F191bd6F2b8555D951C") as `0x${string}`,
-  });
-  
-  const { mutate: sendTransaction } = useSendTransaction();
-  
-  // Admin wallet address for token approval
-  const ADMIN_WALLET = "0x761E5E59485ec6feb263320f5d636042bD9EBc8c";
 
   const generateQRCode = async () => {
     if (!account?.address) {
@@ -168,46 +148,13 @@ export function RedemptionApprovals() {
         return;
       }
 
-      const amount = session.amount;
-      const amountInWei = BigInt(amount * 10 ** 18);
+      toast.loading("Processing redemption approval...", { id: "approval-process" });
 
-      toast.loading("Step 1: Approving token spending...", { id: "approval-process" });
-
-      // Step 1: Approve the admin wallet to spend customer's tokens
-      const approvalTx = prepareContractCall({
-        contract,
-        method: "function approve(address spender, uint256 amount) returns (bool)",
-        params: [ADMIN_WALLET, amountInWei],
-      });
-
-      console.log("Prepared approval transaction:", {
-        contract: contract.address,
-        spender: ADMIN_WALLET,
-        amount: amount,
-        amountInWei: amountInWei.toString(),
-      });
-
-      // Wait for customer to approve the transaction
-      await new Promise((resolve, reject) => {
-        sendTransaction(approvalTx, {
-          onSuccess: (result) => {
-            console.log("Approval transaction successful:", result.transactionHash);
-            toast.loading("Step 2: Processing redemption...", { id: "approval-process" });
-            resolve(result);
-          },
-          onError: (error) => {
-            console.error("Approval transaction failed:", error);
-            toast.error("Token approval cancelled or failed", { id: "approval-process" });
-            reject(error);
-          },
-        });
-      });
-
-      // Step 2: Proceed with backend redemption approval
+      // Offchain redemption approval - no blockchain transaction needed
       const message = JSON.stringify({
         action: "approve_redemption",
         sessionId,
-        timestamp: new Date().toISOString,
+        timestamp: new Date().toISOString(),
       });
 
       const signature = `0x${Buffer.from(message).toString("hex")}`;
@@ -230,7 +177,7 @@ export function RedemptionApprovals() {
       );
 
       if (response.ok) {
-        toast.success("Redemption completed! Tokens have been burned from your wallet.", { 
+        toast.success("Redemption approved! Your balance has been updated.", { 
           id: "approval-process",
           duration: 4000 
         });

@@ -187,6 +187,22 @@ export class RedemptionSessionRepository extends BaseRepository {
     }
   }
 
+  async updateSessionMetadata(sessionId: string, metadata: any): Promise<void> {
+    try {
+      const query = `
+        UPDATE redemption_sessions 
+        SET metadata = $1
+        WHERE session_id = $2
+      `;
+      
+      await this.pool.query(query, [JSON.stringify(metadata), sessionId]);
+      logger.info('Updated redemption session metadata', { sessionId });
+    } catch (error) {
+      logger.error('Error updating session metadata:', error);
+      throw new Error('Failed to update session metadata');
+    }
+  }
+
   async findPendingSessionForCustomer(
     customerAddress: string, 
     shopId: string

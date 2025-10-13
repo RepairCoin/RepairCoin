@@ -288,6 +288,67 @@ router.get('/my-sessions',
 
 /**
  * @swagger
+ * /api/tokens/redemption-session/cancel:
+ *   post:
+ *     summary: Shop cancels a redemption session
+ *     description: Shop cancels their own redemption request
+ *     tags: [Redemption Sessions]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - sessionId
+ *             properties:
+ *               sessionId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Session cancelled successfully
+ *       400:
+ *         description: Invalid session
+ *       404:
+ *         description: Session not found
+ */
+router.post('/cancel',
+  authMiddleware,
+  requireShopOrAdmin,
+  validateRequired(['sessionId']),
+  async (req: Request, res: Response) => {
+    try {
+      const { sessionId } = req.body;
+      const shopId = req.user?.shopId;
+
+      if (!shopId) {
+        return res.status(401).json({
+          success: false,
+          error: 'Shop ID not found in session'
+        });
+      }
+
+      await redemptionSessionService.cancelSession(sessionId, shopId);
+
+      res.json({
+        success: true,
+        message: 'Redemption request cancelled'
+      });
+
+    } catch (error) {
+      logger.error('Cancel session error:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to cancel session'
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
  * /api/tokens/redemption-session/status/{sessionId}:
  *   get:
  *     summary: Get session status
@@ -331,7 +392,8 @@ router.get('/status/:sessionId',
           expiresAt: session.expiresAt,
           createdAt: session.createdAt,
           approvedAt: session.approvedAt,
-          usedAt: session.usedAt
+          usedAt: session.usedAt,
+          metadata: session.metadata
         }
       });
 

@@ -4,12 +4,11 @@ import React, { useState, useEffect } from "react";
 import { WalletIcon } from "../../icon/index";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatCard } from "@/components/ui/StatCard";
-import { ChevronDown, Download } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { RCGBalanceCard } from "@/components/shop/RCGBalanceCard";
 import { useRCGBalance } from "@/hooks/useRCGBalance";
 import { formatRCGBalance } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { DepositModal } from "@/components/shop/DepositModal";
 
 interface ShopData {
   shopId: string;
@@ -135,7 +134,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const [filter, setFilter] = useState<
     "all" | "completed" | "pending" | "failed"
   >("all");
-  const [showDepositModal, setShowDepositModal] = useState(false);
 
   // Filter purchases based on selected filter
   const filteredPurchases = purchases.filter((purchase) => {
@@ -210,33 +208,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         <div className="space-y-8">
           {/* Shop Statistics */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="relative">
-              <StatCard
-                title="Operational RCN"
-                value={(Number(shopData.purchasedRcnBalance) || 0).toFixed(2)}
-                icon={<WalletIcon />}
-              />
-              <Button
-                size="sm"
-                className="absolute top-2 right-2 h-8 w-8 p-0 bg-yellow-500 hover:bg-yellow-600 text-black"
-                onClick={() => {
-                  const token =
-                    localStorage.getItem("shopAuthToken") ||
-                    sessionStorage.getItem("shopAuthToken");
-                  if (!token) {
-                    console.error(
-                      "[OverviewTab] No auth token found when trying to open deposit modal"
-                    );
-                    alert("Please refresh the page to authenticate");
-                    return;
-                  }
-                  setShowDepositModal(true);
-                }}
-                title="Deposit RCN"
-              >
-                <Download className="h-4 w-4" />
-              </Button>
-            </div>
+            <StatCard
+              title="Operational RCN"
+              value={(Number(shopData.purchasedRcnBalance) || 0).toFixed(2)}
+              icon={<WalletIcon />}
+            />
             <StatCard
               title="Total Purchased"
               value={(Number(shopData.totalRcnPurchased) || 0).toFixed(2)}
@@ -345,24 +321,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         </div>
       </div>
 
-      {/* Deposit Modal */}
-      {shopData && (
-        <DepositModal
-          isOpen={showDepositModal}
-          onClose={() => setShowDepositModal(false)}
-          shopData={{
-            shopId: shopData.shopId,
-            walletAddress: shopData.walletAddress || "",
-            purchasedRcnBalance: shopData.purchasedRcnBalance,
-          }}
-          onDepositComplete={() => {
-            setShowDepositModal(false);
-            if (onRefreshData) {
-              onRefreshData();
-            }
-          }}
-        />
-      )}
     </>
   );
 };

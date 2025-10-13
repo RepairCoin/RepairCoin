@@ -10,7 +10,7 @@ import {
   CheckCircle,
   AlertCircle,
   QrCode,
-  Scanner
+  ScanLine
 } from "lucide-react";
 import { QrScanner } from 'qr-scanner';
 
@@ -417,7 +417,7 @@ export function TokenGiftingTab() {
             </div>
             
             <div className="p-6 text-center">
-              <Scanner className="w-16 h-16 mx-auto mb-4 text-[#FFCC00]" />
+              <ScanLine className="w-16 h-16 mx-auto mb-4 text-[#FFCC00]" />
               <p className="text-gray-300 mb-4">
                 Position the QR code within the camera view to scan the wallet address
               </p>

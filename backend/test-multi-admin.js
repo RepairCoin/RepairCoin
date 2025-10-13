@@ -1,7 +1,7 @@
 // Test script to verify multi-admin authentication
 const fetch = require('node-fetch');
 
-const API_URL = process.env.API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.API_URL || 'http://localhost:4000/api';
 
 // Example admin addresses (replace with actual addresses from your .env)
 const testAddresses = [

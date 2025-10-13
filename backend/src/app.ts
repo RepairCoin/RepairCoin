@@ -350,11 +350,11 @@ class RepairCoinApp {
   }
 
   async start(): Promise<void> {
-    const port = parseInt(process.env.PORT || '5000');
+    const port = parseInt(process.env.PORT || '4000');
     
     console.log('\n🔍 BACKEND PORT CONFIGURATION:');
     console.log(`- process.env.PORT from .env: ${process.env.PORT}`);
-    console.log(`- Default if not set: 5000`);
+    console.log(`- Default if not set: 4000`);
     console.log(`- Actually using port: ${port}`);
     console.log(`- Full backend URL: http://localhost:${port}`);
     console.log('');

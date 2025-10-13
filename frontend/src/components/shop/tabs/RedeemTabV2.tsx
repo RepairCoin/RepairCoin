@@ -81,7 +81,8 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
     "idle" | "creating" | "waiting" | "processing"
   >("idle");
   const [showingAllCustomers, setShowingAllCustomers] = useState(false);
-
+  const [customerBalance, setCustomerBalance] = useState<number | null>(null);
+  const [loadingBalance, setLoadingBalance] = useState(false);
 
   // Common states
   const [error, setError] = useState<string | null>(null);
@@ -309,11 +310,46 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
     }
   };
 
+  const fetchCustomerBalance = async (address: string) => {
+    setLoadingBalance(true);
+    try {
+      const authToken =
+        localStorage.getItem("shopAuthToken") ||
+        sessionStorage.getItem("shopAuthToken");
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/customers/balance/${address}`,
+        {
+          headers: {
+            Authorization: authToken ? `Bearer ${authToken}` : "",
+          },
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        const balance = result.data?.totalBalance || 0;
+        setCustomerBalance(balance);
+      } else {
+        console.warn('Could not fetch customer balance:', response.status);
+        setCustomerBalance(0);
+      }
+    } catch (err) {
+      console.warn("Error fetching customer balance:", err);
+      setCustomerBalance(0);
+    } finally {
+      setLoadingBalance(false);
+    }
+  };
+
   const handleCustomerSelect = (customer: ShopCustomer) => {
     console.log("Selecting customer:", customer);
     setSelectedCustomer(customer);
     setCustomerAddress(customer.address);
     console.log("Customer selected:", { customer, address: customer.address });
+    
+    // Fetch customer balance
+    fetchCustomerBalance(customer.address);
   };
 
   const filteredCustomers = shopCustomers.filter((customer) => {
@@ -382,7 +418,15 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
               clearInterval(interval);
               await processRedemption();
             } else if (sessionData.status === "rejected") {
-              setError("Customer rejected the redemption request");
+              // Check if session was cancelled by shop or rejected by customer
+              const metadata = sessionData.metadata;
+              const cancelledByShop = metadata?.cancelledByShop;
+              
+              if (cancelledByShop) {
+                setError("Redemption request was cancelled");
+              } else {
+                setError("Customer rejected the redemption request");
+              }
               setSessionStatus("idle");
               setCurrentSession(null);
               clearInterval(interval);
@@ -522,6 +566,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
       setCurrentSession(null);
       setSessionStatus("idle");
       setCustomerSearch("");
+      setCustomerBalance(null);
 
       await loadRedemptionHistory();
       await checkForPendingSessions();
@@ -716,6 +761,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                             ) {
                               setSelectedCustomer(null);
                               setCustomerAddress("");
+                              setCustomerBalance(null);
                             }
                           }}
                           placeholder="Type customer name or wallet address..."
@@ -883,6 +929,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                             setSelectedCustomer(null);
                             setCustomerAddress("");
                             setCustomerSearch("");
+                            setCustomerBalance(null);
                           }}
                           className="text-[#FFCC00] hover:text-yellow-400 text-sm font-medium px-3 py-1 rounded-lg border border-[#FFCC00] hover:bg-yellow-900/20"
                         >
@@ -995,12 +1042,46 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
 
                 <div className="flex gap-3 justify-center">
                   <button
-                    onClick={() => {
-                      setSessionStatus("idle");
-                      setCurrentSession(null);
-                      setError(null);
-                      setSuccess("Redemption request cancelled");
-                      setTimeout(() => setSuccess(null), 3000);
+                    onClick={async () => {
+                      if (!currentSession) return;
+                      
+                      try {
+                        const authToken =
+                          localStorage.getItem("shopAuthToken") ||
+                          sessionStorage.getItem("shopAuthToken");
+                        
+                        const response = await fetch(
+                          `${process.env.NEXT_PUBLIC_API_URL}/tokens/redemption-session/cancel`,
+                          {
+                            method: 'POST',
+                            headers: {
+                              'Authorization': `Bearer ${authToken}`,
+                              'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                              sessionId: currentSession.sessionId
+                            })
+                          }
+                        );
+
+                        if (response.ok) {
+                          setSessionStatus("idle");
+                          setCurrentSession(null);
+                          setError(null);
+                          setSuccess("Redemption request cancelled");
+                          setTimeout(() => setSuccess(null), 3000);
+                          // Refresh pending sessions
+                          await checkForPendingSessions();
+                        } else {
+                          const errorData = await response.json();
+                          setError(errorData.error || 'Failed to cancel request');
+                          setTimeout(() => setError(null), 5000);
+                        }
+                      } catch (err) {
+                        console.error('Error cancelling session:', err);
+                        setError('Failed to cancel request');
+                        setTimeout(() => setError(null), 5000);
+                      }
                     }}
                     className="px-6 py-3 border border-red-500 text-red-500 rounded-xl hover:bg-red-900 hover:bg-opacity-20 font-medium transition-colors"
                   >
@@ -1141,6 +1222,23 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                         {selectedCustomer.tier}
                       </span>
                     </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span className="text-gray-300">Balance</span>
+                      </div>
+                      <span className="text-white font-semibold text-sm">
+                        {loadingBalance ? (
+                          <span className="text-gray-400">Loading...</span>
+                        ) : customerBalance !== null ? (
+                          <span className={customerBalance > 0 ? "text-green-400" : "text-red-400"}>
+                            {customerBalance.toFixed(2)} RCN
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">Unknown</span>
+                        )}
+                      </span>
+                    </div>
                   </div>
                 )}
 
@@ -1164,26 +1262,32 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                   </div>
                 </div>
 
+                {/* Insufficient Balance Warning */}
+                {selectedCustomer && redeemAmount > 0 && customerBalance !== null && customerBalance < redeemAmount && (
+                  <div className="bg-red-900 bg-opacity-20 border border-red-500 rounded-xl p-4 mb-4">
+                    <div className="flex items-center">
+                      <AlertCircle className="w-5 h-5 text-red-500 mr-3 flex-shrink-0" />
+                      <div>
+                        <h4 className="font-semibold text-red-400 mb-1">Insufficient Balance</h4>
+                        <p className="text-sm text-red-300">
+                          Customer has {customerBalance.toFixed(2)} RCN, but {redeemAmount} RCN requested.
+                          {loadingBalance && " (Checking balance...)"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Process Button */}
                 {(() => {
+                  const insufficientBalance = selectedCustomer && redeemAmount > 0 && customerBalance !== null && customerBalance < redeemAmount;
                   const isDisabled =
                     sessionStatus !== "idle" ||
                     !selectedCustomer ||
                     !redeemAmount ||
-                    redeemAmount <= 0;
-
-                  // Debug info - commented out for production
-                  // if (isDisabled) {
-                  //   console.log("Button disabled because:", {
-                  //     sessionNotIdle: sessionStatus !== "idle",
-                  //     noCustomer: !selectedCustomer,
-                  //     noAmount: !redeemAmount,
-                  //     amountNotPositive: redeemAmount <= 0,
-                  //     sessionStatus,
-                  //     selectedCustomer,
-                  //     redeemAmount
-                  //   });
-                  // }
+                    redeemAmount <= 0 ||
+                    insufficientBalance ||
+                    loadingBalance;
 
                   return (
                     <button
@@ -1197,6 +1301,10 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                           ? "Please select a customer"
                           : !redeemAmount || redeemAmount <= 0
                           ? `Please enter redemption amount (current: ${redeemAmount})`
+                          : loadingBalance
+                          ? "Loading customer balance..."
+                          : insufficientBalance
+                          ? `Customer has insufficient balance (${customerBalance?.toFixed(2) || 0} RCN available)`
                           : "Send request to customer's device for approval"
                       }
                     >

@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-const BASE_URL = process.env.API_URL || 'http://localhost:5000';
+const BASE_URL = process.env.API_URL || 'http://localhost:4000';
 const ADMIN_WALLET = process.env.ADMIN_WALLET || '0x5D47E7bfD643A1C388E25C5Fb977A92926c9E0dB';
 
 async function getAdminToken() {

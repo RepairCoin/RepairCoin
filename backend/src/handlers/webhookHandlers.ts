@@ -6,7 +6,7 @@ import { logger } from "../utils/logger";
 
 interface TransactionRecord {
   id: string;
-  type: 'mint' | 'redeem' | 'transfer' | 'tier_bonus' | 'shop_purchase';
+  type: 'mint' | 'redeem' | 'transfer' | 'tier_bonus' | 'shop_purchase' | 'rejected_redemption' | 'cancelled_redemption';
   customerAddress: string;
   shopId?: string;
   amount: number;

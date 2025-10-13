@@ -946,11 +946,12 @@ router.post('/:shopId/redeem',
 
       // Validate and consume redemption session (required for all redemptions)
       const { redemptionSessionService } = await import('../../token/services/RedemptionSessionService');
+      let consumedSession;
       try {
-        const session = await redemptionSessionService.validateAndConsumeSession(sessionId, shopId, amount);
-        logger.info('Redemption session validated', {
+        consumedSession = await redemptionSessionService.validateAndConsumeSession(sessionId, shopId, amount);
+        logger.info('Redemption session validated and consumed', {
           sessionId,
-          customerAddress: session.customerAddress,
+          customerAddress: consumedSession.customerAddress,
           shopId,
           amount,
           processedBy: req.user?.address
@@ -984,112 +985,142 @@ router.post('/:shopId/redeem',
         });
       }
 
-      // Get current balance for transaction processing
-      // Use the verification service's calculated available balance which already accounts for redemptions
-      const currentBalance = verification.availableBalance;
-      const isHomeShop = verification.isHomeShop;
-
-      // Attempt to burn tokens from customer's wallet
-      let burnResult;
+      // Now process the actual redemption with smart token prioritization
+      let amountFromBlockchain = 0;
+      let amountFromDatabase = 0;
       let transactionHash = '';
       let burnSuccessful = false;
       
       try {
-        // Get the customer's on-chain balance first
-        const onChainBalance = await getTokenMinter().getCustomerBalance(customerAddress);
-        
-        if (onChainBalance && onChainBalance >= amount) {
-          // Try to burn tokens from customer's wallet
-          // Note: This requires the customer to have tokens in their wallet
-          // For now, we'll transfer from admin to burn address as a workaround
-          const BURN_ADDRESS = '0x000000000000000000000000000000000000dEaD';
+        const blockchainEnabled = process.env.ENABLE_BLOCKCHAIN_MINTING === 'true';
+        if (blockchainEnabled) {
+          const onChainBalance = await getTokenMinter().getCustomerBalance(customerAddress);
           
-          burnResult = await getTokenMinter().burnTokensFromCustomer(
-            customerAddress,
-            amount,
-            BURN_ADDRESS,
-            `Redemption at ${shop.name}`
-          );
-          
-          if (burnResult.success && burnResult.transactionHash) {
-            transactionHash = burnResult.transactionHash;
-            burnSuccessful = true;
-            logger.info('Tokens burned from customer wallet', { 
-              customerAddress, 
-              amount, 
-              transactionHash,
-              onChainBalance
-            });
+          if (onChainBalance && onChainBalance > 0) {
+            // Calculate how much to burn from blockchain vs database
+            amountFromBlockchain = Math.min(onChainBalance, amount);
+            amountFromDatabase = amount - amountFromBlockchain;
+            
+            // Burn available blockchain tokens
+            const BURN_ADDRESS = '0x000000000000000000000000000000000000dEaD';
+            const burnResult = await getTokenMinter().burnTokensFromCustomer(
+              customerAddress,
+              amountFromBlockchain,
+              BURN_ADDRESS,
+              `Redemption at ${shop.name}`
+            );
+            
+            if (burnResult.success) {
+              burnSuccessful = true;
+              transactionHash = burnResult.transactionHash || '';
+              
+              logger.info('Tokens burned from blockchain during redemption', {
+                customerAddress,
+                blockchainAmount: amountFromBlockchain,
+                databaseAmount: amountFromDatabase,
+                totalAmount: amount,
+                transactionHash
+              });
+            } else {
+              // Burn failed, deduct full amount from database
+              amountFromBlockchain = 0;
+              amountFromDatabase = amount;
+              logger.warn('Blockchain burn failed, falling back to database deduction', {
+                customerAddress,
+                amount
+              });
+            }
           } else {
-            logger.warn('Token burn failed, continuing with off-chain tracking', {
-              reason: burnResult.message,
-              onChainBalance
+            // No blockchain tokens, deduct from database
+            amountFromDatabase = amount;
+            logger.info('No blockchain tokens available, using database balance', {
+              customerAddress,
+              amount,
+              onChainBalance: onChainBalance || 0
             });
           }
         } else {
-          logger.info('Insufficient on-chain balance for burn, tracking off-chain only', {
-            customerAddress,
-            required: amount,
-            available: onChainBalance || 0
-          });
+          // Blockchain disabled, use database only
+          amountFromDatabase = amount;
         }
       } catch (burnError) {
-        // Don't fail the redemption if burn fails - track off-chain
-        logger.error('Token burn error, continuing with off-chain tracking', burnError);
+        logger.error('Token burn error during redemption, using database balance', burnError);
+        amountFromBlockchain = 0;
+        amountFromDatabase = amount;
       }
 
-      // Record the redemption transaction (whether burn succeeded or not)
-      const transactionRecord = {
-        id: `redeem_${Date.now()}`,
-        type: 'redeem' as const,
-        customerAddress: customerAddress.toLowerCase(),
-        shopId,
-        amount,
-        reason: `Redemption at ${shop.name}`,
-        transactionHash, // Will contain burn tx hash if successful
-        timestamp: new Date().toISOString(),
-        status: 'confirmed' as const,
-        metadata: {
-          repairAmount: amount,
-          referralId: undefined,
-          engagementType: 'redemption',
-          redemptionLocation: shop.name,
-          webhookId: `redeem_${Date.now()}`,
-          burnSuccessful,
-          notes: notes || undefined,
-          redemptionFlow: 'session-based',
-          customerPresent: customerPresent === true,
-          sessionId: sessionId
-        }
-      };
+      // Only record database transaction if we're deducting from database balance
+      if (amountFromDatabase > 0) {
+        const transactionRecord = {
+          id: `redeem_${Date.now()}`,
+          type: 'redeem' as const,
+          customerAddress: customerAddress.toLowerCase(),
+          shopId,
+          amount: amountFromDatabase, // Only deduct the database portion
+          reason: `Redemption at ${shop.name}`,
+          transactionHash,
+          timestamp: new Date().toISOString(),
+          status: 'confirmed' as const,
+          metadata: {
+            repairAmount: amount,
+            referralId: undefined,
+            engagementType: 'redemption',
+            redemptionLocation: shop.name,
+            webhookId: `redeem_${Date.now()}`,
+            burnSuccessful,
+            notes: notes || undefined,
+            redemptionFlow: 'session-based',
+            customerPresent: customerPresent === true,
+            sessionId: sessionId,
+            amountFromBlockchain,
+            amountFromDatabase,
+            redemptionStrategy: amountFromBlockchain > 0 ? (amountFromDatabase > 0 ? 'hybrid' : 'blockchain_only') : 'database_only'
+          }
+        };
 
-      await transactionRepository.recordTransaction(transactionRecord);
+        await transactionRepository.recordTransaction(transactionRecord);
+      } else {
+        // Pure blockchain redemption - no database transaction needed
+        logger.info('Pure blockchain redemption completed, no database transaction recorded', {
+          sessionId,
+          customerAddress,
+          amount,
+          transactionHash
+        });
+      }
 
-      // Update shop statistics
+      // Update shop statistics (statistics update is still needed for shop analytics)
       await shopRepository.updateShop(shopId, {
         totalRedemptions: shop.totalRedemptions + amount,
         lastActivity: new Date().toISOString()
       });
 
-      // Update customer redemption total
-      await customerRepository.updateCustomerAfterRedemption(customerAddress, amount);
-
+      // Customer balance is updated via the transaction record above
+      
       logger.info('Token redemption processed', {
         shopId,
+        totalAmount: amount,
+        amountFromBlockchain,
+        amountFromDatabase,
+        burnSuccessful,
+        transactionHash,
+        strategy: amountFromBlockchain > 0 ? (amountFromDatabase > 0 ? 'hybrid' : 'blockchain_only') : 'database_only',
         customerAddress,
-        amount,
-        isHomeShop,
         processedBy: req.user?.address
       });
 
       res.json({
         success: true,
         data: {
-          transactionId: transactionRecord.id,
+          transactionId: amountFromDatabase > 0 ? `redeem_${Date.now()}` : null,
           amount,
           customerTier: customer.tier,
-          isHomeShop,
-          newBalance: currentBalance - amount,
+          isHomeShop: verification.isHomeShop,
+          amountFromBlockchain,
+          amountFromDatabase,
+          burnSuccessful,
+          transactionHash,
+          redemptionStrategy: amountFromBlockchain > 0 ? (amountFromDatabase > 0 ? 'hybrid' : 'blockchain_only') : 'database_only',
           shop: {
             name: shop.name,
             shopId

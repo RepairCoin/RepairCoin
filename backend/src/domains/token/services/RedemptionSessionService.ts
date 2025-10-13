@@ -50,6 +50,13 @@ export class RedemptionSessionService {
       throw new Error('Customer not found');
     }
 
+    // Validate customer has sufficient RCN balance
+    const customerBalance = await customerRepository.getCustomerBalance(customerAddress);
+    if (!customerBalance || customerBalance.totalBalance < amount) {
+      const currentBalance = customerBalance?.totalBalance || 0;
+      throw new Error(`Insufficient balance. Customer has ${currentBalance.toFixed(2)} RCN, but ${amount} RCN requested for redemption`);
+    }
+
     // Validate shop exists and is active
     const shop = await shopRepository.getShop(shopId);
     if (!shop || !shop.active || !shop.verified) {
@@ -143,7 +150,7 @@ export class RedemptionSessionService {
     //   throw new Error('Invalid signature');
     // }
 
-    // Approve session and immediately process redemption
+    // Approve session (but don't process redemption yet - let shop handle that)
     await redemptionSessionRepository.updateSessionStatus(sessionId, 'approved', signature);
     
     // Update local object
@@ -159,7 +166,7 @@ export class RedemptionSessionService {
       };
     }
 
-    logger.info('Redemption session approved, processing redemption immediately', {
+    logger.info('Redemption session approved - waiting for shop to process', {
       sessionId,
       customerAddress,
       shopId: session.shopId,
@@ -167,35 +174,11 @@ export class RedemptionSessionService {
       hasTransferTx: !!transactionHash
     });
 
-    // Immediately process the redemption
-    try {
-      await this.processApprovedRedemption(session);
-      
-      // Mark session as used (completed)
-      await redemptionSessionRepository.updateSessionStatus(sessionId, 'used');
-      session.status = 'used';
-      session.usedAt = new Date();
-      
-      logger.info('Redemption automatically completed after approval', {
-        sessionId,
-        customerAddress,
-        shopId: session.shopId,
-        amount: session.maxAmount
-      });
-    } catch (error) {
-      logger.error('Failed to process redemption after approval', {
-        sessionId,
-        customerAddress,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-      // Don't throw - session is still approved, shop can try to process later
-    }
-
     return session;
   }
 
   /**
-   * Reject a redemption session
+   * Reject a redemption session (customer)
    */
   async rejectSession(sessionId: string, customerAddress: string): Promise<void> {
     const session = await redemptionSessionRepository.getSession(sessionId);
@@ -214,10 +197,114 @@ export class RedemptionSessionService {
     // Update session in database
     await redemptionSessionRepository.updateSessionStatus(sessionId, 'rejected');
 
-    logger.info('Redemption session rejected', {
+    // Create a transaction record for customer visibility (amount = 0 since no balance change)
+    const { transactionRepository, shopRepository } = await import('../../../repositories');
+    
+    // Get shop details for the transaction
+    const shop = await shopRepository.getShop(session.shopId);
+    
+    const rejectionRecord = {
+      id: `rejected_${Date.now()}`,
+      type: 'rejected_redemption' as const,
+      customerAddress: customerAddress.toLowerCase(),
+      shopId: session.shopId,
+      amount: 0, // No balance change for rejections
+      reason: `Rejected redemption request from ${shop?.name || session.shopId}`,
+      transactionHash: '',
+      timestamp: new Date().toISOString(),
+      status: 'confirmed' as const,
+      metadata: {
+        originalRequestAmount: session.maxAmount,
+        requestedAt: session.createdAt.toISOString(),
+        rejectedAt: new Date().toISOString(),
+        rejectedByCustomer: true,
+        sessionId: sessionId,
+        engagementType: 'redemption_rejection',
+        redemptionLocation: shop?.name || session.shopId,
+        webhookId: `reject_${Date.now()}`
+      }
+    };
+
+    await transactionRepository.recordTransaction(rejectionRecord);
+
+    logger.info('Redemption session rejected and recorded', {
       sessionId,
       customerAddress,
-      shopId: session.shopId
+      shopId: session.shopId,
+      requestedAmount: session.maxAmount
+    });
+  }
+
+  /**
+   * Cancel a redemption session (shop)
+   */
+  async cancelSession(sessionId: string, shopId: string): Promise<void> {
+    const session = await redemptionSessionRepository.getSession(sessionId);
+    if (!session) {
+      throw new Error('Session not found');
+    }
+
+    if (session.shopId !== shopId) {
+      throw new Error('Session does not belong to this shop');
+    }
+
+    if (session.status !== 'pending') {
+      throw new Error(`Session is ${session.status}, cannot cancel`);
+    }
+
+    // Update session status to rejected with metadata indicating shop cancellation
+    await redemptionSessionRepository.updateSessionStatus(sessionId, 'rejected');
+    
+    // Add metadata to distinguish shop cancellation from customer rejection
+    const updatedMetadata = {
+      ...session.metadata,
+      cancelledByShop: true,
+      cancelledAt: new Date().toISOString()
+    };
+    
+    // Store the metadata (assuming you have this method - if not, we'll handle it differently)
+    try {
+      await redemptionSessionRepository.updateSessionMetadata(sessionId, updatedMetadata);
+    } catch (error) {
+      // If metadata update fails, still log the cancellation type
+      logger.info('Could not update session metadata, but session was cancelled', { sessionId });
+    }
+
+    // Create a transaction record for customer visibility (amount = 0 since no balance change)
+    const { transactionRepository, shopRepository } = await import('../../../repositories');
+    
+    // Get shop details for the transaction
+    const shop = await shopRepository.getShop(session.shopId);
+    
+    const cancellationRecord = {
+      id: `cancelled_${Date.now()}`,
+      type: 'cancelled_redemption' as const,
+      customerAddress: session.customerAddress.toLowerCase(),
+      shopId: session.shopId,
+      amount: 0, // No balance change for cancellations
+      reason: `${shop?.name || session.shopId} cancelled redemption request`,
+      transactionHash: '',
+      timestamp: new Date().toISOString(),
+      status: 'confirmed' as const,
+      metadata: {
+        originalRequestAmount: session.maxAmount,
+        requestedAt: session.createdAt.toISOString(),
+        cancelledAt: new Date().toISOString(),
+        cancelledByShop: true,
+        sessionId: sessionId,
+        engagementType: 'redemption_cancellation',
+        redemptionLocation: shop?.name || session.shopId,
+        webhookId: `cancel_${Date.now()}`
+      }
+    };
+
+    await transactionRepository.recordTransaction(cancellationRecord);
+
+    logger.info('Redemption session cancelled by shop and recorded', {
+      sessionId,
+      shopId,
+      customerAddress: session.customerAddress,
+      requestedAmount: session.maxAmount
     });
   }
 
@@ -369,9 +456,11 @@ export class RedemptionSessionService {
       throw new Error('Shop not found');
     }
 
-    // Attempt to burn tokens from customer's wallet (if blockchain enabled)
+    // Determine redemption strategy: prioritize blockchain tokens over database balance
     let burnSuccessful = false;
     let transactionHash = '';
+    let amountFromBlockchain = 0;
+    let amountFromDatabase = 0;
     
     try {
       const blockchainEnabled = process.env.ENABLE_BLOCKCHAIN_MINTING === 'true';
@@ -379,11 +468,15 @@ export class RedemptionSessionService {
         const tokenMinter = getTokenMinter();
         const onChainBalance = await tokenMinter.getCustomerBalance(session.customerAddress);
         
-        if (onChainBalance && onChainBalance >= session.maxAmount) {
-          // Burn tokens from customer wallet
-        const burnResult = await tokenMinter.burnTokensFromCustomer(
+        if (onChainBalance && onChainBalance > 0) {
+          // Calculate how much to burn from blockchain vs database
+          amountFromBlockchain = Math.min(onChainBalance, session.maxAmount);
+          amountFromDatabase = session.maxAmount - amountFromBlockchain;
+          
+          // Burn available blockchain tokens
+          const burnResult = await tokenMinter.burnTokensFromCustomer(
             session.customerAddress,
-            session.maxAmount,
+            amountFromBlockchain,
             '0x000000000000000000000000000000000000dEaD' // Burn address
           );
           
@@ -391,48 +484,78 @@ export class RedemptionSessionService {
             burnSuccessful = true;
             transactionHash = burnResult.transactionHash || '';
             
-            logger.info('Tokens burned successfully during auto-redemption', {
+            logger.info('Tokens burned from blockchain during redemption', {
               customerAddress: session.customerAddress,
-              amount: session.maxAmount,
+              blockchainAmount: amountFromBlockchain,
+              databaseAmount: amountFromDatabase,
+              totalAmount: session.maxAmount,
               transactionHash
+            });
+          } else {
+            // Burn failed, deduct full amount from database
+            amountFromBlockchain = 0;
+            amountFromDatabase = session.maxAmount;
+            logger.warn('Blockchain burn failed, falling back to database deduction', {
+              customerAddress: session.customerAddress,
+              amount: session.maxAmount
             });
           }
         } else {
-          logger.info('Insufficient on-chain balance for burn, tracking off-chain only', {
+          // No blockchain tokens, deduct from database
+          amountFromDatabase = session.maxAmount;
+          logger.info('No blockchain tokens available, using database balance', {
             customerAddress: session.customerAddress,
-            required: session.maxAmount,
-            available: onChainBalance || 0
+            amount: session.maxAmount,
+            onChainBalance: onChainBalance || 0
           });
         }
+      } else {
+        // Blockchain disabled, use database only
+        amountFromDatabase = session.maxAmount;
       }
     } catch (burnError) {
-      logger.error('Token burn error during auto-redemption, continuing with off-chain tracking', burnError);
+      logger.error('Token burn error during auto-redemption, using database balance', burnError);
+      amountFromBlockchain = 0;
+      amountFromDatabase = session.maxAmount;
     }
 
-    // Record the redemption transaction (whether burn succeeded or not)
-    const transactionRecord = {
-      id: `redeem_${Date.now()}`,
-      type: 'redeem' as const,
-      customerAddress: session.customerAddress.toLowerCase(),
-      shopId: session.shopId,
-      amount: session.maxAmount,
-      reason: `Auto-redemption at ${shop.name}`,
-      transactionHash,
-      timestamp: new Date().toISOString(),
-      status: 'confirmed' as const,
-      metadata: {
-        repairAmount: session.maxAmount,
-        referralId: undefined,
-        engagementType: 'redemption',
-        redemptionLocation: shop.name,
-        webhookId: `auto_redeem_${Date.now()}`,
-        burnSuccessful,
-        sessionId: session.sessionId,
-        autoProcessed: true
-      }
-    };
+    // Only record database transaction if we're deducting from database balance
+    if (amountFromDatabase > 0) {
+      const transactionRecord = {
+        id: `redeem_${Date.now()}`,
+        type: 'redeem' as const,
+        customerAddress: session.customerAddress.toLowerCase(),
+        shopId: session.shopId,
+        amount: amountFromDatabase, // Only deduct the database portion
+        reason: `Auto-redemption at ${shop.name}`,
+        transactionHash,
+        timestamp: new Date().toISOString(),
+        status: 'confirmed' as const,
+        metadata: {
+          repairAmount: session.maxAmount,
+          referralId: undefined,
+          engagementType: 'redemption',
+          redemptionLocation: shop.name,
+          webhookId: `auto_redeem_${Date.now()}`,
+          burnSuccessful,
+          sessionId: session.sessionId,
+          autoProcessed: true,
+          amountFromBlockchain,
+          amountFromDatabase,
+          redemptionStrategy: amountFromBlockchain > 0 ? 'hybrid' : 'database_only'
+        }
+      };
 
-    await transactionRepository.recordTransaction(transactionRecord);
+      await transactionRepository.recordTransaction(transactionRecord);
+    } else {
+      // Pure blockchain redemption - no database transaction needed
+      logger.info('Pure blockchain redemption completed, no database transaction recorded', {
+        sessionId: session.sessionId,
+        customerAddress: session.customerAddress,
+        amount: session.maxAmount,
+        transactionHash
+      });
+    }
 
     // Update shop statistics
     await shopRepository.updateShop(session.shopId, {
@@ -447,9 +570,12 @@ export class RedemptionSessionService {
       sessionId: session.sessionId,
       customerAddress: session.customerAddress,
       shopId: session.shopId,
-      amount: session.maxAmount,
+      totalAmount: session.maxAmount,
+      amountFromBlockchain,
+      amountFromDatabase,
       burnSuccessful,
-      transactionHash
+      transactionHash,
+      strategy: amountFromBlockchain > 0 ? (amountFromDatabase > 0 ? 'hybrid' : 'blockchain_only') : 'database_only'
     });
   }
 }

@@ -12,7 +12,7 @@ npm run install:all
 npm run dev        # Runs both frontend & backend
 
 # Or run separately:
-npm run server     # Backend on port 5000
+npm run server     # Backend on port 4000
 npm run client     # Frontend on port 3001
 ```
 
@@ -75,7 +75,7 @@ cp env.example .env
 - `JWT_SECRET` (32+ chars)
 - `STRIPE_SECRET_KEY` & `STRIPE_WEBHOOK_SECRET`
 
-**API Docs**: http://localhost:5000/api-docs
+**API Docs**: http://localhost:4000/api-docs
 
 ## Key Features
 
@@ -101,9 +101,9 @@ cp env.example .env
 
 **Database Connection**: Ensure PostgreSQL is running with `docker-compose up postgres -d`
 
-**Port Conflicts**: Backend uses 5000, frontend uses 3001 (may increment if busy)
+**Port Conflicts**: Backend uses 4000, frontend uses 3001 (may increment if busy)
 
-**Stripe Webhooks**: Use `stripe listen --forward-to localhost:5000/api/webhooks/stripe`
+**Stripe Webhooks**: Use `stripe listen --forward-to localhost:4000/api/webhooks/stripe`
 
 **JWT Auth**: Ensure `JWT_SECRET` is set and wallet addresses match `ADMIN_ADDRESSES`
 
