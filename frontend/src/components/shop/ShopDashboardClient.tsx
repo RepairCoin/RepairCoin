@@ -7,6 +7,7 @@ import { baseSepolia } from "thirdweb/chains";
 import { useSearchParams } from "next/navigation";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 import ThirdwebPayment from "../ThirdwebPayment";
+import "@/styles/animations.css";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +33,7 @@ import { useShopRegistration } from "@/hooks/useShopRegistration";
 import { OnboardingModal } from "@/components/shop/OnboardingModal";
 import { OperationalRequiredTab } from "@/components/shop/OperationalRequiredTab";
 import { SubscriptionManagement } from "@/components/shop/SubscriptionManagement";
+import { CoinsIcon } from 'lucide-react';
 
 const client = createThirdwebClient({
   clientId:
@@ -812,34 +814,90 @@ export default function ShopDashboardClient() {
           )}
 
           {/* Success Modal */}
-          <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle className="text-2xl text-center">
-                  Payment Successful!
-                </DialogTitle>
-                <DialogDescription className="text-center text-lg pt-4">
-                  {successMessage}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="flex justify-center py-6">
-                <div className="text-6xl animate-bounce">🎉</div>
+          <Dialog open={true} onOpenChange={setShowSuccessModal}>
+            <DialogContent 
+              className="sm:max-w-lg md:max-w-xl w-full overflow-hidden"
+              style={{
+                backgroundImage: `url('/img/success-modal-bg.png')`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat'
+              }}
+            >
+              {/* Animated Coins Background */}
+              <div className="absolute inset-0 bottom-96 overflow-hidden pointer-events-none">
+                {/* Create multiple coins with different animation delays */}
+                {[...Array(22)].map((_, i) => {
+                  const leftPosition = 10 + (i * 7) + Math.random() * 10;
+                  const animationDelay = i * 0.3 + Math.random() * 0.5;
+                  const animationDuration = 4 + Math.random() * 2;
+                  
+                  return (
+                    <div
+                      key={i}
+                      className="absolute -bottom-12 opacity-0"
+                      style={{
+                        left: `${leftPosition}%`,
+                        animation: `floatUp ${animationDuration}s ${animationDelay}s ease-in-out infinite`,
+                      }}
+                    >
+                      <div 
+                        className="text-4xl md:text-5xl"
+                        style={{
+                          animation: `spin ${3}s linear infinite`,
+                          filter: 'drop-shadow(0 0 10px #FFCC00)',
+                        }}
+                      >
+                        🪙
+                      </div>
+                    </div>
+                  );
+                })}
+                
+                {/* Additional floating RCN text */}
+                {/* {[...Array(6)].map((_, i) => (
+                  <div
+                    key={`rcn-${i}`}
+                    className="absolute -bottom-8 opacity-0"
+                    style={{
+                      left: `${15 + (i * 15) + Math.random() * 10}%`,
+                      animation: `floatUp ${5 + Math.random() * 2}s ${i * 0.5 + 1}s ease-in-out infinite`,
+                    }}
+                  >
+                    <div className="text-2xl md:text-3xl font-bold text-[#FFCC00] opacity-70">
+                      +RCN
+                    </div>
+                  </div>
+                ))} */}
               </div>
-              <DialogFooter className="sm:justify-center">
-                <Button
-                  onClick={() => {
-                    setShowSuccessModal(false);
-                    // Clear the payment success params from URL
-                    const url = new URL(window.location.href);
-                    url.searchParams.delete("payment");
-                    url.searchParams.delete("purchase_id");
-                    window.history.replaceState({}, "", url);
-                  }}
-                  className="bg-green-600 hover:bg-green-700 text-white px-8"
-                >
-                  Continue
-                </Button>
-              </DialogFooter>
+              <div className="relative z-10 min-h-[500px] flex items-center justify-center p-8 md:p-12">
+                <div className="w-full max-w-2xl mt-20">
+                  <DialogHeader className="space-y-4">
+                    <DialogTitle className="text-3xl md:text-2xl lg:text-3xl text-center text-[#FFCC00] font-bold drop-shadow-lg">
+                      Payment Successful!
+                    </DialogTitle>
+                    <DialogDescription className="text-center text-base md:text-base pt-4 text-white drop-shadow-md mx-auto">
+                      {successMessage || "Your RCN tokens have been successfully added to your account!"}
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <div className="mt-20 flex justify-center">
+                    <Button
+                      onClick={() => {
+                        setShowSuccessModal(false);
+                        // Clear the payment success params from URL
+                        const url = new URL(window.location.href);
+                        url.searchParams.delete("payment");
+                        url.searchParams.delete("purchase_id");
+                        window.history.replaceState({}, "", url);
+                      }}
+                      className="bg-[#FFCC00] hover:bg-[#FFCC00]/90 text-gray-900 rounded-full px-12 py-4 text-base font-bold transform transition hover:scale-105 shadow-xl"
+                    >
+                      Continue
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </DialogContent>
           </Dialog>
 
