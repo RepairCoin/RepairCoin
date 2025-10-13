@@ -814,7 +814,7 @@ export default function ShopDashboardClient() {
           )}
 
           {/* Success Modal */}
-          <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
+          <Dialog open={true} onOpenChange={setShowSuccessModal}>
             <DialogContent 
               className="sm:max-w-lg md:max-w-xl w-full overflow-hidden"
               style={{
@@ -842,33 +842,50 @@ export default function ShopDashboardClient() {
                       }}
                     >
                       <div 
-                        className="text-4xl md:text-5xl"
+                        className="w-12 h-12 md:w-16 md:h-16"
                         style={{
                           animation: `spin ${3}s linear infinite`,
                           filter: 'drop-shadow(0 0 10px #FFCC00)',
                         }}
                       >
-                        🪙
+                        <svg 
+                          viewBox="0 0 24 24" 
+                          fill="none" 
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="w-full h-full"
+                        >
+                          <circle 
+                            cx="12" 
+                            cy="12" 
+                            r="10" 
+                            stroke="#FFCC00" 
+                            strokeWidth="2" 
+                            fill="#FFCC00"
+                          />
+                          <circle 
+                            cx="12" 
+                            cy="12" 
+                            r="8" 
+                            stroke="#FFA500" 
+                            strokeWidth="1" 
+                            fill="none"
+                            opacity="0.5"
+                          />
+                          <text 
+                            x="12" 
+                            y="16" 
+                            textAnchor="middle" 
+                            fill="#FFA500" 
+                            fontSize="10" 
+                            fontWeight="bold"
+                          >
+                            R
+                          </text>
+                        </svg>
                       </div>
                     </div>
                   );
                 })}
-                
-                {/* Additional floating RCN text */}
-                {/* {[...Array(6)].map((_, i) => (
-                  <div
-                    key={`rcn-${i}`}
-                    className="absolute -bottom-8 opacity-0"
-                    style={{
-                      left: `${15 + (i * 15) + Math.random() * 10}%`,
-                      animation: `floatUp ${5 + Math.random() * 2}s ${i * 0.5 + 1}s ease-in-out infinite`,
-                    }}
-                  >
-                    <div className="text-2xl md:text-3xl font-bold text-[#FFCC00] opacity-70">
-                      +RCN
-                    </div>
-                  </div>
-                ))} */}
               </div>
               <div className="relative z-10 min-h-[500px] flex items-center justify-center p-8 md:p-12">
                 <div className="w-full max-w-2xl mt-20">
