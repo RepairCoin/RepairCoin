@@ -814,7 +814,7 @@ export default function ShopDashboardClient() {
           )}
 
           {/* Success Modal */}
-          <Dialog open={true} onOpenChange={setShowSuccessModal}>
+          <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
             <DialogContent 
               className="sm:max-w-lg md:max-w-xl w-full overflow-hidden"
               style={{
