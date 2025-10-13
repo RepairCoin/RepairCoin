@@ -266,7 +266,7 @@ describe('Customer Features - Comprehensive Test Suite', () => {
     describe('2.2 Tier Bonuses', () => {
       it('should calculate +10 RCN bonus for Bronze tier', async () => {
         const tierBonus = 10; // Bronze tier bonus
-        const baseReward = 25; // Large repair
+        const baseReward = 15; // Large repair
         const expectedTotal = baseReward + tierBonus;
 
         // This would be tested in the shop's issue-reward endpoint

@@ -42,7 +42,7 @@ const TIER_STYLES = {
 // No earning limits - removed per new requirements
 const MINOR_REPAIR_RCN = 5;
 const SMALL_REPAIR_RCN = 10;
-const LARGE_REPAIR_RCN = 25;
+const LARGE_REPAIR_RCN = 15;
 const MINOR_REPAIR_VALUE = 30;
 const SMALL_REPAIR_VALUE = 75;
 const LARGE_REPAIR_VALUE = 100;

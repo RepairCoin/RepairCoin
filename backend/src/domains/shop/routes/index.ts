@@ -1422,7 +1422,7 @@ router.post('/:shopId/issue-reward',
       } else {
         // Standard calculation based on repair amount
         if (repairAmount >= 100) {
-          baseReward = 25;
+          baseReward = 15;
         } else if (repairAmount >= 50) {
           baseReward = 10;
         } else if (repairAmount >= 30) {

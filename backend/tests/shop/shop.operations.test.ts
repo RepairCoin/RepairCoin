@@ -145,9 +145,9 @@ describe('Shop Operations Tests', () => {
         });
 
       expect(response.body.data).toMatchObject({
-        baseReward: 25,
+        baseReward: 15,
         tierBonus: 30, // Gold tier bonus
-        totalReward: 55,
+        totalReward: 45,
         customerTier: 'GOLD'
       });
     });

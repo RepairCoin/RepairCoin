@@ -156,11 +156,11 @@ describe('Full Integration Flow Test', () => {
 
       expect(firstReward.status).toBe(200);
       expect(firstReward.body.data).toMatchObject({
-        baseReward: 25,
+        baseReward: 15,
         tierBonus: 10, // Bronze tier bonus
-        totalReward: 35
+        totalReward: 25
       });
-      console.log('✓ First customer earned 35 RCN (25 base + 10 Bronze bonus)');
+      console.log('✓ First customer earned 25 RCN (15 base + 10 Bronze bonus)');
 
       // 10. Shop issues reward to referred customer (triggers referral bonus)
       const referredReward = await request(app)
