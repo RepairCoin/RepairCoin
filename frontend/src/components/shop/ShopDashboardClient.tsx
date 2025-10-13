@@ -8,6 +8,7 @@ import { useSearchParams } from "next/navigation";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 import ThirdwebPayment from "../ThirdwebPayment";
 import "@/styles/animations.css";
+import { toast } from "react-hot-toast";
 import {
   Dialog,
   DialogContent,
@@ -109,10 +110,6 @@ export default function ShopDashboardClient() {
   );
   const [showPayment, setShowPayment] = useState(false);
 
-  // Success modal state
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
-
   // Onboarding modal state
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
 
@@ -145,18 +142,37 @@ export default function ShopDashboardClient() {
       window.history.replaceState({}, '', url.toString());
     }
 
-    // Handle Stripe payment success redirect (only if modal not already shown)
-    if (payment === "success" && purchaseId && !showSuccessModal) {
-      setSuccessMessage(
-        `✅ Payment successful! Your RCN tokens have been added to your account.`
+    // Handle Stripe payment success redirect
+    if (payment === "success" && purchaseId) {
+      toast.success(
+        "Payment successful! Your RCN tokens have been added to your account.",
+        {
+          duration: 5000,
+          position: 'top-right',
+          style: {
+            background: '#10B981',
+            color: 'white',
+            fontWeight: 'bold',
+            fontSize: '16px',
+            padding: '16px',
+          },
+          icon: '🎉',
+        }
       );
-      setShowSuccessModal(true);
       // Reload shop data to show updated balance
       if (account?.address) {
         loadShopData();
       }
+      // Clear the payment params from URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete("payment");
+      url.searchParams.delete("purchase_id");
+      window.history.replaceState({}, "", url);
     } else if (payment === "cancelled") {
-      setError("Payment was cancelled. Please try again.");
+      toast.error("Payment was cancelled. Please try again.", {
+        duration: 4000,
+        position: 'top-right',
+      });
     }
   }, [searchParams, account?.address]);
 
@@ -440,11 +456,22 @@ export default function ShopDashboardClient() {
     setShowPayment(false);
     setCurrentPurchaseId(null);
 
-    // Show success message using custom modal
-    setSuccessMessage(
-      `✅ Payment successful! ${purchaseAmount} distribution credits have been added to your account.`
+    // Show success message using toast
+    toast.success(
+      `Payment successful! ${purchaseAmount} distribution credits have been added to your account.`,
+      {
+        duration: 5000,
+        position: 'top-center',
+        style: {
+          background: '#10B981',
+          color: 'white',
+          fontWeight: 'bold',
+          fontSize: '16px',
+          padding: '16px',
+        },
+        icon: '🎉',
+      }
     );
-    setShowSuccessModal(true);
 
     // Reload shop data to show updated balance
     await loadShopData();
@@ -478,10 +505,21 @@ export default function ShopDashboardClient() {
       const result = await response.json();
 
       if (result.success && result.data.status === "completed") {
-        setSuccessMessage(
-          `✅ Payment verified! ${result.data.amount} RCN has been added to your account.`
+        toast.success(
+          `Payment verified! ${result.data.amount} RCN has been added to your account.`,
+          {
+            duration: 5000,
+            position: 'top-center',
+            style: {
+              background: '#10B981',
+              color: 'white',
+              fontWeight: 'bold',
+              fontSize: '16px',
+              padding: '16px',
+            },
+            icon: '✅',
+          }
         );
-        setShowSuccessModal(true);
         // Reload data to show updated balance
         await loadShopData();
       } else if (result.success === false && result.data?.stripeStatus) {
@@ -813,8 +851,8 @@ export default function ShopDashboardClient() {
             </div>
           )}
 
-          {/* Success Modal */}
-          <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
+          {/* Success Modal - Removed in favor of toast notifications */}
+          <Dialog open={false} onOpenChange={() => {}}>
             <DialogContent 
               className="sm:max-w-lg md:max-w-xl w-full overflow-hidden"
               style={{
@@ -894,14 +932,14 @@ export default function ShopDashboardClient() {
                       Payment Successful!
                     </DialogTitle>
                     <DialogDescription className="text-center text-base md:text-base pt-4 text-white drop-shadow-md mx-auto">
-                      {successMessage || "Your RCN tokens have been successfully added to your account!"}
+                      {"Your RCN tokens have been successfully added to your account!"}
                     </DialogDescription>
                   </DialogHeader>
                   
                   <div className="mt-20 flex justify-center">
                     <Button
                       onClick={() => {
-                        setShowSuccessModal(false);
+                        // Close modal
                         // Clear the payment success params from URL
                         const url = new URL(window.location.href);
                         url.searchParams.delete("payment");
