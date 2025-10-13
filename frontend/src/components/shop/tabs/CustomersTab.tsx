@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { authManager } from "@/utils/auth";
 import { toast } from "react-hot-toast";
 import { StatCard } from "@/components/ui/StatCard";
+import { DataTable, Column } from "@/components/ui/DataTable";
 import {
   Users,
   Search,
@@ -83,9 +84,71 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
     null
   );
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [growthStats, setGrowthStats] = useState<GrowthStats | null>(null);
   const [growthPeriod, setGrowthPeriod] = useState<"7d" | "30d" | "90d">("7d");
+
+  // Define columns for DataTable
+  const customerColumns: Column<Customer>[] = [
+    {
+      key: "customer",
+      header: "Customer",
+      sortable: true,
+      accessor: (customer) => (
+        <div className="flex items-center gap-3">
+          <div>
+            <p className="font-semibold text-white">
+              {customer.name || "Anonymous"}
+            </p>
+            <p className="text-xs text-gray-400 font-mono">
+              {formatAddress(customer.address)}
+            </p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "tier",
+      header: "Tier",
+      sortable: true,
+      accessor: (customer) => (
+        <span
+          className={`px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r ${getTierColor(
+            customer.tier
+          )} text-white`}
+        >
+          {customer.tier}
+        </span>
+      ),
+    },
+    {
+      key: "lifetimeEarnings",
+      header: "Lifetime RCN",
+      sortable: true,
+      accessor: (customer) => (
+        <div className="flex items-center gap-2">
+          <p className="font-semibold text-[#FFCC00]">
+            {customer.lifetimeEarnings}
+          </p>
+          <span className="text-xs text-gray-400">RCN</span>
+        </div>
+      ),
+    },
+    {
+      key: "totalTransactions",
+      header: "Transactions",
+      sortable: true,
+      accessor: (customer) => (
+        <div className="flex items-center gap-2">
+          <p className="font-semibold text-white">
+            {customer.totalTransactions}
+          </p>
+          {customer.isRegular && (
+            <Star className="w-4 h-4 text-green-400" />
+          )}
+        </div>
+      ),
+    },
+  ];
 
   useEffect(() => {
     loadCustomers();
@@ -409,200 +472,23 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
               </p>
             </div>
           </div>
-        ) : viewMode === "grid" ? (
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredCustomers.map((customer) => {
-                const activity = getActivityStatus(
-                  customer.lastTransactionDate
-                );
-                return (
-                  <div
-                    key={customer.address}
-                    className="bg-[#0D0D0D] rounded-2xl border border-gray-700 hover:border-gray-600 transition-all hover:shadow-xl hover:shadow-black/50 cursor-pointer"
-                    onClick={() => setSelectedCustomer(customer)}
-                  >
-                    <div className="p-6">
-                      {/* Customer Header */}
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`w-12 h-12 rounded-full bg-gradient-to-r ${getTierColor(
-                              customer.tier
-                            )} flex items-center justify-center text-white`}
-                          >
-                            {getTierIcon(customer.tier)}
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-white">
-                              {customer.name || "Anonymous"}
-                            </h3>
-                            <p className="text-xs text-gray-400 font-mono">
-                              {formatAddress(customer.address)}
-                            </p>
-                          </div>
-                        </div>
-                        <button className="p-1 hover:bg-gray-800 rounded-lg transition-colors">
-                          <MoreVertical className="w-4 h-4 text-gray-400" />
-                        </button>
-                      </div>
-
-                      {/* Customer Stats */}
-                      <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div className="bg-[#0D0D0D] rounded-lg p-3">
-                          <div className="flex items-center gap-2 mb-1">
-                            <DollarSign className="w-4 h-4 text-[#FFCC00]" />
-                            <p className="text-xs text-gray-400">Lifetime</p>
-                          </div>
-                          <p className="text-xl font-bold text-white">
-                            {customer.lifetimeEarnings}
-                          </p>
-                          <p className="text-xs text-gray-500">RCN earned</p>
-                        </div>
-                        <div className="bg-[#0D0D0D] rounded-lg p-3">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Hash className="w-4 h-4 text-purple-400" />
-                            <p className="text-xs text-gray-400">Activity</p>
-                          </div>
-                          <p className="text-xl font-bold text-white">
-                            {customer.totalTransactions}
-                          </p>
-                          <p className="text-xs text-gray-500">Transactions</p>
-                        </div>
-                      </div>
-
-                      {/* Tags and Status */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          {customer.isRegular && (
-                            <span className="px-2 py-1 bg-green-500 bg-opacity-20 text-green-400 rounded-full text-xs font-semibold flex items-center gap-1">
-                              <Star className="w-3 h-3" />
-                              Regular
-                            </span>
-                          )}
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1 ${
-                              activity.status === "active"
-                                ? "bg-green-500 bg-opacity-20 text-green-400"
-                                : activity.status === "recent"
-                                ? "bg-yellow-500 bg-opacity-20 text-yellow-400"
-                                : "bg-gray-500 bg-opacity-20 text-gray-400"
-                            }`}
-                          >
-                            <Clock className="w-3 h-3" />
-                            {activity.label}
-                          </span>
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-gray-400" />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="border-b border-gray-700">
-                <tr>
-                  <th className="text-left px-6 py-4 text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Customer
-                  </th>
-                  <th className="text-left px-6 py-4 text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Tier
-                  </th>
-                  <th className="text-left px-6 py-4 text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Lifetime RCN
-                  </th>
-                  <th className="text-left px-6 py-4 text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Transactions
-                  </th>
-                  <th className="text-left px-6 py-4 text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Last Active
-                  </th>
-                  <th className="text-left px-6 py-4 text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-700">
-                {filteredCustomers.map((customer) => {
-                  const activity = getActivityStatus(
-                    customer.lastTransactionDate
-                  );
-                  return (
-                    <tr
-                      key={customer.address}
-                      className="hover:bg-gray-800 hover:bg-opacity-50 transition-colors"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`w-10 h-10 rounded-full bg-gradient-to-r ${getTierColor(
-                              customer.tier
-                            )} flex items-center justify-center text-white`}
-                          >
-                            {getTierIcon(customer.tier)}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-white">
-                              {customer.name || "Anonymous"}
-                            </p>
-                            <p className="text-xs text-gray-400 font-mono">
-                              {formatAddress(customer.address)}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r ${getTierColor(
-                            customer.tier
-                          )} text-white`}
-                        >
-                          {customer.tier}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold text-[#FFCC00]">
-                            {customer.lifetimeEarnings}
-                          </p>
-                          <span className="text-xs text-gray-400">RCN</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold text-white">
-                            {customer.totalTransactions}
-                          </p>
-                          {customer.isRegular && (
-                            <Star className="w-4 h-4 text-green-400" />
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`${activity.color} text-sm`}>
-                          {activity.label}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <button className="p-2 hover:bg-gray-700 rounded-lg transition-colors">
-                            <Eye className="w-4 h-4 text-gray-400" />
-                          </button>
-                          <button className="p-2 hover:bg-gray-700 rounded-lg transition-colors">
-                            <Send className="w-4 h-4 text-gray-400" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            data={filteredCustomers}
+            columns={customerColumns}
+            keyExtractor={(customer) => customer.address}
+            onRowClick={(customer) => setSelectedCustomer(customer)}
+            emptyMessage="No customers found"
+            emptyIcon={
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-800 rounded-full mb-4">
+                <Search className="w-10 h-10 text-gray-600" />
+              </div>
+            }
+            loading={loading}
+            showPagination={true}
+            itemsPerPage={10}
+            className="p-6"
+          />
         )}
       </div>
     </div>
