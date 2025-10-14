@@ -113,14 +113,7 @@ const SuccessModal: React.FC<SuccessModalProps> = ({
 
             <div className="mt-20 flex justify-center">
               <Button
-                onClick={() => {
-                  // Close modal
-                  // Clear the payment success params from URL
-                  const url = new URL(window.location.href);
-                  url.searchParams.delete("payment");
-                  url.searchParams.delete("purchase_id");
-                  window.history.replaceState({}, "", url);
-                }}
+                onClick={onClose}
                 className="bg-[#FFCC00] hover:bg-[#FFCC00]/90 text-gray-900 rounded-full px-12 py-4 text-base font-bold transform transition hover:scale-105 shadow-xl"
               >
                 Continue

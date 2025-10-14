@@ -372,10 +372,11 @@ router.post('/stripe-checkout', async (req: Request, res: Response) => {
       });
     }
 
-    if (!amount || amount < 100) {
+    // Stripe requires minimum $0.50, so at $0.10 per RCN, minimum is 5 RCN
+    if (!amount || amount < 5) {
       return res.status(400).json({
         success: false,
-        error: 'Minimum purchase amount is 100 RCN'
+        error: 'Minimum purchase amount is 5 RCN ($0.50 USD) due to payment processor requirements'
       });
     }
 

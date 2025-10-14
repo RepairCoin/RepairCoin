@@ -40,8 +40,8 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
 }) => {
   const [showTooltip, setShowTooltip] = useState(false);
 
-  // Quick purchase amounts
-  const quickAmounts = [100, 500, 1000, 5000, 10000];
+  // Quick purchase amounts (minimum 5 due to Stripe requirements)
+  const quickAmounts = [5, 10, 50, 100, 500, 1000, 5000];
 
   // Calculate pricing
   const bonusAmount =
@@ -204,7 +204,7 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
                 <div className="relative">
                   <input
                     type="number"
-                    min="1"
+                    min="5"
                     max="100000"
                     onChange={(e) => {
                       if(e.target.value) {
@@ -220,7 +220,7 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
                   />
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
-                  <span className="text-[#FFCC00]">Minimum</span>: 1 RCN •{" "}
+                  <span className="text-[#FFCC00]">Minimum</span>: 5 RCN ($0.50) •{" "}
                   <span className="text-[#FFCC00]">Maximum</span>: 100,000 RCN
                 </p>
               </div>
@@ -302,9 +302,9 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
               <button
                 type="button"
                 onClick={onInitiatePurchase}
-                disabled={purchasing || purchaseAmount < 1}
+                disabled={purchasing || purchaseAmount < 5}
                 className={`w-full py-4 px-6 rounded-xl font-semibold transition-all ${
-                  purchasing || purchaseAmount < 1
+                  purchasing || purchaseAmount < 5
                     ? "bg-gray-700 text-gray-400 cursor-not-allowed"
                     : "bg-[#FFCC00] text-[#1A1A1A] hover:bg-[#FFCC00]/90"
                 }`}

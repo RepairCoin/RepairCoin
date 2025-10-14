@@ -45,7 +45,7 @@ export interface PurchaseResponse {
  * - Automatic balance updates upon completion
  */
 export class ShopPurchaseService {
-  private static readonly MINIMUM_PURCHASE = 1; // 1 RCN minimum (reduced for testing)
+  private static readonly MINIMUM_PURCHASE = 5; // 5 RCN minimum ($0.50 USD) due to Stripe requirements
   private static readonly MAXIMUM_PURCHASE = 10000; // 10,000 RCN maximum per transaction
   
   private rcgReader: RCGTokenReader;
@@ -293,7 +293,7 @@ export class ShopPurchaseService {
    */
   private validatePurchaseAmount(amount: number): void {
     if (amount < ShopPurchaseService.MINIMUM_PURCHASE) {
-      throw new Error(`Minimum purchase amount is ${ShopPurchaseService.MINIMUM_PURCHASE} RCN`);
+      throw new Error(`Minimum purchase amount is ${ShopPurchaseService.MINIMUM_PURCHASE} RCN ($${(ShopPurchaseService.MINIMUM_PURCHASE * 0.10).toFixed(2)} USD) due to payment processor requirements`);
     }
     
     if (amount > ShopPurchaseService.MAXIMUM_PURCHASE) {
