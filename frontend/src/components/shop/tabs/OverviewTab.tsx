@@ -54,9 +54,14 @@ const purchaseColumns: Column<PurchaseHistory>[] = [
     header: "Date",
     sortable: true,
     accessor: (purchase) => (
-      <span className="text-sm text-gray-300">
-        {new Date(purchase.createdAt).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })}
-      </span>
+      <div>
+        <div className="text-sm text-gray-300">
+          {new Date(purchase.createdAt).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })}
+        </div>
+        <div className="text-xs text-gray-500">
+          {new Date(purchase.createdAt).toLocaleTimeString('en-US', { timeZone: 'America/Chicago' })}
+        </div>
+      </div>
     ),
   },
   {
