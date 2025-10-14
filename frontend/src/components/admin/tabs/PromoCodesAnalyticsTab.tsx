@@ -195,7 +195,7 @@ export default function PromoCodesAnalyticsTab() {
             </div>
             <p className="text-2xl font-bold text-gray-900">{(summary.total_uses || 0).toLocaleString()}</p>
             <p className="text-sm text-gray-500 mt-2">
-              Avg {(summary.avg_uses_per_code || 0).toFixed(1)} uses per code
+              Avg {(Number(summary.avg_uses_per_code) || 0).toFixed(1)} uses per code
             </p>
           </div>
 
