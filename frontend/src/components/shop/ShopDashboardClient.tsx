@@ -9,15 +9,6 @@ import DashboardLayout from "@/components/ui/DashboardLayout";
 import ThirdwebPayment from "../ThirdwebPayment";
 import "@/styles/animations.css";
 import { toast } from "react-hot-toast";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 
 // Import our new components
 import { OverviewTab } from "@/components/shop/tabs/OverviewTab";
@@ -35,6 +26,7 @@ import { OnboardingModal } from "@/components/shop/OnboardingModal";
 import { OperationalRequiredTab } from "@/components/shop/OperationalRequiredTab";
 import { SubscriptionManagement } from "@/components/shop/SubscriptionManagement";
 import { CoinsIcon } from 'lucide-react';
+import SuccessModal from "@/components/modals/SuccessModal";
 
 const client = createThirdwebClient({
   clientId:
@@ -112,6 +104,14 @@ export default function ShopDashboardClient() {
 
   // Onboarding modal state
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
+  
+  // Success modal state
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successModalData, setSuccessModalData] = useState<{
+    amount?: number;
+    title?: string;
+    subtitle?: string;
+  }>({});
 
   useEffect(() => {
     // Set active tab from URL query param
@@ -144,21 +144,12 @@ export default function ShopDashboardClient() {
 
     // Handle Stripe payment success redirect
     if (payment === "success" && purchaseId) {
-      toast.success(
-        "Payment successful! Your RCN tokens have been added to your account.",
-        {
-          duration: 5000,
-          position: 'top-right',
-          style: {
-            background: '#10B981',
-            color: 'white',
-            fontWeight: 'bold',
-            fontSize: '16px',
-            padding: '16px',
-          },
-          icon: '🎉',
-        }
-      );
+      // Show success modal instead of just toast
+      setSuccessModalData({
+        title: "Payment Successful!",
+        subtitle: "Your RCN tokens have been added to your account.",
+      });
+      setShowSuccessModal(true);
       // Reload shop data to show updated balance
       if (account?.address) {
         loadShopData();
@@ -456,22 +447,13 @@ export default function ShopDashboardClient() {
     setShowPayment(false);
     setCurrentPurchaseId(null);
 
-    // Show success message using toast
-    toast.success(
-      `Payment successful! ${purchaseAmount} distribution credits have been added to your account.`,
-      {
-        duration: 5000,
-        position: 'top-center',
-        style: {
-          background: '#10B981',
-          color: 'white',
-          fontWeight: 'bold',
-          fontSize: '16px',
-          padding: '16px',
-        },
-        icon: '🎉',
-      }
-    );
+    // Show success modal with animation
+    setSuccessModalData({
+      title: "Payment Successful!",
+      subtitle: `${purchaseAmount} distribution credits have been added to your account.`,
+      amount: purchaseAmount,
+    });
+    setShowSuccessModal(true);
 
     // Reload shop data to show updated balance
     await loadShopData();
@@ -851,110 +833,23 @@ export default function ShopDashboardClient() {
             </div>
           )}
 
-          {/* Success Modal - Removed in favor of toast notifications */}
-          <Dialog open={false} onOpenChange={() => {}}>
-            <DialogContent 
-              className="sm:max-w-lg md:max-w-xl w-full overflow-hidden"
-              style={{
-                backgroundImage: `url('/img/success-modal-bg.png')`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat'
-              }}
-            >
-              {/* Animated Coins Background */}
-              <div className="absolute inset-0 bottom-96 overflow-hidden pointer-events-none">
-                {/* Create multiple coins with different animation delays */}
-                {[...Array(22)].map((_, i) => {
-                  const leftPosition = 10 + (i * 7) + Math.random() * 10;
-                  const animationDelay = i * 0.3 + Math.random() * 0.5;
-                  const animationDuration = 4 + Math.random() * 2;
-                  
-                  return (
-                    <div
-                      key={i}
-                      className="absolute -bottom-12 opacity-0"
-                      style={{
-                        left: `${leftPosition}%`,
-                        animation: `floatUp ${animationDuration}s ${animationDelay}s ease-in-out infinite`,
-                      }}
-                    >
-                      <div 
-                        className="w-12 h-12 md:w-16 md:h-16"
-                        style={{
-                          animation: `spin ${3}s linear infinite`,
-                          filter: 'drop-shadow(0 0 10px #FFCC00)',
-                        }}
-                      >
-                        <svg 
-                          viewBox="0 0 24 24" 
-                          fill="none" 
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="w-full h-full"
-                        >
-                          <circle 
-                            cx="12" 
-                            cy="12" 
-                            r="10" 
-                            stroke="#FFCC00" 
-                            strokeWidth="2" 
-                            fill="#FFCC00"
-                          />
-                          <circle 
-                            cx="12" 
-                            cy="12" 
-                            r="8" 
-                            stroke="#FFA500" 
-                            strokeWidth="1" 
-                            fill="none"
-                            opacity="0.5"
-                          />
-                          <text 
-                            x="12" 
-                            y="16" 
-                            textAnchor="middle" 
-                            fill="#FFA500" 
-                            fontSize="10" 
-                            fontWeight="bold"
-                          >
-                            R
-                          </text>
-                        </svg>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="relative z-10 min-h-[500px] flex items-center justify-center p-8 md:p-12">
-                <div className="w-full max-w-2xl mt-20">
-                  <DialogHeader className="space-y-4">
-                    <DialogTitle className="text-3xl md:text-2xl lg:text-3xl text-center text-[#FFCC00] font-bold drop-shadow-lg">
-                      Payment Successful!
-                    </DialogTitle>
-                    <DialogDescription className="text-center text-base md:text-base pt-4 text-white drop-shadow-md mx-auto">
-                      {"Your RCN tokens have been successfully added to your account!"}
-                    </DialogDescription>
-                  </DialogHeader>
-                  
-                  <div className="mt-20 flex justify-center">
-                    <Button
-                      onClick={() => {
-                        // Close modal
-                        // Clear the payment success params from URL
-                        const url = new URL(window.location.href);
-                        url.searchParams.delete("payment");
-                        url.searchParams.delete("purchase_id");
-                        window.history.replaceState({}, "", url);
-                      }}
-                      className="bg-[#FFCC00] hover:bg-[#FFCC00]/90 text-gray-900 rounded-full px-12 py-4 text-base font-bold transform transition hover:scale-105 shadow-xl"
-                    >
-                      Continue
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+          {/* Success Modal - Using new reusable component */}
+          <SuccessModal
+            isOpen={showSuccessModal}
+            onClose={() => {
+              setShowSuccessModal(false);
+              // Clear the payment success params from URL
+              const url = new URL(window.location.href);
+              url.searchParams.delete("payment");
+              url.searchParams.delete("purchase_id");
+              window.history.replaceState({}, "", url);
+            }}
+            title={successModalData.title}
+            subtitle={successModalData.subtitle}
+            amount={successModalData.amount}
+            currency="RCN"
+            showCoinsAnimation={true}
+          />
 
           {/* Onboarding Modal */}
           {shopData && (
