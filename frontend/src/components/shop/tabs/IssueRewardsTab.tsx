@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
+import Tooltip from "../../ui/tooltip";
 
 interface ShopData {
   purchasedRcnBalance: number;
@@ -514,7 +515,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
 
           <div className="bg-[#212121] rounded-3xl">
             <div
-              className="w-full px-4 md:px-8 py-4 text-white rounded-t-3xl"
+              className="w-full px-4 md:px-8 py-4 text-white rounded-t-3xl flex items-center justify-between"
               style={{
                 backgroundImage: `url('/img/cust-ref-widget3.png')`,
                 backgroundSize: "cover",
@@ -525,6 +526,55 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
               <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
                 Select Repair Type
               </p>
+              <Tooltip
+                title="How it works"
+                position="bottom"
+                className="right-0"
+                content={
+                  <ul className="space-y-3 text-sm">
+                    <li className="flex items-start gap-3">
+                      <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="text-xs font-bold text-blue-400">
+                          1
+                        </span>
+                      </div>
+                      <span className="text-gray-300">
+                        Enter customer's wallet address to check their tier and earnings
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="text-xs font-bold text-blue-400">
+                          2
+                        </span>
+                      </div>
+                      <span className="text-gray-300">
+                        Choose repair type or enter custom amount and RCN reward
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="text-xs font-bold text-blue-400">
+                          3
+                        </span>
+                      </div>
+                      <span className="text-gray-300">
+                        Tier bonuses are automatically added (Silver +2, Gold +5 RCN)
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="text-xs font-bold text-blue-400">
+                          4
+                        </span>
+                      </div>
+                      <span className="text-gray-300">
+                        RCN tokens are instantly transferred to customer's wallet
+                      </span>
+                    </li>
+                  </ul>
+                }
+              />
             </div>
 
             {/* Custom Amount Section */}

@@ -21,6 +21,7 @@ import { LookupIcon, RedeemIcon } from "../../icon";
 import { showToast } from "@/utils/toast";
 import QrScanner from "qr-scanner";
 import toast from "react-hot-toast";
+import Tooltip from "../../ui/tooltip";
 
 interface RedeemTabProps {
   shopId: string;
@@ -731,7 +732,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
               {/* Customer Search Card */}
               <div className="bg-[#212121] rounded-3xl">
                 <div
-                  className="w-full flex gap-2 px-4 md:px-8 py-4 text-white rounded-t-3xl"
+                  className="w-full flex items-center justify-between px-4 md:px-8 py-4 text-white rounded-t-3xl"
                   style={{
                     backgroundImage: `url('/img/cust-ref-widget3.png')`,
                     backgroundSize: "cover",
@@ -739,10 +740,61 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                     backgroundRepeat: "no-repeat",
                   }}
                 >
-                  <LookupIcon width={24} height={24} color={"black"} />
-                  <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
-                    Step 1: Select Customer
-                  </p>
+                  <div className="flex gap-2 items-center">
+                    <LookupIcon width={24} height={24} color={"black"} />
+                    <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
+                      Step 1: Select Customer
+                    </p>
+                  </div>
+                  <Tooltip
+                    title="How redemption works"
+                    position="bottom"
+                    className="right-0"
+                    content={
+                      <ul className="space-y-3 text-sm">
+                        <li className="flex items-start gap-3">
+                          <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <span className="text-xs font-bold text-blue-400">
+                              1
+                            </span>
+                          </div>
+                          <span className="text-gray-300">
+                            Search for customer by wallet address or scan QR code
+                          </span>
+                        </li>
+                        <li className="flex items-start gap-3">
+                          <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <span className="text-xs font-bold text-blue-400">
+                              2
+                            </span>
+                          </div>
+                          <span className="text-gray-300">
+                            Enter the RCN amount customer wants to redeem
+                          </span>
+                        </li>
+                        <li className="flex items-start gap-3">
+                          <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <span className="text-xs font-bold text-blue-400">
+                              3
+                            </span>
+                          </div>
+                          <span className="text-gray-300">
+                            System calculates redemption value (100% at your shop, 20% elsewhere)
+                          </span>
+                        </li>
+                        <li className="flex items-start gap-3">
+                          <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <span className="text-xs font-bold text-blue-400">
+                              4
+                            </span>
+                          </div>
+                          <span className="text-gray-300">
+                            Approve the redemption to transfer RCN and complete transaction
+                          </span>
+                        </li>
+                      </ul>
+                    }
+                  />
                 </div>
                 <div className="space-y-4 px-4 md:px-8 py-4">
                   <div>

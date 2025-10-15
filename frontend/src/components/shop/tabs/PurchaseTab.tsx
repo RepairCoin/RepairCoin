@@ -1,14 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import {
   CreditCard,
   Clock,
   CheckCircle,
   AlertCircle,
-  Info,
-  Sparkles,
 } from "lucide-react";
+import Tooltip from "../../ui/tooltip";
 
 interface PurchaseHistory {
   id: string;
@@ -38,7 +37,6 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
   onInitiatePurchase,
   onCheckPurchaseStatus,
 }) => {
-  const [showTooltip, setShowTooltip] = useState(false);
 
   // Quick purchase amounts (minimum 5 due to Stripe requirements)
   const quickAmounts = [5, 10, 50, 100, 500, 1000, 5000];
@@ -102,7 +100,7 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
           {/* Purchase Card */}
           <div className="bg-[#212121] rounded-3xl">
             <div
-              className="w-full flex flex-col px-4 md:px-8 py-4 text-white rounded-t-3xl"
+              className="w-full flex flex-row items-center justify-between px-4 md:px-8 py-4 text-white rounded-t-3xl"
               style={{
                 backgroundImage: `url('/img/cust-ref-widget3.png')`,
                 backgroundSize: "cover",
@@ -110,92 +108,69 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
                 backgroundRepeat: "no-repeat",
               }}
             >
-              <h3 className="text-xl font-bold text-gray-900 mb-1">
-                Purchase RCN Tokens
-              </h3>
-              <p className="text-sm text-gray-800">
-                Buy tokens to reward your customers
-              </p>
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 mb-1">
+                  Purchase RCN Tokens
+                </h3>
+                <p className="text-sm text-gray-800">
+                  Buy tokens to reward your customers
+                </p>
+              </div>
+              {/* How it Works - Info Icon with Tooltip */}
+              <Tooltip
+                title="How it works"
+                position="bottom"
+                className="right-0"
+                content={
+                  <ul className="space-y-3 text-sm">
+                    <li className="flex items-start gap-3">
+                      <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="text-xs font-bold text-blue-400">
+                          1
+                        </span>
+                      </div>
+                      <span className="text-gray-300">
+                        Purchase RCN tokens at a fixed rate of $0.10 per
+                        token
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="text-xs font-bold text-blue-400">
+                          2
+                        </span>
+                      </div>
+                      <span className="text-gray-300">
+                        Tokens are instantly added to your shop's balance
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="text-xs font-bold text-blue-400">
+                          3
+                        </span>
+                      </div>
+                      <span className="text-gray-300">
+                        Use tokens to reward customers for repairs and
+                        services
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="text-xs font-bold text-blue-400">
+                          4
+                        </span>
+                      </div>
+                      <span className="text-gray-300">
+                        Customers can redeem tokens at your shop ($1 value
+                        per RCN)
+                      </span>
+                    </li>
+                  </ul>
+                }
+              />
             </div>
             <div className="p-6 space-y-6">
-              {/* How it Works - Info Icon with Tooltip */}
-              <div className="relative">
-                <button
-                  onMouseEnter={() => setShowTooltip(true)}
-                  onMouseLeave={() => setShowTooltip(false)}
-                  className="p-2 bg-gray-100/20 hover:bg-gray-100/30 rounded-lg transition-all group"
-                >
-                  <Info className="w-4 h-4 text-gray-100/70 group-hover:text-gray-100 transition-colors" />
-                </button>
-
-                {/* Tooltip */}
-                {showTooltip && (
-                  <div
-                    className="absolute top-full left-0 mt-2 w-80 z-50"
-                    style={{
-                      animation: "fadeIn 0.2s ease-in-out",
-                    }}
-                  >
-                    <div className="bg-[#252525] border border-gray-700 rounded-xl shadow-2xl shadow-black/50 overflow-hidden">
-                      <div className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 px-4 py-3 border-b border-gray-700">
-                        <h4 className="text-sm font-semibold text-blue-400 flex items-center gap-2">
-                          <Sparkles className="w-4 h-4" />
-                          How it works
-                        </h4>
-                      </div>
-                      <div className="p-4">
-                        <ul className="space-y-3 text-sm">
-                          <li className="flex items-start gap-3">
-                            <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                              <span className="text-xs font-bold text-blue-400">
-                                1
-                              </span>
-                            </div>
-                            <span className="text-gray-300">
-                              Purchase RCN tokens at a fixed rate of $0.10 per
-                              token
-                            </span>
-                          </li>
-                          <li className="flex items-start gap-3">
-                            <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                              <span className="text-xs font-bold text-blue-400">
-                                2
-                              </span>
-                            </div>
-                            <span className="text-gray-300">
-                              Tokens are instantly added to your shop's balance
-                            </span>
-                          </li>
-                          <li className="flex items-start gap-3">
-                            <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                              <span className="text-xs font-bold text-blue-400">
-                                3
-                              </span>
-                            </div>
-                            <span className="text-gray-300">
-                              Use tokens to reward customers for repairs and
-                              services
-                            </span>
-                          </li>
-                          <li className="flex items-start gap-3">
-                            <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                              <span className="text-xs font-bold text-blue-400">
-                                4
-                              </span>
-                            </div>
-                            <span className="text-gray-300">
-                              Customers can redeem tokens at your shop ($1 value
-                              per RCN)
-                            </span>
-                          </li>
-                        </ul>
-                      </div>
-                    </div>
-                    {/* Tooltip Arrow */}
-                    <div className="absolute -top-2 left-4 w-4 h-4 bg-[#252525] border-l border-t border-gray-700 transform rotate-45"></div>
-                  </div>
-                )}
-              </div>
               {/* Amount Input */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-3">
@@ -207,7 +182,7 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
                     min="5"
                     max="100000"
                     onChange={(e) => {
-                      if(e.target.value) {
+                      if (e.target.value) {
                         setPurchaseAmount(
                           Math.max(1, parseInt(e.target.value) || 1)
                         );
@@ -220,8 +195,8 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
                   />
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
-                  <span className="text-[#FFCC00]">Minimum</span>: 5 RCN ($0.50) •{" "}
-                  <span className="text-[#FFCC00]">Maximum</span>: 100,000 RCN
+                  <span className="text-[#FFCC00]">Minimum</span>: 5 RCN ($0.50)
+                  • <span className="text-[#FFCC00]">Maximum</span>: 100,000 RCN
                 </p>
               </div>
 
