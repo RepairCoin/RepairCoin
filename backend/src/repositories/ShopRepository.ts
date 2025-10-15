@@ -41,6 +41,9 @@ interface ShopData {
   rcg_balance?: number;
   tier_updated_at?: string;
   operational_status?: 'pending' | 'rcg_qualified' | 'subscription_qualified' | 'not_qualified';
+  facebook?: string;
+  twitter?: string;
+  instagram?: string;
 }
 
 export interface ShopFilters {
@@ -84,7 +87,13 @@ export class ShopRepository extends BaseRepository {
         verifiedBy: row.verified_by,
         purchasedRcnBalance: parseFloat(row.purchased_rcn_balance || 0),
         totalRcnPurchased: parseFloat(row.total_rcn_purchased || 0),
-        operational_status: row.operational_status
+        rcg_balance: parseFloat(row.rcg_balance || 0),
+        rcg_tier: row.rcg_tier,
+        tier_updated_at: row.tier_updated_at,
+        operational_status: row.operational_status,
+        facebook: row.facebook,
+        twitter: row.twitter,
+        instagram: row.instagram
       };
     } catch (error) {
       logger.error('Error fetching shop:', error);
@@ -173,6 +182,10 @@ export class ShopRepository extends BaseRepository {
         rcg_tier: 'rcg_tier',
         tier_updated_at: 'tier_updated_at',
         operational_status: 'operational_status',
+        // Social media field mappings
+        facebook: 'facebook',
+        twitter: 'twitter',
+        instagram: 'instagram',
         // Location field mappings for separate database columns
         locationLat: 'location_lat',
         locationLng: 'location_lng',
@@ -480,7 +493,10 @@ export class ShopRepository extends BaseRepository {
         rcg_balance: parseFloat(row.rcg_balance || 0),
         rcg_tier: row.rcg_tier,
         tier_updated_at: row.tier_updated_at,
-        operational_status: row.operational_status
+        operational_status: row.operational_status,
+        facebook: row.facebook,
+        twitter: row.twitter,
+        instagram: row.instagram
       };
     } catch (error) {
       logger.error('Error fetching shop by wallet:', error);

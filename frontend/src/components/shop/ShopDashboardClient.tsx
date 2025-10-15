@@ -56,6 +56,9 @@ interface ShopData {
     | "not_qualified";
   rcg_tier?: string;
   rcg_balance?: number;
+  facebook?: string;
+  twitter?: string;
+  instagram?: string;
   location?: {
     city?: string;
     state?: string;
@@ -317,6 +320,7 @@ export default function ShopDashboardClient() {
 
       if (shopResponse.ok) {
         const shopResult = await shopResponse.json();
+        console.log("shopResultshopResultshopResult: ", shopResult)
         if (shopResult.success && shopResult.data) {
           setShopData(shopResult.data);
 

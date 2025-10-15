@@ -243,6 +243,39 @@ export const ShopRegistrationForm: React.FC<ShopRegistrationFormProps> = ({
         </div>
       </div>
 
+      {/* Social Media Section */}
+      <div className="bg-[#1C1C1C] p-6 rounded-2xl shadow-sm">
+        <p className="text-lg font-bold text-[#FFCC00] mb-4">
+          Social Media
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <FormField
+            label="Facebook"
+            name="facebook"
+            type="url"
+            value={formData.facebook}
+            onChange={onChange}
+            placeholder="https://facebook.com/yourshop"
+          />
+          <FormField
+            label="Twitter"
+            name="twitter"
+            type="url"
+            value={formData.twitter}
+            onChange={onChange}
+            placeholder="https://twitter.com/yourshop"
+          />
+          <FormField
+            label="Instagram"
+            name="instagram"
+            type="url"
+            value={formData.instagram}
+            onChange={onChange}
+            placeholder="https://instagram.com/yourshop"
+          />
+        </div>
+      </div>
+
       {/* Location Information Section */}
       <div className="bg-[#1C1C1C] p-6 rounded-2xl shadow-sm">
         <p className="text-lg font-bold text-[#FFCC00] mb-4">

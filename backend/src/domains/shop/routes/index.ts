@@ -238,7 +238,11 @@ router.get('/wallet/:address',
           // Include operational status
           operational_status: shop.operational_status,
           rcg_tier: shop.rcg_tier,
-          rcg_balance: shop.rcg_balance
+          rcg_balance: shop.rcg_balance,
+          // Include social media fields
+          facebook: shop.facebook,
+          twitter: shop.twitter,
+          instagram: shop.instagram
         };
       }
 
@@ -284,6 +288,9 @@ router.post('/register',
         monthlyRevenue,
         website,
         referral,
+        facebook,
+        twitter,
+        instagram,
         acceptTerms
       } = req.body;
 
@@ -384,7 +391,10 @@ router.put('/:shopId/details',
         website,
         openingHours,
         ownerName,
-        location
+        location,
+        facebook,
+        twitter,
+        instagram
       } = req.body;
 
       logger.info('Shop details update request received:', {
@@ -411,6 +421,9 @@ router.put('/:shopId/details',
         locationCity?: string;
         locationState?: string;
         locationZipCode?: string;
+        facebook?: string;
+        twitter?: string;
+        instagram?: string;
       }> = {};
       if (name !== undefined) updates.name = name;
       if (email !== undefined) updates.email = email;
@@ -419,6 +432,9 @@ router.put('/:shopId/details',
       if (website !== undefined) updates.website = website;
       if (openingHours !== undefined) updates.openingHours = openingHours;
       if (ownerName !== undefined) updates.ownerName = ownerName;
+      if (facebook !== undefined) updates.facebook = facebook;
+      if (twitter !== undefined) updates.twitter = twitter;
+      if (instagram !== undefined) updates.instagram = instagram;
       
       // Handle location updates - coordinates are stored in separate database columns
       if (location !== undefined) {
@@ -513,7 +529,10 @@ router.put('/:shopId',
         location,
         website,
         openingHours,
-        ownerName
+        ownerName,
+        facebook,
+        twitter,
+        instagram
       } = req.body;
 
       const shop = await shopRepository.getShop(shopId);
@@ -525,7 +544,7 @@ router.put('/:shopId',
       }
 
       // Prepare updates
-      const updates: Partial<ShopData & { website?: string; openingHours?: string; ownerName?: string }> = {};
+      const updates: Partial<ShopData & { website?: string; openingHours?: string; ownerName?: string; facebook?: string; twitter?: string; instagram?: string }> = {};
       if (name !== undefined) updates.name = name;
       if (address !== undefined) updates.address = address;
       if (phone !== undefined) updates.phone = phone;
@@ -535,6 +554,9 @@ router.put('/:shopId',
       if (website !== undefined) updates.website = website;
       if (openingHours !== undefined) updates.openingHours = openingHours;
       if (ownerName !== undefined) updates.ownerName = ownerName;
+      if (facebook !== undefined) updates.facebook = facebook;
+      if (twitter !== undefined) updates.twitter = twitter;
+      if (instagram !== undefined) updates.instagram = instagram;
       
       // Only admin can change verification and cross-shop settings
       if (req.user?.role === 'admin') {
