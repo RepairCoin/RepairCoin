@@ -158,37 +158,37 @@ const Sidebar: React.FC<SidebarProps> = ({
         {
           title: "Overview",
           href: "/shop?tab=overview",
-          icon: <OverviewIcon width={24} height={24} />,
+          icon: <OverviewIcon width={24} height={24} isActive={activeTab === "overview"} />,
           tabId: "overview",
         },
         {
           title: "Issue Rewards",
           href: "/shop?tab=issue-rewards",
-          icon: <IssueRewardsIcon width={24} height={24} />,
+          icon: <IssueRewardsIcon width={24} height={24} isActive={activeTab === "issue-rewards"} />,
           tabId: "issue-rewards",
         },
         {
           title: "Redeem",
           href: "/shop?tab=redeem",
-          icon: <RedeemIcon width={24} height={24} />,
+          icon: <RedeemIcon width={24} height={24} isActive={activeTab === "redeem"} />,
           tabId: "redeem",
         },
         {
           title: "Customers",
           href: "/shop?tab=customers",
-          icon: <CustomerIcon width={24} height={24} />,
+          icon: <CustomerIcon width={24} height={24} isActive={activeTab === "customers"} />,
           tabId: "customers",
         },
         {
           title: "Lookup",
           href: "/shop?tab=lookup",
-          icon: <LookupIcon width={24} height={24} />,
+          icon: <LookupIcon width={24} height={24} isActive={activeTab === "lookup"}/>,
           tabId: "lookup",
         },
         {
           title: "Buy Credits",
           href: "/shop?tab=purchase",
-          icon: <BuyRcnIcon width={24} height={24} />,
+          icon: <BuyRcnIcon width={24} height={24} isActive={activeTab === "purchase"} />,
           tabId: "purchase",
         },
         // {
