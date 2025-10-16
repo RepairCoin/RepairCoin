@@ -170,42 +170,54 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
 
     // Process purchases (costs)
     safePurchases.forEach((purchase: any) => {
-      if (purchase.status === 'completed') {
-        const date = formatDateByRange(new Date(purchase.createdAt), range);
+      if (purchase.status === 'completed' || !purchase.status) { // Some purchases might not have status
+        const date = formatDateByRange(new Date(purchase.created_at || purchase.createdAt), range);
         const existing = dataMap.get(date) || { revenue: 0, costs: 0, rcnPurchased: 0, rcnIssued: 0 };
         
-        // Cost calculation: estimate revenue generated from repairs
-        // Assumption: each RCN issued represents ~$8-12 in repair value (based on reward tiers)
-        const estimatedRepairValue = purchase.amount * 8; // Conservative estimate
+        // Extract cost from different possible field names
+        const purchaseCost = parseFloat(purchase.total_cost || purchase.totalCost || 0);
+        const purchaseAmount = parseFloat(purchase.amount || 0);
+        
+        console.log(`Processing purchase: Date=${date}, Cost=$${purchaseCost}, Amount=${purchaseAmount} RCN`);
         
         dataMap.set(date, {
           ...existing,
-          costs: existing.costs + (purchase.totalCost || 0),
-          revenue: existing.revenue + estimatedRepairValue,
-          rcnPurchased: existing.rcnPurchased + purchase.amount
+          costs: existing.costs + purchaseCost,
+          rcnPurchased: existing.rcnPurchased + purchaseAmount
         });
       }
     });
 
-    // Process token issuance (more accurate revenue calculation)
+    // Process token issuance (revenue from repairs)
     safeTransactions.forEach((transaction: any) => {
-      if (transaction.type === 'mint' && transaction.metadata?.repairAmount) {
-        const date = formatDateByRange(new Date(transaction.timestamp), range);
+      if (transaction.type === 'reward' || transaction.type === 'mint') {
+        const date = formatDateByRange(new Date(transaction.createdAt || transaction.timestamp), range);
         const existing = dataMap.get(date) || { revenue: 0, costs: 0, rcnPurchased: 0, rcnIssued: 0 };
         
-        // Use actual repair amount as revenue
-        const repairRevenue = transaction.metadata.repairAmount;
+        // Use actual repair amount if available, otherwise estimate
+        let repairRevenue = 0;
+        if (transaction.metadata?.repairAmount) {
+          repairRevenue = transaction.metadata.repairAmount;
+        } else if (transaction.repairAmount) {
+          repairRevenue = transaction.repairAmount;
+        } else {
+          // Estimate based on RCN reward amount (typical $50-150 repairs earn 5-15 RCN)
+          const rcnAmount = parseFloat(transaction.amount || 0);
+          repairRevenue = rcnAmount * 10; // Conservative estimate: $10 repair per 1 RCN
+        }
+        
+        console.log(`Processing transaction: Date=${date}, Revenue=$${repairRevenue}, RCN=${transaction.amount}`);
         
         dataMap.set(date, {
           ...existing,
           revenue: existing.revenue + repairRevenue,
-          rcnIssued: existing.rcnIssued + transaction.amount
+          rcnIssued: existing.rcnIssued + parseFloat(transaction.amount || 0)
         });
       }
     });
 
     // Convert to array and calculate profit
-    return Array.from(dataMap.entries())
+    const result = Array.from(dataMap.entries())
       .map(([date, data]) => ({
         date,
         revenue: data.revenue,
@@ -216,6 +228,12 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
         profitMargin: data.revenue > 0 ? ((data.revenue - data.costs) / data.revenue) * 100 : 0
       }))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    console.log('Final profit data calculated:', result);
+    console.log('Total costs from all purchases:', result.reduce((sum, item) => sum + item.costs, 0));
+    console.log('Total revenue from all repairs:', result.reduce((sum, item) => sum + item.revenue, 0));
+    
+    return result;
   };
 
   const generateSampleData = (range: 'day' | 'month' | 'year'): ProfitData[] => {
