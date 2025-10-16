@@ -12,7 +12,8 @@ import {
   BarChart,
   Bar,
   ComposedChart,
-  Legend
+  Legend,
+  ReferenceLine
 } from 'recharts';
 import { Calendar, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 
@@ -487,11 +488,75 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
       <div className="px-6 pb-6">
         {profitData.length > 0 ? (
           <div className="space-y-6">
-            {/* Profit & Loss Chart */}
+            {/* Profit & Loss Line Chart */}
             <div className="bg-[#2a2a2a] rounded-lg p-4">
-              <h4 className="text-white font-medium mb-4">Profit & Loss Over Time</h4>
+              <div className="flex justify-between items-center mb-4">
+                <h4 className="text-white font-medium">Profit & Loss Over Time</h4>
+                <div className="flex items-center gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    <span className="text-gray-300">Profit</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                    <span className="text-gray-300">Loss</span>
+                  </div>
+                </div>
+              </div>
               <ResponsiveContainer width="100%" height={300}>
-                <ComposedChart data={profitData}>
+                <LineChart data={profitData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis 
+                    dataKey="date" 
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 12, fill: '#9CA3AF' }}
+                    tickFormatter={formatXAxis}
+                  />
+                  <YAxis 
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 12, fill: '#9CA3AF' }}
+                    tickFormatter={formatCurrency}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  {/* Zero reference line */}
+                  <ReferenceLine y={0} stroke="#6B7280" strokeDasharray="5 5" strokeWidth={1} />
+                  
+                  {/* Profit/Loss line - dots show green for profit, red for loss */}
+                  <Line 
+                    type="monotone" 
+                    dataKey="profit"
+                    stroke="#6B7280"  // Neutral gray line
+                    strokeWidth={2}
+                    name="Profit/Loss"
+                    dot={(props: any) => {
+                      const { cx, cy, payload } = props;
+                      const isProfit = payload.profit >= 0;
+                      const color = isProfit ? '#10B981' : '#EF4444';
+                      const size = isProfit ? 6 : 6; // Same size for both
+                      return (
+                        <circle
+                          cx={cx}
+                          cy={cy}
+                          r={size}
+                          fill={color}
+                          stroke="#ffffff"
+                          strokeWidth={2}
+                        />
+                      );
+                    }}
+                    connectNulls={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Revenue vs Costs Chart */}
+            <div className="bg-[#2a2a2a] rounded-lg p-4">
+              <h4 className="text-white font-medium mb-4">Revenue vs Costs</h4>
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart data={profitData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis 
                     dataKey="date" 
@@ -508,17 +573,23 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
                   />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend />
-                  <Bar dataKey="revenue" fill="#3B82F6" name="Revenue" />
-                  <Bar dataKey="costs" fill="#F59E0B" name="Costs" />
                   <Line 
                     type="monotone" 
-                    dataKey="profit" 
-                    stroke="#10B981" 
-                    strokeWidth={3}
-                    name="Profit"
-                    dot={{ fill: '#10B981', strokeWidth: 2, r: 4 }}
+                    dataKey="revenue" 
+                    stroke="#3B82F6" 
+                    strokeWidth={2}
+                    name="Revenue"
+                    dot={{ fill: '#3B82F6', strokeWidth: 2, r: 3 }}
                   />
-                </ComposedChart>
+                  <Line 
+                    type="monotone" 
+                    dataKey="costs" 
+                    stroke="#F59E0B" 
+                    strokeWidth={2}
+                    name="Costs"
+                    dot={{ fill: '#F59E0B', strokeWidth: 2, r: 3 }}
+                  />
+                </LineChart>
               </ResponsiveContainer>
             </div>
 
