@@ -91,6 +91,7 @@ export default function ShopDashboardClient() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("overview");
+  const [authToken, setAuthToken] = useState<string | null>(null);
 
   // Purchase form state
   const [purchaseAmount, setPurchaseAmount] = useState<number>(0);
@@ -112,6 +113,12 @@ export default function ShopDashboardClient() {
     title?: string;
     subtitle?: string;
   }>({});
+
+  // Initialize auth token
+  useEffect(() => {
+    const token = localStorage.getItem("shopAuthToken") || sessionStorage.getItem("shopAuthToken");
+    setAuthToken(token);
+  }, []);
 
   useEffect(() => {
     // Set active tab from URL query param
@@ -727,6 +734,7 @@ export default function ShopDashboardClient() {
               shopData={shopData}
               purchases={purchases}
               onRefreshData={loadShopData}
+              authToken={authToken}
             />
           )}
 

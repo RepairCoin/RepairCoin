@@ -38,9 +38,10 @@ interface ProfitMetrics {
 
 interface ProfitChartProps {
   shopId: string;
+  authToken?: string;
 }
 
-export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
+export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) => {
   const [profitData, setProfitData] = useState<ProfitData[]>([]);
   const [metrics, setMetrics] = useState<ProfitMetrics | null>(null);
   const [timeRange, setTimeRange] = useState<'day' | 'month' | 'year'>('month');
@@ -68,12 +69,23 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
           break;
       }
 
+      // Prepare headers for authenticated requests
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
+
       // Fetch shop transactions and purchases data
       const [transactionsRes, purchasesRes] = await Promise.all([
-        fetch(`/api/shops/${shopId}/transactions?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`)
-          .catch(() => ({ ok: false, json: () => Promise.resolve({ data: [] }) })),
-        fetch(`/api/shops/${shopId}/purchases?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`)
-          .catch(() => ({ ok: false, json: () => Promise.resolve({ data: { items: [] } }) }))
+        fetch(`/api/shops/${shopId}/transactions?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`, {
+          headers
+        }).catch(() => ({ ok: false, json: () => Promise.resolve({ data: [] }) })),
+        fetch(`/api/shops/${shopId}/purchases?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`, {
+          headers
+        }).catch(() => ({ ok: false, json: () => Promise.resolve({ data: { items: [] } }) }))
       ]);
 
       const transactions = await transactionsRes.json();
@@ -281,7 +293,7 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
     if (shopId) {
       fetchProfitData();
     }
-  }, [shopId, timeRange]);
+  }, [shopId, timeRange, authToken]);
 
   const formatCurrency = (value: number) => `$${value.toFixed(2)}`;
   

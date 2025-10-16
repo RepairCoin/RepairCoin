@@ -46,6 +46,7 @@ interface OverviewTabProps {
   shopData: ShopData | null;
   purchases: PurchaseHistory[];
   onRefreshData?: () => void;
+  authToken?: string;
 }
 
 // Purchase columns for DataTable
@@ -133,6 +134,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   shopData,
   purchases,
   onRefreshData,
+  authToken,
 }) => {
   const { rcgInfo } = useRCGBalance(shopData?.shopId);
 
@@ -238,7 +240,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
           {/* Profit Chart - Full Width */}
           <div className="w-full">
-            <ProfitChart shopId={shopData.shopId} />
+            <ProfitChart shopId={shopData.shopId} authToken={authToken} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
