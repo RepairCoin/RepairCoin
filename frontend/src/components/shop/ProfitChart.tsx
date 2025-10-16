@@ -115,9 +115,21 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
       console.log('Purchases response:', purchases);
 
       // Process data into profit metrics
+      const transactionsArray = Array.isArray(transactions.data) ? transactions.data : 
+                                Array.isArray(transactions.data?.transactions) ? transactions.data.transactions :
+                                Array.isArray(transactions) ? transactions : [];
+      
+      const purchasesArray = Array.isArray(purchases.data?.items) ? purchases.data.items :
+                            Array.isArray(purchases.data?.purchases) ? purchases.data.purchases :
+                            Array.isArray(purchases.data) ? purchases.data :
+                            Array.isArray(purchases) ? purchases : [];
+      
+      console.log('Processed transactions array:', transactionsArray);
+      console.log('Processed purchases array:', purchasesArray);
+      
       let processedData = processRawDataToProfit(
-        transactions.data || [],
-        purchases.data?.items || purchases.data || [],
+        transactionsArray,
+        purchasesArray,
         timeRange
       );
 
@@ -148,8 +160,15 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
       rcnIssued: number;
     }>();
 
+    // Ensure we have arrays to work with
+    const safeTransactions = Array.isArray(transactions) ? transactions : [];
+    const safePurchases = Array.isArray(purchases) ? purchases : [];
+
+    console.log('Processing data - transactions count:', safeTransactions.length);
+    console.log('Processing data - purchases count:', safePurchases.length);
+
     // Process purchases (costs)
-    purchases.forEach((purchase: any) => {
+    safePurchases.forEach((purchase: any) => {
       if (purchase.status === 'completed') {
         const date = formatDateByRange(new Date(purchase.createdAt), range);
         const existing = dataMap.get(date) || { revenue: 0, costs: 0, rcnPurchased: 0, rcnIssued: 0 };
@@ -168,7 +187,7 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
     });
 
     // Process token issuance (more accurate revenue calculation)
-    transactions.forEach((transaction: any) => {
+    safeTransactions.forEach((transaction: any) => {
       if (transaction.type === 'mint' && transaction.metadata?.repairAmount) {
         const date = formatDateByRange(new Date(transaction.timestamp), range);
         const existing = dataMap.get(date) || { revenue: 0, costs: 0, rcnPurchased: 0, rcnIssued: 0 };
