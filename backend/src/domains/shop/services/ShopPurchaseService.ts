@@ -187,7 +187,7 @@ export class ShopPurchaseService {
   /**
    * Get purchase history for a shop
    */
-  async getPurchaseHistory(shopId: string, page: number = 1, limit: number = 20): Promise<{
+  async getPurchaseHistory(shopId: string, page: number = 1, limit: number = 20, startDate?: string, endDate?: string): Promise<{
     purchases: ShopRcnPurchase[];
     total: number;
     page: number;
@@ -198,7 +198,9 @@ export class ShopPurchaseService {
         page,
         limit,
         orderBy: 'created_at',
-        orderDirection: 'desc'
+        orderDirection: 'desc',
+        startDate,
+        endDate
       });
 
       // Map snake_case database fields to camelCase for frontend

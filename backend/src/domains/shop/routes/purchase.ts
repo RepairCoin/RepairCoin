@@ -295,8 +295,10 @@ router.get('/history/:shopId', async (req: Request, res: Response) => {
     const { shopId } = req.params;
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
+    const startDate = req.query.startDate as string;
+    const endDate = req.query.endDate as string;
 
-    const history = await shopPurchaseService.getPurchaseHistory(shopId, page, limit);
+    const history = await shopPurchaseService.getPurchaseHistory(shopId, page, limit, startDate, endDate);
 
     res.json({
       success: true,

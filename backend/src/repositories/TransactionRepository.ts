@@ -423,6 +423,8 @@ export class TransactionRepository extends BaseRepository {
       page: number;
       limit: number;
       type?: string;
+      startDate?: string;
+      endDate?: string;
     }
   ): Promise<{
     items: any[];
@@ -450,6 +452,19 @@ export class TransactionRepository extends BaseRepository {
         } else if (filters.type === 'failed') {
           whereClause += ` AND t.status = 'failed'`;
         }
+      }
+
+      // Add date filters if provided
+      if (filters.startDate) {
+        paramCount++;
+        whereClause += ` AND t.timestamp >= $${paramCount}`;
+        params.push(filters.startDate);
+      }
+
+      if (filters.endDate) {
+        paramCount++;
+        whereClause += ` AND t.timestamp <= $${paramCount}`;
+        params.push(filters.endDate);
       }
 
       // Get total count

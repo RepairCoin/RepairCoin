@@ -682,8 +682,15 @@ export class ShopRepository extends BaseRepository {
     limit: number;
     orderBy?: string;
     orderDirection?: 'asc' | 'desc';
+    startDate?: string;
+    endDate?: string;
   }): Promise<{
     items: any[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasMore: boolean;
     pagination: {
       page: number;
       limit: number;
@@ -697,24 +704,47 @@ export class ShopRepository extends BaseRepository {
       const orderBy = filters.orderBy || 'created_at';
       const orderDirection = filters.orderDirection || 'desc';
 
+      // Build date filter conditions
+      let whereCondition = 'WHERE shop_id = $1';
+      let queryParams: any[] = [shopId];
+      let paramIndex = 2;
+
+      if (filters.startDate) {
+        whereCondition += ` AND created_at >= $${paramIndex}`;
+        queryParams.push(filters.startDate);
+        paramIndex++;
+      }
+
+      if (filters.endDate) {
+        whereCondition += ` AND created_at <= $${paramIndex}`;
+        queryParams.push(filters.endDate);
+        paramIndex++;
+      }
+
       // Get total count
-      const countQuery = 'SELECT COUNT(*) FROM shop_rcn_purchases WHERE shop_id = $1';
-      const countResult = await this.pool.query(countQuery, [shopId]);
+      const countQuery = `SELECT COUNT(*) FROM shop_rcn_purchases ${whereCondition}`;
+      const countResult = await this.pool.query(countQuery, queryParams);
       const totalItems = parseInt(countResult.rows[0].count);
 
       // Get paginated results
       const query = `
         SELECT * FROM shop_rcn_purchases 
-        WHERE shop_id = $1
+        ${whereCondition}
         ORDER BY ${orderBy} ${orderDirection}
-        LIMIT $2 OFFSET $3
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `;
       
-      const result = await this.pool.query(query, [shopId, filters.limit, offset]);
+      queryParams.push(filters.limit, offset);
+      const result = await this.pool.query(query, queryParams);
       const totalPages = Math.ceil(totalItems / filters.limit);
 
       return {
         items: result.rows,
+        total: totalItems,
+        page: filters.page,
+        limit: filters.limit,
+        totalPages,
+        hasMore: filters.page < totalPages,
         pagination: {
           page: filters.page,
           limit: filters.limit,

@@ -1749,6 +1749,51 @@ router.post('/:shopId/issue-reward',
   }
 );
 
+// Get shop purchases with date filtering
+router.get('/:shopId/purchases',
+  authMiddleware,
+  requireShopOrAdmin,
+  requireShopOwnership,
+  async (req: Request, res: Response) => {
+    try {
+      const { shopId } = req.params;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 1000; // High limit for chart data
+      const startDate = req.query.startDate as string;
+      const endDate = req.query.endDate as string;
+
+      const purchaseHistory = await shopRepository.getShopPurchaseHistory(shopId, {
+        page,
+        limit,
+        orderBy: 'created_at',
+        orderDirection: 'desc',
+        startDate,
+        endDate
+      });
+
+      res.json({
+        success: true,
+        data: {
+          items: purchaseHistory.items,
+          pagination: {
+            page: purchaseHistory.page,
+            limit: purchaseHistory.limit,
+            totalItems: purchaseHistory.total,
+            totalPages: purchaseHistory.totalPages,
+            hasMore: purchaseHistory.hasMore
+          }
+        }
+      });
+    } catch (error: any) {
+      logger.error('Error getting shop purchases:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve purchase history'
+      });
+    }
+  }
+);
+
 // Get shop transactions
 router.get('/:shopId/transactions',
   authMiddleware,
@@ -1760,6 +1805,8 @@ router.get('/:shopId/transactions',
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 20;
       const type = req.query.type as string;
+      const startDate = req.query.startDate as string;
+      const endDate = req.query.endDate as string;
       
       let allTransactions: any[] = [];
       
@@ -1769,7 +1816,9 @@ router.get('/:shopId/transactions',
           const transactions = await transactionRepository.getShopTransactions(shopId, {
             page,
             limit,
-            type
+            type,
+            startDate,
+            endDate
           });
           
           // Transform to match frontend expectations

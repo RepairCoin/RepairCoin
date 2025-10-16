@@ -9,6 +9,7 @@ import { RCGBalanceCard } from "@/components/shop/RCGBalanceCard";
 import { useRCGBalance } from "@/hooks/useRCGBalance";
 import { formatRCGBalance } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { ProfitChart } from "@/components/shop/ProfitChart";
 
 interface ShopData {
   shopId: string;
@@ -233,6 +234,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               value={formatRCGBalance(rcgInfo?.balance || 0)}
               icon={<WalletIcon />}
             />
+          </div>
+
+          {/* Profit Chart - Full Width */}
+          <div className="w-full">
+            <ProfitChart shopId={shopData.shopId} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
