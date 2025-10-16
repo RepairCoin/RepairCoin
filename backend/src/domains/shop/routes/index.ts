@@ -1556,10 +1556,23 @@ router.post('/:shopId/issue-reward',
             });
           }
         } catch (promoError: any) {
-          logger.error('Promo code processing error:', promoError);
-          return res.status(500).json({
+          logger.error('Promo code processing error:', {
+            error: promoError.message,
+            stack: promoError.stack,
+            promoCode: promoCode?.trim(),
+            shopId,
+            customerAddress
+          });
+          
+          // Provide detailed error message
+          const errorDetails = promoError.message || 'Unknown error during promo code validation';
+          
+          return res.status(400).json({
             success: false,
-            error: 'Failed to process promo code'
+            error: 'Failed to process promo code',
+            details: errorDetails,
+            promoCode: promoCode?.trim(),
+            shopId
           });
         }
       }
@@ -1569,7 +1582,28 @@ router.post('/:shopId/issue-reward',
       // Check shop has sufficient purchased RCN balance (off-chain balance from database)
       const shopBalance = shop.purchasedRcnBalance || 0;
       
+      // Debug logging
+      logger.info('Balance check:', {
+        shopId,
+        shopBalance,
+        totalReward,
+        baseReward,
+        tierBonus: skipTierBonus ? 0 : tierBonus,
+        promoBonus,
+        promoCode: promoCode || null,
+        shopData: {
+          purchasedRcnBalance: shop.purchasedRcnBalance,
+          totalTokensIssued: shop.totalTokensIssued
+        }
+      });
+      
       if (shopBalance < totalReward) {
+        logger.warn('Insufficient shop balance', {
+          shopId,
+          required: totalReward,
+          available: shopBalance
+        });
+        
         return res.status(400).json({
           success: false,
           error: 'Insufficient shop RCN balance',

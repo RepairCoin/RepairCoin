@@ -60,12 +60,13 @@ export class PromoCodeService {
       }
     });
 
-    return this.mapDatabaseToFrontend(promoCode);
+    // PromoCode is already in the correct format from repository
+    return promoCode;
   }
 
   async getShopPromoCodes(shopId: string, onlyActive = false): Promise<PromoCode[]> {
-    const promoCodes = await this.promoCodeRepo.findByShop(shopId, onlyActive);
-    return promoCodes.map(pc => this.mapDatabaseToFrontend(pc));
+    // Repository already returns PromoCode objects with proper mapping
+    return this.promoCodeRepo.findByShop(shopId, onlyActive);
   }
 
   async updatePromoCode(
@@ -103,7 +104,8 @@ export class PromoCodeService {
       }
     });
 
-    return this.mapDatabaseToFrontend(updated);
+    // Repository already returns PromoCode object with proper mapping
+    return updated;
   }
 
   async deactivatePromoCode(shopId: string, promoCodeId: number): Promise<void> {
@@ -229,7 +231,15 @@ export class PromoCodeService {
   }
 
   async validatePromoCode(code: string, shopId: string, customerAddress: string): Promise<PromoCodeValidation> {
-    return this.promoCodeRepo.validate(code, shopId, customerAddress);
+    console.log('PromoCodeService.validatePromoCode called:', { code, shopId, customerAddress });
+    try {
+      const result = await this.promoCodeRepo.validate(code, shopId, customerAddress);
+      console.log('PromoCodeService validation result:', result);
+      return result;
+    } catch (error) {
+      console.error('PromoCodeService.validatePromoCode error:', error);
+      throw error;
+    }
   }
 
   // Admin methods
@@ -296,25 +306,4 @@ export class PromoCodeService {
     };
   }
 
-  private mapDatabaseToFrontend(dbRecord: any): PromoCode {
-    return {
-      id: dbRecord.id,
-      code: dbRecord.code,
-      shop_id: dbRecord.shop_id,
-      name: dbRecord.code, // Using code as name since name column doesn't exist
-      description: dbRecord.code, // Using code as description since description column doesn't exist
-      bonus_type: dbRecord.discount_type as 'fixed' | 'percentage',
-      bonus_value: dbRecord.discount_value,
-      max_bonus: null, // Not available in current schema
-      start_date: dbRecord.valid_from,
-      end_date: dbRecord.valid_until,
-      total_usage_limit: dbRecord.max_uses,
-      per_customer_limit: 1, // Default since not available in current schema
-      times_used: dbRecord.used_count || 0,
-      total_bonus_issued: (dbRecord.discount_value * (dbRecord.used_count || 0)) || 0,
-      is_active: dbRecord.status === 'active',
-      created_at: dbRecord.created_at,
-      updated_at: dbRecord.created_at // Using created_at since updated_at doesn't exist
-    };
-  }
 }

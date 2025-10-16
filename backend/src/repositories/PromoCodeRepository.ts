@@ -81,8 +81,29 @@ export class PromoCodeRepository extends BaseRepository {
       data.shop_id // created_by (using shop_id as creator)
     ];
 
-    const result = await this.pool.query<PromoCode>(query, values);
-    return result.rows[0];
+    const result = await this.pool.query(query, values);
+    const row = result.rows[0];
+    
+    // Map database columns to PromoCode interface
+    return {
+      id: row.id,
+      code: row.code,
+      shop_id: row.shop_id,
+      name: data.name || row.code,
+      description: data.description,
+      bonus_type: row.discount_type as 'fixed' | 'percentage',
+      bonus_value: parseFloat(row.discount_value),
+      max_bonus: data.max_bonus,
+      start_date: row.valid_from,
+      end_date: row.valid_until,
+      total_usage_limit: row.max_uses || undefined,
+      per_customer_limit: data.per_customer_limit || 1,
+      times_used: row.used_count || 0,
+      total_bonus_issued: 0,
+      is_active: row.status === 'active',
+      created_at: row.created_at,
+      updated_at: row.created_at
+    };
   }
 
   async findByCode(code: string, shopId?: string): Promise<PromoCode | null> {
@@ -94,8 +115,30 @@ export class PromoCodeRepository extends BaseRepository {
       values.push(shopId);
     }
 
-    const result = await this.pool.query<PromoCode>(query, values);
-    return result.rows[0] || null;
+    const result = await this.pool.query(query, values);
+    if (!result.rows[0]) return null;
+    
+    // Map database columns to PromoCode interface
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      code: row.code,
+      shop_id: row.shop_id,
+      name: row.code, // Use code as name since name column doesn't exist
+      description: row.conditions?.description || undefined,
+      bonus_type: row.discount_type as 'fixed' | 'percentage',
+      bonus_value: parseFloat(row.discount_value),
+      max_bonus: row.conditions?.max_bonus || undefined,
+      start_date: row.valid_from,
+      end_date: row.valid_until,
+      total_usage_limit: row.max_uses || undefined,
+      per_customer_limit: row.conditions?.per_customer_limit || 1,
+      times_used: row.used_count || 0,
+      total_bonus_issued: (parseFloat(row.discount_value) * (row.used_count || 0)) || 0,
+      is_active: row.status === 'active',
+      created_at: row.created_at,
+      updated_at: row.created_at // Use created_at since updated_at doesn't exist
+    };
   }
 
   async findByShop(shopId: string, onlyActive = false): Promise<PromoCode[]> {
@@ -108,32 +151,75 @@ export class PromoCodeRepository extends BaseRepository {
 
     query += ' ORDER BY created_at DESC';
 
-    const result = await this.pool.query<PromoCode>(query, values);
-    return result.rows;
+    const result = await this.pool.query(query, values);
+    
+    // Map database columns to PromoCode interface
+    return result.rows.map(row => ({
+      id: row.id,
+      code: row.code,
+      shop_id: row.shop_id,
+      name: row.code, // Use code as name since name column doesn't exist
+      description: row.conditions?.description || undefined,
+      bonus_type: row.discount_type as 'fixed' | 'percentage',
+      bonus_value: parseFloat(row.discount_value),
+      max_bonus: row.conditions?.max_bonus || undefined,
+      start_date: row.valid_from,
+      end_date: row.valid_until,
+      total_usage_limit: row.max_uses || undefined,
+      per_customer_limit: row.conditions?.per_customer_limit || 1,
+      times_used: row.used_count || 0,
+      total_bonus_issued: (parseFloat(row.discount_value) * (row.used_count || 0)) || 0,
+      is_active: row.status === 'active',
+      created_at: row.created_at,
+      updated_at: row.created_at // Use created_at since updated_at doesn't exist
+    }));
   }
 
   async update(id: number, updates: Partial<PromoCode>): Promise<PromoCode | null> {
-    const allowedFields = [
-      'discount_type', 'discount_value', 'max_uses',
-      'valid_from', 'valid_until', 'status', 'conditions'
-    ];
+    // Map PromoCode interface fields to database columns
+    const dbUpdates: any = {};
+    
+    if (updates.bonus_type !== undefined) {
+      dbUpdates.discount_type = updates.bonus_type;
+    }
+    if (updates.bonus_value !== undefined) {
+      dbUpdates.discount_value = updates.bonus_value;
+    }
+    if (updates.total_usage_limit !== undefined) {
+      dbUpdates.max_uses = updates.total_usage_limit;
+    }
+    if (updates.start_date !== undefined) {
+      dbUpdates.valid_from = updates.start_date;
+    }
+    if (updates.end_date !== undefined) {
+      dbUpdates.valid_until = updates.end_date;
+    }
+    if (updates.is_active !== undefined) {
+      dbUpdates.status = updates.is_active ? 'active' : 'inactive';
+    }
+    
+    // Handle conditions for additional fields
+    if (updates.max_bonus !== undefined || updates.per_customer_limit !== undefined || updates.description !== undefined) {
+      const existing = await this.findById(id);
+      if (existing) {
+        const conditions = (existing as any).conditions || {};
+        if (updates.max_bonus !== undefined) conditions.max_bonus = updates.max_bonus;
+        if (updates.per_customer_limit !== undefined) conditions.per_customer_limit = updates.per_customer_limit;
+        if (updates.description !== undefined) conditions.description = updates.description;
+        dbUpdates.conditions = conditions;
+      }
+    }
 
-    const filteredUpdates = Object.keys(updates)
-      .filter(key => allowedFields.includes(key))
-      .reduce((obj, key) => ({ ...obj, [key]: updates[key as keyof PromoCode] }), {});
-
-    if (Object.keys(filteredUpdates).length === 0) {
+    if (Object.keys(dbUpdates).length === 0) {
       const existing = await this.findById(id);
       return existing;
     }
 
-    (filteredUpdates as any).updated_at = new Date();
-
-    const setClause = Object.keys(filteredUpdates)
+    const setClause = Object.keys(dbUpdates)
       .map((key, index) => `${key} = $${index + 2}`)
       .join(', ');
 
-    const values = [id, ...Object.values(filteredUpdates)];
+    const values = [id, ...Object.values(dbUpdates)];
 
     const query = `
       UPDATE promo_codes 
@@ -142,16 +228,46 @@ export class PromoCodeRepository extends BaseRepository {
       RETURNING *
     `;
 
-    const result = await this.pool.query<PromoCode>(query, values);
-    return result.rows[0] || null;
+    const result = await this.pool.query(query, values);
+    if (!result.rows[0]) return null;
+    
+    // Map database columns to PromoCode interface
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      code: row.code,
+      shop_id: row.shop_id,
+      name: row.code,
+      description: row.conditions?.description || undefined,
+      bonus_type: row.discount_type as 'fixed' | 'percentage',
+      bonus_value: parseFloat(row.discount_value),
+      max_bonus: row.conditions?.max_bonus || undefined,
+      start_date: row.valid_from,
+      end_date: row.valid_until,
+      total_usage_limit: row.max_uses || undefined,
+      per_customer_limit: row.conditions?.per_customer_limit || 1,
+      times_used: row.used_count || 0,
+      total_bonus_issued: (parseFloat(row.discount_value) * (row.used_count || 0)) || 0,
+      is_active: row.status === 'active',
+      created_at: row.created_at,
+      updated_at: row.created_at
+    };
   }
 
   async validate(code: string, shopId: string, customerAddress: string): Promise<PromoCodeValidation> {
     const query = 'SELECT * FROM validate_promo_code($1, $2, $3)';
     const values = [code, shopId, customerAddress.toLowerCase()];
 
-    const result = await this.pool.query<PromoCodeValidation>(query, values);
-    return result.rows[0];
+    console.log('Validating promo code:', { code, shopId, customerAddress: customerAddress.toLowerCase() });
+    
+    try {
+      const result = await this.pool.query<PromoCodeValidation>(query, values);
+      console.log('Validation result:', result.rows[0]);
+      return result.rows[0];
+    } catch (error) {
+      console.error('Error in validate method:', error);
+      throw error;
+    }
   }
 
   async recordUse(
@@ -184,8 +300,21 @@ export class PromoCodeRepository extends BaseRepository {
         bonusAmount  // Using bonusAmount as the discount_applied value
       ];
 
-      const insertResult = await client.query<PromoCodeUse>(insertQuery, insertValues);
-      const use = insertResult.rows[0];
+      const insertResult = await client.query(insertQuery, insertValues);
+      
+      // Map the database result to PromoCodeUse interface
+      const dbRow = insertResult.rows[0];
+      const use: PromoCodeUse = {
+        id: dbRow.id,
+        promo_code_id: dbRow.promo_code_id,
+        customer_address: dbRow.customer_address,
+        shop_id: dbRow.shop_id,
+        transaction_id: dbRow.transaction_id ? parseInt(dbRow.transaction_id) : undefined,
+        base_reward: baseReward,  // Use the parameter since it's not in DB
+        bonus_amount: bonusAmount,  // Use the parameter since it's not in DB (same as discount_applied)
+        total_reward: baseReward + bonusAmount,  // Calculate since it's not in DB
+        used_at: dbRow.used_at
+      };
 
       // Update promo code stats
       const updateQuery = `
@@ -251,7 +380,16 @@ export class PromoCodeRepository extends BaseRepository {
 
   async getCustomerUsage(customerAddress: string): Promise<PromoCodeUse[]> {
     const query = `
-      SELECT pcu.*, pc.code, pc.code as promo_name
+      SELECT 
+        pcu.id,
+        pcu.promo_code_id,
+        pcu.customer_address,
+        pcu.shop_id,
+        pcu.transaction_id,
+        pcu.discount_applied as bonus_amount,
+        pcu.used_at,
+        pc.code,
+        pc.code as promo_name
       FROM promo_code_uses pcu
       JOIN promo_codes pc ON pcu.promo_code_id = pc.id
       WHERE pcu.customer_address = $1
@@ -259,7 +397,19 @@ export class PromoCodeRepository extends BaseRepository {
     `;
 
     const result = await this.pool.query(query, [customerAddress.toLowerCase()]);
-    return result.rows;
+    
+    // Map the results to PromoCodeUse interface
+    return result.rows.map(row => ({
+      id: row.id,
+      promo_code_id: row.promo_code_id,
+      customer_address: row.customer_address,
+      shop_id: row.shop_id,
+      transaction_id: row.transaction_id ? parseInt(row.transaction_id) : undefined,
+      base_reward: 0,  // Not stored in DB, using default
+      bonus_amount: parseFloat(row.bonus_amount) || 0,
+      total_reward: parseFloat(row.bonus_amount) || 0,  // Assuming bonus_amount is the total for now
+      used_at: row.used_at
+    }));
   }
 
   async deactivate(id: number): Promise<boolean> {
@@ -270,7 +420,29 @@ export class PromoCodeRepository extends BaseRepository {
 
   private async findById(id: number): Promise<PromoCode | null> {
     const query = 'SELECT * FROM promo_codes WHERE id = $1';
-    const result = await this.pool.query<PromoCode>(query, [id]);
-    return result.rows[0] || null;
+    const result = await this.pool.query(query, [id]);
+    if (!result.rows[0]) return null;
+    
+    // Map database columns to PromoCode interface
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      code: row.code,
+      shop_id: row.shop_id,
+      name: row.code,
+      description: row.conditions?.description || undefined,
+      bonus_type: row.discount_type as 'fixed' | 'percentage',
+      bonus_value: parseFloat(row.discount_value),
+      max_bonus: row.conditions?.max_bonus || undefined,
+      start_date: row.valid_from,
+      end_date: row.valid_until,
+      total_usage_limit: row.max_uses || undefined,
+      per_customer_limit: row.conditions?.per_customer_limit || 1,
+      times_used: row.used_count || 0,
+      total_bonus_issued: (parseFloat(row.discount_value) * (row.used_count || 0)) || 0,
+      is_active: row.status === 'active',
+      created_at: row.created_at,
+      updated_at: row.created_at
+    };
   }
 }

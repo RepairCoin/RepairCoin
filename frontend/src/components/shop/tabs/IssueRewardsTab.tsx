@@ -213,6 +213,9 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
         }
       }
 
+      console.log("Issuing reward with request body:", requestBody);
+      console.log("API URL:", `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/issue-reward`);
+      
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/issue-reward`,
         {
@@ -223,7 +226,30 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
       );
 
       if (!response.ok) {
-        const errorData = await response.json();
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          errorData = { error: "Failed to parse error response" };
+        }
+        console.error("Error response from server:", {
+          status: response.status,
+          statusText: response.statusText,
+          errorData: errorData,
+          requestBody: requestBody
+        });
+        
+        // Check for specific error messages
+        if (errorData.error === "Failed to process promo code") {
+          console.error("Promo code error details:", errorData.details || "No details provided");
+          console.error("Promo code:", errorData.promoCode);
+          console.error("Shop ID:", errorData.shopId);
+          
+          // Include details in the error message if available
+          const detailMessage = errorData.details ? `: ${errorData.details}` : "";
+          throw new Error(`${errorData.error}${detailMessage}`);
+        }
+        
         throw new Error(errorData.error || "Failed to issue reward");
       }
 
