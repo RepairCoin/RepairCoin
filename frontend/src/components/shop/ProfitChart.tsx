@@ -76,6 +76,9 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
       
       if (authToken) {
         headers['Authorization'] = `Bearer ${authToken}`;
+        console.log('Using auth token for API requests:', authToken.substring(0, 20) + '...');
+      } else {
+        console.log('No auth token available for API requests');
       }
 
       // Fetch shop transactions and purchases data
@@ -88,8 +91,16 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
         }).catch(() => ({ ok: false, json: () => Promise.resolve({ data: { items: [] } }) }))
       ]);
 
+      // Log response status for debugging
+      console.log(`Transactions API response status: ${transactionsRes.status}`);
+      console.log(`Purchases API response status: ${purchasesRes.status}`);
+      
       const transactions = await transactionsRes.json();
       const purchases = await purchasesRes.json();
+      
+      // Log response data for debugging
+      console.log('Transactions response:', transactions);
+      console.log('Purchases response:', purchases);
 
       // Process data into profit metrics
       let processedData = processRawDataToProfit(
@@ -290,8 +301,15 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
   };
 
   useEffect(() => {
-    if (shopId) {
+    if (shopId && authToken) {
       fetchProfitData();
+    } else if (shopId && !authToken) {
+      // If shopId exists but no authToken, show sample data
+      console.log('No auth token available, showing sample data');
+      const sampleData = generateSampleData(timeRange);
+      setProfitData(sampleData);
+      setMetrics(calculateMetrics(sampleData));
+      setLoading(false);
     }
   }, [shopId, timeRange, authToken]);
 
