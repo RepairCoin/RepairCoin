@@ -44,6 +44,14 @@ interface ShopData {
   facebook?: string;
   twitter?: string;
   instagram?: string;
+  firstName?: string;
+  lastName?: string;
+  companySize?: string;
+  monthlyRevenue?: string;
+  website?: string;
+  referral?: string;
+  acceptTerms?: boolean;
+  country?: string;
 }
 
 export interface ShopFilters {
@@ -93,7 +101,15 @@ export class ShopRepository extends BaseRepository {
         operational_status: row.operational_status,
         facebook: row.facebook,
         twitter: row.twitter,
-        instagram: row.instagram
+        instagram: row.instagram,
+        website: row.website,
+        firstName: row.first_name,
+        lastName: row.last_name,
+        companySize: row.company_size,
+        monthlyRevenue: row.monthly_revenue,
+        referral: row.referral,
+        acceptTerms: row.accept_terms,
+        country: row.country
       };
     } catch (error) {
       logger.error('Error fetching shop:', error);
@@ -109,8 +125,10 @@ export class ShopRepository extends BaseRepository {
           reimbursement_address, verified, active, cross_shop_enabled,
           total_tokens_issued, total_redemptions, total_reimbursements,
           join_date, last_activity, fixflow_shop_id, 
-          location_city, location_state, location_zip_code, location_lat, location_lng
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+          location_city, location_state, location_zip_code, location_lat, location_lng,
+          facebook, twitter, instagram,
+          first_name, last_name, company_size, monthly_revenue, website, referral, accept_terms, country
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32)
         RETURNING shop_id
       `;
       
@@ -135,7 +153,18 @@ export class ShopRepository extends BaseRepository {
         typeof shop.location === 'object' ? shop.location?.state : null,
         typeof shop.location === 'object' ? shop.location?.zipCode : null,
         typeof shop.location === 'object' && shop.location?.lat ? parseFloat(shop.location.lat) : null,
-        typeof shop.location === 'object' && shop.location?.lng ? parseFloat(shop.location.lng) : null
+        typeof shop.location === 'object' && shop.location?.lng ? parseFloat(shop.location.lng) : null,
+        shop.facebook,
+        shop.twitter,
+        shop.instagram,
+        shop.firstName,
+        shop.lastName,
+        shop.companySize,
+        shop.monthlyRevenue,
+        shop.website,
+        shop.referral,
+        shop.acceptTerms,
+        shop.country
       ];
       
       const result = await this.pool.query(query, values);
@@ -191,7 +220,9 @@ export class ShopRepository extends BaseRepository {
         locationLng: 'location_lng',
         locationCity: 'location_city',
         locationState: 'location_state',
-        locationZipCode: 'location_zip_code'
+        locationZipCode: 'location_zip_code',
+        firstName: 'first_name',
+        lastName: 'last_name',
       };
 
       for (const [key, value] of Object.entries(updates)) {
@@ -407,6 +438,17 @@ export class ShopRepository extends BaseRepository {
         locationCity: row.location_city,
         locationState: row.location_state,
         locationZipCode: row.location_zip_code,
+        facebook: row.facebook,
+        twitter: row.twitter,
+        instagram: row.instagram,
+        website: row.website,
+        firstName: row.first_name,
+        lastName: row.last_name,
+        companySize: row.company_size,
+        monthlyRevenue: row.monthly_revenue,
+        referral: row.referral,
+        acceptTerms: row.accept_terms,
+        country: row.country
       }));
     } catch (error) {
       logger.error('Error getting active shops:', error);

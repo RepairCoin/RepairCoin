@@ -123,7 +123,18 @@ router.get('/', async (req: Request, res: Response) => {
         city: shop.locationCity,
         state: shop.locationState,
         zipCode: shop.locationZipCode
-      }
+      },
+      website: shop.website,
+      firstName: shop.firstName,
+      lastName: shop.lastName,
+      companySize: shop.companySize,
+      monthlyRevenue: shop.monthlyRevenue,
+      referral: shop.referral,
+      acceptTerms: shop.acceptTerms,
+      country: shop.country,
+      facebook: shop.facebook,
+      twitter: shop.twitter,
+      instagram: shop.instagram
     }));
 
     res.json({
@@ -171,7 +182,18 @@ router.get('/:shopId', async (req: Request, res: Response) => {
         verified: shop.verified,
         crossShopEnabled: shop.crossShopEnabled,
         location: shop.location,
-        joinDate: shop.joinDate
+        joinDate: shop.joinDate,
+        website: shop.website,
+        firstName: shop.firstName,
+        lastName: shop.lastName,
+        companySize: shop.companySize,
+        monthlyRevenue: shop.monthlyRevenue,
+        referral: shop.referral,
+        acceptTerms: shop.acceptTerms,
+        country: shop.country,
+        facebook: shop.facebook,
+        twitter: shop.twitter,
+        instagram: shop.instagram
       };
     }
 
@@ -242,7 +264,16 @@ router.get('/wallet/:address',
           // Include social media fields
           facebook: shop.facebook,
           twitter: shop.twitter,
-          instagram: shop.instagram
+          instagram: shop.instagram,
+          // Add other fields as needed
+          website: shop.website,
+          firstName: shop.firstName,
+          lastName: shop.lastName,
+          companySize: shop.companySize,
+          monthlyRevenue: shop.monthlyRevenue,
+          referral: shop.referral,
+          acceptTerms: shop.acceptTerms,
+          country: shop.country,
         };
       }
 
@@ -340,7 +371,18 @@ router.post('/register',
         joinDate: new Date().toISOString(),
         lastActivity: new Date().toISOString(),
         fixflowShopId,
-        location: mergedLocation
+        location: mergedLocation,
+        firstName,
+        lastName,
+        companySize,
+        monthlyRevenue,
+        website,
+        referral,
+        facebook,
+        twitter,
+        instagram,
+        acceptTerms,
+        country
       };
 
       await shopRepository.createShop(newShop);
@@ -394,7 +436,9 @@ router.put('/:shopId/details',
         location,
         facebook,
         twitter,
-        instagram
+        instagram,
+        firstName,
+        lastName,
       } = req.body;
 
       logger.info('Shop details update request received:', {
@@ -424,7 +468,9 @@ router.put('/:shopId/details',
         facebook?: string;
         twitter?: string;
         instagram?: string;
-      }> = {};
+        firstName?: string;
+        lastName?: string;
+     }> = {};
       if (name !== undefined) updates.name = name;
       if (email !== undefined) updates.email = email;
       if (phone !== undefined) updates.phone = phone;
@@ -435,7 +481,9 @@ router.put('/:shopId/details',
       if (facebook !== undefined) updates.facebook = facebook;
       if (twitter !== undefined) updates.twitter = twitter;
       if (instagram !== undefined) updates.instagram = instagram;
-      
+      if (firstName !== undefined) updates.firstName = firstName;
+      if (lastName !== undefined) updates.lastName = lastName;
+            
       // Handle location updates - coordinates are stored in separate database columns
       if (location !== undefined) {
         // Validate and set coordinates if provided
