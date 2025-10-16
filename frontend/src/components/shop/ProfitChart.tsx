@@ -81,14 +81,26 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
         console.log('No auth token available for API requests');
       }
 
+      // Get API base URL from environment
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+      
+      console.log('API Base URL:', apiBaseUrl);
+      console.log('Fetching data for shopId:', shopId);
+
       // Fetch shop transactions and purchases data
       const [transactionsRes, purchasesRes] = await Promise.all([
-        fetch(`/api/shops/${shopId}/transactions?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`, {
+        fetch(`${apiBaseUrl}/shops/${shopId}/transactions?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`, {
           headers
-        }).catch(() => ({ ok: false, json: () => Promise.resolve({ data: [] }) })),
-        fetch(`/api/shops/${shopId}/purchases?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`, {
+        }).catch((err) => {
+          console.error('Transactions API fetch error:', err);
+          return { ok: false, status: 0, json: () => Promise.resolve({ data: [] }) };
+        }),
+        fetch(`${apiBaseUrl}/shops/${shopId}/purchases?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`, {
           headers
-        }).catch(() => ({ ok: false, json: () => Promise.resolve({ data: { items: [] } }) }))
+        }).catch((err) => {
+          console.error('Purchases API fetch error:', err);
+          return { ok: false, status: 0, json: () => Promise.resolve({ data: { items: [] } }) };
+        })
       ]);
 
       // Log response status for debugging
