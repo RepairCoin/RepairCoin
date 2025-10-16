@@ -171,8 +171,8 @@ export class PromoCodeRepository extends BaseRepository {
       const insertQuery = `
         INSERT INTO promo_code_uses (
           promo_code_id, customer_address, shop_id, transaction_id,
-          base_reward, bonus_amount, total_reward
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+          discount_applied
+        ) VALUES ($1, $2, $3, $4, $5)
         RETURNING *
       `;
 
@@ -180,10 +180,8 @@ export class PromoCodeRepository extends BaseRepository {
         promoCodeId,
         customerAddress.toLowerCase(),
         shopId,
-        transactionId || null,
-        baseReward,
-        bonusAmount,
-        baseReward + bonusAmount
+        transactionId ? transactionId.toString() : null,
+        bonusAmount  // Using bonusAmount as the discount_applied value
       ];
 
       const insertResult = await client.query<PromoCodeUse>(insertQuery, insertValues);
@@ -219,8 +217,8 @@ export class PromoCodeRepository extends BaseRepository {
       SELECT 
         COUNT(*) as total_uses,
         COUNT(DISTINCT customer_address) as unique_customers,
-        SUM(bonus_amount) as total_bonus_issued,
-        AVG(bonus_amount) as average_bonus
+        SUM(discount_applied) as total_bonus_issued,
+        AVG(discount_applied) as average_bonus
       FROM promo_code_uses
       WHERE promo_code_id = $1
     `;
@@ -229,7 +227,7 @@ export class PromoCodeRepository extends BaseRepository {
       SELECT 
         DATE(used_at) as date,
         COUNT(*) as uses,
-        SUM(bonus_amount) as bonus_issued
+        SUM(discount_applied) as bonus_issued
       FROM promo_code_uses
       WHERE promo_code_id = $1
       GROUP BY DATE(used_at)
