@@ -12,6 +12,7 @@ import { TierManager, CustomerData, TierLevel } from '../../../contracts/TierMan
 import { logger } from '../../../utils/logger';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
 import { TokenService } from '../../token/services/TokenService';
+import { AdminRoleConflictService } from '../../../services/AdminRoleConflictService';
 
 export interface AdminStats {
   totalCustomers: number;
@@ -1670,9 +1671,37 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
           return true;
         }
         
-        // If not in database but is super admin from env, auto-create
+        // If not in database but is super admin from env, auto-create with conflict checking
         if (isSuperAdminFromEnv && typeof adminRepository.createAdmin === 'function') {
           logger.info('Auto-migrating super admin from environment to database', { walletAddress });
+          
+          // Check for role conflicts before auto-creating
+          const conflictService = new AdminRoleConflictService();
+          const skipConflictCheck = process.env.ADMIN_SKIP_CONFLICT_CHECK === 'true';
+          
+          if (!skipConflictCheck) {
+            try {
+              const conflict = await conflictService.checkRoleConflict(normalizedAddress);
+              if (conflict.hasConflict) {
+                logger.error('🚫 Admin auto-creation blocked due to role conflict', {
+                  walletAddress: normalizedAddress,
+                  existingRole: conflict.existingRole,
+                  existingData: conflict.existingData
+                });
+                logger.error('   Resolution options:');
+                logger.error('   1. Remove address from ADMIN_ADDRESSES');
+                logger.error('   2. Use CLI: npm run admin:promote <address> --action deactivate|preserve');
+                logger.error('   3. Set ADMIN_SKIP_CONFLICT_CHECK=true to bypass (not recommended)');
+                return false;
+              }
+            } catch (conflictError) {
+              logger.error('Error checking admin role conflicts during auto-creation:', conflictError);
+              // Don't block if conflict check fails, but log it
+            }
+          } else {
+            logger.warn('⚠️ Admin role conflict check bypassed by ADMIN_SKIP_CONFLICT_CHECK=true');
+          }
+          
           try {
             // First, remove super admin status from all existing admins
             const allAdmins = await adminRepository.getAllAdmins();
@@ -1690,6 +1719,13 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
               permissions: ['all'],
               isSuperAdmin: true,
               createdBy: 'system'
+            });
+            
+            // Log the admin creation for audit purposes
+            logger.info('✅ Admin auto-created successfully', {
+              walletAddress: normalizedAddress,
+              action: 'admin_auto_creation',
+              skipConflictCheck
             });
             
             return true;

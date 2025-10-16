@@ -1,6 +1,7 @@
 // backend/src/utils/roleValidator.ts
 import { customerRepository, shopRepository } from '../repositories';
 import { logger } from './logger';
+import { UniquenessService } from '../services/uniquenessService';
 
 export interface RoleCheckResult {
   isValid: boolean;
@@ -15,7 +16,7 @@ export class RoleValidator {
   /**
    * Check if wallet address has role conflicts for customer registration
    */
-  static async validateCustomerRegistration(walletAddress: string): Promise<RoleCheckResult> {
+  static async validateCustomerRegistration(walletAddress: string, email?: string): Promise<RoleCheckResult> {
     const normalizedAddress = walletAddress.toLowerCase();
 
     try {
@@ -39,6 +40,21 @@ export class RoleValidator {
         };
       }
 
+      // Check email uniqueness if provided
+      if (email) {
+        const uniquenessService = new UniquenessService();
+        const emailCheck = await uniquenessService.checkEmailUniqueness(email);
+        
+        if (!emailCheck.isUnique) {
+          const conflictType = emailCheck.conflictType === 'shop' ? 'shop' : 'customer';
+          return {
+            isValid: false,
+            conflictingRole: conflictType,
+            message: `Email address is already registered to a ${conflictType} account`
+          };
+        }
+      }
+
       return { isValid: true };
     } catch (error) {
       logger.error('Error validating customer registration role conflicts:', error);
@@ -49,7 +65,7 @@ export class RoleValidator {
   /**
    * Check if wallet address has role conflicts for shop registration
    */
-  static async validateShopRegistration(walletAddress: string): Promise<RoleCheckResult> {
+  static async validateShopRegistration(walletAddress: string, email?: string): Promise<RoleCheckResult> {
     const normalizedAddress = walletAddress.toLowerCase();
 
     try {
@@ -71,6 +87,21 @@ export class RoleValidator {
           conflictingRole: 'customer',
           message: `This wallet address is already registered as a customer and cannot be used for shop registration`
         };
+      }
+
+      // Check email uniqueness if provided
+      if (email) {
+        const uniquenessService = new UniquenessService();
+        const emailCheck = await uniquenessService.checkEmailUniqueness(email);
+        
+        if (!emailCheck.isUnique) {
+          const conflictType = emailCheck.conflictType === 'customer' ? 'customer' : 'shop';
+          return {
+            isValid: false,
+            conflictingRole: conflictType,
+            message: `Email address is already registered to a ${conflictType} account`
+          };
+        }
       }
 
       return { isValid: true };

@@ -2,6 +2,7 @@
 import { Router, Request, Response } from 'express';
 import { authMiddleware, requireRole, requireShopOrAdmin, requireShopOwnership } from '../../../middleware/auth';
 import { validateRequired, validateEthereumAddress, validateEmail, validateNumeric } from '../../../middleware/errorHandler';
+import { validateShopUniqueness } from '../../../middleware/validation';
 import { 
   shopRepository, 
   customerRepository, 
@@ -261,6 +262,7 @@ router.post('/register',
   validateRequired(['shopId', 'name', 'address', 'phone', 'email', 'walletAddress']),
   validateEthereumAddress('walletAddress'),
   validateEmail('email'),
+  validateShopUniqueness({ email: true, wallet: true }),
   validateShopRoleConflict,
   async (req: Request, res: Response) => {
     try {
@@ -369,6 +371,8 @@ router.put('/:shopId/details',
   authMiddleware,
   requireRole(['shop']),
   requireShopOwnership,
+  validateEmail('email'),
+  validateShopUniqueness({ email: true, wallet: false, excludeField: 'shopId' }),
   async (req: Request, res: Response) => {
     try {
       const { shopId } = req.params;
@@ -494,6 +498,8 @@ router.put('/:shopId/details',
 router.put('/:shopId',
   requireShopOrAdmin,
   requireShopOwnership,
+  validateEmail('email'),
+  validateShopUniqueness({ email: true, wallet: false, excludeField: 'shopId' }),
   async (req: Request, res: Response) => {
     try {
       const { shopId } = req.params;

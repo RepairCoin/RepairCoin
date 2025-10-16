@@ -24,6 +24,7 @@ import { ShopDomain } from './domains/shop/ShopDomain';
 import { AdminDomain } from './domains/admin/AdminDomain'; 
 import { eventBus } from './events/EventBus';
 import { monitoringService } from './services/MonitoringService';
+import { StartupValidationService } from './services/StartupValidationService';
 
 // Your existing route imports (for non-domain routes)
 import healthRoutes from './routes/health';
@@ -196,7 +197,7 @@ class RepairCoinApp {
   }
 
   private setupRoutes(): void {
-    // Root endpoint - Backend status
+    // Root endpoint - Backend status with enhanced security info
     this.app.get('/', (req, res) => {
       res.json({
         message: 'RepairCoin Backend API is running',
@@ -207,7 +208,38 @@ class RepairCoinApp {
         endpoints: {
           health: '/api/health',
           docs: process.env.ENABLE_SWAGGER === 'true' ? '/api-docs' : 'disabled',
-          api: '/api'
+          api: '/api',
+          systemInfo: '/api/system/info'
+        },
+        features: {
+          dualTokenSystem: {
+            rcn: 'Utility token for rewards (1 RCN = $0.10 USD)',
+            rcg: 'Governance token (100M fixed supply)'
+          },
+          security: {
+            uniqueConstraints: 'Email and wallet addresses are unique across all account types',
+            roleConflictDetection: 'Admin role conflicts are detected and blocked',
+            auditLogging: 'Comprehensive role change audit trails',
+            startupValidation: 'Application validates admin addresses on startup'
+          },
+          adminTools: {
+            conflictCheck: 'npm run admin:check-conflicts',
+            safePromotion: 'npm run admin:promote <address> --action <deactivate|preserve|force>',
+            roleHistory: 'npm run admin:history <address>',
+            help: 'npm run admin:help'
+          },
+          domains: [
+            'Customer Management (tiers, referrals, analytics)',
+            'Shop Management (subscriptions, purchasing, bonuses)', 
+            'Token Operations (minting, redemption, cross-shop)',
+            'Admin Dashboard (analytics, treasury, user management)',
+            'Webhook Processing (FixFlow, Stripe, rate limiting)'
+          ],
+          blockchain: {
+            network: 'Base Sepolia',
+            rcnContract: '0xBFE793d78B6B83859b528F191bd6F2b8555D951C',
+            rcgContract: '0xdaFCC0552d976339cA28EF2e84ca1c6561379c9D'
+          }
         }
       });
     });
@@ -363,6 +395,21 @@ class RepairCoinApp {
     console.log('🔥 Warming up database connection pool...');
     const { warmUpPool } = await import('./utils/database-pool');
     await warmUpPool();
+    
+    // Perform startup validation for admin addresses
+    console.log('🔍 Performing startup validation...');
+    const validationService = new StartupValidationService();
+    const validation = await validationService.performFullStartupValidation();
+    
+    if (!validation.canStart) {
+      console.error('🚫 Application startup blocked due to validation failures');
+      console.error('   Please resolve the issues above and restart the application');
+      process.exit(1);
+    }
+    
+    if (validation.summary.warnings > 0) {
+      console.warn(`⚠️ Application starting with ${validation.summary.warnings} warnings`);
+    }
     
     this.app.listen(port, () => {
       console.log('\n==============================================');

@@ -9,6 +9,7 @@ import {
   validateNumeric,
   asyncHandler 
 } from '../../../middleware/errorHandler';
+import { validateCustomerUniqueness } from '../../../middleware/validation';
 import { RateLimiter, createRateLimitMiddleware } from '../../../utils/rateLimiter';
 import { CustomerController } from '../controllers/CustomerController';
 import { CustomerService } from '../services/CustomerService';
@@ -83,6 +84,7 @@ router.post('/register',
   validateRequired(['walletAddress']),
   validateEthereumAddress('walletAddress'),
   validateEmail('email'),
+  validateCustomerUniqueness({ email: true, wallet: true }),
   validateCustomerRoleConflict,
   asyncHandler(customerController.registerCustomer.bind(customerController))
 );
@@ -105,6 +107,8 @@ router.put('/:address',
   authMiddleware,
   requireRole(['admin', 'customer']),
   validateEthereumAddress('address'),
+  validateEmail('email'),
+  validateCustomerUniqueness({ email: true, wallet: false, excludeField: 'address' }),
   asyncHandler(customerController.updateCustomer.bind(customerController))
 );
 

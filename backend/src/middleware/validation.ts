@@ -2,6 +2,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ValidationError } from './errorHandler';
 import { logger } from '../utils/logger';
+import { UniquenessService } from '../services/uniquenessService';
 
 // Validation result interface
 export interface ValidationResult {
@@ -456,6 +457,74 @@ export const validateFileUpload = (options: {
     }
   };
 };
+
+// Uniqueness validation middleware
+export const validateUniqueness = (options: {
+  email?: boolean;
+  wallet?: boolean;
+  accountType: 'customer' | 'shop';
+  excludeField?: string; // For updates - field name to exclude current record
+}) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const uniquenessService = new UniquenessService();
+      const errors: string[] = [];
+      
+      const email = req.body.email;
+      const walletAddress = req.body.walletAddress || req.body.wallet_address;
+      
+      // Get exclude values for updates
+      const excludeCustomerAddress = options.excludeField && options.accountType === 'customer' 
+        ? req.params[options.excludeField] || req.body[options.excludeField]
+        : undefined;
+      const excludeShopId = options.excludeField && options.accountType === 'shop'
+        ? req.params[options.excludeField] || req.body[options.excludeField] 
+        : undefined;
+
+      if (options.email && email) {
+        const emailCheck = await uniquenessService.checkEmailUniqueness(
+          email, 
+          excludeCustomerAddress, 
+          excludeShopId
+        );
+        
+        if (!emailCheck.isUnique) {
+          const conflictType = emailCheck.conflictType === 'customer' ? 'customer' : 'shop';
+          errors.push(`Email address is already registered to a ${conflictType} account`);
+        }
+      }
+
+      if (options.wallet && walletAddress) {
+        const walletCheck = await uniquenessService.checkWalletUniqueness(
+          walletAddress, 
+          excludeCustomerAddress, 
+          excludeShopId
+        );
+        
+        if (!walletCheck.isUnique) {
+          const conflictType = walletCheck.conflictType === 'customer' ? 'customer' : 'shop';
+          errors.push(`Wallet address is already registered to a ${conflictType} account`);
+        }
+      }
+
+      if (errors.length > 0) {
+        return next(new ValidationError(errors.join('; ')));
+      }
+
+      next();
+    } catch (error: any) {
+      logger.error('Uniqueness validation error:', error);
+      next(new ValidationError(`Uniqueness validation error: ${error.message}`));
+    }
+  };
+};
+
+// Convenience functions for uniqueness validation
+export const validateCustomerUniqueness = (options: { email?: boolean; wallet?: boolean; excludeField?: string }) => 
+  validateUniqueness({ ...options, accountType: 'customer' });
+
+export const validateShopUniqueness = (options: { email?: boolean; wallet?: boolean; excludeField?: string }) => 
+  validateUniqueness({ ...options, accountType: 'shop' });
 
 // Export commonly used validation schemas
 export const CommonSchemas = {
