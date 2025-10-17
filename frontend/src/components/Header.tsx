@@ -114,7 +114,7 @@ const Header: React.FC = () => {
                 {/* Navigation Links */}
                 <nav className="flex items-center">
                   <ul className="flex space-x-6">
-                    {["Rewards", "About"].map((item) => (
+                    {["Features", "Rewards", "About"].map((item) => (
                       <li key={item}>
                         <a
                           href={`${item.toLowerCase()}`}
@@ -157,7 +157,7 @@ const Header: React.FC = () => {
                 <div className="px-4 py-4 space-y-4">
                   {/* Navigation Links */}
                   <nav className="flex flex-col items-center space-y-3">
-                    {["Rewards", "About"].map(
+                    {["Features", "Rewards", "About"].map(
                       (item) => (
                         <a
                           key={`mobile-${item}`}
