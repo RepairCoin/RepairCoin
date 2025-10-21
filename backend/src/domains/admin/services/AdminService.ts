@@ -759,7 +759,7 @@ export class AdminService {
       const result = await treasuryRepository.query(`
         SELECT COUNT(*) as new_customers
         FROM customers 
-        WHERE DATE(join_date) = CURRENT_DATE
+        WHERE DATE(created_at) = CURRENT_DATE
       `);
       return parseInt(result.rows[0]?.new_customers || '0');
     } catch (error) {
@@ -1988,132 +1988,175 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
   }
 
   async mintShopBalance(shopId: string) {
+    const db = treasuryRepository;
+    
+    // Start atomic transaction to prevent race conditions
+    await db.query('BEGIN');
+    
     try {
-      // Get shop data
-      const shop = await shopRepository.getShop(shopId);
-      if (!shop) {
+      // Get shop data with row lock to prevent concurrent modifications
+      const shopQuery = await db.query(`
+        SELECT shop_id, name, wallet_address, active, verified
+        FROM shops 
+        WHERE shop_id = $1 
+        FOR UPDATE
+      `, [shopId]);
+      
+      if (shopQuery.rowCount === 0) {
         throw new Error('Shop not found');
       }
+      
+      const shop = shopQuery.rows[0];
+      
+      if (!shop.active || !shop.verified) {
+        throw new Error('Shop must be active and verified to mint tokens');
+      }
 
-      // Get total purchased RCN from shop_rcn_purchases table (only unminted purchases)
-      // Only include completed purchases to ensure we mint only confirmed payments
-      let purchaseQuery;
+      // Get purchases to mint with row locks to prevent concurrent minting
+      let purchasesToMint;
+      let hasMintedAtColumn = true;
+      
       try {
         // Try with minted_at column first
-        purchaseQuery = await treasuryRepository.query(`
-          SELECT 
-            COALESCE(SUM(amount), 0) as total_purchased
+        purchasesToMint = await db.query(`
+          SELECT id, amount, created_at
           FROM shop_rcn_purchases 
           WHERE shop_id = $1 
             AND status = 'completed'
             AND minted_at IS NULL
+          FOR UPDATE
         `, [shopId]);
       } catch (error: any) {
         // Fallback if minted_at column doesn't exist
-        if (error.message?.includes('minted_at')) {
-          purchaseQuery = await treasuryRepository.query(`
-            SELECT 
-              COALESCE(SUM(amount), 0) as total_purchased
+        if (error.message?.includes('minted_at') || error.message?.includes('column')) {
+          hasMintedAtColumn = false;
+          purchasesToMint = await db.query(`
+            SELECT id, amount, created_at
             FROM shop_rcn_purchases 
             WHERE shop_id = $1 
               AND status = 'completed'
+            FOR UPDATE
           `, [shopId]);
         } else {
           throw error;
         }
       }
       
-      const totalPurchased = parseFloat(purchaseQuery.rows[0]?.total_purchased || '0');
+      if (purchasesToMint.rowCount === 0) {
+        throw new Error('No balance to mint');
+      }
       
-      // Get current blockchain balance
+      const totalToMint = purchasesToMint.rows.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+      
+      // Get current blockchain balance for verification
       let blockchainBalance = 0;
       try {
         const tokenService = new TokenService();
-        blockchainBalance = await tokenService.getBalance(shop.walletAddress);
+        blockchainBalance = await tokenService.getBalance(shop.wallet_address);
       } catch (balanceError) {
-        logger.warn('Could not fetch blockchain balance, assuming 0', {
+        logger.warn('Could not fetch blockchain balance for verification', {
           shopId,
-          walletAddress: shop.walletAddress,
+          walletAddress: shop.wallet_address,
           error: balanceError
         });
-        blockchainBalance = 0;
       }
       
-      logger.info('Mint balance calculation', {
+      logger.info('Atomic mint operation starting', {
         shopId,
-        walletAddress: shop.walletAddress,
-        totalPurchased,
-        blockchainBalance,
-        unmintedBalance: totalPurchased - blockchainBalance
+        walletAddress: shop.wallet_address,
+        totalToMint,
+        purchaseCount: purchasesToMint.rowCount,
+        currentBlockchainBalance: blockchainBalance,
+        hasMintedAtColumn
       });
-      
-      // Calculate unminted balance (total purchased - blockchain balance)
-      const unmintedBalance = totalPurchased - blockchainBalance;
-      
-      if (unmintedBalance <= 0) {
-        throw new Error('No balance to mint');
-      }
 
       // Mint tokens directly to shop wallet
       const tokenMinter = new TokenMinter();
       const mintResult = await tokenMinter.adminMintTokens(
-        shop.walletAddress,
-        unmintedBalance,
-        `Shop purchase: ${shopId} bought ${unmintedBalance} RCN`
+        shop.wallet_address,
+        totalToMint,
+        `Shop purchase mint: ${shopId} - ${purchasesToMint.rowCount} purchases`
       );
 
       if (!mintResult || !mintResult.success) {
         throw new Error(`Minting failed: ${mintResult?.error || 'Unknown error'}`);
       }
 
-      // Mark all unminted completed purchases as minted
-      try {
-        await treasuryRepository.query(`
+      // Mark specific purchases as minted (atomic operation)
+      const purchaseIds = purchasesToMint.rows.map(p => p.id);
+      
+      if (hasMintedAtColumn) {
+        // Update with minted_at timestamp and transaction hash
+        await db.query(`
           UPDATE shop_rcn_purchases 
           SET 
             minted_at = NOW(),
             transaction_hash = $2
           WHERE 
-            shop_id = $1 
+            id = ANY($1)
+            AND shop_id = $3
             AND status = 'completed'
-            AND minted_at IS NULL
-        `, [shopId, mintResult.transactionHash]);
-      } catch (updateError: any) {
-        // If minted_at or transaction_hash columns don't exist, fallback to status update
-        if (updateError.message?.includes('column') && (updateError.message?.includes('minted_at') || updateError.message?.includes('transaction_hash'))) {
-          logger.warn('minted_at or transaction_hash column not found, updating status to minted');
-          await treasuryRepository.query(`
-            UPDATE shop_rcn_purchases 
-            SET status = 'minted'
-            WHERE 
-              shop_id = $1 
-              AND status = 'completed'
-          `, [shopId]);
-        } else {
-          throw updateError;
-        }
+        `, [purchaseIds, mintResult.transactionHash, shopId]);
+      } else {
+        // Fallback: update status to 'minted'
+        await db.query(`
+          UPDATE shop_rcn_purchases 
+          SET status = 'minted'
+          WHERE 
+            id = ANY($1)
+            AND shop_id = $2
+        `, [purchaseIds, shopId]);
       }
       
-      logger.info('Shop balance minted and purchases marked as minted', { 
-        shopId, 
-        amount: unmintedBalance,
-        walletAddress: shop.walletAddress,
-        transactionHash: mintResult.transactionHash
+      // Verify the update affected the expected number of rows
+      const verifyQuery = await db.query(`
+        SELECT COUNT(*) as updated_count
+        FROM shop_rcn_purchases 
+        WHERE id = ANY($1)
+          AND shop_id = $2
+          AND (${hasMintedAtColumn ? 'minted_at IS NOT NULL' : "status = 'minted'"})
+      `, [purchaseIds, shopId]);
+      
+      const updatedCount = parseInt(verifyQuery.rows[0]?.updated_count || '0');
+      if (updatedCount !== purchaseIds.length) {
+        throw new Error(`Database update verification failed: expected ${purchaseIds.length}, got ${updatedCount}`);
+      }
+
+      // Commit the transaction
+      await db.query('COMMIT');
+      
+      logger.info('Atomic mint operation completed successfully', {
+        shopId,
+        transactionHash: mintResult.transactionHash,
+        amountMinted: totalToMint,
+        purchasesProcessed: purchaseIds.length,
+        newBlockchainBalance: blockchainBalance + totalToMint
       });
 
       return {
         success: true,
-        message: `Successfully minted ${unmintedBalance} RCN to shop wallet`,
+        message: `Successfully minted ${totalToMint} RCN to shop wallet`,
         data: {
           shopId,
           shopName: shop.name,
-          amountMinted: unmintedBalance,
-          walletAddress: shop.walletAddress,
-          transactionHash: mintResult.transactionHash
+          amountMinted: totalToMint,
+          walletAddress: shop.wallet_address,
+          transactionHash: mintResult.transactionHash,
+          purchasesProcessed: purchaseIds.length,
+          atomicOperation: true
         }
       };
+      
     } catch (error) {
-      logger.error('Error minting shop balance:', error);
+      // Rollback transaction on any error
+      await db.query('ROLLBACK');
+      
+      logger.error('Atomic mint operation failed - transaction rolled back:', {
+        shopId,
+        error: error.message,
+        stack: error.stack
+      });
+      
       throw error;
     }
   }

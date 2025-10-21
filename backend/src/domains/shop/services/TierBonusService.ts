@@ -126,36 +126,28 @@ export class TierBonusService {
         return null;
       }
 
-      // Create tier bonus record
-      // TODO: Implement createTierBonus in repository
-      // await tierBonusRepository.createTierBonus({
-      //   customerAddress: repairTransaction.customerAddress,
-      //   shopId: repairTransaction.shopId,
-      //   baseTransactionId: repairTransaction.transactionId,
-      //   customerTier: bonusCalc.customerTier,
-      //   bonusAmount: bonusCalc.bonusAmount,
-      //   baseRepairAmount: repairTransaction.repairAmount,
-      //   baseRcnEarned: repairTransaction.baseRcnEarned
-      // });
+      // Create tier bonus record in transactions table
+      await transactionRepository.create({
+        customerAddress: repairTransaction.customerAddress,
+        shopId: repairTransaction.shopId,
+        type: 'tier_bonus',
+        amount: bonusCalc.bonusAmount,
+        reason: `Tier bonus for ${bonusCalc.customerTier} customer (base transaction: ${repairTransaction.transactionId})`,
+        transactionHash: `tier_bonus_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+        timestamp: new Date().toISOString(),
+        status: 'completed',
+        metadata: {
+          baseTransactionId: repairTransaction.transactionId,
+          customerTier: bonusCalc.customerTier,
+          baseRepairAmount: repairTransaction.repairAmount,
+          baseRcnEarned: repairTransaction.baseRcnEarned,
+          bonusType: 'tier_bonus'
+        }
+      });
 
-      // Deduct bonus from shop balance
-      // TODO: Implement updateShopRcnBalance in repository
-      // await shopRepository.updateShopRcnBalance(
-      //   repairTransaction.shopId, 
-      //   bonusCalc.bonusAmount, 
-      //   'subtract'
-      // );
-
-      // Record token source for anti-arbitrage tracking
-      // TODO: Implement recordTokenSource in repository
-      // await tokenSourceRepository.recordTokenSource({
-      //   customerAddress: repairTransaction.customerAddress,
-      //   amount: bonusCalc.bonusAmount,
-      //   source: 'tier_bonus',
-      //   earningTransactionId: repairTransaction.transactionId,
-      //   shopId: repairTransaction.shopId,
-      //   isRedeemableAtShops: true
-      // });
+      // Deduct bonus from shop balance and update customer balance
+      await shopRepository.updateShopRcnBalance(repairTransaction.shopId, -bonusCalc.bonusAmount);
+      await customerRepository.updateBalanceAfterTransfer(repairTransaction.customerAddress, bonusCalc.bonusAmount);
 
       logger.info(`Tier bonus applied: ${repairTransaction.customerAddress} - ${bonusCalc.customerTier} - ${bonusCalc.bonusAmount} RCN`);
 
@@ -177,8 +169,19 @@ export class TierBonusService {
     recentBonuses: TierBonus[];
   }> {
     try {
-      // TODO: Implement getTierBonusesForCustomer in repository
-      const bonuses: TierBonus[] = []; // await tierBonusRepository.getTierBonusesForCustomer(customerAddress);
+      // Get tier bonus transactions for customer
+      const tierBonusTransactions = await transactionRepository.getTransactionsByType(customerAddress, 'tier_bonus');
+      
+      // Convert transactions to TierBonus format
+      const bonuses: TierBonus[] = tierBonusTransactions.map(tx => ({
+        id: tx.id,
+        customerAddress: tx.customerAddress,
+        shopId: tx.shopId || '',
+        tier: tx.metadata?.customerTier || 'BRONZE',
+        bonusAmount: tx.amount,
+        transactionId: tx.metadata?.baseTransactionId || tx.id,
+        createdAt: new Date(tx.createdAt)
+      }));
       
       const totalBonusesReceived = bonuses.length;
       const totalBonusAmount = bonuses.reduce((sum, bonus) => sum + bonus.bonusAmount, 0);
@@ -216,8 +219,23 @@ export class TierBonusService {
     averageBonusPerTransaction: number;
   }> {
     try {
-      // TODO: Implement getTierBonusStatistics in repository
-      const stats = { totalBonusesIssued: 0, totalBonusAmount: 0, bonusesByTier: {} }; // await tierBonusRepository.getTierBonusStatistics(shopId);
+      // Get tier bonus transactions for shop
+      const shopTierBonusTransactions = await transactionRepository.getTransactionsByShopAndType(shopId, 'tier_bonus');
+      
+      const totalBonusesIssued = shopTierBonusTransactions.length;
+      const totalBonusAmount = shopTierBonusTransactions.reduce((sum, tx) => sum + tx.amount, 0);
+      
+      const bonusesByTier = shopTierBonusTransactions.reduce((acc, tx) => {
+        const tier = tx.metadata?.customerTier || 'BRONZE';
+        if (!acc[tier]) {
+          acc[tier] = { count: 0, amount: 0 };
+        }
+        acc[tier].count++;
+        acc[tier].amount += tx.amount;
+        return acc;
+      }, {} as { [key: string]: { count: number; amount: number } });
+      
+      const stats = { totalBonusesIssued, totalBonusAmount, bonusesByTier };
       
       const averageBonusPerTransaction = stats.totalBonusesIssued > 0 
         ? stats.totalBonusAmount / stats.totalBonusesIssued 

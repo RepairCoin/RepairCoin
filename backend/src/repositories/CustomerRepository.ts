@@ -445,33 +445,6 @@ export class CustomerRepository extends BaseRepository {
     }
   }
 
-  async getCustomersByTier(tier: TierLevel): Promise<CustomerData[]> {
-    try {
-      const query = 'SELECT * FROM customers WHERE tier = $1 AND is_active = true';
-      const result = await this.pool.query(query, [tier]);
-      
-      return result.rows.map(row => ({
-        address: row.address,
-        name: row.name,
-        email: row.email,
-        phone: row.phone,
-        tier: row.tier,
-        lifetimeEarnings: parseFloat(row.lifetime_earnings),
-        lastEarnedDate: row.last_earned_date,
-        joinDate: row.join_date,
-        isActive: row.is_active,
-        referralCount: row.referral_count,
-        fixflowCustomerId: row.fixflow_customer_id,
-        suspendedAt: row.suspended_at,
-        suspensionReason: row.suspension_reason,
-        referralCode: row.referral_code,
-        referredBy: row.referred_by
-      }));
-    } catch (error) {
-      logger.error('Error getting customers by tier:', error);
-      throw new Error('Failed to get customers by tier');
-    }
-  }
 
   async getCustomerAnalytics(address: string): Promise<{
     totalEarned: number;
@@ -831,6 +804,38 @@ export class CustomerRepository extends BaseRepository {
     } catch (error) {
       logger.error('Error getting balance statistics:', error);
       throw new Error('Failed to get balance statistics');
+    }
+  }
+
+  async getCustomersByTier(tier: 'BRONZE' | 'SILVER' | 'GOLD'): Promise<any[]> {
+    try {
+      const query = `
+        SELECT 
+          c.*,
+          COALESCE(cb.total_balance, 0) as balance
+        FROM customers c
+        LEFT JOIN customer_balances cb ON c.address = cb.customer_address
+        WHERE c.tier = $1 AND c.is_active = true
+        ORDER BY c.lifetime_earnings DESC
+      `;
+      
+      const result = await this.pool.query(query, [tier]);
+      
+      return result.rows.map(row => ({
+        address: row.address,
+        name: row.name,
+        email: row.email,
+        phone: row.phone,
+        tier: row.tier,
+        lifetimeEarnings: parseFloat(row.lifetime_earnings || '0'),
+        balance: parseFloat(row.balance || '0'),
+        active: row.is_active,
+        joinDate: row.join_date,
+        lastActivity: row.last_earned_date
+      }));
+    } catch (error) {
+      logger.error('Error getting customers by tier:', error);
+      throw new Error('Failed to get customers by tier');
     }
   }
 

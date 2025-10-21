@@ -6,7 +6,7 @@ import { ShopRepository } from '../../../repositories/ShopRepository';
 import { transactionRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
 import { validateRequired, validateEthereumAddress, validateNumeric } from '../../../middleware/errorHandler';
-// import { getRCGService } from '../../../services/RCGService';
+import { getRCGService } from '../../../services/RCGService';
 // TODO: Implement treasury methods in repository
 
 const router = Router();
@@ -156,41 +156,53 @@ router.get('/treasury', async (req: Request, res: Response) => {
 // Get RCG metrics for treasury
 router.get('/treasury/rcg', async (req: Request, res: Response) => {
     try {
-        // const rcgService = getRCGService();
-        // const rcgMetrics = await rcgService.getRCGMetrics();
+        const rcgService = getRCGService();
         
-        // Mock RCG metrics until service is implemented
-        const mockRcgMetrics = {
-            totalSupply: "100000000", // 100M fixed supply
-            circulatingSupply: "20000000", // 20M circulating
-            allocations: {
-                team: "30000000", // 30%
-                investors: "30000000", // 30%
-                publicSale: "20000000", // 20%
-                daoTreasury: "15000000", // 15%
-                stakingRewards: "5000000" // 5%
-            },
-            shopTierDistribution: {
-                standard: 0,
-                premium: 0,
-                elite: 0,
-                none: 0,
-                total: 0
-            },
-            revenueImpact: {
-                standardRevenue: 0,
-                premiumRevenue: 0,
-                eliteRevenue: 0,
-                totalRevenue: 0,
-                discountsGiven: 0
-            },
-            topHolders: []
-        };
-        
-        res.json({
-            success: true,
-            data: mockRcgMetrics
-        });
+        try {
+            const rcgMetrics = await rcgService.getRCGMetrics();
+            
+            res.json({
+                success: true,
+                data: rcgMetrics
+            });
+        } catch (blockchainError) {
+            // If blockchain connection fails, return mock data with warning
+            logger.warn('Failed to fetch real RCG metrics, using fallback data:', blockchainError);
+            
+            const fallbackRcgMetrics = {
+                totalSupply: "100000000", // 100M fixed supply
+                circulatingSupply: "20000000", // 20M circulating (estimate)
+                allocations: {
+                    team: "30000000", // 30%
+                    investors: "30000000", // 30%
+                    publicSale: "20000000", // 20%
+                    daoTreasury: "15000000", // 15%
+                    stakingRewards: "5000000" // 5%
+                },
+                shopTierDistribution: {
+                    standard: 0,
+                    premium: 0,
+                    elite: 0,
+                    none: 0,
+                    total: 0
+                },
+                revenueImpact: {
+                    standardRevenue: 0,
+                    premiumRevenue: 0,
+                    eliteRevenue: 0,
+                    totalRevenue: 0,
+                    discountsGiven: 0
+                },
+                topHolders: [],
+                _warning: 'Blockchain connection failed, showing fallback data'
+            };
+            
+            res.json({
+                success: true,
+                data: fallbackRcgMetrics,
+                warning: 'Real-time blockchain data unavailable'
+            });
+        }
     } catch (error) {
         console.error('Error fetching RCG metrics:', error);
         res.status(500).json({ 
@@ -204,20 +216,45 @@ router.get('/treasury/rcg', async (req: Request, res: Response) => {
 router.post('/treasury/update-shop-tier/:shopId', async (req: Request, res: Response) => {
     try {
         const { shopId } = req.params;
-        // const rcgService = getRCGService();
+        const rcgService = getRCGService();
         
-        // const result = await rcgService.updateShopTier(parseInt(shopId));
+        // Get shop info first to validate
+        const shopRepo = new ShopRepository();
+        const shop = await shopRepo.getShop(shopId);
+        
+        if (!shop) {
+            return res.status(404).json({
+                success: false,
+                error: 'Shop not found'
+            });
+        }
+        
+        if (!shop.walletAddress) {
+            return res.status(400).json({
+                success: false,
+                error: 'Shop does not have a wallet address configured'
+            });
+        }
+        
+        // Update the shop tier
+        await rcgService.updateShopTier(parseInt(shop.shopId));
+        
+        // Get updated tier info
+        const tierInfo = await rcgService.getShopTierInfo(parseInt(shop.shopId));
         
         res.json({
             success: true,
-            message: 'RCG service not yet implemented',
-            data: { shopId }
+            message: 'Shop tier updated successfully',
+            data: {
+                shopId,
+                tierInfo
+            }
         });
     } catch (error) {
         console.error('Error updating shop tier:', error);
         res.status(500).json({ 
             success: false, 
-            error: 'Failed to update shop tier' 
+            error: error instanceof Error ? error.message : 'Failed to update shop tier'
         });
     }
 });
@@ -251,13 +288,42 @@ router.get('/treasury/admin-wallet', async (req: Request, res: Response) => {
 router.post('/treasury/update', async (req: Request, res: Response) => {
     try {
         const treasuryRepo = new TreasuryRepository();
+        const rcgService = getRCGService();
         
-        // TODO: Implement treasury repository methods
-        // await treasuryRepo.updateCalculations();
+        // Update all shop tiers based on current RCG balances
+        const shopsResult = await treasuryRepo.query(`
+            SELECT id, shop_id, wallet_address 
+            FROM shops 
+            WHERE active = true AND verified = true AND wallet_address IS NOT NULL
+        `);
+        
+        let updatedShops = 0;
+        const errors = [];
+        
+        for (const shop of shopsResult.rows) {
+            try {
+                await rcgService.updateShopTier(parseInt(shop.id));
+                updatedShops++;
+            } catch (error) {
+                errors.push({
+                    shopId: shop.shop_id,
+                    error: error instanceof Error ? error.message : 'Unknown error'
+                });
+            }
+        }
+        
+        // Recalculate revenue metrics
+        const revenueMetrics = await rcgService.calculateRevenueByTier();
         
         res.json({
             success: true,
-            message: 'Treasury calculations updated'
+            message: 'Treasury calculations updated',
+            data: {
+                updatedShops,
+                totalShops: shopsResult.rows.length,
+                errors: errors.length > 0 ? errors : undefined,
+                revenueMetrics
+            }
         });
     } catch (error) {
         console.error('Error updating treasury calculations:', error);
@@ -273,72 +339,27 @@ router.get('/treasury/debug/:shopId', async (req: Request, res: Response) => {
     try {
         const { shopId } = req.params;
         const treasuryRepo = new TreasuryRepository();
-        const tokenMinter = getTokenMinter();
         
-        // Get all purchases for this shop
-        const purchasesQuery = await treasuryRepo.query(`
-            SELECT 
-                id,
-                shop_id,
-                amount,
-                total_cost,
-                status,
-                payment_method,
-                payment_reference,
-                created_at
-            FROM shop_rcn_purchases
-            WHERE shop_id = $1
-            ORDER BY created_at DESC
-        `, [shopId]);
+        // Get debug info from repository
+        const debugInfo = await treasuryRepo.getShopPurchaseDebugInfo(shopId);
         
-        // Get shop details
-        const shopQuery = await treasuryRepo.query(`
-            SELECT 
-                shop_id,
-                name,
-                wallet_address,
-                active,
-                verified,
-                purchased_rcn_balance,
-                operational_status
-            FROM shops
-            WHERE shop_id = $1
-        `, [shopId]);
-        
-        const shop = shopQuery.rows[0];
-        let blockchainBalance = 0;
-        let balanceError = null;
-        
-        // Try to get blockchain balance
-        if (shop?.wallet_address) {
+        // Try to get blockchain balance if shop has wallet
+        if (debugInfo.shop?.wallet_address) {
             try {
                 const tokenService = new TokenService();
-                blockchainBalance = await tokenService.getBalance(shop.wallet_address);
+                debugInfo.summary.blockchainBalance = await tokenService.getBalance(debugInfo.shop.wallet_address);
+                debugInfo.summary.unmintedAmount = 
+                    (debugInfo.summary.totalsByStatus['completed'] || 0) + 
+                    (debugInfo.summary.totalsByStatus['pending'] || 0) - 
+                    debugInfo.summary.blockchainBalance;
             } catch (error: any) {
-                balanceError = error.message;
+                debugInfo.summary.balanceError = error.message;
             }
         }
         
-        // Calculate totals by status
-        const totalsByStatus: Record<string, number> = {};
-        purchasesQuery.rows.forEach((p: any) => {
-            const status = p.status || 'unknown';
-            totalsByStatus[status] = (totalsByStatus[status] || 0) + parseFloat(p.amount || '0');
-        });
-        
         res.json({
             success: true,
-            data: {
-                shop: shopQuery.rows[0] || null,
-                purchases: purchasesQuery.rows,
-                summary: {
-                    totalPurchased: purchasesQuery.rows.reduce((sum: number, p: any) => sum + parseFloat(p.amount || '0'), 0),
-                    totalsByStatus,
-                    blockchainBalance,
-                    balanceError,
-                    unmintedAmount: (totalsByStatus['completed'] || 0) + (totalsByStatus['pending'] || 0) - blockchainBalance
-                }
-            }
+            data: debugInfo
         });
     } catch (error: any) {
         res.status(500).json({
@@ -353,65 +374,7 @@ router.get('/treasury/discrepancies', async (req: Request, res: Response) => {
     try {
         const treasuryRepo = new TreasuryRepository();
         
-        // Query to find customers who have earned tokens but may not have received them on-chain
-        const query = `
-            WITH customer_balances AS (
-                SELECT 
-                    LOWER(t.customer_address) as customer_address,
-                    MAX(c.name) as customer_name,
-                    SUM(CASE WHEN t.type = 'mint' AND t.shop_id IS NOT NULL THEN t.amount ELSE 0 END) as total_earned,
-                    SUM(CASE WHEN t.type = 'redeem' THEN t.amount ELSE 0 END) as total_redeemed,
-                    SUM(CASE WHEN t.type = 'mint' AND t.shop_id IS NOT NULL THEN t.amount ELSE 0 END) - 
-                    SUM(CASE WHEN t.type = 'redeem' THEN t.amount ELSE 0 END) as expected_balance,
-                    COUNT(CASE WHEN t.type = 'mint' AND t.shop_id IS NOT NULL AND (t.transaction_hash IS NULL OR t.transaction_hash = '' OR t.transaction_hash LIKE 'offchain_%') THEN 1 END) as offchain_mints,
-                    COUNT(CASE WHEN t.type = 'mint' AND t.shop_id IS NOT NULL THEN 1 END) as total_mints,
-                    STRING_AGG(DISTINCT t.shop_id::text, ', ' ORDER BY t.shop_id::text) FILTER (WHERE t.type = 'mint' AND t.shop_id IS NOT NULL) as shops_involved,
-                    SUM(CASE WHEN t.type = 'mint' AND t.shop_id IS NULL AND t.metadata::text LIKE '%admin_manual_transfer%' THEN t.amount ELSE 0 END) as admin_transfers
-                FROM transactions t
-                LEFT JOIN customers c ON LOWER(c.address) = LOWER(t.customer_address)
-                WHERE t.status = 'confirmed'
-                AND LOWER(t.customer_address) != LOWER('0x761E5E59485ec6feb263320f5d636042bD9EBc8c')
-                GROUP BY LOWER(t.customer_address)
-                HAVING SUM(CASE WHEN t.type = 'mint' AND t.shop_id IS NOT NULL THEN t.amount ELSE 0 END) > 0
-            )
-            SELECT 
-                customer_address,
-                customer_name,
-                total_earned,
-                total_redeemed,
-                expected_balance,
-                offchain_mints,
-                total_mints,
-                shops_involved,
-                admin_transfers,
-                CASE 
-                    WHEN admin_transfers >= expected_balance THEN 'Already fixed by admin'
-                    WHEN offchain_mints = total_mints AND expected_balance > 0 THEN 'All transactions off-chain only'
-                    WHEN offchain_mints > 0 AND expected_balance > 0 THEN 'Some transactions off-chain'
-                    WHEN expected_balance > 0 THEN 'May need tokens'
-                    ELSE 'OK'
-                END as status
-            FROM customer_balances
-            WHERE expected_balance > 0 AND (admin_transfers IS NULL OR admin_transfers < expected_balance)
-            ORDER BY expected_balance DESC, offchain_mints DESC
-            LIMIT 100
-        `;
-        
-        const result = await treasuryRepo.query(query);
-        
-        const discrepancies = result.rows.map((row: any) => ({
-            address: row.customer_address,
-            name: row.customer_name || 'Unknown',
-            totalEarned: parseFloat(row.total_earned),
-            totalRedeemed: parseFloat(row.total_redeemed),
-            expectedBalance: parseFloat(row.expected_balance),
-            offchainMints: parseInt(row.offchain_mints),
-            totalMints: parseInt(row.total_mints),
-            adminTransfers: parseFloat(row.admin_transfers || 0),
-            status: row.status,
-            needsTokenTransfer: parseFloat(row.expected_balance) > parseFloat(row.admin_transfers || 0),
-            shopsInvolved: row.shops_involved
-        }));
+        const discrepancies = await treasuryRepo.getCustomerDiscrepancies();
         
         const summary = {
             totalCustomers: discrepancies.length,
@@ -611,5 +574,321 @@ router.get('/treasury/stats-with-warnings', async (req: Request, res: Response) 
         });
     }
 });
+
+// New Advanced Treasury Management Endpoints
+
+// Bulk token minting for campaigns
+router.post('/treasury/mint-bulk',
+    validateRequired(['recipients', 'amount', 'reason']),
+    validateNumeric('amount', 0.01, 100000),
+    async (req: Request, res: Response) => {
+        try {
+            const { recipients, amount, reason } = req.body;
+            
+            if (!Array.isArray(recipients) || recipients.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Recipients must be a non-empty array'
+                });
+            }
+            
+            if (recipients.length > 100) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Maximum 100 recipients per batch'
+                });
+            }
+            
+            const minter = getTokenMinter();
+            const results = [];
+            let successCount = 0;
+            let failCount = 0;
+            
+            for (const recipient of recipients) {
+                try {
+                    const result = await minter.transferTokens(
+                        recipient,
+                        amount,
+                        `Bulk campaign: ${reason}`
+                    );
+                    
+                    if (result.success) {
+                        // Record in database
+                        await transactionRepository.recordTransaction({
+                            type: 'mint',
+                            customerAddress: recipient.toLowerCase(),
+                            shopId: null,
+                            amount,
+                            reason: `Bulk campaign: ${reason}`,
+                            transactionHash: result.transactionHash || '',
+                            timestamp: new Date().toISOString(),
+                            status: 'confirmed',
+                            metadata: {
+                                bulk: true,
+                                campaign: true,
+                                adminAddress: req.user?.address,
+                                reason
+                            }
+                        } as any);
+                        
+                        successCount++;
+                        results.push({
+                            recipient,
+                            success: true,
+                            transactionHash: result.transactionHash,
+                            amount
+                        });
+                    } else {
+                        failCount++;
+                        results.push({
+                            recipient,
+                            success: false,
+                            error: result.error,
+                            amount
+                        });
+                    }
+                } catch (error) {
+                    failCount++;
+                    results.push({
+                        recipient,
+                        success: false,
+                        error: error instanceof Error ? error.message : 'Unknown error',
+                        amount
+                    });
+                }
+            }
+            
+            logger.info('Bulk token minting completed', {
+                totalRecipients: recipients.length,
+                successCount,
+                failCount,
+                amount,
+                reason,
+                adminAddress: req.user?.address
+            });
+            
+            res.json({
+                success: true,
+                data: {
+                    totalRecipients: recipients.length,
+                    successCount,
+                    failCount,
+                    amount,
+                    reason,
+                    results
+                }
+            });
+            
+        } catch (error) {
+            logger.error('Bulk minting error:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to process bulk minting'
+            });
+        }
+    }
+);
+
+// Financial analytics dashboard data
+router.get('/treasury/analytics', async (req: Request, res: Response) => {
+    try {
+        const { period = '30d' } = req.query;
+        const treasuryRepo = new TreasuryRepository();
+        const rcgService = getRCGService();
+        
+        // Calculate date range
+        let daysBack = 30;
+        if (period === '7d') daysBack = 7;
+        else if (period === '60d') daysBack = 60;
+        else if (period === '90d') daysBack = 90;
+        
+        // Get analytics data from repository
+        const analyticsData = await treasuryRepo.getAnalyticsData(daysBack);
+        
+        // Current metrics
+        const currentMetrics = await rcgService.calculateRevenueByTier();
+        const tierDistribution = await rcgService.getShopTierDistribution();
+        
+        res.json({
+            success: true,
+            data: {
+                period,
+                daysBack,
+                ...analyticsData,
+                currentMetrics,
+                tierDistribution
+            }
+        });
+        
+    } catch (error) {
+        logger.error('Error fetching treasury analytics:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch treasury analytics'
+        });
+    }
+});
+
+// Token price adjustment controls
+router.post('/treasury/adjust-pricing',
+    validateRequired(['tier', 'newPrice', 'reason']),
+    validateNumeric('newPrice', 0.01, 1.00),
+    async (req: Request, res: Response) => {
+        try {
+            const { tier, newPrice, reason } = req.body;
+            const adminAddress = req.user?.address || 'unknown';
+            
+            if (!['standard', 'premium', 'elite'].includes(tier)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid tier. Must be: standard, premium, or elite'
+                });
+            }
+            
+            // Dynamic import to avoid circular dependency
+            const { getPricingService } = await import('../../../services/PricingService');
+            const pricingService = getPricingService();
+            
+            // Initialize pricing tables if needed
+            await pricingService.initializePricingTables();
+            
+            // Get current pricing for comparison
+            const currentPrice = await pricingService.getTierPricing(tier);
+            
+            // Update pricing
+            await pricingService.updateTierPricing(tier, newPrice, adminAddress, reason);
+            
+            // Get updated pricing to confirm
+            const allPricing = await pricingService.getAllTierPricing();
+            
+            logger.info('Token pricing adjustment completed', {
+                tier,
+                oldPrice: currentPrice,
+                newPrice,
+                reason,
+                adminAddress,
+                timestamp: new Date().toISOString()
+            });
+            
+            res.json({
+                success: true,
+                message: 'Pricing updated successfully',
+                data: {
+                    tier,
+                    oldPrice: currentPrice,
+                    newPrice,
+                    reason,
+                    updatedAt: new Date().toISOString(),
+                    allPricing
+                }
+            });
+            
+        } catch (error) {
+            logger.error('Error adjusting token pricing:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to adjust token pricing'
+            });
+        }
+    }
+);
+
+// Get current tier pricing
+router.get('/treasury/pricing', async (req: Request, res: Response) => {
+    try {
+        // Dynamic import to avoid circular dependency
+        const { getPricingService } = await import('../../../services/PricingService');
+        const pricingService = getPricingService();
+        
+        // Initialize pricing tables if needed
+        await pricingService.initializePricingTables();
+        
+        // Get all current pricing
+        const allPricing = await pricingService.getAllTierPricing();
+        
+        res.json({
+            success: true,
+            data: allPricing
+        });
+        
+    } catch (error) {
+        logger.error('Error fetching tier pricing:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch tier pricing'
+        });
+    }
+});
+
+// Get pricing history
+router.get('/treasury/pricing/history', async (req: Request, res: Response) => {
+    try {
+        const { tier, limit = '50' } = req.query;
+        
+        // Dynamic import to avoid circular dependency
+        const { getPricingService } = await import('../../../services/PricingService');
+        const pricingService = getPricingService();
+        
+        const history = await pricingService.getPricingHistory(
+            tier as 'standard' | 'premium' | 'elite' | undefined,
+            parseInt(limit as string)
+        );
+        
+        res.json({
+            success: true,
+            data: history
+        });
+        
+    } catch (error) {
+        logger.error('Error fetching pricing history:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch pricing history'
+        });
+    }
+});
+
+// Emergency treasury controls
+router.post('/treasury/emergency-freeze',
+    validateRequired(['reason']),
+    async (req: Request, res: Response) => {
+        try {
+            const { reason } = req.body;
+            const adminAddress = req.user?.address;
+            
+            // Log emergency action
+            logger.error('EMERGENCY: Treasury freeze initiated', {
+                reason,
+                adminAddress,
+                timestamp: new Date().toISOString()
+            });
+            
+            // This would typically:
+            // 1. Pause token minting contracts
+            // 2. Disable new purchases
+            // 3. Alert all administrators
+            // 4. Create audit trail
+            
+            res.json({
+                success: true,
+                message: 'Emergency freeze logged - manual intervention required',
+                data: {
+                    action: 'emergency_freeze',
+                    reason,
+                    adminAddress,
+                    timestamp: new Date().toISOString(),
+                    implementationNote: 'This would trigger contract pausing in production'
+                }
+            });
+            
+        } catch (error) {
+            logger.error('Error processing emergency freeze:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to process emergency freeze'
+            });
+        }
+    }
+);
 
 export default router;

@@ -284,6 +284,26 @@ export const getTreasury = async (): Promise<TreasuryData | null> => {
   }
 };
 
+export const getRCGMetrics = async (): Promise<any> => {
+  try {
+    const response = await apiClient.get('/admin/treasury/rcg');
+    return response.data;
+  } catch (error) {
+    console.error('Error getting RCG metrics:', error);
+    throw error;
+  }
+};
+
+export const updateShopTier = async (shopId: string): Promise<boolean> => {
+  try {
+    await apiClient.post(`/admin/treasury/update-shop-tier/${shopId}`);
+    return true;
+  } catch (error) {
+    console.error('Error updating shop tier:', error);
+    return false;
+  }
+};
+
 export const updateTreasury = async (data: {
   amountSold: number;
   revenue: number;
@@ -296,6 +316,96 @@ export const updateTreasury = async (data: {
   } catch (error) {
     console.error('Error updating treasury:', error);
     return false;
+  }
+};
+
+export const getTreasuryAnalytics = async (period?: '7d' | '30d' | '60d' | '90d'): Promise<any> => {
+  try {
+    const params = period ? `?period=${period}` : '';
+    const response = await apiClient.get(`/admin/treasury/analytics${params}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error getting treasury analytics:', error);
+    throw error;
+  }
+};
+
+export const manualTokenTransfer = async (data: {
+  customerAddress: string;
+  amount: number;
+  reason: string;
+}): Promise<any> => {
+  try {
+    const response = await apiClient.post('/admin/treasury/manual-transfer', data);
+    return response.data;
+  } catch (error) {
+    console.error('Error processing manual token transfer:', error);
+    throw error;
+  }
+};
+
+export const bulkMintTokens = async (data: {
+  recipients: string[];
+  amount: number;
+  reason: string;
+}): Promise<any> => {
+  try {
+    const response = await apiClient.post('/admin/treasury/mint-bulk', data);
+    return response.data;
+  } catch (error) {
+    console.error('Error processing bulk token mint:', error);
+    throw error;
+  }
+};
+
+export const adjustTokenPricing = async (data: {
+  tier: 'standard' | 'premium' | 'elite';
+  newPrice: number;
+  reason: string;
+}): Promise<any> => {
+  try {
+    const response = await apiClient.post('/admin/treasury/adjust-pricing', data);
+    return response.data;
+  } catch (error) {
+    console.error('Error adjusting token pricing:', error);
+    throw error;
+  }
+};
+
+export const emergencyFreeze = async (reason: string): Promise<any> => {
+  try {
+    const response = await apiClient.post('/admin/treasury/emergency-freeze', { reason });
+    return response.data;
+  } catch (error) {
+    console.error('Error processing emergency freeze:', error);
+    throw error;
+  }
+};
+
+export const getCurrentPricing = async (): Promise<any> => {
+  try {
+    const response = await apiClient.get('/admin/treasury/pricing');
+    return response.data;
+  } catch (error) {
+    console.error('Error getting current pricing:', error);
+    throw error;
+  }
+};
+
+export const getPricingHistory = async (tier?: 'standard' | 'premium' | 'elite', limit?: number): Promise<any> => {
+  try {
+    const params = new URLSearchParams();
+    if (tier) params.append('tier', tier);
+    if (limit) params.append('limit', limit.toString());
+    
+    const queryString = params.toString();
+    const url = `/admin/treasury/pricing/history${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await apiClient.get(url);
+    return response.data;
+  } catch (error) {
+    console.error('Error getting pricing history:', error);
+    throw error;
   }
 };
 
@@ -516,7 +626,16 @@ export const adminApi = {
   
   // Treasury
   getTreasury,
+  getRCGMetrics,
+  updateShopTier,
   updateTreasury,
+  getTreasuryAnalytics,
+  manualTokenTransfer,
+  bulkMintTokens,
+  adjustTokenPricing,
+  emergencyFreeze,
+  getCurrentPricing,
+  getPricingHistory,
   
   // Analytics
   getAnalytics,

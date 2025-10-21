@@ -3,7 +3,7 @@ import { logger } from '../utils/logger';
 
 interface TransactionRecord {
   id: string;
-  type: 'mint' | 'redeem' | 'transfer' | 'transfer_in' | 'transfer_out' | 'tier_bonus' | 'shop_purchase' | 'rejected_redemption' | 'cancelled_redemption';
+  type: 'mint' | 'redeem' | 'transfer' | 'transfer_in' | 'transfer_out' | 'tier_bonus' | 'shop_purchase' | 'rejected_redemption' | 'cancelled_redemption' | 'cross_shop_verification';
   customerAddress: string;
   shopId?: string;
   amount: number;
@@ -505,6 +505,38 @@ export class TransactionRepository extends BaseRepository {
     } catch (error) {
       logger.error('Error getting shop transactions:', error);
       throw new Error('Failed to get shop transactions');
+    }
+  }
+
+  async getTransactionsByType(customerAddress: string, type: string): Promise<TransactionRecord[]> {
+    try {
+      const query = `
+        SELECT * FROM transactions 
+        WHERE customer_address = $1 AND type = $2
+        ORDER BY created_at DESC
+      `;
+      
+      const result = await this.pool.query(query, [customerAddress.toLowerCase(), type]);
+      return result.rows.map(row => this.mapToTransactionRecord(row));
+    } catch (error) {
+      logger.error('Error getting transactions by type:', error);
+      throw new Error('Failed to get transactions by type');
+    }
+  }
+
+  async getTransactionsByShopAndType(shopId: string, type: string): Promise<TransactionRecord[]> {
+    try {
+      const query = `
+        SELECT * FROM transactions 
+        WHERE shop_id = $1 AND type = $2
+        ORDER BY created_at DESC
+      `;
+      
+      const result = await this.pool.query(query, [shopId, type]);
+      return result.rows.map(row => this.mapToTransactionRecord(row));
+    } catch (error) {
+      logger.error('Error getting transactions by shop and type:', error);
+      throw new Error('Failed to get transactions by shop and type');
     }
   }
 

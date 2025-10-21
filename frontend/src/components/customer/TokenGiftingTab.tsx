@@ -9,9 +9,9 @@ import {
   History,
   CheckCircle,
   AlertCircle,
-  QrCode,
-  ScanQrCode
+  QrCode
 } from "lucide-react";
+import { QRScanner } from "@/components/ui/QRScanner";
 
 interface TransferForm {
   recipientAddress: string;
@@ -401,40 +401,12 @@ export function TokenGiftingTab() {
         )}
       </div>
 
-      {/* QR Scanner Modal */}
-      {showQRScanner && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#212121] rounded-2xl max-w-md w-full mx-4">
-            <div className="flex justify-between items-center p-6 border-b border-gray-700">
-              <h3 className="text-xl font-semibold text-white">Scan QR Code</h3>
-              <button
-                onClick={() => setShowQRScanner(false)}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                ✕
-              </button>
-            </div>
-            
-            <div className="p-6 text-center">
-              <ScanQrCode className="w-16 h-16 mx-auto mb-4 text-[#FFCC00]" />
-              <p className="text-gray-300 mb-4">
-                Position the QR code within the camera view to scan the wallet address
-              </p>
-              <div className="bg-[#2F2F2F] rounded-lg p-4 mb-4">
-                <div className="aspect-square bg-gray-800 rounded-lg flex items-center justify-center">
-                  <p className="text-gray-500">Camera view would appear here</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowQRScanner(false)}
-                className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* QR Scanner */}
+      <QRScanner
+        isOpen={showQRScanner}
+        onScan={handleQRScan}
+        onClose={() => setShowQRScanner(false)}
+      />
     </div>
   );
 }

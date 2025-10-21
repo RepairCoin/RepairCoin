@@ -152,6 +152,8 @@ export class RCGTokenReader {
   }
 
   getRCNPriceForTier(tier: 'none' | 'standard' | 'premium' | 'elite'): number {
+    // This method returns hardcoded prices for synchronous calls
+    // For dynamic pricing, use the async getRCNPriceForTierAsync method
     switch (tier) {
       case 'none':
         return 0.10; // Default price if not enough RCG
@@ -163,6 +165,27 @@ export class RCGTokenReader {
         return 0.06;
       default:
         return 0.10;
+    }
+  }
+
+  async getRCNPriceForTierAsync(tier: 'none' | 'standard' | 'premium' | 'elite'): Promise<number> {
+    if (tier === 'none') {
+      return 0.10; // Default price if not enough RCG
+    }
+    
+    try {
+      // Dynamic import to avoid circular dependency
+      const { getPricingService } = await import('../services/PricingService');
+      const pricingService = getPricingService();
+      
+      if (tier === 'standard' || tier === 'premium' || tier === 'elite') {
+        return await pricingService.getTierPricing(tier);
+      }
+      
+      return 0.10; // Fallback
+    } catch (error) {
+      console.warn('Error fetching dynamic pricing, using fallback:', error);
+      return this.getRCNPriceForTier(tier);
     }
   }
 

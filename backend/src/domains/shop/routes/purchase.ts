@@ -482,4 +482,200 @@ router.post('/stripe-checkout', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/shops/purchase/{purchaseId}/continue:
+ *   post:
+ *     summary: Get payment URL to continue a pending purchase
+ *     tags: [Shop Purchase]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: purchaseId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The purchase ID to continue
+ *     responses:
+ *       200:
+ *         description: Payment URL retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     paymentUrl:
+ *                       type: string
+ *                     purchaseId:
+ *                       type: string
+ *                     amount:
+ *                       type: number
+ *                     status:
+ *                       type: string
+ */
+router.post('/:purchaseId/continue', async (req: Request, res: Response) => {
+  try {
+    const { purchaseId } = req.params;
+    const shopId = req.user?.shopId;
+
+    if (!shopId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Shop authentication required'
+      });
+    }
+
+    // Get the pending purchase
+    const db = DatabaseService.getInstance();
+    const purchaseResult = await db.query(`
+      SELECT id, shop_id, amount, payment_reference, status, created_at
+      FROM shop_rcn_purchases
+      WHERE id = $1 AND shop_id = $2 AND status = 'pending'
+    `, [purchaseId, shopId]);
+
+    if (purchaseResult.rowCount === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Pending purchase not found'
+      });
+    }
+
+    const purchase = purchaseResult.rows[0];
+
+    // Check if purchase is too old (>24 hours) - might be expired
+    const ageHours = (Date.now() - new Date(purchase.created_at).getTime()) / (1000 * 60 * 60);
+    if (ageHours > 24) {
+      return res.status(400).json({
+        success: false,
+        error: 'Purchase has expired. Please create a new purchase.'
+      });
+    }
+
+    let paymentUrl = null;
+
+    // If there's already a payment reference, try to retrieve the session
+    if (purchase.payment_reference && purchase.payment_reference.startsWith('cs_')) {
+      try {
+        const stripeService = getStripeService();
+        const session = await stripeService.getCheckoutSession(purchase.payment_reference);
+        
+        if (session.status === 'open' && session.url) {
+          paymentUrl = session.url;
+        }
+      } catch (stripeError) {
+        logger.warn('Could not retrieve existing Stripe session', {
+          purchaseId,
+          paymentReference: purchase.payment_reference,
+          error: stripeError.message
+        });
+      }
+    }
+
+    // If no valid existing session, create a new one
+    if (!paymentUrl) {
+      const stripeService = getStripeService();
+      
+      // Get shop details for customer creation
+      const shop = await shopRepository.getShop(shopId);
+      if (!shop) {
+        return res.status(404).json({
+          success: false,
+          error: 'Shop not found'
+        });
+      }
+
+      // Find or create Stripe customer
+      let stripeCustomer;
+      const stripe = stripeService.getStripe();
+      
+      try {
+        const customers = await stripe.customers.list({
+          email: shop.email,
+          limit: 1
+        });
+        
+        if (customers.data.length > 0) {
+          stripeCustomer = customers.data[0];
+        } else {
+          stripeCustomer = await stripeService.createCustomer({
+            email: shop.email,
+            name: shop.name,
+            shopId: shop.shopId
+          });
+        }
+      } catch (error) {
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to handle Stripe customer'
+        });
+      }
+
+      // Create new checkout session
+      const session = await stripe.checkout.sessions.create({
+        customer: stripeCustomer.id,
+        payment_method_types: ['card'],
+        line_items: [{
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: `${purchase.amount} RCN Tokens`,
+              description: `Purchase ${purchase.amount} RCN tokens for ${shop.name}`
+            },
+            unit_amount: Math.round((purchase.amount * 0.10) * 100) // $0.10 per RCN in cents
+          },
+          quantity: 1,
+        }],
+        mode: 'payment',
+        success_url: `${process.env.FRONTEND_URL}/shop/subscription/success?session_id={CHECKOUT_SESSION_ID}&purchase_id=${purchaseId}`,
+        cancel_url: `${process.env.FRONTEND_URL}/shop`,
+        metadata: {
+          shopId,
+          purchaseId,
+          amount: purchase.amount.toString(),
+          type: 'rcn_purchase_continue'
+        }
+      });
+
+      // Update the purchase with new session ID
+      await db.query(`
+        UPDATE shop_rcn_purchases
+        SET payment_reference = $2
+        WHERE id = $1
+      `, [purchaseId, session.id]);
+
+      paymentUrl = session.url;
+
+      logger.info('New Stripe checkout session created for continuing purchase', {
+        shopId,
+        purchaseId,
+        sessionId: session.id,
+        amount: purchase.amount
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        paymentUrl,
+        purchaseId,
+        amount: purchase.amount,
+        status: purchase.status
+      }
+    });
+
+  } catch (error) {
+    logger.error('Error continuing purchase payment:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to continue payment'
+    });
+  }
+});
+
 export default router;

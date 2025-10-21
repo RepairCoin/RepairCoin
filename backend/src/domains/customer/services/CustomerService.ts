@@ -434,9 +434,8 @@ export class CustomerService {
         throw new Error('Invalid tier level. Must be BRONZE, SILVER, or GOLD');
       }
 
-      // For now, return empty array since the method is missing
-      // TODO: Implement getCustomersByTier in DatabaseService  
-      const customers: CustomerData[] = []; // await databaseService.getCustomersByTier(tierLevel.toUpperCase() as any);
+      // Get customers by tier from database
+      const customers: CustomerData[] = await customerRepository.getCustomersByTier(tierLevel.toUpperCase() as any);
       
       return {
         tier: tierLevel.toUpperCase(),

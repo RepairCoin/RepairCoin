@@ -140,7 +140,7 @@ export const RecentActivitySection: React.FC<RecentActivitySectionProps> = ({ ge
 
         // Fetch recent customer registrations
         try {
-          const customersRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/customers?limit=5&orderBy=join_date&order=DESC`, { headers });
+          const customersRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/customers?limit=5`, { headers });
           if (customersRes.ok) {
             const customerData = await customersRes.json();
             customerData.data?.customers?.forEach((customer: any, index: number) => {

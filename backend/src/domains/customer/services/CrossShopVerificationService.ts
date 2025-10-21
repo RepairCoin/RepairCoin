@@ -1,5 +1,5 @@
 // backend/src/domains/customer/services/CrossShopVerificationService.ts
-import { shopRepository, customerRepository } from '../../../repositories';
+import { shopRepository, customerRepository, transactionRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
 
 interface CrossShopVerification {
@@ -304,7 +304,28 @@ export class CrossShopVerificationService {
         timestamp: new Date()
       };
       
-      // TODO: Store verification record in database when verification table is added
+      // Store verification record in transactions table for audit trail
+      await transactionRepository.create({
+        customerAddress: request.customerAddress,
+        shopId: request.redemptionShopId,
+        type: 'cross_shop_verification' as any,
+        amount: result.approved ? request.requestedAmount : 0,
+        reason: result.approved 
+          ? `Cross-shop verification approved for ${request.requestedAmount} RCN` 
+          : `Cross-shop verification denied: ${result.denialReason}`,
+        transactionHash: `verification_${verification.id}`,
+        timestamp: new Date().toISOString(),
+        status: result.approved ? 'completed' : 'failed',
+        metadata: {
+          verificationType: 'cross_shop_redemption',
+          originalShopId: 'unknown', // Not provided in current request interface
+          redemptionShopId: request.redemptionShopId,
+          availableBalance: result.availableBalance,
+          maxCrossShopAmount: result.maxCrossShopAmount,
+          denialReason: result.denialReason,
+          verificationId: verification.id
+        }
+      });
 
       const message = result.approved 
         ? `Cross-shop redemption approved for ${request.requestedAmount} RCN`

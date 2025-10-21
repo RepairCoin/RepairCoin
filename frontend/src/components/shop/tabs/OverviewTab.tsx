@@ -10,6 +10,7 @@ import { useRCGBalance } from "@/hooks/useRCGBalance";
 import { formatRCGBalance } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ProfitChart } from "@/components/shop/ProfitChart";
+import { toast } from "react-hot-toast";
 
 interface ShopData {
   shopId: string;
@@ -128,6 +129,25 @@ const purchaseColumns: Column<PurchaseHistory>[] = [
       </span>
     ),
   },
+  {
+    key: "actions",
+    header: "Actions",
+    accessor: (purchase: any) => {
+      if (purchase.status === 'pending') {
+        return (
+          <Button
+            onClick={() => purchase.onContinuePayment?.(purchase.id)}
+            size="sm"
+            disabled={purchase.continuingPayment === purchase.id}
+            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs px-3 py-1"
+          >
+            {purchase.continuingPayment === purchase.id ? 'Loading...' : 'Continue Payment'}
+          </Button>
+        );
+      }
+      return null;
+    },
+  },
 ];
 
 export const OverviewTab: React.FC<OverviewTabProps> = ({
@@ -142,12 +162,47 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const [filter, setFilter] = useState<
     "all" | "completed" | "pending" | "failed"
   >("all");
+  const [continuingPayment, setContinuingPayment] = useState<string | null>(null);
 
   // Filter purchases based on selected filter
   const filteredPurchases = purchases.filter((purchase) => {
     if (filter === "all") return true;
     return purchase.status === filter;
   });
+
+  // Handle continue payment
+  const handleContinuePayment = async (purchaseId: string) => {
+    if (!authToken) {
+      toast.error('Authentication required');
+      return;
+    }
+
+    setContinuingPayment(purchaseId);
+    
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/purchase/${purchaseId}/continue`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        // Redirect to Stripe checkout
+        window.location.href = result.data.paymentUrl;
+      } else {
+        toast.error(result.error || 'Failed to continue payment');
+      }
+    } catch (error) {
+      console.error('Error continuing payment:', error);
+      toast.error('Failed to continue payment');
+    } finally {
+      setContinuingPayment(null);
+    }
+  };
 
   // Calculate running balances for purchases
   const purchasesWithBalance = React.useMemo(() => {
@@ -183,12 +238,14 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         return {
           ...purchase,
           runningBalance: balanceAfterPurchase,
+          onContinuePayment: handleContinuePayment,
+          continuingPayment: continuingPayment,
         };
       }
     );
 
     return purchasesWithRunningBalance;
-  }, [filteredPurchases, purchases, shopData?.purchasedRcnBalance]);
+  }, [filteredPurchases, purchases, shopData?.purchasedRcnBalance, continuingPayment]);
 
   // Close dropdown when clicking outside
   useEffect(() => {

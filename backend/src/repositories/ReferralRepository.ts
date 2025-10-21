@@ -440,17 +440,27 @@ export class ReferralRepository extends BaseRepository {
 
   async getHomeShop(customerAddress: string): Promise<string | null> {
     try {
-      // Get the shop where customer earned the most RCN
+      // First check if home_shop_id is already set in customers table
+      const customerQuery = `
+        SELECT home_shop_id 
+        FROM customers 
+        WHERE address = $1
+      `;
+      
+      const customerResult = await this.pool.query(customerQuery, [customerAddress.toLowerCase()]);
+      
+      if (customerResult.rows.length > 0 && customerResult.rows[0].home_shop_id) {
+        return customerResult.rows[0].home_shop_id;
+      }
+      
+      // If not set, find the first shop where customer ever earned RCN
       const query = `
-        SELECT 
-          source_shop_id,
-          SUM(amount) as total_earned
+        SELECT source_shop_id
         FROM customer_rcn_sources
         WHERE customer_address = $1
         AND source_shop_id IS NOT NULL
         AND is_redeemable = true
-        GROUP BY source_shop_id
-        ORDER BY total_earned DESC
+        ORDER BY created_at ASC
         LIMIT 1
       `;
       
@@ -469,25 +479,66 @@ export class ReferralRepository extends BaseRepository {
 
   async updateCustomerHomeShop(customerAddress: string): Promise<void> {
     try {
-      const homeShop = await this.getHomeShop(customerAddress);
+      // Check if home shop is already set - if so, don't change it
+      const customerQuery = `
+        SELECT home_shop_id 
+        FROM customers 
+        WHERE address = $1
+      `;
       
-      if (homeShop) {
+      const customerResult = await this.pool.query(customerQuery, [customerAddress.toLowerCase()]);
+      
+      if (customerResult.rows.length > 0 && customerResult.rows[0].home_shop_id) {
+        // Home shop already set, don't change it
+        return;
+      }
+      
+      // Only set home shop if it's not already set (first transaction)
+      const firstShop = await this.getFirstShopForCustomer(customerAddress);
+      
+      if (firstShop) {
         const updateQuery = `
           UPDATE customers 
           SET home_shop_id = $1, updated_at = CURRENT_TIMESTAMP 
-          WHERE address = $2
+          WHERE address = $2 AND home_shop_id IS NULL
         `;
         
-        await this.pool.query(updateQuery, [homeShop, customerAddress.toLowerCase()]);
+        await this.pool.query(updateQuery, [firstShop, customerAddress.toLowerCase()]);
         
-        logger.info('Customer home shop updated', { 
+        logger.info('Customer home shop set (first transaction)', { 
           customerAddress, 
-          homeShop 
+          homeShop: firstShop 
         });
       }
     } catch (error) {
       logger.error('Error updating customer home shop:', error);
       throw new Error('Failed to update customer home shop');
+    }
+  }
+
+  async getFirstShopForCustomer(customerAddress: string): Promise<string | null> {
+    try {
+      // Find the very first shop where customer earned RCN
+      const query = `
+        SELECT source_shop_id
+        FROM customer_rcn_sources
+        WHERE customer_address = $1
+        AND source_shop_id IS NOT NULL
+        AND is_redeemable = true
+        ORDER BY created_at ASC
+        LIMIT 1
+      `;
+      
+      const result = await this.pool.query(query, [customerAddress.toLowerCase()]);
+      
+      if (result.rows.length === 0) {
+        return null;
+      }
+      
+      return result.rows[0].source_shop_id;
+    } catch (error) {
+      logger.error('Error getting first shop for customer:', error);
+      throw new Error('Failed to get first shop for customer');
     }
   }
 
