@@ -16,6 +16,8 @@ const girl = require("@/assets/images/shop_girl.png");
 const guy = require("@/assets/images/shop_boy.png");
 const globe = require("@/assets/images/global_spin.png");
 
+const clientId = process.env.EXPO_PUBLIC_THIRDWEB_CLIENT_ID!;
+
 export default function Onboarding() {
   const theme = useColorScheme();
   const { isAuthenticated, isAdmin, isCustomer, isShop } = useAuthStore(

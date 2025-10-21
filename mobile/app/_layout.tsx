@@ -11,6 +11,7 @@ import { ToastProvider } from "react-native-toast-notifications";
 
 import { ErrorBoundaryProvider } from "../providers/ErrorBoundaryProvider";
 import "../global.css";
+import "react-native-get-random-values";
 
 SplashScreen.preventAutoHideAsync();
 

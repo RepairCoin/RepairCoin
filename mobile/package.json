@@ -49,6 +49,7 @@
     "react-native": "0.79.6",
     "react-native-country-picker-modal": "^2.0.0",
     "react-native-gesture-handler": "~2.24.0",
+    "react-native-get-random-values": "^1.11.0",
     "react-native-maps": "1.20.1",
     "react-native-mask-text": "^0.15.0",
     "react-native-modal-datetime-picker": "^18.0.0",
