@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ConnectButton } from "thirdweb/react";
+import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { createThirdwebClient } from "thirdweb";
 import { useAuthStore } from "@/stores/authStore";
+
 const client = createThirdwebClient({
   clientId:
     process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID ||
@@ -13,7 +14,10 @@ const client = createThirdwebClient({
 
 export default function ChoosePage() {
   const { account, isLoading } = useAuthStore();
+  const activeAccount = useActiveAccount();
   const router = useRouter();
+  const hasCheckedRef = useRef(false);
+  const previousAccountRef = useRef<string | undefined>(undefined);
   const [shopApplicationStatus, setShopApplicationStatus] = useState<{
     hasApplication: boolean;
     status: "pending" | "verified" | "rejected" | null;
@@ -81,6 +85,38 @@ export default function ChoosePage() {
   //     router.push("/");
   //   }
   // }, [account?.address, isAuthenticated]);
+
+  // Check existing registrations when wallet connects via ConnectButton on this page
+  useEffect(() => {
+    if (activeAccount?.address) {
+      // Check if this is a NEW connection (address changed from different address)
+      const isNewConnection = 
+        previousAccountRef.current !== activeAccount.address && 
+        previousAccountRef.current !== undefined &&
+        !hasCheckedRef.current;
+      
+      // Initialize the ref on first render without triggering check
+      if (previousAccountRef.current === undefined) {
+        previousAccountRef.current = activeAccount.address;
+        // On first render with existing connection, check registration
+        console.log("Checking existing registrations for:", activeAccount.address);
+        checkExistingRegistrations(activeAccount.address);
+        return;
+      }
+      
+      if (isNewConnection) {
+        hasCheckedRef.current = true;
+        console.log("New connection - Checking existing registrations for:", activeAccount.address);
+        checkExistingRegistrations(activeAccount.address);
+      }
+      
+      previousAccountRef.current = activeAccount.address;
+    } else if (!activeAccount?.address && previousAccountRef.current) {
+      // Reset refs when wallet disconnects
+      previousAccountRef.current = undefined;
+      hasCheckedRef.current = false;
+    }
+  }, [activeAccount?.address]);
 
   // Auto-redirect authenticated users to their appropriate dashboard
   // useEffect(() => {

@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ConnectButton, useActiveAccount, useActiveWallet } from "thirdweb/react";
+import { useRouter } from 'next/navigation';
 import { client } from '@/utils/thirdweb';
 import { useAuthMethod } from '@/contexts/AuthMethodContext';
 import { createWallet, inAppWallet } from "thirdweb/wallets";
+import { WalletDetectionService } from '@/services/walletDetectionService';
 
 interface DualAuthConnectProps {
   onConnect?: (address: string, authMethod: string) => void;
@@ -16,15 +18,19 @@ export function DualAuthConnect({ onConnect, onError }: DualAuthConnectProps) {
   const { setAuthMethod: setGlobalAuthMethod } = useAuthMethod();
   const account = useActiveAccount();
   const wallet = useActiveWallet();
+  const router = useRouter();
+  const previousAccountRef = useRef<string | undefined>(undefined);
+  const hasCheckedRef = useRef(false);
+  const signInInitiatedRef = useRef(true); // DualAuthConnect is ONLY shown for sign-in
 
   // Handle connection success
   useEffect(() => {
-    if (account && wallet && onConnect) {
+    if (account && wallet) {
       // Determine the actual authentication method and wallet type
       let detectedMethod: 'wallet' | 'email' | 'google' | 'apple' = 'wallet';
       let walletType: 'embedded' | 'external' = 'external';
 
-      console.log('Wallet info:', {
+      console.log('🟩 [DualAuthConnect] Wallet info:', {
         id: wallet.id,
         wallet: wallet,
         account: account.address
@@ -38,7 +44,7 @@ export function DualAuthConnect({ onConnect, onError }: DualAuthConnectProps) {
         // For embedded wallets, we need to check how the user authenticated
         // In Thirdweb v5, the auth method info might be in the wallet's internal state
         const walletInfo = (wallet as any);
-        console.log('Embedded wallet info:', walletInfo);
+        console.log('🟩 [DualAuthConnect] Embedded wallet info:', walletInfo);
         
         // Check if wallet has any auth info
         if (walletInfo.authMode || walletInfo.authMethod) {
@@ -67,7 +73,7 @@ export function DualAuthConnect({ onConnect, onError }: DualAuthConnectProps) {
           for (const key of possibleKeys) {
             const data = localStorage.getItem(key);
             if (data) {
-              console.log(`Found auth data in ${key}:`, data);
+              console.log(`🟩 [DualAuthConnect] Found auth data in ${key}:`, data);
               if (data.includes('google')) {
                 detectedMethod = 'google';
                 break;
@@ -78,7 +84,7 @@ export function DualAuthConnect({ onConnect, onError }: DualAuthConnectProps) {
             }
           }
         } catch (e) {
-          console.log('Could not read auth data:', e);
+          console.log('🟩 [DualAuthConnect] Could not read auth data:', e);
         }
       } else {
         // External wallet - check the wallet ID to determine the type
@@ -86,14 +92,77 @@ export function DualAuthConnect({ onConnect, onError }: DualAuthConnectProps) {
         detectedMethod = 'wallet';
         
         // Log the wallet ID for debugging
-        console.log('External wallet detected:', wallet.id);
+        console.log('🟩 [DualAuthConnect] External wallet detected:', wallet.id);
       }
 
-      console.log('Final detection:', { detectedMethod, walletType });
+      console.log('🟩 [DualAuthConnect] Final detection:', { detectedMethod, walletType });
       setGlobalAuthMethod(detectedMethod, walletType);
-      onConnect(account.address, detectedMethod);
+      
+      // Call onConnect callback if provided
+      if (onConnect) {
+        onConnect(account.address, detectedMethod);
+      }
+
+      console.log('🟩 [DualAuthConnect] Checking connection', {
+        currentAddress: account.address,
+        previousRef: previousAccountRef.current,
+        signInInitiated: signInInitiatedRef.current,
+        hasChecked: hasCheckedRef.current
+      });
+
+      // Since DualAuthConnect is ONLY used for sign-in, any connection here is a new sign-in
+      const isNewSignIn = signInInitiatedRef.current && previousAccountRef.current !== account.address;
+      
+      console.log('🟩 [DualAuthConnect] Connection analysis', {
+        isNewSignIn,
+        currentAddress: account.address,
+        previousAddress: previousAccountRef.current
+      });
+
+      if (isNewSignIn && !hasCheckedRef.current) {
+        console.log('🟩 [DualAuthConnect] ✅ NEW SIGN-IN detected - checking registration');
+        
+        // Mark as checked to prevent duplicate checks
+        hasCheckedRef.current = true;
+        signInInitiatedRef.current = false; // Reset the flag
+        
+        // Check wallet registration status and redirect if needed
+        const checkAndRedirect = async () => {
+          try {
+            const detector = WalletDetectionService.getInstance();
+            const result = await detector.detectWalletType(account.address);
+            
+            console.log('� [DualAuthConnect] Detection result:', result);
+            
+            if (!result.isRegistered) {
+              console.log('🟩 [DualAuthConnect] 🔄 New user detected, redirecting to /choose...');
+              setTimeout(() => {
+                router.push('/choose');
+              }, 100);
+            } else {
+              console.log('🟩 [DualAuthConnect] ✅ Registered user, staying on current page');
+            }
+          } catch (error) {
+            console.error('🟩 [DualAuthConnect] ❌ Error detecting wallet:', error);
+          }
+        };
+        
+        checkAndRedirect();
+      } else if (previousAccountRef.current !== account.address) {
+        console.log('🟩 [DualAuthConnect] Address changed but sign-in not initiated (unlikely in DualAuthConnect)');
+      }
+      
+      // Update tracked address
+      previousAccountRef.current = account.address;
+      
+    } else if (!account && previousAccountRef.current) {
+      // Reset everything when wallet disconnects
+      console.log('🟩 [DualAuthConnect] Wallet disconnected - resetting all refs');
+      previousAccountRef.current = undefined;
+      hasCheckedRef.current = false;
+      signInInitiatedRef.current = true; // Reset to true since component is for sign-in
     }
-  }, [account, wallet, authMethod, onConnect, setGlobalAuthMethod]);
+  }, [account, wallet, authMethod, onConnect, setGlobalAuthMethod, router]);
 
   // Configure wallets based on selected method
   const wallets = authMethod === 'email' 

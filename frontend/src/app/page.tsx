@@ -45,6 +45,7 @@ export default function LandingPage() {
 
   const handleAuthConnect = () => {
     setShowAuthModal(false);
+    // Redirect logic is now handled inside DualAuthConnect component
   };
 
   const handleAuthError = (error: any) => {

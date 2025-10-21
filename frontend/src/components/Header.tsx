@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { createThirdwebClient } from "thirdweb";
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
+import { useRouter } from "next/navigation";
 import Section from "./Section";
 import { useAuth } from "@/hooks/useAuth";
 import Spinner from "./Spinner";
-import { useAuthStore } from "@/stores/authStore";
+import { WalletDetectionService } from "@/services/walletDetectionService";
 
 const Header: React.FC = () => {
   const account = useActiveAccount();
@@ -14,6 +15,9 @@ const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const router = useRouter();
+  const hasCheckedRef = useRef(false);
+  const previousAccountRef = useRef<string | undefined>(undefined);
 
   const client = createThirdwebClient({
     clientId:
@@ -37,11 +41,84 @@ const Header: React.FC = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [scrolled]);
 
+  // Track when modal opens to mark the start of a sign-in flow
+  const signInInitiatedRef = useRef(false);
+
   useEffect(() => {
-    if (account?.address && !isAuthenticated) {
-      setIsModalOpen(false);
+    if (isModalOpen) {
+      // User opened the modal - mark that a sign-in was initiated
+      console.log('🟦 [Header] Modal opened - marking sign-in initiated');
+      signInInitiatedRef.current = true;
     }
-  }, [account?.address, isAuthenticated]);
+  }, [isModalOpen]);
+
+  // Handle wallet connection after sign-in
+  useEffect(() => {
+    console.log('🟦 [Header] useEffect triggered', {
+      hasAccount: !!account?.address,
+      address: account?.address,
+      previousRef: previousAccountRef.current,
+      signInInitiated: signInInitiatedRef.current,
+      hasChecked: hasCheckedRef.current
+    });
+
+    if (account?.address) {
+      // Check if this is from a user-initiated sign-in (modal was opened)
+      const isNewSignIn = signInInitiatedRef.current && previousAccountRef.current !== account.address;
+      
+      console.log('🟦 [Header] Connection analysis', {
+        isNewSignIn,
+        currentAddress: account.address,
+        previousAddress: previousAccountRef.current,
+        signInWasInitiated: signInInitiatedRef.current
+      });
+
+      if (isNewSignIn && !hasCheckedRef.current) {
+        console.log('🟦 [Header] ✅ NEW SIGN-IN detected - checking registration');
+        
+        // Mark as checked to prevent duplicate checks
+        hasCheckedRef.current = true;
+        signInInitiatedRef.current = false; // Reset the flag
+        
+        // Check wallet registration status and redirect if needed
+        const checkAndRedirect = async () => {
+          try {
+            const detector = WalletDetectionService.getInstance();
+            const result = await detector.detectWalletType(account.address);
+            
+            console.log('� [Header] Detection result:', result);
+            
+            if (!result.isRegistered) {
+              console.log('🟦 [Header] 🔄 New user detected, redirecting to /choose...');
+              setIsModalOpen(false); // Close modal before redirect
+              setTimeout(() => {
+                router.push('/choose');
+              }, 100);
+            } else {
+              console.log('🟦 [Header] ✅ Registered user, staying on current page');
+              setIsModalOpen(false); // Close modal anyway
+            }
+          } catch (error) {
+            console.error('🟦 [Header] ❌ Error detecting wallet:', error);
+          }
+        };
+        
+        checkAndRedirect();
+      } else if (previousAccountRef.current !== account.address) {
+        console.log('🟦 [Header] Address changed but not from modal sign-in (page load)');
+      }
+      
+      // Update tracked address
+      previousAccountRef.current = account.address;
+      
+    } else if (!account?.address && previousAccountRef.current) {
+      // Reset everything when wallet disconnects
+      console.log('🟦 [Header] Wallet disconnected - resetting all refs');
+      previousAccountRef.current = undefined;
+      hasCheckedRef.current = false;
+      signInInitiatedRef.current = false;
+    }
+  }, [account?.address, router, isModalOpen]);
 
   const handleModalOpen = () => {
     setIsModalOpen(true);

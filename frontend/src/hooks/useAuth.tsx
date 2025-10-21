@@ -105,6 +105,8 @@ export const useAuth = () => {
             case 'customer':
               tokenData = await authApi.authenticateCustomer(account.address);
               break;
+            default:
+              console.warn('Unknown user type for authentication:', profile.type);
           }
           
           if (tokenData && tokenData.token) {
