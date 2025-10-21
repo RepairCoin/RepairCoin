@@ -1,33 +1,75 @@
+import { useEffect } from "react";
+import { StatusBar, Platform } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useFonts } from "expo-font";
 import { SplashScreen, Stack } from "expo-router";
-import { useEffect } from "react";
 import { ThirdwebProvider } from "thirdweb/react";
-// import { createThirdwebClient } from "thirdweb";
-import { StatusBar } from "react-native";
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ToastProvider } from "react-native-toast-notifications";
+
+import { ErrorBoundaryProvider } from "../providers/ErrorBoundaryProvider";
 import "../global.css";
 
+SplashScreen.preventAutoHideAsync();
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      staleTime: 5 * 60 * 1000,
+      refetchOnWindowFocus: false,
+    },
+    mutations: {
+      retry: 1,
+    },
+  },
+});
+
+
 export default function RootLayout() {
-  const [loaded] = useFonts({
+  const [fontsLoaded] = useFonts({
     Poppins: require("../assets/fonts/Poppins-Regular.ttf"),
     "Poppins-ExtraBold": require("../assets/fonts/Poppins-ExtraBold.ttf"),
   });
 
-  // const client = createThirdwebClient({
-  //   clientId:
-  //     process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID ||
-  //     "1969ac335e07ba13ad0f8d1a1de4f6ab",
-  // });
-
   useEffect(() => {
-    if (loaded) {
+    if (fontsLoaded) {
       SplashScreen.hideAsync();
     }
-  }, [loaded]);
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) {
+    return null;
+  }
 
   return (
-    <ThirdwebProvider>
-      <StatusBar barStyle="light-content" />
-      <Stack screenOptions={{ headerShown: false }} />
-    </ThirdwebProvider>
+    <ErrorBoundaryProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <QueryClientProvider client={queryClient}>
+            <ThirdwebProvider>
+              <BottomSheetModalProvider>
+                <ToastProvider>
+                  <StatusBar 
+                    barStyle={Platform.OS === 'ios' ? 'light-content' : 'default'}
+                    backgroundColor="transparent"
+                    translucent
+                  />
+                  <Stack 
+                    screenOptions={{ 
+                      headerShown: false,
+                      animation: 'slide_from_right',
+                      gestureEnabled: true,
+                    }} 
+                  />
+                </ToastProvider>
+              </BottomSheetModalProvider>
+            </ThirdwebProvider>
+          </QueryClientProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </ErrorBoundaryProvider>
   );
 }

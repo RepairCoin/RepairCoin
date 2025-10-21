@@ -1,5 +1,3 @@
-import { useAuthStore } from "@/store/authStore";
-import { router } from "expo-router";
 import { useState } from "react";
 import {
   Text,
@@ -7,13 +5,19 @@ import {
   SafeAreaView,
   ImageBackground,
   Pressable,
+  useColorScheme,
 } from "react-native";
+import { router } from "expo-router";
+import { ConnectButton } from "thirdweb/react";
+import { useAuthStore } from "@/store/authStore";
+import { client } from "@/constants/thirdweb";
 
 const girl = require("@/assets/images/shop_girl.png");
 const guy = require("@/assets/images/shop_boy.png");
 const globe = require("@/assets/images/global_spin.png");
 
 export default function Onboarding() {
+  const theme = useColorScheme();
   const { isAuthenticated, isAdmin, isCustomer, isShop } = useAuthStore(
     (state) => state
   );
@@ -72,12 +76,7 @@ export default function Onboarding() {
               ))}
             </View>
             {index === 2 ? (
-              <Pressable
-                className="bg-[#FFCC00] border-gray-400 rounded-xl"
-                onPress={handleGoNext}
-              >
-                <Text className="mx-8 my-4 font-bold">Connect Wallet</Text>
-              </Pressable>
+              <ConnectButton client={client} theme={theme || "dark"} />
             ) : (
               <Pressable
                 className="border-2 border-gray-400 rounded-xl"
