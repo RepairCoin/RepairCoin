@@ -210,7 +210,7 @@ export default function FeaturesPage() {
   return (
     <div className="min-h-screen bg-[#0D0D0D] text-white">
       {/* Header */}
-      <div className="bg-gradient-to-r from-gray-900 to-black border-b border-gray-800">
+     {/*  <div className="bg-gradient-to-r from-gray-900 to-black border-b border-gray-800">
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
@@ -227,7 +227,7 @@ export default function FeaturesPage() {
             </div>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Hero Section */}
       <div className="bg-gradient-to-b from-gray-900 to-[#0D0D0D] py-16">

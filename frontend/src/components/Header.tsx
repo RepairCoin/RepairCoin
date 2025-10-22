@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { createThirdwebClient } from "thirdweb";
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Section from "./Section";
 import { useAuth } from "@/hooks/useAuth";
 import Spinner from "./Spinner";
@@ -136,11 +137,11 @@ const Header: React.FC = () => {
           <Section>
             <div className="flex flex-wrap justify-between items-center w-full">
               {/* Logo */}
-              <a href="/" className="flex items-center">
+              <Link href="/" className="flex items-center">
                 <div className="flex items-center">
                   <img src="/img/nav-logo.png" alt="" />
                 </div>
-              </a>
+              </Link>
 
               {/* Mobile menu button */}
               <div className="flex lg:hidden">
@@ -193,12 +194,12 @@ const Header: React.FC = () => {
                   <ul className="flex space-x-6">
                     {["Features", "Rewards", "About"].map((item) => (
                       <li key={item}>
-                        <a
-                          href={`${item.toLowerCase()}`}
+                        <Link
+                          href={`/${item.toLowerCase()}`}
                           className="text-gray-300 hover:text-white px-3 py-2 text-sm font-medium transition-colors duration-200"
                         >
                           {item}
-                        </a>
+                        </Link>
                       </li>
                     ))}
                   </ul>
@@ -236,27 +237,36 @@ const Header: React.FC = () => {
                   <nav className="flex flex-col items-center space-y-3">
                     {["Features", "Rewards", "About"].map(
                       (item) => (
-                        <a
+                        <Link
                           key={`mobile-${item}`}
-                          href={`${item.toLowerCase()}`}
+                          href={`/${item.toLowerCase()}`}
                           className="w-full text-center px-4 py-3 text-base font-medium text-black hover:text-white hover:bg-gray-900/50 rounded-lg transition-colors duration-200"
                           onClick={() => setIsMenuOpen(false)}
                         >
                           {item}
-                        </a>
+                        </Link>
                       )
                     )}
                   </nav>
 
                   {/* Auth Buttons */}
                   <div className="pt-2 space-y-3">
-                    <button
-                      onClick={() => setIsModalOpen(true)}
-                      disabled={isLoading}
-                      className="w-full px-4 py-3 text-base font-medium text-center text-black bg-[#F7CC00] hover:bg-gray-700/50 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                    >
-                      {isLoading ? <Spinner className="w-5 h-5" /> : "Log In"}
-                    </button>
+                    {account?.address && !isLoading ? (
+                      <div className="flex justify-center items-center">
+                        <ConnectButton 
+                          client={client}
+                          connectModal={{ size: "wide" }}
+                        />
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setIsModalOpen(true)}
+                        disabled={isLoading}
+                        className="w-full px-4 py-3 text-base font-medium text-center text-black bg-[#F7CC00] hover:bg-gray-700/50 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                      >
+                        {isLoading ? <Spinner className="w-5 h-5" /> : "Log In"}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
