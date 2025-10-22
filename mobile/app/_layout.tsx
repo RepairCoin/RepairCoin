@@ -6,27 +6,16 @@ import { useFonts } from "expo-font";
 import { SplashScreen, Stack } from "expo-router";
 import { ThirdwebProvider } from "thirdweb/react";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { ToastProvider } from "react-native-toast-notifications";
 
 import { ErrorBoundaryProvider } from "../providers/ErrorBoundaryProvider";
+import { queryClient } from "../config/queryClient";
+import DevTools from "../components/ui/ReactQueryDevtools";
 import "../global.css";
 import "react-native-get-random-values";
 
 SplashScreen.preventAutoHideAsync();
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 2,
-      staleTime: 5 * 60 * 1000,
-      refetchOnWindowFocus: false,
-    },
-    mutations: {
-      retry: 1,
-    },
-  },
-});
 
 
 export default function RootLayout() {
@@ -65,6 +54,7 @@ export default function RootLayout() {
                       gestureEnabled: true,
                     }} 
                   />
+                  <DevTools />
                 </ToastProvider>
               </BottomSheetModalProvider>
             </ThirdwebProvider>

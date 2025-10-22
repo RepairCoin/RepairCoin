@@ -6,7 +6,7 @@ import {
   Octicons,
   SimpleLineIcons,
 } from "@expo/vector-icons";
-import DetailCard from "@/components/DetailCard";
+import DetailCard from "@/components/ui/DetailCard";
 import TierBenefitsModal from "./TierBenefitsModal";
 import { useEffect, useState } from "react";
 import TokenSummaryModal from "./TokenSummaryModal";

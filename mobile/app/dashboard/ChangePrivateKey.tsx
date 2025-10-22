@@ -1,9 +1,9 @@
 import { AntDesign, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
 import { View, Text, TextInput, Pressable } from "react-native";
-import Screen from "@/components/Screen";
+import Screen from "@/components/ui/Screen";
 import { useState } from "react";
-import PrimaryButton from "@/components/PrimaryButton";
+import PrimaryButton from "@/components/ui/PrimaryButton";
 
 export default function ChangePrivateKeyPage() {
   const [key, setKey] = useState<string>("");

@@ -2,8 +2,8 @@ import { Text, TextInput, View } from "react-native";
 import { goBack } from "expo-router/build/global-state/routing";
 import { LinearGradient } from "expo-linear-gradient";
 import { AntDesign, Ionicons } from "@expo/vector-icons";
-import LoginButton from "@/components/LoginButton";
-import Screen from "@/components/Screen";
+import LoginButton from "@/components/ui/LoginButton";
+import Screen from "@/components/ui/Screen";
 import { useState } from "react";
 import { router } from "expo-router";
 import {

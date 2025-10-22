@@ -2,8 +2,8 @@ import { ScrollView, Text, TextInput } from "react-native";
 import { View, Image } from "react-native";
 import { AntDesign } from "@expo/vector-icons";
 import { Checkbox } from "expo-checkbox";
-import Screen from "@/components/Screen";
-import PrimaryButton from "@/components/PrimaryButton";
+import Screen from "@/components/ui/Screen";
+import PrimaryButton from "@/components/ui/PrimaryButton";
 
 type Props = {
   handleGoBack: () => void;

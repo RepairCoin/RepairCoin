@@ -1,5 +1,5 @@
 import { Image, Text, View } from "react-native";
-import Screen from "@/components/Screen";
+import Screen from "@/components/ui/Screen";
 import { useEffect } from "react";
 import { router } from "expo-router";
 

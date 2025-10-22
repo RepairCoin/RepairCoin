@@ -9,7 +9,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { View, Text, Pressable, Image, ScrollView } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import React, { useEffect, useState } from "react";
-import DetailCard from "@/components/DetailCard";
+import DetailCard from "@/components/ui/DetailCard";
 import TokenSummaryModal from "./TokenSummaryModal";
 import EarningByTypeModal from "./EarningByTypeModal";
 

@@ -1,4 +1,4 @@
-import Screen from "@/components/Screen";
+import Screen from "@/components/ui/Screen";
 import { AntDesign, Feather } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
 import React, { useMemo, useState } from "react";
@@ -6,7 +6,7 @@ import { View, Text, TextInput, Pressable } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import CountryPicker, { CountryCode } from "react-native-country-picker-modal";
 import { MaskedTextInput } from "react-native-mask-text";
-import PrimaryButton from "@/components/PrimaryButton";
+import PrimaryButton from "@/components/ui/PrimaryButton";
 import { router } from "expo-router";
 import { RegisterAsCustomerService } from "@/services/RegisterServices";
 import { useAuthStore } from "@/store/authStore";

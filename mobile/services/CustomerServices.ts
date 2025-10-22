@@ -1,6 +1,45 @@
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
-export const getCustomerByWalletAddress = async (address: string) => {
+interface CustomerData {
+  data: {
+    customer: {
+      address: string;
+      name: string;
+      email: string;
+      phone: string;
+      tier: string;
+      lifetimeEarnings: number;
+      referralCode: string;
+      referralCount: number;
+      dailyEarnings: number;
+      monthlyEarnings: number;
+      lastEarnedDate: string;
+      joinDate: string;
+      isActive: boolean;
+      isSuspended: boolean;
+      suspensionReason: string | null;
+      id: number;
+      shopId: string;
+      stripeCustomerId: string;
+      createdAt: string;
+      updatedAt: string;
+    },
+    blockchainBalance: number,
+    tierBenefits: {
+      earningMultiplier: number,
+      redemptionRate: number,
+      crossShopRedemption: boolean,
+      tierBonus: number,
+      features: string[]
+    },
+    earningCapacity: {},
+    tierProgression: {}
+  },
+  success: boolean,
+  message: string
+}
+
+export const getCustomerByWalletAddress = async (address: string): Promise<CustomerData> => {
   const response = await fetch(`${API_URL}/customers/${address}`, {
     method: "GET",
     headers: {

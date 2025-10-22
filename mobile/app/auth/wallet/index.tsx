@@ -1,8 +1,8 @@
-import Screen from "@/components/Screen";
+import Screen from "@/components/ui/Screen";
 import { Text, View } from "react-native";
 import { AntDesign } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
-import LoginButton from "@/components/LoginButton";
+import LoginButton from "@/components/ui/LoginButton";
 import { router } from "expo-router";
 import { externalWalletConnectService } from "@/services/RegisterServices";
 import { WalletType } from "@/utilities/GlobalTypes";

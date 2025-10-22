@@ -7,9 +7,7 @@ import {
   Pressable,
   useColorScheme,
 } from "react-native";
-import { router } from "expo-router";
 import { ConnectButton } from "thirdweb/react";
-import { useAuthStore } from "@/store/authStore";
 import { client } from "@/constants/thirdweb";
 
 const girl = require("@/assets/images/shop_girl.png");
@@ -20,9 +18,6 @@ const clientId = process.env.EXPO_PUBLIC_THIRDWEB_CLIENT_ID!;
 
 export default function Onboarding() {
   const theme = useColorScheme();
-  const { isAuthenticated, isAdmin, isCustomer, isShop } = useAuthStore(
-    (state) => state
-  );
   const [index, setIndex] = useState(0);
 
   const Slides = [
@@ -45,16 +40,6 @@ export default function Onboarding() {
       img: globe,
     },
   ];
-
-  const handleGoNext = () => {
-    if (isAuthenticated) {
-      if (isCustomer) {
-        router.push("/dashboard/customer");
-      }
-    } else {
-      router.push("/auth/wallet");
-    }
-  };
 
   return (
     <SafeAreaView>
