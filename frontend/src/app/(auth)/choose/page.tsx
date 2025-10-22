@@ -142,14 +142,14 @@ export default function ChoosePage() {
   // Show loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D]">
+        <div className="max-w-md w-full bg-[#1C1C1C] rounded-2xl shadow-xl p-8 border border-gray-800">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFCC00] mx-auto mb-4"></div>
+            <h2 className="text-xl font-semibold text-white mb-2">
               Loading RepairCoin...
             </h2>
-            <p className="text-gray-600">Checking your authentication status</p>
+            <p className="text-gray-300">Checking your authentication status</p>
           </div>
         </div>
       </div>
