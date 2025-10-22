@@ -5,6 +5,7 @@ import { client } from "@/constants/thirdweb";
 import { createWallet } from "thirdweb/wallets";
 
 import { ThemedButton } from "@/components/ui/ThemedButton";
+import { useCustomer } from "@/hooks/useCustomerQueries";
 
 const globe = require("@/assets/images/global_spin.png");
 
@@ -16,8 +17,11 @@ export default function OnboardingStep3({
   slideIndex = 2,
 }: OnboardingStep3Props) {
   const account = useActiveAccount();
+  const { data: customerData, isLoading: customerLoading, isError: customerError } = useCustomer(account?.address || "");
   
-  console.log("[onboarding3 screen > account]: ", account)
+  console.log("[onboarding3 screen > account]: ", account);
+  console.log("[onboarding3 screen > customer data]: ", customerData);
+  console.log("[onboarding3 screen > customer loading]: ", customerLoading);
 
   return (
     <ImageBackground

@@ -1,4 +1,4 @@
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+import { apiClient } from '@/utilities/axios';
 
 interface CustomerData {
   data: {
@@ -40,70 +40,41 @@ interface CustomerData {
 }
 
 export const getCustomerByWalletAddress = async (address: string): Promise<CustomerData> => {
-  const response = await fetch(`${API_URL}/customers/${address}`, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-  });
-
-  if (!response.ok) {
-    console.log(`Failed to fetch customer: ${response.status}`);
+  try {
+    return await apiClient.get<CustomerData>(`/customers/${address}`);
+  } catch (error) {
+    console.error('Failed to fetch customer:', error);
+    throw error;
   }
-
-  return response.json();
 }
 
 export const getRCNBalanceByWalletAddress = async (address: string) => {
-  const response = await fetch(`${API_URL}/tokens/earned-balance/${address}`, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-  });
-
-  if (!response.ok) {
-    console.log(`Failed to fetch balance: ${response.status}`);
+  try {
+    return await apiClient.get(`/tokens/earned-balance/${address}`);
+  } catch (error) {
+    console.error('Failed to fetch balance:', error);
+    throw error;
   }
-
-  return response.json();
 }
 
-export const getEarningHistoryByWalletAddress = async (address: string, token: string | undefined) => {
-  const response = await fetch(`${API_URL}/customers/${address}/transactions`, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`
-    },
-  });
-
-  if (!response.ok) {
-    console.log(`Failed to fetch earning history: ${response.status}`);
+export const getEarningHistoryByWalletAddress = async (address: string, token?: string) => {
+  try {
+    const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+    return await apiClient.get(`/customers/${address}/transactions`, config);
+  } catch (error) {
+    console.error('Failed to fetch earning history:', error);
+    throw error;
   }
-
-  return response.json();
 }
 
 export const calculateTierByAddress = async (address: string, repairAmount: number) => {
-  const response = await fetch(`${API_URL}/shops/tier-bonus/calculate`, {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+  try {
+    return await apiClient.post('/shops/tier-bonus/calculate', {
       customerAddress: address,
       repairAmount
-    })
-  });
-
-  if (!response.ok) {
-    console.log(`Failed to fetch tier status: ${response.status}`);
+    });
+  } catch (error) {
+    console.error('Failed to calculate tier:', error);
+    throw error;
   }
-
-  return response.json();
 }

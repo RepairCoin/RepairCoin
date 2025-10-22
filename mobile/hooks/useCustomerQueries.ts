@@ -8,7 +8,11 @@ import {
 export const useCustomer = (address: string) => {
   return useQuery({
     queryKey: queryKeys.customerProfile(address),
-    queryFn: () => getCustomerByWalletAddress(address),
+    queryFn: async () => {
+      const response = await getCustomerByWalletAddress(address);
+      console.log("RESPONSE: ", response);
+      return response;
+    },
     enabled: !!address,
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
