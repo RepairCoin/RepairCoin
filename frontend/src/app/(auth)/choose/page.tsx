@@ -158,19 +158,19 @@ export default function ChoosePage() {
 
   if (!account) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D]">
+        <div className="max-w-md w-full bg-[#1C1C1C] rounded-2xl shadow-xl p-8 border border-gray-800">
           <div className="text-center">
             <div className="text-6xl mb-6">🏪</div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">
+            <h1 className="text-3xl font-bold text-white mb-4">
               Choose your role
             </h1>
-            <p className="text-gray-600 mb-8">
+            <p className="text-gray-300 mb-8">
               Connect your wallet to choose your role
             </p>
             <ConnectButton
               client={client}
-              theme="light"
+              theme="dark"
               connectModal={{ size: "wide" }}
             />
           </div>
