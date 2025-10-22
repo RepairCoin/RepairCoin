@@ -8,7 +8,7 @@ const logo = require("@/assets/images/logo.png");
 export default function SplashScreen() {
   useEffect(() => {
     const timer = setTimeout(() => {
-      router.push("/onboarding");
+      router.push("/onboarding1");
     }, 3000);
 
     return () => {
