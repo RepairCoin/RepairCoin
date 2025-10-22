@@ -11,12 +11,19 @@ export default function LayoutProvider({ children }: { children: React.ReactNode
   
   // Don't show header/footer on status page
   const isStatusPage = pathname === '/status';
+  
+  // Public pages that should always show header/footer
+  const publicPages = ['/', '/features', '/rewards', '/about', '/choose'];
+  const isPublicPage = publicPages.includes(pathname);
+  
+  // Show header/footer on public pages or when not authenticated
+  const shouldShowHeaderFooter = (isPublicPage || !isAuthenticated) && !isStatusPage;
 
   return (
     <>
-      {!isAuthenticated && !isStatusPage && <Header />}
+      {shouldShowHeaderFooter && <Header />}
       {children}
-      {!isAuthenticated && !isStatusPage && <Footer />}
+      {shouldShowHeaderFooter && <Footer />}
     </>
   );
 }
