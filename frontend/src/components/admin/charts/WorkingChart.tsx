@@ -36,7 +36,7 @@ interface WorkingPieChartProps {
 export const WorkingChart: React.FC<WorkingChartProps> = ({
   data,
   title,
-  color = '#3B82F6',
+  color = '#FFCC00',
   formatValue = (value) => value.toString(),
   height = 200,
   type = 'bar'
@@ -44,13 +44,13 @@ export const WorkingChart: React.FC<WorkingChartProps> = ({
   
   if (!data || data.length === 0) {
     return (
-      <div className="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700">
-        <h3 className="text-2xl font-bold text-white mb-6">{title}</h3>
+      <div className="bg-[#212121] rounded-2xl shadow-xl p-8 border border-[#FFCC00]/20">
+        <h3 className="text-2xl font-bold text-[#FFCC00] mb-6">{title}</h3>
         <div 
-          className="bg-gradient-to-br from-gray-700 to-gray-600 rounded-xl flex items-center justify-center border border-gray-600"
+          className="bg-gradient-to-br from-[#0D0D0D] to-[#212121] rounded-xl flex items-center justify-center border border-[#FFCC00]/30"
           style={{ height: `${height}px` }}
         >
-          <p className="text-gray-300 text-lg">No data available</p>
+          <p className="text-[#FFCC00]/70 text-lg">No data available</p>
         </div>
       </div>
     );
@@ -63,14 +63,14 @@ export const WorkingChart: React.FC<WorkingChartProps> = ({
 
   const getColor = (colorInput: string) => {
     if (colorInput.startsWith('#')) return colorInput;
-    if (colorInput.includes('blue')) return '#3B82F6';
-    if (colorInput.includes('green')) return '#10B981';
+    if (colorInput.includes('blue')) return '#4F9EF8';
+    if (colorInput.includes('green')) return '#22C55E';
     if (colorInput.includes('red')) return '#EF4444';
-    if (colorInput.includes('purple')) return '#8B5CF6';
+    if (colorInput.includes('purple')) return '#A855F7';
     if (colorInput.includes('indigo')) return '#6366F1';
-    if (colorInput.includes('yellow')) return '#F59E0B';
-    if (colorInput.includes('orange')) return '#F97316';
-    return '#3B82F6';
+    if (colorInput.includes('yellow')) return '#FFCC00';
+    if (colorInput.includes('orange')) return '#FB923C';
+    return '#FFCC00';
   };
 
   const chartColor = getColor(color);
@@ -156,7 +156,7 @@ export const WorkingChart: React.FC<WorkingChartProps> = ({
               cy={`${p.y}%`}
               r="3"
               fill={chartColor}
-              stroke="white"
+              stroke="#FFCC00"
               strokeWidth="2"
               className="hover:r-5 transition-all cursor-pointer opacity-80"
               title={`${p.point.date}: ${formatValue(p.value)}`}
@@ -168,22 +168,22 @@ export const WorkingChart: React.FC<WorkingChartProps> = ({
   };
 
   return (
-    <div className="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700 hover:shadow-2xl transition-shadow duration-300">
+    <div className="bg-[#212121] rounded-2xl shadow-xl p-8 border border-[#FFCC00]/20 hover:shadow-2xl hover:border-[#FFCC00]/40 transition-all duration-300">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-2xl font-bold text-white">{title}</h3>
+        <h3 className="text-2xl font-bold text-[#FFCC00]">{title}</h3>
         <div className="text-xs bg-yellow-500 text-black px-2 py-1 rounded font-bold">
           {type.toUpperCase()} | {data?.length || 0} items
         </div>
       </div>
       
       <div className="relative" style={{ height: `${height + 60}px` }}>
-        <div className="absolute left-0 top-0 flex flex-col justify-between text-sm font-medium text-gray-300 w-16" style={{ height: `${height}px` }}>
-          <span className="bg-gray-700 px-2 py-1 rounded shadow-sm text-white">{formatValue(maxValue)}</span>
-          <span className="bg-gray-700 px-2 py-1 rounded shadow-sm text-white">{formatValue((maxValue + minValue) / 2)}</span>
-          <span className="bg-gray-700 px-2 py-1 rounded shadow-sm text-white">{formatValue(minValue)}</span>
+        <div className="absolute left-0 top-0 flex flex-col justify-between text-sm font-medium text-[#FFCC00]/70 w-16" style={{ height: `${height}px` }}>
+          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30">{formatValue(maxValue)}</span>
+          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30">{formatValue((maxValue + minValue) / 2)}</span>
+          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30">{formatValue(minValue)}</span>
         </div>
         
-        <div className="ml-20 relative bg-gradient-to-br from-gray-700 to-gray-600 rounded-xl border border-gray-600 shadow-inner" style={{ height: `${height}px` }}>
+        <div className="ml-20 relative bg-gradient-to-br from-[#0D0D0D] to-[#212121] rounded-xl border border-[#FFCC00]/30 shadow-inner" style={{ height: `${height}px` }}>
           <div className="absolute inset-0 p-2">
             {[0, 0.25, 0.5, 0.75, 1].map((percent) => (
               <div
@@ -192,6 +192,8 @@ export const WorkingChart: React.FC<WorkingChartProps> = ({
                 style={{
                   top: `${percent * 100}%`,
                   borderTopWidth: '0.5px',
+                  borderColor: '#FFCC00',
+                  opacity: 0.2,
                   left: 0,
                   right: 0
                 }}
@@ -238,23 +240,23 @@ export const WorkingChart: React.FC<WorkingChartProps> = ({
       </div>
       
       <div className="mt-6 grid grid-cols-4 gap-6">
-        <div className="text-center p-4 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl border border-blue-500 shadow-sm">
-          <p className="text-blue-200 text-sm font-medium mb-1">Peak</p>
-          <p className="text-xl font-bold text-white">{formatValue(maxValue)}</p>
+        <div className="text-center p-4 bg-gradient-to-br from-[#FFCC00]/20 to-[#FFCC00]/30 rounded-xl border border-[#FFCC00]/40 shadow-sm">
+          <p className="text-[#FFCC00]/80 text-sm font-medium mb-1">Peak</p>
+          <p className="text-xl font-bold text-[#FFCC00]">{formatValue(maxValue)}</p>
         </div>
-        <div className="text-center p-4 bg-gradient-to-br from-green-600 to-green-700 rounded-xl border border-green-500 shadow-sm">
-          <p className="text-green-200 text-sm font-medium mb-1">Average</p>
-          <p className="text-xl font-bold text-white">
+        <div className="text-center p-4 bg-gradient-to-br from-[#22C55E]/20 to-[#22C55E]/30 rounded-xl border border-[#22C55E]/40 shadow-sm">
+          <p className="text-[#22C55E]/80 text-sm font-medium mb-1">Average</p>
+          <p className="text-xl font-bold text-[#22C55E]">
             {formatValue(Math.round(values.reduce((sum, v) => sum + v, 0) / values.length))}
           </p>
         </div>
-        <div className="text-center p-4 bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl border border-purple-500 shadow-sm">
-          <p className="text-purple-200 text-sm font-medium mb-1">Total</p>
-          <p className="text-xl font-bold text-white">{formatValue(values.reduce((sum, v) => sum + v, 0))}</p>
+        <div className="text-center p-4 bg-gradient-to-br from-[#A855F7]/20 to-[#A855F7]/30 rounded-xl border border-[#A855F7]/40 shadow-sm">
+          <p className="text-[#A855F7]/80 text-sm font-medium mb-1">Total</p>
+          <p className="text-xl font-bold text-[#A855F7]">{formatValue(values.reduce((sum, v) => sum + v, 0))}</p>
         </div>
-        <div className="text-center p-4 bg-gradient-to-br from-orange-600 to-orange-700 rounded-xl border border-orange-500 shadow-sm">
-          <p className="text-orange-200 text-sm font-medium mb-1">Trend</p>
-          <p className="text-2xl font-bold text-white">
+        <div className="text-center p-4 bg-gradient-to-br from-[#4F9EF8]/20 to-[#4F9EF8]/30 rounded-xl border border-[#4F9EF8]/40 shadow-sm">
+          <p className="text-[#4F9EF8]/80 text-sm font-medium mb-1">Trend</p>
+          <p className="text-2xl font-bold text-[#4F9EF8]">
             {values.length > 1 && values[values.length - 1] > values[0] ? '📈' : 
              values.length > 1 && values[values.length - 1] < values[0] ? '📉' : '➖'}
           </p>
@@ -273,13 +275,13 @@ export const WorkingLineChart: React.FC<WorkingLineChartProps> = ({
 }) => {
   if (!data || data.length === 0) {
     return (
-      <div className="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700">
-        <h3 className="text-2xl font-bold text-white mb-6">{title}</h3>
+      <div className="bg-[#212121] rounded-2xl shadow-xl p-8 border border-[#FFCC00]/20">
+        <h3 className="text-2xl font-bold text-[#FFCC00] mb-6">{title}</h3>
         <div 
-          className="bg-gradient-to-br from-gray-700 to-gray-600 rounded-xl flex items-center justify-center border border-gray-600"
+          className="bg-gradient-to-br from-[#0D0D0D] to-[#212121] rounded-xl flex items-center justify-center border border-[#FFCC00]/30"
           style={{ height: `${height}px` }}
         >
-          <p className="text-gray-300 text-lg">No data available</p>
+          <p className="text-[#FFCC00]/70 text-lg">No data available</p>
         </div>
       </div>
     );
@@ -300,17 +302,17 @@ export const WorkingLineChart: React.FC<WorkingLineChartProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+    <div className="bg-[#212121] rounded-2xl shadow-xl p-8 border border-[#FFCC00]/20 hover:shadow-2xl hover:border-[#FFCC00]/40 transition-all duration-300">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-2xl font-bold text-gray-900">{title}</h3>
+        <h3 className="text-2xl font-bold text-[#FFCC00]">{title}</h3>
         <div className="flex gap-6">
           {lines.map((line) => (
             <div key={line.key} className="flex items-center gap-3">
               <div 
-                className="w-4 h-4 rounded-full shadow-sm" 
+                className="w-4 h-4 rounded-full shadow-sm border border-[#FFCC00]/40" 
                 style={{ backgroundColor: getColor(line.color) }}
               ></div>
-              <span className="text-sm font-medium text-gray-700">{line.label}</span>
+              <span className="text-sm font-medium text-[#FFCC00]/80">{line.label}</span>
             </div>
           ))}
         </div>
@@ -346,20 +348,6 @@ export const WorkingLineChart: React.FC<WorkingLineChartProps> = ({
                       points={pointsStr}
                       filter="drop-shadow(0 2px 4px rgba(0,0,0,0.1))"
                     />
-                    {points.map((p, index) => (
-                      <circle
-                        key={`${line.key}-${index}`}
-                        cx={`${p.x}%`}
-                        cy={`${p.y}%`}
-                        r="4"
-                        fill="white"
-                        stroke={color}
-                        strokeWidth="2"
-                        className="hover:r-6 transition-all cursor-pointer"
-                        title={`${p.point.date}: ${formatValue(p.value)}`}
-                        filter="drop-shadow(0 2px 4px rgba(0,0,0,0.2))"
-                      />
-                    ))}
                   </g>
                 );
               })}
@@ -391,13 +379,13 @@ export const WorkingPieChart: React.FC<WorkingPieChartProps> = ({
 }) => {
   if (!data || data.length === 0) {
     return (
-      <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
-        <h3 className="text-2xl font-bold text-gray-900 mb-6">{title}</h3>
+      <div className="bg-[#212121] rounded-2xl shadow-xl p-8 border border-[#FFCC00]/20">
+        <h3 className="text-2xl font-bold text-[#FFCC00] mb-6">{title}</h3>
         <div 
-          className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl flex items-center justify-center border border-gray-200"
+          className="bg-gradient-to-br from-[#0D0D0D] to-[#212121] rounded-xl flex items-center justify-center border border-[#FFCC00]/30"
           style={{ height: `${size}px` }}
         >
-          <p className="text-gray-500 text-lg">No data available</p>
+          <p className="text-[#FFCC00]/70 text-lg">No data available</p>
         </div>
       </div>
     );
@@ -443,8 +431,8 @@ export const WorkingPieChart: React.FC<WorkingPieChartProps> = ({
   };
 
   return (
-    <div className="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700 hover:shadow-2xl transition-shadow duration-300">
-      <h3 className="text-2xl font-bold text-white mb-6">{title}</h3>
+    <div className="bg-[#212121] rounded-2xl shadow-xl p-8 border border-[#FFCC00]/20 hover:shadow-2xl hover:border-[#FFCC00]/40 transition-all duration-300">
+      <h3 className="text-2xl font-bold text-[#FFCC00] mb-6">{title}</h3>
       
       <div className="flex items-center gap-8">
         <div className="relative" style={{ width: size, height: size }}>
@@ -453,9 +441,9 @@ export const WorkingPieChart: React.FC<WorkingPieChartProps> = ({
           </svg>
           
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center bg-gray-700 rounded-full p-4 shadow-lg border border-gray-600">
-              <p className="text-3xl font-bold text-white">{formatValue(total)}</p>
-              <p className="text-sm font-medium text-gray-300">Total</p>
+            <div className="text-center bg-[#0D0D0D] rounded-full p-4 shadow-lg border border-[#FFCC00]/40">
+              <p className="text-3xl font-bold text-[#FFCC00]">{formatValue(total)}</p>
+              <p className="text-sm font-medium text-[#FFCC00]/70">Total</p>
             </div>
           </div>
         </div>
@@ -464,17 +452,17 @@ export const WorkingPieChart: React.FC<WorkingPieChartProps> = ({
           {data.map((segment, index) => {
             const percentage = (segment.value / total) * 100;
             return (
-              <div key={index} className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-700 to-gray-600 rounded-xl border border-gray-500 hover:shadow-md transition-shadow duration-200">
+              <div key={index} className="flex items-center justify-between p-4 bg-gradient-to-r from-[#0D0D0D] to-[#212121] rounded-xl border border-[#FFCC00]/20 hover:shadow-md hover:border-[#FFCC00]/40 transition-all duration-200">
                 <div className="flex items-center gap-3">
                   <div 
-                    className="w-4 h-4 rounded-full shadow-sm" 
+                    className="w-4 h-4 rounded-full shadow-sm border border-[#FFCC00]/40" 
                     style={{ backgroundColor: segment.color }}
                   ></div>
-                  <span className="text-sm font-semibold text-white">{segment.label}</span>
+                  <span className="text-sm font-semibold text-[#FFCC00]">{segment.label}</span>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-bold text-white">{formatValue(segment.value)}</p>
-                  <p className="text-xs font-medium text-gray-300">{percentage.toFixed(1)}%</p>
+                  <p className="text-lg font-bold text-[#FFCC00]">{formatValue(segment.value)}</p>
+                  <p className="text-xs font-medium text-[#FFCC00]/70">{percentage.toFixed(1)}%</p>
                 </div>
               </div>
             );

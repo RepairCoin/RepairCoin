@@ -189,7 +189,6 @@ export const AdvancedTreasuryTab: React.FC = () => {
 
         setAnalyticsData(processedData);
       } else {
-        console.warn('Analytics data received but not in expected format:', analyticsData);
         setAnalyticsData(null);
         toast.error('Analytics data received in unexpected format');
       }
@@ -576,7 +575,7 @@ export const AdvancedTreasuryTab: React.FC = () => {
                     label: `$${(item.total_revenue || 0).toFixed(2)}`
                   }))}
                   title="Treasury Revenue Trends"
-                  color="#10B981"
+                  color="#22C55E"
                   formatValue={(value) => `$${value.toFixed(2)}`}
                   height={300}
                   type="bar"
@@ -599,7 +598,7 @@ export const AdvancedTreasuryTab: React.FC = () => {
                     label: `${item.total_rcn_sold || 0} RCN`
                   }))}
                   title="Treasury RCN Sales Volume"
-                  color="#3B82F6"
+                  color="#4F9EF8"
                   formatValue={(value) => `${Math.round(value)} RCN`}
                   height={300}
                   type="bar"
@@ -672,7 +671,7 @@ export const AdvancedTreasuryTab: React.FC = () => {
                     label: `${item.new_shops || 0} shops`
                   }))}
                   title="Treasury Shop Growth"
-                  color="#8B5CF6"
+                  color="#A855F7"
                   formatValue={(value) => `${Math.round(value)} shops`}
                   height={300}
                   type="bar"

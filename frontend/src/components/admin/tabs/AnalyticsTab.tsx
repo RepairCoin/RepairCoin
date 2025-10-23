@@ -205,10 +205,10 @@ export function AnalyticsTab() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+      <div className="bg-[#212121] rounded-2xl shadow-xl p-8 border border-[#FFCC00]/20">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-          <p className="mt-4 text-gray-600">Loading analytics...</p>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFCC00]"></div>
+          <p className="mt-4 text-[#FFCC00]/70">Loading analytics...</p>
         </div>
       </div>
     );
@@ -217,14 +217,14 @@ export function AnalyticsTab() {
   return (
     <div className="space-y-8">
       {/* Navigation Tabs */}
-      <div className="bg-white rounded-2xl shadow-xl border border-gray-100">
-        <div className="px-6 py-4 border-b border-gray-200">
+      <div className="bg-[#212121] rounded-2xl shadow-xl border border-[#FFCC00]/20">
+        <div className="px-6 py-4 border-b border-[#FFCC00]/20">
           <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold text-gray-900">Advanced Analytics</h1>
+            <h1 className="text-3xl font-bold text-[#FFCC00]">Advanced Analytics</h1>
             <button
               onClick={handleRunMonitoringChecks}
               disabled={monitoringLoading}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+              className="px-4 py-2 bg-[#FFCC00] text-[#0D0D0D] rounded-lg hover:bg-[#FFCC00]/90 disabled:opacity-50 flex items-center gap-2 font-bold"
             >
               {monitoringLoading ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -244,10 +244,10 @@ export function AnalyticsTab() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
+                className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all ${
                   activeTab === tab.id
-                    ? 'bg-indigo-100 text-indigo-700'
-                    : 'text-gray-600 hover:bg-gray-100'
+                    ? 'bg-[#FFCC00] text-[#0D0D0D] font-bold'
+                    : 'text-[#FFCC00]/70 hover:bg-[#FFCC00]/10 hover:text-[#FFCC00]'
                 }`}
               >
                 <span>{tab.icon}</span>
@@ -268,53 +268,53 @@ export function AnalyticsTab() {
         <div className="space-y-6">
           {/* Key Metrics Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
+            <div className="bg-[#212121] rounded-2xl shadow-xl p-6 border border-[#FFCC00]/20 hover:border-[#FFCC00]/40 transition-all">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Total Supply</p>
-                  <p className="text-3xl font-bold text-blue-600">
+                  <p className="text-sm font-medium text-[#FFCC00]/70">Total Supply</p>
+                  <p className="text-3xl font-bold text-[#FFCC00]">
                     {tokenMetrics?.totalSupply?.toLocaleString() || 0}
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">RCN tokens</p>
+                  <p className="text-xs text-[#FFCC00]/60 mt-1">RCN tokens</p>
                 </div>
                 <div className="text-3xl">🪙</div>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
+            <div className="bg-[#212121] rounded-2xl shadow-xl p-6 border border-[#22C55E]/20 hover:border-[#22C55E]/40 transition-all">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-500">In Circulation</p>
-                  <p className="text-3xl font-bold text-green-600">
+                  <p className="text-sm font-medium text-[#22C55E]/70">In Circulation</p>
+                  <p className="text-3xl font-bold text-[#22C55E]">
                     {tokenMetrics?.totalInCirculation?.toLocaleString() || 0}
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">Active tokens</p>
+                  <p className="text-xs text-[#22C55E]/60 mt-1">Active tokens</p>
                 </div>
                 <div className="text-3xl">🔄</div>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
+            <div className="bg-[#212121] rounded-2xl shadow-xl p-6 border border-[#A855F7]/20 hover:border-[#A855F7]/40 transition-all">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Active Customers</p>
-                  <p className="text-3xl font-bold text-purple-600">
+                  <p className="text-sm font-medium text-[#A855F7]/70">Active Customers</p>
+                  <p className="text-3xl font-bold text-[#A855F7]">
                     {tokenMetrics?.customerBalances?.activeCustomers?.toLocaleString() || 0}
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">With tokens</p>
+                  <p className="text-xs text-[#A855F7]/60 mt-1">With tokens</p>
                 </div>
                 <div className="text-3xl">👥</div>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
+            <div className="bg-[#212121] rounded-2xl shadow-xl p-6 border border-[#FB923C]/20 hover:border-[#FB923C]/40 transition-all">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Active Shops</p>
-                  <p className="text-3xl font-bold text-orange-600">
+                  <p className="text-sm font-medium text-[#FB923C]/70">Active Shops</p>
+                  <p className="text-3xl font-bold text-[#FB923C]">
                     {tokenMetrics?.shopBalances?.length || 0}
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">Issuing tokens</p>
+                  <p className="text-xs text-[#FB923C]/60 mt-1">Issuing tokens</p>
                 </div>
                 <div className="text-3xl">🏪</div>
               </div>
@@ -331,7 +331,7 @@ export function AnalyticsTab() {
               }))}
               title="Daily Token Activity (Last 30 Days)"
               lines={[
-                { key: 'value', color: '#10B981', label: 'Tokens Issued' },
+                { key: 'value', color: '#22C55E', label: 'Tokens Issued' },
                 { key: 'value2', color: '#EF4444', label: 'Tokens Redeemed' }
               ]}
               formatValue={(value) => `${value.toLocaleString()} RCN`}
@@ -348,7 +348,7 @@ export function AnalyticsTab() {
                 label: shop.shopName
               }))}
               title="Top Shops by Tokens Issued"
-              color="#6366F1"
+              color="#FFCC00"
               formatValue={(value) => `${value.toLocaleString()} RCN`}
               height={300}
               type="bar"
@@ -400,49 +400,49 @@ export function AnalyticsTab() {
         <div className="space-y-6">
           {/* Supply Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Supply Overview</h3>
+            <div className="bg-[#212121] rounded-2xl shadow-xl p-6 border border-[#FFCC00]/20">
+              <h3 className="text-lg font-semibold text-[#FFCC00] mb-4">Supply Overview</h3>
               <div className="space-y-4">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Total Supply:</span>
-                  <span className="font-semibold">{tokenMetrics.totalSupply.toLocaleString()} RCN</span>
+                  <span className="text-[#FFCC00]/70">Total Supply:</span>
+                  <span className="font-semibold text-[#FFCC00]">{tokenMetrics.totalSupply.toLocaleString()} RCN</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">In Circulation:</span>
-                  <span className="font-semibold text-green-600">{tokenMetrics.totalInCirculation.toLocaleString()} RCN</span>
+                  <span className="text-[#FFCC00]/70">In Circulation:</span>
+                  <span className="font-semibold text-[#22C55E]">{tokenMetrics.totalInCirculation.toLocaleString()} RCN</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Total Redeemed:</span>
-                  <span className="font-semibold text-blue-600">{tokenMetrics.totalRedeemed.toLocaleString()} RCN</span>
+                  <span className="text-[#FFCC00]/70">Total Redeemed:</span>
+                  <span className="font-semibold text-[#4F9EF8]">{tokenMetrics.totalRedeemed.toLocaleString()} RCN</span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Customer Analytics</h3>
+            <div className="bg-[#212121] rounded-2xl shadow-xl p-6 border border-[#22C55E]/20">
+              <h3 className="text-lg font-semibold text-[#22C55E] mb-4">Customer Analytics</h3>
               <div className="space-y-4">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Active Customers:</span>
-                  <span className="font-semibold">{tokenMetrics.customerBalances.activeCustomers.toLocaleString()}</span>
+                  <span className="text-[#22C55E]/70">Active Customers:</span>
+                  <span className="font-semibold text-[#22C55E]">{tokenMetrics.customerBalances.activeCustomers.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Total Balance:</span>
-                  <span className="font-semibold">{tokenMetrics.customerBalances.totalCustomerBalance.toLocaleString()} RCN</span>
+                  <span className="text-[#22C55E]/70">Total Balance:</span>
+                  <span className="font-semibold text-[#22C55E]">{tokenMetrics.customerBalances.totalCustomerBalance.toLocaleString()} RCN</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Average Balance:</span>
-                  <span className="font-semibold">{tokenMetrics.customerBalances.averageBalance.toFixed(2)} RCN</span>
+                  <span className="text-[#22C55E]/70">Average Balance:</span>
+                  <span className="font-semibold text-[#22C55E]">{tokenMetrics.customerBalances.averageBalance.toFixed(2)} RCN</span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
+            <div className="bg-[#212121] rounded-2xl shadow-xl p-6 border border-[#A855F7]/20">
+              <h3 className="text-lg font-semibold text-[#A855F7] mb-4">Recent Activity</h3>
               <div className="space-y-2">
                 {tokenMetrics.dailyActivity.slice(0, 5).map((day, index) => (
                   <div key={index} className="flex justify-between text-sm">
-                    <span className="text-gray-600">{new Date(day.date).toLocaleDateString()}:</span>
-                    <span className={`font-semibold ${day.netFlow >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <span className="text-[#A855F7]/70">{new Date(day.date).toLocaleDateString()}:</span>
+                    <span className={`font-semibold ${day.netFlow >= 0 ? 'text-[#22C55E]' : 'text-[#EF4444]'}`}>
                       {day.netFlow >= 0 ? '+' : ''}{day.netFlow.toFixed(0)} RCN
                     </span>
                   </div>
@@ -452,33 +452,33 @@ export function AnalyticsTab() {
           </div>
 
           {/* Top Shops by Balance */}
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-100">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-900">Shop Token Balances</h2>
+          <div className="bg-[#212121] rounded-2xl shadow-xl border border-[#FFCC00]/20">
+            <div className="px-6 py-4 border-b border-[#FFCC00]/20">
+              <h2 className="text-xl font-bold text-[#FFCC00]">Shop Token Balances</h2>
             </div>
             <div className="p-6">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 font-semibold">Shop</th>
-                      <th className="text-right py-3 font-semibold">Current Balance</th>
-                      <th className="text-right py-3 font-semibold">Tokens Issued</th>
-                      <th className="text-right py-3 font-semibold">Redemptions</th>
+                    <tr className="border-b border-[#FFCC00]/20">
+                      <th className="text-left py-3 font-semibold text-[#FFCC00]/70">Shop</th>
+                      <th className="text-right py-3 font-semibold text-[#FFCC00]/70">Current Balance</th>
+                      <th className="text-right py-3 font-semibold text-[#FFCC00]/70">Tokens Issued</th>
+                      <th className="text-right py-3 font-semibold text-[#FFCC00]/70">Redemptions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {tokenMetrics.shopBalances.slice(0, 10).map((shop, index) => (
-                      <tr key={shop.shopId} className="border-b border-gray-100">
+                      <tr key={shop.shopId} className="border-b border-[#FFCC00]/10 hover:bg-[#FFCC00]/5 transition-all">
                         <td className="py-3">
                           <div>
-                            <div className="font-medium">{shop.shopName}</div>
-                            <div className="text-sm text-gray-500">{shop.shopId}</div>
+                            <div className="font-medium text-[#FFCC00]">{shop.shopName}</div>
+                            <div className="text-sm text-[#FFCC00]/50">{shop.shopId}</div>
                           </div>
                         </td>
-                        <td className="text-right py-3 font-semibold">{shop.balance.toLocaleString()} RCN</td>
-                        <td className="text-right py-3">{shop.tokensIssued.toLocaleString()} RCN</td>
-                        <td className="text-right py-3">{shop.redemptionsProcessed.toLocaleString()} RCN</td>
+                        <td className="text-right py-3 font-semibold text-[#22C55E]">{shop.balance.toLocaleString()} RCN</td>
+                        <td className="text-right py-3 text-[#4F9EF8]">{shop.tokensIssued.toLocaleString()} RCN</td>
+                        <td className="text-right py-3 text-[#A855F7]">{shop.redemptionsProcessed.toLocaleString()} RCN</td>
                       </tr>
                     ))}
                   </tbody>
@@ -500,7 +500,7 @@ export function AnalyticsTab() {
               label: shop.shopName
             }))}
             title="Performance Score Distribution"
-            color="#6366F1"
+            color="#FFCC00"
             formatValue={(value) => `${value.toFixed(1)} pts`}
             height={300}
           />
@@ -537,7 +537,7 @@ export function AnalyticsTab() {
               label: shop.shopName
             }))}
             title="Customer Retention by Shop (Top 10)"
-            color="#8B5CF6"
+            color="#A855F7"
             formatValue={(value) => `${value.toFixed(1)}%`}
             height={300}
           />
@@ -550,7 +550,7 @@ export function AnalyticsTab() {
               label: shop.shopName
             }))}
             title="Average Transaction Value by Shop (Top 10)"
-            color="#F97316"
+            color="#FB923C"
             formatValue={(value) => `${value.toFixed(2)} RCN`}
             height={300}
           />
@@ -559,17 +559,17 @@ export function AnalyticsTab() {
 
       {/* Alerts Tab */}
       {activeTab === 'alerts' && (
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100">
-          <div className="px-6 py-4 border-b border-gray-200">
+        <div className="bg-[#212121] rounded-2xl shadow-xl border border-[#FFCC00]/20">
+          <div className="px-6 py-4 border-b border-[#FFCC00]/20">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">System Alerts</h2>
-                <p className="text-gray-600 mt-1">Total: {alertsTotal} alerts</p>
+                <h2 className="text-xl font-bold text-[#FFCC00]">System Alerts</h2>
+                <p className="text-[#FFCC00]/70 mt-1">Total: {alertsTotal} alerts</p>
               </div>
               <button
                 onClick={loadAlerts}
                 disabled={alertsLoading}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                className="px-4 py-2 bg-[#FFCC00] text-[#0D0D0D] rounded-lg hover:bg-[#FFCC00]/90 disabled:opacity-50 font-bold"
               >
                 {alertsLoading ? 'Loading...' : 'Refresh'}
               </button>

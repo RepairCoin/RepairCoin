@@ -324,12 +324,6 @@ export const getTreasuryAnalytics = async (period?: '7d' | '30d' | '60d' | '90d'
     const params = period ? `?period=${period}` : '';
     const response = await apiClient.get(`/admin/treasury/analytics${params}`);
     
-    // Log the response for debugging
-    console.log('Treasury analytics API response:', {
-      status: response.status,
-      data: response.data,
-      period
-    });
     
     return response.data;
   } catch (error: any) {
