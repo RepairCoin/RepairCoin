@@ -6,6 +6,7 @@ import { useAdminDashboard } from '@/hooks/useAdminDashboard';
 import { CheckCircle, Clock, AlertCircle, Zap, RefreshCw, AlertTriangle, DollarSign } from 'lucide-react';
 import { AutoCompletePurchases } from '../AutoCompletePurchases';
 import { TreasurySyncProvider } from '@/hooks/useTreasurySync';
+import { WorkingChart, WorkingLineChart, WorkingPieChart } from '@/components/admin/charts/WorkingChart';
 
 interface TreasuryData {
   totalSupply: number | string;
@@ -336,7 +337,7 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
               : 'text-gray-400 hover:text-white'
           }`}
         >
-          RCG Metrics
+          Treasury Analytics
         </button>
       </div>
 
@@ -514,29 +515,74 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
         </div>
       </div>
 
-      {/* Top Buyers */}
-      <div className="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700">
+      {/* Row 1: Revenue Trend Chart */}
+      {treasuryData.recentPurchases.length > 0 && (
+        <WorkingChart
+          data={treasuryData.recentPurchases.slice(-30).map(purchase => ({
+            date: purchase.purchase_date,
+            value: safeParseNumber(purchase.total_cost)
+          }))}
+          title="Revenue Trend (Last 30 Days)"
+          color="#10B981"
+          formatValue={(value) => formatCurrency(value)}
+          type="line"
+          height={300}
+        />
+      )}
+
+      {/* Row 2: Top RCN Buyers */}
+      {treasuryData.topBuyers.length > 0 && (
+        <WorkingChart
+          data={treasuryData.topBuyers.slice(0, 10).map(buyer => ({
+            date: buyer.shop_name,
+            value: safeParseNumber(buyer.total_purchased),
+            label: buyer.shop_name
+          }))}
+          title="Top RCN Buyers"
+          color="#3B82F6"
+          formatValue={(value) => `${formatNumber(value)} RCN`}
+          height={300}
+          type="bar"
+        />
+      )}
+      
+      {/* Row 3: RCN Purchase Distribution */}
+      {treasuryData.topBuyers.length > 0 && (
+        <WorkingPieChart
+          data={treasuryData.topBuyers.slice(0, 8).map((buyer, index) => ({
+            label: buyer.shop_name,
+            value: safeParseNumber(buyer.total_purchased),
+            color: `hsl(${(index * 45) % 360}, 70%, 50%)`
+          }))}
+          title="RCN Purchase Distribution by Shop"
+          formatValue={(value) => `${formatNumber(value)} RCN`}
+          size={300}
+        />
+      )}
+
+      {/* Top Buyers List */}
+      <div className="bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-700">
         <h3 className="text-xl font-bold text-white mb-4">Top RCN Buyers</h3>
         {treasuryData.topBuyers.length === 0 ? (
           <div className="text-center py-8">
-            <DollarSign className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-            <p className="text-gray-400 text-lg font-medium">No purchases yet</p>
-            <p className="text-gray-500 text-sm">Shop purchases will appear here once they start buying RCN tokens</p>
+            <DollarSign className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+            <p className="text-gray-300 text-lg font-medium">No purchases yet</p>
+            <p className="text-gray-400 text-sm">Shop purchases will appear here once they start buying RCN tokens</p>
           </div>
         ) : (
           <div className="space-y-3">
             {treasuryData.topBuyers.map((buyer, index) => (
-              <div key={buyer.shop_id || `buyer-${index}`} className="flex items-center justify-between p-4 bg-gray-900 rounded-lg border border-gray-700">
+              <div key={buyer.shop_id || `buyer-${index}`} className="flex items-center justify-between p-4 bg-gray-700 rounded-lg border border-gray-600 hover:bg-gray-600 transition-colors">
                 <div className="flex items-center gap-3">
-                  <div className="text-2xl font-bold text-gray-500">#{index + 1}</div>
+                  <div className="text-2xl font-bold text-gray-400">#{index + 1}</div>
                   <div>
                     <p className="font-semibold text-white">{buyer.shop_name}</p>
-                    <p className="text-sm text-gray-400">Shop ID: {buyer.shop_id}</p>
+                    <p className="text-sm text-gray-300">Shop ID: {buyer.shop_id}</p>
                   </div>
                 </div>
                 <div className="text-right">
                   <p className="font-bold text-white">{formatNumber(safeParseNumber(buyer.total_purchased))} RCN</p>
-                  <p className="text-sm text-gray-400">{formatCurrency(safeParseNumber(buyer.total_spent))}</p>
+                  <p className="text-sm text-gray-300">{formatCurrency(safeParseNumber(buyer.total_spent))}</p>
                 </div>
               </div>
             ))}
@@ -545,43 +591,43 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
       </div>
 
       {/* Recent Purchases */}
-      <div className="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700">
+      <div className="bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-700">
         <h3 className="text-xl font-bold text-white mb-4">Recent RCN Purchases</h3>
         {treasuryData.recentPurchases.length === 0 ? (
           <div className="text-center py-8">
-            <Clock className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-            <p className="text-gray-400 text-lg font-medium">No recent purchases</p>
-            <p className="text-gray-500 text-sm">Recent RCN purchases from shops will be displayed here</p>
+            <Clock className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+            <p className="text-gray-300 text-lg font-medium">No recent purchases</p>
+            <p className="text-gray-400 text-sm">Recent RCN purchases from shops will be displayed here</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-700">
-              <thead className="bg-gray-900">
+            <table className="min-w-full divide-y divide-gray-600">
+              <thead className="bg-gray-700">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Shop</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Amount</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Cost</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Shop</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Amount</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Cost</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
                 </tr>
               </thead>
-              <tbody className="bg-gray-800 divide-y divide-gray-700">
+              <tbody className="bg-gray-800 divide-y divide-gray-600">
                 {treasuryData.recentPurchases.map((purchase) => {
                   const status = purchase.status?.toLowerCase() || 'unknown';
                   const statusColors = {
-                    completed: 'bg-green-900 text-green-400',
-                    pending: 'bg-yellow-900 text-yellow-400',
-                    failed: 'bg-red-900 text-red-400',
-                    cancelled: 'bg-gray-900 text-gray-400',
-                    unknown: 'bg-gray-900 text-gray-400'
+                    completed: 'bg-green-600 text-green-200',
+                    pending: 'bg-yellow-600 text-yellow-200',
+                    failed: 'bg-red-600 text-red-200',
+                    cancelled: 'bg-gray-600 text-gray-200',
+                    unknown: 'bg-gray-600 text-gray-200'
                   };
                   const statusColor = statusColors[status as keyof typeof statusColors] || statusColors.unknown;
                   
                   return (
-                    <tr key={purchase.id}>
+                    <tr key={purchase.id} className="hover:bg-gray-700">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-white">{purchase.shop_name}</div>
-                        <div className="text-sm text-gray-400">{purchase.shop_id}</div>
+                        <div className="text-sm text-gray-300">{purchase.shop_id}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
                         {formatNumber(safeParseNumber(purchase.rcn_amount))} RCN
@@ -589,7 +635,7 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
                         {formatCurrency(safeParseNumber(purchase.total_cost))}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                         {new Date(purchase.purchase_date).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -630,9 +676,9 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
         </>
       ) : (
         <>
-          {/* RCG Metrics */}
+          {/* Treasury Analytics */}
           {rcgMetrics ? (
-            <>
+            <div className="space-y-6">
               {/* RCG Token Overview */}
               <div className="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700">
                 <h2 className="text-2xl font-bold text-white mb-6">RCG Token Distribution</h2>
@@ -661,166 +707,76 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
                 </div>
               </div>
 
-              {/* Token Allocations */}
-              <div className="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700">
-                <h3 className="text-xl font-bold text-white mb-4">Token Allocations</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                  <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
-                    <p className="text-sm text-gray-400">Team & Founders</p>
-                    <p className="text-lg font-bold text-white">{formatNumber(parseInt(rcgMetrics.allocations.team))} RCG</p>
-                    <p className="text-xs text-gray-500">30% - 4yr vest, 1yr cliff</p>
-                  </div>
-                  
-                  <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
-                    <p className="text-sm text-gray-400">Private Investors</p>
-                    <p className="text-lg font-bold text-white">{formatNumber(parseInt(rcgMetrics.allocations.investors))} RCG</p>
-                    <p className="text-xs text-gray-500">30% - 2yr vest, 6mo cliff</p>
-                  </div>
-                  
-                  <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
-                    <p className="text-sm text-gray-400">Public Sale</p>
-                    <p className="text-lg font-bold text-white">{formatNumber(parseInt(rcgMetrics.allocations.publicSale))} RCG</p>
-                    <p className="text-xs text-gray-500">20% - DEX/CEX</p>
-                  </div>
-                  
-                  <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
-                    <p className="text-sm text-gray-400">DAO Treasury</p>
-                    <p className="text-lg font-bold text-white">{formatNumber(parseInt(rcgMetrics.allocations.daoTreasury))} RCG</p>
-                    <p className="text-xs text-gray-500">15% - Community</p>
-                  </div>
-                  
-                  <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
-                    <p className="text-sm text-gray-400">Staking Rewards</p>
-                    <p className="text-lg font-bold text-white">{formatNumber(parseInt(rcgMetrics.allocations.stakingRewards))} RCG</p>
-                    <p className="text-xs text-gray-500">5% - 4yr emission</p>
-                  </div>
-                </div>
-              </div>
+              {/* Row 1: RCG Token Allocation */}
+              <WorkingPieChart
+                data={[
+                  { label: 'Team & Founders (30%)', value: parseInt(rcgMetrics.allocations.team), color: '#8B5CF6' },
+                  { label: 'Private Investors (30%)', value: parseInt(rcgMetrics.allocations.investors), color: '#3B82F6' },
+                  { label: 'Public Sale (20%)', value: parseInt(rcgMetrics.allocations.publicSale), color: '#10B981' },
+                  { label: 'DAO Treasury (15%)', value: parseInt(rcgMetrics.allocations.daoTreasury), color: '#F59E0B' },
+                  { label: 'Staking Rewards (5%)', value: parseInt(rcgMetrics.allocations.stakingRewards), color: '#EF4444' }
+                ]}
+                title="RCG Token Allocation Distribution"
+                formatValue={(value) => `${formatNumber(value)} RCG`}
+                size={300}
+              />
 
-              {/* Shop Tier Distribution */}
-              <div className="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700">
-                <h3 className="text-xl font-bold text-white mb-4">Shop Tier Distribution</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-6 border border-gray-700">
-                    <div className="text-2xl mb-2">🥉</div>
-                    <p className="text-sm text-gray-400 mb-1">Standard Tier</p>
-                    <p className="text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.standard}</p>
-                    <p className="text-xs text-gray-500">10K-49K RCG</p>
-                    <p className="text-xs text-green-400">$0.10/RCN</p>
-                  </div>
-                  
-                  <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-xl p-6 border border-blue-700">
-                    <div className="text-2xl mb-2">🥈</div>
-                    <p className="text-sm text-gray-400 mb-1">Premium Tier</p>
-                    <p className="text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.premium}</p>
-                    <p className="text-xs text-blue-400">50K-199K RCG</p>
-                    <p className="text-xs text-green-400">$0.08/RCN (20% off)</p>
-                  </div>
-                  
-                  <div className="bg-gradient-to-br from-yellow-900 to-yellow-800 rounded-xl p-6 border border-yellow-700">
-                    <div className="text-2xl mb-2">🥇</div>
-                    <p className="text-sm text-gray-400 mb-1">Elite Tier</p>
-                    <p className="text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.elite}</p>
-                    <p className="text-xs text-yellow-400">200K+ RCG</p>
-                    <p className="text-xs text-green-400">$0.06/RCN (40% off)</p>
-                  </div>
-                  
-                  <div className="bg-gradient-to-br from-red-900 to-red-800 rounded-xl p-6 border border-red-700">
-                    <div className="text-2xl mb-2">❌</div>
-                    <p className="text-sm text-gray-400 mb-1">No Tier</p>
-                    <p className="text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.none}</p>
-                    <p className="text-xs text-red-400">&lt;10K RCG</p>
-                    <p className="text-xs text-gray-500">Cannot buy RCN</p>
-                  </div>
-                </div>
-              </div>
+              {/* Row 2: Shop Tier Distribution */}
+              <WorkingPieChart
+                data={[
+                  { label: 'Elite Tier (200K+ RCG)', value: rcgMetrics.shopTierDistribution.elite, color: '#F59E0B' },
+                  { label: 'Premium Tier (50K-199K RCG)', value: rcgMetrics.shopTierDistribution.premium, color: '#3B82F6' },
+                  { label: 'Standard Tier (10K-49K RCG)', value: rcgMetrics.shopTierDistribution.standard, color: '#10B981' },
+                  { label: 'No Tier (<10K RCG)', value: rcgMetrics.shopTierDistribution.none, color: '#EF4444' }
+                ]}
+                title="Shop Tier Distribution"
+                formatValue={(value) => `${value} shops`}
+                size={300}
+              />
 
-              {/* Revenue Impact */}
-              <div className="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700">
-                <h3 className="text-xl font-bold text-white mb-4">Revenue Impact by Tier</h3>
-                
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
-                      <p className="text-sm text-gray-400">Standard Tier Revenue</p>
-                      <p className="text-lg font-bold text-white">{formatCurrency(rcgMetrics.revenueImpact.standardRevenue)}</p>
-                    </div>
-                    
-                    <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
-                      <p className="text-sm text-gray-400">Premium Tier Revenue</p>
-                      <p className="text-lg font-bold text-white">{formatCurrency(rcgMetrics.revenueImpact.premiumRevenue)}</p>
-                    </div>
-                    
-                    <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
-                      <p className="text-sm text-gray-400">Elite Tier Revenue</p>
-                      <p className="text-lg font-bold text-white">{formatCurrency(rcgMetrics.revenueImpact.eliteRevenue)}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-gradient-to-br from-green-900 to-green-800 rounded-xl p-6 border border-green-700">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="text-sm text-gray-400">Total Revenue (30 days)</p>
-                        <p className="text-2xl font-bold text-white">{formatCurrency(rcgMetrics.revenueImpact.totalRevenue)}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm text-gray-400">Discounts Given</p>
-                        <p className="text-xl font-bold text-red-400">-{formatCurrency(rcgMetrics.revenueImpact.discountsGiven)}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-4 pt-4 border-t border-green-700">
-                      <h4 className="text-sm font-semibold text-gray-300 mb-2">Revenue Distribution</h4>
-                      <div className="grid grid-cols-3 gap-2 text-sm">
-                        <div>
-                          <p className="text-gray-400">Operations (80%)</p>
-                          <p className="font-bold text-white">{formatCurrency(rcgMetrics.revenueImpact.totalRevenue * 0.8)}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-400">Stakers (10%)</p>
-                          <p className="font-bold text-green-400">{formatCurrency(rcgMetrics.revenueImpact.totalRevenue * 0.1)}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-400">DAO (10%)</p>
-                          <p className="font-bold text-purple-400">{formatCurrency(rcgMetrics.revenueImpact.totalRevenue * 0.1)}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              {/* Row 3: Revenue by Tier */}
+              <WorkingChart
+                data={[
+                  { date: 'Standard', value: rcgMetrics.revenueImpact.standardRevenue, label: 'Standard Tier' },
+                  { date: 'Premium', value: rcgMetrics.revenueImpact.premiumRevenue, label: 'Premium Tier' },
+                  { date: 'Elite', value: rcgMetrics.revenueImpact.eliteRevenue, label: 'Elite Tier' }
+                ]}
+                title="Revenue by Tier (Last 30 Days)"
+                color="#10B981"
+                formatValue={(value) => formatCurrency(value)}
+                height={300}
+                type="bar"
+              />
 
-              {/* Top RCG Holders */}
+              {/* Row 4: Top RCG Holders */}
               {rcgMetrics.topHolders.length > 0 && (
-                <div className="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700">
-                  <h3 className="text-xl font-bold text-white mb-4">Top RCG Holders</h3>
+                <div className="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700 hover:shadow-2xl transition-shadow duration-300">
+                  <h3 className="text-2xl font-bold text-white mb-6">Top RCG Holders</h3>
                   
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {rcgMetrics.topHolders.map((holder, index) => (
-                      <div key={holder.address} className="flex items-center justify-between p-4 bg-gray-900 rounded-lg border border-gray-700">
-                        <div className="flex items-center gap-3">
-                          <div className="text-2xl font-bold text-gray-500">#{index + 1}</div>
+                      <div key={holder.address} className="flex items-center justify-between p-6 bg-gradient-to-r from-gray-700 to-gray-600 rounded-xl border border-gray-500 hover:shadow-md transition-shadow duration-200">
+                        <div className="flex items-center gap-4">
+                          <div className="text-3xl font-bold text-gray-400">#{index + 1}</div>
                           <div>
                             {holder.isShop && holder.shopName ? (
                               <>
-                                <p className="font-semibold text-white">{holder.shopName}</p>
-                                <p className="text-xs text-gray-400 font-mono">{holder.address}</p>
+                                <p className="font-bold text-white text-lg">{holder.shopName}</p>
+                                <p className="text-sm text-gray-300 font-mono">{holder.address}</p>
                               </>
                             ) : (
-                              <p className="font-mono text-white">{holder.address}</p>
+                              <p className="font-mono text-white text-lg">{holder.address}</p>
                             )}
                             {holder.isShop && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-900 text-blue-400 mt-1">
-                                Shop Partner
+                              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-600 text-blue-200 mt-2">
+                                🏪 Shop Partner
                               </span>
                             )}
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="font-bold text-white">{formatNumber(parseInt(holder.balance))} RCG</p>
-                          <p className="text-sm text-gray-400">
+                          <p className="font-bold text-white text-xl">{formatNumber(parseInt(holder.balance))} RCG</p>
+                          <p className="text-sm text-gray-300 font-medium">
                             {((parseInt(holder.balance) / parseInt(rcgMetrics.totalSupply)) * 100).toFixed(2)}% of supply
                           </p>
                         </div>
@@ -829,11 +785,11 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
                   </div>
                 </div>
               )}
-            </>
+            </div>
           ) : (
             <div className="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700">
-              <h2 className="text-2xl font-bold text-white mb-4">RCG Metrics</h2>
-              <p className="text-gray-400">Loading RCG metrics...</p>
+              <h2 className="text-2xl font-bold text-white mb-4">Treasury Analytics</h2>
+              <p className="text-gray-400">Loading treasury analytics...</p>
             </div>
           )}
         </>

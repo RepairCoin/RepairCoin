@@ -323,9 +323,36 @@ export const getTreasuryAnalytics = async (period?: '7d' | '30d' | '60d' | '90d'
   try {
     const params = period ? `?period=${period}` : '';
     const response = await apiClient.get(`/admin/treasury/analytics${params}`);
+    
+    // Log the response for debugging
+    console.log('Treasury analytics API response:', {
+      status: response.status,
+      data: response.data,
+      period
+    });
+    
     return response.data;
-  } catch (error) {
-    console.error('Error getting treasury analytics:', error);
+  } catch (error: any) {
+    console.error('Error getting treasury analytics:', {
+      message: error.message,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      period
+    });
+    
+    // Provide more specific error information
+    if (error.response?.status === 401) {
+      throw new Error('Authentication required. Please reconnect your wallet.');
+    } else if (error.response?.status === 403) {
+      throw new Error('Access denied. Admin privileges required.');
+    } else if (error.response?.status === 500) {
+      const errorMsg = error.response?.data?.error || 'Internal server error';
+      throw new Error(`Server error: ${errorMsg}`);
+    } else if (error.code === 'NETWORK_ERROR' || !error.response) {
+      throw new Error('Network error. Please check your connection.');
+    }
+    
     throw error;
   }
 };
@@ -422,6 +449,122 @@ export const getAnalytics = async (params?: {
   } catch (error) {
     console.error('Error getting analytics:', error);
     return null;
+  }
+};
+
+// New Advanced Analytics Endpoints
+export const getTokenCirculationMetrics = async (): Promise<{
+  totalSupply: number;
+  totalInCirculation: number;
+  totalRedeemed: number;
+  shopBalances: Array<{
+    shopId: string;
+    shopName: string;
+    balance: number;
+    tokensIssued: number;
+    redemptionsProcessed: number;
+  }>;
+  customerBalances: {
+    totalCustomerBalance: number;
+    averageBalance: number;
+    activeCustomers: number;
+  };
+  dailyActivity: Array<{
+    date: string;
+    minted: number;
+    redeemed: number;
+    netFlow: number;
+  }>;
+} | null> => {
+  try {
+    const response = await apiClient.get('/admin/analytics/token-circulation');
+    return response.data?.data || response.data || null;
+  } catch (error) {
+    console.error('Error getting token circulation metrics:', error);
+    return null;
+  }
+};
+
+export const getShopPerformanceRankings = async (limit?: number): Promise<Array<{
+  shopId: string;
+  shopName: string;
+  tokensIssued: number;
+  redemptionsProcessed: number;
+  activeCustomers: number;
+  averageTransactionValue: number;
+  customerRetention: number;
+  performanceScore: number;
+  lastActivity: string;
+  tier: 'Standard' | 'Premium' | 'Elite';
+}> | null> => {
+  try {
+    const params = limit ? `?limit=${limit}` : '';
+    const response = await apiClient.get(`/admin/analytics/shop-rankings${params}`);
+    return response.data?.data || response.data || null;
+  } catch (error) {
+    console.error('Error getting shop performance rankings:', error);
+    return null;
+  }
+};
+
+export const getAdminAlerts = async (filters?: {
+  unreadOnly?: boolean;
+  severity?: string;
+  alertType?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{
+  alerts: Array<{
+    id: number;
+    alertType: string;
+    severity: 'low' | 'medium' | 'high' | 'critical';
+    title: string;
+    message: string;
+    metadata?: any;
+    acknowledged: boolean;
+    acknowledgedBy?: string;
+    acknowledgedAt?: string;
+    createdAt: string;
+  }>;
+  total: number;
+} | null> => {
+  try {
+    const queryString = filters ? buildQueryString(filters) : '';
+    const response = await apiClient.get(`/admin/analytics/alerts${queryString}`);
+    return response.data?.data || response.data || null;
+  } catch (error) {
+    console.error('Error getting admin alerts:', error);
+    return null;
+  }
+};
+
+export const markAlertAsRead = async (alertId: number): Promise<boolean> => {
+  try {
+    await apiClient.put(`/admin/analytics/alerts/${alertId}/read`);
+    return true;
+  } catch (error) {
+    console.error('Error marking alert as read:', error);
+    return false;
+  }
+};
+
+export const resolveAlert = async (alertId: number): Promise<boolean> => {
+  try {
+    await apiClient.put(`/admin/analytics/alerts/${alertId}/resolve`);
+    return true;
+  } catch (error) {
+    console.error('Error resolving alert:', error);
+    return false;
+  }
+};
+
+export const runMonitoringChecks = async (): Promise<boolean> => {
+  try {
+    await apiClient.post('/admin/analytics/monitoring/check');
+    return true;
+  } catch (error) {
+    console.error('Error running monitoring checks:', error);
+    return false;
   }
 };
 
@@ -639,6 +782,12 @@ export const adminApi = {
   
   // Analytics
   getAnalytics,
+  getTokenCirculationMetrics,
+  getShopPerformanceRankings,
+  getAdminAlerts,
+  markAlertAsRead,
+  resolveAlert,
+  runMonitoringChecks,
   
   // Transactions
   getTransactions: getAdminTransactions,
