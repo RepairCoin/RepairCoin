@@ -1,5 +1,5 @@
 import { Image, View, Text, Pressable } from "react-native";
-import Screen from "@/components/Screen";
+import Screen from "@/components/ui/Screen";
 import { goBack } from "expo-router/build/global-state/routing";
 import { Ionicons } from "@expo/vector-icons";
 

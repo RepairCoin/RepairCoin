@@ -18,7 +18,7 @@ import {
   getPricingHistory,
   emergencyFreeze
 } from '@/services/api/admin';
-import { SimpleChart } from '@/components/admin/charts/SimpleChart';
+import { WorkingChart } from '@/components/admin/charts/WorkingChart';
 
 interface TreasuryStats {
   totalSupply: number | string;
@@ -158,11 +158,54 @@ export const AdvancedTreasuryTab: React.FC = () => {
   const loadAnalytics = async () => {
     setAnalyticsLoading(true);
     try {
-      const data = await getTreasuryAnalytics(analyticsPeriod);
-      setAnalyticsData(data.data);
-    } catch (error) {
+      // Get admin token first to ensure authentication
+      const token = await generateAdminToken();
+      if (!token) {
+        throw new Error('Authentication failed - no admin token available');
+      }
+
+      const response = await getTreasuryAnalytics(analyticsPeriod);
+      
+      // Handle different response formats from the API
+      let analyticsData = null;
+      if (response?.data) {
+        analyticsData = response.data;
+      } else if (response) {
+        analyticsData = response;
+      }
+
+      // Validate the analytics data structure
+      if (analyticsData && typeof analyticsData === 'object') {
+        // Ensure required arrays exist with defaults
+        const processedData = {
+          revenue: Array.isArray(analyticsData.revenue) ? analyticsData.revenue : [],
+          shopGrowth: Array.isArray(analyticsData.shopGrowth) ? analyticsData.shopGrowth : [],
+          tokenDistribution: Array.isArray(analyticsData.tokenDistribution) ? analyticsData.tokenDistribution : [],
+          currentMetrics: analyticsData.currentMetrics || null,
+          tierDistribution: analyticsData.tierDistribution || null,
+          period: analyticsData.period || analyticsPeriod,
+          daysBack: analyticsData.daysBack || 30
+        };
+
+        setAnalyticsData(processedData);
+      } else {
+        setAnalyticsData(null);
+        toast.error('Analytics data received in unexpected format');
+      }
+    } catch (error: any) {
       console.error('Error loading analytics:', error);
-      toast.error('Failed to load analytics data');
+      
+      if (error?.response?.status === 401 || error?.response?.status === 403) {
+        toast.error('Authentication failed. Please reconnect your wallet.');
+      } else if (error?.response?.status === 500) {
+        toast.error('Server error loading analytics. Please try again.');
+      } else if (error?.message?.includes('Authentication failed')) {
+        toast.error('Authentication failed. Please reconnect your wallet.');
+      } else {
+        toast.error('Failed to load analytics data');
+      }
+      
+      setAnalyticsData(null);
     } finally {
       setAnalyticsLoading(false);
     }
@@ -499,7 +542,7 @@ export const AdvancedTreasuryTab: React.FC = () => {
           {/* Analytics Controls */}
           <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-white">Financial Analytics</h2>
+              <h2 className="text-xl font-bold text-white">Treasury Analytics</h2>
               <div className="flex items-center gap-4">
                 <label className="text-sm text-gray-400">Period:</label>
                 <select
@@ -522,96 +565,147 @@ export const AdvancedTreasuryTab: React.FC = () => {
               <span className="ml-2 text-gray-400">Loading analytics...</span>
             </div>
           ) : analyticsData ? (
-            <>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Revenue Chart */}
-                <SimpleChart
+            <div className="space-y-6">
+              {/* Row 1: Revenue Trends - Full Width */}
+              {analyticsData.revenue && analyticsData.revenue.length > 0 ? (
+                <WorkingChart
                   data={analyticsData.revenue.map(item => ({
                     date: item.date,
-                    value: item.total_revenue,
-                    label: `$${item.total_revenue.toFixed(2)}`
+                    value: item.total_revenue || 0,
+                    label: `$${(item.total_revenue || 0).toFixed(2)}`
                   }))}
-                  title="Revenue Trends"
-                  color="bg-gradient-to-t from-green-600 to-green-400"
+                  title="Treasury Revenue Trends"
+                  color="#22C55E"
                   formatValue={(value) => `$${value.toFixed(2)}`}
-                  height={240}
+                  height={300}
+                  type="bar"
                 />
+              ) : (
+                <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                  <h3 className="text-lg font-bold text-white mb-4">Treasury Revenue Trends</h3>
+                  <div className="text-center py-8 text-gray-500">
+                    No revenue data available for the selected period
+                  </div>
+                </div>
+              )}
 
-                {/* RCN Sales Chart */}
-                <SimpleChart
+              {/* Row 2: RCN Sales Volume - Full Width */}
+              {analyticsData.revenue && analyticsData.revenue.length > 0 ? (
+                <WorkingChart
                   data={analyticsData.revenue.map(item => ({
                     date: item.date,
-                    value: item.total_rcn_sold,
-                    label: `${item.total_rcn_sold} RCN`
+                    value: item.total_rcn_sold || 0,
+                    label: `${item.total_rcn_sold || 0} RCN`
                   }))}
-                  title="RCN Sales Volume"
-                  color="bg-gradient-to-t from-blue-600 to-blue-400"
+                  title="Treasury RCN Sales Volume"
+                  color="#4F9EF8"
                   formatValue={(value) => `${Math.round(value)} RCN`}
-                  height={240}
+                  height={300}
+                  type="bar"
                 />
-              </div>
+              ) : (
+                <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                  <h3 className="text-lg font-bold text-white mb-4">Treasury RCN Sales Volume</h3>
+                  <div className="text-center py-8 text-gray-500">
+                    No RCN sales data available for the selected period
+                  </div>
+                </div>
+              )}
 
-              {/* Additional Analytics */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Token Issuance vs Redemption */}
+              {/* Row 3: Token Flow Analysis - Full Width */}
               <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
                 <h3 className="text-lg font-bold text-white mb-4">Token Flow Analysis</h3>
-                <div className="space-y-4">
-                  {analyticsData.tokenDistribution.slice(0, 7).map((item, index) => {
-                    const issuedWidth = item.tokens_issued > 0 ? Math.min((item.tokens_issued / Math.max(...analyticsData.tokenDistribution.map(d => d.tokens_issued))) * 100, 100) : 0;
-                    const redeemedWidth = item.tokens_redeemed > 0 ? Math.min((item.tokens_redeemed / Math.max(...analyticsData.tokenDistribution.map(d => d.tokens_redeemed))) * 100, 100) : 0;
-                    
-                    return (
-                      <div key={index} className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-400">{new Date(item.date).toLocaleDateString()}</span>
-                          <span className="text-gray-300">
-                            +{Math.round(item.tokens_issued)} / -{Math.round(item.tokens_redeemed)}
-                          </span>
-                        </div>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                            <div className="flex-1 bg-gray-700 rounded-full h-2">
-                              <div 
-                                className="bg-green-500 h-2 rounded-full transition-all duration-300" 
-                                style={{ width: `${issuedWidth}%` }}
-                              ></div>
+                {analyticsData.tokenDistribution && analyticsData.tokenDistribution.length > 0 ? (
+                  <div className="space-y-4">
+                    {analyticsData.tokenDistribution.slice(0, 7).map((item, index) => {
+                      const maxIssued = Math.max(...analyticsData.tokenDistribution.map(d => d.tokens_issued || 0));
+                      const maxRedeemed = Math.max(...analyticsData.tokenDistribution.map(d => d.tokens_redeemed || 0));
+                      const issuedWidth = item.tokens_issued > 0 && maxIssued > 0 ? Math.min((item.tokens_issued / maxIssued) * 100, 100) : 0;
+                      const redeemedWidth = item.tokens_redeemed > 0 && maxRedeemed > 0 ? Math.min((item.tokens_redeemed / maxRedeemed) * 100, 100) : 0;
+                      
+                      return (
+                        <div key={index} className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-400">{new Date(item.date).toLocaleDateString()}</span>
+                            <span className="text-gray-300">
+                              +{Math.round(item.tokens_issued || 0)} / -{Math.round(item.tokens_redeemed || 0)}
+                            </span>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                              <div className="flex-1 bg-gray-700 rounded-full h-2">
+                                <div 
+                                  className="bg-green-500 h-2 rounded-full transition-all duration-300" 
+                                  style={{ width: `${issuedWidth}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                              <div className="flex-1 bg-gray-700 rounded-full h-2">
+                                <div 
+                                  className="bg-red-500 h-2 rounded-full transition-all duration-300" 
+                                  style={{ width: `${redeemedWidth}%` }}
+                                ></div>
+                              </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                            <div className="flex-1 bg-gray-700 rounded-full h-2">
-                              <div 
-                                className="bg-red-500 h-2 rounded-full transition-all duration-300" 
-                                style={{ width: `${redeemedWidth}%` }}
-                              ></div>
-                            </div>
-                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    No token distribution data available for the selected period
+                  </div>
+                )}
               </div>
 
-              {/* Shop Growth */}
-              <SimpleChart
-                data={analyticsData.shopGrowth.map(item => ({
-                  date: item.date,
-                  value: item.new_shops,
-                  label: `${item.new_shops} shops`
-                }))}
-                title="Shop Growth"
-                color="bg-gradient-to-t from-purple-600 to-purple-400"
-                formatValue={(value) => `${Math.round(value)} shops`}
-                height={240}
-              />
-              </div>
-            </>
+              {/* Row 4: Shop Growth - Full Width */}
+              {analyticsData.shopGrowth && analyticsData.shopGrowth.length > 0 ? (
+                <WorkingChart
+                  data={analyticsData.shopGrowth.map(item => ({
+                    date: item.date,
+                    value: item.new_shops || 0,
+                    label: `${item.new_shops || 0} shops`
+                  }))}
+                  title="Treasury Shop Growth"
+                  color="#A855F7"
+                  formatValue={(value) => `${Math.round(value)} shops`}
+                  height={300}
+                  type="bar"
+                />
+              ) : (
+                <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                  <h3 className="text-lg font-bold text-white mb-4">Treasury Shop Growth</h3>
+                  <div className="text-center py-8 text-gray-500">
+                    No shop growth data available for the selected period
+                  </div>
+                </div>
+              )}
+            </div>
           ) : (
-            <div className="text-center py-12">
-              <p className="text-gray-500">No analytics data available</p>
+            <div className="bg-gray-800 rounded-xl p-8 border border-gray-700">
+              <div className="text-center">
+                <div className="text-6xl mb-4">📊</div>
+                <h3 className="text-xl font-bold text-white mb-2">No Analytics Data Available</h3>
+                <p className="text-gray-400 mb-4">
+                  Analytics data is not available for the selected period. This could be due to:
+                </p>
+                <ul className="text-gray-500 text-sm space-y-1 mb-6">
+                  <li>• No transactions in the selected time period</li>
+                  <li>• Database connectivity issues</li>
+                  <li>• Missing required data tables</li>
+                  <li>• Authentication problems</li>
+                </ul>
+                <button
+                  onClick={loadAnalytics}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Try Again
+                </button>
+              </div>
             </div>
           )}
         </div>

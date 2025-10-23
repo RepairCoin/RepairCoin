@@ -1,9 +1,9 @@
 import { AntDesign, Feather } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
 import { View, Text, TextInput, TouchableOpacity } from "react-native";
-import Screen from "@/components/Screen";
+import Screen from "@/components/ui/Screen";
 import { useState } from "react";
-import PrimaryButton from "@/components/PrimaryButton";
+import PrimaryButton from "@/components/ui/PrimaryButton";
 import { router } from "expo-router";
 
 const keys = [

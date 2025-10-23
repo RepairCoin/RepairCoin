@@ -8,8 +8,8 @@ const router = Router();
 // Get token circulation metrics
 router.get('/token-circulation', requireAdmin, async (req: Request, res: Response) => {
   try {
-    // TODO: Implement getTokenCirculationMetrics in repository
-    const metrics = {}; // await analyticsRepository.getTokenCirculationMetrics();
+    const adminRepository = new AdminRepository();
+    const metrics = await adminRepository.getTokenCirculationMetrics();
     
     res.json({
       success: true,
@@ -28,8 +28,8 @@ router.get('/token-circulation', requireAdmin, async (req: Request, res: Respons
 router.get('/shop-rankings', requireAdmin, async (req: Request, res: Response) => {
   try {
     const limit = parseInt(req.query.limit as string) || 10;
-    // TODO: Implement getShopPerformanceRankings in repository
-    const rankings = []; // await analyticsRepository.getShopPerformanceRankings(limit);
+    const adminRepository = new AdminRepository();
+    const rankings = await adminRepository.getShopPerformanceRankings(limit);
     
     res.json({
       success: true,
@@ -109,15 +109,14 @@ router.get('/alerts', requireAdmin, async (req: Request, res: Response) => {
       offset = '0'
     } = req.query;
     
-    // TODO: Implement getAlerts in repository
-    const alerts = { alerts: [], total: 0 };
-    // await analyticsRepository.getAlerts({
-    //   unreadOnly: unreadOnly === 'true',
-    //   severity: severity as string,
-    //   alertType: alertType as string,
-    //   limit: parseInt(limit as string),
-    //   offset: parseInt(offset as string)
-    // });
+    const adminRepository = new AdminRepository();
+    const alerts = await adminRepository.getAlerts({
+      unreadOnly: unreadOnly === 'true',
+      severity: severity as string,
+      alertType: alertType as string,
+      limit: parseInt(limit as string),
+      offset: parseInt(offset as string)
+    });
     
     res.json({
       success: true,
@@ -136,19 +135,22 @@ router.get('/alerts', requireAdmin, async (req: Request, res: Response) => {
 router.put('/alerts/:id/read', requireAdmin, async (req: Request, res: Response) => {
   try {
     const alertId = parseInt(req.params.id);
-    // TODO: Implement markAlertAsRead in repository
-    // await analyticsRepository.markAlertAsRead(alertId);
+    const adminRepository = new AdminRepository();
+    
+    await adminRepository.markAlertAsRead(alertId);
     
     // Log admin action
-    // await analyticsRepository.logAdminActivity({
-    //   adminAddress: req.user?.address || 'system',
-    //   actionType: 'alert_read',
-    //   actionDescription: 'Marked alert as read',
-    //   entityType: 'alert',
-    //   entityId: alertId.toString(),
-    //   ipAddress: req.ip,
-    //   userAgent: req.get('user-agent')
-    // });
+    await adminRepository.logAdminActivity({
+      adminAddress: (req as any).user?.address || 'system',
+      actionType: 'alert_read',
+      actionDescription: 'Marked alert as read',
+      entityType: 'alert',
+      entityId: alertId.toString(),
+      metadata: {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent')
+      }
+    });
     
     res.json({
       success: true,
@@ -167,19 +169,23 @@ router.put('/alerts/:id/read', requireAdmin, async (req: Request, res: Response)
 router.put('/alerts/:id/resolve', requireAdmin, async (req: Request, res: Response) => {
   try {
     const alertId = parseInt(req.params.id);
-    // TODO: Implement resolveAlert in repository
-    // await analyticsRepository.resolveAlert(alertId, req.user?.address || 'system');
+    const adminRepository = new AdminRepository();
+    const adminAddress = (req as any).user?.address || 'system';
+    
+    await adminRepository.resolveAlert(alertId, adminAddress);
     
     // Log admin action
-    // await analyticsRepository.logAdminActivity({
-    //   adminAddress: req.user?.address || 'system',
-    //   actionType: 'alert_resolved',
-    //   actionDescription: 'Resolved alert',
-    //   entityType: 'alert',
-    //   entityId: alertId.toString(),
-    //   ipAddress: req.ip,
-    //   userAgent: req.get('user-agent')
-    // });
+    await adminRepository.logAdminActivity({
+      adminAddress,
+      actionType: 'alert_resolved',
+      actionDescription: 'Resolved alert',
+      entityType: 'alert',
+      entityId: alertId.toString(),
+      metadata: {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent')
+      }
+    });
     
     res.json({
       success: true,
@@ -197,13 +203,29 @@ router.put('/alerts/:id/resolve', requireAdmin, async (req: Request, res: Respon
 // Run monitoring checks manually (for testing)
 router.post('/monitoring/check', requireAdmin, async (req: Request, res: Response) => {
   try {
-    // TODO: Implement monitoring checks in repository
+    const adminRepository = new AdminRepository();
+    
     // Run all monitoring checks
-    // await Promise.all([
-    //   monitoringRepository.checkLowTreasuryBalance(),
-    //   monitoringRepository.checkPendingApplications(),
-    //   monitoringRepository.checkUnusualActivity()
-    // ]);
+    await Promise.all([
+      adminRepository.checkOperationalHealth(),
+      adminRepository.checkSmartContractHealth(),
+      adminRepository.checkPendingApplications(),
+      adminRepository.checkUnusualActivity()
+    ]);
+    
+    // Log admin action
+    await adminRepository.logAdminActivity({
+      adminAddress: (req as any).user?.address || 'system',
+      actionType: 'monitoring_check',
+      actionDescription: 'Manually triggered monitoring checks',
+      entityType: 'system',
+      entityId: 'monitoring',
+      metadata: {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        timestamp: new Date().toISOString()
+      }
+    });
     
     res.json({
       success: true,

@@ -1,7 +1,7 @@
 import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 import { AntDesign, Ionicons } from "@expo/vector-icons";
 import RNPickerSelect from "react-native-picker-select";
-import Screen from "@/components/Screen";
+import Screen from "@/components/ui/Screen";
 import { CompanySize, MonthlyRevenue } from "@/utilities/GlobalTypes";
 
 type Props = {

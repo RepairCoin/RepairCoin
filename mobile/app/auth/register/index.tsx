@@ -1,5 +1,5 @@
-import PrimaryButton from "@/components/PrimaryButton";
-import Screen from "@/components/Screen";
+import PrimaryButton from "@/components/ui/PrimaryButton";
+import Screen from "@/components/ui/Screen";
 import { Entypo, MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { View, Image, Text, ImageBackground, Pressable } from "react-native";

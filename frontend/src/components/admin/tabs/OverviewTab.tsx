@@ -107,7 +107,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = React.memo(() => {
         // Process customer rewards data
         if (customersResponse.status === 'fulfilled' && customersResponse.value.ok) {
           const customerData = await customersResponse.value.json();
-          console.log("customerData1: ", customerData)
           // Filter customers who have earned recently
           customerData.data?.customers?.forEach((customer: any, index: number) => {
             if (customer.lifetimeEarnings > 0 && customer.lastEarnedDate) {

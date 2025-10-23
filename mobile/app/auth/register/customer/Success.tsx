@@ -1,5 +1,5 @@
 import { Image, View, Text, Pressable } from "react-native";
-import Screen from "@/components/Screen";
+import Screen from "@/components/ui/Screen";
 import { router } from "expo-router";
 
 export default function CustomerRegisterSuccessPage() {

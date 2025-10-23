@@ -2,7 +2,7 @@ import { View, Text, TextInput, Pressable, Dimensions } from "react-native";
 import { AntDesign, Ionicons } from "@expo/vector-icons";
 import CountryPicker, { CountryCode } from "react-native-country-picker-modal";
 import { MaskedTextInput } from "react-native-mask-text";
-import Screen from "@/components/Screen";
+import Screen from "@/components/ui/Screen";
 
 type Props = {
   handleGoBack: () => void;
