@@ -10,8 +10,7 @@ export const useCustomer = (address: string) => {
     queryKey: queryKeys.customerProfile(address),
     queryFn: async () => {
       const response = await getCustomerByWalletAddress(address);
-      console.log("RESPONSE: ", response);
-      return response;
+      return response.data;
     },
     enabled: !!address,
     staleTime: 2 * 60 * 1000, // 2 minutes

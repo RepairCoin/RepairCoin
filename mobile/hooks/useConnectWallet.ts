@@ -1,0 +1,31 @@
+import { checkUserByWalletAddress } from '../services/authServices';
+import { useRouter } from 'expo-router';
+
+const router = useRouter();
+
+export const useConnectWallet = () => {
+  const checkWalletConnection = async (address: string | null | undefined) => {
+    if (!address) {
+      console.log('[useConnectWallet] No wallet address connected');
+      return;
+    }
+    
+    try {
+      const response = await checkUserByWalletAddress(address);
+      
+      if (response?.exists && response?.user) {
+        if(response?.type === 'customer') {
+          router.push("/dashboard/customer");
+        }
+      } else {
+        console.log('[useConnectWallet] No user found for address:', address);
+      }
+    } catch (error) {
+      console.log('[useConnectWallet] Error checking user:', error);
+    }
+  };
+
+  return {
+    checkWalletConnection,
+  };
+};

@@ -8,6 +8,9 @@ class ApiClient {
   constructor() {
     this.baseURL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
     
+    console.log('[ApiClient] EXPO_PUBLIC_API_URL:', process.env.EXPO_PUBLIC_API_URL);
+    console.log('[ApiClient] Using baseURL:', this.baseURL);
+    
     this.instance = axios.create({
       baseURL: this.baseURL,
       timeout: 10000,

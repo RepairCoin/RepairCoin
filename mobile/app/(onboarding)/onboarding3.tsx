@@ -1,11 +1,12 @@
 import React from "react";
-import { Text, View, ImageBackground, useColorScheme } from "react-native";
+import { Text, View, ImageBackground } from "react-native";
 import { useConnect, useActiveAccount } from "thirdweb/react";
 import { client } from "@/constants/thirdweb";
 import { createWallet } from "thirdweb/wallets";
 
 import { ThemedButton } from "@/components/ui/ThemedButton";
 import { useCustomer } from "@/hooks/useCustomerQueries";
+import { useConnectWallet } from "@/hooks/useConnectWallet";
 
 const globe = require("@/assets/images/global_spin.png");
 
@@ -16,12 +17,6 @@ interface OnboardingStep3Props {
 export default function OnboardingStep3({
   slideIndex = 2,
 }: OnboardingStep3Props) {
-  const account = useActiveAccount();
-  const { data: customerData, isLoading: customerLoading, isError: customerError } = useCustomer(account?.address || "");
-  
-  console.log("[onboarding3 screen > account]: ", account);
-  console.log("[onboarding3 screen > customer data]: ", customerData);
-  console.log("[onboarding3 screen > customer loading]: ", customerLoading);
 
   return (
     <ImageBackground
@@ -62,6 +57,8 @@ export default function OnboardingStep3({
 
 const ConnectWithMetaMask = () => {
 	const { connect, isConnecting } = useConnect();
+	const { checkWalletConnection } = useConnectWallet();
+	
 	return (
 		<ThemedButton
 			title="Connect"
@@ -74,6 +71,17 @@ const ConnectWithMetaMask = () => {
 					await w.connect({
 						client,
 					});
+					
+					// Get the wallet address after successful connection
+					const account = w.getAccount();
+					if (account) {
+						const address = account.address;
+						console.log('[ConnectWithMetaMask] Wallet connected successfully:', address);
+						
+						// Check customer data with the connected address
+						await checkWalletConnection(address);
+					}
+					
 					return w;
 				});
 			}}

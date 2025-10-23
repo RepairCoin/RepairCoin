@@ -9,26 +9,9 @@ import ApprovalTab from "@/components/customer/ApprovalTab";
 type CustomerTabs = "Wallet" | "Referral" | "Approval";
 
 export default function CustomerDashboard() {
-  const { userProfile } = useAuthStore((state) => state);
-  const { fetchCustomerData, customerData } = useCustomerStore((state) => state);
   const [activeTab, setActiveTab] = useState<CustomerTabs>("Wallet");
-  const customerTabs: CustomerTabs[] = ["Wallet", "Referral", "Approval"];
-
-  useEffect(() => {
-    if (!userProfile) return;
-    
-    const loadData = async () => {
-      try {
-        await fetchCustomerData(userProfile.address);
-        console.log(customerData);
-      } catch (error) {
-        console.error("Failed to fetch customer data:", error);
-      }
-    };
-
-    loadData();
-  }, []);
-
+  const customerTabs: CustomerTabs[] = ["Wallet", "Referral", "Approval"]
+  
   return (
     <View className="h-full w-full bg-zinc-950">
       <View className="h-full w-full pt-14 px-4">
@@ -41,7 +24,7 @@ export default function CustomerDashboard() {
           <Text className="text-lg font-semibold text-[#FFCC00] mr-2">
             Hello!
           </Text>
-          <Text className="text-lg font-semibold text-white">{customerData.customer.name}</Text>
+          <Text className="text-lg font-semibold text-white">Guest</Text>
         </View>
         <View className="flex-row w-full h-12 bg-[#121212] rounded-xl justify-between">
           {customerTabs.map((tab, i) => (
@@ -65,9 +48,9 @@ export default function CustomerDashboard() {
           ))}
         </View>
         {/* <PrimaryButton title="Logout" onPress={logout} /> */}
-        {activeTab === "Wallet" && <WalletTab />}
+        {/* {activeTab === "Wallet" && <WalletTab />}
         {activeTab === "Referral" && <ReferralTab />}
-        {activeTab === "Approval" && <ApprovalTab />}
+        {activeTab === "Approval" && <ApprovalTab />} */}
       </View>
     </View>
   );
