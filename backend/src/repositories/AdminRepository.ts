@@ -332,63 +332,14 @@ export class AdminRepository extends BaseRepository {
     }
   }
 
-  async getAlerts(filters: {
-    acknowledged?: boolean;
-    severity?: string;
-    limit?: number;
-  }): Promise<Alert[]> {
-    try {
-      let query = 'SELECT * FROM admin_alerts WHERE 1=1';
-      const params: any[] = [];
-      let paramCount = 0;
-
-      if (filters.acknowledged !== undefined) {
-        paramCount++;
-        query += ` AND acknowledged = $${paramCount}`;
-        params.push(filters.acknowledged);
-      }
-
-      if (filters.severity) {
-        paramCount++;
-        query += ` AND severity = $${paramCount}`;
-        params.push(filters.severity);
-      }
-
-      query += ' ORDER BY created_at DESC';
-
-      if (filters.limit) {
-        paramCount++;
-        query += ` LIMIT $${paramCount}`;
-        params.push(filters.limit);
-      }
-
-      const result = await this.pool.query(query, params);
-      
-      return result.rows.map(row => ({
-        id: row.id,
-        alertType: row.alert_type,
-        severity: row.severity,
-        title: row.title,
-        message: row.message,
-        metadata: row.metadata,
-        acknowledged: row.acknowledged,
-        acknowledgedBy: row.acknowledged_by,
-        acknowledgedAt: row.acknowledged_at,
-        createdAt: row.created_at
-      }));
-    } catch (error) {
-      logger.error('Error getting alerts:', error);
-      throw new Error('Failed to get alerts');
-    }
-  }
 
   async acknowledgeAlert(id: number, adminAddress: string): Promise<void> {
     try {
       const query = `
         UPDATE admin_alerts 
-        SET acknowledged = true, 
-            acknowledged_by = $1, 
-            acknowledged_at = NOW()
+        SET is_read = true, 
+            read_by = $1, 
+            read_at = NOW()
         WHERE id = $2
       `;
       
@@ -424,6 +375,600 @@ export class AdminRepository extends BaseRepository {
     } catch (error) {
       logger.error('Error getting platform statistics:', error);
       throw new Error('Failed to get platform statistics');
+    }
+  }
+
+  // Token Circulation Metrics
+  async getTokenCirculationMetrics(): Promise<{
+    totalSupply: number;
+    totalInCirculation: number;
+    totalRedeemed: number;
+    shopBalances: Array<{
+      shopId: string;
+      shopName: string;
+      balance: number;
+      tokensIssued: number;
+      redemptionsProcessed: number;
+    }>;
+    customerBalances: {
+      totalCustomerBalance: number;
+      averageBalance: number;
+      activeCustomers: number;
+    };
+    dailyActivity: Array<{
+      date: string;
+      minted: number;
+      redeemed: number;
+      netFlow: number;
+    }>;
+  }> {
+    try {
+      // Get shop balances and activity
+      const shopQuery = `
+        SELECT 
+          s.shop_id,
+          s.name as shop_name,
+          COALESCE(s.total_tokens_issued, 0) as tokens_issued,
+          COALESCE(s.total_redemptions, 0) as redemptions_processed,
+          COALESCE(
+            (SELECT SUM(amount) FROM transactions WHERE shop_id = s.shop_id AND type = 'mint' AND status = 'confirmed'),
+            0
+          ) - COALESCE(
+            (SELECT SUM(amount) FROM transactions WHERE shop_id = s.shop_id AND type = 'redeem' AND status = 'confirmed'),
+            0
+          ) as balance
+        FROM shops s
+        WHERE s.active = true
+        ORDER BY tokens_issued DESC
+      `;
+
+      // Get customer balance statistics
+      const customerQuery = `
+        SELECT 
+          COUNT(*) as active_customers,
+          COALESCE(SUM(c.lifetime_earnings), 0) as total_earnings,
+          COALESCE(AVG(c.lifetime_earnings), 0) as average_balance
+        FROM customers c
+        WHERE c.is_active = true
+      `;
+
+      // Get daily activity for last 30 days
+      const dailyQuery = `
+        SELECT 
+          DATE(timestamp) as date,
+          COALESCE(SUM(CASE WHEN type = 'mint' THEN amount ELSE 0 END), 0) as minted,
+          COALESCE(SUM(CASE WHEN type = 'redeem' THEN amount ELSE 0 END), 0) as redeemed
+        FROM transactions
+        WHERE status = 'confirmed' 
+          AND timestamp >= NOW() - INTERVAL '30 days'
+        GROUP BY DATE(timestamp)
+        ORDER BY date DESC
+      `;
+
+      // Get total supply metrics
+      const supplyQuery = `
+        SELECT 
+          COALESCE(SUM(CASE WHEN type = 'mint' THEN amount ELSE 0 END), 0) as total_minted,
+          COALESCE(SUM(CASE WHEN type = 'redeem' THEN amount ELSE 0 END), 0) as total_redeemed
+        FROM transactions
+        WHERE status = 'confirmed'
+      `;
+
+      const [shopResult, customerResult, dailyResult, supplyResult] = await Promise.all([
+        this.pool.query(shopQuery),
+        this.pool.query(customerQuery),
+        this.pool.query(dailyQuery),
+        this.pool.query(supplyQuery)
+      ]);
+
+      const shopBalances = shopResult.rows.map(row => ({
+        shopId: row.shop_id,
+        shopName: row.shop_name,
+        balance: parseFloat(row.balance),
+        tokensIssued: parseFloat(row.tokens_issued),
+        redemptionsProcessed: parseFloat(row.redemptions_processed)
+      }));
+
+      const customerStats = customerResult.rows[0];
+      const customerBalances = {
+        totalCustomerBalance: parseFloat(customerStats.total_earnings),
+        averageBalance: parseFloat(customerStats.average_balance),
+        activeCustomers: parseInt(customerStats.active_customers)
+      };
+
+      const dailyActivity = dailyResult.rows.map(row => ({
+        date: row.date,
+        minted: parseFloat(row.minted),
+        redeemed: parseFloat(row.redeemed),
+        netFlow: parseFloat(row.minted) - parseFloat(row.redeemed)
+      }));
+
+      const supplyStats = supplyResult.rows[0];
+      const totalMinted = parseFloat(supplyStats.total_minted);
+      const totalRedeemed = parseFloat(supplyStats.total_redeemed);
+
+      return {
+        totalSupply: totalMinted,
+        totalInCirculation: totalMinted - totalRedeemed,
+        totalRedeemed,
+        shopBalances,
+        customerBalances,
+        dailyActivity
+      };
+    } catch (error) {
+      logger.error('Error getting token circulation metrics:', error);
+      throw new Error('Failed to get token circulation metrics');
+    }
+  }
+
+  // Shop Performance Rankings
+  async getShopPerformanceRankings(limit: number = 10): Promise<Array<{
+    shopId: string;
+    shopName: string;
+    tokensIssued: number;
+    redemptionsProcessed: number;
+    activeCustomers: number;
+    averageTransactionValue: number;
+    customerRetention: number;
+    performanceScore: number;
+    lastActivity: string;
+    tier: 'Standard' | 'Premium' | 'Elite';
+  }>> {
+    try {
+      const query = `
+        WITH shop_metrics AS (
+          SELECT 
+            s.shop_id,
+            s.name as shop_name,
+            s.total_tokens_issued,
+            s.total_redemptions,
+            s.last_activity,
+            -- Count unique customers who earned tokens
+            COUNT(DISTINCT CASE WHEN t.type = 'mint' THEN t.customer_address END) as active_customers,
+            -- Average transaction value
+            COALESCE(AVG(CASE WHEN t.type = 'mint' THEN t.amount END), 0) as avg_transaction_value,
+            -- Customer retention (customers who both earned and redeemed)
+            COUNT(DISTINCT CASE WHEN t.type = 'redeem' THEN t.customer_address END) as redeeming_customers,
+            -- Recent activity score (last 30 days)
+            COUNT(CASE WHEN t.timestamp >= NOW() - INTERVAL '30 days' THEN 1 END) as recent_transactions
+          FROM shops s
+          LEFT JOIN transactions t ON s.shop_id = t.shop_id AND t.status = 'confirmed'
+          WHERE s.active = true
+          GROUP BY s.shop_id, s.name, s.total_tokens_issued, s.total_redemptions, s.last_activity
+        ),
+        shop_rankings AS (
+          SELECT 
+            *,
+            -- Calculate retention rate
+            CASE 
+              WHEN active_customers > 0 THEN (redeeming_customers::float / active_customers::float) * 100
+              ELSE 0
+            END as retention_rate,
+            -- Performance score calculation (weighted)
+            (
+              (total_tokens_issued * 0.3) +
+              (active_customers * 0.25) +
+              (avg_transaction_value * 0.2) +
+              (recent_transactions * 0.15) +
+              (CASE WHEN active_customers > 0 THEN (redeeming_customers::float / active_customers::float) * 100 ELSE 0 END * 0.1)
+            ) as performance_score
+          FROM shop_metrics
+        )
+        SELECT 
+          shop_id,
+          shop_name,
+          total_tokens_issued as tokens_issued,
+          total_redemptions as redemptions_processed,
+          active_customers,
+          avg_transaction_value as average_transaction_value,
+          retention_rate as customer_retention,
+          performance_score,
+          last_activity,
+          -- Determine tier based on tokens issued and activity
+          CASE 
+            WHEN total_tokens_issued >= 200000 AND active_customers >= 100 THEN 'Elite'
+            WHEN total_tokens_issued >= 50000 AND active_customers >= 25 THEN 'Premium'
+            ELSE 'Standard'
+          END as tier
+        FROM shop_rankings
+        ORDER BY performance_score DESC
+        LIMIT $1
+      `;
+
+      const result = await this.pool.query(query, [limit]);
+      
+      return result.rows.map(row => ({
+        shopId: row.shop_id,
+        shopName: row.shop_name,
+        tokensIssued: parseFloat(row.tokens_issued),
+        redemptionsProcessed: parseFloat(row.redemptions_processed),
+        activeCustomers: parseInt(row.active_customers),
+        averageTransactionValue: parseFloat(row.average_transaction_value),
+        customerRetention: parseFloat(row.customer_retention),
+        performanceScore: parseFloat(row.performance_score),
+        lastActivity: row.last_activity,
+        tier: row.tier
+      }));
+    } catch (error) {
+      logger.error('Error getting shop performance rankings:', error);
+      throw new Error('Failed to get shop performance rankings');
+    }
+  }
+
+  // Enhanced Alert Management
+  async getAlerts(filters: {
+    unreadOnly?: boolean;
+    severity?: string;
+    alertType?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ alerts: Alert[]; total: number }> {
+    try {
+      let whereClause = 'WHERE 1=1';
+      const params: any[] = [];
+      let paramCount = 0;
+
+      if (filters.unreadOnly) {
+        paramCount++;
+        whereClause += ` AND is_read = $${paramCount}`;
+        params.push(false);
+      }
+
+      if (filters.severity) {
+        paramCount++;
+        whereClause += ` AND severity = $${paramCount}`;
+        params.push(filters.severity);
+      }
+
+      if (filters.alertType) {
+        paramCount++;
+        whereClause += ` AND alert_type = $${paramCount}`;
+        params.push(filters.alertType);
+      }
+
+      // Get total count
+      const countQuery = `SELECT COUNT(*) FROM admin_alerts ${whereClause}`;
+      const countResult = await this.pool.query(countQuery, params);
+      const total = parseInt(countResult.rows[0].count);
+
+      // Get alerts with pagination
+      let query = `SELECT * FROM admin_alerts ${whereClause} ORDER BY created_at DESC`;
+      
+      if (filters.limit) {
+        paramCount++;
+        query += ` LIMIT $${paramCount}`;
+        params.push(filters.limit);
+      }
+
+      if (filters.offset) {
+        paramCount++;
+        query += ` OFFSET $${paramCount}`;
+        params.push(filters.offset);
+      }
+
+      const result = await this.pool.query(query, params);
+      
+      const alerts = result.rows.map(row => ({
+        id: row.id,
+        alertType: row.alert_type,
+        severity: row.severity,
+        title: row.title,
+        message: row.message,
+        metadata: row.metadata,
+        acknowledged: row.is_read,
+        acknowledgedBy: row.read_by,
+        acknowledgedAt: row.read_at,
+        createdAt: row.created_at
+      }));
+
+      return { alerts, total };
+    } catch (error) {
+      logger.error('Error getting alerts:', error);
+      throw new Error('Failed to get alerts');
+    }
+  }
+
+  async markAlertAsRead(alertId: number): Promise<void> {
+    try {
+      const query = `
+        UPDATE admin_alerts 
+        SET is_read = true, read_at = NOW()
+        WHERE id = $1
+      `;
+      
+      await this.pool.query(query, [alertId]);
+      logger.info('Alert marked as read', { alertId });
+    } catch (error) {
+      logger.error('Error marking alert as read:', error);
+      throw new Error('Failed to mark alert as read');
+    }
+  }
+
+  async resolveAlert(alertId: number, adminAddress: string): Promise<void> {
+    try {
+      const query = `
+        UPDATE admin_alerts 
+        SET is_resolved = true, 
+            resolved_at = NOW(),
+            is_read = true,
+            read_by = $1,
+            read_at = NOW()
+        WHERE id = $2
+      `;
+      
+      await this.pool.query(query, [adminAddress.toLowerCase(), alertId]);
+      logger.info('Alert resolved', { alertId, admin: adminAddress });
+    } catch (error) {
+      logger.error('Error resolving alert:', error);
+      throw new Error('Failed to resolve alert');
+    }
+  }
+
+  // Monitoring Checks
+  async checkOperationalHealth(): Promise<void> {
+    try {
+      // Check for failed minting transactions in last 24 hours
+      const failedMintsQuery = `
+        SELECT COUNT(*) as failed_count,
+               COUNT(CASE WHEN timestamp >= NOW() - INTERVAL '1 hour' THEN 1 END) as recent_failures
+        FROM transactions
+        WHERE type = 'mint' 
+          AND status = 'failed'
+          AND timestamp >= NOW() - INTERVAL '24 hours'
+      `;
+      
+      const failedResult = await this.pool.query(failedMintsQuery);
+      const failedCount = parseInt(failedResult.rows[0].failed_count);
+      const recentFailures = parseInt(failedResult.rows[0].recent_failures);
+      
+      if (failedCount > 5) {
+        await this.createAlert({
+          alertType: 'minting_failures',
+          severity: recentFailures > 2 ? 'critical' : 'high',
+          title: 'Minting Transaction Failures',
+          message: `${failedCount} minting transactions failed in last 24 hours (${recentFailures} in last hour)`,
+          metadata: {
+            failedCount,
+            recentFailures,
+            checkTime: new Date().toISOString()
+          }
+        });
+      }
+
+      // Check for database vs blockchain token accounting mismatch
+      const accountingQuery = `
+        SELECT 
+          COALESCE(SUM(CASE WHEN type = 'mint' AND status = 'confirmed' THEN amount ELSE 0 END), 0) as total_minted,
+          COALESCE(SUM(c.lifetime_earnings), 0) as total_customer_balance,
+          COALESCE(SUM(s.total_tokens_issued), 0) as total_shop_issued
+        FROM (SELECT 1) dummy
+        CROSS JOIN (SELECT SUM(lifetime_earnings) FROM customers WHERE is_active = true) c
+        CROSS JOIN (SELECT SUM(total_tokens_issued) FROM shops WHERE active = true) s
+        CROSS JOIN (
+          SELECT SUM(CASE WHEN type = 'mint' AND status = 'confirmed' THEN amount ELSE 0 END) 
+          FROM transactions
+        ) t
+      `;
+      
+      const accountingResult = await this.pool.query(accountingQuery);
+      const row = accountingResult.rows[0];
+      const totalMinted = parseFloat(row.total_minted || 0);
+      const totalCustomerBalance = parseFloat(row.total_customer_balance || 0);
+      const totalShopIssued = parseFloat(row.total_shop_issued || 0);
+      
+      // Alert if database promises exceed minted tokens by significant margin
+      const discrepancy = Math.abs(totalShopIssued - totalMinted);
+      const discrepancyPercent = totalMinted > 0 ? (discrepancy / totalMinted) * 100 : 0;
+      
+      if (discrepancyPercent > 10 && discrepancy > 100) {
+        await this.createAlert({
+          alertType: 'token_accounting_mismatch',
+          severity: 'high',
+          title: 'Token Accounting Discrepancy',
+          message: `Database token records don't match blockchain: ${discrepancy.toFixed(2)} RCN difference (${discrepancyPercent.toFixed(1)}%)`,
+          metadata: {
+            totalMinted,
+            totalShopIssued,
+            totalCustomerBalance,
+            discrepancy,
+            discrepancyPercent,
+            checkTime: new Date().toISOString()
+          }
+        });
+      }
+
+      // Check for high withdrawal demand (pending mint requests)
+      const pendingWithdrawalsQuery = `
+        SELECT COUNT(*) as pending_count,
+               SUM(amount) as pending_amount
+        FROM transactions
+        WHERE type = 'mint' 
+          AND status = 'pending'
+          AND timestamp >= NOW() - INTERVAL '2 hours'
+      `;
+      
+      const pendingResult = await this.pool.query(pendingWithdrawalsQuery);
+      const pendingCount = parseInt(pendingResult.rows[0].pending_count || 0);
+      const pendingAmount = parseFloat(pendingResult.rows[0].pending_amount || 0);
+      
+      if (pendingCount > 10 || pendingAmount > 5000) {
+        await this.createAlert({
+          alertType: 'high_withdrawal_demand',
+          severity: pendingCount > 25 ? 'high' : 'medium',
+          title: 'High Withdrawal Demand',
+          message: `${pendingCount} pending withdrawals (${pendingAmount.toFixed(2)} RCN) - potential bottleneck`,
+          metadata: {
+            pendingCount,
+            pendingAmount,
+            checkTime: new Date().toISOString()
+          }
+        });
+      }
+
+    } catch (error) {
+      logger.error('Error checking operational health:', error);
+    }
+  }
+
+  async checkPendingApplications(): Promise<void> {
+    try {
+      // Check for shops pending approval for more than 7 days
+      const query = `
+        SELECT COUNT(*) as pending_count
+        FROM shops
+        WHERE verified = false 
+          AND active = true 
+          AND join_date < NOW() - INTERVAL '7 days'
+      `;
+      
+      const result = await this.pool.query(query);
+      const pendingCount = parseInt(result.rows[0].pending_count);
+      
+      if (pendingCount > 0) {
+        await this.createAlert({
+          alertType: 'pending_applications',
+          severity: 'medium',
+          title: 'Pending Shop Applications',
+          message: `${pendingCount} shop applications have been pending for more than 7 days`,
+          metadata: {
+            pendingCount,
+            checkTime: new Date().toISOString()
+          }
+        });
+      }
+    } catch (error) {
+      logger.error('Error checking pending applications:', error);
+    }
+  }
+
+  async checkUnusualActivity(): Promise<void> {
+    try {
+      // Check for unusual large transactions (>1000 RCN) in last 24 hours
+      const largeTransactionQuery = `
+        SELECT COUNT(*) as large_transaction_count,
+               MAX(amount) as largest_amount
+        FROM transactions
+        WHERE amount > 1000 
+          AND timestamp >= NOW() - INTERVAL '24 hours'
+          AND status = 'confirmed'
+      `;
+      
+      // Check for rapid consecutive transactions from same customer
+      const rapidTransactionQuery = `
+        SELECT customer_address, COUNT(*) as transaction_count
+        FROM transactions
+        WHERE timestamp >= NOW() - INTERVAL '1 hour'
+          AND status = 'confirmed'
+        GROUP BY customer_address
+        HAVING COUNT(*) > 10
+      `;
+
+      const [largeResult, rapidResult] = await Promise.all([
+        this.pool.query(largeTransactionQuery),
+        this.pool.query(rapidTransactionQuery)
+      ]);
+
+      const largeTransactionCount = parseInt(largeResult.rows[0].large_transaction_count);
+      const largestAmount = parseFloat(largeResult.rows[0].largest_amount || 0);
+      
+      if (largeTransactionCount > 0) {
+        await this.createAlert({
+          alertType: 'unusual_large_transactions',
+          severity: 'high',
+          title: 'Unusual Large Transactions Detected',
+          message: `${largeTransactionCount} large transactions (>1000 RCN) detected in last 24 hours. Largest: ${largestAmount.toFixed(2)} RCN`,
+          metadata: {
+            transactionCount: largeTransactionCount,
+            largestAmount,
+            checkTime: new Date().toISOString()
+          }
+        });
+      }
+
+      if (rapidResult.rows.length > 0) {
+        const suspiciousCustomers = rapidResult.rows.map(row => ({
+          address: row.customer_address,
+          count: parseInt(row.transaction_count)
+        }));
+
+        await this.createAlert({
+          alertType: 'rapid_transactions',
+          severity: 'medium',
+          title: 'Rapid Transaction Activity Detected',
+          message: `${suspiciousCustomers.length} customers with >10 transactions in last hour`,
+          metadata: {
+            suspiciousCustomers,
+            checkTime: new Date().toISOString()
+          }
+        });
+      }
+    } catch (error) {
+      logger.error('Error checking unusual activity:', error);
+    }
+  }
+
+  async checkSmartContractHealth(): Promise<void> {
+    try {
+      // This would typically check:
+      // 1. Contract pause state
+      // 2. Recent contract interactions
+      // 3. Gas price monitoring
+      // For now, we'll create a placeholder check
+      
+      // Check if contract interactions have failed recently
+      const contractFailuresQuery = `
+        SELECT COUNT(*) as failure_count
+        FROM transactions
+        WHERE status = 'failed'
+          AND timestamp >= NOW() - INTERVAL '6 hours'
+          AND transaction_hash IS NOT NULL
+      `;
+      
+      const result = await this.pool.query(contractFailuresQuery);
+      const failureCount = parseInt(result.rows[0].failure_count || 0);
+      
+      if (failureCount > 3) {
+        await this.createAlert({
+          alertType: 'contract_health_issues',
+          severity: 'high',
+          title: 'Smart Contract Health Issues',
+          message: `${failureCount} blockchain transactions failed in last 6 hours - possible contract or network issues`,
+          metadata: {
+            failureCount,
+            checkTime: new Date().toISOString()
+          }
+        });
+      }
+
+      // Check for stuck transactions (pending too long)
+      const stuckTransactionsQuery = `
+        SELECT COUNT(*) as stuck_count,
+               MIN(timestamp) as oldest_pending
+        FROM transactions
+        WHERE status = 'pending'
+          AND timestamp < NOW() - INTERVAL '30 minutes'
+          AND transaction_hash IS NOT NULL
+      `;
+      
+      const stuckResult = await this.pool.query(stuckTransactionsQuery);
+      const stuckCount = parseInt(stuckResult.rows[0].stuck_count || 0);
+      
+      if (stuckCount > 0) {
+        await this.createAlert({
+          alertType: 'stuck_transactions',
+          severity: stuckCount > 5 ? 'high' : 'medium',
+          title: 'Stuck Blockchain Transactions',
+          message: `${stuckCount} transactions pending for >30 minutes - possible network congestion`,
+          metadata: {
+            stuckCount,
+            oldestPending: stuckResult.rows[0].oldest_pending,
+            checkTime: new Date().toISOString()
+          }
+        });
+      }
+
+    } catch (error) {
+      logger.error('Error checking smart contract health:', error);
     }
   }
 
