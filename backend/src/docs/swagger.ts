@@ -691,6 +691,87 @@ const options = {
       },
 
       // Auth endpoints
+      '/api/auth/check-user': {
+        post: {
+          tags: ['Authentication'],
+          summary: 'Check if user exists',
+          description: 'Check if a wallet address is registered and return user type and basic info',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['address'],
+                  properties: {
+                    address: {
+                      type: 'string',
+                      pattern: '^0x[a-fA-F0-9]{40}$',
+                      description: 'Wallet address to check',
+                      example: '0x1234567890123456789012345678901234567890'
+                    }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'User found',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      exists: { type: 'boolean', example: true },
+                      type: {
+                        type: 'string',
+                        enum: ['admin', 'customer', 'shop'],
+                        description: 'User type'
+                      },
+                      user: {
+                        type: 'object',
+                        description: 'User details (structure varies by type)',
+                        properties: {
+                          id: { type: 'string' },
+                          address: { type: 'string' },
+                          walletAddress: { type: 'string' },
+                          name: { type: 'string' },
+                          email: { type: 'string' },
+                          active: { type: 'boolean' },
+                          createdAt: { type: 'string', format: 'date-time' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            404: {
+              description: 'User not found',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      exists: { type: 'boolean', example: false },
+                      error: { type: 'string', example: 'User not found' },
+                      message: { type: 'string', example: 'No user found with this wallet address' }
+                    }
+                  }
+                }
+              }
+            },
+            400: {
+              description: 'Invalid request - missing wallet address'
+            },
+            500: {
+              description: 'Internal server error'
+            }
+          }
+        }
+      },
+
       '/api/auth/admin': {
         post: {
           tags: ['Authentication'],

@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
+import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { createThirdwebClient } from "thirdweb";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthMethod } from "@/contexts/AuthMethodContext";
 import { useCustomer } from "@/hooks/useCustomer";
+import { getUserEmail } from "thirdweb/wallets";
 
 const client = createThirdwebClient({
   clientId:
@@ -19,7 +20,7 @@ export default function CustomerRegisterClient() {
   const { refreshProfile } = useAuth();
   const { authMethod, walletType } = useAuthMethod();
   const router = useRouter();
-  
+
   const {
     loading,
     error,
@@ -30,6 +31,20 @@ export default function CustomerRegisterClient() {
     clearMessages,
   } = useCustomer();
 
+  // Fetch user email if available
+  useEffect(() => {
+    const fetchEmail = async () => {
+      if (account?.address) {
+        const email = await getUserEmail({ client });
+
+        if (email) {
+          updateRegistrationFormField("email", email);
+        }
+      }
+    };
+    fetchEmail();
+  }, [account?.address, updateRegistrationFormField]);
+
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,10 +53,10 @@ export default function CustomerRegisterClient() {
     // Call the registration handler from the hook
     await handleRegistrationSubmit(
       account.address,
-      walletType || 'external',
-      authMethod || 'wallet'
+      walletType || "external",
+      authMethod || "wallet"
     );
-    
+
     // Refresh the auth profile after registration
     await refreshProfile();
   };
@@ -106,7 +121,9 @@ export default function CustomerRegisterClient() {
                     type="text"
                     name="name"
                     value={registrationFormData.name}
-                    onChange={(e) => updateRegistrationFormField('name', e.target.value)}
+                    onChange={(e) =>
+                      updateRegistrationFormField("name", e.target.value)
+                    }
                     placeholder="Full name"
                     className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
@@ -117,7 +134,9 @@ export default function CustomerRegisterClient() {
                     type="email"
                     name="email"
                     value={registrationFormData.email}
-                    onChange={(e) => updateRegistrationFormField('email', e.target.value)}
+                    onChange={(e) =>
+                      updateRegistrationFormField("email", e.target.value)
+                    }
                     placeholder="Email address"
                     className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
@@ -139,7 +158,12 @@ export default function CustomerRegisterClient() {
                     type="text"
                     name="referralCode"
                     value={registrationFormData.referralCode}
-                    onChange={(e) => updateRegistrationFormField('referralCode', e.target.value)}
+                    onChange={(e) =>
+                      updateRegistrationFormField(
+                        "referralCode",
+                        e.target.value
+                      )
+                    }
                     placeholder="Enter referral code"
                     className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
@@ -153,17 +177,35 @@ export default function CustomerRegisterClient() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className='bg-[#FFCC00] w-full text-black py-2 xl:py-4 px-4 xl:px-6 rounded-full font-semibold text-sm md:text-base text-center disabled:opacity-50 disabled:cursor-not-allowed'
+                    className="bg-[#FFCC00] w-full text-black py-2 xl:py-4 px-4 xl:px-6 rounded-full font-semibold text-sm md:text-base text-center disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? (
                       <div className="flex items-center justify-center gap-2">
-                        <svg className="animate-spin h-4 w-4 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        <svg
+                          className="animate-spin h-4 w-4 text-black"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
                         </svg>
                         <span>Creating Account...</span>
                       </div>
-                    ) : 'Join RepairCoin'}
+                    ) : (
+                      "Join RepairCoin"
+                    )}
                   </button>
                 </div>
               </div>
@@ -172,7 +214,11 @@ export default function CustomerRegisterClient() {
         </div>
 
         <div className="w-full mx-auto bg-black/70 rounded-2xl overflow-hidden my-12">
-          <img src="/img/cus-reg-benefits.png" alt="" className="w-full h-full" />
+          <img
+            src="/img/cus-reg-benefits.png"
+            alt=""
+            className="w-full h-full"
+          />
         </div>
 
         {/* Back to Home */}
