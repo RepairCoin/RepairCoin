@@ -213,7 +213,7 @@ export function FindShop() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Shop List */}
-          <div className="space-y-4 max-h-[650px] overflow-y-auto pr-2">
+          <div className="space-y-4 max-h-[650px] overflow-y-auto pr-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             <div className="mb-3">
               <h3 className="text-lg font-semibold text-gray-100">
                 Available Shops (
