@@ -36,6 +36,7 @@ export function TokenGiftingTab() {
   const [activeView, setActiveView] = useState<"send" | "history">("send");
   const [isLoading, setIsLoading] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [transferHistory, setTransferHistory] = useState<TransferHistory[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   
@@ -60,7 +61,7 @@ export function TokenGiftingTab() {
     }
 
     try {
-      const response = await fetch('http://localhost:4000/api/tokens/validate-transfer', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tokens/validate-transfer`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -93,8 +94,8 @@ export function TokenGiftingTab() {
     }
   };
 
-  // Send tokens
-  const handleSendTokens = async () => {
+  // Show confirmation modal
+  const handleSendTokens = () => {
     if (!account?.address || !formData.recipientAddress || !formData.amount) {
       toast.error("Please fill in all required fields");
       return;
@@ -105,13 +106,22 @@ export function TokenGiftingTab() {
       return;
     }
 
+    setShowConfirmModal(true);
+  };
+
+  // Actually send tokens after confirmation
+  const confirmSendTokens = async () => {
+    if (!account?.address) return;
+
     setIsLoading(true);
+    setShowConfirmModal(false);
+
     try {
       // This would normally involve blockchain transaction
       // For now, we'll simulate the transaction hash
       const mockTransactionHash = `0x${Math.random().toString(16).substr(2, 64)}`;
 
-      const response = await fetch('http://localhost:4000/api/tokens/transfer', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tokens/transfer`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -126,7 +136,7 @@ export function TokenGiftingTab() {
       });
 
       const result = await response.json();
-      
+
       if (result.success) {
         toast.success(`Successfully sent ${formData.amount} RCN tokens!`);
         setFormData({ recipientAddress: "", amount: "", message: "" });
@@ -152,9 +162,9 @@ export function TokenGiftingTab() {
 
     setLoadingHistory(true);
     try {
-      const response = await fetch(`http://localhost:4000/api/tokens/transfer-history/${account.address}`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tokens/transfer-history/${account.address}`);
       const result = await response.json();
-      
+
       if (result.success) {
         setTransferHistory(result.data.transfers);
       }
@@ -407,6 +417,74 @@ export function TokenGiftingTab() {
         onScan={handleQRScan}
         onClose={() => setShowQRScanner(false)}
       />
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#212121] rounded-2xl max-w-md w-full p-6 border border-gray-700">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-yellow-400/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertCircle className="w-8 h-8 text-yellow-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-white mb-2">
+                Confirm Token Transfer
+              </h3>
+              <p className="text-sm text-gray-400">
+                Please review the details before sending
+              </p>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div className="bg-[#2F2F2F] rounded-xl p-4">
+                <p className="text-sm text-gray-400 mb-1">Recipient Address</p>
+                <p className="text-white font-medium break-all">
+                  {formData.recipientAddress}
+                </p>
+              </div>
+
+              <div className="bg-[#2F2F2F] rounded-xl p-4">
+                <p className="text-sm text-gray-400 mb-1">Amount</p>
+                <p className="text-white font-medium text-2xl">
+                  {formData.amount} RCN
+                </p>
+                <p className="text-sm text-gray-400 mt-1">
+                  ≈ ${(parseFloat(formData.amount) * 0.10).toFixed(2)} USD
+                </p>
+              </div>
+
+              {formData.message && (
+                <div className="bg-[#2F2F2F] rounded-xl p-4">
+                  <p className="text-sm text-gray-400 mb-1">Message</p>
+                  <p className="text-white italic">&quot;{formData.message}&quot;</p>
+                </div>
+              )}
+
+              <div className="bg-blue-900/30 border border-blue-700 rounded-xl p-4">
+                <p className="text-sm text-blue-300">
+                  The recipient can redeem these tokens at any participating shop (20% value)
+                  or at the shop where you earned them (100% value).
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="flex-1 px-4 py-3 bg-gray-700 text-white rounded-xl font-medium hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmSendTokens}
+                disabled={isLoading}
+                className="flex-1 px-4 py-3 bg-[#FFCC00] text-black rounded-xl font-medium hover:bg-yellow-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? "Sending..." : "Confirm & Send"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
