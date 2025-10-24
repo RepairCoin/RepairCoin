@@ -1,12 +1,11 @@
 import React from "react";
 import { Text, View, ImageBackground } from "react-native";
-import { useConnect, useActiveAccount } from "thirdweb/react";
+import { useConnect } from "thirdweb/react";
 import { client } from "@/constants/thirdweb";
 import { createWallet } from "thirdweb/wallets";
 
 import { ThemedButton } from "@/components/ui/ThemedButton";
-import { useCustomer } from "@/hooks/useCustomerQueries";
-import { useConnectWallet } from "@/hooks/useConnectWallet";
+import { useConnectWallet } from "@/hooks/useAuthQueries";
 
 const globe = require("@/assets/images/global_spin.png");
 
@@ -57,13 +56,13 @@ export default function OnboardingStep3({
 
 const ConnectWithMetaMask = () => {
 	const { connect, isConnecting } = useConnect();
-	const { checkWalletConnection } = useConnectWallet();
+	const connectWalletMutation = useConnectWallet();
 	
 	return (
 		<ThemedButton
 			title="Connect"
 			variant="primary"
-			loading={isConnecting}
+			loading={isConnecting || connectWalletMutation.isPending}
 			loadingTitle="Connecting..."
 			onPress={() => {
 				connect(async () => {
@@ -79,7 +78,7 @@ const ConnectWithMetaMask = () => {
 						console.log('[ConnectWithMetaMask] Wallet connected successfully:', address);
 						
 						// Check customer data with the connected address
-						await checkWalletConnection(address);
+						connectWalletMutation.mutate(address);
 					}
 					
 					return w;

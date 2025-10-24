@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../config/queryClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { checkUserByWalletAddress } from '../services/authServices';
+import { router } from 'expo-router';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -16,90 +18,12 @@ interface LoginCredentials {
   userType: 'customer' | 'shop';
 }
 
-// Auth API functions
-const getCurrentUser = async (): Promise<AuthUser | null> => {
-  try {
-    const token = await AsyncStorage.getItem('authToken');
-    const userType = await AsyncStorage.getItem('userType');
-    const walletAddress = await AsyncStorage.getItem('walletAddress');
-    
-    if (!token || !userType || !walletAddress) {
-      return null;
-    }
-    
-    return {
-      address: walletAddress,
-      userType: userType as 'customer' | 'shop',
-      isAuthenticated: true,
-    };
-  } catch (error) {
-    console.error('Error getting current user:', error);
-    return null;
-  }
-};
-
-const loginUser = async (credentials: LoginCredentials): Promise<{ token: string; user: AuthUser }> => {
-  const response = await fetch(`${API_URL}/auth/login`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(credentials),
-  });
-  
-  if (!response.ok) {
-    throw new Error('Login failed');
-  }
-  
-  return response.json();
-};
-
 const logoutUser = async (): Promise<void> => {
   await Promise.all([
     AsyncStorage.removeItem('authToken'),
     AsyncStorage.removeItem('userType'),
     AsyncStorage.removeItem('walletAddress'),
   ]);
-};
-
-// React Query hooks
-export const useAuth = () => {
-  return useQuery({
-    queryKey: queryKeys.authUser(),
-    queryFn: getCurrentUser,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    retry: false,
-  });
-};
-
-export const useLogin = () => {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: loginUser,
-    onSuccess: async (data) => {
-      // Store auth data
-      await Promise.all([
-        AsyncStorage.setItem('authToken', data.token),
-        AsyncStorage.setItem('userType', data.user.userType),
-        AsyncStorage.setItem('walletAddress', data.user.address),
-      ]);
-      
-      // Update auth query
-      queryClient.setQueryData(queryKeys.authUser(), data.user);
-      
-      // Invalidate related queries based on user type
-      if (data.user.userType === 'customer') {
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.customerProfile(data.user.address),
-        });
-      } else if (data.user.userType === 'shop') {
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.shopProfile(data.user.address),
-        });
-      }
-    },
-  });
 };
 
 export const useLogout = () => {
@@ -117,25 +41,39 @@ export const useLogout = () => {
   });
 };
 
-export const useAuthToken = () => {
-  return useQuery({
-    queryKey: queryKeys.authSession(),
-    queryFn: async () => {
-      return await AsyncStorage.getItem('authToken');
-    },
-    staleTime: Infinity, // Don't refetch automatically
-    retry: false,
-  });
-};
-
-// Helper hook to check if user is authenticated
-export const useIsAuthenticated = () => {
-  const { data: user, isLoading } = useAuth();
+// Mutation for checking wallet and handling navigation
+export const useConnectWallet = () => {
+  const queryClient = useQueryClient();
   
-  return {
-    isAuthenticated: !!user?.isAuthenticated,
-    userType: user?.userType,
-    walletAddress: user?.address,
-    isLoading,
-  };
+  return useMutation({
+    mutationFn: async (address: string) => {
+      if (!address) {
+        throw new Error('No wallet address provided');
+      }
+      return await checkUserByWalletAddress(address);
+    },
+    onSuccess: (response, address) => {
+      // Cache the result
+      queryClient.setQueryData(['wallet-connection', address], response);
+      
+      // Handle navigation based on response
+      if (response?.exists && response?.user) {
+        if (response?.type === 'customer') {
+          router.push("/dashboard/customer");
+        } else if (response?.type === 'shop') {
+          // TODO: Add shop dashboard when available
+          router.push("/dashboard/customer");
+        }
+      } else {
+        console.log('[useConnectWallet] No user found for address:', address);
+      }
+    },
+    onError: (error: any) => {
+      if (error?.response?.status === 404) {
+        router.push("/auth/register");
+      } else {
+        console.error('[useConnectWallet] Error checking user:', error);
+      }
+    },
+  });
 };
