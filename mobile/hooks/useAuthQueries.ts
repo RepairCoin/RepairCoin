@@ -1,79 +1,98 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '../config/queryClient';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { checkUserByWalletAddress } from '../services/authServices';
+import { useMutation } from '@tanstack/react-query';
 import { router } from 'expo-router';
+import { useAuthStore } from '../store/authStore';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+// Legacy - keeping for backward compatibility if needed
+// All auth state is now managed by Zustand store (authStore.ts)
 
-interface AuthUser {
-  address: string;
-  userType: 'customer' | 'shop';
-  isAuthenticated: boolean;
-}
-
-interface LoginCredentials {
-  walletAddress: string;
-  signature?: string;
-  userType: 'customer' | 'shop';
-}
-
-const logoutUser = async (): Promise<void> => {
-  await Promise.all([
-    AsyncStorage.removeItem('authToken'),
-    AsyncStorage.removeItem('userType'),
-    AsyncStorage.removeItem('walletAddress'),
-  ]);
-};
-
+// Hook to handle logout
 export const useLogout = () => {
-  const queryClient = useQueryClient();
+  const logout = useAuthStore((state) => state.logout);
   
   return useMutation({
-    mutationFn: logoutUser,
-    onSuccess: () => {
-      // Clear all cached data
-      queryClient.clear();
-      
-      // Reset auth state
-      queryClient.setQueryData(queryKeys.authUser(), null);
+    mutationFn: async () => {
+      logout();
+      router.replace('/onboarding1');
     },
   });
 };
 
-// Mutation for checking wallet and handling navigation
+// Hook for connecting wallet using Zustand store
 export const useConnectWallet = () => {
-  const queryClient = useQueryClient();
+  const connectWallet = useAuthStore((state) => state.connectWallet);
+  const isCustomer = useAuthStore((state) => state.isCustomer);
+  const isShop = useAuthStore((state) => state.isShop);
   
   return useMutation({
     mutationFn: async (address: string) => {
       if (!address) {
         throw new Error('No wallet address provided');
       }
-      return await checkUserByWalletAddress(address);
+      return await connectWallet(address);
     },
-    onSuccess: (response, address) => {
-      // Cache the result
-      queryClient.setQueryData(['wallet-connection', address], response);
-      
-      // Handle navigation based on response
-      if (response?.exists && response?.user) {
-        if (response?.type === 'customer') {
-          router.push("/dashboard/customer");
-        } else if (response?.type === 'shop') {
-          // TODO: Add shop dashboard when available
-          router.push("/dashboard/customer");
+    onSuccess: (result) => {
+      if (result.success) {
+        if (result.needsRegistration) {
+          // User needs to register
+          router.push("/auth/register");
+        } else {
+          // User is authenticated, navigate to dashboard
+          if (isCustomer) {
+            router.push("/dashboard/customer");
+          } else if (isShop) {
+            // TODO: Add shop dashboard when available
+            router.push("/dashboard/customer");
+          } else {
+            router.push("/dashboard/customer");
+          }
         }
-      } else {
-        console.log('[useConnectWallet] No user found for address:', address);
       }
     },
     onError: (error: any) => {
-      if (error?.response?.status === 404) {
-        router.push("/auth/register");
-      } else {
-        console.error('[useConnectWallet] Error checking user:', error);
-      }
+      console.error('[useConnectWallet] Error:', error);
     },
   });
+};
+
+// Hook for splash screen navigation using Zustand store
+export const useSplashNavigation = () => {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isCustomer = useAuthStore((state) => state.isCustomer);
+  const isShop = useAuthStore((state) => state.isShop);
+  const checkStoredAuth = useAuthStore((state) => state.checkStoredAuth);
+  const isLoading = useAuthStore((state) => state.isLoading);
+  
+  // Check stored auth on mount
+  const { mutate: checkAuth, isPending } = useMutation({
+    mutationFn: checkStoredAuth,
+  });
+  
+  // Determine navigation route
+  const getNavigationRoute = () => {
+    if (isPending || isLoading) {
+      return null; // Still checking
+    }
+    
+    if (isAuthenticated) {
+      // User is authenticated, go to appropriate dashboard
+      if (isCustomer) {
+        return '/dashboard/customer';
+      } else if (isShop) {
+        // TODO: Add shop dashboard route when implemented
+        return '/dashboard/customer';
+      } else {
+        return '/dashboard/customer';
+      }
+    } else {
+      // Not authenticated, go to onboarding
+      return '/onboarding1';
+    }
+  };
+  
+  return {
+    checkAuth,
+    isLoading: isPending || isLoading,
+    isAuthenticated,
+    navigationRoute: getNavigationRoute(),
+  };
 };
