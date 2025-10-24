@@ -20,7 +20,10 @@ export const useConnectWallet = () => {
       } else {
         console.log('[useConnectWallet] No user found for address:', address);
       }
-    } catch (error) {
+    } catch (error: any) {
+      if(error.response.status === 404) {
+        router.push("/auth/register");
+      }
       console.log('[useConnectWallet] Error checking user:', error);
     }
   };
