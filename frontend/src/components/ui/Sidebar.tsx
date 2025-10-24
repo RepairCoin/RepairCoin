@@ -122,7 +122,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       return [
         {
           title: "Overview",
-          href: "/customer",
+          href: "/customer?tab=overview",
           icon: <LayoutGrid className="w-5 h-5" />,
           tabId: "overview",
         },
@@ -396,7 +396,14 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="flex flex-col h-full">
           {/* Logo/Brand with Collapse Button */}
           <div className="relative p-4 sm:p-6 border-b border-gray-800">
-            <div className="flex items-center space-x-2">
+            <button
+              onClick={() => {
+                const destination = `/${userRole}?tab=overview`;
+                router.push(destination);
+              }}
+              className="flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity w-full"
+              title={`Go to ${userRole} homepage`}
+            >
               {!isCollapsed && (
                 <img
                   src="/img/nav-logo.png"
@@ -409,7 +416,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   <span className="text-black font-bold text-xs sm:text-sm">RC</span>
                 </div>
               )}
-            </div>
+            </button>
             {/* Collapse Toggle Button - Only visible on desktop */}
             <button
               onClick={handleCollapseToggle}
