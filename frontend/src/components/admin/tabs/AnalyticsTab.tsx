@@ -356,18 +356,18 @@ export function AnalyticsTab() {
           )}
 
           {/* Recent Alerts */}
-          <div className="bg-gray-800 rounded-2xl shadow-xl border border-gray-700">
-            <div className="px-6 py-4 border-b border-gray-600">
-              <h2 className="text-xl font-bold text-white">Recent Alerts</h2>
+          <div className="bg-[#212121] rounded-2xl shadow-xl border border-[#FFCC00]/20 hover:border-[#FFCC00]/40 transition-all duration-300">
+            <div className="px-6 py-4 border-b border-[#FFCC00]/20">
+              <h2 className="text-xl font-bold text-[#FFCC00]">Recent Alerts</h2>
             </div>
             <div className="p-6">
               {alerts.slice(0, 5).map((alert) => (
-                <div key={alert.id} className={`p-4 rounded-lg border mb-3 ${getSeverityColor(alert.severity)}`}>
+                <div key={alert.id} className={`p-4 rounded-lg border mb-3 bg-gradient-to-r from-[#0D0D0D] to-[#212121] border-[#FFCC00]/30 hover:border-[#FFCC00]/50 transition-all duration-200`}>
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="font-semibold">{alert.title}</h3>
-                      <p className="text-sm opacity-75">{alert.message}</p>
-                      <p className="text-xs opacity-60 mt-1">
+                      <h3 className="font-semibold text-[#FFCC00]">{alert.title}</h3>
+                      <p className="text-sm text-[#FFCC00]/70">{alert.message}</p>
+                      <p className="text-xs text-[#FFCC00]/50 mt-1">
                         {new Date(alert.createdAt).toLocaleString()}
                       </p>
                     </div>
@@ -375,14 +375,14 @@ export function AnalyticsTab() {
                       {!alert.acknowledged && (
                         <button
                           onClick={() => handleMarkAlertAsRead(alert.id)}
-                          className="px-3 py-1 bg-white bg-opacity-50 rounded text-xs"
+                          className="px-3 py-1 bg-[#FFCC00]/20 hover:bg-[#FFCC00]/30 text-[#FFCC00] rounded text-xs border border-[#FFCC00]/40 transition-all"
                         >
                           Mark Read
                         </button>
                       )}
                       <button
                         onClick={() => handleResolveAlert(alert.id)}
-                        className="px-3 py-1 bg-white bg-opacity-50 rounded text-xs"
+                        className="px-3 py-1 bg-[#FFCC00] hover:bg-[#FFCC00]/90 text-[#0D0D0D] rounded text-xs font-bold transition-all"
                       >
                         Resolve
                       </button>

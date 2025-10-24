@@ -6,6 +6,7 @@ import { ShopRepository } from '../../../repositories/ShopRepository';
 import { transactionRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
 import { validateRequired, validateEthereumAddress, validateNumeric } from '../../../middleware/errorHandler';
+import { checkTokenMintingFreeze, checkShopPurchaseFreeze, checkCriticalOperationFreeze } from '../../../middleware/freezeCheck';
 import { getRCGService } from '../../../services/RCGService';
 // TODO: Implement treasury methods in repository
 
@@ -403,6 +404,7 @@ router.get('/treasury/discrepancies', async (req: Request, res: Response) => {
 
 // Manual token transfer to fix discrepancies
 router.post('/treasury/manual-transfer',
+    checkTokenMintingFreeze,
     validateRequired(['customerAddress', 'amount', 'reason']),
     validateEthereumAddress('customerAddress'),
     validateNumeric('amount', 0.01, 10000),
@@ -579,6 +581,7 @@ router.get('/treasury/stats-with-warnings', async (req: Request, res: Response) 
 
 // Bulk token minting for campaigns
 router.post('/treasury/mint-bulk',
+    checkTokenMintingFreeze,
     validateRequired(['recipients', 'amount', 'reason']),
     validateNumeric('amount', 0.01, 100000),
     async (req: Request, res: Response) => {
@@ -731,6 +734,7 @@ router.get('/treasury/analytics', async (req: Request, res: Response) => {
 
 // Token price adjustment controls
 router.post('/treasury/adjust-pricing',
+    checkCriticalOperationFreeze,
     validateRequired(['tier', 'newPrice', 'reason']),
     validateNumeric('newPrice', 0.01, 1.00),
     async (req: Request, res: Response) => {
@@ -853,33 +857,70 @@ router.post('/treasury/emergency-freeze',
     validateRequired(['reason']),
     async (req: Request, res: Response) => {
         try {
-            const { reason } = req.body;
+            const { reason, components } = req.body;
             const adminAddress = req.user?.address;
+            const adminEmail = undefined; // Email not available in current auth
             
-            // Log emergency action
-            logger.error('EMERGENCY: Treasury freeze initiated', {
+            if (!adminAddress) {
+                return res.status(401).json({
+                    success: false,
+                    error: 'Admin authentication required'
+                });
+            }
+
+            // Dynamic import to avoid circular dependency
+            const { getEmergencyFreezeService } = await import('../../../services/EmergencyFreezeService');
+            const freezeService = getEmergencyFreezeService();
+            
+            // Execute comprehensive emergency freeze
+            const result = await freezeService.executeEmergencyFreeze({
                 reason,
                 adminAddress,
-                timestamp: new Date().toISOString()
+                adminEmail,
+                components
             });
             
-            // This would typically:
-            // 1. Pause token minting contracts
-            // 2. Disable new purchases
-            // 3. Alert all administrators
-            // 4. Create audit trail
-            
-            res.json({
-                success: true,
-                message: 'Emergency freeze logged - manual intervention required',
-                data: {
-                    action: 'emergency_freeze',
+            if (result.success) {
+                logger.error('🚨 EMERGENCY FREEZE EXECUTED SUCCESSFULLY', {
+                    auditId: result.auditId,
                     reason,
                     adminAddress,
-                    timestamp: new Date().toISOString(),
-                    implementationNote: 'This would trigger contract pausing in production'
-                }
-            });
+                    components: components || ['all'],
+                    timestamp: new Date().toISOString()
+                });
+                
+                res.json({
+                    success: true,
+                    message: '🚨 Emergency freeze executed successfully',
+                    data: {
+                        action: 'emergency_freeze',
+                        auditId: result.auditId,
+                        reason,
+                        adminAddress,
+                        componentsAffected: components || ['token_minting', 'shop_purchases', 'customer_rewards', 'token_transfers'],
+                        timestamp: new Date().toISOString(),
+                        status: 'All critical systems have been frozen'
+                    }
+                });
+            } else {
+                logger.error('❌ EMERGENCY FREEZE PARTIALLY FAILED', {
+                    auditId: result.auditId,
+                    errors: result.errors,
+                    reason,
+                    adminAddress,
+                    timestamp: new Date().toISOString()
+                });
+                
+                res.status(500).json({
+                    success: false,
+                    error: 'Emergency freeze partially failed',
+                    data: {
+                        auditId: result.auditId,
+                        errors: result.errors,
+                        message: 'Some components may still be operational. Check system status.'
+                    }
+                });
+            }
             
         } catch (error) {
             logger.error('Error processing emergency freeze:', error);
@@ -890,5 +931,148 @@ router.post('/treasury/emergency-freeze',
         }
     }
 );
+
+// Emergency unfreeze
+router.post('/treasury/emergency-unfreeze',
+    validateRequired(['reason']),
+    async (req: Request, res: Response) => {
+        try {
+            const { reason, components } = req.body;
+            const adminAddress = req.user?.address;
+            const adminEmail = undefined; // Email not available in current auth
+            
+            if (!adminAddress) {
+                return res.status(401).json({
+                    success: false,
+                    error: 'Admin authentication required'
+                });
+            }
+
+            // Dynamic import to avoid circular dependency
+            const { getEmergencyFreezeService } = await import('../../../services/EmergencyFreezeService');
+            const freezeService = getEmergencyFreezeService();
+            
+            // Execute emergency unfreeze
+            const result = await freezeService.executeEmergencyUnfreeze({
+                reason,
+                adminAddress,
+                adminEmail,
+                components
+            });
+            
+            if (result.success) {
+                logger.info('✅ EMERGENCY UNFREEZE EXECUTED SUCCESSFULLY', {
+                    auditId: result.auditId,
+                    reason,
+                    adminAddress,
+                    components: components || ['all'],
+                    timestamp: new Date().toISOString()
+                });
+                
+                res.json({
+                    success: true,
+                    message: '✅ Emergency freeze lifted successfully',
+                    data: {
+                        action: 'emergency_unfreeze',
+                        auditId: result.auditId,
+                        reason,
+                        adminAddress,
+                        componentsAffected: components || ['token_minting', 'shop_purchases', 'customer_rewards', 'token_transfers'],
+                        timestamp: new Date().toISOString(),
+                        status: 'All systems operational'
+                    }
+                });
+            } else {
+                logger.error('❌ EMERGENCY UNFREEZE PARTIALLY FAILED', {
+                    auditId: result.auditId,
+                    errors: result.errors,
+                    reason,
+                    adminAddress,
+                    timestamp: new Date().toISOString()
+                });
+                
+                res.status(500).json({
+                    success: false,
+                    error: 'Emergency unfreeze partially failed',
+                    data: {
+                        auditId: result.auditId,
+                        errors: result.errors,
+                        message: 'Some components may still be frozen. Check system status.'
+                    }
+                });
+            }
+            
+        } catch (error) {
+            logger.error('Error processing emergency unfreeze:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to process emergency unfreeze'
+            });
+        }
+    }
+);
+
+// Get system freeze status
+router.get('/treasury/freeze-status', async (req: Request, res: Response) => {
+    try {
+        // Dynamic import to avoid circular dependency
+        const { getEmergencyFreezeService } = await import('../../../services/EmergencyFreezeService');
+        const freezeService = getEmergencyFreezeService();
+        
+        const systemStatus = await freezeService.getSystemStatus();
+        const auditHistory = await freezeService.getAuditHistory(10);
+        const activeAlerts = await freezeService.getActiveAlerts();
+        
+        const isFrozen = systemStatus.some(status => status.is_frozen);
+        const frozenComponents = systemStatus.filter(status => status.is_frozen);
+        
+        res.json({
+            success: true,
+            data: {
+                isFrozen,
+                frozenComponents: frozenComponents.map(c => c.component),
+                systemStatus,
+                recentAuditHistory: auditHistory,
+                activeAlerts: activeAlerts.length,
+                lastFreezeAction: auditHistory[0] || null
+            }
+        });
+        
+    } catch (error) {
+        logger.error('Error fetching freeze status:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch freeze status'
+        });
+    }
+});
+
+// Get emergency freeze audit history
+router.get('/treasury/freeze-audit', async (req: Request, res: Response) => {
+    try {
+        const { limit = '50' } = req.query;
+        
+        // Dynamic import to avoid circular dependency
+        const { getEmergencyFreezeService } = await import('../../../services/EmergencyFreezeService');
+        const freezeService = getEmergencyFreezeService();
+        
+        const auditHistory = await freezeService.getAuditHistory(parseInt(limit as string));
+        
+        res.json({
+            success: true,
+            data: {
+                auditHistory,
+                total: auditHistory.length
+            }
+        });
+        
+    } catch (error) {
+        logger.error('Error fetching freeze audit history:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch audit history'
+        });
+    }
+});
 
 export default router;

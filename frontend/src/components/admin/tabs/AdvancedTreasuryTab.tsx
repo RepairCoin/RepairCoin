@@ -16,7 +16,10 @@ import {
   adjustTokenPricing,
   getCurrentPricing,
   getPricingHistory,
-  emergencyFreeze
+  emergencyFreeze,
+  emergencyUnfreeze,
+  getFreezeStatus,
+  getFreezeAuditHistory
 } from '@/services/api/admin';
 import { WorkingChart } from '@/components/admin/charts/WorkingChart';
 
@@ -91,6 +94,9 @@ export const AdvancedTreasuryTab: React.FC = () => {
   const [showBulkMint, setShowBulkMint] = useState(false);
   const [showPricingAdjust, setShowPricingAdjust] = useState(false);
   const [showEmergencyFreeze, setShowEmergencyFreeze] = useState(false);
+  const [showEmergencyUnfreeze, setShowEmergencyUnfreeze] = useState(false);
+  const [freezeStatus, setFreezeStatus] = useState<any>(null);
+  const [auditHistory, setAuditHistory] = useState<any[]>([]);
   
   // Form state
   const [manualTransferForm, setManualTransferForm] = useState({
@@ -112,6 +118,7 @@ export const AdvancedTreasuryTab: React.FC = () => {
 
   useEffect(() => {
     loadAllData();
+    loadFreezeStatus();
   }, []);
 
   useEffect(() => {
@@ -290,15 +297,60 @@ export const AdvancedTreasuryTab: React.FC = () => {
     }
   };
 
+  const loadFreezeStatus = async () => {
+    try {
+      const [statusResponse, auditResponse] = await Promise.all([
+        getFreezeStatus(),
+        getFreezeAuditHistory(20)
+      ]);
+      
+      if (statusResponse.success) {
+        setFreezeStatus(statusResponse.data);
+      }
+      
+      if (auditResponse.success) {
+        setAuditHistory(auditResponse.data.auditHistory);
+      }
+    } catch (error) {
+      console.error('Error loading freeze status:', error);
+    }
+  };
+
   const handleEmergencyFreeze = async () => {
     try {
-      await emergencyFreeze(freezeReason);
-      toast.error('🚨 Emergency freeze initiated - Check logs for details');
+      const response = await emergencyFreeze(freezeReason);
+      
+      if (response.success) {
+        toast.error('🚨 Emergency freeze executed successfully');
+        await loadFreezeStatus(); // Refresh freeze status
+      } else {
+        toast.error('❌ Emergency freeze partially failed');
+      }
+      
       setShowEmergencyFreeze(false);
       setFreezeReason('');
     } catch (error) {
       console.error('Error processing emergency freeze:', error);
       toast.error('Failed to process emergency freeze');
+    }
+  };
+
+  const handleEmergencyUnfreeze = async () => {
+    try {
+      const response = await emergencyUnfreeze(freezeReason);
+      
+      if (response.success) {
+        toast.success('✅ Emergency freeze lifted successfully');
+        await loadFreezeStatus(); // Refresh freeze status
+      } else {
+        toast.error('❌ Emergency unfreeze partially failed');
+      }
+      
+      setShowEmergencyUnfreeze(false);
+      setFreezeReason('');
+    } catch (error) {
+      console.error('Error processing emergency unfreeze:', error);
+      toast.error('Failed to process emergency unfreeze');
     }
   };
 
@@ -344,13 +396,23 @@ export const AdvancedTreasuryTab: React.FC = () => {
             {refreshing && <RefreshCw className="w-4 h-4 animate-spin" />}
             Refresh Data
           </button>
-          <button
-            onClick={() => setShowEmergencyFreeze(true)}
-            className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
-          >
-            <Shield className="w-4 h-4" />
-            Emergency Freeze
-          </button>
+          {freezeStatus?.isFrozen ? (
+            <button
+              onClick={() => setShowEmergencyUnfreeze(true)}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+            >
+              <Shield className="w-4 h-4" />
+              Lift Emergency Freeze
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowEmergencyFreeze(true)}
+              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+            >
+              <Shield className="w-4 h-4" />
+              Emergency Freeze
+            </button>
+          )}
         </div>
       </div>
 
@@ -366,6 +428,35 @@ export const AdvancedTreasuryTab: React.FC = () => {
                 Total missing: {formatNumber(treasuryStats.warnings.totalMissingTokens)} RCN
               </p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Emergency Freeze Status Banner */}
+      {freezeStatus?.isFrozen && (
+        <div className="bg-red-900/50 border border-red-700 rounded-xl p-6">
+          <div className="flex items-start gap-3">
+            <Shield className="w-6 h-6 text-red-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="text-lg font-bold text-red-300 mb-1">🚨 EMERGENCY FREEZE ACTIVE</h3>
+              <p className="text-red-200 mb-2">
+                Critical treasury operations are currently frozen. 
+                Frozen components: {freezeStatus.frozenComponents?.join(', ') || 'All systems'}
+              </p>
+              {freezeStatus.lastFreezeAction && (
+                <div className="text-sm text-red-300">
+                  <p>Initiated: {new Date(freezeStatus.lastFreezeAction.timestamp).toLocaleString()}</p>
+                  <p>By: {freezeStatus.lastFreezeAction.admin_address}</p>
+                  <p>Reason: {freezeStatus.lastFreezeAction.reason}</p>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => setShowEmergencyUnfreeze(true)}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm"
+            >
+              Lift Freeze
+            </button>
           </div>
         </div>
       )}
@@ -1071,6 +1162,47 @@ export const AdvancedTreasuryTab: React.FC = () => {
                 className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
               >
                 🚨 Emergency Freeze
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Emergency Unfreeze Modal */}
+      {showEmergencyUnfreeze && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-900 rounded-xl p-6 w-full max-w-md">
+            <h3 className="text-xl font-bold text-green-400 mb-4">✅ Lift Emergency Freeze</h3>
+            <p className="text-gray-300 mb-4">
+              This will restore normal treasury operations. Please provide a reason for lifting the emergency freeze.
+            </p>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Reason for lifting freeze *
+              </label>
+              <textarea
+                value={freezeReason}
+                onChange={(e) => setFreezeReason(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white resize-none"
+                rows={3}
+                placeholder="Describe why the emergency freeze is being lifted..."
+              />
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowEmergencyUnfreeze(false)}
+                className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEmergencyUnfreeze}
+                disabled={!freezeReason}
+                className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+              >
+                ✅ Lift Emergency Freeze
               </button>
             </div>
           </div>

@@ -344,7 +344,7 @@ export const WorkingLineChart: React.FC<WorkingLineChartProps> = ({
           </div>
           
           <div className="absolute inset-0">
-            <svg width="100%" height="100%" className="overflow-visible">
+            <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" className="overflow-hidden">
               <defs>
                 {lines.map((line) => {
                   const color = getColor(line.color);
@@ -358,37 +358,47 @@ export const WorkingLineChart: React.FC<WorkingLineChartProps> = ({
               </defs>
               {lines.map((line) => {
                 const color = getColor(line.color);
-                const points = data.map((point, index) => {
-                  const value = line.key === 'value' ? point.value : (point.value2 || 0);
-                  const x = data.length === 1 ? 50 : (index / (data.length - 1)) * 90 + 5;
-                  const y = 100 - Math.max(5, Math.min(95, ((value - minValue) / range) * 85 + 10));
-                  return { x, y, value, point };
-                });
+                
+                // Force create 30 evenly distributed points across FULL width
+                const points = [];
+                
+                // Create exactly 30 points spanning with padding to prevent overflow
+                for (let i = 0; i < 30; i++) {
+                  const x = 2 + (i / 29) * 96; // 2% to 98% width with padding
+                  
+                  // Find if we have actual data for this position
+                  let value = 0;
+                  let actualPoint = null;
+                  
+                  if (i < data.length) {
+                    const dataPoint = data[i];
+                    value = line.key === 'value' ? (dataPoint.value || 0) : (dataPoint.value2 || 0);
+                    actualPoint = dataPoint;
+                  }
+                  
+                  const y = range === 0 ? 95 : Math.max(5, 95 - ((value - minValue) / range) * 90);
+                  points.push({ x, y, value, point: actualPoint || { date: `day-${i}` } });
+                }
                 
                 const pointsStr = points.map(p => `${p.x},${p.y}`).join(' ');
                 
-                // Create fill area that goes to actual bottom
-                const baselineY = 98; // Use very bottom of chart area
+                // Create fill area that goes to actual bottom  
+                const baselineY = 95; // Bottom of chart area (matching Y calculation)
                 const fillPoints = [
                   `${points[0].x},${baselineY}`,
                   ...points.map(p => `${p.x},${p.y}`),
                   `${points[points.length - 1].x},${baselineY}`
                 ].join(' ');
                 
-                // Create continuous baseline that spans full width
+                // Create continuous baseline with padding to match data points
                 const baselinePoints = [
-                  `5,${baselineY}`,
-                  `95,${baselineY}`
+                  `2,${baselineY}`,
+                  `98,${baselineY}`
                 ];
                 const baselineStr = baselinePoints.join(' ');
                 
-                // Add baseline points to ensure line goes across full width
-                const extendedPoints = [
-                  { x: 5, y: baselineY },  // Start at left edge
-                  ...points,
-                  { x: 95, y: baselineY }  // End at right edge
-                ];
-                const extendedPointsStr = extendedPoints.map(p => `${p.x},${p.y}`).join(' ');
+                // The complete dataset already spans full width, no need for additional points
+                const extendedPointsStr = pointsStr;
                 
                 return (
                   <g key={line.key}>
@@ -402,26 +412,17 @@ export const WorkingLineChart: React.FC<WorkingLineChartProps> = ({
                     <polyline
                       fill="none"
                       stroke={color}
-                      strokeWidth="2"
+                      strokeWidth="0.2"
                       points={baselineStr}
-                      opacity="0.6"
-                    />
-                    {/* Extended line that goes full width */}
-                    <polyline
-                      fill="none"
-                      stroke={color}
-                      strokeWidth="2"
-                      points={extendedPointsStr}
-                      filter="drop-shadow(0 2px 4px rgba(0,0,0,0.1))"
-                      opacity="0.8"
+                      opacity="0.3"
                     />
                     {/* Main data line */}
                     <polyline
                       fill="none"
                       stroke={color}
-                      strokeWidth="3"
+                      strokeWidth="0.5"
                       points={pointsStr}
-                      filter="drop-shadow(0 2px 4px rgba(0,0,0,0.1))"
+                      filter="drop-shadow(0 0.5px 1px rgba(0,0,0,0.1))"
                     />
                   </g>
                 );

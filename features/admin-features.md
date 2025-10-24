@@ -413,13 +413,89 @@ Based on the actual system implementation, the following tabs are available:
 
 ## 🚨 Emergency Controls
 
+### **Emergency Freeze System**
+The platform now includes a comprehensive emergency freeze system for critical security incidents:
+
+#### **Emergency Freeze Capabilities**
+- **Instant System Lockdown**: Freeze all critical treasury operations immediately
+- **Component-Level Control**: Selectively freeze specific system components:
+  - `token_minting`: Halt all token creation operations
+  - `shop_purchases`: Block new RCN purchases by shops
+  - `customer_rewards`: Suspend reward distribution
+  - `token_transfers`: Stop manual token transfers
+- **Smart Contract Pausing**: Automatically pause token contracts during freeze
+- **Administrator Alerts**: Real-time notifications to all admin team members
+- **Complete Audit Trail**: Detailed logging of all freeze/unfreeze actions
+
+#### **Freeze Status Monitoring**
+- **Real-time Status Display**: Live freeze status banner in admin dashboard
+- **Component Status Tracking**: Individual component freeze indicators
+- **Historical Audit**: Complete history of emergency actions with timestamps
+- **Admin Activity Logs**: Track which admin initiated freeze/unfreeze actions
+
 ### **Platform Security**
 - **Emergency Pause**: Immediately halt all platform operations if needed
 - **Contract Freeze**: Pause smart contract operations for security issues
 - **Account Lockdown**: Quickly suspend multiple accounts during incidents
 - **Communication Blast**: Send urgent notifications to all users
 
-### **User Flow: Emergency Platform Pause**
+### **User Flow: Emergency Freeze Activation**
+```
+🚨 CRITICAL PROCEDURE - ADMIN/SUPER ADMIN 🚨
+
+1. Admin identifies critical security threat or system issue
+2. Navigates to "Advanced Treasury Management" tab
+3. Clicks red "Emergency Freeze" button in top-right corner
+4. System displays emergency freeze modal:
+   → Warning about system-wide impact
+   → Text field for mandatory reason explanation
+   → "This will freeze all critical treasury operations"
+5. Admin enters detailed reason for the freeze
+6. Clicks "🚨 Emergency Freeze" to confirm
+7. System immediately executes freeze:
+   → Pauses token minting operations
+   → Blocks new shop purchases
+   → Suspends customer reward distribution
+   → Halts manual token transfers
+   → Attempts to pause smart contracts
+   → Creates audit trail entry
+   → Sends alerts to all administrators
+8. Red freeze status banner appears across admin dashboard
+9. All affected endpoints return 503 errors with freeze message
+10. System remains frozen until manually lifted by admin
+```
+
+### **User Flow: Emergency Freeze Lift**
+```
+✅ RECOVERY PROCEDURE - ADMIN/SUPER ADMIN ✅
+
+1. Admin determines security issue has been resolved
+2. Views red freeze status banner showing:
+   → Current freeze status and affected components
+   → Original freeze reason and timestamp
+   → Admin who initiated the freeze
+3. Clicks "Lift Freeze" button in status banner OR
+   Clicks green "Lift Emergency Freeze" button in top-right
+4. System displays unfreeze confirmation modal:
+   → Current freeze details and duration
+   → Text field for mandatory reason explanation
+   → "This will restore all treasury operations"
+5. Admin enters detailed reason for lifting freeze
+6. Clicks "✅ Lift Emergency Freeze" to confirm
+7. System executes unfreeze:
+   → Unpauses smart contracts
+   → Restores token minting operations
+   → Re-enables shop purchases
+   → Resumes customer reward distribution
+   → Allows manual token transfers
+   → Creates audit trail entry
+   → Sends restoration alerts to all administrators
+8. Green success banner briefly appears
+9. All operations return to normal functionality
+10. Freeze status banner disappears from dashboard
+```
+
+### **User Flow: Emergency Platform Pause (Legacy)**
 ```
 ⚠️ CRITICAL PROCEDURE - SUPER ADMIN ONLY ⚠️
 

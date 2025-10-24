@@ -20,8 +20,12 @@ const options = {
         - Universal redemption network (100% redemption at any shop)
         - Referral system with automated rewards
         - Admin operations, analytics, and treasury management
+        - Emergency freeze system for security incident response
         - Webhook processing for external integrations
         - Redemption sessions for secure customer-approved transactions
+        
+        **Security Features:**
+        The platform includes a comprehensive emergency freeze system that allows administrators to immediately halt critical operations during security incidents. This system provides component-level control, complete audit trails, and automated administrator alerts.
       `,
       contact: {
         name: 'RepairCoin Team',
@@ -520,6 +524,132 @@ const options = {
             details: {
               type: 'object',
               description: 'Additional error details'
+            }
+          }
+        },
+
+        // Emergency Freeze schemas
+        EmergencyFreezeRequest: {
+          type: 'object',
+          required: ['reason'],
+          properties: {
+            reason: {
+              type: 'string',
+              description: 'Detailed reason for emergency action',
+              example: 'Suspicious transaction activity detected requiring immediate intervention'
+            },
+            components: {
+              type: 'array',
+              items: {
+                type: 'string',
+                enum: ['token_minting', 'shop_purchases', 'customer_rewards', 'token_transfers']
+              },
+              description: 'Specific components to freeze/unfreeze (defaults to all)',
+              example: ['token_minting', 'shop_purchases']
+            }
+          }
+        },
+
+        EmergencyFreezeResponse: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            message: { type: 'string' },
+            data: {
+              type: 'object',
+              properties: {
+                action: {
+                  type: 'string',
+                  enum: ['emergency_freeze', 'emergency_unfreeze']
+                },
+                auditId: { type: 'number' },
+                reason: { type: 'string' },
+                adminAddress: { type: 'string' },
+                componentsAffected: {
+                  type: 'array',
+                  items: { type: 'string' }
+                },
+                timestamp: { type: 'string', format: 'date-time' },
+                status: { type: 'string' }
+              }
+            }
+          }
+        },
+
+        FreezeStatusResponse: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            data: {
+              type: 'object',
+              properties: {
+                isFrozen: {
+                  type: 'boolean',
+                  description: 'Whether any component is currently frozen'
+                },
+                frozenComponents: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'List of currently frozen components'
+                },
+                systemStatus: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      component: { type: 'string' },
+                      is_frozen: { type: 'boolean' },
+                      frozen_at: { type: 'string', format: 'date-time', nullable: true },
+                      frozen_by: { type: 'string', nullable: true },
+                      freeze_reason: { type: 'string', nullable: true }
+                    }
+                  }
+                },
+                recentAuditHistory: {
+                  type: 'array',
+                  items: { $ref: '#/components/schemas/FreezeAuditRecord' }
+                },
+                activeAlerts: { type: 'number' },
+                lastFreezeAction: {
+                  type: 'object',
+                  nullable: true
+                }
+              }
+            }
+          }
+        },
+
+        FreezeAuditRecord: {
+          type: 'object',
+          properties: {
+            id: { type: 'number' },
+            action_type: {
+              type: 'string',
+              enum: ['freeze', 'unfreeze']
+            },
+            reason: { type: 'string' },
+            admin_address: {
+              type: 'string',
+              pattern: '^0x[a-fA-F0-9]{40}$'
+            },
+            timestamp: {
+              type: 'string',
+              format: 'date-time'
+            }
+          }
+        },
+
+        FreezeError: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: false },
+            error: { type: 'string' },
+            message: { type: 'string' },
+            component: { type: 'string' },
+            frozen: { type: 'boolean', example: true },
+            code: {
+              type: 'string',
+              enum: ['EMERGENCY_FREEZE_ACTIVE', 'CRITICAL_SERVICES_FROZEN']
             }
           }
         },
@@ -2290,7 +2420,7 @@ const options = {
         post: {
           tags: ['Admin'],
           summary: 'Emergency mint',
-          description: 'Emergency mint tokens to address',
+          description: 'Emergency mint tokens to address. This operation is protected by the emergency freeze system.',
           security: [{ bearerAuth: [] }],
           requestBody: {
             required: true,
@@ -2317,6 +2447,14 @@ const options = {
           responses: {
             200: {
               description: 'Tokens minted'
+            },
+            503: {
+              description: 'Service unavailable due to emergency freeze',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/FreezeError' }
+                }
+              }
             }
           }
         }
@@ -2385,6 +2523,332 @@ const options = {
           responses: {
             200: {
               description: 'Analytics data'
+            }
+          }
+        }
+      },
+
+      // Emergency Freeze System endpoints
+      '/api/admin/treasury/emergency-freeze': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Execute emergency freeze',
+          description: 'Immediately freeze critical treasury operations due to security threats or system issues',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['reason'],
+                  properties: {
+                    reason: {
+                      type: 'string',
+                      description: 'Detailed reason for emergency freeze',
+                      example: 'Suspicious transaction activity detected requiring immediate intervention'
+                    },
+                    components: {
+                      type: 'array',
+                      items: {
+                        type: 'string',
+                        enum: ['token_minting', 'shop_purchases', 'customer_rewards', 'token_transfers']
+                      },
+                      description: 'Specific components to freeze (defaults to all if not specified)',
+                      example: ['token_minting', 'shop_purchases']
+                    }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Emergency freeze executed successfully',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', example: true },
+                      message: { type: 'string', example: '🚨 Emergency freeze executed successfully' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          action: { type: 'string', example: 'emergency_freeze' },
+                          auditId: { type: 'number', example: 123 },
+                          reason: { type: 'string' },
+                          adminAddress: { type: 'string' },
+                          componentsAffected: {
+                            type: 'array',
+                            items: { type: 'string' }
+                          },
+                          timestamp: { type: 'string', format: 'date-time' },
+                          status: { type: 'string', example: 'All critical systems have been frozen' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            401: {
+              description: 'Unauthorized - admin authentication required'
+            },
+            500: {
+              description: 'Emergency freeze partially failed',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', example: false },
+                      error: { type: 'string', example: 'Emergency freeze partially failed' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          auditId: { type: 'number' },
+                          errors: {
+                            type: 'array',
+                            items: { type: 'string' }
+                          },
+                          message: { type: 'string', example: 'Some components may still be operational. Check system status.' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+
+      '/api/admin/treasury/emergency-unfreeze': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Lift emergency freeze',
+          description: 'Restore normal operations after emergency freeze has been resolved',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['reason'],
+                  properties: {
+                    reason: {
+                      type: 'string',
+                      description: 'Detailed reason for lifting emergency freeze',
+                      example: 'Security issue resolved, all systems verified safe for operation'
+                    },
+                    components: {
+                      type: 'array',
+                      items: {
+                        type: 'string',
+                        enum: ['token_minting', 'shop_purchases', 'customer_rewards', 'token_transfers']
+                      },
+                      description: 'Specific components to unfreeze (defaults to all if not specified)',
+                      example: ['token_minting', 'shop_purchases']
+                    }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Emergency freeze lifted successfully',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', example: true },
+                      message: { type: 'string', example: '✅ Emergency freeze lifted successfully' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          action: { type: 'string', example: 'emergency_unfreeze' },
+                          auditId: { type: 'number', example: 124 },
+                          reason: { type: 'string' },
+                          adminAddress: { type: 'string' },
+                          componentsAffected: {
+                            type: 'array',
+                            items: { type: 'string' }
+                          },
+                          timestamp: { type: 'string', format: 'date-time' },
+                          status: { type: 'string', example: 'All systems operational' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            401: {
+              description: 'Unauthorized - admin authentication required'
+            },
+            500: {
+              description: 'Emergency unfreeze partially failed'
+            }
+          }
+        }
+      },
+
+      '/api/admin/treasury/freeze-status': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Get system freeze status',
+          description: 'Check current freeze status of all system components',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: {
+              description: 'System freeze status',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', example: true },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          isFrozen: {
+                            type: 'boolean',
+                            description: 'Whether any component is currently frozen',
+                            example: false
+                          },
+                          frozenComponents: {
+                            type: 'array',
+                            items: { type: 'string' },
+                            description: 'List of currently frozen components',
+                            example: []
+                          },
+                          systemStatus: {
+                            type: 'array',
+                            items: {
+                              type: 'object',
+                              properties: {
+                                component: { type: 'string', example: 'token_minting' },
+                                is_frozen: { type: 'boolean', example: false },
+                                frozen_at: { type: 'string', format: 'date-time', nullable: true },
+                                frozen_by: { type: 'string', nullable: true },
+                                freeze_reason: { type: 'string', nullable: true }
+                              }
+                            }
+                          },
+                          recentAuditHistory: {
+                            type: 'array',
+                            items: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'number' },
+                                action_type: { type: 'string', enum: ['freeze', 'unfreeze'] },
+                                reason: { type: 'string' },
+                                admin_address: { type: 'string' },
+                                timestamp: { type: 'string', format: 'date-time' }
+                              }
+                            }
+                          },
+                          activeAlerts: {
+                            type: 'number',
+                            description: 'Number of active administrator alerts',
+                            example: 0
+                          },
+                          lastFreezeAction: {
+                            type: 'object',
+                            nullable: true,
+                            description: 'Most recent freeze/unfreeze action'
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            401: {
+              description: 'Unauthorized - admin authentication required'
+            }
+          }
+        }
+      },
+
+      '/api/admin/treasury/freeze-audit': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Get emergency freeze audit history',
+          description: 'Retrieve complete audit trail of all emergency freeze and unfreeze actions',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'limit',
+              in: 'query',
+              description: 'Maximum number of audit records to return',
+              schema: {
+                type: 'integer',
+                minimum: 1,
+                maximum: 100,
+                default: 50
+              }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Emergency freeze audit history',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', example: true },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          auditHistory: {
+                            type: 'array',
+                            items: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'number', example: 123 },
+                                action_type: {
+                                  type: 'string',
+                                  enum: ['freeze', 'unfreeze'],
+                                  example: 'freeze'
+                                },
+                                reason: {
+                                  type: 'string',
+                                  example: 'Suspicious transaction activity detected'
+                                },
+                                admin_address: {
+                                  type: 'string',
+                                  pattern: '^0x[a-fA-F0-9]{40}$',
+                                  example: '0x1234567890123456789012345678901234567890'
+                                },
+                                timestamp: {
+                                  type: 'string',
+                                  format: 'date-time',
+                                  example: '2025-10-24T14:30:00Z'
+                                }
+                              }
+                            }
+                          },
+                          total: {
+                            type: 'number',
+                            description: 'Total number of audit records returned',
+                            example: 25
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            401: {
+              description: 'Unauthorized - admin authentication required'
             }
           }
         }
@@ -2507,7 +2971,7 @@ const options = {
       },
       {
         name: 'Admin',
-        description: 'Administrative operations'
+        description: 'Administrative operations including platform management, analytics, treasury controls, and emergency freeze system for security incident response'
       },
       {
         name: 'Referrals',

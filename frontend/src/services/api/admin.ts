@@ -393,12 +393,48 @@ export const adjustTokenPricing = async (data: {
   }
 };
 
-export const emergencyFreeze = async (reason: string): Promise<any> => {
+export const emergencyFreeze = async (reason: string, components?: string[]): Promise<any> => {
   try {
-    const response = await apiClient.post('/admin/treasury/emergency-freeze', { reason });
+    const response = await apiClient.post('/admin/treasury/emergency-freeze', { 
+      reason,
+      components 
+    });
     return response.data;
   } catch (error) {
     console.error('Error processing emergency freeze:', error);
+    throw error;
+  }
+};
+
+export const emergencyUnfreeze = async (reason: string, components?: string[]): Promise<any> => {
+  try {
+    const response = await apiClient.post('/admin/treasury/emergency-unfreeze', { 
+      reason,
+      components 
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error processing emergency unfreeze:', error);
+    throw error;
+  }
+};
+
+export const getFreezeStatus = async (): Promise<any> => {
+  try {
+    const response = await apiClient.get('/admin/treasury/freeze-status');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching freeze status:', error);
+    throw error;
+  }
+};
+
+export const getFreezeAuditHistory = async (limit: number = 50): Promise<any> => {
+  try {
+    const response = await apiClient.get(`/admin/treasury/freeze-audit?limit=${limit}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching freeze audit history:', error);
     throw error;
   }
 };
