@@ -319,28 +319,103 @@ export const WorkingLineChart: React.FC<WorkingLineChartProps> = ({
       </div>
       
       <div className="relative" style={{ height: `${height + 40}px` }}>
-        <div className="absolute left-0 top-0 flex flex-col justify-between text-xs text-gray-300 w-12" style={{ height: `${height}px` }}>
-          <span className="bg-gray-700 px-2 py-1 rounded shadow-sm text-white">{formatValue(maxValue)}</span>
-          <span className="bg-gray-700 px-2 py-1 rounded shadow-sm text-white">{formatValue((maxValue + minValue) / 2)}</span>
-          <span className="bg-gray-700 px-2 py-1 rounded shadow-sm text-white">{formatValue(minValue)}</span>
+        <div className="absolute left-0 top-0 flex flex-col justify-between text-xs text-[#FFCC00]/70 w-16" style={{ height: `${height}px` }}>
+          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30">{formatValue(maxValue)}</span>
+          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30">{formatValue((maxValue + minValue) / 2)}</span>
+          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30">{formatValue(minValue)}</span>
         </div>
         
-        <div className="ml-14 relative bg-gradient-to-br from-gray-700 to-gray-600 rounded-lg border border-gray-600" style={{ height: `${height}px` }}>
-          <div className="absolute inset-2">
+        <div className="ml-20 relative bg-gradient-to-br from-[#0D0D0D] to-[#212121] rounded-xl border border-[#FFCC00]/30 shadow-inner" style={{ height: `${height}px` }}>
+          <div className="absolute inset-0">
+            {[0, 0.25, 0.5, 0.75, 1].map((percent) => (
+              <div
+                key={percent}
+                className="absolute w-full"
+                style={{
+                  top: `${percent * 100}%`,
+                  borderTopWidth: '0.5px',
+                  borderColor: '#FFCC00',
+                  opacity: 0.2,
+                  left: 0,
+                  right: 0
+                }}
+              />
+            ))}
+          </div>
+          
+          <div className="absolute inset-0">
             <svg width="100%" height="100%" className="overflow-visible">
+              <defs>
+                {lines.map((line) => {
+                  const color = getColor(line.color);
+                  return (
+                    <linearGradient key={`gradient-${line.key}`} id={`gradient-${line.key}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+                      <stop offset="100%" stopColor={color} stopOpacity="0.1" />
+                    </linearGradient>
+                  );
+                })}
+              </defs>
               {lines.map((line) => {
                 const color = getColor(line.color);
                 const points = data.map((point, index) => {
                   const value = line.key === 'value' ? point.value : (point.value2 || 0);
-                  const x = (index / Math.max(data.length - 1, 1)) * 100;
-                  const y = 100 - Math.max(2, Math.min(98, ((value - minValue) / range) * 96 + 2));
+                  const x = data.length === 1 ? 50 : (index / (data.length - 1)) * 90 + 5;
+                  const y = 100 - Math.max(5, Math.min(95, ((value - minValue) / range) * 85 + 10));
                   return { x, y, value, point };
                 });
                 
                 const pointsStr = points.map(p => `${p.x},${p.y}`).join(' ');
                 
+                // Create fill area that goes to actual bottom
+                const baselineY = 98; // Use very bottom of chart area
+                const fillPoints = [
+                  `${points[0].x},${baselineY}`,
+                  ...points.map(p => `${p.x},${p.y}`),
+                  `${points[points.length - 1].x},${baselineY}`
+                ].join(' ');
+                
+                // Create continuous baseline that spans full width
+                const baselinePoints = [
+                  `5,${baselineY}`,
+                  `95,${baselineY}`
+                ];
+                const baselineStr = baselinePoints.join(' ');
+                
+                // Add baseline points to ensure line goes across full width
+                const extendedPoints = [
+                  { x: 5, y: baselineY },  // Start at left edge
+                  ...points,
+                  { x: 95, y: baselineY }  // End at right edge
+                ];
+                const extendedPointsStr = extendedPoints.map(p => `${p.x},${p.y}`).join(' ');
+                
                 return (
                   <g key={line.key}>
+                    {/* Fill area */}
+                    <polygon
+                      fill={`url(#gradient-${line.key})`}
+                      points={fillPoints}
+                      opacity="0.4"
+                    />
+                    {/* Baseline that spans full width */}
+                    <polyline
+                      fill="none"
+                      stroke={color}
+                      strokeWidth="2"
+                      points={baselineStr}
+                      opacity="0.6"
+                    />
+                    {/* Extended line that goes full width */}
+                    <polyline
+                      fill="none"
+                      stroke={color}
+                      strokeWidth="2"
+                      points={extendedPointsStr}
+                      filter="drop-shadow(0 2px 4px rgba(0,0,0,0.1))"
+                      opacity="0.8"
+                    />
+                    {/* Main data line */}
                     <polyline
                       fill="none"
                       stroke={color}
@@ -355,14 +430,14 @@ export const WorkingLineChart: React.FC<WorkingLineChartProps> = ({
           </div>
         </div>
         
-        <div className="absolute bottom-0 left-14 right-0 flex justify-between text-xs text-gray-300 mt-2">
+        <div className="absolute bottom-0 left-20 right-0 flex justify-between text-xs text-[#FFCC00]/70 mt-2">
           {data.length > 0 && (
             <>
-              <span className="bg-gray-700 px-2 py-1 rounded shadow-sm text-white">{new Date(data[0].date).toLocaleDateString()}</span>
+              <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30">{new Date(data[0].date).toLocaleDateString()}</span>
               {data.length > 2 && (
-                <span className="bg-gray-700 px-2 py-1 rounded shadow-sm text-white">{new Date(data[Math.floor(data.length / 2)].date).toLocaleDateString()}</span>
+                <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30">{new Date(data[Math.floor(data.length / 2)].date).toLocaleDateString()}</span>
               )}
-              <span className="bg-gray-700 px-2 py-1 rounded shadow-sm text-white">{new Date(data[data.length - 1].date).toLocaleDateString()}</span>
+              <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30">{new Date(data[data.length - 1].date).toLocaleDateString()}</span>
             </>
           )}
         </div>
