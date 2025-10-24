@@ -94,6 +94,22 @@ export const useAuthStore = create<AuthState>()(
           set({ wallet }, false, "setWallet");
         },
         
+        setUserProfile: (profile) => {
+          const userType = profile?.type || null;
+          set(
+            {
+              userProfile: profile,
+              isAuthenticated: !!(get().account && profile),
+              userType,
+              isAdmin: userType === "admin",
+              isShop: userType === "shop",
+              isCustomer: userType === "customer",
+            },
+            false,
+            "setUserProfile"
+          );
+        },
+        
         setLoading: (loading) => {
           set({ isLoading: loading }, false, "setLoading");
         },

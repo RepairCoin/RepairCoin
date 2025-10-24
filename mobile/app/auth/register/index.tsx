@@ -32,17 +32,6 @@ export default function ChoosePage() {
               I'm a Customer
             </Text>
           </Pressable>
-          <Pressable
-            onPress={() => router.push("/auth/register/shop")}
-            className="w-full items-center justify-centerl py-4 bg-[#FFCC00] mt-6 rounded-full flex-row justify-center gap-3"
-            style={{ minHeight: 50 }}
-            android_ripple={{ color: "rgba(0,0,0,0.08)", borderless: false }}
-          >
-            <Entypo name="shop" color="#000" size={24} />
-            <Text className="text-xl font-extrabold text-black">
-              I'm a Shop Owner
-            </Text>
-          </Pressable>
         </View>
       </ImageBackground>
     </Screen>
