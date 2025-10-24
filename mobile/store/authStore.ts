@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { createJSONStorage, devtools, persist } from "zustand/middleware";
 import * as SecureStore from "expo-secure-store";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
 
 const secureStorage = {
   getItem: async (name: string) => {
@@ -31,6 +33,7 @@ export interface UserProfile {
 interface AuthState {
   // State
   account: any;
+  wallet: any; // Store wallet instance for disconnection
   userProfile: UserProfile | null;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -45,11 +48,12 @@ interface AuthState {
 
   // Actions
   setAccount: (account: any) => void;
+  setWallet: (wallet: any) => void;
   setUserProfile: (profile: UserProfile | null) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   login: () => Promise<void>;
-  logout: () => void;
+  logout: (navigate?: boolean) => Promise<void>;
   refreshProfile: () => Promise<void>;
   checkUserExists: (
     address: string
@@ -68,6 +72,7 @@ export const useAuthStore = create<AuthState>()(
       (set, get) => ({
         // Initial state
         account: null,
+        wallet: null,
         userProfile: null,
         isAuthenticated: false,
         isLoading: false,
@@ -83,6 +88,10 @@ export const useAuthStore = create<AuthState>()(
         // Actions
         setAccount: (account) => {
           set({ account }, false, "setAccount");
+        },
+        
+        setWallet: (wallet) => {
+          set({ wallet }, false, "setWallet");
         },
         
         setLoading: (loading) => {
@@ -210,11 +219,48 @@ export const useAuthStore = create<AuthState>()(
         },
 
         // Logout function
-        logout: () => {
+        logout: async (navigate = true) => {
+          const state = get();
+          
+          // Disconnect wallet if connected
+          if (state.wallet?.disconnect) {
+            try {
+              await state.wallet.disconnect();
+              console.log("[Auth] Wallet disconnected");
+            } catch (error) {
+              console.error("[Auth] Error disconnecting wallet:", error);
+            }
+          } else if (state.account?.disconnect) {
+            try {
+              await state.account.disconnect();
+              console.log("[Auth] Account disconnected");
+            } catch (error) {
+              console.error("[Auth] Error disconnecting account:", error);
+            }
+          }
+          
+          // Clear all AsyncStorage data
+          try {
+            await AsyncStorage.clear();
+            console.log("[Auth] AsyncStorage cleared");
+          } catch (error) {
+            console.error("[Auth] Error clearing AsyncStorage:", error);
+          }
+          
+          // Clear all SecureStore data
+          try {
+            const keys = ['auth-store', 'repairCoin_authData', 'repairCoin_authToken', 'repairCoin_userType', 'repairCoin_walletAddress'];
+            await Promise.all(keys.map(key => SecureStore.deleteItemAsync(key)));
+            console.log("[Auth] SecureStore cleared");
+          } catch (error) {
+            console.error("[Auth] Error clearing SecureStore:", error);
+          }
+          
           // Clear auth state
           set(
             {
               account: null,
+              wallet: null,
               userProfile: null,
               isAuthenticated: false,
               userType: null,
@@ -223,12 +269,18 @@ export const useAuthStore = create<AuthState>()(
               isCustomer: false,
               error: null,
               isLoading: false,
+              lastCheckTimestamp: null,
             },
             false,
             "logout"
           );
 
-          // Clear any stored data
+          console.log("[Auth] User logged out successfully");
+          
+          // Navigate to onboarding if requested (default: true)
+          if (navigate) {
+            router.replace("/onboarding1");
+          }
         },
 
         // Refresh profile

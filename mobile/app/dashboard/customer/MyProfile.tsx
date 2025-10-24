@@ -70,8 +70,8 @@ export default function MyProfile() {
   };
 
   const handleLogout = async () => {
-    logout();
-    router.push("/onboarding");
+    // Logout will clear auth state, disconnect wallet, clear storage, and navigate to onboarding
+    await logout();
   }
 
   return (
