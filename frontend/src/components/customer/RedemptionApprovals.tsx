@@ -8,6 +8,7 @@ import { DataTable, type Column } from "../ui/DataTable";
 import { DashboardHeader } from "../ui/DashboardHeader";
 import { useCustomer } from "@/hooks/useCustomer";
 import QRCode from "qrcode";
+import Tooltip from "../ui/tooltip";
 
 interface RedemptionSession {
   sessionId: string;
@@ -404,9 +405,9 @@ export function RedemptionApprovals() {
       )}
 
       {/* QR Code for Shop Scanning */}
-      <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
+      <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl">
         <div
-          className="w-full flex justify-between items-center px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
+          className="w-full flex justify-between items-center px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl overflow-visible relative"
           style={{
             backgroundImage: `url('/img/cust-ref-widget3.png')`,
             backgroundSize: "cover",
@@ -417,6 +418,55 @@ export function RedemptionApprovals() {
           <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
             QR Code for Shop Redemption
           </p>
+          <Tooltip
+            title="How it works"
+            position="bottom"
+            className="right-0"
+            content={
+              <ul className="space-y-3 text-sm">
+                <li className="flex items-start gap-3">
+                  <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-xs font-bold text-blue-400">
+                      1
+                    </span>
+                  </div>
+                  <span className="text-gray-300">
+                    Generate your personal QR code containing your wallet address
+                  </span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-xs font-bold text-blue-400">
+                      2
+                    </span>
+                  </div>
+                  <span className="text-gray-300">
+                    Show the QR code to the shop cashier when you want to redeem
+                  </span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-xs font-bold text-blue-400">
+                      3
+                    </span>
+                  </div>
+                  <span className="text-gray-300">
+                    Shop scans your QR code for instant wallet address lookup
+                  </span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-xs font-bold text-blue-400">
+                      4
+                    </span>
+                  </div>
+                  <span className="text-gray-300">
+                    Approve the redemption request on your device to complete
+                  </span>
+                </li>
+              </ul>
+            }
+          />
         </div>
         <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
           <div className="text-center">

@@ -84,7 +84,7 @@ export default function Tooltip({
 
       {showTooltip && (
         <div
-          className={`absolute ${getPositionClasses()} ${getAlignmentClasses()} ${width} z-50 ${className}`}
+          className={`absolute ${getPositionClasses()} ${getAlignmentClasses()} ${width} z-[9999] ${className}`}
           style={{
             animation: "fadeIn 0.2s ease-in-out",
           }}
