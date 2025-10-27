@@ -5,13 +5,14 @@ import React, { useEffect, useState } from "react";
 import WalletTab from "@/components/customer/WalletTab";
 import ReferralTab from "@/components/customer/ReferralTab";
 import ApprovalTab from "@/components/customer/ApprovalTab";
+import { useTokenBalance } from "@/hooks/useTokenQueries";
 
 type CustomerTabs = "Wallet" | "Referral" | "Approval";
 
 export default function CustomerDashboard() {
   const [activeTab, setActiveTab] = useState<CustomerTabs>("Wallet");
-  const customerTabs: CustomerTabs[] = ["Wallet", "Referral", "Approval"]
-  
+  const customerTabs: CustomerTabs[] = ["Wallet", "Referral", "Approval"];
+    
   return (
     <View className="h-full w-full bg-zinc-950">
       <View className="h-full w-full pt-14 px-4">
@@ -20,11 +21,13 @@ export default function CustomerDashboard() {
           className="w-[40%] h-10"
           resizeMode="contain"
         />
-        <View className="flex-row my-4">
-          <Text className="text-lg font-semibold text-[#FFCC00] mr-2">
-            Hello!
-          </Text>
-          <Text className="text-lg font-semibold text-white">Guest</Text>
+        <View className="flex-row my-4 justify-between items-center">
+          <View className="flex-row">
+            <Text className="text-lg font-semibold text-[#FFCC00] mr-2">
+              Hello!
+            </Text>
+            <Text className="text-lg font-semibold text-white">Guest</Text>
+          </View>
         </View>
         <View className="flex-row w-full h-12 bg-[#121212] rounded-xl justify-between">
           {customerTabs.map((tab, i) => (
@@ -48,9 +51,9 @@ export default function CustomerDashboard() {
           ))}
         </View>
         {/* <PrimaryButton title="Logout" onPress={logout} /> */}
-        {/* {activeTab === "Wallet" && <WalletTab />}
-        {activeTab === "Referral" && <ReferralTab />}
-        {activeTab === "Approval" && <ApprovalTab />} */}
+        {activeTab === "Wallet" && <WalletTab />}
+        {/* {activeTab === "Referral" && <ReferralTab />} */}
+        {/* {activeTab === "Approval" && <ApprovalTab />} */}
       </View>
     </View>
   );
