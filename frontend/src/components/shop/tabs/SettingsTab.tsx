@@ -18,6 +18,7 @@ interface ShopData {
   facebook?: string;
   twitter?: string;
   instagram?: string;
+  website?: string;
   location?: {
     city?: string;
     state?: string;
@@ -55,6 +56,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     facebook: "",
     twitter: "",
     instagram: "",
+    website: "",
     location: {
       lat: undefined as number | undefined,
       lng: undefined as number | undefined,
@@ -74,6 +76,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         facebook: shopData.facebook || "",
         twitter: shopData.twitter || "",
         instagram: shopData.instagram || "",
+        website: shopData.website || "",
         location: {
           lat: shopData.location?.lat,
           lng: shopData.location?.lng,
@@ -112,6 +115,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         facebook: shopFormData.facebook,
         twitter: shopFormData.twitter,
         instagram: shopFormData.instagram,
+        website: shopFormData.website,
         location: {
           lat: shopFormData.location.lat,
           lng: shopFormData.location.lng,
@@ -169,6 +173,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       facebook: shopData?.facebook || "",
       twitter: shopData?.twitter || "",
       instagram: shopData?.instagram || "",
+      website: shopData?.website || "",
       location: {
         lat: shopData?.location?.lat,
         lng: shopData?.location?.lng,
@@ -396,6 +401,22 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </div>
 
                 {/* Social Media Fields */}
+                <div>
+                  <label className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
+                    <Globe className="w-6 h-6 inline mr-1" />
+                    Website
+                  </label>
+                  <input
+                    type="url"
+                    name="website"
+                    value={shopFormData.website}
+                    onChange={handleShopInputChange}
+                    disabled={!isEditingShop}
+                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                    placeholder="https://yourshop.com"
+                  />
+                </div>
+
                 <div>
                   <label className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
                     <Globe className="w-6 h-6 inline mr-1" />

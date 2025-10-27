@@ -215,6 +215,7 @@ export class ShopRepository extends BaseRepository {
         facebook: 'facebook',
         twitter: 'twitter',
         instagram: 'instagram',
+        website: 'website',
         // Location field mappings for separate database columns
         locationLat: 'location_lat',
         locationLng: 'location_lng',
@@ -538,7 +539,8 @@ export class ShopRepository extends BaseRepository {
         operational_status: row.operational_status,
         facebook: row.facebook,
         twitter: row.twitter,
-        instagram: row.instagram
+        instagram: row.instagram,
+        website: row.website
       };
     } catch (error) {
       logger.error('Error fetching shop by wallet:', error);

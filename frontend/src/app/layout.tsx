@@ -3,10 +3,7 @@ import { Poppins } from 'next/font/google'
 import { Toaster } from 'react-hot-toast'
 import { Providers } from './providers'
 import AuthRedirect from '@/components/AuthRedirect'
-import Footer from '@/components/Footer'
-import Header from '@/components/Header'
 import '@/styles/globals.css'
-import LayoutProvider from '@/providers/LayoutProvider'
 
 const poppins = Poppins({ 
   subsets: ['latin'],
@@ -34,7 +31,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={poppins.className} suppressHydrationWarning={true}>
         <Providers>
-          <Toaster 
+          <Toaster
             position="top-right"
             reverseOrder={false}
             toastOptions={{
@@ -54,9 +51,7 @@ export default function RootLayout({
             }}
           />
           <AuthRedirect />
-          <LayoutProvider>
-            {children}
-          </LayoutProvider>
+          {children}
         </Providers>
       </body>
     </html>
