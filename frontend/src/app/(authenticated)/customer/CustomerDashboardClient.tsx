@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { createThirdwebClient } from "thirdweb";
+import { useSearchParams } from "next/navigation";
 import { ReferralDashboard } from "@/components/customer/ReferralDashboard";
 import { RedemptionApprovals } from "@/components/customer/RedemptionApprovals";
 import { OverviewTab } from "@/components/customer/OverviewTab";
@@ -20,12 +21,26 @@ const client = createThirdwebClient({
 
 export default function CustomerDashboardClient() {
   const account = useActiveAccount();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<
     "overview" | "referrals" | "approvals" | "findshop" | "gifting" | "settings"
   >("overview");
 
+  // Initialize tab from URL query parameter
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab) {
+      setActiveTab(tab as any);
+    }
+  }, [searchParams]);
+
   const handleTabChange = (tab: string) => {
     setActiveTab(tab as any);
+
+    // Update URL with tab query parameter
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", tab);
+    window.history.pushState({}, "", url);
   };
 
   // Not connected state
@@ -60,7 +75,7 @@ export default function CustomerDashboardClient() {
     >
       <Toaster position="top-right" />
       <div
-        className="min-h-screen py-8 bg-[#0D0D0D]"
+        className="min-h-screen py-8 bg-[#0D0D0D] pt-16 lg:pt-8"
         style={{
           backgroundImage: `url('/img/dashboard-bg.png')`,
           backgroundSize: "cover",

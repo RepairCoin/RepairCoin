@@ -15,6 +15,7 @@ import {
 import { DataTable, type Column } from "../ui/DataTable";
 import { StatCard } from "../ui/StatCard";
 import { DashboardHeader } from "../ui/DashboardHeader";
+import Tooltip from "../ui/tooltip";
 
 const client = createThirdwebClient({
   clientId:
@@ -248,6 +249,55 @@ export function ReferralDashboard() {
           <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
             Your Referral Program
           </p>
+          <Tooltip
+            title="How it works"
+            position="bottom"
+            className="right-0"
+            content={
+              <ul className="space-y-3 text-sm">
+                <li className="flex items-start gap-3">
+                  <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-xs font-bold text-blue-400">
+                      1
+                    </span>
+                  </div>
+                  <span className="text-gray-300">
+                    Share your unique referral code or link with friends and family
+                  </span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-xs font-bold text-blue-400">
+                      2
+                    </span>
+                  </div>
+                  <span className="text-gray-300">
+                    When they register using your code, they become your referral
+                  </span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-xs font-bold text-blue-400">
+                      3
+                    </span>
+                  </div>
+                  <span className="text-gray-300">
+                    After their first repair, you earn 25 RCN and they get 10 RCN bonus
+                  </span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-xs font-bold text-blue-400">
+                      4
+                    </span>
+                  </div>
+                  <span className="text-gray-300">
+                    Build your network and earn together with RepairCoin rewards
+                  </span>
+                </li>
+              </ul>
+            }
+          />
         </div>
         <div className="w-full p-4 md:p-8 text-white">
           <p className="text-xs md:text-sm opacity-90 mb-6">

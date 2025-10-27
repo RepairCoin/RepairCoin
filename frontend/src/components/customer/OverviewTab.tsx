@@ -12,6 +12,7 @@ import { DataTable, type Column } from "../ui/DataTable";
 import { DashboardHeader } from "../ui/DashboardHeader";
 import { Coins, X, Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "react-hot-toast";
+import Tooltip from "../ui/tooltip";
 
 const client = createThirdwebClient({
   clientId:
@@ -67,10 +68,14 @@ export const OverviewTab: React.FC = () => {
       accessor: (transaction: any) => (
         <div>
           <div className="font-medium text-gray-300">
-            {new Date(transaction.createdAt).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })}
+            {new Date(transaction.createdAt).toLocaleDateString("en-US", {
+              timeZone: "America/Chicago",
+            })}
           </div>
           <div className="text-xs text-gray-500">
-            {new Date(transaction.createdAt).toLocaleTimeString('en-US', { timeZone: 'America/Chicago' })}
+            {new Date(transaction.createdAt).toLocaleTimeString("en-US", {
+              timeZone: "America/Chicago",
+            })}
           </div>
         </div>
       ),
@@ -133,22 +138,29 @@ export const OverviewTab: React.FC = () => {
       header: "Amount",
       accessor: (transaction: any) => {
         // Handle rejection and cancellation transactions (amount = 0)
-        if (transaction.type === "rejected_redemption" || transaction.type === "cancelled_redemption") {
+        if (
+          transaction.type === "rejected_redemption" ||
+          transaction.type === "cancelled_redemption"
+        ) {
           return (
             <span className="text-sm font-medium text-gray-400">
               {transaction.metadata?.originalRequestAmount || 0} RCN
               <div className="text-xs text-gray-500 mt-0.5">
-                {transaction.type === "rejected_redemption" ? "Request rejected" : "Request cancelled"}
+                {transaction.type === "rejected_redemption"
+                  ? "Request rejected"
+                  : "Request cancelled"}
               </div>
             </span>
           );
         }
-        
+
         // Handle normal transactions
         return (
           <span
             className={`text-sm font-bold ${
-              transaction.type === "redeemed" ? "text-red-400" : "text-green-400"
+              transaction.type === "redeemed"
+                ? "text-red-400"
+                : "text-green-400"
             }`}
           >
             {transaction.type === "redeemed" ? "-" : "+"}
@@ -203,7 +215,7 @@ export const OverviewTab: React.FC = () => {
     }
 
     setIsMinting(true);
-    
+
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/customers/balance/${account.address}/queue-mint`,
@@ -211,7 +223,9 @@ export const OverviewTab: React.FC = () => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("customerAuthToken") || ""}`,
+            Authorization: `Bearer ${
+              localStorage.getItem("customerAuthToken") || ""
+            }`,
           },
           body: JSON.stringify({ amount }),
         }
@@ -220,7 +234,9 @@ export const OverviewTab: React.FC = () => {
       const result = await response.json();
 
       if (response.ok) {
-        toast.success(`Successfully queued ${amount} RCN for minting to your wallet!`);
+        toast.success(
+          `Successfully queued ${amount} RCN for minting to your wallet!`
+        );
         setShowMintModal(false);
         setMintAmount("");
         // Refresh customer data to update balances
@@ -294,7 +310,9 @@ export const OverviewTab: React.FC = () => {
           value={`${balanceData?.availableBalance || 0} RCN`}
           subtitle={
             balanceData
-              ? `${balanceData.lifetimeEarned || 0} earned, ${balanceData.totalRedeemed || 0} redeemed`
+              ? `${balanceData.lifetimeEarned || 0} earned, ${
+                  balanceData.totalRedeemed || 0
+                } redeemed`
               : undefined
           }
           icon={<WalletIcon />}
@@ -334,9 +352,9 @@ export const OverviewTab: React.FC = () => {
 
       {/* Mint to Wallet Section */}
       {balanceData && balanceData.availableBalance > 0 && (
-        <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden mb-6 sm:mb-8">
+        <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl mb-6 sm:mb-8">
           <div
-            className="w-full px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl flex justify-between items-center"
+            className="w-full px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl flex justify-between items-center overflow-visible relative"
             style={{
               backgroundImage: `url('/img/cust-ref-widget3.png')`,
               backgroundSize: "cover",
@@ -347,6 +365,41 @@ export const OverviewTab: React.FC = () => {
             <p className="text-lg md:text-xl text-gray-900 font-semibold">
               Mint RCN to Wallet
             </p>
+            <Tooltip
+              title="How it works"
+              position="bottom"
+              className="right-0"
+              content={
+                <ul className="space-y-3 text-sm">
+                  <li className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-blue-400">1</span>
+                    </div>
+                    <span className="text-gray-300">
+                      Choose the amount of RCN you want to convert to blockchain
+                      tokens
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-blue-400">2</span>
+                    </div>
+                    <span className="text-gray-300">
+                      Your offchain RCN balance will be converted to actual
+                      blockchain tokens
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-blue-400">3</span>
+                    </div>
+                    <span className="text-gray-300">
+                      Tokens are minted and transferred to your connected wallet
+                    </span>
+                  </li>
+                </ul>
+              }
+            />
           </div>
           <div className="bg-[#212121] p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
@@ -418,7 +471,9 @@ export const OverviewTab: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-[#212121] rounded-2xl max-w-md w-full mx-4">
             <div className="flex justify-between items-center p-6 border-b border-gray-700">
-              <h3 className="text-xl font-semibold text-white">Mint RCN to Wallet</h3>
+              <h3 className="text-xl font-semibold text-white">
+                Mint RCN to Wallet
+              </h3>
               <button
                 onClick={() => setShowMintModal(false)}
                 className="text-gray-400 hover:text-white transition-colors"
@@ -426,7 +481,7 @@ export const OverviewTab: React.FC = () => {
                 <X className="w-6 h-6" />
               </button>
             </div>
-            
+
             <div className="p-6">
               <div className="space-y-4">
                 {/* Balance Info */}
@@ -469,7 +524,10 @@ export const OverviewTab: React.FC = () => {
                   <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
                   <div className="text-sm text-yellow-200">
                     <p className="font-medium mb-1">Important:</p>
-                    <p>Minting converts your offchain RCN to actual blockchain tokens. This process may take a few minutes to complete.</p>
+                    <p>
+                      Minting converts your offchain RCN to actual blockchain
+                      tokens. This process may take a few minutes to complete.
+                    </p>
                   </div>
                 </div>
 
@@ -483,7 +541,9 @@ export const OverviewTab: React.FC = () => {
                   </button>
                   <button
                     onClick={handleMintToWallet}
-                    disabled={isMinting || !mintAmount || parseFloat(mintAmount) <= 0}
+                    disabled={
+                      isMinting || !mintAmount || parseFloat(mintAmount) <= 0
+                    }
                     className="flex-1 px-4 py-2 bg-[#FFCC00] text-black rounded-lg hover:bg-yellow-500 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     {isMinting ? (

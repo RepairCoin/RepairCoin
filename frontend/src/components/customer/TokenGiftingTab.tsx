@@ -12,6 +12,7 @@ import {
   QrCode
 } from "lucide-react";
 import { QRScanner } from "@/components/ui/QRScanner";
+import Tooltip from "../ui/tooltip";
 
 interface TransferForm {
   recipientAddress: string;
@@ -217,9 +218,60 @@ export function TokenGiftingTab() {
             backgroundRepeat: "no-repeat",
           }}
         >
-          <h2 className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
-            Token Gifting
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
+              Token Gifting
+            </h2>
+            <Tooltip
+              title="How it works"
+              position="bottom"
+              className="right-0"
+              content={
+                <ul className="space-y-3 text-sm">
+                  <li className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-blue-400">
+                        1
+                      </span>
+                    </div>
+                    <span className="text-gray-300">
+                      Enter recipient's wallet address or scan their QR code
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-blue-400">
+                        2
+                      </span>
+                    </div>
+                    <span className="text-gray-300">
+                      Specify the amount of RCN tokens you want to send
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-blue-400">
+                        3
+                      </span>
+                    </div>
+                    <span className="text-gray-300">
+                      Add an optional personal message with your gift
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-blue-400">
+                        4
+                      </span>
+                    </div>
+                    <span className="text-gray-300">
+                      Confirm and send - tokens are instantly transferred to recipient
+                    </span>
+                  </li>
+                </ul>
+              }
+            />
+          </div>
           <div className="flex gap-2">
             <button
               onClick={() => setActiveView("send")}
