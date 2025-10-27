@@ -10,6 +10,8 @@ import SuccessStories from "@/components/landing/SuccessStories";
 import CommunityBanner from "@/components/CommunityBanner";
 import LandingHero from "@/components/landing/LandingHero";
 import { useAuthStore } from "@/stores/authStore";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 
 export default function LandingPage() {
   const router = useRouter();
@@ -67,6 +69,7 @@ export default function LandingPage() {
 
   return (
     <main>
+      <Header />
       <LandingHero
         backgroundImage="/img/hero-bg.png"  
         techBgImage="/img/tech-bg.png"
@@ -96,6 +99,7 @@ export default function LandingPage() {
         communityBannerBgImage="/img/community-chain.png"
         bannerChainImage="/img/banner-chain.png"
       />
+      <Footer />
     </main>
   );
 }
