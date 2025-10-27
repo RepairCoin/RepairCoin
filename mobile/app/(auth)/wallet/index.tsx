@@ -17,7 +17,7 @@ export default function ConnectWalletPage() {
       title: "Social Login",
       icon: require("@/assets/icons/icons8-at-sign-100.png"),
       className: "h-6 w-6",
-      onPress: () => router.push("/auth/wallet/Social"),
+      onPress: () => router.push("/wallet/Social"),
     },
     {
       title: "MetaMask",
@@ -65,7 +65,7 @@ export default function ConnectWalletPage() {
       });
       const userCheck = await checkUserExists(connectedAccount.address);
       if (!userCheck.exists) {
-        router.push("/auth/register");
+        router.push("/register");
       } else {
         await login().then(() => {
           console.log(isCustomer);

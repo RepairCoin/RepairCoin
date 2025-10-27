@@ -116,7 +116,7 @@ export default function RegisterAsCustomerPage() {
 
     if (!account?.address) {
       Alert.alert("Error", "Wallet not connected. Please connect your wallet first.");
-      router.push("/auth/wallet");
+      router.push("/wallet");
       return;
     }
 
@@ -134,7 +134,7 @@ export default function RegisterAsCustomerPage() {
       if (response.success) {
         // Login the user after successful registration
         await login();
-        router.push("/auth/register/customer/Success");
+        router.push("/register/customer/Success");
       } else {
         Alert.alert(
           "Registration Failed",

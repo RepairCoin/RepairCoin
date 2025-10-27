@@ -27,7 +27,7 @@ export default function VerifyEmailPage() {
       });
       const userCheck = await checkUserExists(res.address);
       if (!userCheck.exists) {
-        router.push("/auth/register");
+        router.push("/register");
       } else {
         await login().then(() => {
           console.log(isCustomer);

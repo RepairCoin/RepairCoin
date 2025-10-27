@@ -66,7 +66,7 @@ export default function RegisterAsShopPage() {
     if (index < slides.length - 1) {
       flatRef.current?.scrollToIndex({ index: index + 1, animated: true });
     } else {
-      router.push("/auth/register/shop/Success");
+      router.push("/register/shop/Success");
     }
   }, [index, slides.length, router]);
 

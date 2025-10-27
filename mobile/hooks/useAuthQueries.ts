@@ -34,7 +34,7 @@ export const useConnectWallet = () => {
       if (result.success) {
         if (result.needsRegistration) {
           // User needs to register
-          router.push("/auth/register");
+          router.push("/register");
         } else {
           // User is authenticated, navigate to dashboard
           if (isCustomer) {

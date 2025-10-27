@@ -66,7 +66,7 @@ export default function ConnectWalletWithSocialPage() {
         ...account,
         email,
       });
-      router.push("/auth/wallet/VerifyEmail");
+      router.push("/wallet/VerifyEmail");
     }
   };
 
@@ -79,7 +79,7 @@ export default function ConnectWalletWithSocialPage() {
       });
       const userCheck = await checkUserExists(connectedAccount.address);
       if (!userCheck.exists) {
-        router.push("/auth/register");
+        router.push("/register");
       } else {
         await login().then(() => {
           console.log(isCustomer);

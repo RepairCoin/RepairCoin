@@ -22,7 +22,7 @@ export default function ChoosePage() {
             ecosystem
           </Text>
           <Pressable
-            onPress={() => router.push("/auth/register/customer")}
+            onPress={() => router.push("/register/customer")}
             className="w-full items-center justify-centerl py-4 bg-[#FFCC00] mt-auto rounded-full flex-row justify-center gap-2"
             style={{ minHeight: 50 }}
             android_ripple={{ color: "rgba(0,0,0,0.08)", borderless: false }}
