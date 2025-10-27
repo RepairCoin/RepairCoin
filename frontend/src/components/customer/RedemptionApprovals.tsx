@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useActiveAccount } from "thirdweb/react";
-import { CheckCircle, XCircle, Clock, Info, QrCode, Download, X } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Info, QrCode, Download, X, Check } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { DataTable, type Column } from "../ui/DataTable";
 import { DashboardHeader } from "../ui/DashboardHeader";
@@ -294,7 +294,10 @@ export function RedemptionApprovals() {
             </div>
           );
         } else if (item.status === "used") {
-          return <span className="text-gray-500 text-xs">Completed</span>;
+          return     <div className="flex items-center gap-1">
+              <Check className="w-4 h-4 text-green-500" />
+              <span className="text-green-500 text-xs">Completed</span>
+            </div>
         }
         return <span className="text-gray-500 text-xs">{item.status}</span>;
       },
