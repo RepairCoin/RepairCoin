@@ -59,6 +59,7 @@ interface ShopData {
   facebook?: string;
   twitter?: string;
   instagram?: string;
+  website?: string;
   location?: {
     city?: string;
     state?: string;
