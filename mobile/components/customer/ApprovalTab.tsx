@@ -48,12 +48,8 @@ export default function ApprovalTab() {
             resizeMode="contain"
           />
           <View className="pl-4 mt-2">
-            <Text className="text-black font-extrabold mt-2">Shop ID</Text>
-            <TextInput className="w-56 h-8 bg-white text-black rounded-xl px-3 py-2 mt-1 text-sm" />
-            <Text className="text-black font-extrabold mt-2">Amount RCN</Text>
-            <TextInput className="w-56 h-8 bg-white text-black rounded-xl px-3 py-2 mt-1 test-sm" />
             <Pressable
-              onPress={() => router.push("/dashboard/GenerateQR")}
+              onPress={() => router.push("/dashboard/QRCode")}
               className="bg-black w-36 rounded-xl py-2 mt-4 justify-center items-center"
             >
               <Text className="text-[#FFCC00] font-bold text-sm">
