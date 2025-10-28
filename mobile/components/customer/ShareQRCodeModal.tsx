@@ -2,13 +2,15 @@ import { AntDesign, Entypo, Feather, Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Modal, Pressable, Text, Image, View } from "react-native";
+import QRCode from "react-native-qrcode-svg";
 
 type Props = {
   visible: boolean;
   requestClose: () => void;
+  walletAddress: string;
 };
 
-export default function ShareQRCodeModal({ visible, requestClose }: Props) {
+export default function ShareQRCodeModal({ visible, requestClose, walletAddress }: Props) {
   return (
     <Modal
       animationType="slide"
@@ -18,7 +20,18 @@ export default function ShareQRCodeModal({ visible, requestClose }: Props) {
     >
       <View className="w-full h-full items-center justify-center bg-black/50">
         <View className="w-full py-6 mt-auto bg-white rounded-t-2xl shadow-lg gap-4 relative overflow-hidden items-center">
-          <Image source={require("@/assets/images/qrcode.png")} />
+          {walletAddress ? (
+            <QRCode
+              value={walletAddress}
+              size={200}
+              backgroundColor="white"
+              color="black"
+            />
+          ) : (
+            <View className="w-[200px] h-[200px] bg-gray-100 rounded-lg items-center justify-center">
+              <Text className="text-gray-400">No wallet connected</Text>
+            </View>
+          )}
           <View className="flex-row w-full justify-between px-16 -mt-10 items-center">
             <Image
               className="h-5 w-5"
