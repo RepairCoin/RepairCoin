@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import {
   Octicons,
   SimpleLineIcons,
 } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 
 import DetailCard from "@/components/ui/DetailCard";
@@ -175,6 +175,34 @@ export default function WalletTab() {
   const [tokenSummaryModalVisible, setTokenSummaryModalVisible] =
     useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Auto-refresh data when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      console.log("[WalletTab] Screen focused, refreshing data...");
+      refetch();
+      
+      // Optional: Set up polling interval for real-time updates (every 10 seconds)
+      const interval = setInterval(() => {
+        console.log("[WalletTab] Auto-refreshing data...");
+        refetch();
+      }, 10000); // Refresh every 10 seconds
+      
+      // Cleanup interval on unmount
+      return () => {
+        console.log("[WalletTab] Cleaning up refresh interval");
+        clearInterval(interval);
+      };
+    }, [refetch])
+  );
+
+  // Refresh data when account changes
+  useEffect(() => {
+    if (account?.address) {
+      console.log("[WalletTab] Account changed, refreshing data for:", account.address);
+      refetch();
+    }
+  }, [account?.address, refetch]);
 
   const tokenData = {
     tier: (customerData?.customer?.tier as Tier) || "BRONZE",
