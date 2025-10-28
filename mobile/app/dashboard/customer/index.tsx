@@ -1,11 +1,7 @@
 import { Image, View, Text, Pressable } from "react-native";
-import { useAuthStore } from "@/store/authStore";
-import { useCustomerStore } from "@/store/customerStore";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import WalletTab from "@/components/customer/WalletTab";
-import ReferralTab from "@/components/customer/ReferralTab";
 import ApprovalTab from "@/components/customer/ApprovalTab";
-import { useTokenBalance } from "@/hooks/useTokenQueries";
 
 type CustomerTabs = "Wallet" | "Referral" | "Approval";
 
@@ -53,7 +49,7 @@ export default function CustomerDashboard() {
         {/* <PrimaryButton title="Logout" onPress={logout} /> */}
         {activeTab === "Wallet" && <WalletTab />}
         {/* {activeTab === "Referral" && <ReferralTab />} */}
-        {/* {activeTab === "Approval" && <ApprovalTab />} */}
+        {activeTab === "Approval" && <ApprovalTab />}
       </View>
     </View>
   );
