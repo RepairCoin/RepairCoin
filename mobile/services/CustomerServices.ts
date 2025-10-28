@@ -9,6 +9,8 @@ interface CustomerData {
       phone: string;
       tier: string;
       lifetimeEarnings: number;
+      totalRedemptions: number;
+      totalRepairs: number;
       referralCode: string;
       referralCount: number;
       dailyEarnings: number;

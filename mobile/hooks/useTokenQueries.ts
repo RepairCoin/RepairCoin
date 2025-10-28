@@ -83,10 +83,7 @@ const QUERY_KEYS = {
 };
 
 // Hook: Fetch Token Balance
-export const useTokenBalance = (address?: string) => {
-  const userAddress = useAuthStore((state) => state.userProfile?.address);
-  const walletAddress = address || userAddress;
-
+export const useTokenBalance = (walletAddress?: string) => {
   return useQuery<BalanceData | null>({
     queryKey: QUERY_KEYS.BALANCE(walletAddress || ""),
     queryFn: async () => {

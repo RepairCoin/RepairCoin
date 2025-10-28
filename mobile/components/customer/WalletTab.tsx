@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   ScrollView,
   RefreshControl,
-  Dimensions,
 } from "react-native";
 import {
   Entypo,
@@ -23,9 +22,8 @@ import DetailCard from "@/components/ui/DetailCard";
 import TierBenefitsModal from "./TierBenefitsModal";
 import TokenSummaryModal from "./TokenSummaryModal";
 import { useAuthStore } from "@/store/authStore";
-import { useCustomerStore } from "@/store/customerStore";
 import { Tier } from "@/utilities/GlobalTypes";
-import { useTokenBalance } from "@/hooks/useTokenQueries";
+import { useCustomer } from "@/hooks";
 
 interface TierInfo {
   color: [string, string];
@@ -163,43 +161,29 @@ const BalanceCard: React.FC<{
 };
 
 export default function WalletTab() {
-  const userProfile = useAuthStore((state) => state.userProfile);
-  const { customerData } = useCustomerStore();
-  
+  const { account } = useAuthStore();
+
   // Use the token balance hook
-  const { data: balanceData, isLoading, error, refetch } = useTokenBalance();
+  const {
+    data: customerData,
+    isLoading,
+    error,
+    refetch,
+  } = useCustomer(account?.address);
 
   const [tierModalVisible, setTierModalVisible] = useState(false);
-  const [tokenSummaryModalVisible, setTokenSummaryModalVisible] = useState(false);
+  const [tokenSummaryModalVisible, setTokenSummaryModalVisible] =
+    useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Memoized values
-  const currentTier = useMemo(
-    () => (customerData?.customer?.tier as Tier) || "BRONZE",
-    [customerData]
-  );
+  const tokenData = {
+    tier: (customerData?.customer?.tier as Tier) || "BRONZE",
+    balance: customerData?.customer?.lifetimeEarnings,
+    totalRedeemed: customerData?.customer?.totalRedemptions,
+    totalEarned: customerData?.customer?.lifetimeEarnings,
+  };
 
-  const tierInfo = useMemo(() => TIER_CONFIG[currentTier], [currentTier]);
-
-  const availableBalance = useMemo(
-    () => balanceData?.availableBalance ?? 0,
-    [balanceData]
-  );
-
-  const totalRedeemed = useMemo(
-    () => balanceData?.totalRedeemed ?? 0,
-    [balanceData]
-  );
-
-  const totalEarned = useMemo(
-    () => balanceData?.lifetimeEarned ?? 0,
-    [balanceData]
-  );
-
-  const totalRepairs = useMemo(
-    () => balanceData?.earningHistory?.fromRepairs ?? 0,
-    [balanceData]
-  );
+  const tierInfo = useMemo(() => TIER_CONFIG[tokenData.tier], [tokenData.tier]);
 
   // Callbacks
   const handleTokenSummaryPress = useCallback(() => {
@@ -221,7 +205,7 @@ export default function WalletTab() {
   }, [refetch]);
 
   // Early return for missing data
-  if (!userProfile) {
+  if (!account) {
     return (
       <View className="flex-1 justify-center items-center mt-20">
         <Text className="text-white text-lg">No wallet connected</Text>
@@ -247,8 +231,8 @@ export default function WalletTab() {
     <View className="mt-4 flex-1">
       {/* Balance Card */}
       <BalanceCard
-        balance={availableBalance}
-        tier={currentTier}
+        balance={tokenData.balance}
+        tier={tokenData.tier}
         isLoading={isLoading}
       />
 
@@ -308,7 +292,9 @@ export default function WalletTab() {
               <ActivityIndicator size="small" color="#000" />
             ) : (
               <>
-                <Text className="text-5xl font-semibold">{totalRedeemed}</Text>{" "}
+                <Text className="text-5xl font-semibold">
+                  {tokenData.totalRedeemed}
+                </Text>{" "}
               </>
             )
           }
@@ -325,7 +311,9 @@ export default function WalletTab() {
               <ActivityIndicator size="small" color="#000" />
             ) : (
               <>
-                <Text className="text-5xl font-semibold">{totalEarned}</Text>{" "}
+                <Text className="text-5xl font-semibold">
+                  {tokenData.totalEarned}
+                </Text>{" "}
               </>
             )
           }
