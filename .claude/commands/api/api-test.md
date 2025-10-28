@@ -1,116 +1,226 @@
----
-description: Test API endpoints with automated test generation
-model: claude-sonnet-4-5
----
+# Test API Endpoints (RepairCoin)
 
-Generate comprehensive API tests for the specified endpoint.
+Test RepairCoin backend API endpoints using Jest and supertest with proper authentication and domain-driven structure.
 
-## Target
+## Target Endpoint
 
 $ARGUMENTS
 
-## Test Strategy for Solo Developers
+---
 
-Create practical, maintainable tests using modern tools:
+## RepairCoin Testing Stack
 
-### 1. **Testing Approach**
-- Unit tests for validation logic
-- Integration tests for full API flow
-- Edge case coverage
-- Error scenario testing
+- **Jest** - Test framework
+- **Supertest** - HTTP testing
+- **Mock Services** - Database/blockchain mocking
+- **Integration Tests** - Full request/response cycle
 
-### 2. **Tools** (choose based on project)
-- **Vitest** - Fast, modern (recommended for new projects)
-- **Jest** - Established, widely used
-- **Supertest** - HTTP assertions
-- **MSW** - API mocking
+## Test File Structure
 
-### 3. **Test Coverage**
+`backend/tests/{domain}/{feature}.test.ts`
 
-**Happy Paths**
-- Valid inputs return expected results
-- Proper status codes
-- Correct response structure
+## Complete Test Template
 
-**Error Paths**
-- Invalid input validation
-- Authentication failures
-- Rate limiting
-- Server errors
-- Missing required fields
+\`\`\`typescript
+import request from 'supertest';
+import { describe, it, expect, beforeAll, afterAll, jest } from '@jest/globals';
+import RepairCoinApp from '../../src/app';
+import { DatabaseService } from '../../src/services/DatabaseService';
 
-**Edge Cases**
-- Empty requests
-- Malformed JSON
-- Large payloads
-- Special characters
-- SQL injection attempts
-- XSS attempts
+// Mock external services
+jest.mock('../../src/services/DatabaseService');
+jest.mock('thirdweb');
 
-### 4. **Test Structure**
+describe('{Feature} API Tests', () => {
+  let app: unknown;
+  let adminToken: string;
+  let shopToken: string;
+  let customerToken: string;
 
-```typescript
-describe('API Endpoint', () => {
-  describe('Success Cases', () => {
-    it('should handle valid request', () => {})
-    it('should return correct status code', () => {})
-  })
+  const testWallets = {
+    admin: '0x742d35Cc6634C0532925a3b844Bc9e7595f1234',
+    shop: '0x1234567890123456789012345678901234567890',
+    customer: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd'
+  };
 
-  describe('Validation', () => {
-    it('should reject invalid input', () => {})
-    it('should validate required fields', () => {})
-  })
+  beforeAll(async () => {
+    // Setup test environment
+    process.env.ADMIN_ADDRESSES = testWallets.admin;
+    process.env.JWT_SECRET = 'test-secret-key';
+    process.env.NODE_ENV = 'test';
 
-  describe('Error Handling', () => {
-    it('should handle server errors', () => {})
-    it('should return proper error format', () => {})
-  })
-})
-```
+    // Initialize app
+    const repairCoinApp = new RepairCoinApp();
+    await repairCoinApp.initialize();
+    app = repairCoinApp.app;
 
-### 5. **What to Generate**
+    // Get auth tokens
+    const adminAuth = await request(app as any)
+      .post('/api/auth/admin')
+      .send({ walletAddress: testWallets.admin });
+    adminToken = adminAuth.body.token;
 
-1. **Test File** - Complete test suite with all scenarios
-2. **Mock Data** - Realistic test fixtures
-3. **Helper Functions** - Reusable test utilities
-4. **Setup/Teardown** - Database/state management
-5. **Quick Test Script** - npm script to run tests
+    const shopAuth = await request(app as any)
+      .post('/api/auth/shop')
+      .send({ walletAddress: testWallets.shop });
+    shopToken = shopAuth.body.token;
 
-## Key Testing Principles
+    const customerAuth = await request(app as any)
+      .post('/api/auth/customer')
+      .send({ walletAddress: testWallets.customer });
+    customerToken = customerAuth.body.token;
+  });
 
--  Test behavior, not implementation
--  Clear, descriptive test names
--  Arrange-Act-Assert pattern
--  Independent tests (no shared state)
--  Fast execution (<5s for unit tests)
--  Realistic mock data
--  Test error messages
-- L Don't test framework internals
-- L Don't mock what you don't own
-- L Avoid brittle tests
+  afterAll(async () => {
+    await DatabaseService.getInstance().cleanup();
+  });
 
-## Additional Scenarios to Cover
+  describe('POST /api/{domain}/{endpoint}', () => {
+    it('should create resource successfully', async () => {
+      const response = await request(app as any)
+        .post('/api/{domain}/{endpoint}')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          field1: 'value1',
+          field2: 123
+        });
 
-1. **Authentication/Authorization**
-   - Valid tokens
-   - Expired tokens
-   - Missing tokens
-   - Invalid permissions
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toBeDefined();
+      expect(response.body.data.field1).toBe('value1');
+    });
 
-2. **Data Validation**
-   - Type mismatches
-   - Out of range values
-   - SQL/NoSQL injection
-   - XSS payloads
+    it('should reject missing required fields', async () => {
+      const response = await request(app as any)
+        .post('/api/{domain}/{endpoint}')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({});
 
-3. **Rate Limiting**
-   - Within limits
-   - Exceeding limits
-   - Reset behavior
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toContain('required');
+    });
 
-4. **Performance**
-   - Response times
-   - Large dataset handling
-   - Concurrent requests
+    it('should reject invalid field format', async () => {
+      const response = await request(app as any)
+        .post('/api/{domain}/{endpoint}')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          field1: 'invalid-format'
+        });
 
-Generate production-ready tests I can run immediately with `npm test`.
+      expect(response.status).toBe(400);
+    });
+
+    it('should reject unauthenticated requests', async () => {
+      const response = await request(app as any)
+        .post('/api/{domain}/{endpoint}')
+        .send({ field1: 'value1' });
+
+      expect(response.status).toBe(401);
+      expect(response.body.error).toContain('Authentication');
+    });
+
+    it('should reject insufficient permissions', async () => {
+      const response = await request(app as any)
+        .post('/api/{domain}/{endpoint}')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send({ field1: 'value1' });
+
+      expect(response.status).toBe(403);
+      expect(response.body.error).toContain('permissions');
+    });
+
+    it('should reject invalid JWT token', async () => {
+      const response = await request(app as any)
+        .post('/api/{domain}/{endpoint}')
+        .set('Authorization', 'Bearer invalid-token')
+        .send({ field1: 'value1' });
+
+      expect(response.status).toBe(401);
+      expect(response.body.error).toContain('Invalid token');
+    });
+  });
+
+  describe('GET /api/{domain}/{endpoint}/:id', () => {
+    it('should retrieve resource by ID', async () => {
+      const response = await request(app as any)
+        .get('/api/{domain}/{endpoint}/123')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+    });
+
+    it('should return 404 for non-existent resource', async () => {
+      const response = await request(app as any)
+        .get('/api/{domain}/{endpoint}/nonexistent')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(response.status).toBe(404);
+    });
+  });
+
+  describe('PUT /api/{domain}/{endpoint}/:id', () => {
+    it('should update resource', async () => {
+      const response = await request(app as any)
+        .put('/api/{domain}/{endpoint}/123')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ field1: 'updated-value' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+    });
+  });
+
+  describe('DELETE /api/{domain}/{endpoint}/:id', () => {
+    it('should delete resource', async () => {
+      const response = await request(app as any)
+        .delete('/api/{domain}/{endpoint}/123')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(response.status).toBe(200);
+    });
+  });
+});
+\`\`\`
+
+## Running Tests
+
+\`\`\`bash
+# Run all tests
+cd backend && npm test
+
+# Run specific domain tests
+npm run test:admin
+npm run test:customer
+npm run test:shop
+
+# Watch mode (TDD)
+npm run test:watch
+
+# Coverage report
+npm run test:coverage
+\`\`\`
+
+## Test Checklist
+
+- [ ] Test successful request (200)
+- [ ] Test missing required fields (400)
+- [ ] Test invalid field format (400)
+- [ ] Test unauthenticated request (401)
+- [ ] Test invalid token (401)
+- [ ] Test insufficient permissions (403)
+- [ ] Test not found (404)
+- [ ] Test conflict/duplicate (409)
+- [ ] Test with all relevant roles
+- [ ] Mock external services
+- [ ] Clean up after tests
+
+## Examples
+
+- Admin tests: `backend/tests/admin/admin.auth.test.ts`
+- Shop tests: `backend/tests/shop/shop.operations.test.ts`
+- Customer tests: `backend/tests/customer/`
+- Integration: `backend/tests/integration/full-flow.test.ts`
