@@ -1,5 +1,6 @@
 // backend/src/domains/customer/services/CrossShopVerificationService.ts
 import { shopRepository, customerRepository, transactionRepository } from '../../../repositories';
+import { TransactionRecord } from '../../../repositories/TransactionRepository';
 import { logger } from '../../../utils/logger';
 
 interface CrossShopVerification {
@@ -443,10 +444,10 @@ export class CrossShopVerificationService {
       };
       
       // Store verification record in transactions table for audit trail
-      await transactionRepository.create({
+      const verificationRecord: TransactionRecord = {
         customerAddress: request.customerAddress,
         shopId: request.redemptionShopId,
-        type: 'cross_shop_verification' as any,
+        type: 'cross_shop_verification',
         amount: result.approved ? request.requestedAmount : 0,
         reason: result.approved 
           ? `Cross-shop verification approved for ${request.requestedAmount} RCN` 
@@ -463,7 +464,9 @@ export class CrossShopVerificationService {
           denialReason: result.denialReason,
           verificationId: verification.id
         }
-      });
+      };
+      
+      await transactionRepository.recordTransaction(verificationRecord);
 
       const message = result.approved 
         ? `Cross-shop redemption approved for ${request.requestedAmount} RCN`

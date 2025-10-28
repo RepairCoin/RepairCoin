@@ -174,13 +174,13 @@ export class TierBonusService {
       
       // Convert transactions to TierBonus format
       const bonuses: TierBonus[] = tierBonusTransactions.map(tx => ({
-        id: tx.id,
+        id: tx.id || '',
         customerAddress: tx.customerAddress,
         shopId: tx.shopId || '',
         tier: tx.metadata?.customerTier || 'BRONZE',
         bonusAmount: tx.amount,
-        transactionId: tx.metadata?.baseTransactionId || tx.id,
-        createdAt: new Date(tx.createdAt)
+        transactionId: tx.metadata?.baseTransactionId || tx.id || '',
+        createdAt: new Date(tx.createdAt || Date.now())
       }));
       
       const totalBonusesReceived = bonuses.length;

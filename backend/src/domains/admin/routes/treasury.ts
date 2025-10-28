@@ -4,6 +4,7 @@ import { TokenService } from '../../token/services/TokenService';
 import { TreasuryRepository } from '../../../repositories/TreasuryRepository';
 import { ShopRepository } from '../../../repositories/ShopRepository';
 import { transactionRepository } from '../../../repositories';
+import { TransactionRecord } from '../../../repositories/TransactionRepository';
 import { logger } from '../../../utils/logger';
 import { validateRequired, validateEthereumAddress, validateNumeric } from '../../../middleware/errorHandler';
 import { checkTokenMintingFreeze, checkShopPurchaseFreeze, checkCriticalOperationFreeze } from '../../../middleware/freezeCheck';
@@ -430,8 +431,8 @@ router.post('/treasury/manual-transfer',
                 });
             }
             
-            // Record in database - use any type to bypass the id requirement since it's auto-generated
-            await transactionRepository.recordTransaction({
+            // Record in database with proper typing
+            const transactionRecord: TransactionRecord = {
                 type: 'mint',
                 customerAddress: customerAddress.toLowerCase(),
                 shopId: null,
@@ -447,7 +448,9 @@ router.post('/treasury/manual-transfer',
                     previousBalance: currentBalance,
                     source: 'admin_manual_transfer'
                 }
-            } as any);
+            };
+            
+            await transactionRepository.recordTransaction(transactionRecord);
             
             // Wait for confirmation and check new balance
             await new Promise(resolve => setTimeout(resolve, 3000));
@@ -615,8 +618,8 @@ router.post('/treasury/mint-bulk',
                     );
                     
                     if (result.success) {
-                        // Record in database
-                        await transactionRepository.recordTransaction({
+                        // Record in database with proper typing
+                        const bulkTransactionRecord: TransactionRecord = {
                             type: 'mint',
                             customerAddress: recipient.toLowerCase(),
                             shopId: null,
@@ -631,7 +634,9 @@ router.post('/treasury/mint-bulk',
                                 adminAddress: req.user?.address,
                                 reason
                             }
-                        } as any);
+                        };
+                        
+                        await transactionRepository.recordTransaction(bulkTransactionRecord);
                         
                         successCount++;
                         results.push({
