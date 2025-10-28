@@ -1892,7 +1892,7 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
 
   async getShopsWithPendingMints() {
     try {
-      console.log('[PENDING_MINTS_DEBUG] Starting optimized getShopsWithPendingMints');
+      logger.debug('Starting optimized getShopsWithPendingMints operation');
       
       // First, get all shops with completed purchases in a single query
       let shopsWithPurchasesQuery;
@@ -1914,10 +1914,10 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
           HAVING COALESCE(SUM(p.amount), 0) > 0
         `);
         usingMintedAt = true;
-        console.log('[PENDING_MINTS_DEBUG] Using minted_at column for query');
+        logger.debug('Using minted_at column for pending mints query');
       } catch (error: any) {
         // Fallback if minted_at column doesn't exist
-        console.log('[PENDING_MINTS_DEBUG] minted_at column not available, using fallback');
+        logger.debug('minted_at column not available, using fallback query method');
         if (error.message?.includes('minted_at')) {
           shopsWithPurchasesQuery = await treasuryRepository.query(`
             SELECT 
@@ -1937,7 +1937,7 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
         }
       }
       
-      console.log(`[PENDING_MINTS_DEBUG] Found ${shopsWithPurchasesQuery.rows.length} shops with completed purchases`);
+      logger.debug('Found shops with completed purchases', { shopCount: shopsWithPurchasesQuery.rows.length });
       
       // Now check blockchain balances only for shops with purchases
       const shopsWithPendingMints = [];
@@ -1950,7 +1950,7 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
           const blockchainBalance = await tokenService.getBalance(shop.wallet_address);
           const pendingAmount = totalPurchased - blockchainBalance;
           
-          console.log(`[PENDING_MINTS_DEBUG] Shop ${shop.shop_id}: purchased=${totalPurchased}, blockchain=${blockchainBalance}, pending=${pendingAmount}`);
+          logger.debug('Shop pending mint analysis', { shopId: shop.shop_id, totalPurchased, blockchainBalance, pendingAmount });
           
           if (pendingAmount > 0) {
             return {
@@ -1964,7 +1964,7 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
           }
           return null;
         } catch (error) {
-          console.error(`[PENDING_MINTS_DEBUG] Error checking balance for shop ${shop.shop_id}:`, error);
+          logger.error('Error checking blockchain balance for shop', { shopId: shop.shop_id, error: error.message });
           return null;
         }
       });
@@ -1972,8 +1972,7 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
       const results = await Promise.all(balanceChecks);
       const validResults = results.filter(result => result !== null);
       
-      console.log(`[PENDING_MINTS_DEBUG] Final result: ${validResults.length} shops with pending mints`);
-      console.log('[PENDING_MINTS_DEBUG] Shops with pending mints:', JSON.stringify(validResults, null, 2));
+      logger.debug('Pending mints analysis completed', { shopsWithPendingMints: validResults.length, results: validResults });
       
       logger.info('Retrieved shops with pending mints', { 
         count: validResults.length 
@@ -1981,7 +1980,7 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
       
       return validResults;
     } catch (error) {
-      console.error('[PENDING_MINTS_DEBUG] Error in getShopsWithPendingMints:', error);
+      logger.error('Failed to get shops with pending mints', { error: error.message });
       logger.error('Error getting shops with pending mints:', error);
       throw error;
     }

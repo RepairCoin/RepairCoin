@@ -1,99 +1,56 @@
 import { Pool, QueryResult } from 'pg';
+import { getSharedPool } from '../utils/database-pool';
 
 /**
- * Legacy DatabaseService wrapper for backward compatibility
- * The codebase is moving to a repository pattern, but some services still expect this
+ * DatabaseService wrapper that uses the shared pool for consistency
+ * All database connections now go through the same shared pool
  */
 export class DatabaseService {
   private static instance: DatabaseService;
   private pool: Pool;
-  private connectionInfo: string;
 
   private constructor() {
-    // Support DATABASE_URL from DigitalOcean
-    if (process.env.DATABASE_URL) {
-      const dbUrl = process.env.DATABASE_URL;
-      this.pool = new Pool({
-        connectionString: dbUrl,
-        ssl: dbUrl.includes('sslmode=require') ? {
-          rejectUnauthorized: false
-        } : false,
-        max: 20,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 10000,
-      });
-      
-      // Extract host for logging (hide password)
-      const urlParts = dbUrl.match(/postgresql:\/\/[^:]+:[^@]+@([^:\/]+)/);
-      const host = urlParts ? urlParts[1] : 'unknown';
-      this.connectionInfo = `DATABASE_URL (${host})`;
-    } else {
-      // Use individual connection parameters
-      const host = process.env.DB_HOST || 'localhost';
-      const port = process.env.DB_PORT || '5432';
-      const database = process.env.DB_NAME || 'repaircoin';
-      const user = process.env.DB_USER || 'repaircoin';
-      
-      const poolConfig: any = {
-        host,
-        port: parseInt(port),
-        database,
-        user,
-        password: process.env.DB_PASSWORD || 'repaircoin123',
-        max: 20,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 10000,
-      };
-      
-      // Add SSL configuration if DB_SSL is set or if it's a DigitalOcean connection
-      if (process.env.DB_SSL === 'true' || host.includes('digitalocean')) {
-        poolConfig.ssl = {
-          rejectUnauthorized: false,
-          require: true
-        };
-        console.log('🔒 SSL enabled for database connection');
-      }
-      
-      this.pool = new Pool(poolConfig);
-      
-      this.connectionInfo = `${user}@${host}:${port}/${database}`;
+    // Use the shared pool instead of creating a new one
+    this.pool = getSharedPool();
+    
+    // Skip connection test during startup to avoid conflicts
+    if (process.env.SKIP_DB_CONNECTION_TESTS !== 'true') {
+      // Add a small delay to avoid conflicts with BaseRepository tests
+      setTimeout(() => this.testConnection(), 500);
     }
-
-    // Test connection and log status
-    this.testConnection();
   }
 
   private async testConnection(): Promise<void> {
     try {
-      const client = await this.pool.connect();
-      const result = await client.query('SELECT NOW(), current_database(), version()');
+      // Set a shorter timeout for the test connection
+      const client = await Promise.race([
+        this.pool.connect(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('DatabaseService connection test timeout after 3s')), 3000)
+        )
+      ]) as any;
+      
+      const result = await client.query('SELECT NOW(), current_database()');
       const dbInfo = result.rows[0];
       
-      console.log('✅ Database connected successfully');
-      console.log(`📍 Connection: ${this.connectionInfo}`);
-      console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log('✅ DatabaseService connected successfully via shared pool');
       console.log(`📊 Database: ${dbInfo.current_database}`);
       console.log(`⏰ Server Time: ${new Date(dbInfo.now).toISOString()}`);
       
-      // Log if it's local vs production
-      if (this.connectionInfo.includes('localhost') || this.connectionInfo.includes('127.0.0.1')) {
-        console.log('🏠 Using LOCAL database');
-      } else if (this.connectionInfo.includes('digitalocean')) {
-        console.log('☁️  Using DIGITAL OCEAN database');
-      } else {
-        console.log('🔗 Using REMOTE database');
-      }
-      
       client.release();
     } catch (error: any) {
-      console.error('❌ Database connection failed!');
-      console.error(`📍 Attempted connection: ${this.connectionInfo}`);
+      console.error('❌ DatabaseService connection test failed!');
       console.error(`🔥 Error: ${error.message}`);
       
-      // Don't crash the app, but log the error
-      if (process.env.NODE_ENV === 'production') {
-        console.error('⚠️  Warning: Running without database connection!');
+      // Log helpful hints for common issues
+      if (error.message.includes('timeout')) {
+        console.error('💡 Hint: Database connection timeout - check shared pool configuration');
+      } else if (error.message.includes('does not support SSL')) {
+        console.error('💡 Hint: Check SSL configuration in database-pool.ts');
       }
+      
+      // Don't crash the app during startup
+      console.warn('⚠️  Warning: DatabaseService test failed, but continuing startup...');
     }
   }
 

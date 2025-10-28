@@ -1,5 +1,8 @@
 // backend/src/domains/token/services/RedemptionSessionService.ts
 import crypto from 'crypto';
+import { hashMessage, keccak256 } from 'thirdweb/utils';
+import { getAddress } from 'thirdweb';
+import * as secp256k1 from 'ethereum-cryptography/secp256k1.js';
 import { logger } from '../../../utils/logger';
 import { customerRepository, shopRepository, redemptionSessionRepository } from '../../../repositories';
 
@@ -34,8 +37,10 @@ export class RedemptionSessionService {
   private readonly SESSION_DURATION = 5 * 60 * 1000; // 5 minutes
 
   constructor() {
-    // Clean up expired sessions every minute
-    setInterval(() => this.cleanupExpiredSessions(), 60 * 1000);
+    // Clean up expired sessions every minute (skip if connection tests disabled)
+    if (process.env.SKIP_DB_CONNECTION_TESTS !== 'true') {
+      setInterval(() => this.cleanupExpiredSessions(), 60 * 1000);
+    }
   }
 
   /**
@@ -144,11 +149,21 @@ export class RedemptionSessionService {
       throw new Error(`Cannot approve redemption: ${verification.message}`);
     }
 
-    // TODO: Verify signature
-    // const isValidSignature = await this.verifySignature(session, signature);
-    // if (!isValidSignature) {
-    //   throw new Error('Invalid signature');
-    // }
+    // Verify customer signature for security
+    const isValidSignature = await this.verifySignature(session, signature);
+    if (!isValidSignature) {
+      logger.error('Signature verification failed during approval', {
+        sessionId,
+        customerAddress: session.customerAddress,
+        shopId: session.shopId
+      });
+      throw new Error('Invalid customer signature. Please ensure you are signing with the correct wallet.');
+    }
+
+    logger.info('Signature verification successful', {
+      sessionId,
+      customerAddress: session.customerAddress
+    });
 
     // Approve session (but don't process redemption yet - let shop handle that)
     await redemptionSessionRepository.updateSessionStatus(sessionId, 'approved', signature);
@@ -577,6 +592,111 @@ export class RedemptionSessionService {
       transactionHash,
       strategy: amountFromBlockchain > 0 ? (amountFromDatabase > 0 ? 'hybrid' : 'blockchain_only') : 'database_only'
     });
+  }
+
+  /**
+   * Verify customer signature for redemption session approval
+   * Uses EIP-191 standard for Ethereum message signing
+   */
+  private async verifySignature(session: RedemptionSession, signatureHex: string): Promise<boolean> {
+    try {
+      if (!signatureHex || signatureHex.length < 130) {
+        logger.error('Invalid signature format', { 
+          signature: signatureHex?.substring(0, 20) + '...',
+          sessionId: session.sessionId 
+        });
+        return false;
+      }
+
+      // Create the message that should have been signed
+      const message = this.createSignatureMessage(session);
+      
+      // Hash the message using Thirdweb's hashMessage (implements EIP-191)
+      const messageHash = hashMessage(message);
+      
+      // Parse signature (65 bytes: r[32] + s[32] + v[1])
+      const sig = signatureHex.startsWith('0x') ? signatureHex.slice(2) : signatureHex;
+      if (sig.length !== 130) {
+        logger.error('Invalid signature length', { 
+          expectedLength: 130,
+          actualLength: sig.length,
+          sessionId: session.sessionId 
+        });
+        return false;
+      }
+      
+      const r = sig.slice(0, 64);
+      const s = sig.slice(64, 128);
+      const v = parseInt(sig.slice(128, 130), 16);
+      
+      // Convert message hash to bytes
+      const messageHashBytes = new Uint8Array(Buffer.from(messageHash.slice(2), 'hex'));
+      
+      // Recovery ID (v - 27 for legacy signatures)
+      const recoveryId = v >= 27 ? v - 27 : v;
+      
+      // Create signature object from r, s values
+      const sig_obj = new secp256k1.secp256k1.Signature(
+        BigInt('0x' + r),
+        BigInt('0x' + s)
+      ).addRecoveryBit(recoveryId);
+      
+      // Recover public key from signature
+      const recoveredPubKey = sig_obj.recoverPublicKey(messageHashBytes);
+      
+      // Convert public key to Ethereum address
+      const pubKeyUncompressed = recoveredPubKey.toRawBytes(false);
+      const pubKeyHash = keccak256(pubKeyUncompressed.slice(1));
+      const recoveredAddress = '0x' + pubKeyHash.slice(-40);
+      
+      // Compare with expected address (case-insensitive)
+      const expectedAddress = getAddress(session.customerAddress);
+      const actualAddress = getAddress(recoveredAddress);
+      const isValid = expectedAddress.toLowerCase() === actualAddress.toLowerCase();
+      
+      if (isValid) {
+        logger.info('Signature verification successful', {
+          sessionId: session.sessionId,
+          customerAddress: session.customerAddress.toLowerCase(),
+          recoveredAddress: actualAddress.toLowerCase(),
+          messagePreview: message.substring(0, 50) + '...'
+        });
+      } else {
+        logger.warn('Signature verification failed - address mismatch', {
+          sessionId: session.sessionId,
+          expectedAddress: expectedAddress.toLowerCase(),
+          recoveredAddress: actualAddress.toLowerCase(),
+          messagePreview: message.substring(0, 50) + '...',
+          signaturePrefix: signatureHex.substring(0, 20) + '...'
+        });
+      }
+      
+      return isValid;
+      
+    } catch (error) {
+      logger.error('Signature verification failed with error', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        sessionId: session.sessionId,
+        customerAddress: session.customerAddress
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Create the standardized message for signature verification
+   * This message format should match what the frontend signs
+   */
+  private createSignatureMessage(session: RedemptionSession): string {
+    return `RepairCoin Redemption Request
+
+Session ID: ${session.sessionId}
+Customer: ${session.customerAddress}
+Shop: ${session.shopId}
+Amount: ${session.maxAmount} RCN
+Expires: ${new Date(session.expiresAt).toISOString()}
+
+By signing this message, I approve the redemption of ${session.maxAmount} RCN tokens at the specified shop.`;
   }
 }
 

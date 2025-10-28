@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { Pool } from 'pg';
+import { DatabaseService } from '../services/DatabaseService';
 import fs from 'fs';
 import path from 'path';
 
@@ -12,14 +12,12 @@ router.post('/init-database/:secret', async (req, res) => {
         return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    const pool = new Pool({
-        connectionString: process.env.DATABASE_URL,
-        ssl: { rejectUnauthorized: false }
-    });
+    // Use singleton database service
+    const db = DatabaseService.getInstance();
 
     try {
         // First, let's check what tables already exist
-        const existingTables = await pool.query(`
+        const existingTables = await db.query(`
             SELECT table_name 
             FROM information_schema.tables 
             WHERE table_schema = 'public' 
@@ -34,7 +32,7 @@ router.post('/init-database/:secret', async (req, res) => {
         
         // Customers table
         if (!existing.includes('customers')) {
-            await pool.query(`
+            await db.query(`
                 CREATE TABLE customers (
                     address VARCHAR(42) PRIMARY KEY,
                     name VARCHAR(255),
@@ -57,7 +55,7 @@ router.post('/init-database/:secret', async (req, res) => {
 
         // Shops table
         if (!existing.includes('shops')) {
-            await pool.query(`
+            await db.query(`
                 CREATE TABLE shops (
                     shop_id VARCHAR(100) PRIMARY KEY,
                     name VARCHAR(255) NOT NULL,
@@ -95,7 +93,7 @@ router.post('/init-database/:secret', async (req, res) => {
 
         // Transactions table
         if (!existing.includes('transactions')) {
-            await pool.query(`
+            await db.query(`
                 CREATE TABLE transactions (
                     id VARCHAR(100) PRIMARY KEY,
                     type VARCHAR(20) NOT NULL CHECK (type IN ('mint', 'redeem', 'transfer', 'tier_bonus', 'shop_purchase')),
@@ -124,7 +122,7 @@ router.post('/init-database/:secret', async (req, res) => {
 
         // Webhook logs table
         if (!existing.includes('webhook_logs')) {
-            await pool.query(`
+            await db.query(`
                 CREATE TABLE webhook_logs (
                     id VARCHAR(100) PRIMARY KEY,
                     source VARCHAR(20) NOT NULL CHECK (source IN ('fixflow', 'admin', 'customer')),
@@ -144,7 +142,7 @@ router.post('/init-database/:secret', async (req, res) => {
 
         // Admin treasury table
         if (!existing.includes('admin_treasury')) {
-            await pool.query(`
+            await db.query(`
                 CREATE TABLE admin_treasury (
                     id INTEGER PRIMARY KEY DEFAULT 1,
                     total_supply NUMERIC(20, 8) DEFAULT 1000000000,
@@ -156,7 +154,7 @@ router.post('/init-database/:secret', async (req, res) => {
                 )
             `);
             
-            await pool.query(`
+            await db.query(`
                 INSERT INTO admin_treasury (id, total_supply, available_supply, total_sold, total_revenue)
                 VALUES (1, 0, 0, 0, 0)
                 ON CONFLICT (id) DO NOTHING
@@ -166,7 +164,7 @@ router.post('/init-database/:secret', async (req, res) => {
 
         // Referrals table
         if (!existing.includes('referrals')) {
-            await pool.query(`
+            await db.query(`
                 CREATE TABLE referrals (
                     id VARCHAR(100) PRIMARY KEY DEFAULT gen_random_uuid()::text,
                     referral_code VARCHAR(20) UNIQUE NOT NULL,
@@ -185,7 +183,7 @@ router.post('/init-database/:secret', async (req, res) => {
 
         // Redemption sessions table
         if (!existing.includes('redemption_sessions')) {
-            await pool.query(`
+            await db.query(`
                 CREATE TABLE redemption_sessions (
                     session_id VARCHAR(255) PRIMARY KEY,
                     customer_address VARCHAR(42) NOT NULL,
@@ -205,7 +203,7 @@ router.post('/init-database/:secret', async (req, res) => {
         }
 
         // Get final list of tables
-        const finalTables = await pool.query(`
+        const finalTables = await db.query(`
             SELECT table_name 
             FROM information_schema.tables 
             WHERE table_schema = 'public' 
@@ -229,7 +227,7 @@ router.post('/init-database/:secret', async (req, res) => {
             detail: error.detail
         });
     } finally {
-        await pool.end();
+        // DatabaseService handles connection pooling, no need to end connection
     }
 });
 

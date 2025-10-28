@@ -8,7 +8,6 @@ import { logger } from '../../../utils/logger';
 import { validateRequired, validateEthereumAddress, validateNumeric } from '../../../middleware/errorHandler';
 import { checkTokenMintingFreeze, checkShopPurchaseFreeze, checkCriticalOperationFreeze } from '../../../middleware/freezeCheck';
 import { getRCGService } from '../../../services/RCGService';
-// TODO: Implement treasury methods in repository
 
 const router = Router();
 

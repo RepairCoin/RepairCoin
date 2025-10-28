@@ -155,9 +155,32 @@ export class CrossShopVerificationService {
    */
   async getCustomerVerificationHistory(customerAddress: string, limit: number = 50): Promise<CrossShopVerification[]> {
     try {
-      // This would implement a query to get verification history
-      // For now, return empty array as placeholder
-      return [];
+      const result = await transactionRepository.query(`
+        SELECT 
+          metadata->>'verificationId' as id,
+          customer_address,
+          shop_id as redemption_shop_id,
+          amount as requested_amount,
+          status = 'completed' as approved,
+          metadata->>'denialReason' as denial_reason,
+          timestamp
+        FROM transactions
+        WHERE customer_address = $1
+          AND type = 'cross_shop_verification'
+          AND metadata->>'verificationType' = 'cross_shop_redemption'
+        ORDER BY timestamp DESC
+        LIMIT $2
+      `, [customerAddress.toLowerCase(), limit]);
+
+      return result.rows.map(row => ({
+        id: row.id || 'unknown',
+        customerAddress: row.customer_address,
+        redemptionShopId: row.redemption_shop_id,
+        requestedAmount: parseFloat(row.requested_amount || '0'),
+        approved: Boolean(row.approved),
+        denialReason: row.denial_reason || undefined,
+        timestamp: new Date(row.timestamp)
+      }));
 
     } catch (error) {
       logger.error('Error getting verification history:', error);
@@ -177,15 +200,50 @@ export class CrossShopVerificationService {
     averageRedemptionAmount: number;
   }> {
     try {
-      // This would implement comprehensive verification statistics
-      // For now, return placeholder data
+      const [verificationQuery, redemptionQuery] = await Promise.all([
+        // Get verification requests for this shop
+        transactionRepository.query(`
+          SELECT 
+            COUNT(*) as total_requests,
+            COUNT(CASE WHEN status = 'completed' THEN 1 END) as approved_requests,
+            COUNT(CASE WHEN status = 'failed' THEN 1 END) as denied_requests
+          FROM transactions
+          WHERE shop_id = $1
+            AND type = 'cross_shop_verification'
+            AND metadata->>'verificationType' = 'cross_shop_redemption'
+        `, [shopId]),
+        
+        // Get actual cross-shop redemptions processed at this shop
+        transactionRepository.query(`
+          SELECT 
+            COUNT(*) as total_redemptions,
+            COALESCE(AVG(amount), 0) as average_amount
+          FROM transactions
+          WHERE shop_id = $1
+            AND type = 'redeem'
+            AND metadata->>'redemptionType' = 'cross_shop'
+            AND status = 'confirmed'
+        `, [shopId])
+      ]);
+
+      const verificationData = verificationQuery.rows[0];
+      const redemptionData = redemptionQuery.rows[0];
+
+      const totalRequests = parseInt(verificationData.total_requests || '0');
+      const approvedRequests = parseInt(verificationData.approved_requests || '0');
+      const deniedRequests = parseInt(verificationData.denied_requests || '0');
+      const totalRedemptions = parseInt(redemptionData.total_redemptions || '0');
+      const averageAmount = parseFloat(redemptionData.average_amount || '0');
+
+      const approvalRate = totalRequests > 0 ? (approvedRequests / totalRequests) * 100 : 0;
+
       return {
-        totalVerificationRequests: 0,
-        approvedRequests: 0,
-        deniedRequests: 0,
-        approvalRate: 0,
-        totalCrossShopRedemptions: 0,
-        averageRedemptionAmount: 0
+        totalVerificationRequests: totalRequests,
+        approvedRequests,
+        deniedRequests,
+        approvalRate: Math.round(approvalRate * 100) / 100, // Round to 2 decimal places
+        totalCrossShopRedemptions: totalRedemptions,
+        averageRedemptionAmount: Math.round(averageAmount * 100) / 100
       };
 
     } catch (error) {
@@ -239,14 +297,94 @@ export class CrossShopVerificationService {
     topCrossShopShops: Array<{ shopId: string; shopName: string; totalRedemptions: number; totalValue: number }>;
   }> {
     try {
-      // This would implement network-wide analytics
+      const [overallQuery, participatingShopsQuery, topShopsQuery] = await Promise.all([
+        // Get overall cross-shop redemption statistics
+        transactionRepository.query(`
+          SELECT 
+            COUNT(*) as total_redemptions,
+            COALESCE(SUM(amount), 0) as total_value,
+            COALESCE(AVG(amount), 0) as average_size
+          FROM transactions
+          WHERE type = 'redeem'
+            AND metadata->>'redemptionType' = 'cross_shop'
+            AND status = 'confirmed'
+        `),
+        
+        // Get count of shops that have processed cross-shop redemptions
+        transactionRepository.query(`
+          SELECT COUNT(DISTINCT shop_id) as participating_shops
+          FROM transactions
+          WHERE type = 'redeem'
+            AND metadata->>'redemptionType' = 'cross_shop'
+            AND status = 'confirmed'
+        `),
+        
+        // Get top 5 shops by cross-shop volume
+        transactionRepository.query(`
+          SELECT 
+            t.shop_id,
+            s.name as shop_name,
+            COUNT(*) as total_redemptions,
+            COALESCE(SUM(t.amount), 0) as total_value
+          FROM transactions t
+          LEFT JOIN shops s ON t.shop_id = s.shop_id
+          WHERE t.type = 'redeem'
+            AND t.metadata->>'redemptionType' = 'cross_shop'
+            AND t.status = 'confirmed'
+          GROUP BY t.shop_id, s.name
+          ORDER BY total_value DESC
+          LIMIT 5
+        `)
+      ]);
+
+      const overallData = overallQuery.rows[0];
+      const participatingData = participatingShopsQuery.rows[0];
+      const topShopsData = topShopsQuery.rows;
+
+      const totalRedemptions = parseInt(overallData.total_redemptions || '0');
+      const totalValue = parseFloat(overallData.total_value || '0');
+      const averageSize = parseFloat(overallData.average_size || '0');
+      const participatingShops = parseInt(participatingData.participating_shops || '0');
+
+      // Calculate network utilization rate
+      // This would ideally compare against total available cross-shop balance
+      // For now, we'll use a simplified calculation based on total customer lifetime earnings
+      const utilizationQuery = await transactionRepository.query(`
+        WITH customer_earnings AS (
+          SELECT 
+            customer_address,
+            SUM(CASE WHEN type = 'mint' AND shop_id IS NOT NULL THEN amount ELSE 0 END) as lifetime_earnings
+          FROM transactions
+          WHERE status = 'confirmed'
+          GROUP BY customer_address
+        ),
+        total_cross_shop_capacity AS (
+          SELECT SUM(lifetime_earnings * 0.20) as total_capacity
+          FROM customer_earnings
+          WHERE lifetime_earnings > 0
+        )
+        SELECT 
+          COALESCE(total_capacity, 0) as capacity
+        FROM total_cross_shop_capacity
+      `);
+      
+      const totalCapacity = parseFloat(utilizationQuery.rows[0]?.capacity || '0');
+      const utilizationRate = totalCapacity > 0 ? (totalValue / totalCapacity) * 100 : 0;
+
+      const topShops = topShopsData.map(row => ({
+        shopId: row.shop_id,
+        shopName: row.shop_name || 'Unknown Shop',
+        totalRedemptions: parseInt(row.total_redemptions),
+        totalValue: parseFloat(row.total_value)
+      }));
+
       return {
-        totalCrossShopRedemptions: 0,
-        totalCrossShopValue: 0,
-        participatingShops: 0,
-        averageRedemptionSize: 0,
-        networkUtilizationRate: 0,
-        topCrossShopShops: []
+        totalCrossShopRedemptions: totalRedemptions,
+        totalCrossShopValue: Math.round(totalValue * 100) / 100,
+        participatingShops,
+        averageRedemptionSize: Math.round(averageSize * 100) / 100,
+        networkUtilizationRate: Math.round(utilizationRate * 100) / 100,
+        topCrossShopShops: topShops
       };
 
     } catch (error) {

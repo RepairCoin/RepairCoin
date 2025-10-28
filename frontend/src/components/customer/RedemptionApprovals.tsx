@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useActiveAccount } from "thirdweb/react";
+import { useActiveAccount, useActiveWallet } from "thirdweb/react";
 import { CheckCircle, XCircle, Clock, Info, QrCode, Download, X, Check } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { DataTable, type Column } from "../ui/DataTable";
@@ -14,6 +14,7 @@ interface RedemptionSession {
   sessionId: string;
   shopId: string;
   amount: number;
+  customerAddress?: string;
   status: string;
   createdAt: string;
   expiresAt: string;
@@ -21,6 +22,7 @@ interface RedemptionSession {
 
 export function RedemptionApprovals() {
   const account = useActiveAccount();
+  const wallet = useActiveWallet();
   const { balanceData } = useCustomer();
   const [sessions, setSessions] = useState<RedemptionSession[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
@@ -74,6 +76,19 @@ export function RedemptionApprovals() {
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     toast.success(`${label} copied to clipboard!`);
+  };
+
+  // Create the signature message that matches the backend format exactly
+  const createSignatureMessage = (session: RedemptionSession): string => {
+    return `RepairCoin Redemption Request
+
+Session ID: ${session.sessionId}
+Customer: ${session.customerAddress || account?.address}
+Shop: ${session.shopId}
+Amount: ${session.amount} RCN
+Expires: ${new Date(session.expiresAt).toISOString()}
+
+By signing this message, I approve the redemption of ${session.amount} RCN tokens at the specified shop.`;
   };
 
   useEffect(() => {
@@ -139,6 +154,11 @@ export function RedemptionApprovals() {
 
 
   const approveSession = async (sessionId: string) => {
+    if (!wallet || !account?.address) {
+      toast.error("Please ensure your wallet is connected");
+      return;
+    }
+
     setProcessing(sessionId);
 
     try {
@@ -149,16 +169,28 @@ export function RedemptionApprovals() {
         return;
       }
 
+      toast.loading("Please sign the message in your wallet...", { id: "approval-process" });
+
+      // Create the standardized message for signature verification
+      const message = createSignatureMessage(session);
+      
+      // Sign the message using connected account
+      let signature: string;
+      try {
+        if (!account) {
+          throw new Error("No account connected");
+        }
+        
+        // In Thirdweb v5, we can sign messages directly through the account
+        const messageBytes = new TextEncoder().encode(message);
+        signature = await account.signMessage({ message: messageBytes });
+      } catch (signError) {
+        console.error("Signature error:", signError);
+        toast.error("Signature was cancelled or failed. Please try again.", { id: "approval-process" });
+        return;
+      }
+
       toast.loading("Processing redemption approval...", { id: "approval-process" });
-
-      // Offchain redemption approval - no blockchain transaction needed
-      const message = JSON.stringify({
-        action: "approve_redemption",
-        sessionId,
-        timestamp: new Date().toISOString(),
-      });
-
-      const signature = `0x${Buffer.from(message).toString("hex")}`;
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/tokens/redemption-session/approve`,
@@ -185,7 +217,11 @@ export function RedemptionApprovals() {
         await loadSessions();
       } else {
         const error = await response.json();
-        toast.error(error.error || "Failed to complete redemption", { id: "approval-process" });
+        if (error.error?.includes("signature")) {
+          toast.error("Signature verification failed. Please try signing again.", { id: "approval-process" });
+        } else {
+          toast.error(error.error || "Failed to complete redemption", { id: "approval-process" });
+        }
       }
     } catch (error) {
       console.error("Approval process error:", error);

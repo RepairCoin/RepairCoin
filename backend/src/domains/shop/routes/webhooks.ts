@@ -4,7 +4,6 @@ import { getSubscriptionService } from '../../../services/SubscriptionService';
 import { getPaymentRetryService } from '../../../services/PaymentRetryService';
 import { logger } from '../../../utils/logger';
 import { eventBus } from '../../../events/EventBus';
-import { Pool } from 'pg';
 import { DatabaseService } from '../../../services/DatabaseService';
 import { shopPurchaseService } from '../services/ShopPurchaseService';
 import Stripe from 'stripe';
@@ -673,7 +672,7 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event, subscriptionS
             webhookCreated: true 
           }
         });
-        console.log('🎉 WEBHOOK - SUBSCRIPTION CREATED: TRUE - New subscription record saved:', {
+        logger.info('Stripe webhook - subscription created and saved', {
           shopId: shopId,
           subscriptionId: subscription.id,
           status: subscription.status,

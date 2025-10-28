@@ -4,7 +4,7 @@ import { logger } from '../../../utils/logger';
 import { CustomerRepository } from '../../../repositories/CustomerRepository';
 import { TransactionRepository } from '../../../repositories/TransactionRepository';
 import { ShopRepository } from '../../../repositories/ShopRepository';
-import { Pool } from 'pg';
+import { DatabaseService } from '../../../services/DatabaseService';
 
 const router = Router();
 
@@ -17,24 +17,11 @@ router.get('/grouped-by-shop',
       const transactionRepo = new TransactionRepository();
       const shopRepo = new ShopRepository();
 
-      // Create a pool for direct queries
-      const pool = process.env.DATABASE_URL 
-        ? new Pool({
-            connectionString: process.env.DATABASE_URL,
-            ssl: process.env.NODE_ENV === 'production' ? {
-              rejectUnauthorized: false
-            } : false,
-          })
-        : new Pool({
-            host: process.env.DB_HOST || 'localhost',
-            port: parseInt(process.env.DB_PORT || '5432'),
-            database: process.env.DB_NAME || 'repaircoin',
-            user: process.env.DB_USER || 'repaircoin',
-            password: process.env.DB_PASSWORD || 'repaircoin123',
-          });
+      // Use singleton database service
+      const db = DatabaseService.getInstance();
 
       // Get all shops
-      const shopsResult = await pool.query('SELECT * FROM shops WHERE active = true AND verified = true ORDER BY name');
+      const shopsResult = await db.query('SELECT * FROM shops WHERE active = true AND verified = true ORDER BY name');
       const shops = shopsResult.rows;
       
       // Get all customers
@@ -60,7 +47,7 @@ router.get('/grouped-by-shop',
         ORDER BY t.shop_id, total_earned DESC
       `;
       
-      const result = await pool.query(query);
+      const result = await db.query(query);
       const transactions = result.rows;
 
       // Build shop-customer mapping
@@ -131,8 +118,6 @@ router.get('/grouped-by-shop',
         }
       });
 
-      // Close the pool
-      await pool.end();
 
     } catch (error) {
       logger.error('Error getting grouped customers:', error);
@@ -153,21 +138,8 @@ router.get('/without-shops',
       const customerRepo = new CustomerRepository();
       const transactionRepo = new TransactionRepository();
 
-      // Create a pool for direct queries
-      const pool = process.env.DATABASE_URL 
-        ? new Pool({
-            connectionString: process.env.DATABASE_URL,
-            ssl: process.env.NODE_ENV === 'production' ? {
-              rejectUnauthorized: false
-            } : false,
-          })
-        : new Pool({
-            host: process.env.DB_HOST || 'localhost',
-            port: parseInt(process.env.DB_PORT || '5432'),
-            database: process.env.DB_NAME || 'repaircoin',
-            user: process.env.DB_USER || 'repaircoin',
-            password: process.env.DB_PASSWORD || 'repaircoin123',
-          });
+      // Use singleton database service
+      const db = DatabaseService.getInstance();
 
       // Get customers who have never earned from any shop
       const query = `
@@ -192,7 +164,7 @@ router.get('/without-shops',
       `;
 
       const offset = (Number(page) - 1) * Number(limit);
-      const result = await pool.query(query, [limit, offset]);
+      const result = await db.query(query, [limit, offset]);
 
       // Get total count
       const countQuery = `
@@ -205,7 +177,7 @@ router.get('/without-shops',
           AND t.type = 'mint'
         )
       `;
-      const countResult = await pool.query(countQuery);
+      const countResult = await db.query(countQuery);
       const totalItems = parseInt(countResult.rows[0].count);
 
       const customers = result.rows.map(row => ({
@@ -229,8 +201,6 @@ router.get('/without-shops',
         }
       });
 
-      // Close the pool
-      await pool.end();
 
     } catch (error) {
       logger.error('Error getting customers without shops:', error);

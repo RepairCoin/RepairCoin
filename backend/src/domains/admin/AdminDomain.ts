@@ -13,29 +13,46 @@ export class AdminDomain implements DomainModule {
   async initialize(): Promise<void> {
     this.adminService = new AdminService();
     
-    // Sync admin addresses from environment variables
-    try {
-      logger.info('Syncing admin addresses from environment...');
-      await adminSyncService.syncAdminsFromEnvironment();
-      
-      // Optionally clean up removed admins (keep them as regular admins)
-      await adminSyncService.cleanupRemovedAdmins(true);
-      
-      // Log sync status
-      const syncStatus = await adminSyncService.getSyncStatus();
-      logger.info('Admin sync status:', {
-        environmentAdmins: syncStatus.envAdmins.length,
-        databaseAdmins: syncStatus.dbAdmins.length,
-        needsSync: syncStatus.syncNeeded.length,
-        toRemove: syncStatus.toRemove.length
-      });
-    } catch (error) {
-      logger.error('Failed to sync admin addresses:', error);
-      // Don't fail initialization if sync fails
+    // Skip admin sync during startup if connection tests are disabled
+    if (process.env.SKIP_DB_CONNECTION_TESTS === 'true' || process.env.ADMIN_SKIP_CONFLICT_CHECK === 'true') {
+      logger.info('Skipping admin sync during startup (database connection issues)');
+    } else {
+      // Sync admin addresses from environment variables with timeout
+      try {
+        logger.info('Syncing admin addresses from environment...');
+        
+        // Add timeout wrapper for admin sync
+        await Promise.race([
+          this.performAdminSync(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Admin sync timeout after 3s')), 3000)
+          )
+        ]);
+      } catch (error) {
+        logger.error('Failed to sync admin addresses:', error);
+        logger.warn('Continuing startup without admin sync...');
+        // Don't fail initialization if sync fails
+      }
     }
     
     this.setupEventSubscriptions();
     logger.info('Admin domain initialized');
+  }
+
+  private async performAdminSync(): Promise<void> {
+    await adminSyncService.syncAdminsFromEnvironment();
+    
+    // Optionally clean up removed admins (keep them as regular admins)
+    await adminSyncService.cleanupRemovedAdmins(true);
+    
+    // Log sync status
+    const syncStatus = await adminSyncService.getSyncStatus();
+    logger.info('Admin sync status:', {
+      environmentAdmins: syncStatus.envAdmins.length,
+      databaseAdmins: syncStatus.dbAdmins.length,
+      needsSync: syncStatus.syncNeeded.length,
+      toRemove: syncStatus.toRemove.length
+    });
   }
 
   private setupEventSubscriptions(): void {

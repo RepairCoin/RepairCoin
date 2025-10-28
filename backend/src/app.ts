@@ -391,20 +391,48 @@ class RepairCoinApp {
     console.log(`- Full backend URL: http://localhost:${port}`);
     console.log('');
     
-    // Warm up database connection pool before starting server
-    console.log('🔥 Warming up database connection pool...');
-    const { warmUpPool } = await import('./utils/database-pool');
-    await warmUpPool();
+    // Warm up database connection pool before starting server (skip if connection tests disabled)
+    if (process.env.SKIP_DB_CONNECTION_TESTS === 'true') {
+      console.log('🔥 Skipping database pool warmup (connection tests disabled)');
+    } else {
+      console.log('🔥 Warming up database connection pool...');
+      const { warmUpPool } = await import('./utils/database-pool');
+      try {
+        await Promise.race([
+          warmUpPool(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Pool warmup timeout after 3s')), 3000)
+          )
+        ]);
+      } catch (error) {
+        console.log('⚠️ Database pool warmup failed, continuing startup:', error.message);
+      }
+    }
     
-    // Perform startup validation for admin addresses
-    console.log('🔍 Performing startup validation...');
-    const validationService = new StartupValidationService();
-    const validation = await validationService.performFullStartupValidation();
+    // Perform startup validation for admin addresses (skip if connection tests disabled)
+    let validation: any = { canStart: true, summary: { warnings: 0 } };
     
-    if (!validation.canStart) {
-      console.error('🚫 Application startup blocked due to validation failures');
-      console.error('   Please resolve the issues above and restart the application');
-      process.exit(1);
+    if (process.env.SKIP_DB_CONNECTION_TESTS === 'true' || process.env.ADMIN_SKIP_CONFLICT_CHECK === 'true') {
+      console.log('🔍 Skipping startup validation (database connection issues)');
+    } else {
+      console.log('🔍 Performing startup validation...');
+      const validationService = new StartupValidationService();
+      try {
+        validation = await Promise.race([
+          validationService.performFullStartupValidation(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Startup validation timeout after 5s')), 5000)
+          )
+        ]);
+        
+        if (!validation.canStart) {
+          console.error('🚫 Application startup blocked due to validation failures');
+          console.error('   Please resolve the issues above and restart the application');
+          process.exit(1);
+        }
+      } catch (error) {
+        console.log('⚠️ Startup validation failed, continuing anyway:', error.message);
+      }
     }
     
     if (validation.summary.warnings > 0) {
@@ -431,22 +459,27 @@ class RepairCoinApp {
       console.log(`   • Admin Addresses: ${process.env.ADMIN_ADDRESSES || 'Not configured'}`);
       console.log('==============================================\n');
       
-      // Start monitoring service
-      monitoringService.startMonitoring(30); // Run checks every 30 minutes
-      
-      // Start subscription automated workflows
-      import('./services/PaymentRetryService').then(({ getPaymentRetryService }) => {
-        const paymentRetryService = getPaymentRetryService();
-        // Payment retry service starts automatically
-        logger.info('💳 Payment retry service started');
-      }).catch(error => {
-        logger.error('Failed to start payment retry service:', error);
-      });
-      logger.info(`🔍 Monitoring service started`);
-      
-      // Start error monitoring
-      monitorErrors();
-      logger.info(`🚨 Error monitoring started`);
+      // Skip monitoring services if database connection tests are disabled
+      if (process.env.SKIP_DB_CONNECTION_TESTS === 'true') {
+        logger.info('🔍 Skipping monitoring services (database connection issues)');
+      } else {
+        // Start monitoring service
+        monitoringService.startMonitoring(30); // Run checks every 30 minutes
+        
+        // Start subscription automated workflows
+        import('./services/PaymentRetryService').then(({ getPaymentRetryService }) => {
+          const paymentRetryService = getPaymentRetryService();
+          // Payment retry service starts automatically
+          logger.info('💳 Payment retry service started');
+        }).catch(error => {
+          logger.error('Failed to start payment retry service:', error);
+        });
+        logger.info(`🔍 Monitoring service started`);
+        
+        // Start error monitoring
+        monitorErrors();
+        logger.info(`🚨 Error monitoring started`);
+      }
     });
   }
 }

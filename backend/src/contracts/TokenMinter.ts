@@ -9,6 +9,7 @@ import { TierManager, CustomerData } from "./TierManager";
 
 
 import { createThirdwebClient, getContract, prepareContractCall, sendTransaction, readContract, waitForReceipt } from "thirdweb";
+import { logger } from '../utils/logger';
 
 export interface MintResult {
   success: boolean;
@@ -147,7 +148,7 @@ export class TokenMinter {
             timestamp: new Date().toISOString()
           };
         } catch (transferError: any) {
-          console.error('Transfer error:', transferError);
+          logger.error('Transfer error during redemption fallback', { error: transferError.message, customerAddress, amount });
           
           // If all fails, track off-chain
           return {
@@ -160,7 +161,7 @@ export class TokenMinter {
       }
 
     } catch (error: any) {
-      console.error('❌ Burn error:', error);
+      logger.error('Token burn failed during redemption', { error: error.message, customerAddress, amount, shopId });
       
       // Check if it's because burn function doesn't exist
       if (error.message?.includes('function selector was not recognized')) {
@@ -199,7 +200,7 @@ export class TokenMinter {
     reason: string = "Customer redemption"
   ): Promise<MintResult> {
     try {
-      console.log(`🔥 Burning ${amount} RCN from customer ${customerAddress}`);
+      logger.info('Initiating token burn from customer wallet', { amount, customerAddress, reason });
       
       if (!this.isValidAddress(customerAddress)) {
         return {
@@ -222,7 +223,7 @@ export class TokenMinter {
 
       // Try to use burnFrom if customer has approved admin to burn tokens
       try {
-        console.log(`🔥 Attempting direct burn from customer wallet...`);
+        logger.info('Attempting direct burn from customer wallet via burnFrom method');
         
         const burnTx = prepareContractCall({
           contract,
@@ -235,8 +236,7 @@ export class TokenMinter {
           account: this.account,
         });
         
-        console.log(`✅ Successfully burned ${amount} RCN from customer wallet`);
-        console.log(`📝 Transaction hash: ${result.transactionHash}`);
+        logger.info('Successfully burned tokens from customer wallet', { amount, customerAddress, transactionHash: result.transactionHash });
         
         return {
           success: true,
@@ -247,11 +247,11 @@ export class TokenMinter {
         };
         
       } catch (burnError: any) {
-        console.log(`❌ Direct burn failed: ${burnError.message}`);
+        logger.warn('Direct burn failed, attempting transfer to burn address', { error: burnError.message, customerAddress, amount });
         
         // If burnFrom fails, try transferFrom (if approved) to burn address
         try {
-          console.log(`🔥 Attempting transfer from customer to burn address...`);
+          logger.info('Attempting transfer from customer to burn address as fallback');
           
           const transferTx = prepareContractCall({
             contract,
@@ -264,8 +264,7 @@ export class TokenMinter {
             account: this.account,
           });
           
-          console.log(`✅ Successfully transferred ${amount} RCN from customer to burn address`);
-          console.log(`📝 Transaction hash: ${result.transactionHash}`);
+          logger.info('Successfully transferred tokens to burn address', { amount, customerAddress, transactionHash: result.transactionHash });
           
           return {
             success: true,
@@ -276,7 +275,7 @@ export class TokenMinter {
           };
           
         } catch (transferError: any) {
-          console.log(`❌ Transfer from customer failed: ${transferError.message}`);
+          logger.error('Transfer from customer to burn address failed', { error: transferError.message, customerAddress, amount });
           
           // Return error indicating customer needs to approve
           return {
@@ -288,7 +287,7 @@ export class TokenMinter {
       }
 
     } catch (error: any) {
-      console.error('❌ Burn from customer error:', error);
+      logger.error('Burn from customer failed with critical error', { error: error.message, customerAddress, amount });
       
       return {
         success: false,
@@ -356,7 +355,7 @@ export class TokenMinter {
       return result;
 
     } catch (error: any) {
-      console.error("Error in mintRepairTokens:", error);
+      logger.error('Repair token minting failed', { error: error.message, customerAddress, repairAmount, shopId });
       return { 
         success: false, 
         error: `Repair token minting failed: ${error.message}` 
@@ -402,7 +401,7 @@ export class TokenMinter {
       const refereeResult = await this.mintTokens(refereeAddress, 10, `${referralId}_referee`);
       if (!refereeResult.success) {
         // Log warning but don't fail completely since referrer was already paid
-        console.warn("Referee minting failed but referrer was paid:", refereeResult.error);
+        logger.warn('Referee token minting failed but referrer was paid', { referrerAddress, refereeAddress, error: refereeResult.error });
         return {
           success: false,
           message: `Referrer paid but referee minting failed: ${refereeResult.error}`,
@@ -418,7 +417,7 @@ export class TokenMinter {
       };
 
     } catch (error: any) {
-      console.error("Error in mintReferralTokens:", error);
+      logger.error('Referral token minting failed', { error: error.message, referrerAddress, refereeAddress });
       return { 
         success: false, 
         error: `Referral token minting failed: ${error.message}` 
@@ -466,7 +465,7 @@ export class TokenMinter {
       return result;
 
     } catch (error: any) {
-      console.error("Error in mintEngagementTokens:", error);
+      logger.error('Engagement token minting failed', { error: error.message, customerAddress: params.customerAddress, engagementType: params.engagementType });
       return { 
         success: false, 
         error: `Engagement token minting failed: ${error.message}` 
@@ -505,7 +504,7 @@ export class TokenMinter {
 
       return result;
     } catch (error: any) {
-      console.error('❌ Admin mint error:', error);
+      logger.error('Admin token mint failed', { error: error.message, customerAddress, amount, reason });
       return {
         success: false,
         error: error.message || 'Unknown error during admin mint',
@@ -591,7 +590,7 @@ async unpauseContract(): Promise<MintResult> {
         return false;
       }
     } catch (error) {
-      console.warn("Could not check pause status, assuming unpaused");
+      logger.warn('Could not check contract pause status, assuming unpaused', { contractAddress: this.contractAddress });
       return false;
     }
   }
@@ -619,7 +618,7 @@ async unpauseContract(): Promise<MintResult> {
         stats.totalSupply = totalSupply.toString();
         stats.totalSupplyReadable = Number(totalSupply) / Math.pow(10, 18);
       } catch (error) {
-        console.warn("Could not get total supply");
+        logger.warn('Could not retrieve contract total supply');
         stats.totalSupplyReadable = 0;
       }
 
@@ -641,12 +640,12 @@ async unpauseContract(): Promise<MintResult> {
         stats.name = name;
         stats.symbol = symbol;
       } catch (error) {
-        console.warn("Could not get contract name/symbol");
+        logger.warn('Could not retrieve contract name and symbol');
       }
 
       return stats;
     } catch (error: any) {
-      console.error("Error getting contract stats:", error);
+      logger.error('Failed to get contract statistics', { error: error.message, contractAddress: this.contractAddress });
       return {
         contractAddress: this.contractAddress,
         network: "Base Sepolia",
@@ -695,7 +694,7 @@ async unpauseContract(): Promise<MintResult> {
       };
 
     } catch (error: any) {
-      console.error("Error in mintTokens:", error);
+      logger.error('Token minting failed in core mint function', { error: error.message, toAddress, amount });
       
       // Provide specific error messages
       if (error.message.includes("AccessControl") || error.message.includes("not minter")) {
@@ -743,7 +742,7 @@ async unpauseContract(): Promise<MintResult> {
     transactionHash?: string;
   }> {
     try {
-      console.log(`🔥 Burning ${amount} RCN tokens for ${reason}...`);
+      logger.info('Initiating admin token burn', { amount, reason });
 
       const contract = await this.getContract();
       const amountInWei = BigInt(amount * Math.pow(10, 18));
@@ -765,14 +764,14 @@ async unpauseContract(): Promise<MintResult> {
         transactionHash: transaction.transactionHash
       });
 
-      console.log(`✅ Tokens burned successfully. Hash: ${transaction.transactionHash}`);
+      logger.info('Admin token burn completed successfully', { amount, transactionHash: transaction.transactionHash });
       
       return {
         success: true,
         transactionHash: transaction.transactionHash
       };
     } catch (error: any) {
-      console.error("❌ Error burning tokens:", error);
+      logger.error('Admin token burn failed', { error: error.message, amount });
       return {
         success: false,
         error: error.message
@@ -792,14 +791,14 @@ async unpauseContract(): Promise<MintResult> {
       
       return Number(balance) / Math.pow(10, 18);
     } catch (error: any) {
-      console.error("Error getting customer balance:", error);
+      logger.error('Failed to get customer token balance', { error: error.message, customerAddress });
       return null;
     }
   }
 
   // Batch mint for multiple customers (admin function)
   async batchMintTokens(recipients: Array<{address: string, amount: number, reason: string}>): Promise<MintResult[]> {
-    console.log(`🔄 Batch minting to ${recipients.length} recipients...`);
+    logger.info('Starting batch token minting operation', { recipientCount: recipients.length });
     
     const results: MintResult[] = [];
     
@@ -819,7 +818,7 @@ async unpauseContract(): Promise<MintResult> {
     }
     
     const successful = results.filter(r => r.success).length;
-    console.log(`✅ Batch mint complete: ${successful}/${recipients.length} successful`);
+    logger.info('Batch token minting operation completed', { successful, total: recipients.length, failureCount: recipients.length - successful });
     
     return results;
   }
@@ -827,8 +826,7 @@ async unpauseContract(): Promise<MintResult> {
   // Transfer tokens from one address to another
   async transferTokens(toAddress: string, amount: number, reason: string): Promise<MintResult> {
     try {
-      console.log(`💸 Transferring ${amount} RCN to ${toAddress}`);
-      console.log(`📝 Reason: ${reason}`);
+      logger.info('Initiating token transfer from admin wallet', { amount, toAddress, reason });
 
       const contract = await this.getContract();
       
@@ -845,7 +843,7 @@ async unpauseContract(): Promise<MintResult> {
         account: this.account,
       });
 
-      console.log(`✅ Transfer successful! TxHash: ${result.transactionHash}`);
+      logger.info('Admin token transfer completed successfully', { amount, toAddress, transactionHash: result.transactionHash });
 
       return {
         success: true,
@@ -854,7 +852,7 @@ async unpauseContract(): Promise<MintResult> {
         tokensToMint: amount
       };
     } catch (error: any) {
-      console.error("❌ Transfer failed:", error);
+      logger.error('Admin token transfer failed', { error: error.message, amount, toAddress });
       return {
         success: false,
         error: `Transfer failed: ${error.message}`
@@ -864,7 +862,7 @@ async unpauseContract(): Promise<MintResult> {
 
   // Batch transfer tokens to multiple recipients
   async batchTransferTokens(recipients: Array<{address: string, amount: number, reason: string}>): Promise<MintResult[]> {
-    console.log(`🔄 Batch transferring to ${recipients.length} recipients...`);
+    logger.info('Starting batch token transfer operation', { recipientCount: recipients.length });
     
     const results: MintResult[] = [];
     
@@ -884,7 +882,7 @@ async unpauseContract(): Promise<MintResult> {
     }
     
     const successful = results.filter(r => r.success).length;
-    console.log(`✅ Batch transfer complete: ${successful}/${recipients.length} successful`);
+    logger.info('Batch token transfer operation completed', { successful, total: recipients.length, failureCount: recipients.length - successful });
     
     return results;
   }

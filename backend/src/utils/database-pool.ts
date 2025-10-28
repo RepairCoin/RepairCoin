@@ -19,9 +19,9 @@ export function getSharedPool(): Pool {
     const config: any = {
       connectionString: process.env.DATABASE_URL,
       ssl: sslConfig,
-      max: parseInt(process.env.DB_POOL_MAX || '10'), // Single pool with 10 connections
-      idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT_MS || '30000'), // Increased to 30 seconds
-      connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT_MS || '10000'), // Increased to 10 seconds
+      max: parseInt(process.env.DB_POOL_MAX || '5'), // Reduced to 5 connections to avoid timeout issues
+      idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT_MS || '30000'), // 30 seconds
+      connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT_MS || '5000'), // Reduced to 5 seconds for faster failure
       keepAlive: true,
     };
 
@@ -91,10 +91,18 @@ export async function closeSharedPool(): Promise<void> {
 export async function warmUpPool(): Promise<void> {
   const pool = getSharedPool();
   try {
-    // Execute a simple query to establish connection
-    await pool.query('SELECT 1');
+    // Execute a simple query with timeout to establish connection
+    const result = await Promise.race([
+      pool.query('SELECT 1 as test'),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Pool warmup timeout after 3s')), 3000)
+      )
+    ]);
+    
     logger.info('Database pool warmed up successfully');
   } catch (error) {
     logger.error('Failed to warm up database pool:', error);
+    // Don't crash the app, just continue without warmup
+    logger.warn('Continuing startup without database pool warmup...');
   }
 }

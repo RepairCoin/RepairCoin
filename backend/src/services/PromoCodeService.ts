@@ -1,7 +1,6 @@
-import { getSharedPool } from '../utils/database-pool';
+import { DatabaseService } from './DatabaseService';
 import { PromoCodeRepository, PromoCode, CreatePromoCodeData, PromoCodeValidation } from '../repositories/PromoCodeRepository';
 import { eventBus } from '../events/EventBus';
-import { Pool } from 'pg';
 
 export interface PromoCodeBonus {
   isValid: boolean;
@@ -13,11 +12,11 @@ export interface PromoCodeBonus {
 
 export class PromoCodeService {
   private promoCodeRepo: PromoCodeRepository;
-  private pool: Pool;
+  private db: DatabaseService;
 
   constructor() {
     this.promoCodeRepo = new PromoCodeRepository();
-    this.pool = getSharedPool();
+    this.db = DatabaseService.getInstance();
   }
 
   async createPromoCode(shopId: string, data: Omit<CreatePromoCodeData, 'shop_id'>): Promise<PromoCode> {
@@ -265,7 +264,7 @@ export class PromoCodeService {
       LIMIT $1 OFFSET $2
     `;
 
-    const result = await this.pool.query(query, [limit, offset]);
+    const result = await this.db.query(query, [limit, offset]);
     return result.rows;
   }
 
@@ -296,8 +295,8 @@ export class PromoCodeService {
     `;
 
     const [analyticsResult, topCodesResult] = await Promise.all([
-      this.pool.query(query),
-      this.pool.query(topCodesQuery)
+      this.db.query(query),
+      this.db.query(topCodesQuery)
     ]);
 
     return {

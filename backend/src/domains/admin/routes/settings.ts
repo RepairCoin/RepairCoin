@@ -15,27 +15,40 @@ interface SystemSettings {
  * Initialize system settings table if it doesn't exist
  */
 const initializeSettingsTable = async () => {
+  // Skip initialization if database connection tests are disabled
+  if (process.env.SKIP_DB_CONNECTION_TESTS === 'true') {
+    logger.info('Skipping system settings table initialization (database connection tests disabled)');
+    return;
+  }
+
   const db = DatabaseService.getInstance();
   
   try {
-    // Create system_settings table if it doesn't exist
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS system_settings (
-        id SERIAL PRIMARY KEY,
-        setting_key VARCHAR(255) UNIQUE NOT NULL,
-        setting_value TEXT NOT NULL,
-        last_modified TIMESTAMP DEFAULT NOW(),
-        modified_by VARCHAR(255),
-        created_at TIMESTAMP DEFAULT NOW()
+    // Create system_settings table if it doesn't exist with timeout
+    await Promise.race([
+      (async () => {
+        await db.query(`
+          CREATE TABLE IF NOT EXISTS system_settings (
+            id SERIAL PRIMARY KEY,
+            setting_key VARCHAR(255) UNIQUE NOT NULL,
+            setting_value TEXT NOT NULL,
+            last_modified TIMESTAMP DEFAULT NOW(),
+            modified_by VARCHAR(255),
+            created_at TIMESTAMP DEFAULT NOW()
+          )
+        `);
+        
+        // Insert default blockchain minting setting if it doesn't exist
+        await db.query(`
+          INSERT INTO system_settings (setting_key, setting_value, modified_by)
+          VALUES ('blockchain_minting_enabled', $1, 'system')
+          ON CONFLICT (setting_key) DO NOTHING
+        `, [process.env.ENABLE_BLOCKCHAIN_MINTING === 'true' ? 'true' : 'false']);
+      })(),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Settings table initialization timeout after 3s')), 3000)
       )
-    `);
-    
-    // Insert default blockchain minting setting if it doesn't exist
-    await db.query(`
-      INSERT INTO system_settings (setting_key, setting_value, modified_by)
-      VALUES ('blockchain_minting_enabled', $1, 'system')
-      ON CONFLICT (setting_key) DO NOTHING
-    `, [process.env.ENABLE_BLOCKCHAIN_MINTING === 'true' ? 'true' : 'false']);
+    ]);
     
     logger.info('System settings table initialized');
   } catch (error) {

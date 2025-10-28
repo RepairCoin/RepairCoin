@@ -2,6 +2,7 @@
 import { logger } from '../utils/logger';
 import { EmailService } from './EmailService';
 import { AdminService } from '../domains/admin/services/AdminService';
+import { transactionRepository } from '../repositories';
 
 export interface ContractAlert {
   type: 'contract_paused' | 'contract_unpaused' | 'emergency_stop' | 'unusual_activity';
@@ -86,22 +87,181 @@ export class ContractMonitoringService {
    * Check for unusual activity patterns
    */
   private async checkForUnusualActivity() {
-    // This is a placeholder for more sophisticated monitoring
-    // Could include:
-    // - Large token movements
-    // - Unusual transaction patterns
-    // - Failed transaction spikes
-    // - Multiple emergency operations
-    
     try {
-      // Example: Check for excessive failed transactions in the last hour
-      // const recentFailures = await this.getRecentFailedTransactions();
-      // if (recentFailures > THRESHOLD) {
-      //   await this.sendAlert({...});
-      // }
+      await Promise.all([
+        this.checkFailedTransactionSpike(),
+        this.checkLargeTokenMovements(),
+        this.checkUnusualMintingPatterns(),
+        this.checkRedemptionAnomalies()
+      ]);
       
     } catch (error) {
       logger.error('Error checking for unusual activity:', error);
+    }
+  }
+
+  /**
+   * Check for excessive failed transactions
+   */
+  private async checkFailedTransactionSpike() {
+    try {
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      
+      const result = await transactionRepository.query(`
+        SELECT 
+          COUNT(*) as failed_count,
+          COUNT(CASE WHEN status != 'failed' THEN 1 END) as total_count
+        FROM transactions 
+        WHERE timestamp >= $1
+      `, [oneHourAgo.toISOString()]);
+
+      const { failed_count, total_count } = result.rows[0];
+      const failureRate = total_count > 0 ? (failed_count / total_count) * 100 : 0;
+
+      // Alert if failure rate exceeds 10% with at least 10 transactions
+      if (failureRate > 10 && total_count >= 10 && !this.wasAlertSentRecently('failed_transaction_spike')) {
+        await this.sendAlert({
+          type: 'unusual_activity',
+          severity: 'high',
+          message: `🚨 High transaction failure rate detected: ${failureRate.toFixed(1)}% (${failed_count}/${total_count}) in the last hour`,
+          timestamp: new Date(),
+          data: { failureRate, failedCount: failed_count, totalCount: total_count }
+        });
+      }
+    } catch (error) {
+      logger.error('Error checking failed transaction spike:', error);
+    }
+  }
+
+  /**
+   * Check for unusually large token movements
+   */
+  private async checkLargeTokenMovements() {
+    try {
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      
+      // Check for large individual transactions (>500 RCN)
+      const largeTransactions = await transactionRepository.query(`
+        SELECT 
+          customer_address,
+          shop_id,
+          type,
+          amount,
+          timestamp,
+          transaction_hash
+        FROM transactions 
+        WHERE timestamp >= $1 
+          AND amount > 500
+          AND status = 'confirmed'
+        ORDER BY amount DESC
+        LIMIT 5
+      `, [oneHourAgo.toISOString()]);
+
+      if (largeTransactions.rows.length > 0 && !this.wasAlertSentRecently('large_token_movements')) {
+        const totalAmount = largeTransactions.rows.reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
+        
+        await this.sendAlert({
+          type: 'unusual_activity',
+          severity: 'medium',
+          message: `💰 Large token movements detected: ${largeTransactions.rows.length} transactions totaling ${totalAmount.toFixed(2)} RCN in the last hour`,
+          timestamp: new Date(),
+          data: { 
+            transactionCount: largeTransactions.rows.length,
+            totalAmount,
+            transactions: largeTransactions.rows
+          }
+        });
+      }
+    } catch (error) {
+      logger.error('Error checking large token movements:', error);
+    }
+  }
+
+  /**
+   * Check for unusual minting patterns
+   */
+  private async checkUnusualMintingPatterns() {
+    try {
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      
+      // Check for excessive minting activity
+      const mintingStats = await transactionRepository.query(`
+        SELECT 
+          COUNT(*) as mint_count,
+          COALESCE(SUM(amount), 0) as total_minted,
+          COUNT(DISTINCT customer_address) as unique_customers,
+          COUNT(DISTINCT shop_id) as unique_shops
+        FROM transactions 
+        WHERE timestamp >= $1 
+          AND type = 'mint'
+          AND status = 'confirmed'
+      `, [oneHourAgo.toISOString()]);
+
+      const stats = mintingStats.rows[0];
+      const { mint_count, total_minted, unique_customers, unique_shops } = stats;
+
+      // Alert if more than 100 mints in an hour (unusual for typical operations)
+      if (mint_count > 100 && !this.wasAlertSentRecently('unusual_minting')) {
+        await this.sendAlert({
+          type: 'unusual_activity',
+          severity: 'medium',
+          message: `⚡ High minting activity: ${mint_count} mints totaling ${parseFloat(total_minted).toFixed(2)} RCN across ${unique_customers} customers and ${unique_shops} shops`,
+          timestamp: new Date(),
+          data: stats
+        });
+      }
+    } catch (error) {
+      logger.error('Error checking unusual minting patterns:', error);
+    }
+  }
+
+  /**
+   * Check for redemption anomalies
+   */
+  private async checkRedemptionAnomalies() {
+    try {
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      
+      // Check for excessive redemption activity
+      const redemptionStats = await transactionRepository.query(`
+        SELECT 
+          COUNT(*) as redemption_count,
+          COALESCE(SUM(amount), 0) as total_redeemed,
+          COUNT(DISTINCT customer_address) as unique_customers,
+          COUNT(CASE WHEN metadata->>'redemptionType' = 'cross_shop' THEN 1 END) as cross_shop_redemptions
+        FROM transactions 
+        WHERE timestamp >= $1 
+          AND type = 'redeem'
+          AND status = 'confirmed'
+      `, [oneHourAgo.toISOString()]);
+
+      const stats = redemptionStats.rows[0];
+      const { redemption_count, total_redeemed, unique_customers, cross_shop_redemptions } = stats;
+
+      // Alert if redemptions exceed normal patterns
+      if (redemption_count > 50 && !this.wasAlertSentRecently('unusual_redemptions')) {
+        await this.sendAlert({
+          type: 'unusual_activity',
+          severity: 'medium',
+          message: `💸 High redemption activity: ${redemption_count} redemptions totaling ${parseFloat(total_redeemed).toFixed(2)} RCN (${cross_shop_redemptions} cross-shop)`,
+          timestamp: new Date(),
+          data: stats
+        });
+      }
+
+      // Check for unusually high cross-shop redemption ratio
+      const crossShopRatio = redemption_count > 0 ? (cross_shop_redemptions / redemption_count) * 100 : 0;
+      if (crossShopRatio > 30 && redemption_count >= 10 && !this.wasAlertSentRecently('high_cross_shop_ratio')) {
+        await this.sendAlert({
+          type: 'unusual_activity',
+          severity: 'low',
+          message: `🔄 High cross-shop redemption ratio: ${crossShopRatio.toFixed(1)}% (${cross_shop_redemptions}/${redemption_count})`,
+          timestamp: new Date(),
+          data: { crossShopRatio, ...stats }
+        });
+      }
+    } catch (error) {
+      logger.error('Error checking redemption anomalies:', error);
     }
   }
 

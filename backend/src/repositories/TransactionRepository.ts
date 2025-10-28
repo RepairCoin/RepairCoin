@@ -558,4 +558,9 @@ export class TransactionRepository extends BaseRepository {
       ...(row.customer_name && { customerName: row.customer_name })
     };
   }
+
+  // Public query method for custom queries
+  async query(sql: string, params?: any[]) {
+    return this.pool.query(sql, params);
+  }
 }
