@@ -625,22 +625,38 @@ async unpauseContract(): Promise<MintResult> {
       // Try to get pause status
       stats.isPaused = await this.isContractPaused();
 
-      // Try to get contract name and symbol
+      // Try to get contract name and symbol (optional ERC20 methods)
       try {
-        const name = await readContract({
-          contract,
-          method: "name" as any,
-          params: []
-        });
-        const symbol = await readContract({
-          contract,
-          method: "symbol" as any,
-          params: []
-        });
+        const [name, symbol] = await Promise.all([
+          readContract({
+            contract,
+            method: "name" as any,
+            params: []
+          }),
+          readContract({
+            contract,
+            method: "symbol" as any,
+            params: []
+          })
+        ]);
         stats.name = name;
         stats.symbol = symbol;
+        logger.debug('Contract metadata retrieved successfully', { 
+          contractAddress: this.contractAddress,
+          name, 
+          symbol 
+        });
       } catch (error) {
-        logger.warn('Could not retrieve contract name and symbol');
+        // This is expected if the contract doesn't implement name/symbol methods
+        logger.debug('Contract name/symbol methods not available or failed', { 
+          contractAddress: this.contractAddress, 
+          error: error instanceof Error ? error.message : 'Unknown error',
+          network: 'Base Sepolia',
+          note: 'This is normal if the contract does not implement ERC20 metadata extensions'
+        });
+        // Set default values
+        stats.name = 'RCN Token';
+        stats.symbol = 'RCN';
       }
 
       return stats;
