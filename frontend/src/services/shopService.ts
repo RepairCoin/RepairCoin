@@ -105,7 +105,7 @@ export class ShopService {
         // If not JSON, get text response
         const text = await response.text();
         console.error("Non-JSON response:", text);
-        data = { error: text || "Server error" };
+        throw new Error("Server error: Invalid response format. Please try again.");
       }
 
       console.log("Registration response:", response.status, data);
@@ -118,21 +118,40 @@ export class ShopService {
           details: data.details,
           body: registrationData
         });
-        
-        // Provide more specific error messages
-        if (response.status === 500) {
-          throw new Error("Server error: Please check that all required fields are filled correctly");
+
+        // Provide more specific error messages based on status code
+        if (response.status === 400) {
+          // Bad request - validation error
+          const errorMsg = data.error || data.message || "Invalid input. Please check all required fields.";
+          throw new Error(errorMsg);
+        } else if (response.status === 409) {
+          // Conflict - duplicate shop ID or wallet
+          const errorMsg = data.error || "Shop ID or wallet address already exists.";
+          throw new Error(errorMsg);
+        } else if (response.status === 500) {
+          // Server error
+          throw new Error("Server error occurred. Please try again later.");
+        } else if (response.status === 503) {
+          // Service unavailable
+          throw new Error("Service temporarily unavailable. Please try again in a few minutes.");
+        } else {
+          // Generic error
+          const errorMsg = data.error || data.message || `Registration failed (Error ${response.status})`;
+          throw new Error(errorMsg);
         }
-        throw new Error(data.error || data.message || "Failed to register shop");
       }
 
       return data;
     } catch (error) {
-      console.error("Network or parsing error:", error);
+      console.error("Registration error:", error);
+
+      // Re-throw if it's already an Error instance with a message
       if (error instanceof Error) {
         throw error;
       }
-      throw new Error("Network error: Unable to connect to the server");
+
+      // Network error or unknown error
+      throw new Error("Unable to connect to server. Please check your internet connection and try again.");
     }
   }
 }

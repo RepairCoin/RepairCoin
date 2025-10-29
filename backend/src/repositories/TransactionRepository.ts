@@ -592,6 +592,7 @@ export class TransactionRepository extends BaseRepository {
       timestamp: row.timestamp,
       status: row.status,
       metadata: row.metadata,
+      createdAt: row.created_at,
       // Additional fields from joins
       ...(row.shop_name && { shopName: row.shop_name }),
       ...(row.customer_name && { customerName: row.customer_name })

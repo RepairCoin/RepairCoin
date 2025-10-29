@@ -1012,6 +1012,14 @@ router.post('/:shopId/redeem',
         });
       }
 
+      // Prevent shop from redeeming from their own wallet
+      if (shop.walletAddress.toLowerCase() === customerAddress.toLowerCase()) {
+        return res.status(400).json({
+          success: false,
+          error: 'Cannot process redemption from your own wallet address'
+        });
+      }
+
       const customer = await customerRepository.getCustomer(customerAddress);
       if (!customer) {
         return res.status(404).json({
@@ -1451,9 +1459,19 @@ router.post('/:shopId/issue-reward',
         });
       }
 
-      let customer = await customerRepository.getCustomer(customerAddress);
+      // Prevent shop from issuing rewards to themselves
+      if (shop.walletAddress.toLowerCase() === customerAddress.toLowerCase()) {
+        return res.status(400).json({
+          success: false,
+          error: 'Cannot issue rewards to your own wallet address'
+        });
+      }
+
+      const customer = await customerRepository.getCustomer(customerAddress);
       if (!customer) {
-        // Create new customer if they don't exist
+        // Customer not found - require registration before issuing rewards
+        // NOTE: Auto-creation disabled - customers must register first
+        /* COMMENTED OUT - Auto-creation of customers
         try {
           await customerRepository.createCustomer({
             address: customerAddress.toLowerCase(),
@@ -1467,12 +1485,12 @@ router.post('/:shopId/issue-reward',
             lastEarnedDate: new Date().toISOString(),
             isActive: true
           });
-          
+
           customer = await customerRepository.getCustomer(customerAddress);
           if (!customer) {
             throw new Error('Failed to create customer');
           }
-          
+
           logger.info('Created new customer for reward', { customerAddress });
         } catch (createError) {
           logger.error('Failed to create customer:', createError);
@@ -1481,6 +1499,11 @@ router.post('/:shopId/issue-reward',
             error: 'Failed to create customer account'
           });
         }
+        */
+        return res.status(404).json({
+          success: false,
+          error: 'Customer not found. Customer must be registered before receiving rewards.'
+        });
       }
 
       if (!customer.isActive) {

@@ -196,13 +196,36 @@ export function TokenGiftingTab() {
   };
 
   const formatDate = (timestamp: string) => {
-    return new Date(timestamp).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    try {
+      // Handle various timestamp formats
+      let date: Date;
+
+      // If timestamp is a number string (Unix timestamp in seconds or milliseconds)
+      if (/^\d+$/.test(timestamp)) {
+        const numTimestamp = parseInt(timestamp);
+        // If timestamp is in seconds (10 digits), convert to milliseconds
+        date = new Date(numTimestamp < 10000000000 ? numTimestamp * 1000 : numTimestamp);
+      } else {
+        // Otherwise, try to parse as ISO string or other date format
+        date = new Date(timestamp);
+      }
+
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return 'Invalid Date';
+      }
+
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      console.error('Date formatting error:', error, 'timestamp:', timestamp);
+      return 'Invalid Date';
+    }
   };
 
   return (

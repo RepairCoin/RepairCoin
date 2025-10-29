@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   LineChart,
   Line,
@@ -42,6 +42,29 @@ interface ProfitChartProps {
   authToken?: string;
 }
 
+interface CachedData {
+  transactions: any[];
+  purchases: any[];
+  timestamp: number;
+}
+
+// Cache duration: 2 minutes
+const CACHE_DURATION = 2 * 60 * 1000;
+
+/**
+ * ProfitChart Component - Optimized for Performance
+ *
+ * Performance Optimizations:
+ * 1. API Caching: Fetches 5 years of data once and caches it for 2 minutes
+ * 2. Client-side Filtering: Time range switches (daily/monthly/yearly) filter cached data instantly
+ * 3. Memoization:
+ *    - useCallback: All functions are memoized to prevent recreation on re-renders
+ *    - useMemo: Expensive calculations (data processing, metrics) only run when dependencies change
+ * 4. Smart Re-rendering: Only fetches from API when shopId or authToken changes
+ * 5. Separate Effects: Data fetching and time range filtering are decoupled
+ *
+ * This approach eliminates redundant API calls and provides instant switching between time ranges.
+ */
 export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) => {
   const [profitData, setProfitData] = useState<ProfitData[]>([]);
   const [metrics, setMetrics] = useState<ProfitMetrics | null>(null);
@@ -49,107 +72,128 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchProfitData = async () => {
+  // Cache for API responses - persists across time range changes
+  const dataCache = useRef<Map<string, CachedData>>(new Map());
+  // Store raw data for all time ranges
+  const [rawTransactions, setRawTransactions] = useState<any[]>([]);
+  const [rawPurchases, setRawPurchases] = useState<any[]>([]);
+
+  // Memoized function to fetch data from API with caching
+  const fetchProfitData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Calculate date range based on selection
-      const endDate = new Date();
-      const startDate = new Date();
-      
-      switch (timeRange) {
-        case 'day':
-          startDate.setDate(endDate.getDate() - 30); // Last 30 days
-          break;
-        case 'month':
-          startDate.setMonth(endDate.getMonth() - 12); // Last 12 months
-          break;
-        case 'year':
-          startDate.setFullYear(endDate.getFullYear() - 5); // Last 5 years
-          break;
-      }
+      // Check cache first
+      const cacheKey = `${shopId}-${authToken || 'no-auth'}`;
+      const cached = dataCache.current.get(cacheKey);
+      const now = Date.now();
 
-      // Prepare headers for authenticated requests
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      
-      if (authToken) {
-        headers['Authorization'] = `Bearer ${authToken}`;
-        console.log('Using auth token for API requests:', authToken.substring(0, 20) + '...');
+      let transactionsArray: any[];
+      let purchasesArray: any[];
+
+      if (cached && (now - cached.timestamp) < CACHE_DURATION) {
+        // Use cached data
+        console.log('Using cached data');
+        transactionsArray = cached.transactions;
+        purchasesArray = cached.purchases;
       } else {
-        console.log('No auth token available for API requests');
+        // Fetch fresh data - get maximum range (5 years) to cover all time ranges
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setFullYear(endDate.getFullYear() - 5); // Last 5 years
+
+        // Prepare headers for authenticated requests
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+        };
+
+        if (authToken) {
+          headers['Authorization'] = `Bearer ${authToken}`;
+          console.log('Using auth token for API requests:', authToken.substring(0, 20) + '...');
+        } else {
+          console.log('No auth token available for API requests');
+        }
+
+        // Get API base URL from environment
+        const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+
+        console.log('API Base URL:', apiBaseUrl);
+        console.log('Fetching data for shopId:', shopId);
+
+        // Fetch shop transactions and purchases data
+        const [transactionsRes, purchasesRes] = await Promise.all([
+          fetch(`${apiBaseUrl}/shops/${shopId}/transactions?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`, {
+            headers
+          }).catch((err) => {
+            console.error('Transactions API fetch error:', err);
+            return { ok: false, status: 0, json: () => Promise.resolve({ data: [] }) };
+          }),
+          fetch(`${apiBaseUrl}/shops/${shopId}/purchases?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`, {
+            headers
+          }).catch((err) => {
+            console.error('Purchases API fetch error:', err);
+            return { ok: false, status: 0, json: () => Promise.resolve({ data: { items: [] } }) };
+          })
+        ]);
+
+        // Log response status for debugging
+        console.log(`Transactions API response status: ${transactionsRes.status}`);
+        console.log(`Purchases API response status: ${purchasesRes.status}`);
+
+        const transactions = await transactionsRes.json();
+        const purchases = await purchasesRes.json();
+
+        // Log response data for debugging
+        console.log('Transactions response:', transactions);
+        console.log('Purchases response:', purchases);
+
+        // Process data into profit metrics
+        transactionsArray = Array.isArray(transactions.data) ? transactions.data :
+                                  Array.isArray(transactions.data?.transactions) ? transactions.data.transactions :
+                                  Array.isArray(transactions) ? transactions : [];
+
+        purchasesArray = Array.isArray(purchases.data?.items) ? purchases.data.items :
+                              Array.isArray(purchases.data?.purchases) ? purchases.data.purchases :
+                              Array.isArray(purchases.data) ? purchases.data :
+                              Array.isArray(purchases) ? purchases : [];
+
+        console.log('Processed transactions array:', transactionsArray);
+        console.log('Processed purchases array:', purchasesArray);
+
+        // Cache the raw data
+        dataCache.current.set(cacheKey, {
+          transactions: transactionsArray,
+          purchases: purchasesArray,
+          timestamp: now
+        });
       }
 
-      // Get API base URL from environment
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-      
-      console.log('API Base URL:', apiBaseUrl);
-      console.log('Fetching data for shopId:', shopId);
+      // Store raw data in state for time range filtering
+      setRawTransactions(transactionsArray);
+      setRawPurchases(purchasesArray);
 
-      // Fetch shop transactions and purchases data
-      const [transactionsRes, purchasesRes] = await Promise.all([
-        fetch(`${apiBaseUrl}/shops/${shopId}/transactions?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`, {
-          headers
-        }).catch((err) => {
-          console.error('Transactions API fetch error:', err);
-          return { ok: false, status: 0, json: () => Promise.resolve({ data: [] }) };
-        }),
-        fetch(`${apiBaseUrl}/shops/${shopId}/purchases?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`, {
-          headers
-        }).catch((err) => {
-          console.error('Purchases API fetch error:', err);
-          return { ok: false, status: 0, json: () => Promise.resolve({ data: { items: [] } }) };
-        })
-      ]);
-
-      // Log response status for debugging
-      console.log(`Transactions API response status: ${transactionsRes.status}`);
-      console.log(`Purchases API response status: ${purchasesRes.status}`);
-      
-      const transactions = await transactionsRes.json();
-      const purchases = await purchasesRes.json();
-      
-      // Log response data for debugging
-      console.log('Transactions response:', transactions);
-      console.log('Purchases response:', purchases);
-
-      // Process data into profit metrics
-      const transactionsArray = Array.isArray(transactions.data) ? transactions.data : 
-                                Array.isArray(transactions.data?.transactions) ? transactions.data.transactions :
-                                Array.isArray(transactions) ? transactions : [];
-      
-      const purchasesArray = Array.isArray(purchases.data?.items) ? purchases.data.items :
-                            Array.isArray(purchases.data?.purchases) ? purchases.data.purchases :
-                            Array.isArray(purchases.data) ? purchases.data :
-                            Array.isArray(purchases) ? purchases : [];
-      
-      console.log('Processed transactions array:', transactionsArray);
-      console.log('Processed purchases array:', purchasesArray);
-      
-      let processedData = processRawDataToProfit(
-        transactionsArray,
-        purchasesArray,
-        timeRange
-      );
-
-      // If no data available, generate sample data for demonstration
-      if (processedData.length === 0) {
-        processedData = generateSampleData(timeRange);
-      }
-
-      setProfitData(processedData);
-      setMetrics(calculateMetrics(processedData));
     } catch (err) {
       console.error('Error fetching profit data:', err);
       setError('Failed to load profit data');
     } finally {
       setLoading(false);
     }
-  };
+  }, [shopId, authToken]);
 
-  const processRawDataToProfit = (
+  // Memoized helper functions
+  const formatDateByRange = useCallback((date: Date, range: 'day' | 'month' | 'year'): string => {
+    switch (range) {
+      case 'day':
+        return date.toISOString().split('T')[0]; // YYYY-MM-DD
+      case 'month':
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM
+      case 'year':
+        return String(date.getFullYear()); // YYYY
+    }
+  }, []);
+
+  const processRawDataToProfit = useCallback((
     transactions: any[],
     purchases: any[],
     range: 'day' | 'month' | 'year'
@@ -232,76 +276,66 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
     console.log('Final profit data calculated:', result);
     console.log('Total costs from all purchases:', result.reduce((sum, item) => sum + item.costs, 0));
     console.log('Total revenue from all repairs:', result.reduce((sum, item) => sum + item.revenue, 0));
-    
+
     return result;
-  };
+  }, [formatDateByRange]);
 
-  const generateSampleData = (range: 'day' | 'month' | 'year'): ProfitData[] => {
-    const sampleData: ProfitData[] = [];
-    const endDate = new Date();
-    let periods = 0;
-    
-    switch (range) {
-      case 'day':
-        periods = 30; // Last 30 days
-        break;
-      case 'month':
-        periods = 12; // Last 12 months
-        break;
-      case 'year':
-        periods = 5; // Last 5 years
-        break;
-    }
+  // Sample data generation - COMMENTED OUT to show empty state for new shops
+  // const generateSampleData = (range: 'day' | 'month' | 'year'): ProfitData[] => {
+  //   const sampleData: ProfitData[] = [];
+  //   const endDate = new Date();
+  //   let periods = 0;
+  //
+  //   switch (range) {
+  //     case 'day':
+  //       periods = 30; // Last 30 days
+  //       break;
+  //     case 'month':
+  //       periods = 12; // Last 12 months
+  //       break;
+  //     case 'year':
+  //       periods = 5; // Last 5 years
+  //       break;
+  //   }
+  //
+  //   for (let i = periods - 1; i >= 0; i--) {
+  //     const date = new Date(endDate);
+  //
+  //     switch (range) {
+  //       case 'day':
+  //         date.setDate(date.getDate() - i);
+  //         break;
+  //       case 'month':
+  //         date.setMonth(date.getMonth() - i);
+  //         break;
+  //       case 'year':
+  //         date.setFullYear(date.getFullYear() - i);
+  //         break;
+  //     }
+  //
+  //     // Generate realistic sample data
+  //     const baseRevenue = 800 + Math.random() * 400; // $800-1200 per period
+  //     const baseCosts = 200 + Math.random() * 100;   // $200-300 per period
+  //     const revenue = Math.round(baseRevenue * 100) / 100;
+  //     const costs = Math.round(baseCosts * 100) / 100;
+  //     const profit = revenue - costs;
+  //     const profitMargin = (profit / revenue) * 100;
+  //
+  //     sampleData.push({
+  //       date: formatDateByRange(date, range),
+  //       revenue,
+  //       costs,
+  //       profit,
+  //       rcnPurchased: Math.round(costs / 0.08), // Assuming $0.08 per RCN
+  //       rcnIssued: Math.round(revenue / 10), // Assuming ~$10 repair per RCN
+  //       profitMargin
+  //     });
+  //   }
+  //
+  //   return sampleData;
+  // };
 
-    for (let i = periods - 1; i >= 0; i--) {
-      const date = new Date(endDate);
-      
-      switch (range) {
-        case 'day':
-          date.setDate(date.getDate() - i);
-          break;
-        case 'month':
-          date.setMonth(date.getMonth() - i);
-          break;
-        case 'year':
-          date.setFullYear(date.getFullYear() - i);
-          break;
-      }
-
-      // Generate realistic sample data
-      const baseRevenue = 800 + Math.random() * 400; // $800-1200 per period
-      const baseCosts = 200 + Math.random() * 100;   // $200-300 per period
-      const revenue = Math.round(baseRevenue * 100) / 100;
-      const costs = Math.round(baseCosts * 100) / 100;
-      const profit = revenue - costs;
-      const profitMargin = (profit / revenue) * 100;
-
-      sampleData.push({
-        date: formatDateByRange(date, range),
-        revenue,
-        costs,
-        profit,
-        rcnPurchased: Math.round(costs / 0.08), // Assuming $0.08 per RCN
-        rcnIssued: Math.round(revenue / 10), // Assuming ~$10 repair per RCN
-        profitMargin
-      });
-    }
-
-    return sampleData;
-  };
-
-  const formatDateByRange = (date: Date, range: 'day' | 'month' | 'year'): string => {
-    switch (range) {
-      case 'day':
-        return date.toISOString().split('T')[0]; // YYYY-MM-DD
-      case 'month':
-        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM
-      case 'year':
-        return String(date.getFullYear()); // YYYY
-    }
-  };
-
-  const calculateMetrics = (data: ProfitData[]): ProfitMetrics => {
+  const calculateMetrics = useCallback((data: ProfitData[]): ProfitMetrics => {
     if (data.length === 0) {
       return {
         totalProfit: 0,
@@ -348,24 +382,70 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
       bestDay: { date: bestDay.date, profit: bestDay.profit },
       worstDay: { date: worstDay.date, profit: worstDay.profit }
     };
-  };
+  }, []);
 
+  // Fetch data on mount or when shopId/authToken changes
   useEffect(() => {
     if (shopId && authToken) {
       fetchProfitData();
     } else if (shopId && !authToken) {
-      // If shopId exists but no authToken, show sample data
-      console.log('No auth token available, showing sample data');
-      const sampleData = generateSampleData(timeRange);
-      setProfitData(sampleData);
-      setMetrics(calculateMetrics(sampleData));
+      console.log('No auth token available, showing empty state');
+      setProfitData([]);
+      setMetrics(null);
       setLoading(false);
     }
-  }, [shopId, timeRange, authToken]);
+  }, [shopId, authToken, fetchProfitData]);
 
-  const formatCurrency = (value: number) => `$${value.toFixed(2)}`;
-  
-  const formatXAxis = (value: string) => {
+  // Filter and process data when timeRange or raw data changes
+  const filteredProfitData = useMemo(() => {
+    if (rawTransactions.length === 0 && rawPurchases.length === 0) {
+      return [];
+    }
+
+    // Filter data based on current time range
+    const endDate = new Date();
+    const startDate = new Date();
+
+    switch (timeRange) {
+      case 'day':
+        startDate.setDate(endDate.getDate() - 30);
+        break;
+      case 'month':
+        startDate.setMonth(endDate.getMonth() - 12);
+        break;
+      case 'year':
+        startDate.setFullYear(endDate.getFullYear() - 5);
+        break;
+    }
+
+    // Filter transactions and purchases within range
+    const filteredTransactions = rawTransactions.filter((t: any) => {
+      const date = new Date(t.createdAt || t.timestamp);
+      return date >= startDate && date <= endDate;
+    });
+
+    const filteredPurchases = rawPurchases.filter((p: any) => {
+      const date = new Date(p.created_at || p.createdAt);
+      return date >= startDate && date <= endDate;
+    });
+
+    return processRawDataToProfit(filteredTransactions, filteredPurchases, timeRange);
+  }, [rawTransactions, rawPurchases, timeRange, processRawDataToProfit]);
+
+  // Calculate metrics when filtered data changes
+  const calculatedMetrics = useMemo(() => {
+    return filteredProfitData.length > 0 ? calculateMetrics(filteredProfitData) : null;
+  }, [filteredProfitData, calculateMetrics]);
+
+  // Update state when memoized values change
+  useEffect(() => {
+    setProfitData(filteredProfitData);
+    setMetrics(calculatedMetrics);
+  }, [filteredProfitData, calculatedMetrics]);
+
+  const formatCurrency = useCallback((value: number) => `$${value.toFixed(2)}`, []);
+
+  const formatXAxis = useCallback((value: string) => {
     switch (timeRange) {
       case 'day':
         return new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -376,9 +456,9 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
       default:
         return value;
     }
-  };
+  }, [timeRange]);
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = useCallback(({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 shadow-lg">
@@ -392,7 +472,7 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
       );
     }
     return null;
-  };
+  }, [formatXAxis, formatCurrency]);
 
   if (loading) {
     return (
@@ -555,6 +635,7 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
                       const size = isProfit ? 6 : 6; // Same size for both
                       return (
                         <circle
+                          key={`${cx}-${cy}-${payload.date}`}
                           cx={cx}
                           cy={cy}
                           r={size}
