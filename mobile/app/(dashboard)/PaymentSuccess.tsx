@@ -48,7 +48,7 @@ export default function PaymentSuccess() {
       </Pressable>
 
       <View className="mx-2 mt-auto mb-20">
-        <PrimaryButton title="Go Back To Referrals" onPress={() => router.push("/dashboard/customer")} />
+        <PrimaryButton title="Go Back To Referrals" onPress={() => router.push("/customer")} />
       </View>
     </View>
   );
