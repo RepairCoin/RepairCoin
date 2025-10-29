@@ -128,16 +128,16 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
       console.log('Processed transactions array:', transactionsArray);
       console.log('Processed purchases array:', purchasesArray);
       
-      let processedData = processRawDataToProfit(
+      const processedData = processRawDataToProfit(
         transactionsArray,
         purchasesArray,
         timeRange
       );
 
-      // If no data available, generate sample data for demonstration
-      if (processedData.length === 0) {
-        processedData = generateSampleData(timeRange);
-      }
+      // Sample data generation removed - show empty state instead
+      // if (processedData.length === 0) {
+      //   processedData = generateSampleData(timeRange);
+      // }
 
       setProfitData(processedData);
       setMetrics(calculateMetrics(processedData));
@@ -236,59 +236,60 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
     return result;
   };
 
-  const generateSampleData = (range: 'day' | 'month' | 'year'): ProfitData[] => {
-    const sampleData: ProfitData[] = [];
-    const endDate = new Date();
-    let periods = 0;
-    
-    switch (range) {
-      case 'day':
-        periods = 30; // Last 30 days
-        break;
-      case 'month':
-        periods = 12; // Last 12 months
-        break;
-      case 'year':
-        periods = 5; // Last 5 years
-        break;
-    }
-
-    for (let i = periods - 1; i >= 0; i--) {
-      const date = new Date(endDate);
-      
-      switch (range) {
-        case 'day':
-          date.setDate(date.getDate() - i);
-          break;
-        case 'month':
-          date.setMonth(date.getMonth() - i);
-          break;
-        case 'year':
-          date.setFullYear(date.getFullYear() - i);
-          break;
-      }
-
-      // Generate realistic sample data
-      const baseRevenue = 800 + Math.random() * 400; // $800-1200 per period
-      const baseCosts = 200 + Math.random() * 100;   // $200-300 per period
-      const revenue = Math.round(baseRevenue * 100) / 100;
-      const costs = Math.round(baseCosts * 100) / 100;
-      const profit = revenue - costs;
-      const profitMargin = (profit / revenue) * 100;
-
-      sampleData.push({
-        date: formatDateByRange(date, range),
-        revenue,
-        costs,
-        profit,
-        rcnPurchased: Math.round(costs / 0.08), // Assuming $0.08 per RCN
-        rcnIssued: Math.round(revenue / 10), // Assuming ~$10 repair per RCN
-        profitMargin
-      });
-    }
-
-    return sampleData;
-  };
+  // Sample data generation - COMMENTED OUT to show empty state for new shops
+  // const generateSampleData = (range: 'day' | 'month' | 'year'): ProfitData[] => {
+  //   const sampleData: ProfitData[] = [];
+  //   const endDate = new Date();
+  //   let periods = 0;
+  //
+  //   switch (range) {
+  //     case 'day':
+  //       periods = 30; // Last 30 days
+  //       break;
+  //     case 'month':
+  //       periods = 12; // Last 12 months
+  //       break;
+  //     case 'year':
+  //       periods = 5; // Last 5 years
+  //       break;
+  //   }
+  //
+  //   for (let i = periods - 1; i >= 0; i--) {
+  //     const date = new Date(endDate);
+  //
+  //     switch (range) {
+  //       case 'day':
+  //         date.setDate(date.getDate() - i);
+  //         break;
+  //       case 'month':
+  //         date.setMonth(date.getMonth() - i);
+  //         break;
+  //       case 'year':
+  //         date.setFullYear(date.getFullYear() - i);
+  //         break;
+  //     }
+  //
+  //     // Generate realistic sample data
+  //     const baseRevenue = 800 + Math.random() * 400; // $800-1200 per period
+  //     const baseCosts = 200 + Math.random() * 100;   // $200-300 per period
+  //     const revenue = Math.round(baseRevenue * 100) / 100;
+  //     const costs = Math.round(baseCosts * 100) / 100;
+  //     const profit = revenue - costs;
+  //     const profitMargin = (profit / revenue) * 100;
+  //
+  //     sampleData.push({
+  //       date: formatDateByRange(date, range),
+  //       revenue,
+  //       costs,
+  //       profit,
+  //       rcnPurchased: Math.round(costs / 0.08), // Assuming $0.08 per RCN
+  //       rcnIssued: Math.round(revenue / 10), // Assuming ~$10 repair per RCN
+  //       profitMargin
+  //     });
+  //   }
+  //
+  //   return sampleData;
+  // };
 
   const formatDateByRange = (date: Date, range: 'day' | 'month' | 'year'): string => {
     switch (range) {
@@ -354,11 +355,16 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
     if (shopId && authToken) {
       fetchProfitData();
     } else if (shopId && !authToken) {
-      // If shopId exists but no authToken, show sample data
-      console.log('No auth token available, showing sample data');
-      const sampleData = generateSampleData(timeRange);
-      setProfitData(sampleData);
-      setMetrics(calculateMetrics(sampleData));
+      // Sample data generation removed - show empty state instead
+      // console.log('No auth token available, showing sample data');
+      // const sampleData = generateSampleData(timeRange);
+      // setProfitData(sampleData);
+      // setMetrics(calculateMetrics(sampleData));
+      // setLoading(false);
+
+      console.log('No auth token available, showing empty state');
+      setProfitData([]);
+      setMetrics(null);
       setLoading(false);
     }
   }, [shopId, timeRange, authToken]);
