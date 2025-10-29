@@ -1,9 +1,24 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useAuthStore } from '../store/authStore';
+import { queryKeys } from '@/config/queryClient';
+import { getAuthCustomer } from '@/services/authServices';
 
 // Legacy - keeping for backward compatibility if needed
 // All auth state is now managed by Zustand store (authStore.ts)
+
+export const useAuthCustomer = (address: string) => {
+  return useQuery({
+    queryKey: queryKeys.auth(),
+    queryFn: async () => {
+      const response = await getAuthCustomer(address);
+      console.log("responseresponse: ", response)
+      return response.data;
+    },
+    enabled: !!address,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+};
 
 // Hook to handle logout
 export const useLogout = () => {

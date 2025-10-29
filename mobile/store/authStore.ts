@@ -3,6 +3,7 @@ import { createJSONStorage, devtools, persist } from "zustand/middleware";
 import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
+import apiClient from "@/utilities/axios";
 
 const secureStorage = {
   getItem: async (name: string) => {
@@ -206,8 +207,10 @@ export const useAuthStore = create<AuthState>()(
                   const tokenData = await tokenResponse.json();
                   if (tokenData.token) {
                     profile.token = tokenData.token;
+                    // Set token in axios client for future API calls
+                    await apiClient.setAuthToken(tokenData.token);
                     console.log(
-                      "✅ Authentication token obtained successfully"
+                      "✅ Authentication token obtained and set in API client"
                     );
                   }
                 } else if (tokenResponse.status === 404) {
@@ -255,10 +258,11 @@ export const useAuthStore = create<AuthState>()(
             }
           }
           
-          // Clear all AsyncStorage data
+          // Clear all AsyncStorage data and token from API client
           try {
             await AsyncStorage.clear();
-            console.log("[Auth] AsyncStorage cleared");
+            await apiClient.clearAuthToken();
+            console.log("[Auth] AsyncStorage and auth token cleared");
           } catch (error) {
             console.error("[Auth] Error clearing AsyncStorage:", error);
           }
@@ -361,6 +365,12 @@ export const useAuthStore = create<AuthState>()(
           if (!state.isAuthenticated || !state.userProfile?.address) {
             console.log("[Auth] No stored authentication found");
             return false;
+          }
+          
+          // Restore token to axios client if it exists
+          if (state.userProfile?.token) {
+            await apiClient.setAuthToken(state.userProfile.token);
+            console.log("[Auth] Restored token to API client");
           }
           
           // Check if data is fresh (less than 5 minutes old)

@@ -3,36 +3,192 @@ import {
   Text,
   Pressable,
   Image,
-  TextInput,
   ScrollView,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
-import React from "react";
-import { router } from "expo-router";
+import React, { useCallback, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useToast } from "react-native-toast-notifications";
+import { RedemptionSession } from "@/services/tokenServices";
+import { useRedemptionSignature } from "@/hooks/useSignature";
+import { useRedemptionSessions, useApproveRedemptionSession } from "@/hooks/useTokenQueries";
 
-const RequestCard = () => (
-  <View className="bg-[#202325] py-4 px-8 rounded-xl mt-4">
-    <View className="flex-row justify-between">
-      <Text className="text-xl text-white font-extrabold">Jenny Wilson</Text>
-      <Text className="text-xl text-white font-extrabold">10 RCN</Text>
+interface RequestCardProps {
+  session: RedemptionSession;
+  onAccept: (sessionId: string) => void;
+  onReject: (sessionId: string) => void;
+}
+
+const RequestCard = ({ session, onAccept, onReject }: RequestCardProps) => {
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const time = date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+    const dateStr = date.toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+    return `${time} • ${dateStr}`;
+  };
+
+  return (
+    <View className="bg-[#202325] py-4 px-8 rounded-xl mt-4">
+      <View className="flex-row justify-between">
+        <Text className="text-xl text-white font-extrabold">
+          {session.shopId || "Shop"}
+        </Text>
+        <Text className="text-xl text-white font-extrabold">
+          {session.amount} RCN
+        </Text>
+      </View>
+      <View className="flex-row justify-between mt-2">
+        <Text className="text-white/50">{session.shopId}</Text>
+        <Text className="text-white/50">{formatDate(session.createdAt)}</Text>
+      </View>
+      <View className="flex-row justify-between mt-4 mb-2">
+        <Pressable
+          className="bg-[#DDF6E2] py-1 w-40 items-center rounded-lg"
+          onPress={() => onAccept(session.sessionId)}
+        >
+          <Text className="text-[#1A9D5B]">Accept</Text>
+        </Pressable>
+        <Pressable
+          className="bg-[#F6C8C8] py-1 w-40 items-center rounded-lg"
+          onPress={() => onReject(session.sessionId)}
+        >
+          <Text className="text-[#E34C4C]">Reject</Text>
+        </Pressable>
+      </View>
     </View>
-    <View className="flex-row justify-between mt-2">
-      <Text className="text-white/50">Mike Repair Shop</Text>
-      <Text className="text-white/50">3:02 PM • July 22, 2025</Text>
-    </View>
-    <View className="flex-row justify-between mt-4 mb-2">
-      <Pressable className="bg-[#DDF6E2] py-1 w-40 items-center rounded-lg">
-        <Text className="text-[#1A9D5B]">Accept</Text>
-      </Pressable>
-      <Pressable className="bg-[#F6C8C8] py-1 w-40 items-center rounded-lg">
-        <Text className="text-[#E34C4C]">Reject</Text>
-      </Pressable>
-    </View>
-  </View>
-);
+  );
+};
 
 export default function ApprovalTab() {
+  const { data, isLoading, error, refetch } = useRedemptionSessions();
+  const { generateSignature } = useRedemptionSignature();
+  const approveSession = useApproveRedemptionSession();
+  const toast = useToast();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const sessions = data?.data?.sessions || [];
+  const pendingSessions = sessions.filter(
+    (session: RedemptionSession) => session.status === "pending"
+  );
+
+  // Auto-refresh data when screen is focused
+  // useFocusEffect(
+  //   useCallback(() => {
+  //     refetch();
+
+  //     // Set up polling interval for real-time updates (every 10 seconds)
+  //     const interval = setInterval(() => {
+  //       refetch();
+  //     }, 10000); // Refresh every 10 seconds
+
+  //     // Cleanup interval on unmount
+  //     return () => {
+  //       clearInterval(interval);
+  //     };
+  //   }, [refetch])
+  // );
+
+  // Pull-to-refresh handler
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  }, [refetch]);
+
+  const handleAccept = async (sessionId: string) => {
+    // Find the session to get details
+    const session = sessions.find(
+      (s: RedemptionSession) => s.sessionId === sessionId
+    );
+    if (!session) {
+      console.error("Session not found:", sessionId);
+      return;
+    }
+
+    // Generate signature for this redemption using the hook
+    const signature = await generateSignature(
+      sessionId,
+      session.amount,
+      session.shopId
+    );
+
+    if (!signature) {
+      console.error("Failed to generate signature");
+      // TODO: Show error to user
+      return;
+    }
+
+    // Call API to approve redemption with signature
+    try {
+      const result = await approveSession.mutateAsync({
+        sessionId,
+        signature
+      });
+      
+      console.log("Approval successful:", result);
+      
+      // Show success toast
+      if (result?.data?.status === 'approved') {
+        toast.show(`✅ Redemption approved successfully!\n${session.amount} RCN tokens`, {
+          type: 'success',
+          placement: 'top',
+          duration: 4000,
+          animationType: 'slide-in',
+          style: { paddingTop: 24 }
+        });
+      } else {
+        toast.show('✅ Redemption request processed', {
+          type: 'success',
+          placement: 'top',
+          duration: 3000,
+          animationType: 'slide-in',
+          style: { paddingTop: 24 }
+        });
+      }
+      
+      // Refresh the sessions list to show updated status
+      await refetch();
+      
+    } catch (approvalError: any) {
+      console.error("Approval failed:", approvalError);
+      
+      // Show error toast
+      const errorMessage = approvalError?.response?.data?.error || approvalError?.message || 'Failed to approve redemption';
+      toast.show(`❌ ${errorMessage}`, {
+        type: 'danger',
+        placement: 'top',
+        duration: 5000,
+        animationType: 'slide-in'
+      });
+    }
+  };
+
+  const handleReject = async (sessionId: string) => {
+    console.log("Reject session:", sessionId);
+    // TODO: Implement reject logic
+  };
+
   return (
-    <ScrollView className="h-full w-full mt-4">
+    <ScrollView
+      className="h-full w-full mt-4"
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor="#FFCC00"
+          colors={["#FFCC00"]}
+        />
+      }
+    >
       <View className="h-52">
         <View className="w-full h-full bg-[#FFCC00] rounded-3xl flex-row overflow-hidden relative">
           <View
@@ -69,9 +225,37 @@ export default function ApprovalTab() {
           <Text className="text-black font-semibold">See All</Text>
         </Pressable>
       </View>
-      <RequestCard />
-      <RequestCard />
-      <RequestCard />
+
+      {isLoading ? (
+        <View className="py-8 items-center">
+          <ActivityIndicator size="large" color="#FFCC00" />
+          <Text className="text-white mt-2">Loading requests...</Text>
+        </View>
+      ) : error ? (
+        <View className="py-8 items-center">
+          <Text className="text-red-400">
+            Failed to load redemption requests
+          </Text>
+          <Pressable onPress={() => refetch()} className="mt-4">
+            <Text className="text-[#FFCC00]">Retry</Text>
+          </Pressable>
+        </View>
+      ) : pendingSessions.length === 0 ? (
+        <View className="py-8 items-center">
+          <Text className="text-white/50">No pending redemption requests</Text>
+        </View>
+      ) : (
+        <>
+          {pendingSessions.map((session: RedemptionSession, index: number) => (
+            <RequestCard
+              key={`${session.sessionId}-${index}`}
+              session={session}
+              onAccept={handleAccept}
+              onReject={handleReject}
+            />
+          ))}
+        </>
+      )}
     </ScrollView>
   );
 }
