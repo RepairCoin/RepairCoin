@@ -87,10 +87,13 @@ export default function SubscriptionForm() {
       if (shopResponse.ok) {
         const shopResult = await shopResponse.json();
         if (shopResult.success && shopResult.data) {
-          // Pre-fill the shop name in the form
+          // Pre-fill the form with existing shop data
           setFormData(prev => ({
             ...prev,
-            shopName: shopResult.data.name || ""
+            shopName: shopResult.data.name || "",
+            email: shopResult.data.email || "",
+            phone: shopResult.data.phone || "",
+            address: shopResult.data.address || ""
           }));
         }
       }
@@ -318,8 +321,9 @@ export default function SubscriptionForm() {
                     value={formData.email}
                     onChange={handleInputChange}
                     required
-                    placeholder="you@example.com"
-                    className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none transition-colors"
+                    placeholder={loadingShopData ? "Loading your email..." : "you@example.com"}
+                    disabled={loadingShopData}
+                    className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
 
@@ -334,8 +338,9 @@ export default function SubscriptionForm() {
                     value={formData.phone}
                     onChange={handleInputChange}
                     required
-                    placeholder="+1 (555) 000-0000"
-                    className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none transition-colors"
+                    placeholder={loadingShopData ? "Loading your phone..." : "+1 (555) 000-0000"}
+                    disabled={loadingShopData}
+                    className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
 
@@ -350,8 +355,9 @@ export default function SubscriptionForm() {
                     value={formData.address}
                     onChange={handleInputChange}
                     required
-                    placeholder="123 Main St, City, State ZIP"
-                    className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none transition-colors"
+                    placeholder={loadingShopData ? "Loading your address..." : "123 Main St, City, State ZIP"}
+                    disabled={loadingShopData}
+                    className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:border-[#FFCC00] focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
 

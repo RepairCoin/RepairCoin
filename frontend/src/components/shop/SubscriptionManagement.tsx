@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { AlertCircle, CheckCircle, XCircle, CreditCard, Calendar, DollarSign } from 'lucide-react';
+import Link from 'next/link';
 
 interface Subscription {
   id?: number;
@@ -562,10 +563,13 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
 
             <div className="flex gap-3 justify-center">
               <Button
-                onClick={() => setShowSubscribeModal(true)}
+                /* onClick={() => setShowSubscribeModal(true)} */
                 className="bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold"
               >
-                Subscribe Now
+                <Link href="/shop/subscription-form">
+                 Subscribe Now
+                </Link>
+               
               </Button>
               
               <Button
