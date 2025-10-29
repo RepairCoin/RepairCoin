@@ -12,7 +12,11 @@ import { router, useFocusEffect } from "expo-router";
 import { useToast } from "react-native-toast-notifications";
 import { RedemptionSession } from "@/services/tokenServices";
 import { useRedemptionSignature } from "@/hooks/useSignature";
-import { useRedemptionSessions, useApproveRedemptionSession } from "@/hooks/useTokenQueries";
+import {
+  useRedemptionSessions,
+  useApproveRedemptionSession,
+  useRejectRedemptionSession,
+} from "@/hooks/useTokenQueries";
 
 interface RequestCardProps {
   session: RedemptionSession;
@@ -29,15 +33,15 @@ const RequestCard = ({ session, onAccept, onReject }: RequestCardProps) => {
       hour12: true,
     });
     const dateStr = date.toLocaleDateString("en-US", {
-      month: "long",
-      day: "numeric",
-      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      year: "2-digit",
     });
     return `${time} • ${dateStr}`;
   };
 
   return (
-    <View className="bg-[#202325] py-4 px-8 rounded-xl mt-4">
+    <View className="bg-[#2F2F2F] m-4 p-4 rounded-xl">
       <View className="flex-row justify-between">
         <Text className="text-xl text-white font-extrabold">
           {session.shopId || "Shop"}
@@ -47,18 +51,20 @@ const RequestCard = ({ session, onAccept, onReject }: RequestCardProps) => {
         </Text>
       </View>
       <View className="flex-row justify-between mt-2">
-        <Text className="text-white/50">{session.shopId}</Text>
-        <Text className="text-white/50">{formatDate(session.createdAt)}</Text>
+        <Text className="text-white/50 text-sm">{session.shopId}</Text>
+        <Text className="text-white/50 text-sm">
+          {formatDate(session.createdAt)}
+        </Text>
       </View>
-      <View className="flex-row justify-between mt-4 mb-2">
+      <View className="flex flex-row justify-between mt-4 mb-2">
         <Pressable
-          className="bg-[#DDF6E2] py-1 w-40 items-center rounded-lg"
+          className="bg-[#DDF6E2] py-1 w-[45%] items-center rounded-lg"
           onPress={() => onAccept(session.sessionId)}
         >
           <Text className="text-[#1A9D5B]">Accept</Text>
         </Pressable>
         <Pressable
-          className="bg-[#F6C8C8] py-1 w-40 items-center rounded-lg"
+          className="bg-[#F6C8C8] py-1 w-[45%] items-center rounded-lg"
           onPress={() => onReject(session.sessionId)}
         >
           <Text className="text-[#E34C4C]">Reject</Text>
@@ -72,6 +78,7 @@ export default function ApprovalTab() {
   const { data, isLoading, error, refetch } = useRedemptionSessions();
   const { generateSignature } = useRedemptionSignature();
   const approveSession = useApproveRedemptionSession();
+  const rejectSession = useRejectRedemptionSession();
   const toast = useToast();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -131,50 +138,92 @@ export default function ApprovalTab() {
     try {
       const result = await approveSession.mutateAsync({
         sessionId,
-        signature
+        signature,
       });
-      
+
       console.log("Approval successful:", result);
-      
+
       // Show success toast
-      if (result?.data?.status === 'approved') {
-        toast.show(`✅ Redemption approved successfully!\n${session.amount} RCN tokens`, {
-          type: 'success',
-          placement: 'top',
-          duration: 4000,
-          animationType: 'slide-in',
-          style: { paddingTop: 24 }
-        });
+      if (result?.data?.status === "approved") {
+        toast.show(
+          `Redemption approved successfully!\n${session.amount} RCN tokens`,
+          {
+            type: "success",
+            placement: "top",
+            duration: 4000,
+            animationType: "slide-in",
+            style: { marginTop: 24 },
+          }
+        );
       } else {
-        toast.show('✅ Redemption request processed', {
-          type: 'success',
-          placement: 'top',
+        toast.show("Redemption request processed", {
+          type: "success",
+          placement: "top",
           duration: 3000,
-          animationType: 'slide-in',
-          style: { paddingTop: 24 }
+          animationType: "slide-in",
+          style: { marginTop: 24 },
         });
       }
-      
+
       // Refresh the sessions list to show updated status
       await refetch();
-      
     } catch (approvalError: any) {
       console.error("Approval failed:", approvalError);
-      
+
       // Show error toast
-      const errorMessage = approvalError?.response?.data?.error || approvalError?.message || 'Failed to approve redemption';
-      toast.show(`❌ ${errorMessage}`, {
-        type: 'danger',
-        placement: 'top',
+      const errorMessage =
+        approvalError?.response?.data?.error ||
+        approvalError?.message ||
+        "Failed to approve redemption";
+      toast.show(`${errorMessage}`, {
+        type: "danger",
+        placement: "top",
         duration: 5000,
-        animationType: 'slide-in'
+        animationType: "slide-in",
+        style: { marginTop: 24 },
       });
     }
   };
 
   const handleReject = async (sessionId: string) => {
-    console.log("Reject session:", sessionId);
-    // TODO: Implement reject logic
+    try {
+      // Find the session to get details for the toast
+      const session = sessions.find(
+        (s: RedemptionSession) => s.sessionId === sessionId
+      );
+
+      const result = await rejectSession.mutateAsync(sessionId);
+
+      // Show success toast
+      toast.show(
+        `Redemption request rejected\n${session?.amount || "Unknown"} RCN tokens`,
+        {
+          type: "warning",
+          placement: "top",
+          duration: 4000,
+          animationType: "slide-in",
+          style: { marginTop: 24 },
+        }
+      );
+
+      // Refresh the sessions list to show updated status
+      await refetch();
+    } catch (rejectError: any) {
+      console.error("[ApprovalTab] Rejection failed:", rejectError);
+
+      // Show error toast
+      const errorMessage =
+        rejectError?.response?.data?.error ||
+        rejectError?.message ||
+        "Failed to reject redemption";
+      toast.show(`${errorMessage}`, {
+        type: "danger",
+        placement: "top",
+        duration: 5000,
+        animationType: "slide-in",
+        style: { marginTop: 24 },
+      });
+    }
   };
 
   return (
@@ -215,47 +264,53 @@ export default function ApprovalTab() {
           </View>
         </View>
       </View>
-      <View className="bg-[#FFCC00] p-4 rounded-t-xl mt-4 flex-row justify-between items-center">
-        <Text className="text-black text-lg font-extrabold">
-          Redemption Requests
-        </Text>
-        <Pressable
-          onPress={() => router.push("/dashboard/customer/RedemptionHistory")}
-        >
-          <Text className="text-black font-semibold">See All</Text>
-        </Pressable>
-      </View>
-
-      {isLoading ? (
-        <View className="py-8 items-center">
-          <ActivityIndicator size="large" color="#FFCC00" />
-          <Text className="text-white mt-2">Loading requests...</Text>
-        </View>
-      ) : error ? (
-        <View className="py-8 items-center">
-          <Text className="text-red-400">
-            Failed to load redemption requests
+      <View className="bg-[#212121] mt-4 rounded-xl">
+        <View className="bg-[#FFCC00] p-4 rounded-t-xl flex-row justify-between items-center">
+          <Text className="text-black text-lg font-extrabold">
+            Redemption Requests
           </Text>
-          <Pressable onPress={() => refetch()} className="mt-4">
-            <Text className="text-[#FFCC00]">Retry</Text>
-          </Pressable>
+          {/* <Pressable
+            onPress={() => router.push("/dashboard/customer/RedemptionHistory")}
+          >
+            <Text className="text-black font-semibold">See All</Text>
+          </Pressable> */}
         </View>
-      ) : pendingSessions.length === 0 ? (
-        <View className="py-8 items-center">
-          <Text className="text-white/50">No pending redemption requests</Text>
-        </View>
-      ) : (
-        <>
-          {pendingSessions.map((session: RedemptionSession, index: number) => (
-            <RequestCard
-              key={`${session.sessionId}-${index}`}
-              session={session}
-              onAccept={handleAccept}
-              onReject={handleReject}
-            />
-          ))}
-        </>
-      )}
+
+        {isLoading ? (
+          <View className="py-8 items-center">
+            <ActivityIndicator size="large" color="#FFCC00" />
+            <Text className="text-white mt-2">Loading requests...</Text>
+          </View>
+        ) : error ? (
+          <View className="py-8 items-center">
+            <Text className="text-red-400">
+              Failed to load redemption requests
+            </Text>
+            <Pressable onPress={() => refetch()} className="mt-4">
+              <Text className="text-[#FFCC00]">Retry</Text>
+            </Pressable>
+          </View>
+        ) : pendingSessions.length === 0 ? (
+          <View className="py-8 items-center">
+            <Text className="text-white/50">
+              No pending redemption requests
+            </Text>
+          </View>
+        ) : (
+          <>
+            {pendingSessions.map(
+              (session: RedemptionSession, index: number) => (
+                <RequestCard
+                  key={`${session.sessionId}-${index}`}
+                  session={session}
+                  onAccept={handleAccept}
+                  onReject={handleReject}
+                />
+              )
+            )}
+          </>
+        )}
+      </View>
     </ScrollView>
   );
 }

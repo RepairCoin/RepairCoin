@@ -35,14 +35,6 @@ class ApiClient {
           console.warn('Failed to get auth token:', error);
         }
         
-        // Log request in development
-        if (__DEV__) {
-          console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`, {
-            headers: config.headers,
-            data: config.data,
-          });
-        }
-        
         return config;
       },
       (error) => {
