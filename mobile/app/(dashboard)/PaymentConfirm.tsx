@@ -33,7 +33,7 @@ export default function PaymentConfirm() {
       </View>
 
       <View className="mx-2 mt-auto mb-20">
-        <PrimaryButton title="Next" onPress={() => router.push("/dashboard/PaymentSuccess")} />
+        <PrimaryButton title="Next" onPress={() => router.push("/PaymentSuccess")} />
       </View>
     </View>
   );

@@ -60,7 +60,7 @@ export default function SendRCNAmountInputPage() {
       </View>
 
       <View className="mx-2 mt-auto mb-20">
-        <PrimaryButton title="Next" onPress={() => router.push("/dashboard/PaymentConfirm")} />
+        <PrimaryButton title="Next" onPress={() => router.push("/PaymentConfirm")} />
       </View>
     </View>
   );
