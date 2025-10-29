@@ -24,6 +24,7 @@ import { ShopDomain } from './domains/shop/ShopDomain';
 import { AdminDomain } from './domains/admin/AdminDomain'; 
 import { eventBus } from './events/EventBus';
 import { monitoringService } from './services/MonitoringService';
+import { cleanupService } from './services/CleanupService';
 import { StartupValidationService } from './services/StartupValidationService';
 
 // Your existing route imports (for non-domain routes)
@@ -361,18 +362,19 @@ class RepairCoinApp {
 
   private async gracefulShutdown(): Promise<void> {
     logger.info('Shutting down gracefully...');
-    
+
     try {
       // Enhanced shutdown
       await domainRegistry.cleanup();
       eventBus.clear();
       monitoringService.stopMonitoring();
-      
+      cleanupService.stopScheduledCleanup();
+
       // Common cleanup
       if (generalCache?.destroy) {
         generalCache.destroy();
       }
-      
+
       logger.info('Graceful shutdown completed');
       process.exit(0);
     } catch (error) {
@@ -465,7 +467,7 @@ class RepairCoinApp {
       } else {
         // Start monitoring service
         monitoringService.startMonitoring(30); // Run checks every 30 minutes
-        
+
         // Start subscription automated workflows
         import('./services/PaymentRetryService').then(({ getPaymentRetryService }) => {
           const paymentRetryService = getPaymentRetryService();
@@ -475,7 +477,23 @@ class RepairCoinApp {
           logger.error('Failed to start payment retry service:', error);
         });
         logger.info(`🔍 Monitoring service started`);
-        
+
+        // Start cleanup service - runs daily at 2 AM UTC
+        cleanupService.scheduleCleanup(24); // Run every 24 hours
+        logger.info('🧹 Cleanup service scheduled (daily)');
+
+        // Schedule platform statistics refresh every 5 minutes
+        setInterval(async () => {
+          try {
+            const { adminRepository } = await import('./repositories');
+            await adminRepository.refreshPlatformStatistics();
+            logger.debug('📊 Platform statistics refreshed');
+          } catch (error) {
+            logger.error('Failed to refresh platform statistics:', error);
+          }
+        }, 5 * 60 * 1000); // 5 minutes
+        logger.info('📊 Platform statistics refresh scheduled (every 5 minutes)');
+
         // Start error monitoring
         monitorErrors();
         logger.info(`🚨 Error monitoring started`);

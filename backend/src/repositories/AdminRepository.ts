@@ -358,16 +358,16 @@ export class AdminRepository extends BaseRepository {
   }> {
     try {
       const query = `
-        SELECT 
+        SELECT
           COALESCE(SUM(CASE WHEN type = 'mint' THEN amount ELSE 0 END), 0) as total_tokens_issued,
           COALESCE(SUM(CASE WHEN type = 'redeem' THEN amount ELSE 0 END), 0) as total_redemptions
         FROM transactions
         WHERE status = 'confirmed'
       `;
-      
+
       const result = await this.pool.query(query);
       const row = result.rows[0];
-      
+
       return {
         totalTokensIssued: parseFloat(row.total_tokens_issued),
         totalRedemptions: parseFloat(row.total_redemptions)
@@ -375,6 +375,99 @@ export class AdminRepository extends BaseRepository {
     } catch (error) {
       logger.error('Error getting platform statistics:', error);
       throw new Error('Failed to get platform statistics');
+    }
+  }
+
+  /**
+   * Get comprehensive platform statistics from materialized view
+   * This method queries the platform_statistics materialized view for better performance
+   */
+  async getPlatformStatisticsFromView(): Promise<{
+    tokenStats: {
+      totalRcnMinted: number;
+      totalRcnRedeemed: number;
+      totalRcnCirculating: number;
+    };
+    userStats: {
+      totalActiveCustomers: number;
+      customersBronze: number;
+      customersSilver: number;
+      customersGold: number;
+    };
+    shopStats: {
+      totalActiveShops: number;
+      shopsWithSubscription: number;
+    };
+    revenueStats: {
+      totalRevenue: number;
+      revenueLast30Days: number;
+    };
+    transactionStats: {
+      totalTransactions: number;
+      transactionsLast24h: number;
+    };
+    referralStats: {
+      totalReferrals: number;
+      totalReferralRewards: number;
+    };
+    lastUpdated: Date;
+  }> {
+    try {
+      const query = `SELECT * FROM platform_statistics`;
+      const result = await this.pool.query(query);
+
+      if (result.rows.length === 0) {
+        throw new Error('Platform statistics view is empty');
+      }
+
+      const row = result.rows[0];
+
+      return {
+        tokenStats: {
+          totalRcnMinted: parseFloat(row.total_rcn_minted || 0),
+          totalRcnRedeemed: parseFloat(row.total_rcn_redeemed || 0),
+          totalRcnCirculating: parseFloat(row.total_rcn_circulating || 0)
+        },
+        userStats: {
+          totalActiveCustomers: parseInt(row.total_active_customers || 0),
+          customersBronze: parseInt(row.customers_bronze || 0),
+          customersSilver: parseInt(row.customers_silver || 0),
+          customersGold: parseInt(row.customers_gold || 0)
+        },
+        shopStats: {
+          totalActiveShops: parseInt(row.total_active_shops || 0),
+          shopsWithSubscription: parseInt(row.shops_with_subscription || 0)
+        },
+        revenueStats: {
+          totalRevenue: parseFloat(row.total_revenue || 0),
+          revenueLast30Days: parseFloat(row.revenue_last_30_days || 0)
+        },
+        transactionStats: {
+          totalTransactions: parseInt(row.total_transactions || 0),
+          transactionsLast24h: parseInt(row.transactions_last_24h || 0)
+        },
+        referralStats: {
+          totalReferrals: parseInt(row.total_referrals || 0),
+          totalReferralRewards: parseFloat(row.total_referral_rewards || 0)
+        },
+        lastUpdated: row.last_updated
+      };
+    } catch (error) {
+      logger.error('Error getting platform statistics from view:', error);
+      throw new Error('Failed to get platform statistics from view');
+    }
+  }
+
+  /**
+   * Refresh the platform statistics materialized view
+   */
+  async refreshPlatformStatistics(): Promise<void> {
+    try {
+      await this.pool.query('SELECT refresh_platform_statistics()');
+      logger.info('Platform statistics view refreshed');
+    } catch (error) {
+      logger.error('Error refreshing platform statistics:', error);
+      throw new Error('Failed to refresh platform statistics');
     }
   }
 

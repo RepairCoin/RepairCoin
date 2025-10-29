@@ -7,6 +7,7 @@ import { ResponseHelper } from '../../../utils/responseHelper';
 import { asyncHandler } from '../../../middleware/errorHandler';
 import { createRateLimitMiddleware, webhookRateLimiter } from '../../../utils/rateLimiter';
 import { PaginationHelper } from '../../../utils/pagination';
+import { webhookLoggingService } from '../../../services/WebhookLoggingService';
 import {
   handleRepairCompleted,
   handleReferralVerified,
@@ -62,25 +63,34 @@ const verifyWebhookSignature = (req: Request, res: Response, next: any) => {
 const generateId = () => `${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
 // Main FixFlow webhook endpoint with rate limiting
-router.post('/fixflow', 
+router.post('/fixflow',
   webhookRateLimit,
-  verifyWebhookSignature, 
+  verifyWebhookSignature,
   asyncHandler(async (req: Request, res: Response) => {
     const startTime = Date.now();
     const webhookId = generateId();
-    
+
     // Parse webhook payload
     const payload = JSON.parse(req.body.toString());
     const { event, data } = payload;
-    
-    logger.info(`📥 Received FixFlow webhook: ${event}`, { 
-      webhookId, 
+
+    logger.info(`📥 Received FixFlow webhook: ${event}`, {
+      webhookId,
       ip: req.ip,
       userAgent: req.get('User-Agent')
     });
-    
-    // Log webhook to database
-    const webhookLog = {
+
+    // Log incoming webhook using new logging service
+    const webhookLog = await webhookLoggingService.logIncomingWebhook({
+      webhookId,
+      eventType: event,
+      source: 'fixflow',
+      payload: { event, data },
+      httpStatus: 200
+    });
+
+    // Also maintain backward compatibility with old logging
+    await webhookRepository.recordWebhook({
       id: webhookId,
       source: 'fixflow' as const,
       event,
@@ -88,56 +98,78 @@ router.post('/fixflow',
       processed: false,
       timestamp: new Date(),
       retryCount: 0
-    };
-    
-    await webhookRepository.recordWebhook(webhookLog);
-    
+    });
+
     // Process webhook based on event type
-    let result: any = { success: false };
-    
-    switch (event) {
-      case 'repair_completed':
-        result = await handleRepairCompleted(data, webhookId);
-        break;
-        
-      case 'referral_verified':
-        result = await handleReferralVerified(data, webhookId);
-        break;
-        
-      case 'ad_funnel_conversion':
-        result = await handleAdFunnelConversion(data, webhookId);
-        break;
-        
-      case 'customer_registered':
-        result = await handleCustomerRegistered(data, webhookId);
-        break;
-        
-      default:
-        result = {
-          success: false,
-          error: `Unknown event type: ${event}`
-        };
-        logger.warn(`Unknown webhook event: ${event}`, { webhookId });
+    let result: Record<string, unknown> = { success: false };
+
+    try {
+      switch (event) {
+        case 'repair_completed':
+          result = await handleRepairCompleted(data, webhookId);
+          break;
+
+        case 'referral_verified':
+          result = await handleReferralVerified(data, webhookId);
+          break;
+
+        case 'ad_funnel_conversion':
+          result = await handleAdFunnelConversion(data, webhookId);
+          break;
+
+        case 'customer_registered':
+          result = await handleCustomerRegistered(data, webhookId);
+          break;
+
+        default:
+          result = {
+            success: false,
+            error: `Unknown event type: ${event}`
+          };
+          logger.warn(`Unknown webhook event: ${event}`, { webhookId });
+      }
+
+      // Calculate processing time
+      const processingTime = Date.now() - startTime;
+
+      // Update webhook log with result using new service
+      await webhookLoggingService.updateWebhookResult(webhookLog.id, {
+        success: result.success as boolean,
+        response: result,
+        processingTimeMs: processingTime
+      });
+
+      // Also update old logging for backward compatibility
+      await webhookRepository.updateWebhookProcessingStatus(webhookId, result.success as boolean, processingTime, result);
+
+    } catch (processingError) {
+      const processingTime = Date.now() - startTime;
+
+      // Log processing error
+      await webhookLoggingService.updateWebhookResult(webhookLog.id, {
+        success: false,
+        errorMessage: processingError.message,
+        processingTimeMs: processingTime
+      });
+
+      throw processingError;
     }
-    
-    // Update webhook log with result
-    const processingTime = Date.now() - startTime;
-    await webhookRepository.updateWebhookProcessingStatus(webhookId, result.success, processingTime, result);
-    
+
     // Add rate limit headers to response
     const rateLimitStatus = webhookRateLimiter.getUsage(`${req.body?.source || 'unknown'}_${req.ip}`);
     res.setHeader('X-RateLimit-Limit', rateLimitStatus.limit);
     res.setHeader('X-RateLimit-Remaining', rateLimitStatus.remaining);
     res.setHeader('X-RateLimit-Reset', Math.ceil(rateLimitStatus.resetTime / 1000));
-    
+
     // Return response
+    const processingTime = Date.now() - startTime;
     if (result.success) {
-      logger.info(`✅ Webhook processed successfully: ${event}`, { 
-        webhookId, 
+      logger.info(`✅ Webhook processed successfully: ${event}`, {
+        webhookId,
         processingTime: `${processingTime}ms`,
-        transactionHash: result.transactionHash 
+        transactionHash: result.transactionHash
       });
-      
+
       ResponseHelper.success(res, {
         webhookId,
         message: result.message || 'Webhook processed successfully',
@@ -145,12 +177,12 @@ router.post('/fixflow',
         processingTime
       });
     } else {
-      logger.error(`❌ Webhook processing failed: ${event}`, { 
-        webhookId, 
+      logger.error(`❌ Webhook processing failed: ${event}`, {
+        webhookId,
         error: result.error,
         processingTime: `${processingTime}ms`
       });
-      
+
       ResponseHelper.badRequest(res, result.error || 'Webhook processing failed');
     }
   })
@@ -257,18 +289,15 @@ router.post('/retry/:webhookId', asyncHandler(async (req: Request, res: Response
 // Get webhook logs with pagination (admin endpoint)
 router.get('/logs', asyncHandler(async (req: Request, res: Response) => {
   const paginationParams = PaginationHelper.fromQuery(req.query);
-  const { eventType, source, processed, success } = req.query;
-  
-  // TODO: Implement getWebhookLogsPaginated in repository
-  const result = { items: [], total: 0 };
-  // await webhookRepository.getWebhookLogsPaginated({
-  //   ...paginationParams,
-  //   eventType: eventType as string,
-  //   source: source as string,
-  //   processed: processed === 'true' ? true : processed === 'false' ? false : undefined,
-  //   success: success === 'true' ? true : success === 'false' ? false : undefined
-  // });
-  
+  const { eventType, source, status } = req.query;
+
+  const result = await webhookLoggingService.getWebhookLogs({
+    ...paginationParams,
+    eventType: eventType as string,
+    source: source as string,
+    status: status as string
+  });
+
   ResponseHelper.success(res, result);
 }));
 
@@ -317,8 +346,11 @@ router.get('/stats', asyncHandler(async (req: Request, res: Response) => {
 
 // Webhook health check
 router.get('/health', asyncHandler(async (req: Request, res: Response) => {
+  // Get comprehensive webhook health from logging service
+  const webhookHealth = await webhookLoggingService.checkWebhookHealth();
+
   const health = {
-    status: 'healthy',
+    status: webhookHealth.healthy ? 'healthy' : 'degraded',
     timestamp: new Date(),
     services: {
       rateLimiter: {
@@ -326,19 +358,24 @@ router.get('/health', asyncHandler(async (req: Request, res: Response) => {
         stats: webhookRateLimiter.getStats()
       },
       database: await checkDatabaseHealth(),
-      processing: await checkWebhookProcessingHealth()
+      processing: await checkWebhookProcessingHealth(),
+      webhookMetrics: {
+        status: webhookHealth.healthy ? 'healthy' : 'degraded',
+        issues: webhookHealth.issues,
+        metrics: webhookHealth.metrics
+      }
     }
   };
-  
-  const allHealthy = Object.values(health.services).every(service => 
+
+  const allHealthy = Object.values(health.services).every(service =>
     service.status === 'healthy' || service.status === 'paused'
   );
-  
+
   if (!allHealthy) {
     health.status = 'degraded';
   }
-  
-  ResponseHelper.healthCheck(res, health.status as any, health.services);
+
+  ResponseHelper.healthCheck(res, health.status as 'healthy' | 'degraded', health.services);
 }));
 
 // Reset rate limit for specific source (admin endpoint)
