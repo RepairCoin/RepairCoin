@@ -18,7 +18,7 @@ export default function CustomFooter() {
           className="items-center flex-1 z-10"
           onPress={() => {
             setActive("Home");
-            active !== "Home" && router.push("/dashboard/customer");
+            active !== "Home" && router.push("/customer");
           }}
         >
           <Ionicons
@@ -43,7 +43,7 @@ export default function CustomFooter() {
           onPress={() => {
             setActive("Notification");
             active !== "Notification" &&
-              router.push("/dashboard/customer/Notification");
+              router.push("/customer/Notification");
           }}
         >
           <Ionicons
@@ -103,7 +103,7 @@ export default function CustomFooter() {
           onPress={() => {
             setActive("Profile");
             active !== "Profile" &&
-              router.push("/dashboard/customer/MyProfile");
+              router.push("/customer/MyProfile");
           }}
         >
           <Ionicons

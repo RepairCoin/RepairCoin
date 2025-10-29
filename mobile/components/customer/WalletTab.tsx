@@ -233,7 +233,7 @@ export default function WalletTab() {
   }, []);
 
   const handleHistoryPress = useCallback(() => {
-    router.push("/dashboard/customer/TransactionHistory");
+    router.push("/customer/TransactionHistory");
   }, []);
 
   const onRefresh = useCallback(async () => {
