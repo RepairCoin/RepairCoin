@@ -23,7 +23,7 @@ import TierBenefitsModal from "./TierBenefitsModal";
 import TokenSummaryModal from "./TokenSummaryModal";
 import { useAuthStore } from "@/store/authStore";
 import { Tier } from "@/utilities/GlobalTypes";
-import { useCustomer } from "@/hooks";
+import { useAuthCustomer, useCustomer } from "@/hooks";
 
 interface TierInfo {
   color: [string, string];
@@ -171,6 +171,15 @@ export default function WalletTab() {
     refetch,
   } = useCustomer(account?.address);
 
+  const {
+    data: autCustomer,
+    isLoading: isLoadingCustomer,
+    error: errorCustomer,
+    refetch: refetchCustomer,
+  } = useAuthCustomer(account?.address);
+
+  console.log("autCustomerautCustomer", autCustomer)
+
   const [tierModalVisible, setTierModalVisible] = useState(false);
   const [tokenSummaryModalVisible, setTokenSummaryModalVisible] =
     useState(false);
@@ -201,6 +210,7 @@ export default function WalletTab() {
     if (account?.address) {
       console.log("[WalletTab] Account changed, refreshing data for:", account.address);
       refetch();
+      refetchCustomer();
     }
   }, [account?.address, refetch]);
 

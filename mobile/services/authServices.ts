@@ -25,3 +25,12 @@ export const checkUserByWalletAddress = async (address: string): Promise<CheckUs
     throw error;
   }
 }
+
+export const getAuthCustomer = async (address: string) => {
+  try {
+    return await apiClient.post('/auth/customer', { address });
+  } catch (error) {
+    console.error('Failed to check user:', error);
+    throw error;
+  }
+}

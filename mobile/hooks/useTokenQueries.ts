@@ -1,6 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/authStore";
-import { fetchTokenBalance } from "@/services/tokenServices";
+import { 
+  approvalRedemptionSession,
+  fetchMyRedemptionSessions, 
+  fetchTokenBalance,
+  RedemptionSession,
+  RedemptionSessionsResponse
+} from "@/services/tokenServices";
 
 // Interfaces
 export interface BalanceData {
@@ -80,6 +86,7 @@ const QUERY_KEYS = {
     type,
     amount,
   ],
+  REDEMPTION_SESSIONS: (address: string) => ["token", "redemption-sessions", address],
 };
 
 // Hook: Fetch Token Balance
@@ -123,5 +130,62 @@ export const useTokenBalance = (walletAddress?: string) => {
     enabled: !!walletAddress,
     staleTime: 30000, // 30 seconds
     refetchInterval: 60000, // Refetch every minute
+  });
+};
+
+// Hook: Fetch Redemption Sessions
+export const useRedemptionSessions = () => {
+  const { userProfile } = useAuthStore();
+  const walletAddress = userProfile?.address;
+  
+  return useQuery<RedemptionSessionsResponse>({
+    queryKey: QUERY_KEYS.REDEMPTION_SESSIONS(walletAddress || ""),
+    queryFn: async () => {
+      const response = await fetchMyRedemptionSessions();
+      return response;
+    },
+    enabled: !!walletAddress,
+    staleTime: 10000, // 10 seconds (more frequent for active sessions)
+    refetchInterval: 30000, // Refetch every 30 seconds
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+  });
+};
+
+// Interface for approval request
+interface ApprovalRequest {
+  sessionId: string;
+  signature: string;
+  transactionHash?: string;
+}
+
+// Hook: Approve Redemption Session
+export const useApproveRedemptionSession = () => {
+  return useMutation({
+    mutationFn: async ({ sessionId, signature, transactionHash }: ApprovalRequest) => {
+      console.log('[useApproveRedemptionSession] Approving session:', {
+        sessionId,
+        signature: signature.substring(0, 10) + '...', // Log only first 10 chars
+        hasTransactionHash: !!transactionHash
+      });
+      
+      const response = await approvalRedemptionSession(sessionId, signature);
+      console.log('[useApproveRedemptionSession] Response:', response);
+      return response;
+    },
+    onSuccess: (data, variables) => {
+      console.log('[useApproveRedemptionSession] Success:', {
+        sessionId: variables.sessionId,
+        status: data?.data?.status
+      });
+    },
+    onError: (error: any, variables) => {
+      console.error('[useApproveRedemptionSession] Error:', {
+        sessionId: variables.sessionId,
+        error: error?.message || error
+      });
+    },
+    retry: 2, // Reduced retries for user actions
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Faster retry for UX
   });
 };
