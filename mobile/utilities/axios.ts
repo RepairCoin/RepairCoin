@@ -54,14 +54,9 @@ class ApiClient {
     // Response interceptor - Handle responses and errors
     this.instance.interceptors.response.use(
       (response: AxiosResponse) => {
-        // Log response in development
-        if (__DEV__) {
-          console.log(`[API Response] ${response.status} ${response.config.url}`, response.data);
-        }
         return response;
       },
       async (error) => {
-        // Log error in development
         if (__DEV__) {
           console.error('[API Response Error]:', {
             status: error.response?.status,
