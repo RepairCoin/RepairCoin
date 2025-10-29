@@ -23,11 +23,16 @@ import QrScanner from "qr-scanner";
 import toast from "react-hot-toast";
 import Tooltip from "../../ui/tooltip";
 
+interface ShopData {
+  walletAddress?: string;
+}
+
 interface RedeemTabProps {
   shopId: string;
   isOperational: boolean | null;
   onRedemptionComplete: () => void;
   setShowOnboardingModal: (show: boolean) => void;
+  shopData?: ShopData | null;
 }
 
 interface RedemptionTransaction {
@@ -64,6 +69,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   isOperational,
   onRedemptionComplete,
   setShowOnboardingModal,
+  shopData,
 }) => {
   const [flow, setFlow] = useState<RedemptionFlow>("approval");
 
@@ -84,6 +90,11 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   const [showingAllCustomers, setShowingAllCustomers] = useState(false);
   const [customerBalance, setCustomerBalance] = useState<number | null>(null);
   const [loadingBalance, setLoadingBalance] = useState(false);
+  const [checkingCustomerExists, setCheckingCustomerExists] = useState(false);
+  const [customerExistsResult, setCustomerExistsResult] = useState<{
+    exists: boolean;
+    checked: boolean;
+  }>({ exists: false, checked: false });
 
   // Common states
   const [error, setError] = useState<string | null>(null);
@@ -345,10 +356,19 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
 
   const handleCustomerSelect = (customer: ShopCustomer) => {
     console.log("Selecting customer:", customer);
+
+    // Prevent selecting shop's own wallet address
+    if (shopData?.walletAddress &&
+        customer.address.toLowerCase() === shopData.walletAddress.toLowerCase()) {
+      setError("Cannot process redemption from your own wallet address");
+      toast.error("Cannot process redemption from your own wallet address");
+      return;
+    }
+
     setSelectedCustomer(customer);
     setCustomerAddress(customer.address);
     console.log("Customer selected:", { customer, address: customer.address });
-    
+
     // Fetch customer balance
     fetchCustomerBalance(customer.address);
   };
@@ -374,6 +394,48 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
       }
     }
   }, [filteredCustomers.length, customerSearch]);
+
+  // Check if customer exists when valid Ethereum address is entered
+  useEffect(() => {
+    const checkCustomerExists = async () => {
+      // Only check if it's a valid Ethereum address and not in filtered customers
+      const isValidAddress = /^0x[a-fA-F0-9]{40}$/i.test(customerSearch);
+
+      if (!isValidAddress || filteredCustomers.length > 0) {
+        setCustomerExistsResult({ exists: false, checked: false });
+        return;
+      }
+
+      setCheckingCustomerExists(true);
+      try {
+        const authToken =
+          localStorage.getItem("shopAuthToken") ||
+          sessionStorage.getItem("shopAuthToken");
+
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/customers/${customerSearch}`,
+          {
+            headers: {
+              Authorization: authToken ? `Bearer ${authToken}` : "",
+            },
+          }
+        );
+
+        if (response.ok) {
+          setCustomerExistsResult({ exists: true, checked: true });
+        } else {
+          setCustomerExistsResult({ exists: false, checked: true });
+        }
+      } catch (err) {
+        console.error("Error checking customer existence:", err);
+        setCustomerExistsResult({ exists: false, checked: true });
+      } finally {
+        setCheckingCustomerExists(false);
+      }
+    };
+
+    checkCustomerExists();
+  }, [customerSearch, filteredCustomers.length]);
 
   // Poll for session status updates
   useEffect(() => {
@@ -472,6 +534,13 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
 
       if (!finalAddress || !redeemAmount) {
         setError("Please search and select a customer, then enter amount");
+        return;
+      }
+
+      // Prevent shop from redeeming from their own wallet
+      if (shopData?.walletAddress &&
+          finalAddress.toLowerCase() === shopData.walletAddress.toLowerCase()) {
+        setError("Cannot process redemption from your own wallet address");
         return;
       }
 
@@ -911,36 +980,93 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                           ))}
                         </div>
                       ) : customerSearch.match(/^0x[a-fA-F0-9]{40}$/i) ? (
-                        <button
-                          onClick={() => {
-                            setCustomerAddress(customerSearch);
-                            setSelectedCustomer({
-                              address: customerSearch,
-                              name: "External Customer",
-                              tier: "UNKNOWN",
-                              lifetime_earnings: 0,
-                              total_transactions: 0,
-                            });
-                            setCustomerSearch("");
-                          }}
-                          className="w-full p-4 hover:bg-gray-800 transition-colors"
-                        >
-                          <div className="flex items-center justify-between">
+                        // Check if entered address is shop's own wallet
+                        shopData?.walletAddress &&
+                        customerSearch.toLowerCase() === shopData.walletAddress.toLowerCase() ? (
+                          <div className="p-4 bg-red-900/20 border border-red-500 rounded-xl">
                             <div className="flex items-center gap-3">
-                              <Wallet className="w-5 h-5 text-[#FFCC00]" />
-                              <div className="text-left">
-                                <p className="text-sm font-medium text-[#FFCC00]">
-                                  Use This Address
+                              <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+                              <div>
+                                <p className="text-red-400 font-semibold text-sm">
+                                  Cannot Redeem From Own Wallet
                                 </p>
-                                <p className="text-xs text-gray-400 font-mono">
-                                  {customerSearch.slice(0, 10)}...
-                                  {customerSearch.slice(-8)}
+                                <p className="text-red-300/70 text-xs mt-1">
+                                  You cannot process redemption from your own wallet address. Please enter a customer&apos;s wallet address.
                                 </p>
                               </div>
                             </div>
-                            <ChevronRight className="w-5 h-5 text-gray-400" />
                           </div>
-                        </button>
+                        ) : checkingCustomerExists ? (
+                          <div className="p-4 text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <svg
+                                className="animate-spin h-5 w-5 text-[#FFCC00]"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                              >
+                                <circle
+                                  className="opacity-25"
+                                  cx="12"
+                                  cy="12"
+                                  r="10"
+                                  stroke="currentColor"
+                                  strokeWidth="4"
+                                ></circle>
+                                <path
+                                  className="opacity-75"
+                                  fill="currentColor"
+                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                ></path>
+                              </svg>
+                              <span className="text-gray-400 text-sm">Checking customer...</span>
+                            </div>
+                          </div>
+                        ) : !customerExistsResult.checked || !customerExistsResult.exists ? (
+                          <div className="p-4 bg-red-900/20 border border-red-500 rounded-xl">
+                            <div className="flex items-center gap-3">
+                              <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+                              <div>
+                                <p className="text-red-400 font-semibold text-sm">
+                                  Customer Not Registered
+                                </p>
+                                <p className="text-red-300/70 text-xs mt-1">
+                                  This wallet address is not registered. Customer must register before redemption.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setCustomerAddress(customerSearch);
+                              setSelectedCustomer({
+                                address: customerSearch,
+                                name: "External Customer",
+                                tier: "UNKNOWN",
+                                lifetime_earnings: 0,
+                                total_transactions: 0,
+                              });
+                              setCustomerSearch("");
+                            }}
+                            className="w-full p-4 hover:bg-gray-800 transition-colors"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <Wallet className="w-5 h-5 text-[#FFCC00]" />
+                                <div className="text-left">
+                                  <p className="text-sm font-medium text-[#FFCC00]">
+                                    Use This Address
+                                  </p>
+                                  <p className="text-xs text-gray-400 font-mono">
+                                    {customerSearch.slice(0, 10)}...
+                                    {customerSearch.slice(-8)}
+                                  </p>
+                                </div>
+                              </div>
+                              <ChevronRight className="w-5 h-5 text-gray-400" />
+                            </div>
+                          </button>
+                        )
                       ) : (
                         <div className="p-4 text-center text-gray-500">
                           {customerSearch.length < 3

@@ -1012,6 +1012,14 @@ router.post('/:shopId/redeem',
         });
       }
 
+      // Prevent shop from redeeming from their own wallet
+      if (shop.walletAddress.toLowerCase() === customerAddress.toLowerCase()) {
+        return res.status(400).json({
+          success: false,
+          error: 'Cannot process redemption from your own wallet address'
+        });
+      }
+
       const customer = await customerRepository.getCustomer(customerAddress);
       if (!customer) {
         return res.status(404).json({

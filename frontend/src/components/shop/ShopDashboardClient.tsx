@@ -772,6 +772,7 @@ export default function ShopDashboardClient() {
               isOperational={isOperational}
               onRedemptionComplete={loadShopData}
               setShowOnboardingModal={setShowOnboardingModal}
+              shopData={shopData}
             />
           )}
 
