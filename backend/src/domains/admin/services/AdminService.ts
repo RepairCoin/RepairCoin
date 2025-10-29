@@ -1,11 +1,11 @@
 // backend/src/domains/admin/services/AdminService.ts
-import { 
-  customerRepository, 
-  shopRepository, 
-  transactionRepository, 
+import {
+  customerRepository,
+  shopRepository,
+  transactionRepository,
   adminRepository,
   webhookRepository,
-  treasuryRepository 
+  treasuryRepository
 } from '../../../repositories';
 import { TokenMinter } from '../../../contracts/TokenMinter';
 import { TierManager, CustomerData, TierLevel } from '../../../contracts/TierManager';
@@ -13,6 +13,7 @@ import { logger } from '../../../utils/logger';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
 import { TokenService } from '../../token/services/TokenService';
 import { AdminRoleConflictService } from '../../../services/AdminRoleConflictService';
+import { cleanupService } from '../../../services/CleanupService';
 
 export interface AdminStats {
   totalCustomers: number;
@@ -683,13 +684,17 @@ export class AdminService {
 
   async cleanupWebhookLogs(daysOld: number = 30) {
     try {
-      // TODO: Implement webhook cleanup in DatabaseService
       logger.info('Webhook cleanup requested', { daysOld });
-      
+
+      // Use CleanupService to clean up old webhook logs
+      const deletedCount = await cleanupService.cleanupWebhookLogs(daysOld);
+
+      logger.info('Webhook cleanup completed', { daysOld, deletedCount });
+
       return {
         success: true,
         message: `Webhook logs older than ${daysOld} days cleaned up`,
-        deletedCount: 0 // Mock for now
+        deletedCount
       };
     } catch (error) {
       logger.error('Webhook cleanup error:', error);
@@ -699,13 +704,17 @@ export class AdminService {
 
   async archiveTransactions(daysOld: number = 365) {
     try {
-      // TODO: Implement transaction archiving in DatabaseService
       logger.info('Transaction archiving requested', { daysOld });
-      
+
+      // Use CleanupService to archive old transactions
+      const archivedCount = await cleanupService.archiveOldTransactions(daysOld);
+
+      logger.info('Transaction archiving completed', { daysOld, archivedCount });
+
       return {
         success: true,
         message: `Transactions older than ${daysOld} days archived`,
-        archivedCount: 0 // Mock for now
+        archivedCount
       };
     } catch (error) {
       logger.error('Transaction archiving error:', error);

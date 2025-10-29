@@ -417,13 +417,21 @@ router.get('/rate-limit/status', asyncHandler(async (req: Request, res: Response
 }));
 
 // Helper functions for health checks
-async function checkDatabaseHealth(): Promise<{ status: string; details?: any }> {
+async function checkDatabaseHealth(): Promise<{ status: string; details?: Record<string, unknown> }> {
   try {
-    // TODO: Implement healthCheck in repository
-    const health = { status: 'healthy', details: { pool: { totalConnections: 0, idleConnections: 0, activeConnections: 0 } } }; // await webhookRepository.healthCheck();
+    // Check database health using the shared database pool
+    const { databasePool } = await import('../../../config/database-pool');
+    const result = await databasePool.query('SELECT 1 as health_check');
+
+    const poolStats = {
+      totalConnections: databasePool.totalCount,
+      idleConnections: databasePool.idleCount,
+      activeConnections: databasePool.totalCount - databasePool.idleCount
+    };
+
     return {
-      status: health.status,
-      details: health.details
+      status: result.rows.length > 0 ? 'healthy' : 'unhealthy',
+      details: { pool: poolStats }
     };
   } catch (error) {
     return {

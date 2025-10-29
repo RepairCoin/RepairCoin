@@ -1,7 +1,7 @@
   // backend/src/services/tokenService.ts
   import { TokenMinter, MintResult } from '../../../contracts/TokenMinter';
   import { TierManager, CustomerData } from '../../../contracts/TierManager';
-  import { customerRepository, shopRepository, transactionRepository } from '../../../repositories';
+  import { customerRepository, shopRepository, transactionRepository, adminRepository } from '../../../repositories';
   import { ReferralRepository } from '../../../repositories/ReferralRepository';
   import { logger } from '../../../utils/logger';
 
@@ -415,8 +415,8 @@
       try {
         const [contractStats, platformStats] = await Promise.all([
           this.getTokenMinter().getContractStats(),
-          // TODO: Implement getPlatformStatistics in repository
-          Promise.resolve({ totalCustomers: 0, totalShops: 0, totalTransactions: 0 }) // databaseService.getPlatformStatistics()
+          // Use AdminRepository to get platform statistics
+          adminRepository.getPlatformStatistics()
         ]);
 
         // Get top holders (simplified - would need proper database query)
