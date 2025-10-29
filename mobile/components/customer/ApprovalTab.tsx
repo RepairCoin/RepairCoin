@@ -8,7 +8,7 @@ import {
   RefreshControl,
 } from "react-native";
 import React, { useCallback, useState } from "react";
-import { router, useFocusEffect } from "expo-router";
+import { router } from "expo-router";
 import { useToast } from "react-native-toast-notifications";
 import { RedemptionSession } from "@/services/tokenServices";
 import { useRedemptionSignature } from "@/hooks/useSignature";
@@ -81,28 +81,12 @@ export default function ApprovalTab() {
   const rejectSession = useRejectRedemptionSession();
   const toast = useToast();
   const [refreshing, setRefreshing] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const sessions = data?.data?.sessions || [];
   const pendingSessions = sessions.filter(
     (session: RedemptionSession) => session.status === "pending"
   );
-
-  // Auto-refresh data when screen is focused
-  // useFocusEffect(
-  //   useCallback(() => {
-  //     refetch();
-
-  //     // Set up polling interval for real-time updates (every 10 seconds)
-  //     const interval = setInterval(() => {
-  //       refetch();
-  //     }, 10000); // Refresh every 10 seconds
-
-  //     // Cleanup interval on unmount
-  //     return () => {
-  //       clearInterval(interval);
-  //     };
-  //   }, [refetch])
-  // );
 
   // Pull-to-refresh handler
   const onRefresh = useCallback(async () => {
@@ -112,30 +96,37 @@ export default function ApprovalTab() {
   }, [refetch]);
 
   const handleAccept = async (sessionId: string) => {
-    // Find the session to get details
-    const session = sessions.find(
-      (s: RedemptionSession) => s.sessionId === sessionId
-    );
-    if (!session) {
-      console.error("Session not found:", sessionId);
-      return;
-    }
-
-    // Generate signature for this redemption using the hook
-    const signature = await generateSignature(
-      sessionId,
-      session.amount,
-      session.shopId
-    );
-
-    if (!signature) {
-      console.error("Failed to generate signature");
-      // TODO: Show error to user
-      return;
-    }
-
-    // Call API to approve redemption with signature
+    setActionLoading(true);
     try {
+      // Find the session to get details
+      const session = sessions.find(
+        (s: RedemptionSession) => s.sessionId === sessionId
+      );
+      if (!session) {
+        console.error("Session not found:", sessionId);
+        return;
+      }
+
+      // Generate signature for this redemption using the hook
+      const signature = await generateSignature(
+        sessionId,
+        session.amount,
+        session.shopId
+      );
+
+      if (!signature) {
+        console.error("Failed to generate signature");
+        toast.show("Failed to generate signature", {
+          type: "danger",
+          placement: "top",
+          duration: 3000,
+          animationType: "slide-in",
+          style: { marginTop: 24 },
+        });
+        return;
+      }
+
+      // Call API to approve redemption with signature
       const result = await approveSession.mutateAsync({
         sessionId,
         signature,
@@ -146,13 +137,13 @@ export default function ApprovalTab() {
       // Show success toast
       if (result?.data?.status === "approved") {
         toast.show(
-          `Redemption approved successfully!\n${session.amount} RCN tokens`,
+          `Redemption approved successfully!`,
           {
             type: "success",
             placement: "top",
             duration: 4000,
             animationType: "slide-in",
-            style: { marginTop: 24 },
+            style: { marginTop: 28 },
           }
         );
       } else {
@@ -161,7 +152,7 @@ export default function ApprovalTab() {
           placement: "top",
           duration: 3000,
           animationType: "slide-in",
-          style: { marginTop: 24 },
+          style: { marginTop: 28 },
         });
       }
 
@@ -180,29 +171,32 @@ export default function ApprovalTab() {
         placement: "top",
         duration: 5000,
         animationType: "slide-in",
-        style: { marginTop: 24 },
+        style: { marginTop: 28 },
       });
+    } finally {
+      setActionLoading(false);
     }
   };
 
   const handleReject = async (sessionId: string) => {
+    setActionLoading(true);
     try {
       // Find the session to get details for the toast
       const session = sessions.find(
         (s: RedemptionSession) => s.sessionId === sessionId
       );
 
-      const result = await rejectSession.mutateAsync(sessionId);
+      await rejectSession.mutateAsync(sessionId);
 
       // Show success toast
       toast.show(
-        `Redemption request rejected\n${session?.amount || "Unknown"} RCN tokens`,
+        `Redemption request rejected`,
         {
-          type: "warning",
+          type: "danger",
           placement: "top",
           duration: 4000,
           animationType: "slide-in",
-          style: { marginTop: 24 },
+          style: { marginTop: 28 },
         }
       );
 
@@ -221,96 +215,116 @@ export default function ApprovalTab() {
         placement: "top",
         duration: 5000,
         animationType: "slide-in",
-        style: { marginTop: 24 },
+        style: { marginTop: 28 },
       });
+    } finally {
+      setActionLoading(false);
     }
   };
 
   return (
-    <ScrollView
-      className="h-full w-full mt-4"
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor="#FFCC00"
-          colors={["#FFCC00"]}
-        />
-      }
-    >
-      <View className="h-52">
-        <View className="w-full h-full bg-[#FFCC00] rounded-3xl flex-row overflow-hidden relative">
-          <View
-            className="w-[300px] h-[300px] border-[48px] border-[rgba(102,83,7,0.13)] rounded-full absolute"
-            style={{
-              right: -80,
-              top: -20,
-            }}
+    <>
+      <ScrollView
+        className="h-full w-full mt-4"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#FFCC00"
+            colors={["#FFCC00"]}
           />
-          <Image
-            source={require("@/assets/images/customer_approval_card.png")}
-            className="w-98 h-98 bottom-0 right-0 absolute"
-            resizeMode="contain"
-          />
-          <View className="pl-4 mt-2">
-            <Pressable
-              onPress={() => router.push("/dashboard/QRCode")}
-              className="bg-black w-36 rounded-xl py-2 mt-4 justify-center items-center"
-            >
-              <Text className="text-[#FFCC00] font-bold text-sm">
-                Generate QR Code
-              </Text>
-            </Pressable>
+        }
+        pointerEvents={actionLoading ? "none" : "auto"}
+      >
+        <View className="h-52">
+          <View className="w-full h-full bg-[#FFCC00] rounded-3xl flex-row overflow-hidden relative">
+            <View
+              className="w-[300px] h-[300px] border-[48px] border-[rgba(102,83,7,0.13)] rounded-full absolute"
+              style={{
+                right: -80,
+                top: -20,
+              }}
+            />
+            <Image
+              source={require("@/assets/images/customer_approval_card.png")}
+              className="w-98 h-98 bottom-0 right-0 absolute"
+              resizeMode="contain"
+            />
+            <View className="pl-4 mt-2">
+              <Pressable
+                onPress={() => router.push("/dashboard/QRCode")}
+                className="bg-black w-36 rounded-xl py-2 mt-4 justify-center items-center"
+              >
+                <Text className="text-[#FFCC00] font-bold text-sm">
+                  Generate QR Code
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </View>
-      </View>
-      <View className="bg-[#212121] mt-4 rounded-xl">
-        <View className="bg-[#FFCC00] p-4 rounded-t-xl flex-row justify-between items-center">
-          <Text className="text-black text-lg font-extrabold">
-            Redemption Requests
-          </Text>
-          {/* <Pressable
+        <View className="bg-[#212121] mt-4 rounded-xl">
+          <View className="bg-[#FFCC00] p-4 rounded-t-xl flex-row justify-between items-center">
+            <Text className="text-black text-lg font-extrabold">
+              Redemption Requests
+            </Text>
+            {/* <Pressable
             onPress={() => router.push("/dashboard/customer/RedemptionHistory")}
           >
             <Text className="text-black font-semibold">See All</Text>
           </Pressable> */}
-        </View>
+          </View>
 
-        {isLoading ? (
-          <View className="py-8 items-center">
+          {isLoading ? (
+            <View className="py-8 items-center">
+              <ActivityIndicator size="large" color="#FFCC00" />
+              <Text className="text-white mt-2">Loading requests...</Text>
+            </View>
+          ) : error ? (
+            <View className="py-8 items-center">
+              <Text className="text-red-400">
+                Failed to load redemption requests
+              </Text>
+              <Pressable onPress={() => refetch()} className="mt-4">
+                <Text className="text-[#FFCC00]">Retry</Text>
+              </Pressable>
+            </View>
+          ) : pendingSessions.length === 0 ? (
+            <View className="py-8 items-center">
+              <Text className="text-white/50">
+                No pending redemption requests
+              </Text>
+            </View>
+          ) : (
+            <>
+              {pendingSessions.map(
+                (session: RedemptionSession, index: number) => (
+                  <RequestCard
+                    key={`${session.sessionId}-${index}`}
+                    session={session}
+                    onAccept={handleAccept}
+                    onReject={handleReject}
+                  />
+                )
+              )}
+            </>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* Loading Overlay */}
+      {actionLoading && (
+        <View className="absolute inset-0 bg-black/50 flex-1 justify-center items-center z-50">
+          <View className="bg-[#2F2F2F] p-8 rounded-2xl items-center">
             <ActivityIndicator size="large" color="#FFCC00" />
-            <Text className="text-white mt-2">Loading requests...</Text>
-          </View>
-        ) : error ? (
-          <View className="py-8 items-center">
-            <Text className="text-red-400">
-              Failed to load redemption requests
+            <Text className="text-white mt-4 text-lg font-semibold">
+              Processing...
             </Text>
-            <Pressable onPress={() => refetch()} className="mt-4">
-              <Text className="text-[#FFCC00]">Retry</Text>
-            </Pressable>
-          </View>
-        ) : pendingSessions.length === 0 ? (
-          <View className="py-8 items-center">
-            <Text className="text-white/50">
-              No pending redemption requests
+            <Text className="text-white/70 mt-2 text-center">
+              Please wait while we process your request
             </Text>
           </View>
-        ) : (
-          <>
-            {pendingSessions.map(
-              (session: RedemptionSession, index: number) => (
-                <RequestCard
-                  key={`${session.sessionId}-${index}`}
-                  session={session}
-                  onAccept={handleAccept}
-                  onReject={handleReject}
-                />
-              )
-            )}
-          </>
-        )}
-      </View>
-    </ScrollView>
+        </View>
+      )}
+    </>
   );
 }
