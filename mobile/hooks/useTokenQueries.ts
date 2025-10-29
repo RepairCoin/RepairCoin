@@ -4,7 +4,7 @@ import {
   approvalRedemptionSession,
   fetchMyRedemptionSessions, 
   fetchTokenBalance,
-  RedemptionSession,
+  rejectRedemptionSession,
   RedemptionSessionsResponse
 } from "@/services/tokenServices";
 
@@ -58,6 +58,13 @@ export interface EligibilityResponse {
   eligible: boolean;
   reason?: string;
   maxRedeemable?: number;
+}
+
+// Interface for approval request
+export interface ApprovalRequest {
+  sessionId: string;
+  signature: string;
+  transactionHash?: string;
 }
 
 // Query Keys
@@ -152,13 +159,6 @@ export const useRedemptionSessions = () => {
   });
 };
 
-// Interface for approval request
-interface ApprovalRequest {
-  sessionId: string;
-  signature: string;
-  transactionHash?: string;
-}
-
 // Hook: Approve Redemption Session
 export const useApproveRedemptionSession = () => {
   return useMutation({
@@ -182,6 +182,35 @@ export const useApproveRedemptionSession = () => {
     onError: (error: any, variables) => {
       console.error('[useApproveRedemptionSession] Error:', {
         sessionId: variables.sessionId,
+        error: error?.message || error
+      });
+    },
+    retry: 2, // Reduced retries for user actions
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Faster retry for UX
+  });
+};
+
+// Hook: Reject Redemption Session
+export const useRejectRedemptionSession = () => {
+  return useMutation({
+    mutationFn: async (sessionId: string) => {
+      console.log('[useRejectRedemptionSession] Rejecting session:', {
+        sessionId
+      });
+      
+      const response = await rejectRedemptionSession(sessionId);
+      console.log('[useRejectRedemptionSession] Response:', response);
+      return response;
+    },
+    onSuccess: (data, sessionId) => {
+      console.log('[useRejectRedemptionSession] Success:', {
+        sessionId,
+        status: data?.data?.status
+      });
+    },
+    onError: (error: any, sessionId) => {
+      console.error('[useRejectRedemptionSession] Error:', {
+        sessionId,
         error: error?.message || error
       });
     },
