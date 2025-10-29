@@ -59,42 +59,75 @@ export const useShopRegistration = () => {
   }, []);
 
   const validateForm = useCallback((): string | null => {
-    if (!formData.shopId) return "Shop ID is required";
-    if (!formData.name) return "Company name is required";
-    if (!formData.firstName) return "First name is required";
-    if (!formData.lastName) return "Last name is required";
-    if (!formData.email) return "Email is required";
-    if (!formData.phone) return "Phone number is required";
-    if (!formData.address) return "Address is required";
-    if (!formData.city) return "City is required";
-    if (!formData.country) return "Country is required";
-    if (!formData.companySize) return "Company size is required";
-    if (!formData.monthlyRevenue) return "Monthly revenue is required";
-    if (!formData.acceptTerms) return "You must accept the terms and conditions";
-    
+    // Check required text fields
+    if (!formData.shopId?.trim()) return "Shop ID is required";
+    if (!formData.name?.trim()) return "Company name is required";
+    if (!formData.firstName?.trim()) return "First name is required";
+    if (!formData.lastName?.trim()) return "Last name is required";
+    if (!formData.email?.trim()) return "Email is required";
+    if (!formData.phone?.trim()) return "Phone number is required";
+    if (!formData.address?.trim()) return "Street address is required";
+    if (!formData.city?.trim()) return "City is required";
+    if (!formData.country?.trim()) return "Country is required";
+    if (!formData.companySize) return "Please select a company size";
+    if (!formData.monthlyRevenue) return "Please select your monthly revenue range";
+    if (!formData.acceptTerms) return "You must accept the terms and conditions to register";
+
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      return "Please enter a valid email address";
+      return "Please enter a valid email address (e.g., name@example.com)";
     }
-    
+
+    // Phone validation - basic check for reasonable length
+    const phoneDigits = formData.phone.replace(/\D/g, '');
+    if (phoneDigits.length < 10) {
+      return "Please enter a valid phone number (minimum 10 digits)";
+    }
+
+    // Shop ID validation - no spaces or special characters
+    const shopIdRegex = /^[a-zA-Z0-9_-]+$/;
+    if (!shopIdRegex.test(formData.shopId)) {
+      return "Shop ID can only contain letters, numbers, hyphens, and underscores";
+    }
+
+    // Website validation if provided
+    if (formData.website?.trim()) {
+      try {
+        const url = new URL(formData.website);
+        if (!['http:', 'https:'].includes(url.protocol)) {
+          return "Website URL must start with http:// or https://";
+        }
+      } catch {
+        return "Please enter a valid website URL (e.g., https://example.com)";
+      }
+    }
+
     return null;
   }, [formData]);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     console.log("Form submitted");
-    
+
+    // Check wallet connection
     if (!account?.address) {
       console.log("No wallet connected");
-      toast.error("Please connect your wallet to register");
+      toast.error("Please connect your wallet to register", {
+        icon: "🔗",
+        duration: 4000,
+      });
       return;
     }
 
+    // Validate form
     const validationError = validateForm();
     if (validationError) {
       console.log("Validation error:", validationError);
-      toast.error(validationError);
+      toast.error(validationError, {
+        icon: "⚠️",
+        duration: 5000,
+      });
       return;
     }
 
@@ -105,29 +138,51 @@ export const useShopRegistration = () => {
       const result = await toast.promise(
         ShopService.registerShop(account.address, formData),
         {
-          loading: 'Registering your shop...',
-          success: 'Shop registration submitted successfully! 🎉',
+          loading: 'Submitting your registration...',
+          success: (data) => {
+            console.log("Registration successful:", data);
+            return 'Shop registration submitted successfully! 🎉';
+          },
           error: (err) => {
             console.error("Registration failed:", err);
-            return err?.message || 'Failed to register shop';
+
+            // Extract error message
+            let errorMessage = 'Failed to register shop. Please try again.';
+
+            if (err instanceof Error) {
+              errorMessage = err.message;
+            } else if (typeof err === 'string') {
+              errorMessage = err;
+            } else if (err?.message) {
+              errorMessage = err.message;
+            }
+
+            return errorMessage;
           },
         }
       );
-      
-      console.log("Registration successful:", result);
-      
-      // Show additional success message
-      toast.success("Your application is pending approval. Redirecting to dashboard...", {
-        duration: 3000,
+
+      // Show success message with next steps
+      toast.success("Your application is pending admin approval. You'll be redirected to your dashboard.", {
+        duration: 4000,
+        icon: "✅",
       });
-      
-      // Redirect after 2 seconds
+
+      // Redirect after 2.5 seconds
       setTimeout(() => {
         router.push("/shop");
-      }, 2000);
+      }, 2500);
     } catch (err) {
       // Error is already handled by toast.promise
       console.error("Registration error caught:", err);
+
+      // Additional error logging for debugging
+      if (err instanceof Error) {
+        console.error("Error details:", {
+          message: err.message,
+          stack: err.stack,
+        });
+      }
     } finally {
       setLoading(false);
     }
