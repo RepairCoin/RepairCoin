@@ -83,7 +83,7 @@ export default function MyProfile() {
             <Text className="text-white/50 text-lg">johndoe@gmail.com</Text>
           </View>
           <Pressable
-            onPress={() => router.push("/dashboard/EditProfile")}
+            onPress={() => router.push("/EditProfile")}
             className="bg-white p-2 max-h-12 w-28 rounded-lg flex-row justify-center items-center"
           >
             <Feather name="edit" color="#000" size={16} />
@@ -107,7 +107,7 @@ export default function MyProfile() {
           <Text className="text-white/50 text-2xl">General</Text>
           <View className="flex-row justify-between items-center">
             <Pressable
-              onPress={() => router.push("/dashboard/ChangePrivateKey")}
+              onPress={() => router.push("/ChangePrivateKey")}
               className="flex-row items-center"
             >
               <View className="rounded-full bg-white w-16 h-16 items-center justify-center">
