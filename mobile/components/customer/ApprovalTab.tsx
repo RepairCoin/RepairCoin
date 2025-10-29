@@ -270,7 +270,7 @@ export default function ApprovalTab() {
               Redemption Requests
             </Text>
             {/* <Pressable
-            onPress={() => router.push("/dashboard/customer/RedemptionHistory")}
+            onPress={() => router.push("/customer/RedemptionHistory")}
           >
             <Text className="text-black font-semibold">See All</Text>
           </Pressable> */}

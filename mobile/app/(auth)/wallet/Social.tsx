@@ -84,7 +84,7 @@ export default function ConnectWalletWithSocialPage() {
         await login().then(() => {
           console.log(isCustomer);
           if (isCustomer) {
-            router.push("/dashboard/customer");
+            router.push("/customer");
           }
         });
       }
