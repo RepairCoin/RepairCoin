@@ -118,26 +118,29 @@ export default function ChoosePage() {
     }
   }, [activeAccount?.address]);
 
-  // Auto-redirect authenticated users to their appropriate dashboard
-  // useEffect(() => {
-  //   if (isAuthenticated && userType && !isLoading) {
-  //     console.log("Redirecting user:", { userType, userProfile });
-
-  //     switch (userType) {
-  //       case "admin":
-  //         router.push("/admin");
-  //         break;
-  //       case "shop":
-  //         router.push("/shop");
-  //         break;
-  //       case "customer":
-  //         router.push("/customer");
-  //         break;
-  //       default:
-  //         console.warn("Unknown user type:", userType);
-  //     }
-  //   }
-  // }, [isAuthenticated, userType, isLoading, router, userProfile]);
+  // Auto-redirect users who have already chosen their role
+  useEffect(() => {
+    // Only redirect after we've finished checking applications
+    if (!checkingApplications && !isLoading) {
+      if (customerStatus.isRegistered) {
+        console.log("Customer already registered, redirecting to customer dashboard");
+        router.push("/customer");
+      } else if (
+        shopApplicationStatus.hasApplication &&
+        shopApplicationStatus.status === "verified"
+      ) {
+        console.log("Shop already verified, redirecting to shop dashboard");
+        router.push("/shop");
+      }
+    }
+  }, [
+    checkingApplications,
+    isLoading,
+    customerStatus.isRegistered,
+    shopApplicationStatus.hasApplication,
+    shopApplicationStatus.status,
+    router,
+  ]);
 
   // Show loading state
   if (isLoading) {
