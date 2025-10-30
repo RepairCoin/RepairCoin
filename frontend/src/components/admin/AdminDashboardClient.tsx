@@ -6,6 +6,7 @@ import { createThirdwebClient } from "thirdweb";
 import { useSearchParams } from "next/navigation";
 import { Toaster } from "react-hot-toast";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { OverviewTab } from "@/components/admin/tabs/OverviewTab";
 import AdminsTab from "@/components/admin/tabs/AdminsTab";
 import { CustomersTabEnhanced } from "@/components/admin/tabs/CustomersTabEnhanced";
@@ -26,6 +27,9 @@ const client = createThirdwebClient({
 
 export default function AdminDashboardClient() {
   const searchParams = useSearchParams();
+
+  // Connect to Thirdweb and populate auth store
+  useAuth();
 
   // Authentication hook only - no data fetching here
   const {
