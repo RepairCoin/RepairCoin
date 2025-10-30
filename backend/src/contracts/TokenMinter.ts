@@ -3,7 +3,7 @@ import { config } from 'dotenv';
 import path from 'path';
 // Load environment variables from root directory
 config({ path: path.join(__dirname, '..', '.env') }); 
-import { baseSepolia } from "thirdweb/chains";
+import { baseSepolia, base } from "thirdweb/chains";
 import { privateKeyToAccount } from "thirdweb/wallets";
 import { TierManager, CustomerData } from "./TierManager";
 
@@ -33,6 +33,7 @@ export class TokenMinter {
   private client: any;
   private account: any;
   private contractAddress: string;
+  private chain: any;
   private tierManager: TierManager;
 
   constructor() {
@@ -41,7 +42,7 @@ export class TokenMinter {
     const clientId = process.env.RCN_THIRDWEB_CLIENT_ID || process.env.THIRDWEB_CLIENT_ID || process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID;
     const secretKey = process.env.RCN_THIRDWEB_SECRET_KEY || process.env.THIRDWEB_SECRET_KEY;
     const privateKey = process.env.PRIVATE_KEY;
-    
+
     if (!clientId || !secretKey || !privateKey) {
       throw new Error("Missing required environment variables");
     }
@@ -50,14 +51,24 @@ export class TokenMinter {
       clientId: clientId,
       secretKey: secretKey,
     });
-    
+
     this.account = privateKeyToAccount({
       client: this.client,
       privateKey: privateKey,
     });
-    
+
     // Use RCN contract address first, fall back to legacy
     this.contractAddress = process.env.RCN_CONTRACT_ADDRESS || process.env.REPAIRCOIN_CONTRACT_ADDRESS || '0xd92ced7c3f4D8E42C05A4c558F37dA6DC731d5f5';
+
+    // Determine chain based on NODE_ENV or explicit NETWORK env var
+    const network = process.env.NETWORK || process.env.NODE_ENV;
+    this.chain = (network === 'production' || network === 'mainnet') ? base : baseSepolia;
+
+    logger.info('TokenMinter initialized', {
+      network: this.chain.name,
+      contractAddress: this.contractAddress
+    });
+
     this.tierManager = new TierManager();
   }
 
@@ -92,7 +103,7 @@ export class TokenMinter {
       // Get the contract
       const contract = getContract({
         client: this.client,
-        chain: baseSepolia,
+        chain: this.chain,
         address: this.contractAddress,
       });
 
@@ -603,7 +614,7 @@ async unpauseContract(): Promise<MintResult> {
       
       const stats: any = {
         contractAddress: this.contractAddress,
-        network: "Base Sepolia",
+        network: this.chain.name,
         isPaused: false,
         totalSupplyReadable: 0
       };
@@ -648,10 +659,10 @@ async unpauseContract(): Promise<MintResult> {
         });
       } catch (error) {
         // This is expected if the contract doesn't implement name/symbol methods
-        logger.debug('Contract name/symbol methods not available or failed', { 
-          contractAddress: this.contractAddress, 
+        logger.debug('Contract name/symbol methods not available or failed', {
+          contractAddress: this.contractAddress,
           error: error instanceof Error ? error.message : 'Unknown error',
-          network: 'Base Sepolia',
+          network: this.chain.name,
           note: 'This is normal if the contract does not implement ERC20 metadata extensions'
         });
         // Set default values
@@ -664,7 +675,7 @@ async unpauseContract(): Promise<MintResult> {
       logger.error('Failed to get contract statistics', { error: error.message, contractAddress: this.contractAddress });
       return {
         contractAddress: this.contractAddress,
-        network: "Base Sepolia",
+        network: this.chain.name,
         error: "Could not fetch contract stats",
         totalSupplyReadable: 0,
         isPaused: false
@@ -741,7 +752,7 @@ async unpauseContract(): Promise<MintResult> {
   private async getContract() {
     return getContract({
       client: this.client,
-      chain: baseSepolia,
+      chain: this.chain,
       address: this.contractAddress,
     });
   }
@@ -776,7 +787,7 @@ async unpauseContract(): Promise<MintResult> {
       // Wait for confirmation
       const receipt = await waitForReceipt({
         client: this.client,
-        chain: baseSepolia,
+        chain: this.chain,
         transactionHash: transaction.transactionHash
       });
 

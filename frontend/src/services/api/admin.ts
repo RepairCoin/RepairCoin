@@ -60,7 +60,7 @@ const buildQueryString = (params: Record<string, any>): string => {
 export const getAdminStats = async (): Promise<AdminStats | null> => {
   try {
     const response = await apiClient.get<{ data?: AdminStats } | AdminStats>('/admin/stats');
-    
+
     // Handle both response formats: { data: stats } or direct stats
     if (response.data) {
       // Check if it's nested structure
@@ -76,7 +76,7 @@ export const getAdminStats = async (): Promise<AdminStats | null> => {
         return response.data as AdminStats;
       }
     }
-    
+
     return null;
   } catch (error: any) {
     if (error?.response?.status === 403) {
@@ -84,6 +84,46 @@ export const getAdminStats = async (): Promise<AdminStats | null> => {
     } else {
       console.error('Error getting admin stats:', error);
     }
+    return null;
+  }
+};
+
+// Get platform statistics (from materialized view - auto-refreshed every 5 min)
+export const getPlatformStatistics = async (): Promise<{
+  tokenStats: {
+    totalRcnMinted: number;
+    totalRcnRedeemed: number;
+    totalRcnCirculating: number;
+  };
+  userStats: {
+    totalActiveCustomers: number;
+    customersBronze: number;
+    customersSilver: number;
+    customersGold: number;
+  };
+  shopStats: {
+    totalActiveShops: number;
+    shopsWithSubscription: number;
+  };
+  revenueStats: {
+    totalRevenue: number;
+    revenueLast30Days: number;
+  };
+  transactionStats: {
+    totalTransactions: number;
+    transactionsLast24h: number;
+  };
+  referralStats: {
+    totalReferrals: number;
+    totalReferralRewards: number;
+  };
+  lastUpdated: Date;
+} | null> => {
+  try {
+    const response = await apiClient.get('/admin/analytics/platform-statistics');
+    return response.data?.data || response.data || null;
+  } catch (error) {
+    console.error('Error getting platform statistics:', error);
     return null;
   }
 };
@@ -812,6 +852,7 @@ export const adminApi = {
   
   // Analytics
   getAnalytics,
+  getPlatformStatistics,
   getTokenCirculationMetrics,
   getShopPerformanceRankings,
   getAdminAlerts,

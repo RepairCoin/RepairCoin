@@ -19,6 +19,38 @@ export interface PlatformStats {
   }>;
 }
 
+// New optimized platform statistics from materialized view
+export interface OptimizedPlatformStats {
+  tokenStats: {
+    totalRcnMinted: number;
+    totalRcnRedeemed: number;
+    totalRcnCirculating: number;
+  };
+  userStats: {
+    totalActiveCustomers: number;
+    customersBronze: number;
+    customersSilver: number;
+    customersGold: number;
+  };
+  shopStats: {
+    totalActiveShops: number;
+    shopsWithSubscription: number;
+  };
+  revenueStats: {
+    totalRevenue: number;
+    revenueLast30Days: number;
+  };
+  transactionStats: {
+    totalTransactions: number;
+    transactionsLast24h: number;
+  };
+  referralStats: {
+    totalReferrals: number;
+    totalReferralRewards: number;
+  };
+  lastUpdated: Date;
+}
+
 export function useOverviewData() {
   const { isAdmin, generateAdminToken } = useAdminAuth();
   
@@ -40,22 +72,33 @@ export function useOverviewData() {
         return;
       }
 
-      // Fetch platform statistics
-      const statsData = await adminApi.getStats();
-      if (statsData) {
-        setStats(statsData as PlatformStats);
+      // Fetch optimized platform statistics from materialized view
+      const optimizedStats = await adminApi.getPlatformStatistics();
+      if (optimizedStats) {
+        // Transform to match old PlatformStats interface for backward compatibility
+        const transformedStats: PlatformStats = {
+          totalCustomers: optimizedStats.userStats.totalActiveCustomers,
+          totalShops: optimizedStats.shopStats.totalActiveShops,
+          totalTransactions: optimizedStats.transactionStats.totalTransactions,
+          totalTokensIssued: optimizedStats.tokenStats.totalRcnMinted,
+          totalRedemptions: optimizedStats.tokenStats.totalRcnRedeemed,
+          activeCustomersLast30Days: optimizedStats.userStats.totalActiveCustomers, // Approximation
+          averageTransactionValue: optimizedStats.transactionStats.totalTransactions > 0
+            ? optimizedStats.tokenStats.totalRcnMinted / optimizedStats.transactionStats.totalTransactions
+            : 0,
+          topPerformingShops: [] // This would need separate endpoint
+        };
+
+        setStats(transformedStats);
         setDataFetched(true);
       } else {
-        // Try refreshing the token
-        const newToken = await generateAdminToken(true);
-        if (newToken) {
-          const retryStats = await adminApi.getStats();
-          if (retryStats) {
-            setStats(retryStats as PlatformStats);
-            setDataFetched(true);
-          }
+        // Fallback to old endpoint if new one fails
+        const statsData = await adminApi.getStats();
+        if (statsData) {
+          setStats(statsData as PlatformStats);
+          setDataFetched(true);
         } else {
-          setError("Failed to authenticate. Please check your wallet address.");
+          setError("Failed to load platform statistics");
         }
       }
     } catch (error) {

@@ -5,6 +5,25 @@ import { AdminRepository } from '../../../repositories/AdminRepository';
 
 const router = Router();
 
+// Get platform statistics (optimized with materialized view)
+router.get('/platform-statistics', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const adminRepository = new AdminRepository();
+    const stats = await adminRepository.getPlatformStatisticsFromView();
+
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    logger.error('Error getting platform statistics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve platform statistics'
+    });
+  }
+});
+
 // Get token circulation metrics
 router.get('/token-circulation', requireAdmin, async (req: Request, res: Response) => {
   try {

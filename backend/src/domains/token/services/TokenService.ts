@@ -415,8 +415,8 @@
       try {
         const [contractStats, platformStats] = await Promise.all([
           this.getTokenMinter().getContractStats(),
-          // Use AdminRepository to get platform statistics
-          adminRepository.getPlatformStatistics()
+          // Use AdminRepository to get optimized platform statistics from materialized view
+          adminRepository.getPlatformStatisticsFromView()
         ]);
 
         // Get top holders (simplified - would need proper database query)
@@ -442,7 +442,7 @@
         return {
           totalSupply: contractStats?.totalSupplyReadable || 0,
           totalHolders: flatCustomers.length,
-          totalTransactions: platformStats.totalTransactions,
+          totalTransactions: platformStats.transactionStats.totalTransactions,
           averageBalance,
           topHolders
         };
