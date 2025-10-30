@@ -12,7 +12,8 @@ import {
   handleRepairCompleted,
   handleReferralVerified,
   handleAdFunnelConversion,
-  handleCustomerRegistered
+  handleCustomerRegistered,
+  WebhookResult
 } from '../../../handlers/webhookHandlers';
 
 const router = Router();
@@ -101,7 +102,7 @@ router.post('/fixflow',
     });
 
     // Process webhook based on event type
-    let result: Record<string, unknown> = { success: false };
+    let result: WebhookResult = { success: false };
 
     try {
       switch (event) {
@@ -134,8 +135,8 @@ router.post('/fixflow',
 
       // Update webhook log with result using new service
       await webhookLoggingService.updateWebhookResult(webhookLog.id, {
-        success: result.success as boolean,
-        response: result,
+        success: result.success,
+        response: result as unknown as Record<string, unknown>,
         processingTimeMs: processingTime
       });
 
@@ -197,9 +198,9 @@ router.post('/test', asyncHandler(async (req: Request, res: Response) => {
   const { event, data } = req.body;
   
   logger.info(`🧪 Test webhook received: ${event}`, data);
-  
+
   // Process the webhook without signature verification
-  let result: any = { success: false };
+  let result: WebhookResult = { success: false };
   
   switch (event) {
     case 'repair_completed':
@@ -239,13 +240,13 @@ router.post('/retry/:webhookId', asyncHandler(async (req: Request, res: Response
     return ResponseHelper.notFound(res, 'Webhook not found or not failed');
   }
   
-  logger.info(`🔄 Retrying webhook: ${webhookId}`, { 
+  logger.info(`🔄 Retrying webhook: ${webhookId}`, {
     event: failedWebhook.event,
     originalTimestamp: failedWebhook.timestamp
   });
-  
+
   // Process the webhook again
-  let result: any = { success: false };
+  let result: WebhookResult = { success: false };
   const retryWebhookId = `retry_${webhookId}_${Date.now()}`;
   
   switch (failedWebhook.event) {

@@ -31,7 +31,7 @@ export class CleanupService {
   };
 
   constructor() {
-    this.webhookLogRepository = new WebhookLogRepository(getSharedPool());
+    this.webhookLogRepository = new WebhookLogRepository();
   }
 
   /**

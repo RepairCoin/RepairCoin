@@ -1,5 +1,4 @@
 // backend/src/repositories/WebhookLogRepository.ts
-import { Pool } from 'pg';
 import { BaseRepository } from './BaseRepository';
 import { logger } from '../utils/logger';
 
@@ -50,8 +49,8 @@ export interface WebhookHealthMetrics {
 }
 
 export class WebhookLogRepository extends BaseRepository {
-  constructor(pool?: Pool) {
-    super(pool);
+  constructor() {
+    super();
   }
 
   /**
