@@ -144,11 +144,17 @@ export function useAdminAuth() {
         .split(",")
         .map((addr) => addr.toLowerCase().trim())
         .filter(addr => addr.length > 0);
-      
+
       // All addresses in ADMIN_ADDRESSES are super admins
       const isSuperAdminFromEnv = adminAddresses.includes(account.address.toLowerCase());
 
-      console.log("isSuperAdminFromEnv: ", isSuperAdminFromEnv)
+      console.log("=== ADMIN AUTH DEBUG ===");
+      console.log("NEXT_PUBLIC_ADMIN_ADDRESSES env:", process.env.NEXT_PUBLIC_ADMIN_ADDRESSES);
+      console.log("Parsed admin addresses:", adminAddresses);
+      console.log("Connected wallet address:", account.address);
+      console.log("Connected wallet (lowercase):", account.address.toLowerCase());
+      console.log("Is super admin from env:", isSuperAdminFromEnv);
+      console.log("=======================")
 
       try {
         // Small delay to ensure wallet is fully ready
