@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createThirdwebClient } from "thirdweb";
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import Section from "./Section";
 import { useAuth } from "@/hooks/useAuth";
@@ -17,6 +17,7 @@ const Header: React.FC = () => {
   const [scrolled, setScrolled] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
   const hasCheckedRef = useRef(false);
   const previousAccountRef = useRef<string | undefined>(undefined);
 
@@ -129,15 +130,15 @@ const Header: React.FC = () => {
     <>
       <header
         className={`fixed top-0 left-0 z-50 w-full transition-all duration-300 ${scrolled
-          ? "bg-gray-900/90 backdrop-blur-sm shadow-md"
+          ? "bg-black/90 backdrop-blur-sm shadow-md"
           : "bg-transparent"
           }`}
       >
         <nav className="py-4">
           <Section>
-            <div className="flex flex-wrap justify-between items-center w-full">
+            <div className="flex flex-wrap justify-between items-center w-full relative">
               {/* Logo */}
-              <Link href="/" className="flex items-center">
+              <Link href="/" className="flex items-center flex-shrink-0">
                 <div className="flex items-center">
                   <img src="/img/nav-logo.png" alt="" />
                 </div>
@@ -187,43 +188,49 @@ const Header: React.FC = () => {
                 </button>
               </div>
 
-              {/* Desktop Navigation */}
-              <div className="hidden lg:flex items-center flex-1 justify-between ml-12">
-                {/* Navigation Links */}
-                <nav className="flex items-center">
-                  <ul className="flex space-x-6">
-                    {["Features", "Rewards", "About"].map((item) => (
+              {/* Desktop Navigation - Centered */}
+              <nav className="hidden lg:flex items-center absolute left-1/2 transform -translate-x-1/2">
+                <ul className="flex space-x-6">
+                  {["Home", "Features", "Rewards", "About"].map((item) => {
+                    const href = item === "Home" ? "/" : `/${item.toLowerCase()}`;
+                    const isActive = pathname?.toLowerCase() === href.toLowerCase();
+
+                    return (
                       <li key={item}>
                         <Link
-                          href={`/${item.toLowerCase()}`}
-                          className="text-gray-300 hover:text-white px-3 py-2 text-sm font-medium transition-colors duration-200"
+                          href={href}
+                          className={`${
+                            isActive
+                              ? "text-[#F7CC00]"
+                              : "text-white"
+                          } hover:text-[#F7CC00] px-3 py-2 text-sm font-medium transition-colors duration-200`}
                         >
                           {item}
                         </Link>
                       </li>
-                    ))}
-                  </ul>
-                </nav>
+                    );
+                  })}
+                </ul>
+              </nav>
 
-                {/* Auth Buttons */}
+              {/* Auth Buttons */}
+              <div className="hidden lg:flex items-center">
                 {
                   account?.address && !isLoading ? (
                     <div className="flex justify-center items-center">
-                      <ConnectButton 
+                      <ConnectButton
                         client={client}
                         connectModal={{ size: "wide" }}
                       />
                     </div>
                   ) : (
-                    <div className="flex items-center space-x-4">
-                      <button
-                        onClick={handleModalOpen}
-                        disabled={isLoading}
-                        className="text-gray-900 bg-yellow-400 hover:bg-yellow-500 px-5 py-2.5 rounded-full text-sm font-medium border border-white transition-all duration-200 hover:shadow-lg hover:shadow-yellow-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[90px]"
-                      >
-                        {isLoading ? <Spinner className="w-5 h-5" /> : "Log In"}
-                      </button>
-                    </div>
+                    <button
+                      onClick={handleModalOpen}
+                      disabled={isLoading}
+                      className="text-black bg-[#F7CC00] hover:bg-[#E5BB00] px-6 py-2 rounded-md text-sm font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[90px]"
+                    >
+                      {isLoading ? <Spinner className="w-5 h-5" /> : "Login"}
+                    </button>
                   )
                 }
               </div>
@@ -235,17 +242,24 @@ const Header: React.FC = () => {
                 <div className="px-4 py-4 space-y-4">
                   {/* Navigation Links */}
                   <nav className="flex flex-col items-center space-y-3">
-                    {["Features", "Rewards", "About"].map(
-                      (item) => (
-                        <Link
-                          key={`mobile-${item}`}
-                          href={`/${item.toLowerCase()}`}
-                          className="w-full text-center px-4 py-3 text-base font-medium text-black hover:text-white hover:bg-gray-900/50 rounded-lg transition-colors duration-200"
-                          onClick={() => setIsMenuOpen(false)}
-                        >
-                          {item}
-                        </Link>
-                      )
+                    {["Home", "Features", "Rewards", "About"].map(
+                      (item) => {
+                        const href = item === "Home" ? "/" : `/${item.toLowerCase()}`;
+                        const isActive = pathname?.toLowerCase() === href.toLowerCase();
+
+                        return (
+                          <Link
+                            key={`mobile-${item}`}
+                            href={href}
+                            className={`w-full text-center px-4 py-3 text-base font-medium ${
+                              isActive ? "text-[#F7CC00]" : "text-black"
+                            } hover:text-[#F7CC00] hover:bg-gray-900/50 rounded-lg transition-colors duration-200`}
+                            onClick={() => setIsMenuOpen(false)}
+                          >
+                            {item}
+                          </Link>
+                        );
+                      }
                     )}
                   </nav>
 
@@ -262,9 +276,9 @@ const Header: React.FC = () => {
                       <button
                         onClick={() => setIsModalOpen(true)}
                         disabled={isLoading}
-                        className="w-full px-4 py-3 text-base font-medium text-center text-black bg-[#F7CC00] hover:bg-gray-700/50 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                        className="w-full px-4 py-3 text-base font-semibold text-center text-black bg-[#F7CC00] hover:bg-[#E5BB00] rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                       >
-                        {isLoading ? <Spinner className="w-5 h-5" /> : "Log In"}
+                        {isLoading ? <Spinner className="w-5 h-5" /> : "Login"}
                       </button>
                     )}
                   </div>
