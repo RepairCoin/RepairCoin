@@ -1,5 +1,4 @@
-import { ScrollView, Text, TextInput } from "react-native";
-import { View, Image } from "react-native";
+import { ScrollView, Text, TextInput , View, Image } from "react-native";
 import { AntDesign } from "@expo/vector-icons";
 import { Checkbox } from "expo-checkbox";
 import Screen from "@/components/ui/Screen";

@@ -1,11 +1,12 @@
-import React from "react";
+import React, { useState } from "react";
 import { Text, View, ImageBackground } from "react-native";
 import { useConnect } from "thirdweb/react";
 import { client } from "@/constants/thirdweb";
-import { createWallet } from "thirdweb/wallets";
+import { createWallet, walletConnect } from "thirdweb/wallets";
 
 import { ThemedButton } from "@/components/ui/ThemedButton";
 import { useConnectWallet } from "@/hooks/useAuthQueries";
+import WalletSelectionModal from "@/components/wallet/WalletSelectionModal";
 
 const globe = require("@/assets/images/global_spin.png");
 
@@ -16,7 +17,6 @@ interface OnboardingStep3Props {
 export default function OnboardingStep3({
   slideIndex = 2,
 }: OnboardingStep3Props) {
-
   return (
     <ImageBackground
       source={globe}
@@ -55,35 +55,97 @@ export default function OnboardingStep3({
 }
 
 const ConnectWithMetaMask = () => {
-	const { connect, isConnecting } = useConnect();
-	const connectWalletMutation = useConnectWallet();
-	
-	return (
-		<ThemedButton
-			title="Connect"
-			variant="primary"
-			loading={isConnecting || connectWalletMutation.isPending}
-			loadingTitle="Connecting..."
-			onPress={() => {
-				connect(async () => {
-					const w = createWallet("io.metamask");
-					await w.connect({
-						client,
-					});
-					
-					// Get the wallet address after successful connection
-					const account = w.getAccount();
-					if (account) {
-						const address = account.address;
-						console.log('[ConnectWithMetaMask] Wallet connected successfully:', address);
-						
-						// Check customer data with the connected address
-						connectWalletMutation.mutate(address);
-					}
-					
-					return w;
-				});
-			}}
-		/>
-	);
+  const { connect, isConnecting } = useConnect();
+  const connectWalletMutation = useConnectWallet();
+  const [showWalletModal, setShowWalletModal] = useState(false);
+  const [connectingWallet, setConnectingWallet] = useState<string>();
+
+  const handleWalletSelection = async (walletId: string) => {
+    setConnectingWallet(walletId);
+
+    try {
+      await connect(async () => {
+        let w;
+        switch (walletId) {
+          // Social Login Options
+          case "google":
+            w = createWallet("inApp");
+            await w.connect({
+              client,
+              strategy: "google",
+            });
+            break;
+
+          // Wallet Apps
+          case "metamask":
+            w = createWallet("io.metamask");
+            await w.connect({ client });
+            break;
+
+          case "walletconnect":
+            w = walletConnect();
+            await w.connect({ client });
+            break;
+
+          case "coinbase":
+            w = createWallet("com.coinbase.wallet");
+            await w.connect({ client });
+            break;
+
+          case "rainbow":
+            w = createWallet("me.rainbow");
+            await w.connect({ client });
+            break;
+
+          default:
+            // Default to Google login
+            w = createWallet("inApp");
+            await w.connect({
+              client,
+              strategy: "google",
+            });
+        }
+
+        // Get the wallet address after successful connection
+        const account = w.getAccount();
+        if (account) {
+          const address = account.address;
+          console.log(
+            `[ConnectWallet] ${walletId} connected successfully:`,
+            address
+          );
+
+          // Check customer data with the connected address
+          connectWalletMutation.mutate(address);
+          setShowWalletModal(false);
+        }
+
+        return w;
+      });
+    } catch (error) {
+      console.error(`Failed to connect with ${walletId}:`, error);
+    } finally {
+      setConnectingWallet(undefined);
+    }
+  };
+
+  return (
+    <>
+      <ThemedButton
+        title="Connect"
+        variant="primary"
+        loading={isConnecting || connectWalletMutation.isPending}
+        loadingTitle="Connecting..."
+        onPress={() => setShowWalletModal(true)}
+      />
+
+      <WalletSelectionModal
+        visible={showWalletModal}
+        onClose={() => !isConnecting && setShowWalletModal(false)}
+        onSelectWallet={handleWalletSelection}
+        isConnecting={isConnecting || connectWalletMutation.isPending}
+        connectingWallet={connectingWallet}
+      />
+    </>
+  );
 };
