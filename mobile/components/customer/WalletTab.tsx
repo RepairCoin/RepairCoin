@@ -178,41 +178,10 @@ export default function WalletTab() {
     refetch: refetchCustomer,
   } = useAuthCustomer(account?.address);
 
-  console.log("autCustomerautCustomer", autCustomer)
-
   const [tierModalVisible, setTierModalVisible] = useState(false);
   const [tokenSummaryModalVisible, setTokenSummaryModalVisible] =
     useState(false);
   const [refreshing, setRefreshing] = useState(false);
-
-  // Auto-refresh data when screen is focused
-  useFocusEffect(
-    useCallback(() => {
-      console.log("[WalletTab] Screen focused, refreshing data...");
-      refetch();
-      
-      // Optional: Set up polling interval for real-time updates (every 10 seconds)
-      const interval = setInterval(() => {
-        console.log("[WalletTab] Auto-refreshing data...");
-        refetch();
-      }, 10000); // Refresh every 10 seconds
-      
-      // Cleanup interval on unmount
-      return () => {
-        console.log("[WalletTab] Cleaning up refresh interval");
-        clearInterval(interval);
-      };
-    }, [refetch])
-  );
-
-  // Refresh data when account changes
-  useEffect(() => {
-    if (account?.address) {
-      console.log("[WalletTab] Account changed, refreshing data for:", account.address);
-      refetch();
-      refetchCustomer();
-    }
-  }, [account?.address, refetch]);
 
   const tokenData = {
     tier: (customerData?.customer?.tier as Tier) || "BRONZE",
