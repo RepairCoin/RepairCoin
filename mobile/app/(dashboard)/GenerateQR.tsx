@@ -50,7 +50,7 @@ export default function GenerateQR() {
           />
         </View>
         <View className="mx-2 mt-auto mb-20">
-          <PrimaryButton title="Continue" onPress={() => router.push("/dashboard/QRCode")} />
+          <PrimaryButton title="Continue" onPress={() => router.push("/(dashboard)/QRCode")} />
         </View>
       </View>
     </Screen>

@@ -44,7 +44,7 @@ export default function ChangePrivateKeyPage() {
 
       <View className="mx-2 mt-auto mb-20 items-center gap-4">
         <MaterialCommunityIcons name="shield-check" color="#222222" size={24} />
-        <Text className="text-white/25 text-lg text-center">Your Private Key can be used to access everything in your wallet. Don't share it with anyone.</Text>
+        <Text className="text-white/25 text-lg text-center">Your Private Key can be used to access everything in your wallet. Don&apos;t share it with anyone.</Text>
         <PrimaryButton title="Done" onPress={() => {}} />
       </View>
     </View>
