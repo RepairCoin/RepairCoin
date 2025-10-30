@@ -1,7 +1,7 @@
 // backend/src/services/CleanupService.ts
 import { logger } from '../utils/logger';
 import { WebhookLogRepository } from '../repositories/WebhookLogRepository';
-import { databasePool } from '../config/database-pool';
+import { getSharedPool } from '../utils/database-pool';
 
 export interface CleanupReport {
   timestamp: Date;
@@ -31,7 +31,7 @@ export class CleanupService {
   };
 
   constructor() {
-    this.webhookLogRepository = new WebhookLogRepository(databasePool);
+    this.webhookLogRepository = new WebhookLogRepository(getSharedPool());
   }
 
   /**
@@ -128,7 +128,7 @@ export class CleanupService {
       logger.info('Archiving old transactions', { retentionDays });
 
       const query = 'SELECT archive_old_transactions($1)';
-      const result = await databasePool.query(query, [retentionDays]);
+      const result = await getSharedPool().query(query, [retentionDays]);
 
       const archivedCount = parseInt(result.rows[0].archive_old_transactions || '0');
 
@@ -183,8 +183,8 @@ export class CleanupService {
       `;
 
       const [archivedResult, webhookResult] = await Promise.all([
-        databasePool.query(archivedTransQuery),
-        databasePool.query(webhookLogsQuery)
+        getSharedPool().query(archivedTransQuery),
+        getSharedPool().query(webhookLogsQuery)
       ]);
 
       const archivedRow = archivedResult.rows[0];
@@ -242,7 +242,7 @@ export class CleanupService {
         AND status = 'completed'
       `;
 
-      const oldTransResult = await databasePool.query(oldTransactionsQuery);
+      const oldTransResult = await getSharedPool().query(oldTransactionsQuery);
       const oldTransCount = parseInt(oldTransResult.rows[0].old_count || '0');
 
       if (oldTransCount > 1000) {
@@ -327,7 +327,7 @@ export class CleanupService {
         WHERE category = 'cleanup'
       `;
 
-      const result = await databasePool.query(query);
+      const result = await getSharedPool().query(query);
       const config: Partial<CleanupConfig> = {};
 
       for (const row of result.rows) {

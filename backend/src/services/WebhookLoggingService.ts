@@ -1,7 +1,7 @@
 // backend/src/services/WebhookLoggingService.ts
 import { logger } from '../utils/logger';
 import { WebhookLogRepository, CreateWebhookLogInput, UpdateWebhookLogInput, WebhookLog } from '../repositories/WebhookLogRepository';
-import { databasePool } from '../config/database-pool';
+import { getSharedPool } from '../utils/database-pool';
 
 export interface WebhookEvent {
   webhookId: string;
@@ -25,7 +25,7 @@ export class WebhookLoggingService {
   private readonly RETRY_DELAY_SECONDS = 60;
 
   constructor() {
-    this.repository = new WebhookLogRepository(databasePool);
+    this.repository = new WebhookLogRepository(getSharedPool());
   }
 
   /**

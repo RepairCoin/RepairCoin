@@ -420,13 +420,14 @@ router.get('/rate-limit/status', asyncHandler(async (req: Request, res: Response
 async function checkDatabaseHealth(): Promise<{ status: string; details?: Record<string, unknown> }> {
   try {
     // Check database health using the shared database pool
-    const { databasePool } = await import('../../../config/database-pool');
-    const result = await databasePool.query('SELECT 1 as health_check');
+    const { getSharedPool } = await import('../../../utils/database-pool');
+    const pool = getSharedPool();
+    const result = await pool.query('SELECT 1 as health_check');
 
     const poolStats = {
-      totalConnections: databasePool.totalCount,
-      idleConnections: databasePool.idleCount,
-      activeConnections: databasePool.totalCount - databasePool.idleCount
+      totalConnections: pool.totalCount,
+      idleConnections: pool.idleCount,
+      activeConnections: pool.totalCount - pool.idleCount
     };
 
     return {
