@@ -111,6 +111,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   // QR Scanner states
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [qrScanner, setQrScanner] = useState<QrScanner | null>(null);
+  const [cameraLoading, setCameraLoading] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Load shop customers and check for pending sessions on mount
@@ -666,48 +667,78 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   const startQRScanner = async () => {
     try {
       setShowQRScanner(true);
-      if (videoRef.current) {
-        const scanner = new QrScanner(
-          videoRef.current,
-          (result) => {
-            const scannedText = result.data;
-            console.log("QR scan result:", scannedText);
-            
-            // Validate if it's an Ethereum address
-            const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
-            if (ethAddressRegex.test(scannedText)) {
-              setCustomerSearch(scannedText);
-              setCustomerAddress(scannedText);
-              stopQRScanner();
-              toast.success("Customer wallet address scanned successfully!");
-              
-              // Try to find and auto-select the customer
-              setTimeout(() => {
-                const customer = shopCustomers.find(
-                  c => c.address.toLowerCase() === scannedText.toLowerCase()
-                );
-                if (customer) {
-                  handleCustomerSelect(customer);
-                }
-              }, 100);
-            } else {
-              toast.error("Invalid wallet address in QR code");
-            }
-          },
-          { 
-            highlightScanRegion: true, 
-            highlightCodeOutline: true,
-            preferredCamera: 'environment' // Use back camera on mobile
+      setCameraLoading(true);
+
+      // Wait for video element to be ready in the DOM
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      if (!videoRef.current) {
+        throw new Error("Video element not ready");
+      }
+
+      const scanner = new QrScanner(
+        videoRef.current,
+        (result) => {
+          const scannedText = result.data;
+          console.log("QR scan result:", scannedText);
+
+          // Validate if it's an Ethereum address
+          const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
+          if (ethAddressRegex.test(scannedText)) {
+            setCustomerSearch(scannedText);
+            setCustomerAddress(scannedText);
+            stopQRScanner();
+            toast.success("Customer wallet address scanned successfully!");
+
+            // Try to find and auto-select the customer
+            setTimeout(() => {
+              const customer = shopCustomers.find(
+                c => c.address.toLowerCase() === scannedText.toLowerCase()
+              );
+              if (customer) {
+                handleCustomerSelect(customer);
+              }
+            }, 100);
+          } else {
+            toast.error("Invalid wallet address in QR code");
           }
-        );
-        
-        setQrScanner(scanner);
+        },
+        {
+          highlightScanRegion: true,
+          highlightCodeOutline: true,
+          preferredCamera: 'environment' // Use back camera on mobile
+        }
+      );
+
+      setQrScanner(scanner);
+
+      // Start the scanner with better error handling
+      try {
         await scanner.start();
+        setCameraLoading(false);
+      } catch (startError: any) {
+        console.error("Scanner start error:", startError);
+
+        // Provide more specific error messages
+        if (startError.name === 'NotAllowedError') {
+          toast.error("Camera permission denied. Please allow camera access in your browser settings.");
+        } else if (startError.name === 'NotFoundError') {
+          toast.error("No camera found on this device.");
+        } else if (startError.name === 'NotReadableError') {
+          toast.error("Camera is already in use by another application.");
+        } else {
+          toast.error("Failed to start camera. Please try again.");
+        }
+
+        setShowQRScanner(false);
+        setQrScanner(null);
+        setCameraLoading(false);
       }
     } catch (error) {
-      console.error("Error starting QR scanner:", error);
-      toast.error("Failed to start camera. Please check permissions.");
+      console.error("Error initializing QR scanner:", error);
+      toast.error("Failed to initialize camera. Please try again.");
       setShowQRScanner(false);
+      setCameraLoading(false);
     }
   };
 
@@ -717,7 +748,19 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
       qrScanner.destroy();
       setQrScanner(null);
     }
+
+    // Explicitly stop all video tracks to ensure camera is released
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => {
+        track.stop();
+        console.log('Camera track stopped:', track.kind);
+      });
+      videoRef.current.srcObject = null;
+    }
+
     setShowQRScanner(false);
+    setCameraLoading(false);
   };
 
   // Cleanup scanner on unmount
@@ -1706,16 +1749,44 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                 playsInline
                 muted
               />
-              <div className="absolute inset-0 border-2 border-blue-400 rounded-xl">
-                <div className="absolute top-4 left-4 w-6 h-6 border-t-2 border-l-2 border-blue-400"></div>
-                <div className="absolute top-4 right-4 w-6 h-6 border-t-2 border-r-2 border-blue-400"></div>
-                <div className="absolute bottom-4 left-4 w-6 h-6 border-b-2 border-l-2 border-blue-400"></div>
-                <div className="absolute bottom-4 right-4 w-6 h-6 border-b-2 border-r-2 border-blue-400"></div>
-              </div>
+              {cameraLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70">
+                  <div className="text-center">
+                    <svg
+                      className="animate-spin h-12 w-12 text-blue-400 mx-auto mb-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    <p className="text-white text-sm">Starting camera...</p>
+                  </div>
+                </div>
+              )}
+              {!cameraLoading && (
+                <div className="absolute inset-0 border-2 border-blue-400 rounded-xl">
+                  <div className="absolute top-4 left-4 w-6 h-6 border-t-2 border-l-2 border-blue-400"></div>
+                  <div className="absolute top-4 right-4 w-6 h-6 border-t-2 border-r-2 border-blue-400"></div>
+                  <div className="absolute bottom-4 left-4 w-6 h-6 border-b-2 border-l-2 border-blue-400"></div>
+                  <div className="absolute bottom-4 right-4 w-6 h-6 border-b-2 border-r-2 border-blue-400"></div>
+                </div>
+              )}
             </div>
             
             <p className="text-gray-400 text-sm mt-4 text-center">
-              Position the customer's QR code within the frame to scan their wallet address
+              Position the customer&apos;s QR code within the frame to scan their wallet address
             </p>
             
             <button
