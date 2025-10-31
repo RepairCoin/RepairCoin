@@ -3,13 +3,24 @@ import React, { useState } from "react";
 import WalletTab from "@/components/customer/WalletTab";
 import ApprovalTab from "@/components/customer/ApprovalTab";
 import ReferralTab from "@/components/customer/ReferralTab";
+import { useAuthStore } from "@/store/authStore";
+import { useCustomer } from "@/hooks";
 
 type CustomerTabs = "Wallet" | "Referral" | "Approval";
 
 export default function CustomerDashboard() {
+  const { account } = useAuthStore();
+
+  // Use the token balance hook
+  const {
+    data: customerData,
+    isLoading,
+    error,
+    refetch,
+  } = useCustomer(account?.address);
   const [activeTab, setActiveTab] = useState<CustomerTabs>("Wallet");
   const customerTabs: CustomerTabs[] = ["Wallet", "Referral", "Approval"];
-    
+
   return (
     <View className="h-full w-full bg-zinc-950">
       <View className="h-full w-full pt-14 px-4">
@@ -23,7 +34,7 @@ export default function CustomerDashboard() {
             <Text className="text-lg font-semibold text-[#FFCC00] mr-2">
               Hello!
             </Text>
-            <Text className="text-lg font-semibold text-white">Guest</Text>
+            <Text className="text-lg font-semibold text-white">{customerData?.customer.name}</Text>
           </View>
         </View>
         <View className="flex-row w-full h-12 bg-[#121212] rounded-xl justify-between">
