@@ -11,6 +11,9 @@
     "lint": "expo lint"
   },
   "dependencies": {
+    "@aws-sdk/client-kms": "^3.921.0",
+    "@aws-sdk/client-lambda": "^3.921.0",
+    "@aws-sdk/credential-providers": "^3.921.0",
     "@coinbase/wallet-mobile-sdk": "^1.1.2",
     "@expo/vector-icons": "^14.1.0",
     "@gorhom/bottom-sheet": "^5.2.6",
@@ -41,6 +44,7 @@
     "expo-status-bar": "~2.2.3",
     "expo-symbols": "~0.4.5",
     "expo-system-ui": "~5.0.11",
+    "expo-updates": "~0.28.17",
     "expo-web-browser": "~14.2.0",
     "nativewind": "^4.1.23",
     "prettier-plugin-tailwindcss": "^0.5.14",
@@ -49,6 +53,7 @@
     "react-dom": "19.0.0",
     "react-error-boundary": "^6.0.0",
     "react-native": "0.79.6",
+    "react-native-aes-gcm-crypto": "^0.2.2",
     "react-native-country-picker-modal": "^2.0.0",
     "react-native-gesture-handler": "~2.24.0",
     "react-native-get-random-values": "^1.11.0",
@@ -59,6 +64,7 @@
     "react-native-passkey": "^3.1.0",
     "react-native-picker-select": "^9.3.1",
     "react-native-qrcode-svg": "^6.3.16",
+    "react-native-quick-crypto": "^0.7.17",
     "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "^5.4.0",
     "react-native-screens": "~4.11.1",
