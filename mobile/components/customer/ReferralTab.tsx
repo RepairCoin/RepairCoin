@@ -166,11 +166,11 @@ export default function ReferralTab() {
               className="w-98 h-98 bottom-0 right-0 absolute"
               resizeMode="contain"
             />
-            <View className="pl-4 mt-8">
+            <View className="pl-4 mt-4">
               <Text className="text-black text-3xl font-extrabold mt-2">
                 Referral Code
               </Text>
-              <Text className="text-black/50 text-[12.5px] font-bold mt-4">
+              <Text className="text-black/50 text-[12.5px] font-bold mt-2">
                 Refer & Earn: You get 25 RCN, they get 10{"\n"}RCN on their
                 first repair.
               </Text>
@@ -182,11 +182,9 @@ export default function ReferralTab() {
           showsHorizontalScrollIndicator={false}
           className="flex-row my-4"
         >
-          {[
-            horizontalCardList.map((props, i) => (
-              <HorizontalCard key={i} {...props} />
-            )),
-          ]}
+          {horizontalCardList.map((props, i) => (
+            <HorizontalCard key={i} {...props} />
+          ))}
         </ScrollView>
         <Text className="text-white text-xl font-semibold mt-2 mb-4">
           Referral Code
@@ -204,7 +202,7 @@ export default function ReferralTab() {
           handleCopyValue={() => handleCopyValue("https://johndoe.com", "link")}
           isCopied={linkCopied}
         />
-        <View className="mt-5 gap-4">
+        {/* <View className="mt-5 gap-4">
           <Pressable onPress={() => setVisibleTokenSummaryModal(true)}>
             <DetailCard
               icon={
@@ -235,16 +233,16 @@ export default function ReferralTab() {
               badge="10 RCN"
             />
           </Pressable>
-        </View>
+        </View> */}
       </ScrollView>
-      <TokenSummaryModal
+      {/* <TokenSummaryModal
         visible={visibleTokenSummaryModal}
         requestClose={() => setVisibleTokenSummaryModal(false)}
       />
       <EarningByTypeModal
         visible={visibleEarningByTypeModal}
         requestClose={() => setVisibleEarningByTypeModal(false)}
-      />
+      /> */}
     </View>
   );
 }

@@ -2,6 +2,7 @@ import { Image, View, Text, Pressable } from "react-native";
 import React, { useState } from "react";
 import WalletTab from "@/components/customer/WalletTab";
 import ApprovalTab from "@/components/customer/ApprovalTab";
+import ReferralTab from "@/components/customer/ReferralTab";
 
 type CustomerTabs = "Wallet" | "Referral" | "Approval";
 
@@ -48,7 +49,7 @@ export default function CustomerDashboard() {
         </View>
         {/* <PrimaryButton title="Logout" onPress={logout} /> */}
         {activeTab === "Wallet" && <WalletTab />}
-        {/* {activeTab === "Referral" && <ReferralTab />} */}
+        {activeTab === "Referral" && <ReferralTab />}
         {activeTab === "Approval" && <ApprovalTab />}
       </View>
     </View>
