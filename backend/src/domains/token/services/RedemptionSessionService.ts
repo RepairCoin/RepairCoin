@@ -4,6 +4,7 @@ import { hashMessage, keccak256 } from 'thirdweb/utils';
 import { getAddress } from 'thirdweb';
 import { logger } from '../../../utils/logger';
 import { customerRepository, shopRepository, redemptionSessionRepository } from '../../../repositories';
+import { eventBus } from '../../../events/EventBus';
 
 export interface RedemptionSession {
   sessionId: string;
@@ -94,6 +95,26 @@ export class RedemptionSessionService {
       shopId,
       amount
     });
+
+    // Emit event for notification system
+    try {
+      await eventBus.publish({
+        type: 'token:redemption_approval_requested',
+        aggregateId: sessionId,
+        data: {
+          shopAddress: shop.walletAddress,
+          customerAddress,
+          shopName: shop.name,
+          amount,
+          redemptionSessionId: sessionId
+        },
+        timestamp: new Date(),
+        source: 'RedemptionSessionService',
+        version: 1
+      });
+    } catch (eventError) {
+      logger.error('Failed to emit redemption_approval_requested event:', eventError);
+    }
 
     // TODO: Send notification to customer app/email
     this.notifyCustomer(session);
@@ -188,6 +209,31 @@ export class RedemptionSessionService {
       hasTransferTx: !!transactionHash
     });
 
+    // Emit event for notification system
+    try {
+      const customer = await customerRepository.getCustomer(customerAddress);
+      const customerName = customer?.name || 'Customer';
+
+      const shop = await shopRepository.getShop(session.shopId);
+
+      await eventBus.publish({
+        type: 'token:redemption_approved',
+        aggregateId: sessionId,
+        data: {
+          customerAddress,
+          shopAddress: shop?.walletAddress || session.shopId,
+          customerName,
+          amount: session.maxAmount,
+          redemptionSessionId: sessionId
+        },
+        timestamp: new Date(),
+        source: 'RedemptionSessionService',
+        version: 1
+      });
+    } catch (eventError) {
+      logger.error('Failed to emit redemption_approved event:', eventError);
+    }
+
     return session;
   }
 
@@ -247,6 +293,29 @@ export class RedemptionSessionService {
       shopId: session.shopId,
       requestedAmount: session.maxAmount
     });
+
+    // Emit event for notification system
+    try {
+      const customer = await customerRepository.getCustomer(customerAddress);
+      const customerName = customer?.name || 'Customer';
+
+      await eventBus.publish({
+        type: 'token:redemption_rejected',
+        aggregateId: sessionId,
+        data: {
+          customerAddress,
+          shopAddress: shop?.walletAddress || session.shopId,
+          customerName,
+          amount: session.maxAmount,
+          redemptionSessionId: sessionId
+        },
+        timestamp: new Date(),
+        source: 'RedemptionSessionService',
+        version: 1
+      });
+    } catch (eventError) {
+      logger.error('Failed to emit redemption_rejected event:', eventError);
+    }
   }
 
   /**

@@ -5,6 +5,7 @@ import { TokenService } from '../services/TokenService';
 import { TransactionRepository } from '../../../repositories/TransactionRepository';
 import { CustomerRepository } from '../../../repositories/CustomerRepository';
 import { logger } from '../../../utils/logger';
+import { eventBus } from '../../../events/EventBus';
 
 const router = Router();
 const tokenService = new TokenService();
@@ -210,6 +211,29 @@ router.post('/transfer', asyncHandler(async (req: Request, res: Response) => {
       amount,
       transactionHash
     });
+
+    // Emit event for notification system
+    try {
+      const sender = await customerRepository.getCustomer(fromAddress);
+      const senderName = sender?.name || fromAddress.slice(0, 6) + '...' + fromAddress.slice(-4);
+
+      await eventBus.publish({
+        type: 'customer:token_gifted',
+        aggregateId: transactionHash,
+        data: {
+          fromCustomerAddress: fromAddress,
+          toCustomerAddress: toAddress,
+          fromCustomerName: senderName,
+          amount,
+          transactionId: transactionHash
+        },
+        timestamp: new Date(),
+        source: 'TokenTransferRoutes',
+        version: 1
+      });
+    } catch (eventError) {
+      logger.error('Failed to emit token_gifted event:', eventError);
+    }
 
     ResponseHelper.success(res, {
       transferId: transferTransaction.id,
