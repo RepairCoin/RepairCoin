@@ -173,17 +173,17 @@ By signing this message, I approve the redemption of ${session.amount} RCN token
 
       // Create the standardized message for signature verification
       const message = createSignatureMessage(session);
-      
+
       // Sign the message using connected account
       let signature: string;
       try {
         if (!account) {
           throw new Error("No account connected");
         }
-        
-        // In Thirdweb v5, we can sign messages directly through the account
-        const messageBytes = new TextEncoder().encode(message);
-        signature = await account.signMessage({ message: messageBytes });
+
+        // In Thirdweb v5, signMessage expects a string message, not bytes
+        // The SDK will handle the encoding internally
+        signature = await account.signMessage({ message });
       } catch (signError) {
         console.error("Signature error:", signError);
         toast.error("Signature was cancelled or failed. Please try again.", { id: "approval-process" });

@@ -3,7 +3,9 @@ import { useNotificationStore } from '../stores/notificationStore';
 import { useAuthStore } from '../stores/authStore';
 import axios from 'axios';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+// Use NEXT_PUBLIC_API_URL and extract base URL by removing /api suffix
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+const BACKEND_URL = API_URL.replace(/\/api$/, ''); // Remove /api suffix to get base URL
 const WS_URL = BACKEND_URL.replace(/^http/, 'ws');
 
 export const useNotifications = () => {
