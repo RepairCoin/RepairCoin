@@ -70,7 +70,23 @@ cd android
 
 The APK will be available at `android/app/build/outputs/apk/release/`
 
-## Troubleshooting
+### Build on Android
+
+```bash
+npx eas build --profile tester --platform android
+```
+
+### Build on iOS
+
+```bash
+npx eas build --profile tester --platform ios
+```
+
+### EAS Login
+
+```bash
+npx eas login
+```
 
 ### Common Issues
 
