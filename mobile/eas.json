@@ -13,6 +13,19 @@
     },
     "production": {
       "autoIncrement": true
+    },
+    "tester": {
+      "android": {
+        "buildType": "apk",
+        "autoIncrement": true
+      },
+      "ios": {
+        "autoIncrement": true
+      },
+      "channel": "tester",
+      "env": {
+        "NODE_VERSION": "20"
+      }
     }
   },
   "submit": {
