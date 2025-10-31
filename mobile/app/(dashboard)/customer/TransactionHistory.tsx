@@ -2,31 +2,26 @@ import TransactionHistoryCard from "@/components/customer/TransactionHistoryCard
 import TransactionHistoryFilterModal from "@/components/customer/TransactionHistoryFilterModal";
 import { AntDesign, Feather, FontAwesome } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { View, Text, TextInput, ScrollView, Pressable } from "react-native";
 import { useAuthStore } from "@/store/authStore";
 import { useCustomerStore } from "@/store/customerStore";
+import { useEarningHistory } from "@/hooks";
+import { EarningHistory } from "@/services/customerServices";
 
 export default function TransactionHistory() {
-  const { userProfile } = useAuthStore((state) => state);
-  const { fetchEarningHistory, earningHistory } = useCustomerStore((state) => state);
+  const { userProfile, account } = useAuthStore((state) => state);
   const [searchString, setSearchString] = useState<string>("");
   const [filterModalVisible, setFilterModalVisible] = useState<boolean>(false);
 
-  useEffect(() => {
-    if (!userProfile) return;
-    
-    const loadData = async () => {
-      try {
-        await fetchEarningHistory(userProfile.address);
-      } catch (error) {
-        console.error("Failed to fetch customer data:", error);
-      }
-    };
+  // Use the token balance hook
+  const {
+    data: earningHistoryData,
+    isLoading,
+    error,
+    refetch,
+  } = useEarningHistory(account?.address);
 
-    loadData();
-  }, []);
-  
   return (
     <View className="w-full h-full bg-zinc-950">
       <View className="pt-16 px-4 gap-4">
@@ -60,15 +55,42 @@ export default function TransactionHistory() {
         </View>
       </View>
       <ScrollView className="px-4 mt-4">
-        <TransactionHistoryCard success={true} />
-        <TransactionHistoryCard success={false} />
-        <TransactionHistoryCard success={true} />
-        <TransactionHistoryCard success={false} />
-        <TransactionHistoryCard success={false} />
-        <TransactionHistoryCard success={true} />
-        <TransactionHistoryCard success={false} />
-        <TransactionHistoryCard success={true} />
-        <TransactionHistoryCard success={true} />
+        {isLoading ? (
+          <View className="items-center justify-center py-8">
+            <Text className="text-white text-lg">Loading transactions...</Text>
+          </View>
+        ) : error ? (
+          <View className="items-center justify-center py-8">
+            <Text className="text-red-500 text-lg">Failed to load transactions</Text>
+            <Pressable
+              onPress={() => refetch()}
+              className="mt-4 px-6 py-3 bg-[#FFCC00] rounded-lg"
+            >
+              <Text className="text-black font-semibold">Retry</Text>
+            </Pressable>
+          </View>
+        ) : earningHistoryData?.transactions && earningHistoryData.transactions.length > 0 ? (
+          earningHistoryData.transactions
+            .filter((transaction: EarningHistory) => 
+              !searchString || 
+              transaction.description?.toLowerCase().includes(searchString.toLowerCase()) ||
+              transaction.shopName?.toLowerCase().includes(searchString.toLowerCase())
+            )
+            .map((transaction: EarningHistory) => (
+              <TransactionHistoryCard
+                key={transaction.id}
+                type={transaction.type}
+                amount={transaction.amount}
+                shopName={transaction.shopName}
+                description={transaction.description}
+                createdAt={transaction.createdAt}
+              />
+            ))
+        ) : (
+          <View className="items-center justify-center py-8">
+            <Text className="text-gray-400 text-lg">No transactions found</Text>
+          </View>
+        )}
       </ScrollView>
       <TransactionHistoryFilterModal
         visible={filterModalVisible}

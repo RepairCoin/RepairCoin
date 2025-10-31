@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import { Tier } from "@/utilities/GlobalTypes";
-import { calculateTierByAddress, getCustomerByWalletAddress, getEarningHistoryByWalletAddress, getRCNBalanceByWalletAddress } from "@/services/CustomerServices";
+import { calculateTierByAddress, getCustomerByWalletAddress, getEarningHistoryByWalletAddress, getRCNBalanceByWalletAddress } from "@/services/customerServices";
 import { useAuthStore } from "./authStore";
 
 export interface RCNBalanceData {
@@ -54,7 +54,6 @@ interface CustomerState {
 
   fetchCustomerData: (address: string) => Promise<void>;
   fetchRCNBalance: (address: string) => Promise<void>;
-  fetchEarningHistory: (address: string) => Promise<void>;
   fetchTier: (address: string, repairAmount: number) => Promise<void>;
 }
 
@@ -90,15 +89,6 @@ export const useCustomerStore = create<CustomerState>()(
       try {
         const res = await getRCNBalanceByWalletAddress(address);
         get().setRCNBalance(res.data);
-      } catch (error) {
-        console.error("An error occured:", error);
-      }
-    },
-    fetchEarningHistory: async (address) => {
-      try {
-        const token = useAuthStore.getState().userProfile?.token;
-        const res = await getEarningHistoryByWalletAddress(address, token);
-        get().setEarningHistory(res.data);
       } catch (error) {
         console.error("An error occured:", error);
       }
