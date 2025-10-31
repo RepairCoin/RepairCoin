@@ -3,7 +3,9 @@ import { queryKeys } from '../config/queryClient';
 import { 
   getCustomerByWalletAddress, 
   getRCNBalanceByWalletAddress,
-} from '../services/CustomerServices';
+  getEarningHistoryByWalletAddress,
+  CustomerEarningHistoryResponse
+} from '../services/customerServices';
 
 export const useCustomer = (address: string) => {
   return useQuery({
@@ -46,4 +48,20 @@ export const useCustomerWithBalance = (address: string) => {
       balanceQuery.refetch();
     },
   };
+};
+
+export const useEarningHistory = (address: string) => {
+  return useQuery({
+    queryKey: queryKeys.earningHistory(address),
+    queryFn: async () => {
+      if (!address) {
+        return null; // Return null instead of undefined when no address
+      }
+      const response: CustomerEarningHistoryResponse = await getEarningHistoryByWalletAddress(address);
+      return response?.data || null; // Ensure we always return a value, never undefined
+    },
+    enabled: !!address,
+    staleTime: 1 * 60 * 1000, // 1 minute
+    refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
+  });
 };

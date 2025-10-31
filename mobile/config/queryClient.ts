@@ -44,6 +44,7 @@ export const queryKeys = {
   customerRedemptions: (id: string) => [...queryKeys.customer(id), 'redemptions'] as const,
   customerTier: (id: string) => [...queryKeys.customer(id), 'tier'] as const,
   customerReferrals: (id: string) => [...queryKeys.customer(id), 'referrals'] as const,
+  earningHistory: (address: string) => [...queryKeys.customer(address), 'earningHistory'] as const,
   
   // Shop related (for future development)
   shops: () => [...queryKeys.all, 'shops'] as const,

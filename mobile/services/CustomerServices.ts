@@ -1,6 +1,6 @@
-import { apiClient } from '@/utilities/axios';
+import { apiClient } from "@/utilities/axios";
 
-interface CustomerData {
+export interface CustomerData {
   data: {
     customer: {
       address: string;
@@ -25,58 +25,87 @@ interface CustomerData {
       stripeCustomerId: string;
       createdAt: string;
       updatedAt: string;
-    },
-    blockchainBalance: number,
+    };
+    blockchainBalance: number;
     tierBenefits: {
-      earningMultiplier: number,
-      redemptionRate: number,
-      crossShopRedemption: boolean,
-      tierBonus: number,
-      features: string[]
-    },
-    earningCapacity: {},
-    tierProgression: {}
-  },
-  success: boolean,
-  message: string
+      earningMultiplier: number;
+      redemptionRate: number;
+      crossShopRedemption: boolean;
+      tierBonus: number;
+      features: string[];
+    };
+    earningCapacity: {};
+    tierProgression: {};
+  };
+  success: boolean;
+  message: string;
 }
 
-export const getCustomerByWalletAddress = async (address: string): Promise<CustomerData> => {
+export interface EarningHistory {
+  amount: number;
+  createdAt: string;
+  description: string;
+  id: number;
+  metadata: string[];
+  shopId: string;
+  shopName: string;
+  type: string;
+}
+
+export interface CustomerEarningHistoryResponse {
+  data: {
+    count: number;
+    customer: {
+      address: string;
+      lifetimeEarnings: number;
+      tier: string;
+    };
+    transactions: EarningHistory[];
+  };
+  success: boolean;
+  message: string;
+}
+
+export const getCustomerByWalletAddress = async (
+  address: string
+): Promise<CustomerData> => {
   try {
     return await apiClient.get<CustomerData>(`/customers/${address}`);
   } catch (error) {
-    console.error('Failed to fetch customer:', error);
+    console.error("Failed to fetch customer:", error);
     throw error;
   }
-}
+};
 
 export const getRCNBalanceByWalletAddress = async (address: string) => {
   try {
     return await apiClient.get(`/tokens/earned-balance/${address}`);
   } catch (error) {
-    console.error('Failed to fetch balance:', error);
+    console.error("Failed to fetch balance:", error);
     throw error;
   }
-}
+};
 
-export const getEarningHistoryByWalletAddress = async (address: string, token?: string) => {
+export const getEarningHistoryByWalletAddress = async (address: string): Promise<CustomerEarningHistoryResponse> => {
   try {
-    const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
-    return await apiClient.get(`/customers/${address}/transactions`, config);
+    return await apiClient.get<CustomerEarningHistoryResponse>(`/customers/${address}/transactions`);
   } catch (error) {
-    console.error('Failed to fetch earning history:', error);
+    console.error("Failed to fetch earning history:", error);
     throw error;
   }
-}
+};
 
-export const calculateTierByAddress = async (address: string, repairAmount: number) => {
+export const calculateTierByAddress = async (
+  address: string,
+  repairAmount: number
+) => {
   try {
-    return await apiClient.post('/shops/tier-bonus/calculate', {
+    return await apiClient.post("/shops/tier-bonus/calculate", {
       customerAddress: address,
-      repairAmount
+      repairAmount,
     });
   } catch (error) {
-    console.error('Failed to calculate tier:', error);
+    console.error("Failed to calculate tier:", error);
     throw error;
   }
-}
+};
