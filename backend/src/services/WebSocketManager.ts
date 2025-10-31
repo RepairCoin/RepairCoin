@@ -4,7 +4,7 @@ import { logger } from '../utils/logger';
 import jwt from 'jsonwebtoken';
 import { Notification } from '../repositories/NotificationRepository';
 
-interface WebSocketClient extends WebSocket {
+type WebSocketClient = WebSocket & {
   walletAddress?: string;
   isAlive?: boolean;
 }
