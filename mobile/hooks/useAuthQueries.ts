@@ -15,7 +15,6 @@ export const useAuthCustomer = (address: string) => {
         return null; // Return null instead of undefined when no address
       }
       const response = await getAuthCustomer(address);
-      console.log("responseresponse: ", response)
       return response?.data || null; // Ensure we always return a value, never undefined
     },
     enabled: !!address,
