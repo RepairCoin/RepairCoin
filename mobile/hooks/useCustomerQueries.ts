@@ -5,7 +5,7 @@ import {
   getRCNBalanceByWalletAddress,
   getEarningHistoryByWalletAddress,
   CustomerEarningHistoryResponse
-} from '../services/customerServices';
+} from '../services/CustomerServices';
 
 export const useCustomer = (address: string) => {
   return useQuery({
@@ -50,14 +50,14 @@ export const useCustomerWithBalance = (address: string) => {
   };
 };
 
-export const useEarningHistory = (address: string) => {
+export const useEarningHistory = (address: string, limit: number) => {
   return useQuery({
     queryKey: queryKeys.earningHistory(address),
     queryFn: async () => {
       if (!address) {
         return null; // Return null instead of undefined when no address
       }
-      const response: CustomerEarningHistoryResponse = await getEarningHistoryByWalletAddress(address);
+      const response: CustomerEarningHistoryResponse = await getEarningHistoryByWalletAddress(address, limit);
       return response?.data || null; // Ensure we always return a value, never undefined
     },
     enabled: !!address,
