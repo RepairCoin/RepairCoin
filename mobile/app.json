@@ -21,7 +21,6 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.anonymous.mobile",
-      "minSdkVersion": 26,
       "runtimeVersion": {
         "policy": "appVersion"
       }
@@ -42,7 +41,15 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
