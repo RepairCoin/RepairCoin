@@ -92,13 +92,13 @@ export async function warmUpPool(): Promise<void> {
   const pool = getSharedPool();
   try {
     // Execute a simple query with timeout to establish connection
-    const result = await Promise.race([
+    await Promise.race([
       pool.query('SELECT 1 as test'),
-      new Promise((_, reject) => 
+      new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Pool warmup timeout after 3s')), 3000)
       )
     ]);
-    
+
     logger.info('Database pool warmed up successfully');
   } catch (error) {
     logger.error('Failed to warm up database pool:', error);

@@ -389,6 +389,26 @@ export class RedemptionSessionService {
       customerAddress: session.customerAddress,
       requestedAmount: session.maxAmount
     });
+
+    // Emit event for notification system
+    try {
+      await eventBus.publish({
+        type: 'token:redemption_cancelled',
+        aggregateId: sessionId,
+        data: {
+          shopAddress: shop?.walletAddress || shopId,
+          customerAddress: session.customerAddress,
+          shopName: shop?.name || shopId,
+          amount: session.maxAmount,
+          redemptionSessionId: sessionId
+        },
+        timestamp: new Date(),
+        source: 'RedemptionSessionService',
+        version: 1
+      });
+    } catch (eventError) {
+      logger.error('Failed to emit redemption_cancelled event:', eventError);
+    }
   }
 
   /**
