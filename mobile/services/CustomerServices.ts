@@ -86,9 +86,9 @@ export const getRCNBalanceByWalletAddress = async (address: string) => {
   }
 };
 
-export const getEarningHistoryByWalletAddress = async (address: string): Promise<CustomerEarningHistoryResponse> => {
+export const getEarningHistoryByWalletAddress = async (address: string, limit: number): Promise<CustomerEarningHistoryResponse> => {
   try {
-    return await apiClient.get<CustomerEarningHistoryResponse>(`/customers/${address}/transactions`);
+    return await apiClient.get<CustomerEarningHistoryResponse>(`/customers/${address}/transactions?limit=${limit}`);
   } catch (error) {
     console.error("Failed to fetch earning history:", error);
     throw error;

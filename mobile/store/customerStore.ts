@@ -1,8 +1,11 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import { Tier } from "@/utilities/GlobalTypes";
-import { calculateTierByAddress, getCustomerByWalletAddress, getEarningHistoryByWalletAddress, getRCNBalanceByWalletAddress } from "@/services/customerServices";
-import { useAuthStore } from "./authStore";
+import { 
+  calculateTierByAddress, 
+  getCustomerByWalletAddress, 
+  getRCNBalanceByWalletAddress 
+} from "@/services/CustomerServices";
 
 export interface RCNBalanceData {
   earnedBalance: number;
