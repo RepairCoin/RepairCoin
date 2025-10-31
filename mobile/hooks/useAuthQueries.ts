@@ -11,9 +11,12 @@ export const useAuthCustomer = (address: string) => {
   return useQuery({
     queryKey: queryKeys.auth(),
     queryFn: async () => {
+      if (!address) {
+        return null; // Return null instead of undefined when no address
+      }
       const response = await getAuthCustomer(address);
       console.log("responseresponse: ", response)
-      return response.data;
+      return response?.data || null; // Ensure we always return a value, never undefined
     },
     enabled: !!address,
     staleTime: 2 * 60 * 1000, // 2 minutes
