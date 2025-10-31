@@ -183,9 +183,11 @@ export default function WalletTab() {
     useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  const totalBalance = (customerData?.customer?.lifetimeEarnings || 0) - (customerData?.customer?.totalRedemptions || 0);
+
   const tokenData = {
     tier: (customerData?.customer?.tier as Tier) || "BRONZE",
-    balance: customerData?.customer?.lifetimeEarnings,
+    balance: totalBalance,
     totalRedeemed: customerData?.customer?.totalRedemptions,
     totalEarned: customerData?.customer?.lifetimeEarnings,
   };
