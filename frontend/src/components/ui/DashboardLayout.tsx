@@ -2,6 +2,8 @@
 
 import React, { useState } from "react";
 import Sidebar from "./Sidebar";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { useNotifications } from "@/hooks/useNotifications";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -13,8 +15,8 @@ interface DashboardLayoutProps {
   adminRole?: string;
 }
 
-const DashboardLayout: React.FC<DashboardLayoutProps> = ({ 
-  children, 
+const DashboardLayout: React.FC<DashboardLayoutProps> = ({
+  children,
   userRole = "customer",
   activeTab,
   activeSubTab,
@@ -25,6 +27,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
+  // Initialize notification system
+  useNotifications();
+
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
@@ -34,9 +39,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Sidebar 
-        isOpen={isSidebarOpen} 
+    <div className="min-h-screen bg-[#0D0D0D]">
+      <Sidebar
+        isOpen={isSidebarOpen}
         onToggle={toggleSidebar}
         userRole={userRole}
         activeTab={activeTab}
@@ -46,7 +51,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         isSuperAdmin={isSuperAdmin}
         adminRole={adminRole}
       />
-      
+
+      {/* Notification Bell - Absolute Position */}
+      <div className={`fixed top-4 right-4 z-50 transition-all duration-300 ease-in-out ${
+        isSidebarCollapsed ? "lg:right-4" : "lg:right-4"
+      }`}>
+        <NotificationBell />
+      </div>
+
       {/* Main Content Area */}
       <div className={`
         transition-all duration-300 ease-in-out

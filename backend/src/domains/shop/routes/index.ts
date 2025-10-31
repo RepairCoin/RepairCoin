@@ -17,6 +17,7 @@ import { validateShopRoleConflict } from '../../../middleware/roleConflictValida
 import { ReferralService } from '../../../services/ReferralService';
 import { PromoCodeService } from '../../../services/PromoCodeService';
 import rcgRoutes from './rcg';
+import { eventBus } from '../../../events/EventBus';
 
 interface ShopData {
   shopId: string;
@@ -1846,6 +1847,26 @@ router.post('/:shopId/issue-reward',
         referralCompleted
       });
 
+      // Emit event for notification system
+      try {
+        await eventBus.publish({
+          type: 'shop:reward_issued',
+          aggregateId: shopId,
+          data: {
+            shopAddress: shop.walletAddress,
+            customerAddress,
+            shopName: shop.name,
+            amount: totalReward,
+            transactionId: transactionHash
+          },
+          timestamp: new Date(),
+          source: 'ShopRoutes',
+          version: 1
+        });
+      } catch (eventError) {
+        logger.error('Failed to emit reward_issued event:', eventError);
+      }
+
       res.json({
         success: true,
         data: {
@@ -1860,8 +1881,8 @@ router.post('/:shopId/issue-reward',
           shopNewBalance: shopBalance - totalReward,
           referralCompleted,
           referralMessage,
-          message: onChainSuccess 
-            ? `Successfully issued ${totalReward} RCN tokens to customer wallet` 
+          message: onChainSuccess
+            ? `Successfully issued ${totalReward} RCN tokens to customer wallet`
             : `Reward recorded (${totalReward} RCN) - tokens will be distributed later`
         }
       });

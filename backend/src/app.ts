@@ -21,11 +21,17 @@ import { CustomerDomain } from './domains/customer/CustomerDomain';
 import { TokenDomain } from './domains/token/TokenDomain';
 import { WebhookDomain } from './domains/webhook/WebhookDomain';
 import { ShopDomain } from './domains/shop/ShopDomain';
-import { AdminDomain } from './domains/admin/AdminDomain'; 
+import { AdminDomain } from './domains/admin/AdminDomain';
+import { NotificationDomain } from './domains/notification/NotificationDomain';
 import { eventBus } from './events/EventBus';
 import { monitoringService } from './services/MonitoringService';
 import { cleanupService } from './services/CleanupService';
 import { StartupValidationService } from './services/StartupValidationService';
+
+// WebSocket imports
+import { WebSocketServer } from 'ws';
+import { Server as HTTPServer } from 'http';
+import { WebSocketManager } from './services/WebSocketManager';
 
 // Your existing route imports (for non-domain routes)
 import healthRoutes from './routes/health';
@@ -42,6 +48,8 @@ import { errorTrackingMiddleware, getErrorSummary, clearErrorMetrics, monitorErr
 
 class RepairCoinApp {
   public app = express();
+  private server: HTTPServer | null = null;
+  private wsManager: WebSocketManager | null = null;
 
   async initialize(): Promise<void> {
     try {
@@ -115,7 +123,7 @@ class RepairCoinApp {
         }
       },
       credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'Cache-Control', 'Pragma', 'x-payment-page'],
       preflightContinue: false,
       optionsSuccessStatus: 204
@@ -182,16 +190,17 @@ class RepairCoinApp {
   }
 
   private async setupDomains(): Promise<void> {
-    // Register all domains including Admin
+    // Register all domains including Admin and Notification
     domainRegistry.register(new CustomerDomain());
     domainRegistry.register(new TokenDomain());
     domainRegistry.register(new WebhookDomain());
     domainRegistry.register(new ShopDomain());
-    domainRegistry.register(new AdminDomain()); // ✅ NEW: Register AdminDomain
+    domainRegistry.register(new AdminDomain());
+    domainRegistry.register(new NotificationDomain());
 
     // Initialize all domains (sets up event subscriptions)
     await domainRegistry.initializeAll();
-    
+
     logger.info('Domain setup completed', {
       domains: domainRegistry.getAllDomains().map(d => d.name)
     });
@@ -364,6 +373,22 @@ class RepairCoinApp {
     logger.info('Shutting down gracefully...');
 
     try {
+      // Close WebSocket connections
+      if (this.wsManager) {
+        this.wsManager.close();
+        logger.info('WebSocket manager closed');
+      }
+
+      // Close HTTP server
+      if (this.server) {
+        await new Promise<void>((resolve) => {
+          this.server!.close(() => {
+            logger.info('HTTP server closed');
+            resolve();
+          });
+        });
+      }
+
       // Enhanced shutdown
       await domainRegistry.cleanup();
       eventBus.clear();
@@ -385,14 +410,14 @@ class RepairCoinApp {
 
   async start(): Promise<void> {
     const port = parseInt(process.env.PORT || '4000');
-    
+
     console.log('\n🔍 BACKEND PORT CONFIGURATION:');
     console.log(`- process.env.PORT from .env: ${process.env.PORT}`);
     console.log(`- Default if not set: 4000`);
     console.log(`- Actually using port: ${port}`);
     console.log(`- Full backend URL: http://localhost:${port}`);
     console.log('');
-    
+
     // Warm up database connection pool before starting server (skip if connection tests disabled)
     if (process.env.SKIP_DB_CONNECTION_TESTS === 'true') {
       console.log('🔥 Skipping database pool warmup (connection tests disabled)');
@@ -402,7 +427,7 @@ class RepairCoinApp {
       try {
         await Promise.race([
           warmUpPool(),
-          new Promise((_, reject) => 
+          new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Pool warmup timeout after 3s')), 3000)
           )
         ]);
@@ -410,10 +435,10 @@ class RepairCoinApp {
         console.log('⚠️ Database pool warmup failed, continuing startup:', error.message);
       }
     }
-    
+
     // Perform startup validation for admin addresses (skip if connection tests disabled)
     let validation: any = { canStart: true, summary: { warnings: 0 } };
-    
+
     if (process.env.SKIP_DB_CONNECTION_TESTS === 'true' || process.env.ADMIN_SKIP_CONFLICT_CHECK === 'true') {
       console.log('🔍 Skipping startup validation (database connection issues)');
     } else {
@@ -422,11 +447,11 @@ class RepairCoinApp {
       try {
         validation = await Promise.race([
           validationService.performFullStartupValidation(),
-          new Promise((_, reject) => 
+          new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Startup validation timeout after 5s')), 5000)
           )
         ]);
-        
+
         if (!validation.canStart) {
           console.error('🚫 Application startup blocked due to validation failures');
           console.error('   Please resolve the issues above and restart the application');
@@ -436,12 +461,29 @@ class RepairCoinApp {
         console.log('⚠️ Startup validation failed, continuing anyway:', error.message);
       }
     }
-    
+
     if (validation.summary.warnings > 0) {
       console.warn(`⚠️ Application starting with ${validation.summary.warnings} warnings`);
     }
-    
-    this.app.listen(port, () => {
+
+    // Create HTTP server from Express app
+    this.server = new HTTPServer(this.app);
+
+    // Setup WebSocket server
+    const wss = new WebSocketServer({ server: this.server });
+    this.wsManager = new WebSocketManager(wss);
+
+    // Attach WebSocket manager to NotificationDomain
+    const notificationDomain = domainRegistry.getAllDomains().find(
+      d => d.name === 'notifications'
+    ) as NotificationDomain;
+
+    if (notificationDomain && notificationDomain.setWebSocketManager) {
+      notificationDomain.setWebSocketManager(this.wsManager);
+      logger.info('✅ WebSocket manager attached to NotificationDomain');
+    }
+
+    this.server.listen(port, () => {
       console.log('\n==============================================');
       console.log('🚀 RepairCoin Backend API Started Successfully');
       console.log('==============================================');
@@ -457,6 +499,9 @@ class RepairCoinApp {
       domainRegistry.getAllDomains().forEach(d => {
         console.log(`   • ${d.name}`);
       });
+      console.log('\n🔔 WebSocket Server:');
+      console.log(`   • WebSocket URL: ws://localhost:${port}`);
+      console.log(`   • Status: ${this.wsManager ? 'Active' : 'Inactive'}`);
       console.log('\n🔐 Admin Configuration:');
       console.log(`   • Admin Addresses: ${process.env.ADMIN_ADDRESSES || 'Not configured'}`);
       console.log('==============================================\n');
