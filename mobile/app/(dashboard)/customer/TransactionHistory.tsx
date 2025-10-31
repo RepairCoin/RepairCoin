@@ -46,12 +46,10 @@ export default function TransactionHistory() {
           <Text className="text-white text-xl font-semibold">
             Transaction History
           </Text>
-          <View className="w-8 h-8 bg-white rounded-full items-center justify-center">
-            <Feather name="download" color="#000" size={16} />
-          </View>
+          <View className="w-[25px]" />
         </View>
         <View className="flex-row justify-between">
-          <View className="flex-row px-4 border-2 border-[#666] rounded-full items-center">
+          <View className="flex-row px-4 border-2 border-[#666] rounded-full items-center w-full">
             <Feather name="search" color="#666" size={20} />
             <TextInput
               placeholder="Search Here"
@@ -59,15 +57,16 @@ export default function TransactionHistory() {
               value={searchString}
               onChangeText={setSearchString}
               keyboardType="email-address"
-              className="color-[#666] ml-2 w-[70%]"
+              className="color-[#666] ml-2 w-full"
             />
           </View>
-          <Pressable
+          {/* Filter Feature */}
+          {/* <Pressable
             onPress={() => setFilterModalVisible(true)}
             className="flex-row px-6 border-2 border-[#666] rounded-full items-center"
           >
             <FontAwesome name="sliders" color="#666" size={20} />
-          </Pressable>
+          </Pressable> */}
         </View>
       </View>
 
@@ -79,9 +78,6 @@ export default function TransactionHistory() {
             : earningHistoryData?.transactions?.filter(
                 (transaction: EarningHistory) =>
                   !searchString ||
-                  transaction.description
-                    ?.toLowerCase()
-                    .includes(searchString.toLowerCase()) ||
                   transaction.shopName
                     ?.toLowerCase()
                     .includes(searchString.toLowerCase())

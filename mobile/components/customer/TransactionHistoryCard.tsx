@@ -13,14 +13,14 @@ export default function TransactionHistoryCard({ type, amount, shopName, descrip
   const isEarned = type === "earned" || type === "bonus" || type === "referral" || type === "tier_bonus";
   const formattedDate = new Date(createdAt).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
   return (
-    <View className="bg-white w-full p-4 rounded-full flex-row items-center my-2">
+    <View className="bg-white w-full py-2 px-4 rounded-full flex-row items-center my-2">
       <View
-        className={`w-14 h-14 ${isEarned ? "bg-[#DDF6E2]" : "bg-[#F6C8C8]"} rounded-full items-center justify-center`}
+        className={`w-10 h-10 ${isEarned ? "bg-[#DDF6E2]" : "bg-[#F6C8C8]"} rounded-full items-center justify-center`}
       >
         {isEarned ? (
-          <Entypo name="check" color="#1A9D5B" size={24} />
+          <Entypo name="check" color="#1A9D5B" size={18} />
         ) : (
-          <Octicons name="x" color="#E34C4C" size={24} />
+          <Octicons name="x" color="#E34C4C" size={18} />
         )}
       </View>
       <View className="flex-1 px-2">
@@ -33,10 +33,10 @@ export default function TransactionHistoryCard({ type, amount, shopName, descrip
           </Text>
         </View>
         <View className="flex-row justify-between">
-          <Text className="text-[#666] text-lg font-semibold" numberOfLines={1}>
-            {description}
+          <Text className="text-[#666] text-base font-semibold" numberOfLines={1}>
+            {type}
           </Text>
-          <Text className="text-[#666] text-lg font-semibold">{formattedDate}</Text>
+          <Text className="text-[#666] text-base font-semibold">{formattedDate}</Text>
         </View>
       </View>
     </View>
