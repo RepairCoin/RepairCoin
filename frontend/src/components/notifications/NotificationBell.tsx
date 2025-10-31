@@ -22,6 +22,8 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ notification, onC
         return '✅';
       case 'redemption_rejected':
         return '❌';
+      case 'redemption_cancelled':
+        return '🚫';
       case 'token_gifted':
         return '🎁';
       default:
@@ -39,6 +41,8 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ notification, onC
         return 'Redemption Approved';
       case 'redemption_rejected':
         return 'Redemption Rejected';
+      case 'redemption_cancelled':
+        return 'Redemption Cancelled';
       case 'token_gifted':
         return 'Tokens Received';
       default:
@@ -168,6 +172,8 @@ export const NotificationBell: React.FC = () => {
         return '✅';
       case 'redemption_rejected':
         return '❌';
+      case 'redemption_cancelled':
+        return '🚫';
       case 'token_gifted':
         return '🎁';
       default:

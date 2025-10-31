@@ -33,6 +33,7 @@ export class NotificationDomain implements DomainModule {
     // Listen to redemption approval response events
     eventBus.subscribe('token:redemption_approved', this.handleRedemptionApproved.bind(this), 'NotificationDomain');
     eventBus.subscribe('token:redemption_rejected', this.handleRedemptionRejected.bind(this), 'NotificationDomain');
+    eventBus.subscribe('token:redemption_cancelled', this.handleRedemptionCancelled.bind(this), 'NotificationDomain');
 
     // Listen to token gifted events
     eventBus.subscribe('customer:token_gifted', this.handleTokenGifted.bind(this), 'NotificationDomain');
@@ -131,6 +132,29 @@ export class NotificationDomain implements DomainModule {
       }
     } catch (error: any) {
       logger.error('Error handling redemption rejected event:', error);
+    }
+  }
+
+  private async handleRedemptionCancelled(event: any): Promise<void> {
+    try {
+      const { shopAddress, customerAddress, shopName, amount, redemptionSessionId } = event.data;
+
+      logger.info(`Creating redemption cancelled notification: ${shopName} cancelled ${amount} RCN for ${customerAddress}`);
+
+      const notification = await this.notificationService.createRedemptionCancelledNotification(
+        shopAddress,
+        customerAddress,
+        shopName,
+        amount,
+        redemptionSessionId
+      );
+
+      // Send real-time notification via WebSocket
+      if (this.wsManager) {
+        this.wsManager.sendNotificationToUser(customerAddress, notification);
+      }
+    } catch (error: any) {
+      logger.error('Error handling redemption cancelled event:', error);
     }
   }
 

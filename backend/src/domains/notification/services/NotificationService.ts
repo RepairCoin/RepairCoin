@@ -7,6 +7,7 @@ export interface NotificationMessageTemplates {
   redemption_approval_request: (data: { shopName: string; amount: number }) => string;
   redemption_approved: (data: { customerName: string; amount: number }) => string;
   redemption_rejected: (data: { customerName: string; amount: number }) => string;
+  redemption_cancelled: (data: { shopName: string; amount: number }) => string;
   token_gifted: (data: { fromCustomerName: string; amount: number }) => string;
 }
 
@@ -32,6 +33,9 @@ export class NotificationService {
 
       redemption_rejected: (data) =>
         `${data.customerName} rejected the redemption request for ${data.amount} RCN.`,
+
+      redemption_cancelled: (data) =>
+        `${data.shopName} cancelled the redemption request for ${data.amount} RCN.`,
 
       token_gifted: (data) =>
         `You received ${data.amount} RCN gift from ${data.fromCustomerName}!`
@@ -118,6 +122,29 @@ export class NotificationService {
         amount,
         redemptionSessionId,
         approved,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  async createRedemptionCancelledNotification(
+    shopAddress: string,
+    customerAddress: string,
+    shopName: string,
+    amount: number,
+    redemptionSessionId: string
+  ): Promise<Notification> {
+    const message = this.messageTemplates.redemption_cancelled({ shopName, amount });
+
+    return this.createNotification({
+      senderAddress: shopAddress,
+      receiverAddress: customerAddress,
+      notificationType: 'redemption_cancelled',
+      message,
+      metadata: {
+        shopName,
+        amount,
+        redemptionSessionId,
         timestamp: new Date().toISOString()
       }
     });

@@ -40,7 +40,16 @@ export class NotificationRepository extends BaseRepository {
           message,
           metadata
         ) VALUES ($1, $2, $3, $4, $5)
-        RETURNING *
+        RETURNING
+          id,
+          sender_address,
+          receiver_address,
+          notification_type,
+          message,
+          metadata,
+          is_read,
+          timezone('UTC', created_at) as created_at,
+          timezone('UTC', updated_at) as updated_at
       `;
 
       const values = [
@@ -69,7 +78,20 @@ export class NotificationRepository extends BaseRepository {
 
   async findById(id: string): Promise<Notification | null> {
     try {
-      const query = 'SELECT * FROM notifications WHERE id = $1';
+      const query = `
+        SELECT
+          id,
+          sender_address,
+          receiver_address,
+          notification_type,
+          message,
+          metadata,
+          is_read,
+          timezone('UTC', created_at) as created_at,
+          timezone('UTC', updated_at) as updated_at
+        FROM notifications
+        WHERE id = $1
+      `;
       const result = await this.pool.query(query, [id]);
 
       if (result.rows.length === 0) {
@@ -103,8 +125,19 @@ export class NotificationRepository extends BaseRepository {
       const totalItems = parseInt(countResult.rows[0].count, 10);
 
       // Get paginated items
+      // Convert timestamps to UTC ISO format in the query
       const query = `
-        SELECT * FROM notifications
+        SELECT
+          id,
+          sender_address,
+          receiver_address,
+          notification_type,
+          message,
+          metadata,
+          is_read,
+          timezone('UTC', created_at) as created_at,
+          timezone('UTC', updated_at) as updated_at
+        FROM notifications
         WHERE receiver_address = $1
         ORDER BY created_at DESC
         LIMIT $2 OFFSET $3
@@ -144,7 +177,17 @@ export class NotificationRepository extends BaseRepository {
   async findUnreadByReceiver(receiverAddress: string): Promise<Notification[]> {
     try {
       const query = `
-        SELECT * FROM notifications
+        SELECT
+          id,
+          sender_address,
+          receiver_address,
+          notification_type,
+          message,
+          metadata,
+          is_read,
+          timezone('UTC', created_at) as created_at,
+          timezone('UTC', updated_at) as updated_at
+        FROM notifications
         WHERE receiver_address = $1 AND is_read = false
         ORDER BY created_at DESC
       `;
@@ -183,7 +226,16 @@ export class NotificationRepository extends BaseRepository {
         UPDATE notifications
         SET is_read = true, updated_at = NOW()
         WHERE id = $1
-        RETURNING *
+        RETURNING
+          id,
+          sender_address,
+          receiver_address,
+          notification_type,
+          message,
+          metadata,
+          is_read,
+          timezone('UTC', created_at) as created_at,
+          timezone('UTC', updated_at) as updated_at
       `;
       const result = await this.pool.query(query, [id]);
 
