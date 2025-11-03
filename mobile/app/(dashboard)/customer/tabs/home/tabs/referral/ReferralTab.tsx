@@ -9,11 +9,13 @@ import {
 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Clipboard from "expo-clipboard";
+import { useAuthStore } from "@/store/authStore";
+import { useCustomer } from "@/hooks";
 
 type HorizontalCardProps = {
   label: string;
   Icon: any;
-  number: string;
+  number: number;
 };
 
 type CopyableFieldProps = {
@@ -52,52 +54,67 @@ const CopyableField = ({
   value,
   isCopied,
   handleCopyValue,
-}: CopyableFieldProps) => (
-  <Pressable
-    onPress={handleCopyValue}
-    className={`p-4 ${
-      isCopied ? "bg-[#FFCC00] justify-center" : "border-dashed justify-between"
-    } border-2 border-[#FFCC00] flex-row  rounded-xl`}
-  >
-    {isCopied ? (
-      <Text className="text-base text-white font-semibold">
-        <Entypo name="check" color="#fff" size={18} />
-        {"  "}Code copied to clipboard
-      </Text>
-    ) : (
-      <React.Fragment>
-        <Text className="text-base text-[#FFCC00] font-semibold">{value}</Text>
-        <Text className="text-base text-[#ffcc00a2] font-semibold">
-          Tap to copy
+}: CopyableFieldProps) => {
+  const displayValue = value.length > 26 ? `${value.substring(0, 26)}...` : value;
+  
+  return (
+    <Pressable
+      onPress={handleCopyValue}
+      className={`p-4 ${
+        isCopied ? "bg-[#FFCC00] justify-center" : "border-dashed justify-between"
+      } border-2 border-[#FFCC00] flex-row  rounded-xl`}
+    >
+      {isCopied ? (
+        <Text className="text-base text-white font-semibold">
+          <Entypo name="check" color="#fff" size={18} />
+          {"  "}Code copied to clipboard
         </Text>
-      </React.Fragment>
-    )}
-  </Pressable>
-);
+      ) : (
+        <React.Fragment>
+          <Text className="text-base text-[#FFCC00] font-semibold">{displayValue}</Text>
+          <Text className="text-base text-[#ffcc00a2] font-semibold">
+            Tap to copy
+          </Text>
+        </React.Fragment>
+      )}
+    </Pressable>
+  );
+};
 
 export default function ReferralTab() {
+  const { account } = useAuthStore();
+  const {
+    data: customerData,
+  } = useCustomer(account?.address);
   const [codeCopied, setCodeCopied] = useState<boolean>(false);
   const [linkCopied, setLinkCopied] = useState<boolean>(false);
-  const [visibleTokenSummaryModal, setVisibleTokenSummaryModal] =
-    useState<boolean>(false);
-  const [visibleEarningByTypeModal, setVisibleEarningByTypeModal] =
-    useState<boolean>(false);
+
+  const referralData = {
+    totalReferrals: customerData?.customer?.referralCount || 0,
+    successfulReferrals: customerData?.customer?.referralCount || 0,
+    pendingReferrals: 0,
+    totalEarned: (customerData?.customer?.referralCount || 0) * 25,
+    referralCode: customerData?.customer?.referralCode || "",
+    referralLink: customerData?.customer?.referralCode
+      ? `${typeof window !== 'undefined' ? window.location.origin : ''}/customer/register?ref=${customerData?.customer?.referralCode}`
+      : "",
+  };
 
   const horizontalCardList: HorizontalCardProps[] = [
     {
       label: "Total Referrals",
       Icon: <Octicons name="people" color="#ffcc00" size={22} />,
-      number: "2",
+      number: referralData.totalReferrals,
     },
     {
       label: "Successful\nReferrals",
       Icon: <Feather name="user-check" color="#ffcc00" size={22} />,
-      number: "2",
+      number: referralData.successfulReferrals,
     },
     {
       label: "Pending\nReferrals",
       Icon: <Fontisto name="clock" color="#ffcc00" size={22} />,
-      number: "0",
+      number: referralData.pendingReferrals,
     },
     {
       label: "RCN Earned",
@@ -108,7 +125,7 @@ export default function ReferralTab() {
           size={22}
         />
       ),
-      number: "0",
+      number: referralData.totalEarned,
     },
   ];
 
@@ -176,7 +193,7 @@ export default function ReferralTab() {
         </View>
         <View className="flex-row flex-wrap my-4 -mx-2">
           {horizontalCardList.map((props, i) => (
-            <View key={i} style={{ width: '50%' }}>
+            <View key={i} style={{ width: "50%" }}>
               <HorizontalCard {...props} />
             </View>
           ))}
@@ -186,15 +203,15 @@ export default function ReferralTab() {
         </Text>
         <CopyableField
           value="EKREF5368"
-          handleCopyValue={() => handleCopyValue("EKREF5368", "code")}
+          handleCopyValue={() => handleCopyValue(referralData.referralCode, "code")}
           isCopied={codeCopied}
         />
         <Text className="text-white text-lg font-semibold my-4">
           Share your link
         </Text>
         <CopyableField
-          value="https://johndoe.com"
-          handleCopyValue={() => handleCopyValue("https://johndoe.com", "link")}
+          value={referralData.referralLink}
+          handleCopyValue={() => handleCopyValue(referralData.referralLink, "link")}
           isCopied={linkCopied}
         />
       </ScrollView>

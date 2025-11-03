@@ -23,6 +23,8 @@ export default function CustomerDashboard() {
   const [activeTab, setActiveTab] = useState<CustomerTabs>("Wallet");
   const customerTabs: CustomerTabs[] = ["Wallet", "Referral", "Approval"];
 
+  console.log("customerData: ", customerData?.customer)
+
   return (
     <View className="h-full w-full bg-zinc-950">
       <View className="h-full w-full pt-14 px-4">
