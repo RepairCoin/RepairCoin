@@ -5,35 +5,42 @@ import Screen from "@/components/ui/Screen";
 import { useState } from "react";
 import PrimaryButton from "@/components/ui/PrimaryButton";
 import { useAuthStore } from "@/store/authStore";
-import { useCustomer, useUpdateCustomerProfile } from "@/hooks/useCustomerQueries";
+import {
+  useCustomer,
+  useUpdateCustomerProfile,
+} from "@/hooks/useCustomerQueries";
 
 export default function EditProfilePage() {
   const { account } = useAuthStore();
   const { data: customerData } = useCustomer(account?.address);
   const updateProfileMutation = useUpdateCustomerProfile(account?.address);
-  
+
   const [name, setName] = useState<string>(customerData?.customer?.name || "");
-  const [email, setEmail] = useState<string>(customerData?.customer?.email || "");
-  const [phone, setPhone] = useState<string>(customerData?.customer?.phone || "");
+  const [email, setEmail] = useState<string>(
+    customerData?.customer?.email || ""
+  );
+  const [phone, setPhone] = useState<string>(
+    customerData?.customer?.phone || ""
+  );
 
   const handleSaveChanges = async () => {
     console.log(name, email, phone);
-    
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       Alert.alert("Error", "Please enter a valid email address");
       return;
     }
-    
+
     try {
       await updateProfileMutation.mutateAsync({
         name,
         email,
-        phone
+        phone,
       });
-      
+
       Alert.alert("Success", "Profile updated successfully", [
-        { text: "OK", onPress: () => goBack() }
+        { text: "OK", onPress: () => goBack() },
       ]);
     } catch (error) {
       Alert.alert("Error", "Failed to update profile. Please try again.");
@@ -44,17 +51,19 @@ export default function EditProfilePage() {
   return (
     <Screen>
       <View className="w-full h-full px-4">
-        <View className="h-20" />
-        <View className="mx-6 flex-row justify-between items-center">
-          <AntDesign name="left" color="white" size={25} onPress={goBack} />
-          <Text className="text-white text-[22px] font-extrabold">
-            Edit Profile Information
-          </Text>
-          <View className="w-[25px]" />
+        <View className="pt-16 gap-4">
+          <View className="flex-row justify-between items-center">
+            <AntDesign name="left" color="white" size={18} onPress={goBack} />
+            <Text className="text-white text-2xl font-extrabold">
+              Edit Profile Information
+            </Text>
+            <View className="w-[25px]" />
+          </View>
         </View>
-
         <View className="mt-8 mx-2">
-          <Text className="text-lg font-bold text-gray-300 mb-1">Full Name</Text>
+          <Text className="text-base font-bold text-gray-300 mb-1">
+            Full Name
+          </Text>
           <TextInput
             className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
             placeholder="Enter your full name here"
@@ -64,7 +73,7 @@ export default function EditProfilePage() {
           />
         </View>
         <View className="mt-4 mx-2">
-          <Text className="text-lg font-bold text-gray-300 mb-1">
+          <Text className="text-base font-bold text-gray-300 mb-1">
             Email Address
           </Text>
           <TextInput
@@ -76,7 +85,7 @@ export default function EditProfilePage() {
           />
         </View>
         <View className="mt-4 mx-2">
-          <Text className="text-lg font-bold text-gray-300 mb-1">
+          <Text className="text-base font-bold text-gray-300 mb-1">
             Phone Number
           </Text>
           <TextInput
@@ -87,9 +96,11 @@ export default function EditProfilePage() {
             onChangeText={setPhone}
           />
         </View>
-        <View className="mx-2 mt-auto mb-20">
-          <PrimaryButton 
-            title={updateProfileMutation.isPending ? "Saving..." : "Save Changes"} 
+        <View className="mx-2 mt-auto mb-2">
+          <PrimaryButton
+            title={
+              updateProfileMutation.isPending ? "Saving..." : "Save Changes"
+            }
             onPress={handleSaveChanges}
             loading={updateProfileMutation.isPending}
           />
