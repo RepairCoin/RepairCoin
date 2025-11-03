@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -15,15 +15,16 @@ import {
   Octicons,
   SimpleLineIcons,
 } from "@expo/vector-icons";
-import { router, useFocusEffect } from "expo-router";
+import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 
-import DetailCard from "@/components/ui/DetailCard";
-import TierBenefitsModal from "./TierBenefitsModal";
-import TokenSummaryModal from "./TokenSummaryModal";
+import { useAuthCustomer, useCustomer } from "@/hooks";
 import { useAuthStore } from "@/store/authStore";
 import { Tier } from "@/utilities/GlobalTypes";
-import { useAuthCustomer, useCustomer } from "@/hooks";
+
+import TierBenefitsModal from "./TierBenefitsModal";
+import TokenSummaryModal from "./TokenSummaryModal";
+import DetailCard from "@/components/ui/DetailCard";
 
 interface TierInfo {
   color: [string, string];
