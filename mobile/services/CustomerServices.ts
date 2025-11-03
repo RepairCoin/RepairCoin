@@ -109,3 +109,13 @@ export const calculateTierByAddress = async (
     throw error;
   }
 };
+
+export const updateCustomerProfile = async (address: string, updates: { name?: string; email?: string; phone?: string }) => {
+  try {
+    return await apiClient.put<CustomerData>(`/customers/${address}`, updates);
+  } catch (error) {
+    console.error("Failed to update customer profile:", error);
+    throw error;
+  }
+};
+  

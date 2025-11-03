@@ -1,14 +1,45 @@
 import { AntDesign } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
-import { View, Text, TextInput } from "react-native";
+import { View, Text, TextInput, Alert } from "react-native";
 import Screen from "@/components/ui/Screen";
 import { useState } from "react";
 import PrimaryButton from "@/components/ui/PrimaryButton";
+import { useAuthStore } from "@/store/authStore";
+import { useCustomer, useUpdateCustomerProfile } from "@/hooks/useCustomerQueries";
 
 export default function EditProfilePage() {
-  const [name, setName] = useState<string>("");
-  const [email, setEmail] = useState<string>("");
-  const [phone, setPhone] = useState<string>("");
+  const { account } = useAuthStore();
+  const { data: customerData } = useCustomer(account?.address);
+  const updateProfileMutation = useUpdateCustomerProfile(account?.address);
+  
+  const [name, setName] = useState<string>(customerData?.customer?.name || "");
+  const [email, setEmail] = useState<string>(customerData?.customer?.email || "");
+  const [phone, setPhone] = useState<string>(customerData?.customer?.phone || "");
+
+  const handleSaveChanges = async () => {
+    console.log(name, email, phone);
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert("Error", "Please enter a valid email address");
+      return;
+    }
+    
+    try {
+      await updateProfileMutation.mutateAsync({
+        name,
+        email,
+        phone
+      });
+      
+      Alert.alert("Success", "Profile updated successfully", [
+        { text: "OK", onPress: () => goBack() }
+      ]);
+    } catch (error) {
+      Alert.alert("Error", "Failed to update profile. Please try again.");
+      console.error("Error updating profile:", error);
+    }
+  };
 
   return (
     <Screen>
@@ -57,7 +88,11 @@ export default function EditProfilePage() {
           />
         </View>
         <View className="mx-2 mt-auto mb-20">
-          <PrimaryButton title="Save Changes" onPress={() => {}} />
+          <PrimaryButton 
+            title={updateProfileMutation.isPending ? "Saving..." : "Save Changes"} 
+            onPress={handleSaveChanges}
+            loading={updateProfileMutation.isPending}
+          />
         </View>
       </View>
     </Screen>

@@ -1,10 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
-import { queryKeys } from '../config/queryClient';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { queryClient, queryKeys } from '../config/queryClient';
 import { 
   getCustomerByWalletAddress, 
   getRCNBalanceByWalletAddress,
   getEarningHistoryByWalletAddress,
-  CustomerEarningHistoryResponse
+  CustomerEarningHistoryResponse,
+  updateCustomerProfile
 } from '../services/CustomerServices';
 
 export const useCustomer = (address: string) => {
@@ -63,5 +64,19 @@ export const useEarningHistory = (address: string, limit: number) => {
     enabled: !!address,
     staleTime: 1 * 60 * 1000, // 1 minute
     refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
+  });
+};
+
+export const useUpdateCustomerProfile = (address: string) => {
+  return useMutation({
+    mutationFn: async (updates: { name?: string; email?: string; phone?: string }) => {
+      const response = await updateCustomerProfile(address, updates);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.customerProfile(address),
+      });
+    },
   });
 };
