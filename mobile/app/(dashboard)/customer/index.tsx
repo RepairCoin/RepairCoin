@@ -1,7 +1,7 @@
 import { Image, View, Text, Pressable } from "react-native";
 import React, { useState } from "react";
 import WalletTab from "./tabs/wallet/WalletTab";
-import ApprovalTab from "@/components/customer/ApprovalTab";
+import ApprovalTab from "@/app/(dashboard)/customer/tabs/approval/ApprovalTab";
 import ReferralTab from "@/app/(dashboard)/customer/tabs/referral/ReferralTab";
 import { useAuthStore } from "@/store/authStore";
 import { useCustomer } from "@/hooks";
