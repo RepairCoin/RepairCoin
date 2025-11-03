@@ -215,6 +215,12 @@ const Sidebar: React.FC<SidebarProps> = ({
           icon: <span className="text-xl">🏷️</span>,
           tabId: "promo-codes",
         },
+        {
+          title: "Shop Location",
+          href: "/shop?tab=shop-location",
+          icon: <MapPin className="w-5 h-5" />,
+          tabId: "shop-location",
+        },
       ];
     }
 
