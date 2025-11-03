@@ -7,16 +7,14 @@ export default function CustomFooter() {
   const [active, setActive] = useState("Home");
 
   return (
-    <View
-      className="flex flex-row justify-center items-center h-full w-full"
-    >
+    <View className="flex flex-row justify-center items-center h-full w-full">
       <View className="flex-row items-center justify-around">
         {/* Home */}
         <Pressable
           className="items-center flex-1 z-10"
           onPress={() => {
             setActive("Home");
-            active !== "Home" && router.push("/customer/home");
+            active !== "Home" && router.push("/customer/tabs/home");
           }}
         >
           <Ionicons
@@ -41,7 +39,7 @@ export default function CustomFooter() {
           onPress={() => {
             setActive("Transaction");
             active !== "Transaction" &&
-              router.push("/customer/Transaction");
+              router.push("/customer/tabs/transaction");
           }}
         >
           <Ionicons
@@ -65,8 +63,7 @@ export default function CustomFooter() {
           className="items-center flex-1 z-10"
           onPress={() => {
             setActive("Shop");
-            active !== "Shop" &&
-              router.push("/showShop/Onboarding");
+            active !== "Shop" && router.push("/showShop/Onboarding");
           }}
         >
           <Ionicons
@@ -85,28 +82,27 @@ export default function CustomFooter() {
           </Text>
         </Pressable>
 
-        {/* Profile */}
+        {/* Account */}
         <Pressable
           className="items-center flex-1 z-10"
           onPress={() => {
-            setActive("Profile");
-            active !== "Profile" &&
-              router.push("/customer/profile");
+            setActive("Account");
+            active !== "Account" && router.push("/customer/tabs/account");
           }}
         >
           <Ionicons
             name="person-outline"
             size={25}
-            color={active === "Profile" ? "#FFD600" : "#888"}
+            color={active === "Account" ? "#FFD600" : "#888"}
           />
           <Text
             className={`text-xs mt-1 ${
-              active === "Profile"
+              active === "Account"
                 ? "text-yellow-400 font-semibold"
                 : "text-gray-400"
             }`}
           >
-            Profile
+            Account
           </Text>
         </Pressable>
       </View>

@@ -20,7 +20,7 @@ export default function CustomerRegisterSuccessPage() {
         Keep your account details safe and private.
       </Text>
       <Pressable
-        onPress={() => router.push("/customer/home")}
+        onPress={() => router.push("/customer/tabs/home")}
         className="mx-6 items-center justify-centerl py-4 bg-[#FFCC00] mt-auto mb-20 rounded-full flex-row justify-center gap-3"
         style={{ minHeight: 50 }}
         android_ripple={{ color: "rgba(0,0,0,0.08)", borderless: false }}

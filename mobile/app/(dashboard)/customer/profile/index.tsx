@@ -1,130 +1,65 @@
-import { Pressable, ScrollView, Text, View, Switch } from "react-native";
-import {
-  AntDesign,
-  Entypo,
-  Feather,
-  MaterialIcons,
-  SimpleLineIcons,
-} from "@expo/vector-icons";
-import React, { useEffect, useState } from "react";
-import * as Clipboard from "expo-clipboard";
-import { router } from "expo-router";
-import { useAuthStore } from "@/store/authStore";
-import { useCustomerStore } from "@/store/customerStore";
-import { useCustomer } from "@/hooks";
+import { AntDesign } from "@expo/vector-icons";
+import { goBack } from "expo-router/build/global-state/routing";
+import { View, Text, TextInput } from "react-native";
+import Screen from "@/components/ui/Screen";
+import { useState } from "react";
+import PrimaryButton from "@/components/ui/PrimaryButton";
 
-type CopyableFieldProps = {
-  value: string;
-  isCopied: boolean;
-  handleCopyValue: () => void;
-};
-
-const CopyableField = ({
-  value,
-  isCopied,
-  handleCopyValue,
-}: CopyableFieldProps) => (
-  <Pressable
-    onPress={handleCopyValue}
-    className={`p-4 ${
-      isCopied ? "bg-[#FFCC00] justify-center" : "border-dashed justify-between"
-    } border-2 border-[#FFCC00] flex-row rounded-xl`}
-  >
-    {isCopied ? (
-      <Text className="text-base text-white font-semibold">
-        <Entypo name="check" color="#fff" size={18} />
-        {"  "}Code copied to clipboard
-      </Text>
-    ) : (
-      <React.Fragment>
-        <Text className="text-base text-[#FFCC00] font-semibold">{value}</Text>
-        <Text className="text-base text-[#ffcc00a2] font-semibold">
-          Tap to copy
-        </Text>
-      </React.Fragment>
-    )}
-  </Pressable>
-);
-
-export default function MyProfile() {
-  const { logout } = useAuthStore((state) => state);
-  const { account } = useAuthStore();
-  // Use the token balance hook
-  const {
-    data: customerData,
-  } = useCustomer(account?.address);
-
-  console.log("customerData: ", customerData?.customer)
-
-  const [isCopied, setIsCopied] = useState<boolean>(false);
-
-  const handleCopyValue = async (value: string) => {
-    await Clipboard.setStringAsync(value);
-    setIsCopied(true);
-  };
-
-  const handleLogout = async () => {
-    await logout();
-  };
-
-  useEffect(() => {
-    if (isCopied) {
-      const timer = setTimeout(() => {
-        setIsCopied(false);
-      }, 1500);
-
-      return () => clearTimeout(timer);
-    }
-  }, [isCopied]);
+export default function EditProfilePage() {
+  const [name, setName] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
+  const [phone, setPhone] = useState<string>("");
 
   return (
-    <View className="w-full h-full bg-zinc-950 px-4 pt-24">
-      <ScrollView>
-        <View className="flex-row py-6 px-4 justify-between bg-[#212121] rounded-xl items-center">
-          <View className="gap-2">
-            <Text className="text-[#FFCC00] text-xl font-bold">{customerData?.customer.name}</Text>
-            <Text className="text-white/50 text-base">{customerData?.customer.email}</Text>
-          </View>
-          <Pressable
-            onPress={() => router.push("/EditProfile")}
-            className="bg-white p-2 max-h-12 w-24 rounded-lg flex-row justify-center items-center"
-          >
-            <Feather name="edit" color="#000" size={14} />
-            <Text className="text-black ml-2 text-base">Edit</Text>
-          </Pressable>
+    <Screen>
+      <View className="w-full h-full px-4">
+        <View className="h-20" />
+        <View className="mx-6 flex-row justify-between items-center">
+          <AntDesign name="left" color="white" size={25} onPress={goBack} />
+          <Text className="text-white text-[22px] font-extrabold">
+            Edit Profile Information
+          </Text>
+          <View className="w-[25px]" />
         </View>
-        <View className="py-6 px-4 bg-[#212121] rounded-xl gap-4 mt-4">
-          <View className="flex-row justify-between items-center">
-            <Text className="text-white/50 text-xl">Wallet Address</Text>
-          </View>
-          <CopyableField
-            value="0xab....057912345"
-            handleCopyValue={() => handleCopyValue("0xab....057912345")}
-            isCopied={isCopied}
+
+        <View className="mt-8 mx-2">
+          <Text className="text-lg font-bold text-gray-300 mb-1">Full Name</Text>
+          <TextInput
+            className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
+            placeholder="Enter your full name here"
+            placeholderTextColor="#999"
+            value={name}
+            onChangeText={setName}
           />
         </View>
-        <View className="p-4 bg-[#212121] rounded-xl mt-4">
-          <Pressable
-            onPress={handleLogout}
-            className="flex-row justify-between items-center"
-          >
-            <View className="flex-row items-center">
-              <View className="rounded-full bg-[#FBCDCD] w-12 h-12 items-center justify-center">
-                <MaterialIcons name="logout" color="#E74C4C" size={18} />
-              </View>
-              <View className="px-4 gap-2">
-                <Text className="text-white text-xl font-semibold">
-                  Log Out
-                </Text>
-                <Text className="text-white/50 text-sm">
-                  Surely log out an account
-                </Text>
-              </View>
-            </View>
-            <AntDesign name="right" color="#fff" size={18} />
-          </Pressable>
+        <View className="mt-4 mx-2">
+          <Text className="text-lg font-bold text-gray-300 mb-1">
+            Email Address
+          </Text>
+          <TextInput
+            className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
+            placeholder="Enter your email address here"
+            placeholderTextColor="#999"
+            value={email}
+            onChangeText={setEmail}
+          />
         </View>
-      </ScrollView>
-    </View>
+        <View className="mt-4 mx-2">
+          <Text className="text-lg font-bold text-gray-300 mb-1">
+            Phone Number
+          </Text>
+          <TextInput
+            className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
+            placeholder="Enter your phone number here"
+            placeholderTextColor="#999"
+            value={phone}
+            onChangeText={setPhone}
+          />
+        </View>
+        <View className="mx-2 mt-auto mb-20">
+          <PrimaryButton title="Save Changes" onPress={() => {}} />
+        </View>
+      </View>
+    </Screen>
   );
 }

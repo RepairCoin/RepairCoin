@@ -70,7 +70,7 @@ export default function ConnectWalletPage() {
         await login().then(() => {
           console.log(isCustomer);
           if (isCustomer) {
-            router.push("/customer/home");
+            router.push("/customer/tabs/home");
           }
         });
       }

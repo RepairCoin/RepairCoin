@@ -29,11 +29,11 @@ export default function CustomerDashboard() {
         <View className="flex-row items-center justify-between">
           <Image
             source={require("@/assets/images/logo.png")}
-            className="w-[40%] h-10"
+            className="w-[45%] h-10"
             resizeMode="contain"
           />
           <Pressable
-            onPress={() => router.push("/customer/home/Notification")}
+            onPress={() => router.push("/customer/notification")}
             className="w-10 h-10 bg-[#121212] rounded-full items-center justify-center"
           >
             <Feather name="bell" size={20} color="white" />
