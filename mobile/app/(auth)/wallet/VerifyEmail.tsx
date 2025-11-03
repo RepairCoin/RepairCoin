@@ -32,7 +32,7 @@ export default function VerifyEmailPage() {
         await login().then(() => {
           console.log(isCustomer);
           if (isCustomer) {
-            router.push("/customer");
+            router.push("/customer/home");
           }
         });
       }

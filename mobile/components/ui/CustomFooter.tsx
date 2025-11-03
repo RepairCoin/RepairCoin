@@ -16,7 +16,7 @@ export default function CustomFooter() {
           className="items-center flex-1 z-10"
           onPress={() => {
             setActive("Home");
-            active !== "Home" && router.push("/customer");
+            active !== "Home" && router.push("/customer/home");
           }}
         >
           <Ionicons

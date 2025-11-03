@@ -55,12 +55,12 @@ export const useConnectWallet = () => {
         } else {
           // User is authenticated, navigate to dashboard
           if (isCustomer) {
-            router.push("/customer");
+            router.push("/customer/home");
           } else if (isShop) {
             // TODO: Add shop dashboard when available
-            router.push("/customer");
+            router.push("/customer/home");
           } else {
-            router.push("/customer");
+            router.push("/customer/home");
           }
         }
       }
@@ -93,12 +93,12 @@ export const useSplashNavigation = () => {
     if (isAuthenticated) {
       // User is authenticated, go to appropriate dashboard
       if (isCustomer) {
-        return '/customer';
+        return '/customer/home';
       } else if (isShop) {
         // TODO: Add shop dashboard route when implemented
-        return '/customer';
+        return '/customer/home';
       } else {
-        return '/customer';
+        return '/customer/home';
       }
     } else {
       // Not authenticated, go to onboarding
