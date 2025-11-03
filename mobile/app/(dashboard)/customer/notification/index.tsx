@@ -1,7 +1,7 @@
+import { View, Text, ScrollView, Pressable, Image } from "react-native";
 import { AntDesign, FontAwesome } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { goBack } from "expo-router/build/global-state/routing";
-import { View, Text, ScrollView, Pressable, Image } from "react-native";
 
 const NotificationCard = () => {
   return (

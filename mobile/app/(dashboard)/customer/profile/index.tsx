@@ -1,5 +1,4 @@
 import { Pressable, ScrollView, Text, View, Switch } from "react-native";
-import { useAuthStore } from "@/store/authStore";
 import {
   AntDesign,
   Entypo,
@@ -10,6 +9,7 @@ import {
 import React, { useEffect, useState } from "react";
 import * as Clipboard from "expo-clipboard";
 import { router } from "expo-router";
+import { useAuthStore } from "@/store/authStore";
 
 type CopyableFieldProps = {
   value: string;

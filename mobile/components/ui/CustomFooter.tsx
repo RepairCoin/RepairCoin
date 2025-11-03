@@ -41,7 +41,7 @@ export default function CustomFooter() {
           onPress={() => {
             setActive("Notification");
             active !== "Notification" &&
-              router.push("/customer/Notification");
+              router.push("/customer/notification");
           }}
         >
           <Ionicons
@@ -91,7 +91,7 @@ export default function CustomFooter() {
           onPress={() => {
             setActive("Profile");
             active !== "Profile" &&
-              router.push("/customer/MyProfile");
+              router.push("/customer/profile");
           }}
         >
           <Ionicons
