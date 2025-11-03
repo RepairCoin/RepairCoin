@@ -70,13 +70,13 @@ const ActionButton: React.FC<ActionButtonProps> = ({
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      className={`w-16 h-16 rounded-full justify-center items-center ${
+      className={`w-12 h-12 rounded-full justify-center items-center ${
         disabled ? "bg-gray-700" : "bg-[#1A1A1C]"
       }`}
     >
       {icon}
     </Pressable>
-    <Text className="text-white text-lg font-semibold mt-2">{label}</Text>
+    <Text className="text-white text-base font-semibold mt-2">{label}</Text>
   </View>
 );
 
@@ -108,7 +108,7 @@ const BalanceCard: React.FC<{
 
         {/* Content */}
         <View className="pl-4">
-          <Text className="text-black font-semibold mt-4">
+          <Text className="text-black text-base font-semibold mt-4">
             Your Current RCN Balance
           </Text>
 
@@ -117,7 +117,7 @@ const BalanceCard: React.FC<{
               <ActivityIndicator size="large" color="#000" />
             ) : (
               <>
-                <Text className="text-black text-4xl font-extrabold">
+                <Text className="text-black text-3xl font-extrabold">
                   {balance ?? 0} RCN
                 </Text>
                 <Entypo
@@ -132,7 +132,7 @@ const BalanceCard: React.FC<{
 
           {/* Tier Badge */}
           <View
-            className="w-32 h-9 mt-4 rounded-full overflow-hidden"
+            className="w-28 h-8 mt-4 rounded-full overflow-hidden"
             style={{
               shadowColor: "black",
               shadowOffset: { width: 0, height: 6 },
@@ -148,8 +148,8 @@ const BalanceCard: React.FC<{
               className="w-full h-full items-center justify-center"
             >
               <View className="items-center justify-center flex-row">
-                <SimpleLineIcons name="badge" color="#000" size={15} />
-                <Text className="text-black font-semibold ml-2">
+                <SimpleLineIcons name="badge" color="#000" size={12} />
+                <Text className="text-black text-sm font-semibold ml-2">
                   {tierInfo.label} Tier
                 </Text>
               </View>
@@ -171,13 +171,6 @@ export default function WalletTab() {
     error,
     refetch,
   } = useCustomer(account?.address);
-
-  const {
-    data: autCustomer,
-    isLoading: isLoadingCustomer,
-    error: errorCustomer,
-    refetch: refetchCustomer,
-  } = useAuthCustomer(account?.address);
 
   const [tierModalVisible, setTierModalVisible] = useState(false);
   const [tokenSummaryModalVisible, setTokenSummaryModalVisible] =
@@ -242,20 +235,6 @@ export default function WalletTab() {
         isLoading={isLoading}
       />
 
-      {/* Action Buttons */}
-      <View className="flex-row justify-between mt-6 px-8">
-        <ActionButton
-          onPress={handleTokenSummaryPress}
-          icon={<MaterialIcons name="summarize" color="#fff" size={24} />}
-          label="Summary"
-          disabled={isLoading}
-        />
-        <ActionButton
-          onPress={handleTierBenefitsPress}
-          icon={<MaterialIcons name="info" color="#fff" size={24} />}
-          label="Tier Benefits"
-        />
-      </View>
       {/* Detail Cards - Scrollable Section */}
       <ScrollView
         className="flex-1 mt-5"
@@ -292,7 +271,7 @@ export default function WalletTab() {
               <ActivityIndicator size="small" color="#000" />
             ) : (
               <>
-                <Text className="text-5xl font-semibold">
+                <Text className="text-3xl font-semibold">
                   {tokenData.totalRedeemed}
                 </Text>{" "}
               </>
@@ -311,7 +290,7 @@ export default function WalletTab() {
               <ActivityIndicator size="small" color="#000" />
             ) : (
               <>
-                <Text className="text-5xl font-semibold">
+                <Text className="text-3xl font-semibold">
                   {tokenData.totalEarned}
                 </Text>{" "}
               </>
@@ -326,17 +305,6 @@ export default function WalletTab() {
           badge={tierInfo.label}
         />
       </ScrollView>
-
-      {/* Modals */}
-      <TierBenefitsModal
-        visible={tierModalVisible}
-        requestClose={() => setTierModalVisible(false)}
-      />
-
-      <TokenSummaryModal
-        visible={tokenSummaryModalVisible}
-        requestClose={() => setTokenSummaryModalVisible(false)}
-      />
     </View>
   );
 }

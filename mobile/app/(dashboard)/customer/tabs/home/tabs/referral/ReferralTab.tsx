@@ -167,7 +167,7 @@ export default function ReferralTab() {
               <Text className="text-black text-3xl font-extrabold mt-2">
                 Referral Code
               </Text>
-              <Text className="text-black/50 text-[12.5px] font-bold mt-2">
+              <Text className="text-black/50 text-sm font-bold mt-2">
                 Refer & Earn: You get 25 RCN, they get 10{"\n"}RCN on their
                 first repair.
               </Text>

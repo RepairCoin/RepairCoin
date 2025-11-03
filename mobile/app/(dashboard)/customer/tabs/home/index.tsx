@@ -49,7 +49,7 @@ export default function CustomerDashboard() {
             </Text>
           </View>
         </View>
-        <View className="flex-row w-full h-12 bg-[#121212] rounded-xl justify-between">
+        <View className="flex-row w-full h-10 bg-[#121212] rounded-xl justify-between">
           {customerTabs.map((tab, i) => (
             <React.Fragment key={i}>
               <Pressable
@@ -59,7 +59,7 @@ export default function CustomerDashboard() {
                 className={`bg-${activeTab === tab ? "[#FFCC00]" : "[#121212]"} w-[33%] flex-row ${i === 0 && "rounded-l-xl"} ${i === 2 && "rounded-r-xl"} items-center justify-center`}
               >
                 <Text
-                  className={`text-lg font-bold text-${activeTab === tab ? "black" : "gray-400"}`}
+                  className={`text-base font-bold text-${activeTab === tab ? "black" : "gray-400"}`}
                 >
                   {tab}
                 </Text>
