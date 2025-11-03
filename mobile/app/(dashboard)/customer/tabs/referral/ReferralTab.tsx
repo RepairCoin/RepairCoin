@@ -1,3 +1,5 @@
+import React, { useEffect, useState } from "react";
+import { View, Text, Pressable, Image, ScrollView } from "react-native";
 import {
   Entypo,
   Feather,
@@ -6,12 +8,7 @@ import {
   Octicons,
 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { View, Text, Pressable, Image, ScrollView } from "react-native";
 import * as Clipboard from "expo-clipboard";
-import React, { useEffect, useState } from "react";
-import DetailCard from "@/components/ui/DetailCard";
-import TokenSummaryModal from "../../app/(dashboard)/customer/tabs/wallet/TokenSummaryModal";
-import EarningByTypeModal from "./EarningByTypeModal";
 
 type HorizontalCardProps = {
   label: string;
@@ -202,47 +199,7 @@ export default function ReferralTab() {
           handleCopyValue={() => handleCopyValue("https://johndoe.com", "link")}
           isCopied={linkCopied}
         />
-        {/* <View className="mt-5 gap-4">
-          <Pressable onPress={() => setVisibleTokenSummaryModal(true)}>
-            <DetailCard
-              icon={
-                <MaterialCommunityIcons
-                  name="hand-coin-outline"
-                  color="#000"
-                  size={20}
-                />
-              }
-              title="RCN Breakdown"
-              label="Tap to show breakdown"
-              badge="10 RCN"
-            />
-          </Pressable>
-          <Pressable
-            onPress={() => setVisibleEarningByTypeModal(true)}
-          >
-            <DetailCard
-              icon={
-                <MaterialCommunityIcons
-                  name="hand-coin-outline"
-                  color="#000"
-                  size={20}
-                />
-              }
-              title="Earning By Type"
-              label="Tap to show earnings."
-              badge="10 RCN"
-            />
-          </Pressable>
-        </View> */}
       </ScrollView>
-      {/* <TokenSummaryModal
-        visible={visibleTokenSummaryModal}
-        requestClose={() => setVisibleTokenSummaryModal(false)}
-      />
-      <EarningByTypeModal
-        visible={visibleEarningByTypeModal}
-        requestClose={() => setVisibleEarningByTypeModal(false)}
-      /> */}
     </View>
   );
 }
