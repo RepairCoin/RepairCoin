@@ -2942,6 +2942,2638 @@ const options = {
             }
           }
         }
+      },
+
+      '/api/referrals/rcn-breakdown': {
+        get: {
+          tags: ['Referrals'],
+          summary: 'Get RCN breakdown by source',
+          description: 'Get customer RCN breakdown by earning source',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: {
+              description: 'RCN breakdown data'
+            }
+          }
+        }
+      },
+
+      '/api/referrals/verify-redemption': {
+        post: {
+          tags: ['Referrals'],
+          summary: 'Verify redemption eligibility',
+          description: 'Verify if customer can redeem at shop',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['customerAddress', 'shopId', 'amount'],
+                  properties: {
+                    customerAddress: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+                    shopId: { type: 'string' },
+                    amount: { type: 'number' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Verification result'
+            }
+          }
+        }
+      },
+
+      // Authentication - Additional endpoints
+      '/api/auth/profile': {
+        post: {
+          tags: ['Authentication'],
+          summary: 'Get current user profile',
+          description: 'Get detailed profile information for authenticated user',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: {
+              description: 'User profile retrieved'
+            }
+          }
+        }
+      },
+
+      '/api/auth/session': {
+        get: {
+          tags: ['Authentication'],
+          summary: 'Validate session',
+          description: 'Validate current session and return user info',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: {
+              description: 'Session valid'
+            }
+          }
+        }
+      },
+
+      // Health - Additional endpoints
+      '/api/health/database': {
+        get: {
+          tags: ['System'],
+          summary: 'Database health check',
+          description: 'Check database connection and health',
+          responses: {
+            200: {
+              description: 'Database is healthy'
+            }
+          }
+        }
+      },
+
+      '/api/health/blockchain': {
+        get: {
+          tags: ['System'],
+          summary: 'Blockchain health check',
+          description: 'Check blockchain connection and contract status',
+          responses: {
+            200: {
+              description: 'Blockchain is healthy'
+            }
+          }
+        }
+      },
+
+      // Customer - Balance Management
+      '/api/customers/shops': {
+        get: {
+          tags: ['Customers'],
+          summary: 'Get shops for QR code generation',
+          description: 'Get list of shops for customer QR code generation',
+          responses: {
+            200: {
+              description: 'Shop list'
+            }
+          }
+        }
+      },
+
+      '/api/customers/{address}/request-unsuspend': {
+        post: {
+          tags: ['Customers'],
+          summary: 'Request unsuspension',
+          description: 'Request account unsuspension (rate limited)',
+          parameters: [
+            {
+              name: 'address',
+              in: 'path',
+              required: true,
+              schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' }
+            }
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    reason: { type: 'string' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Unsuspend request submitted'
+            }
+          }
+        }
+      },
+
+      '/api/customers/{address}/balance': {
+        get: {
+          tags: ['Customers'],
+          summary: 'Get enhanced balance information',
+          description: 'Get customer enhanced balance with breakdown',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'address',
+              in: 'path',
+              required: true,
+              schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Balance information'
+            }
+          }
+        }
+      },
+
+      '/api/customers/{address}/queue-mint': {
+        post: {
+          tags: ['Customers'],
+          summary: 'Queue balance for minting',
+          description: 'Queue customer balance for minting to wallet',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'address',
+              in: 'path',
+              required: true,
+              schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Mint queued successfully'
+            }
+          }
+        }
+      },
+
+      '/api/customers/{address}/sync': {
+        post: {
+          tags: ['Customers'],
+          summary: 'Sync balance with transactions',
+          description: 'Synchronize customer balance with transaction history',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'address',
+              in: 'path',
+              required: true,
+              schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Balance synchronized'
+            }
+          }
+        }
+      },
+
+      '/api/customers/pending-mints': {
+        get: {
+          tags: ['Customers'],
+          summary: 'Get customers with pending mints',
+          description: 'Get list of customers with pending mint requests',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: {
+              description: 'Pending mints list'
+            }
+          }
+        }
+      },
+
+      '/api/customers/statistics': {
+        get: {
+          tags: ['Customers'],
+          summary: 'Get balance statistics',
+          description: 'Get platform-wide balance statistics',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: {
+              description: 'Balance statistics'
+            }
+          }
+        }
+      },
+
+      // Customer - Cross-Shop Redemption
+      '/api/customers/cross-shop/verify': {
+        post: {
+          tags: ['Customers'],
+          summary: 'Verify cross-shop redemption',
+          description: 'Verify cross-shop redemption eligibility',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['customerAddress', 'shopId', 'amount'],
+                  properties: {
+                    customerAddress: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+                    shopId: { type: 'string' },
+                    amount: { type: 'number' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Verification result'
+            }
+          }
+        }
+      },
+
+      '/api/customers/cross-shop/balance/{customerAddress}': {
+        get: {
+          tags: ['Customers'],
+          summary: 'Get cross-shop balance breakdown',
+          description: 'Get customer cross-shop balance breakdown by shop',
+          parameters: [
+            {
+              name: 'customerAddress',
+              in: 'path',
+              required: true,
+              schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Balance breakdown'
+            }
+          }
+        }
+      },
+
+      '/api/customers/cross-shop/process': {
+        post: {
+          tags: ['Customers'],
+          summary: 'Process cross-shop redemption',
+          description: 'Process approved cross-shop redemption',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['sessionId'],
+                  properties: {
+                    sessionId: { type: 'string' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Redemption processed'
+            }
+          }
+        }
+      },
+
+      '/api/customers/cross-shop/history/{customerAddress}': {
+        get: {
+          tags: ['Customers'],
+          summary: 'Get cross-shop verification history',
+          description: 'Get customer cross-shop verification history',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'customerAddress',
+              in: 'path',
+              required: true,
+              schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Verification history'
+            }
+          }
+        }
+      },
+
+      '/api/customers/cross-shop/stats/network': {
+        get: {
+          tags: ['Customers'],
+          summary: 'Get network cross-shop statistics',
+          description: 'Get network-wide cross-shop redemption statistics',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: {
+              description: 'Network statistics'
+            }
+          }
+        }
+      },
+
+      '/api/customers/{address}/export': {
+        get: {
+          tags: ['Customers'],
+          summary: 'Export customer data',
+          description: 'Export customer data as JSON or CSV',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'address',
+              in: 'path',
+              required: true,
+              schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' }
+            },
+            {
+              name: 'format',
+              in: 'query',
+              schema: {
+                type: 'string',
+                enum: ['json', 'csv'],
+                default: 'json'
+              }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Customer data export'
+            }
+          }
+        }
+      },
+
+      // Notification endpoints (entire domain missing)
+      '/api/notifications': {
+        get: {
+          tags: ['Notifications'],
+          summary: 'Get notifications',
+          description: 'Get paginated notifications for authenticated user',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'page',
+              in: 'query',
+              schema: { type: 'integer', default: 1 }
+            },
+            {
+              name: 'limit',
+              in: 'query',
+              schema: { type: 'integer', default: 20 }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Notification list'
+            }
+          }
+        },
+        delete: {
+          tags: ['Notifications'],
+          summary: 'Delete all notifications',
+          description: 'Delete all notifications for authenticated user',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: {
+              description: 'All notifications deleted'
+            }
+          }
+        }
+      },
+
+      '/api/notifications/unread': {
+        get: {
+          tags: ['Notifications'],
+          summary: 'Get unread notifications',
+          description: 'Get all unread notifications',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: {
+              description: 'Unread notifications'
+            }
+          }
+        }
+      },
+
+      '/api/notifications/unread/count': {
+        get: {
+          tags: ['Notifications'],
+          summary: 'Get unread count',
+          description: 'Get count of unread notifications',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: {
+              description: 'Unread count'
+            }
+          }
+        }
+      },
+
+      '/api/notifications/{id}': {
+        get: {
+          tags: ['Notifications'],
+          summary: 'Get notification by ID',
+          description: 'Get specific notification details',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Notification details'
+            }
+          }
+        },
+        delete: {
+          tags: ['Notifications'],
+          summary: 'Delete notification',
+          description: 'Delete specific notification',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Notification deleted'
+            }
+          }
+        }
+      },
+
+      '/api/notifications/{id}/read': {
+        patch: {
+          tags: ['Notifications'],
+          summary: 'Mark notification as read',
+          description: 'Mark specific notification as read',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Notification marked as read'
+            }
+          }
+        }
+      },
+
+      '/api/notifications/read-all': {
+        patch: {
+          tags: ['Notifications'],
+          summary: 'Mark all as read',
+          description: 'Mark all notifications as read',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: {
+              description: 'All notifications marked as read'
+            }
+          }
+        }
+      },
+
+      // Shop - Additional endpoints
+      '/api/shops/{shopId}/details': {
+        put: {
+          tags: ['Shops'],
+          summary: 'Update shop details',
+          description: 'Update detailed shop information',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'shopId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            }
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    companyName: { type: 'string' },
+                    phone: { type: 'string' },
+                    email: { type: 'string' },
+                    website: { type: 'string' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Shop details updated'
+            }
+          }
+        }
+      },
+
+      '/api/shops/{shopId}/analytics': {
+        get: {
+          tags: ['Shops'],
+          summary: 'Get shop analytics',
+          description: 'Get detailed analytics for shop',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'shopId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Shop analytics'
+            }
+          }
+        }
+      },
+
+      '/api/shops/{shopId}/cross-shop': {
+        post: {
+          tags: ['Shops'],
+          summary: 'Enable/disable cross-shop',
+          description: 'Enable or disable cross-shop redemption',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'shopId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            }
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    enabled: { type: 'boolean' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Cross-shop setting updated'
+            }
+          }
+        }
+      },
+
+      '/api/shops/admin/pending': {
+        get: {
+          tags: ['Shops'],
+          summary: 'Get pending shops',
+          description: 'Get all pending shop applications (admin only)',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: {
+              description: 'Pending shop list'
+            }
+          }
+        }
+      },
+
+      '/api/shops/{shopId}/customers': {
+        get: {
+          tags: ['Shops'],
+          summary: 'Get shop customers',
+          description: 'Get all customers associated with shop',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'shopId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Customer list'
+            }
+          }
+        }
+      },
+
+      '/api/shops/{shopId}/customer-growth': {
+        get: {
+          tags: ['Shops'],
+          summary: 'Get customer growth metrics',
+          description: 'Get customer growth and retention metrics',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'shopId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Customer growth metrics'
+            }
+          }
+        }
+      },
+
+      '/api/shops/{shopId}/qr-code': {
+        get: {
+          tags: ['Shops'],
+          summary: 'Get shop QR code',
+          description: 'Generate QR code for shop',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'shopId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'QR code data'
+            }
+          }
+        }
+      },
+
+      '/api/shops/{shopId}/reimbursement-address': {
+        put: {
+          tags: ['Shops'],
+          summary: 'Update reimbursement address',
+          description: 'Update shop reimbursement wallet address',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'shopId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            }
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    reimbursementAddress: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Reimbursement address updated'
+            }
+          }
+        }
+      },
+
+      '/api/shops/{shopId}/purchases': {
+        get: {
+          tags: ['Shops'],
+          summary: 'Get shop purchases',
+          description: 'Get RCN purchase history for shop',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'shopId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Purchase history'
+            }
+          }
+        }
+      },
+
+      // Shop Purchase endpoints
+      '/api/shops/purchase/initiate': {
+        post: {
+          tags: ['Shops'],
+          summary: 'Initiate RCN purchase',
+          description: 'Initiate shop RCN purchase transaction',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['shopId', 'amount'],
+                  properties: {
+                    shopId: { type: 'string' },
+                    amount: { type: 'number' },
+                    paymentMethod: { type: 'string' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Purchase initiated'
+            }
+          }
+        }
+      },
+
+      '/api/shops/purchase/complete': {
+        post: {
+          tags: ['Shops'],
+          summary: 'Complete RCN purchase',
+          description: 'Complete RCN purchase after payment',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['purchaseId'],
+                  properties: {
+                    purchaseId: { type: 'string' },
+                    txHash: { type: 'string' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Purchase completed'
+            }
+          }
+        }
+      },
+
+      '/api/shops/purchase/balance/{shopId}': {
+        get: {
+          tags: ['Shops'],
+          summary: 'Get shop RCN balance',
+          description: 'Get current RCN balance for shop',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'shopId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Shop balance'
+            }
+          }
+        }
+      },
+
+      '/api/shops/purchase/history/{shopId}': {
+        get: {
+          tags: ['Shops'],
+          summary: 'Get purchase history',
+          description: 'Get RCN purchase history for shop',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'shopId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Purchase history'
+            }
+          }
+        }
+      },
+
+      '/api/shops/purchase/stripe-checkout': {
+        post: {
+          tags: ['Shops'],
+          summary: 'Create Stripe checkout',
+          description: 'Create Stripe checkout session for RCN purchase',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['shopId', 'amount'],
+                  properties: {
+                    shopId: { type: 'string' },
+                    amount: { type: 'number' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Checkout session created'
+            }
+          }
+        }
+      },
+
+      '/api/shops/purchase/{purchaseId}/continue': {
+        post: {
+          tags: ['Shops'],
+          summary: 'Continue pending purchase',
+          description: 'Continue a pending RCN purchase',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'purchaseId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Purchase continued'
+            }
+          }
+        }
+      },
+
+      // Shop Subscription endpoints
+      '/api/shops/subscription/status': {
+        get: {
+          tags: ['Shops'],
+          summary: 'Get subscription status',
+          description: 'Get shop subscription status (commitment program)',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: {
+              description: 'Subscription status'
+            }
+          }
+        }
+      },
+
+      '/api/shops/subscription/sync': {
+        post: {
+          tags: ['Shops'],
+          summary: 'Sync subscription status',
+          description: 'Sync subscription status with Stripe',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: {
+              description: 'Subscription synced'
+            }
+          }
+        }
+      },
+
+      '/api/shops/subscription/subscribe': {
+        post: {
+          tags: ['Shops'],
+          summary: 'Subscribe to commitment program',
+          description: 'Subscribe shop to commitment program',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    plan: { type: 'string' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Subscription created'
+            }
+          }
+        }
+      },
+
+      '/api/shops/subscription/cancel': {
+        post: {
+          tags: ['Shops'],
+          summary: 'Cancel subscription',
+          description: 'Cancel shop subscription',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: {
+              description: 'Subscription canceled'
+            }
+          }
+        }
+      },
+
+      // Token - Additional endpoints
+      '/api/tokens/balance/{address}': {
+        get: {
+          tags: ['Tokens'],
+          summary: 'Get token balance',
+          description: 'Get token balance for address',
+          parameters: [
+            {
+              name: 'address',
+              in: 'path',
+              required: true,
+              schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Token balance'
+            }
+          }
+        }
+      },
+
+      '/api/tokens/redemption-session/cancel': {
+        post: {
+          tags: ['Tokens'],
+          summary: 'Cancel redemption session',
+          description: 'Cancel pending redemption session',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['sessionId'],
+                  properties: {
+                    sessionId: { type: 'string' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Session canceled'
+            }
+          }
+        }
+      },
+
+      '/api/tokens/redemption-session/status/{sessionId}': {
+        get: {
+          tags: ['Tokens'],
+          summary: 'Get session status',
+          description: 'Get redemption session status',
+          parameters: [
+            {
+              name: 'sessionId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Session status'
+            }
+          }
+        }
+      },
+
+      '/api/tokens/transfer': {
+        post: {
+          tags: ['Tokens'],
+          summary: 'Transfer tokens',
+          description: 'Transfer tokens between addresses',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['from', 'to', 'amount'],
+                  properties: {
+                    from: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+                    to: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+                    amount: { type: 'number' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Transfer successful'
+            }
+          }
+        }
+      },
+
+      '/api/tokens/transfer-history/{address}': {
+        get: {
+          tags: ['Tokens'],
+          summary: 'Get transfer history',
+          description: 'Get token transfer history for address',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'address',
+              in: 'path',
+              required: true,
+              schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Transfer history'
+            }
+          }
+        }
+      },
+
+      '/api/tokens/validate-transfer': {
+        post: {
+          tags: ['Tokens'],
+          summary: 'Validate transfer',
+          description: 'Validate token transfer before execution',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['from', 'to', 'amount'],
+                  properties: {
+                    from: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+                    to: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+                    amount: { type: 'number' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Validation result'
+            }
+          }
+        }
+      },
+
+      // Webhook - Additional endpoints
+      '/api/webhooks/retry/{webhookId}': {
+        post: {
+          tags: ['Webhooks'],
+          summary: 'Retry failed webhook',
+          description: 'Retry processing of failed webhook',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'webhookId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' }
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Webhook retried'
+            }
+          }
+        }
+      },
+
+      '/api/webhooks/stats': {
+        get: {
+          tags: ['Webhooks'],
+          summary: 'Get webhook statistics',
+          description: 'Get webhook processing statistics',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: {
+              description: 'Webhook statistics'
+            }
+          }
+        }
+      },
+
+      '/api/webhooks/health': {
+        get: {
+          tags: ['Webhooks'],
+          summary: 'Get webhook health',
+          description: 'Get webhook system health status',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: {
+              description: 'Webhook health'
+            }
+          }
+        }
+      },
+
+      '/api/webhooks/rate-limit/reset': {
+        post: {
+          tags: ['Webhooks'],
+          summary: 'Reset rate limit',
+          description: 'Reset webhook rate limit counter',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: {
+              description: 'Rate limit reset'
+            }
+          }
+        }
+      },
+
+      '/api/webhooks/rate-limit/status': {
+        get: {
+          tags: ['Webhooks'],
+          summary: 'Get rate limit status',
+          description: 'Get current webhook rate limit status',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: {
+              description: 'Rate limit status'
+            }
+          }
+        }
+      },
+
+      // ========================================
+      // MISSING ADMIN ENDPOINTS (62 endpoints)
+      // ========================================
+
+      '/api/admin/me': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Get current admin profile',
+          description: 'Get profile of currently authenticated admin',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Admin profile' }
+          }
+        }
+      },
+
+      '/api/admin/admins': {
+        get: {
+          tags: ['Admin'],
+          summary: 'List all admins',
+          description: 'Get list of all admin users (super admin only)',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Admin list' }
+          }
+        }
+      },
+
+      '/api/admin/admins/{adminId}': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Get admin by ID',
+          description: 'Get specific admin details',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'adminId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            200: { description: 'Admin details' }
+          }
+        },
+        put: {
+          tags: ['Admin'],
+          summary: 'Update admin',
+          description: 'Update admin information (super admin only)',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'adminId', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    email: { type: 'string' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: { description: 'Admin updated' }
+          }
+        },
+        delete: {
+          tags: ['Admin'],
+          summary: 'Delete admin',
+          description: 'Delete admin user (super admin only)',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'adminId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            200: { description: 'Admin deleted' }
+          }
+        }
+      },
+
+      '/api/admin/admins/{adminId}/permissions': {
+        put: {
+          tags: ['Admin'],
+          summary: 'Update admin permissions',
+          description: 'Update admin permission levels (super admin only)',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'adminId', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    permissions: { type: 'array', items: { type: 'string' } }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: { description: 'Permissions updated' }
+          }
+        }
+      },
+
+      '/api/admin/customers/{address}/suspend': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Suspend customer',
+          description: 'Suspend customer account',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'address', in: 'path', required: true, schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' } }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    reason: { type: 'string' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: { description: 'Customer suspended' }
+          }
+        }
+      },
+
+      '/api/admin/customers/{address}/unsuspend': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Unsuspend customer',
+          description: 'Reactivate suspended customer account',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'address', in: 'path', required: true, schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' } }],
+          responses: {
+            200: { description: 'Customer unsuspended' }
+          }
+        }
+      },
+
+      '/api/admin/shops/{shopId}/suspend': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Suspend shop',
+          description: 'Suspend shop account',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'shopId', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    reason: { type: 'string' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: { description: 'Shop suspended' }
+          }
+        }
+      },
+
+      '/api/admin/shops/{shopId}/unsuspend': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Unsuspend shop',
+          description: 'Reactivate suspended shop',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'shopId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            200: { description: 'Shop unsuspended' }
+          }
+        }
+      },
+
+      '/api/admin/shops/{shopId}/sell-rcn': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Sell RCN to shop',
+          description: 'Admin endpoint to sell RCN tokens to shop',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'shopId', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['amount', 'price'],
+                  properties: {
+                    amount: { type: 'number' },
+                    price: { type: 'number' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: { description: 'RCN sold to shop' }
+          }
+        }
+      },
+
+      '/api/admin/shops/{shopId}/mint-balance': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Mint shop balance',
+          description: 'Manually mint purchased RCN balance to blockchain',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'shopId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            200: { description: 'Balance minted' }
+          }
+        }
+      },
+
+      '/api/admin/shops/{shopId}/complete-purchase/{purchaseId}': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Force complete purchase',
+          description: 'Manually complete pending RCN purchase',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: 'shopId', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'purchaseId', in: 'path', required: true, schema: { type: 'string' } }
+          ],
+          responses: {
+            200: { description: 'Purchase completed' }
+          }
+        }
+      },
+
+      '/api/admin/shops/pending-mints': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Get shops with pending mints',
+          description: 'Get all shops with pending mint requests',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Pending mints list' }
+          }
+        }
+      },
+
+      '/api/admin/unsuspend-requests': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Get unsuspend requests',
+          description: 'Get all pending unsuspend requests',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Unsuspend requests list' }
+          }
+        }
+      },
+
+      '/api/admin/unsuspend-requests/{requestId}/approve': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Approve unsuspend request',
+          description: 'Approve customer unsuspend request',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'requestId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            200: { description: 'Request approved' }
+          }
+        }
+      },
+
+      '/api/admin/unsuspend-requests/{requestId}/reject': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Reject unsuspend request',
+          description: 'Reject customer unsuspend request',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'requestId', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    reason: { type: 'string' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: { description: 'Request rejected' }
+          }
+        }
+      },
+
+      '/api/admin/debug/all-shops-purchases': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Debug: All shop purchases',
+          description: 'View all shop purchases for debugging',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'All shop purchases' }
+          }
+        }
+      },
+
+      '/api/admin/debug/pending-mints/{shopId}': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Debug: Shop pending mints',
+          description: 'View pending mints for specific shop',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'shopId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            200: { description: 'Pending mints for shop' }
+          }
+        }
+      },
+
+      '/api/admin/debug/purchase-status/{shopId}': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Debug: Purchase status',
+          description: 'Check purchase status for shop',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'shopId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            200: { description: 'Purchase status' }
+          }
+        }
+      },
+
+      '/api/admin/maintenance/cleanup-webhooks': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Cleanup webhooks',
+          description: 'Clean up old webhook logs',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Webhooks cleaned up' }
+          }
+        }
+      },
+
+      '/api/admin/maintenance/archive-transactions': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Archive transactions',
+          description: 'Archive old transactions',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    beforeDate: { type: 'string', format: 'date' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: { description: 'Transactions archived' }
+          }
+        }
+      },
+
+      '/api/admin/monitoring/status': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Get monitoring status',
+          description: 'Get system monitoring status',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Monitoring status' }
+          }
+        }
+      },
+
+      '/api/admin/monitoring/check': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Run monitoring check',
+          description: 'Manually trigger monitoring check',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Monitoring check completed' }
+          }
+        }
+      },
+
+      '/api/admin/monitoring/test-alert': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Send test alert',
+          description: 'Send test monitoring alert (super admin only)',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Test alert sent' }
+          }
+        }
+      },
+
+      '/api/admin/platform-statistics': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Platform statistics',
+          description: 'Get comprehensive platform statistics',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Platform statistics' }
+          }
+        }
+      },
+
+      '/api/admin/token-circulation': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Token circulation',
+          description: 'Get token circulation metrics',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Token circulation data' }
+          }
+        }
+      },
+
+      '/api/admin/shop-rankings': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Shop rankings',
+          description: 'Get shop performance rankings',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Shop rankings' }
+          }
+        }
+      },
+
+      '/api/admin/activity-logs': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Activity logs',
+          description: 'Get admin activity logs',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Activity logs' }
+          }
+        }
+      },
+
+      '/api/admin/alerts': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Get alerts',
+          description: 'Get system alerts',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'System alerts' }
+          }
+        }
+      },
+
+      '/api/admin/alerts/{id}/read': {
+        put: {
+          tags: ['Admin'],
+          summary: 'Mark alert as read',
+          description: 'Mark specific alert as read',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            200: { description: 'Alert marked as read' }
+          }
+        }
+      },
+
+      '/api/admin/alerts/{id}/resolve': {
+        put: {
+          tags: ['Admin'],
+          summary: 'Resolve alert',
+          description: 'Resolve system alert',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            200: { description: 'Alert resolved' }
+          }
+        }
+      },
+
+      '/api/admin/treasury/rcg': {
+        get: {
+          tags: ['Admin'],
+          summary: 'RCG treasury info',
+          description: 'Get RCG token treasury information',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'RCG treasury data' }
+          }
+        }
+      },
+
+      '/api/admin/treasury/update-shop-tier/{shopId}': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Update shop tier',
+          description: 'Update shop tier based on RCG holdings',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'shopId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            200: { description: 'Shop tier updated' }
+          }
+        }
+      },
+
+      '/api/admin/treasury/admin-wallet': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Admin wallet info',
+          description: 'Get admin wallet information',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Admin wallet info' }
+          }
+        }
+      },
+
+      '/api/admin/treasury/debug/{shopId}': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Treasury debug',
+          description: 'Debug treasury data for shop',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'shopId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            200: { description: 'Treasury debug data' }
+          }
+        }
+      },
+
+      '/api/admin/treasury/discrepancies': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Find discrepancies',
+          description: 'Find token balance discrepancies',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Discrepancy list' }
+          }
+        }
+      },
+
+      '/api/admin/treasury/manual-transfer': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Manual transfer',
+          description: 'Manually transfer tokens to fix discrepancies',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['address', 'amount'],
+                  properties: {
+                    address: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+                    amount: { type: 'number' },
+                    reason: { type: 'string' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: { description: 'Transfer completed' }
+          }
+        }
+      },
+
+      '/api/admin/treasury/stats-with-warnings': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Treasury stats with warnings',
+          description: 'Get treasury statistics with discrepancy warnings',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Treasury stats with warnings' }
+          }
+        }
+      },
+
+      '/api/admin/treasury/mint-bulk': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Bulk mint tokens',
+          description: 'Bulk mint tokens for campaigns',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['recipients'],
+                  properties: {
+                    recipients: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          address: { type: 'string' },
+                          amount: { type: 'number' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: { description: 'Bulk mint completed' }
+          }
+        }
+      },
+
+      '/api/admin/treasury/analytics': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Treasury analytics',
+          description: 'Get treasury financial analytics',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Treasury analytics' }
+          }
+        }
+      },
+
+      '/api/admin/treasury/adjust-pricing': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Adjust pricing',
+          description: 'Adjust token tier pricing',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    tier: { type: 'string' },
+                    price: { type: 'number' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: { description: 'Pricing adjusted' }
+          }
+        }
+      },
+
+      '/api/admin/treasury/pricing': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Get pricing',
+          description: 'Get current tier pricing',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Current pricing' }
+          }
+        }
+      },
+
+      '/api/admin/treasury/pricing/history': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Pricing history',
+          description: 'Get pricing change history',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Pricing history' }
+          }
+        }
+      },
+
+      '/api/admin/subscriptions': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Get all subscriptions',
+          description: 'View all shop subscriptions',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Subscriptions list' }
+          }
+        }
+      },
+
+      '/api/admin/subscriptions/stats': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Subscription stats',
+          description: 'Get subscription statistics',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Subscription statistics' }
+          }
+        }
+      },
+
+      '/api/admin/subscriptions/{subscriptionId}': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Get subscription',
+          description: 'Get subscription details',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'subscriptionId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            200: { description: 'Subscription details' }
+          }
+        }
+      },
+
+      '/api/admin/subscriptions/{subscriptionId}/cancel': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Cancel subscription',
+          description: 'Admin cancel shop subscription',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'subscriptionId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            200: { description: 'Subscription canceled' }
+          }
+        }
+      },
+
+      '/api/admin/subscriptions/{subscriptionId}/reactivate': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Reactivate subscription',
+          description: 'Reactivate canceled subscription',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'subscriptionId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            200: { description: 'Subscription reactivated' }
+          }
+        }
+      },
+
+      '/api/admin/system/blockchain-minting': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Get blockchain minting status',
+          description: 'Check if blockchain minting is enabled',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Minting status' }
+          }
+        },
+        post: {
+          tags: ['Admin'],
+          summary: 'Toggle blockchain minting',
+          description: 'Enable or disable blockchain minting',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    enabled: { type: 'boolean' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: { description: 'Minting toggled' }
+          }
+        }
+      },
+
+      '/api/admin/customers/grouped-by-shop': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Customers grouped by shop',
+          description: 'Get customers grouped by their associated shops',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Grouped customers' }
+          }
+        }
+      },
+
+      '/api/admin/customers/without-shops': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Customers without shops',
+          description: 'Get customers with no shop transactions',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Customers without shops' }
+          }
+        }
+      },
+
+      '/api/admin/shops/{shopId}/update-rcg-balance': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Update RCG balance',
+          description: 'Manually update shop RCG balance (for testing/correction)',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'shopId', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    balance: { type: 'number' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: { description: 'RCG balance updated' }
+          }
+        }
+      },
+
+      '/api/admin/promo-codes': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Get all promo codes',
+          description: 'Get all promo codes (admin view)',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Promo codes list' }
+          }
+        }
+      },
+
+      '/api/admin/promo-codes/analytics': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Promo code analytics',
+          description: 'Get promo code usage analytics',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Promo code analytics' }
+          }
+        }
+      },
+
+      '/api/admin/contract/status': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Contract status',
+          description: 'Get smart contract status',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Contract status' }
+          }
+        }
+      },
+
+      '/api/admin/contract/pause': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Pause contract',
+          description: 'Pause smart contract operations (super admin only)',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Contract paused' }
+          }
+        }
+      },
+
+      '/api/admin/contract/unpause': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Unpause contract',
+          description: 'Resume smart contract operations (super admin only)',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Contract unpaused' }
+          }
+        }
+      },
+
+      '/api/admin/contract/emergency-stop': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Emergency stop',
+          description: 'Emergency stop mechanism for contract (super admin only)',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Emergency stop activated' }
+          }
+        }
+      },
+
+      '/api/admin/contract/manual-redemption': {
+        post: {
+          tags: ['Admin'],
+          summary: 'Manual redemption',
+          description: 'Manually process redemption',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    customerAddress: { type: 'string' },
+                    shopId: { type: 'string' },
+                    amount: { type: 'number' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: { description: 'Redemption processed' }
+          }
+        }
+      },
+
+      '/api/admin/webhooks/failed': {
+        get: {
+          tags: ['Admin'],
+          summary: 'Get failed webhooks',
+          description: 'Get list of failed webhook attempts',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Failed webhooks list' }
+          }
+        }
+      },
+
+      // ========================================
+      // MISSING SHOP ENDPOINTS (28 endpoints)
+      // ========================================
+
+      '/api/shops/{shopId}/deactivate': {
+        post: {
+          tags: ['Shops'],
+          summary: 'Deactivate shop',
+          description: 'Deactivate shop account',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'shopId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            200: { description: 'Shop deactivated' }
+          }
+        }
+      },
+
+      '/api/shops/webhooks/stripe': {
+        post: {
+          tags: ['Shops'],
+          summary: 'Stripe webhook handler',
+          description: 'Handle Stripe webhook events for shop payments',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { type: 'object' }
+              }
+            }
+          },
+          responses: {
+            200: { description: 'Webhook processed' }
+          }
+        }
+      },
+
+      '/api/shops/tier-bonus/issue': {
+        post: {
+          tags: ['Shops'],
+          summary: 'Issue tier bonus',
+          description: 'Issue tier bonus to customer',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    customerAddress: { type: 'string' },
+                    shopId: { type: 'string' },
+                    bonus: { type: 'number' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: { description: 'Tier bonus issued' }
+          }
+        }
+      },
+
+      '/api/shops/tier-bonus/history/{shopId}': {
+        get: {
+          tags: ['Shops'],
+          summary: 'Tier bonus history',
+          description: 'Get tier bonus issuance history',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'shopId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            200: { description: 'Tier bonus history' }
+          }
+        }
+      },
+
+      '/api/shops/deposit/info': {
+        get: {
+          tags: ['Shops'],
+          summary: 'Deposit info',
+          description: 'Get RCN deposit information',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Deposit info' }
+          }
+        }
+      },
+
+      '/api/shops/deposit': {
+        post: {
+          tags: ['Shops'],
+          summary: 'Deposit RCN',
+          description: 'Deposit RCN tokens',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    amount: { type: 'number' },
+                    shopId: { type: 'string' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: { description: 'Deposit successful' }
+          }
+        }
+      },
+
+      '/api/shops/deposit/history': {
+        get: {
+          tags: ['Shops'],
+          summary: 'Deposit history',
+          description: 'Get RCN deposit history',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Deposit history' }
+          }
+        }
+      },
+
+      '/api/shops/purchase-sync/check-payment/{purchaseId}': {
+        post: {
+          tags: ['Shops'],
+          summary: 'Check payment status',
+          description: 'Check payment status for purchase',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'purchaseId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            200: { description: 'Payment status' }
+          }
+        }
+      },
+
+      '/api/shops/purchase-sync/pending': {
+        get: {
+          tags: ['Shops'],
+          summary: 'Get pending purchases',
+          description: 'Get all pending purchases',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Pending purchases' }
+          }
+        }
+      },
+
+      '/api/shops/purchase-sync/manual-complete/{purchaseId}': {
+        post: {
+          tags: ['Shops'],
+          summary: 'Manually complete purchase',
+          description: 'Manually complete pending purchase',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'purchaseId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            200: { description: 'Purchase completed' }
+          }
+        }
+      },
+
+      '/api/shops/{shopId}/promo-codes': {
+        get: {
+          tags: ['Shops'],
+          summary: 'Get shop promo codes',
+          description: 'Get all promo codes for shop',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'shopId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            200: { description: 'Promo codes list' }
+          }
+        },
+        post: {
+          tags: ['Shops'],
+          summary: 'Create promo code',
+          description: 'Create new promo code',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'shopId', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    code: { type: 'string' },
+                    discount: { type: 'number' },
+                    expiresAt: { type: 'string', format: 'date-time' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            201: { description: 'Promo code created' }
+          }
+        }
+      },
+
+      '/api/shops/{shopId}/promo-codes/{codeId}': {
+        get: {
+          tags: ['Shops'],
+          summary: 'Get promo code',
+          description: 'Get specific promo code details',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: 'shopId', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'codeId', in: 'path', required: true, schema: { type: 'string' } }
+          ],
+          responses: {
+            200: { description: 'Promo code details' }
+          }
+        },
+        put: {
+          tags: ['Shops'],
+          summary: 'Update promo code',
+          description: 'Update promo code',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: 'shopId', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'codeId', in: 'path', required: true, schema: { type: 'string' } }
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    discount: { type: 'number' },
+                    expiresAt: { type: 'string', format: 'date-time' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: { description: 'Promo code updated' }
+          }
+        },
+        delete: {
+          tags: ['Shops'],
+          summary: 'Delete promo code',
+          description: 'Delete promo code',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: 'shopId', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'codeId', in: 'path', required: true, schema: { type: 'string' } }
+          ],
+          responses: {
+            200: { description: 'Promo code deleted' }
+          }
+        }
+      },
+
+      '/api/shops/{shopId}/promo-codes/{codeId}/activate': {
+        post: {
+          tags: ['Shops'],
+          summary: 'Activate promo code',
+          description: 'Activate promo code',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: 'shopId', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'codeId', in: 'path', required: true, schema: { type: 'string' } }
+          ],
+          responses: {
+            200: { description: 'Promo code activated' }
+          }
+        }
+      },
+
+      '/api/shops/{shopId}/promo-codes/analytics': {
+        get: {
+          tags: ['Shops'],
+          summary: 'Promo code analytics',
+          description: 'Get promo code usage analytics',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'shopId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            200: { description: 'Promo code analytics' }
+          }
+        }
+      },
+
+      '/api/shops/{shopId}/promo-codes/usage-history': {
+        get: {
+          tags: ['Shops'],
+          summary: 'Promo code usage history',
+          description: 'Get promo code usage history',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'shopId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            200: { description: 'Usage history' }
+          }
+        }
+      },
+
+      '/api/shops/rcg/{shopId}/rcg-info': {
+        get: {
+          tags: ['Shops'],
+          summary: 'Get RCG info',
+          description: 'Get shop RCG token information',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'shopId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            200: { description: 'RCG info' }
+          }
+        }
+      },
+
+      // ========================================
+      // MISSING TOKEN ENDPOINTS (8 endpoints)
+      // ========================================
+
+      '/api/tokens/approve': {
+        post: {
+          tags: ['Tokens'],
+          summary: 'Approve redemption session',
+          description: 'Customer approves redemption session',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['sessionId'],
+                  properties: {
+                    sessionId: { type: 'string' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: { description: 'Session approved' }
+          }
+        }
+      },
+
+      '/api/tokens/reject': {
+        post: {
+          tags: ['Tokens'],
+          summary: 'Reject redemption session',
+          description: 'Customer rejects redemption session',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['sessionId'],
+                  properties: {
+                    sessionId: { type: 'string' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: { description: 'Session rejected' }
+          }
+        }
+      },
+
+      '/api/tokens/my-sessions': {
+        get: {
+          tags: ['Tokens'],
+          summary: 'Get my sessions',
+          description: 'Get redemption sessions for authenticated user',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'User sessions' }
+          }
+        }
+      },
+
+      // ========================================
+      // MISSING MISC ENDPOINTS (5 endpoints)
+      // ========================================
+
+      '/api/auth/token': {
+        post: {
+          tags: ['Authentication'],
+          summary: 'Generate JWT token',
+          description: 'Generate JWT token for authenticated users',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['address'],
+                  properties: {
+                    address: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+                    role: { type: 'string', enum: ['admin', 'shop', 'customer'] }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: { description: 'Token generated' }
+          }
+        }
+      },
+
+      '/api/metrics': {
+        get: {
+          tags: ['System'],
+          summary: 'System metrics',
+          description: 'Get system metrics (admin only)',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'System metrics' }
+          }
+        }
+      },
+
+      '/api/setup/init-database/{secret}': {
+        post: {
+          tags: ['System'],
+          summary: 'Initialize database',
+          description: 'One-time database initialization (requires secret)',
+          parameters: [{ name: 'secret', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            200: { description: 'Database initialized' }
+          }
+        }
+      },
+
+      '/api/customers/history/{customerAddress}': {
+        get: {
+          tags: ['Customers'],
+          summary: 'Customer history',
+          description: 'Get customer transaction history by address',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'customerAddress', in: 'path', required: true, schema: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' } }],
+          responses: {
+            200: { description: 'Customer history' }
+          }
+        }
+      },
+
+      '/api/customers/network': {
+        get: {
+          tags: ['Customers'],
+          summary: 'Customer network stats',
+          description: 'Get customer network statistics',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Network statistics' }
+          }
+        }
       }
     },
     tags: [
@@ -2976,6 +5608,10 @@ const options = {
       {
         name: 'Referrals',
         description: 'Referral system operations'
+      },
+      {
+        name: 'Notifications',
+        description: 'Real-time notification management for users'
       }
     ]
   },
