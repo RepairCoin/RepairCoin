@@ -110,7 +110,7 @@ export default function MyProfile() {
           >
             <View className="flex-row items-center">
               <View className="rounded-full bg-[#FBCDCD] w-12 h-12 items-center justify-center">
-                <MaterialIcons name="logout" color="#E74C4C" size={24} />
+                <MaterialIcons name="logout" color="#E74C4C" size={18} />
               </View>
               <View className="px-4 gap-2">
                 <Text className="text-white text-xl font-semibold">
@@ -121,7 +121,7 @@ export default function MyProfile() {
                 </Text>
               </View>
             </View>
-            <AntDesign name="right" color="#fff" size={24} />
+            <AntDesign name="right" color="#fff" size={18} />
           </Pressable>
         </View>
       </ScrollView>
