@@ -205,6 +205,49 @@ router.get(
   }
 );
 
+// Validate a promo code for a specific shop (shop-scoped endpoint)
+router.post(
+  '/:shopId/promo-codes/validate',
+  async (req: Request, res: Response) => {
+    try {
+      const { shopId } = req.params;
+      const { code, customer_address } = req.body;
+      
+      // Basic validation
+      if (!code || !code.trim()) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Promo code is required' 
+        });
+      }
+      
+      if (!customer_address || !isValidEthereumAddress(customer_address)) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Valid customer address is required' 
+        });
+      }
+      
+      const validation = await promoCodeService.validatePromoCode(
+        code,
+        shopId,
+        customer_address
+      );
+
+      res.json({
+        success: true,
+        data: validation
+      });
+    } catch (error) {
+      console.error('Error validating promo code:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to validate promo code' 
+      });
+    }
+  }
+);
+
 // Validate a promo code (public endpoint for customers)
 router.post(
   '/promo-codes/validate',

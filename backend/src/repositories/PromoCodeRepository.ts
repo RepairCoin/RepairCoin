@@ -53,6 +53,7 @@ export interface PromoCodeValidation {
   promo_code_id?: number;
   bonus_type?: 'fixed' | 'percentage';
   bonus_value?: number;
+  max_bonus?: number;
 }
 
 export class PromoCodeRepository extends BaseRepository {
@@ -63,47 +64,30 @@ export class PromoCodeRepository extends BaseRepository {
   async create(data: CreatePromoCodeData): Promise<PromoCode> {
     const query = `
       INSERT INTO promo_codes (
-        code, shop_id, discount_type, discount_value, max_uses,
-        valid_from, valid_until, status, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        code, shop_id, name, description, bonus_type, bonus_value, max_bonus,
+        start_date, end_date, total_usage_limit, per_customer_limit
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING *
     `;
-    
+
     const values = [
       data.code.toUpperCase(),
       data.shop_id,
-      data.bonus_type, // maps to discount_type
-      data.bonus_value, // maps to discount_value  
-      data.total_usage_limit || null, // maps to max_uses
-      data.start_date, // maps to valid_from
-      data.end_date, // maps to valid_until
-      'active', // status
-      data.shop_id // created_by (using shop_id as creator)
+      data.name,
+      data.description || null,
+      data.bonus_type,
+      data.bonus_value,
+      data.max_bonus || null,
+      data.start_date,
+      data.end_date,
+      data.total_usage_limit || null,
+      data.per_customer_limit || 1
     ];
 
     const result = await this.pool.query(query, values);
     const row = result.rows[0];
-    
-    // Map database columns to PromoCode interface
-    return {
-      id: row.id,
-      code: row.code,
-      shop_id: row.shop_id,
-      name: data.name || row.code,
-      description: data.description,
-      bonus_type: row.discount_type as 'fixed' | 'percentage',
-      bonus_value: parseFloat(row.discount_value),
-      max_bonus: data.max_bonus,
-      start_date: row.valid_from,
-      end_date: row.valid_until,
-      total_usage_limit: row.max_uses || undefined,
-      per_customer_limit: data.per_customer_limit || 1,
-      times_used: row.used_count || 0,
-      total_bonus_issued: 0,
-      is_active: row.status === 'active',
-      created_at: row.created_at,
-      updated_at: row.created_at
-    };
+
+    return this.mapRowToPromoCode(row);
   }
 
   async findByCode(code: string, shopId?: string): Promise<PromoCode | null> {
@@ -117,28 +101,8 @@ export class PromoCodeRepository extends BaseRepository {
 
     const result = await this.pool.query(query, values);
     if (!result.rows[0]) return null;
-    
-    // Map database columns to PromoCode interface
-    const row = result.rows[0];
-    return {
-      id: row.id,
-      code: row.code,
-      shop_id: row.shop_id,
-      name: row.code, // Use code as name since name column doesn't exist
-      description: row.conditions?.description || undefined,
-      bonus_type: row.discount_type as 'fixed' | 'percentage',
-      bonus_value: parseFloat(row.discount_value),
-      max_bonus: row.conditions?.max_bonus || undefined,
-      start_date: row.valid_from,
-      end_date: row.valid_until,
-      total_usage_limit: row.max_uses || undefined,
-      per_customer_limit: row.conditions?.per_customer_limit || 1,
-      times_used: row.used_count || 0,
-      total_bonus_issued: (parseFloat(row.discount_value) * (row.used_count || 0)) || 0,
-      is_active: row.status === 'active',
-      created_at: row.created_at,
-      updated_at: row.created_at // Use created_at since updated_at doesn't exist
-    };
+
+    return this.mapRowToPromoCode(result.rows[0]);
   }
 
   async findByShop(shopId: string, onlyActive = false): Promise<PromoCode[]> {
@@ -146,112 +110,81 @@ export class PromoCodeRepository extends BaseRepository {
     const values: any[] = [shopId];
 
     if (onlyActive) {
-      query += ' AND status = \'active\' AND valid_from <= CURRENT_TIMESTAMP AND valid_until >= CURRENT_TIMESTAMP';
+      query += ' AND is_active = true AND start_date <= CURRENT_TIMESTAMP AND end_date >= CURRENT_TIMESTAMP';
     }
 
     query += ' ORDER BY created_at DESC';
 
     const result = await this.pool.query(query, values);
-    
-    // Map database columns to PromoCode interface
-    return result.rows.map(row => ({
-      id: row.id,
-      code: row.code,
-      shop_id: row.shop_id,
-      name: row.code, // Use code as name since name column doesn't exist
-      description: row.conditions?.description || undefined,
-      bonus_type: row.discount_type as 'fixed' | 'percentage',
-      bonus_value: parseFloat(row.discount_value),
-      max_bonus: row.conditions?.max_bonus || undefined,
-      start_date: row.valid_from,
-      end_date: row.valid_until,
-      total_usage_limit: row.max_uses || undefined,
-      per_customer_limit: row.conditions?.per_customer_limit || 1,
-      times_used: row.used_count || 0,
-      total_bonus_issued: (parseFloat(row.discount_value) * (row.used_count || 0)) || 0,
-      is_active: row.status === 'active',
-      created_at: row.created_at,
-      updated_at: row.created_at // Use created_at since updated_at doesn't exist
-    }));
+
+    return result.rows.map(row => this.mapRowToPromoCode(row));
   }
 
   async update(id: number, updates: Partial<PromoCode>): Promise<PromoCode | null> {
-    // Map PromoCode interface fields to database columns
-    const dbUpdates: any = {};
-    
+    const updateFields: string[] = [];
+    const values: any[] = [];
+    let paramCount = 1;
+
+    if (updates.name !== undefined) {
+      updateFields.push(`name = $${paramCount++}`);
+      values.push(updates.name);
+    }
+    if (updates.description !== undefined) {
+      updateFields.push(`description = $${paramCount++}`);
+      values.push(updates.description);
+    }
     if (updates.bonus_type !== undefined) {
-      dbUpdates.discount_type = updates.bonus_type;
+      updateFields.push(`bonus_type = $${paramCount++}`);
+      values.push(updates.bonus_type);
     }
     if (updates.bonus_value !== undefined) {
-      dbUpdates.discount_value = updates.bonus_value;
+      updateFields.push(`bonus_value = $${paramCount++}`);
+      values.push(updates.bonus_value);
     }
-    if (updates.total_usage_limit !== undefined) {
-      dbUpdates.max_uses = updates.total_usage_limit;
+    if (updates.max_bonus !== undefined) {
+      updateFields.push(`max_bonus = $${paramCount++}`);
+      values.push(updates.max_bonus);
     }
     if (updates.start_date !== undefined) {
-      dbUpdates.valid_from = updates.start_date;
+      updateFields.push(`start_date = $${paramCount++}`);
+      values.push(updates.start_date);
     }
     if (updates.end_date !== undefined) {
-      dbUpdates.valid_until = updates.end_date;
+      updateFields.push(`end_date = $${paramCount++}`);
+      values.push(updates.end_date);
+    }
+    if (updates.total_usage_limit !== undefined) {
+      updateFields.push(`total_usage_limit = $${paramCount++}`);
+      values.push(updates.total_usage_limit);
+    }
+    if (updates.per_customer_limit !== undefined) {
+      updateFields.push(`per_customer_limit = $${paramCount++}`);
+      values.push(updates.per_customer_limit);
     }
     if (updates.is_active !== undefined) {
-      dbUpdates.status = updates.is_active ? 'active' : 'inactive';
-    }
-    
-    // Handle conditions for additional fields
-    if (updates.max_bonus !== undefined || updates.per_customer_limit !== undefined || updates.description !== undefined) {
-      const existing = await this.findById(id);
-      if (existing) {
-        const conditions = (existing as any).conditions || {};
-        if (updates.max_bonus !== undefined) conditions.max_bonus = updates.max_bonus;
-        if (updates.per_customer_limit !== undefined) conditions.per_customer_limit = updates.per_customer_limit;
-        if (updates.description !== undefined) conditions.description = updates.description;
-        dbUpdates.conditions = conditions;
-      }
+      updateFields.push(`is_active = $${paramCount++}`);
+      values.push(updates.is_active);
     }
 
-    if (Object.keys(dbUpdates).length === 0) {
-      const existing = await this.findById(id);
-      return existing;
+    if (updateFields.length === 0) {
+      return this.findById(id);
     }
 
-    const setClause = Object.keys(dbUpdates)
-      .map((key, index) => `${key} = $${index + 2}`)
-      .join(', ');
-
-    const values = [id, ...Object.values(dbUpdates)];
+    // Add updated_at timestamp
+    updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(id);
 
     const query = `
-      UPDATE promo_codes 
-      SET ${setClause}
-      WHERE id = $1
+      UPDATE promo_codes
+      SET ${updateFields.join(', ')}
+      WHERE id = $${paramCount}
       RETURNING *
     `;
 
     const result = await this.pool.query(query, values);
     if (!result.rows[0]) return null;
-    
-    // Map database columns to PromoCode interface
-    const row = result.rows[0];
-    return {
-      id: row.id,
-      code: row.code,
-      shop_id: row.shop_id,
-      name: row.code,
-      description: row.conditions?.description || undefined,
-      bonus_type: row.discount_type as 'fixed' | 'percentage',
-      bonus_value: parseFloat(row.discount_value),
-      max_bonus: row.conditions?.max_bonus || undefined,
-      start_date: row.valid_from,
-      end_date: row.valid_until,
-      total_usage_limit: row.max_uses || undefined,
-      per_customer_limit: row.conditions?.per_customer_limit || 1,
-      times_used: row.used_count || 0,
-      total_bonus_issued: (parseFloat(row.discount_value) * (row.used_count || 0)) || 0,
-      is_active: row.status === 'active',
-      created_at: row.created_at,
-      updated_at: row.created_at
-    };
+
+    return this.mapRowToPromoCode(result.rows[0]);
   }
 
   async validate(code: string, shopId: string, customerAddress: string): Promise<PromoCodeValidation> {
@@ -259,7 +192,7 @@ export class PromoCodeRepository extends BaseRepository {
     const values = [code, shopId, customerAddress.toLowerCase()];
 
     console.log('Validating promo code:', { code, shopId, customerAddress: customerAddress.toLowerCase() });
-    
+
     try {
       const result = await this.pool.query<PromoCodeValidation>(query, values);
       console.log('Validation result:', result.rows[0]);
@@ -279,7 +212,7 @@ export class PromoCodeRepository extends BaseRepository {
     transactionId?: number
   ): Promise<PromoCodeUse> {
     const client = await this.pool.connect();
-    
+
     try {
       await client.query('BEGIN');
 
@@ -287,46 +220,49 @@ export class PromoCodeRepository extends BaseRepository {
       const insertQuery = `
         INSERT INTO promo_code_uses (
           promo_code_id, customer_address, shop_id, transaction_id,
-          discount_applied
-        ) VALUES ($1, $2, $3, $4, $5)
+          base_reward, bonus_amount, total_reward
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING *
       `;
 
+      const totalReward = baseReward + bonusAmount;
       const insertValues = [
         promoCodeId,
         customerAddress.toLowerCase(),
         shopId,
         transactionId ? transactionId.toString() : null,
-        bonusAmount  // Using bonusAmount as the discount_applied value
+        baseReward,
+        bonusAmount,
+        totalReward
       ];
 
       const insertResult = await client.query(insertQuery, insertValues);
-      
-      // Map the database result to PromoCodeUse interface
       const dbRow = insertResult.rows[0];
-      const use: PromoCodeUse = {
+
+      // Update promo code stats
+      const updateQuery = `
+        UPDATE promo_codes
+        SET times_used = times_used + 1,
+            total_bonus_issued = total_bonus_issued + $2,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+      `;
+
+      await client.query(updateQuery, [promoCodeId, bonusAmount]);
+
+      await client.query('COMMIT');
+
+      return {
         id: dbRow.id,
         promo_code_id: dbRow.promo_code_id,
         customer_address: dbRow.customer_address,
         shop_id: dbRow.shop_id,
         transaction_id: dbRow.transaction_id ? parseInt(dbRow.transaction_id) : undefined,
-        base_reward: baseReward,  // Use the parameter since it's not in DB
-        bonus_amount: bonusAmount,  // Use the parameter since it's not in DB (same as discount_applied)
-        total_reward: baseReward + bonusAmount,  // Calculate since it's not in DB
+        base_reward: parseFloat(dbRow.base_reward),
+        bonus_amount: parseFloat(dbRow.bonus_amount),
+        total_reward: parseFloat(dbRow.total_reward),
         used_at: dbRow.used_at
       };
-
-      // Update promo code stats
-      const updateQuery = `
-        UPDATE promo_codes
-        SET used_count = used_count + 1
-        WHERE id = $1
-      `;
-
-      await client.query(updateQuery, [promoCodeId]);
-
-      await client.query('COMMIT');
-      return use;
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -343,20 +279,20 @@ export class PromoCodeRepository extends BaseRepository {
     uses_by_day: Array<{ date: string; uses: number; bonus_issued: number }>;
   }> {
     const statsQuery = `
-      SELECT 
+      SELECT
         COUNT(*) as total_uses,
         COUNT(DISTINCT customer_address) as unique_customers,
-        SUM(discount_applied) as total_bonus_issued,
-        AVG(discount_applied) as average_bonus
+        SUM(bonus_amount) as total_bonus_issued,
+        AVG(bonus_amount) as average_bonus
       FROM promo_code_uses
       WHERE promo_code_id = $1
     `;
 
     const dailyQuery = `
-      SELECT 
+      SELECT
         DATE(used_at) as date,
         COUNT(*) as uses,
-        SUM(discount_applied) as bonus_issued
+        SUM(bonus_amount) as bonus_issued
       FROM promo_code_uses
       WHERE promo_code_id = $1
       GROUP BY DATE(used_at)
@@ -380,16 +316,18 @@ export class PromoCodeRepository extends BaseRepository {
 
   async getCustomerUsage(customerAddress: string): Promise<PromoCodeUse[]> {
     const query = `
-      SELECT 
+      SELECT
         pcu.id,
         pcu.promo_code_id,
         pcu.customer_address,
         pcu.shop_id,
         pcu.transaction_id,
-        pcu.discount_applied as bonus_amount,
+        pcu.base_reward,
+        pcu.bonus_amount,
+        pcu.total_reward,
         pcu.used_at,
         pc.code,
-        pc.code as promo_name
+        pc.name as promo_name
       FROM promo_code_uses pcu
       JOIN promo_codes pc ON pcu.promo_code_id = pc.id
       WHERE pcu.customer_address = $1
@@ -397,23 +335,22 @@ export class PromoCodeRepository extends BaseRepository {
     `;
 
     const result = await this.pool.query(query, [customerAddress.toLowerCase()]);
-    
-    // Map the results to PromoCodeUse interface
+
     return result.rows.map(row => ({
       id: row.id,
       promo_code_id: row.promo_code_id,
       customer_address: row.customer_address,
       shop_id: row.shop_id,
       transaction_id: row.transaction_id ? parseInt(row.transaction_id) : undefined,
-      base_reward: 0,  // Not stored in DB, using default
-      bonus_amount: parseFloat(row.bonus_amount) || 0,
-      total_reward: parseFloat(row.bonus_amount) || 0,  // Assuming bonus_amount is the total for now
+      base_reward: parseFloat(row.base_reward),
+      bonus_amount: parseFloat(row.bonus_amount),
+      total_reward: parseFloat(row.total_reward),
       used_at: row.used_at
     }));
   }
 
   async deactivate(id: number): Promise<boolean> {
-    const query = 'UPDATE promo_codes SET status = \'inactive\' WHERE id = $1';
+    const query = 'UPDATE promo_codes SET is_active = false, updated_at = CURRENT_TIMESTAMP WHERE id = $1';
     const result = await this.pool.query(query, [id]);
     return (result.rowCount ?? 0) > 0;
   }
@@ -422,27 +359,29 @@ export class PromoCodeRepository extends BaseRepository {
     const query = 'SELECT * FROM promo_codes WHERE id = $1';
     const result = await this.pool.query(query, [id]);
     if (!result.rows[0]) return null;
-    
-    // Map database columns to PromoCode interface
-    const row = result.rows[0];
+
+    return this.mapRowToPromoCode(result.rows[0]);
+  }
+
+  private mapRowToPromoCode(row: any): PromoCode {
     return {
       id: row.id,
       code: row.code,
       shop_id: row.shop_id,
-      name: row.code,
-      description: row.conditions?.description || undefined,
-      bonus_type: row.discount_type as 'fixed' | 'percentage',
-      bonus_value: parseFloat(row.discount_value),
-      max_bonus: row.conditions?.max_bonus || undefined,
-      start_date: row.valid_from,
-      end_date: row.valid_until,
-      total_usage_limit: row.max_uses || undefined,
-      per_customer_limit: row.conditions?.per_customer_limit || 1,
-      times_used: row.used_count || 0,
-      total_bonus_issued: (parseFloat(row.discount_value) * (row.used_count || 0)) || 0,
-      is_active: row.status === 'active',
+      name: row.name,
+      description: row.description || undefined,
+      bonus_type: row.bonus_type as 'fixed' | 'percentage',
+      bonus_value: parseFloat(row.bonus_value),
+      max_bonus: row.max_bonus ? parseFloat(row.max_bonus) : undefined,
+      start_date: row.start_date,
+      end_date: row.end_date,
+      total_usage_limit: row.total_usage_limit || undefined,
+      per_customer_limit: row.per_customer_limit || 1,
+      times_used: row.times_used || 0,
+      total_bonus_issued: parseFloat(row.total_bonus_issued) || 0,
+      is_active: row.is_active,
       created_at: row.created_at,
-      updated_at: row.created_at
+      updated_at: row.updated_at
     };
   }
 }
