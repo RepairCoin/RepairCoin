@@ -23,12 +23,12 @@ type CopyableFieldProps = {
 };
 
 const HorizontalCard = ({ label, Icon, number }: HorizontalCardProps) => (
-  <View className="w-44 h-32 rounded-2xl overflow-hidden mr-4">
+  <View className="flex-1 h-28 rounded-2xl overflow-hidden m-2">
     <LinearGradient
       colors={["#373737", "#121212"]}
       start={{ x: 1, y: 0 }}
       end={{ x: 0, y: 1 }}
-      className="w-44 h-32 p-4 relative"
+      className="flex-1 h-28 p-4 relative"
     >
       <View
         className="w-48 h-48 border-[#141414] border-[40px] rounded-full absolute"
@@ -41,7 +41,7 @@ const HorizontalCard = ({ label, Icon, number }: HorizontalCardProps) => (
         <Text className="text-[#FFCC00] text-sm font-bold">{label}</Text>
         {Icon}
       </View>
-      <Text className="text-white text-3xl mt-auto font-semibold">
+      <Text className="text-white text-2xl mt-auto font-semibold">
         {number}
       </Text>
     </LinearGradient>
@@ -60,14 +60,14 @@ const CopyableField = ({
     } border-2 border-[#FFCC00] flex-row  rounded-xl`}
   >
     {isCopied ? (
-      <Text className="text-xl text-white font-semibold">
+      <Text className="text-base text-white font-semibold">
         <Entypo name="check" color="#fff" size={18} />
         {"  "}Code copied to clipboard
       </Text>
     ) : (
       <React.Fragment>
-        <Text className="text-xl text-[#FFCC00] font-semibold">{value}</Text>
-        <Text className="text-lg text-[#ffcc00a2] font-semibold">
+        <Text className="text-base text-[#FFCC00] font-semibold">{value}</Text>
+        <Text className="text-base text-[#ffcc00a2] font-semibold">
           Tap to copy
         </Text>
       </React.Fragment>
@@ -86,17 +86,17 @@ export default function ReferralTab() {
   const horizontalCardList: HorizontalCardProps[] = [
     {
       label: "Total Referrals",
-      Icon: <Octicons name="people" color="#ffcc00" size={24} />,
+      Icon: <Octicons name="people" color="#ffcc00" size={22} />,
       number: "2",
     },
     {
       label: "Successful\nReferrals",
-      Icon: <Feather name="user-check" color="#ffcc00" size={24} />,
+      Icon: <Feather name="user-check" color="#ffcc00" size={22} />,
       number: "2",
     },
     {
       label: "Pending\nReferrals",
-      Icon: <Fontisto name="clock" color="#ffcc00" size={24} />,
+      Icon: <Fontisto name="clock" color="#ffcc00" size={22} />,
       number: "0",
     },
     {
@@ -105,7 +105,7 @@ export default function ReferralTab() {
         <MaterialCommunityIcons
           name="hand-coin-outline"
           color="#ffcc00"
-          size={24}
+          size={22}
         />
       ),
       number: "0",
@@ -174,16 +174,14 @@ export default function ReferralTab() {
             </View>
           </View>
         </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="flex-row my-4"
-        >
+        <View className="flex-row flex-wrap my-4 -mx-2">
           {horizontalCardList.map((props, i) => (
-            <HorizontalCard key={i} {...props} />
+            <View key={i} style={{ width: '50%' }}>
+              <HorizontalCard {...props} />
+            </View>
           ))}
-        </ScrollView>
-        <Text className="text-white text-xl font-semibold mt-2 mb-4">
+        </View>
+        <Text className="text-white text-lg font-semibold mt-2 mb-4">
           Referral Code
         </Text>
         <CopyableField
@@ -191,7 +189,7 @@ export default function ReferralTab() {
           handleCopyValue={() => handleCopyValue("EKREF5368", "code")}
           isCopied={codeCopied}
         />
-        <Text className="text-white text-xl font-semibold my-4">
+        <Text className="text-white text-lg font-semibold my-4">
           Share your link
         </Text>
         <CopyableField
