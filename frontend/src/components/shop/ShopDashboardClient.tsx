@@ -21,6 +21,7 @@ import { CustomerLookupTab } from "@/components/shop/tabs/CustomerLookupTab";
 import { SettingsTab } from "@/components/shop/tabs/SettingsTab";
 import { CustomersTab } from "@/components/shop/tabs/CustomersTab";
 import PromoCodesTab from "@/components/shop/tabs/PromoCodesTab";
+import { ShopLocationTab } from "@/components/shop/tabs/ShopLocationTab";
 import { useShopRegistration } from "@/hooks/useShopRegistration";
 import { OnboardingModal } from "@/components/shop/OnboardingModal";
 import { OperationalRequiredTab } from "@/components/shop/OperationalRequiredTab";
@@ -794,6 +795,14 @@ export default function ShopDashboardClient() {
 
           {activeTab === "promo-codes" && shopData && (
             <PromoCodesTab shopId={shopData.shopId} />
+          )}
+
+          {activeTab === "shop-location" && shopData && (
+            <ShopLocationTab
+              shopId={shopData.shopId}
+              shopData={shopData}
+              onLocationUpdate={loadShopData}
+            />
           )}
 
           {activeTab === "subscription" && shopData && (

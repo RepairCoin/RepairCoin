@@ -65,6 +65,11 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
   const [success, setSuccess] = useState<string | null>(null);
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [fetchingCustomer, setFetchingCustomer] = useState(false);
+  const [promoBonus, setPromoBonus] = useState<number>(0);
+  const [fetchingPromo, setFetchingPromo] = useState(false);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [availablePromoCodes, setAvailablePromoCodes] = useState<any[]>([]);
+  const [showPromoDropdown, setShowPromoDropdown] = useState(false);
 
   const calculateBaseReward = () => {
     if (repairType === "custom") {
@@ -107,12 +112,45 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
 
   const baseReward = calculateBaseReward();
   const tierBonus = customerInfo ? getTierBonus(customerInfo.tier) : 0;
-  const totalReward = baseReward + tierBonus;
+  const totalReward = baseReward + tierBonus + promoBonus;
   const hasSufficientBalance =
     (shopData?.purchasedRcnBalance || 0) >= totalReward;
 
   // No earning limits - customers can earn unlimited RCN
   const canIssueReward = true;
+
+  // Fetch available promo codes on mount
+  useEffect(() => {
+    const fetchPromoCodes = async () => {
+      if (!shopId) return;
+
+      try {
+        const authToken =
+          localStorage.getItem("shopAuthToken") ||
+          sessionStorage.getItem("shopAuthToken");
+
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/promo-codes`,
+          {
+            headers: {
+              Authorization: authToken ? `Bearer ${authToken}` : "",
+            },
+          }
+        );
+
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.data) {
+            setAvailablePromoCodes(result.data);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching promo codes:", err);
+      }
+    };
+
+    fetchPromoCodes();
+  }, [shopId]);
 
   useEffect(() => {
     if (customerAddress && customerAddress.length === 42) {
@@ -121,6 +159,86 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
       setCustomerInfo(null);
     }
   }, [customerAddress]);
+
+  // Fetch promo bonus when promo code changes
+  useEffect(() => {
+    const fetchPromoBonus = async () => {
+      if (!promoCode || !promoCode.trim() || !shopId || !customerAddress) {
+        setPromoBonus(0);
+        setPromoError(null);
+        return;
+      }
+
+      setFetchingPromo(true);
+      setPromoError(null);
+      try {
+        const authToken =
+          localStorage.getItem("shopAuthToken") ||
+          sessionStorage.getItem("shopAuthToken");
+
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/promo-codes/validate`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: authToken ? `Bearer ${authToken}` : "",
+            },
+            body: JSON.stringify({
+              code: promoCode.trim(),
+              customer_address: customerAddress,
+            }),
+          }
+        );
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log('Promo validation result:', result);
+          if (result.success && result.data.is_valid) {
+            // Calculate bonus based on validation result
+            const rewardBeforePromo = baseReward + tierBonus;
+            let bonusAmount = 0;
+
+            if (result.data.bonus_type === 'fixed') {
+              bonusAmount = parseFloat(result.data.bonus_value) || 0;
+            } else if (result.data.bonus_type === 'percentage') {
+              bonusAmount = (rewardBeforePromo * (parseFloat(result.data.bonus_value) || 0)) / 100;
+            }
+
+            // Apply max_bonus cap if it exists
+            if (result.data.max_bonus) {
+              const maxBonus = parseFloat(result.data.max_bonus);
+              if (!isNaN(maxBonus) && bonusAmount > maxBonus) {
+                bonusAmount = maxBonus;
+              }
+            }
+
+            console.log('Calculated promo bonus:', bonusAmount);
+            setPromoBonus(bonusAmount);
+            setPromoError(null);
+          } else {
+            console.log('Promo invalid:', result.data?.error_message);
+            setPromoBonus(0);
+            setPromoError(result.data?.error_message || 'Invalid promo code');
+          }
+        } else {
+          console.error('Promo validation failed:', response.status);
+          setPromoBonus(0);
+          setPromoError('Failed to validate promo code');
+        }
+      } catch (err) {
+        console.error("Error fetching promo bonus:", err);
+        setPromoBonus(0);
+        setPromoError('Failed to validate promo code');
+      } finally {
+        setFetchingPromo(false);
+      }
+    };
+
+    // Debounce the fetch to avoid too many requests
+    const timeoutId = setTimeout(fetchPromoBonus, 500);
+    return () => clearTimeout(timeoutId);
+  }, [promoCode, shopId, customerAddress, baseReward, tierBonus]);
 
   const fetchCustomerInfo = async () => {
     setFetchingCustomer(true);
@@ -233,6 +351,14 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
 
       console.log("Issuing reward with request body:", requestBody);
       console.log("API URL:", `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/issue-reward`);
+      console.log("Frontend balance check:", {
+        shopBalance: shopData?.purchasedRcnBalance,
+        totalReward,
+        baseReward,
+        tierBonus,
+        promoBonus,
+        hasSufficientBalance
+      });
       
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/issue-reward`,
@@ -515,22 +641,154 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                 </div>
 
                 <div className="mt-4">
-                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-400 mb-2">
                     Promo Code (Optional)
+                    {promoBonus > 0 && (
+                      <span className="flex items-center gap-1 text-xs font-normal px-2 py-1 bg-[#FFCC00]/20 text-[#FFCC00] rounded-full">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        +{promoBonus} RCN
+                      </span>
+                    )}
+                    {fetchingPromo && (
+                      <span className="flex items-center gap-1 text-xs font-normal px-2 py-1 bg-gray-500/20 text-gray-400 rounded-full">
+                        <div className="animate-spin h-3 w-3 border-2 border-gray-400 border-t-[#FFCC00] rounded-full"></div>
+                        Checking...
+                      </span>
+                    )}
                   </label>
-                  <input
-                    type="text"
-                    value={promoCode}
-                    onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                    placeholder="Enter promo code"
-                    className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent transition-all"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={promoCode}
+                      onChange={(e) => {
+                        const newValue = e.target.value.toUpperCase();
+                        setPromoCode(newValue);
+                        setShowPromoDropdown(true);
+                        if (!newValue.trim()) {
+                          setPromoBonus(0);
+                        }
+                      }}
+                      onFocus={() => setShowPromoDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowPromoDropdown(false), 200)}
+                      placeholder="Enter or select promo code"
+                      className={`w-full px-4 py-3 bg-[#0D0D0D] border text-white rounded-xl focus:ring-2 focus:border-transparent transition-all ${
+                        promoBonus > 0
+                          ? "border-[#FFCC00] focus:ring-[#FFCC00] pr-20"
+                          : "border-gray-700 focus:ring-[#FFCC00] pr-10"
+                      }`}
+                    />
+                    {promoCode && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPromoCode('');
+                          setPromoBonus(0);
+                        }}
+                        className="absolute right-10 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                      >
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                    )}
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                      <svg
+                        className={`w-5 h-5 text-gray-400 transition-transform ${
+                          showPromoDropdown ? "rotate-180" : ""
+                        }`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </div>
+
+                    {/* Dropdown */}
+                    {showPromoDropdown && availablePromoCodes.length > 0 && (
+                      <div className="absolute z-10 w-full mt-2 bg-[#1A1A1A] border border-gray-700 rounded-xl shadow-xl max-h-64 overflow-y-auto">
+                        {availablePromoCodes
+                          .filter((code) =>
+                            code.code.toUpperCase().includes(promoCode.toUpperCase())
+                          )
+                          .map((code) => (
+                            <div
+                              key={code.id}
+                              onClick={() => {
+                                setPromoCode(code.code);
+                                setShowPromoDropdown(false);
+                              }}
+                              className="px-4 py-3 hover:bg-[#2F2F2F] cursor-pointer transition-colors border-b border-gray-800 last:border-b-0"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-white">
+                                      {code.code}
+                                    </span>
+                                    <span
+                                      className={`px-2 py-1 text-xs rounded-full ${
+                                        code.is_active
+                                          ? "bg-green-500/20 text-green-400"
+                                          : "bg-gray-500/20 text-gray-400"
+                                      }`}
+                                    >
+                                      {code.is_active ? 'Active' : 'Inactive'}
+                                    </span>
+                                  </div>
+                                  {code.name && (
+                                    <p className="text-sm text-gray-400 mt-1">
+                                      {code.name}
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="text-right ml-4">
+                                  <div className="text-[#FFCC00] font-bold">
+                                    {code.bonus_type === "fixed"
+                                      ? `+${code.bonus_value} RCN`
+                                      : `${code.bonus_value}%`}
+                                  </div>
+                                  {code.total_usage_limit && (
+                                    <p className="text-xs text-gray-500 mt-1">
+                                      {code.times_used || 0}/{code.total_usage_limit} used
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        {availablePromoCodes.filter((code) =>
+                          code.code.toUpperCase().includes(promoCode.toUpperCase())
+                        ).length === 0 && (
+                          <div className="px-4 py-3 text-center text-gray-500">
+                            No matching promo codes
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {promoError && (
+                    <div className="mt-2 text-sm text-red-400 flex items-center gap-1">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                      {promoError}
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Show customer info if found */}
               {customerInfo && (
-                <div className="bg-[#0D0D0D] rounded-xl p-4 border border-gray-700">
+                <div className="bg-[#0D0D0D] rounded-xl p-4 border border-gray-700 mt-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div
@@ -897,6 +1155,32 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                       <span className="text-green-500 font-semibold text-lg">
                         +{tierBonus} RCN
                       </span>
+                    </div>
+                  )}
+
+                  {promoBonus > 0 && (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-[#FFCC00] rounded-full"></div>
+                        <span className="text-gray-300">
+                          Promo Bonus
+                        </span>
+                      </div>
+                      <span className="text-[#FFCC00] font-semibold text-lg">
+                        +{promoBonus} RCN
+                      </span>
+                    </div>
+                  )}
+                  
+                  {fetchingPromo && (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-pulse"></div>
+                        <span className="text-gray-400 text-sm">
+                          Validating promo code...
+                        </span>
+                      </div>
+                      <div className="animate-spin h-4 w-4 border-2 border-gray-500 border-t-[#FFCC00] rounded-full"></div>
                     </div>
                   )}
                 </div>

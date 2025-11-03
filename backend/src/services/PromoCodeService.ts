@@ -20,10 +20,10 @@ export class PromoCodeService {
   }
 
   async createPromoCode(shopId: string, data: Omit<CreatePromoCodeData, 'shop_id'>): Promise<PromoCode> {
-    // Validate code uniqueness
-    const existing = await this.promoCodeRepo.findByCode(data.code);
+    // Validate code uniqueness for this shop
+    const existing = await this.promoCodeRepo.findByCode(data.code, shopId);
     if (existing) {
-      throw new Error('A promo code with this code already exists');
+      throw new Error('A promo code with this code already exists for your shop');
     }
 
     // Validate dates
@@ -153,11 +153,11 @@ export class PromoCodeService {
     }
 
     let bonusAmount = 0;
-    
+
     if (validation.bonus_type === 'fixed') {
-      bonusAmount = validation.bonus_value || 0;
+      bonusAmount = parseFloat(validation.bonus_value as any) || 0;
     } else if (validation.bonus_type === 'percentage') {
-      bonusAmount = (baseReward * (validation.bonus_value || 0)) / 100;
+      bonusAmount = (baseReward * (parseFloat(validation.bonus_value as any) || 0)) / 100;
       
       // Apply max bonus if specified
       const promoCode = await this.promoCodeRepo.findByCode(code, shopId);
