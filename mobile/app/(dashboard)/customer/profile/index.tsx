@@ -104,65 +104,6 @@ export default function MyProfile() {
           />
         </View>
         <View className="py-6 px-4 bg-[#212121] rounded-xl gap-4 mt-4">
-          <Text className="text-white/50 text-2xl">General</Text>
-          <View className="flex-row justify-between items-center">
-            <Pressable
-              onPress={() => router.push("/ChangePrivateKey")}
-              className="flex-row items-center"
-            >
-              <View className="rounded-full bg-white w-16 h-16 items-center justify-center">
-                <SimpleLineIcons name="lock" color="#000" size={24} />
-              </View>
-              <View className="px-4 gap-2">
-                <Text className="text-white text-xl font-semibold">
-                  Change password
-                </Text>
-                <Text className="text-white/50 text-sm">
-                  Customize your notifications preferences
-                </Text>
-              </View>
-            </Pressable>
-            <AntDesign name="right" color="#fff" size={24} />
-          </View>
-        </View>
-        <View className="py-6 px-4 bg-[#212121] rounded-xl gap-4 mt-4">
-          <Text className="text-white/50 text-2xl">Preferences</Text>
-          <View className="flex-row justify-between items-center">
-            <View className="flex-row items-center">
-              <View className="rounded-full bg-white w-16 h-16 items-center justify-center">
-                <SimpleLineIcons name="bell" color="#000" size={24} />
-              </View>
-              <View className="px-4 gap-2">
-                <Text className="text-white text-xl font-semibold">
-                  Notifications
-                </Text>
-                <Text className="text-white/50 text-sm">
-                  Customize your notifications preferences
-                </Text>
-              </View>
-            </View>
-            <Switch
-              trackColor={{ false: "#767577", true: "#81b0ff" }}
-              thumbColor={isNotificationEnabled ? "#f5dd4b" : "#f4f3f4"}
-              ios_backgroundColor="#3e3e3e"
-              onValueChange={toggleNotification}
-              value={isNotificationEnabled}
-            />
-          </View>
-          <View className="flex-row justify-between items-center mt-4">
-            <View className="flex-row items-center">
-              <View className="rounded-full bg-white w-16 h-16 items-center justify-center">
-                <SimpleLineIcons name="info" color="#000" size={24} />
-              </View>
-              <View className="px-4 gap-2">
-                <Text className="text-white text-xl font-semibold">FAQ</Text>
-                <Text className="text-white/50 text-sm">
-                  Securely add payment method
-                </Text>
-              </View>
-            </View>
-            <AntDesign name="right" color="#fff" size={24} />
-          </View>
           <Pressable onPress={handleLogout} className="flex-row justify-between items-center mt-4">
             <View className="flex-row items-center">
               <View className="rounded-full bg-[#FBCDCD] w-16 h-16 items-center justify-center">

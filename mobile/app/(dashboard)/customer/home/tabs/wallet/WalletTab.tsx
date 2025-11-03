@@ -204,10 +204,6 @@ export default function WalletTab() {
     setTierModalVisible(true);
   }, []);
 
-  const handleHistoryPress = useCallback(() => {
-    router.push("/customer/TransactionHistory");
-  }, []);
-
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await refetch();
@@ -259,13 +255,7 @@ export default function WalletTab() {
           icon={<MaterialIcons name="info" color="#fff" size={24} />}
           label="Tier Benefits"
         />
-        <ActionButton
-          onPress={handleHistoryPress}
-          icon={<Octicons name="history" color="#fff" size={24} />}
-          label="History"
-        />
       </View>
-
       {/* Detail Cards - Scrollable Section */}
       <ScrollView
         className="flex-1 mt-5"

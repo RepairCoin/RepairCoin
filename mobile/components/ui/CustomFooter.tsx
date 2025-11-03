@@ -39,24 +39,24 @@ export default function CustomFooter() {
         <Pressable
           className="items-center flex-1 z-10"
           onPress={() => {
-            setActive("Notification");
-            active !== "Notification" &&
-              router.push("/customer/notification");
+            setActive("Transaction");
+            active !== "Transaction" &&
+              router.push("/customer/Transaction");
           }}
         >
           <Ionicons
-            name="notifications"
+            name="cash-outline"
             size={25}
-            color={active === "Notification" ? "#FFD600" : "#888"}
+            color={active === "Transaction" ? "#FFD600" : "#888"}
           />
           <Text
             className={`text-xs mt-1 ${
-              active === "Notification"
+              active === "Transaction"
                 ? "text-yellow-400 font-semibold"
                 : "text-gray-400"
             }`}
           >
-            Notification
+            Transaction
           </Text>
         </Pressable>
 

@@ -1,10 +1,12 @@
 import { Image, View, Text, Pressable } from "react-native";
 import React, { useState } from "react";
+import { Feather } from "@expo/vector-icons";
 import WalletTab from "./tabs/wallet/WalletTab";
 import ApprovalTab from "./tabs/approval/ApprovalTab";
 import ReferralTab from "./tabs/referral/ReferralTab";
 import { useAuthStore } from "@/store/authStore";
 import { useCustomer } from "@/hooks";
+import { router } from "expo-router";
 
 type CustomerTabs = "Wallet" | "Referral" | "Approval";
 
@@ -24,17 +26,27 @@ export default function CustomerDashboard() {
   return (
     <View className="h-full w-full bg-zinc-950">
       <View className="h-full w-full pt-14 px-4">
-        <Image
-          source={require("@/assets/images/logo.png")}
-          className="w-[40%] h-10"
-          resizeMode="contain"
-        />
+        <View className="flex-row items-center justify-between">
+          <Image
+            source={require("@/assets/images/logo.png")}
+            className="w-[40%] h-10"
+            resizeMode="contain"
+          />
+          <Pressable
+            onPress={() => router.push("/customer/home/Notification")}
+            className="w-10 h-10 bg-[#121212] rounded-full items-center justify-center"
+          >
+            <Feather name="bell" size={20} color="white" />
+          </Pressable>
+        </View>
         <View className="flex-row my-4 justify-between items-center">
           <View className="flex-row">
             <Text className="text-lg font-semibold text-[#FFCC00] mr-2">
               Hello!
             </Text>
-            <Text className="text-lg font-semibold text-white">{customerData?.customer.name}</Text>
+            <Text className="text-lg font-semibold text-white">
+              {customerData?.customer.name}
+            </Text>
           </View>
         </View>
         <View className="flex-row w-full h-12 bg-[#121212] rounded-xl justify-between">

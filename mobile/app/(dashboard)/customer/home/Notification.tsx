@@ -33,9 +33,7 @@ export default function Notification() {
           <Text className="text-white text-2xl font-extrabold">
             Notification
           </Text>
-          <Pressable onPress={() => router.push("/customer/CustomizeNotification")}>
-            <FontAwesome name="gear" color="#fff" size={24} />
-          </Pressable>
+          <View className="w-[25px]" />
         </View>
       </View>
       <ScrollView className="px-4 mt-4">

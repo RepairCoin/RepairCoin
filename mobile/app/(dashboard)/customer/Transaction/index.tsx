@@ -1,7 +1,3 @@
-import TransactionHistoryCard from "@/components/customer/TransactionHistoryCard";
-import TransactionHistoryFilterModal from "@/components/customer/TransactionHistoryFilterModal";
-import { AntDesign, Feather, FontAwesome } from "@expo/vector-icons";
-import { goBack } from "expo-router/build/global-state/routing";
 import { useCallback, useState } from "react";
 import {
   View,
@@ -11,9 +7,12 @@ import {
   FlatList,
   RefreshControl,
 } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/authStore";
 import { useEarningHistory } from "@/hooks";
 import { EarningHistory } from "@/services/CustomerServices";
+import TransactionHistoryCard from "@/components/customer/TransactionHistoryCard";
+import TransactionHistoryFilterModal from "@/components/customer/TransactionHistoryFilterModal";
 
 export default function TransactionHistory() {
   const { account } = useAuthStore((state) => state);
@@ -42,7 +41,6 @@ export default function TransactionHistory() {
     <View className="w-full h-full bg-zinc-950">
       <View className="pt-16 px-4 gap-4">
         <View className="flex-row justify-between items-center">
-          <AntDesign name="left" color="white" size={25} onPress={goBack} />
           <Text className="text-white text-xl font-semibold">
             Transaction History
           </Text>
