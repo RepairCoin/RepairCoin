@@ -1,17 +1,14 @@
-import { Pressable, ScrollView, Text, View, Switch } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import {
   AntDesign,
   Entypo,
   Feather,
   MaterialIcons,
-  SimpleLineIcons,
 } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import * as Clipboard from "expo-clipboard";
 import { router } from "expo-router";
 import { useAuthStore } from "@/store/authStore";
-import { useCustomerStore } from "@/store/customerStore";
-import { useCustomer } from "@/hooks";
 
 type CopyableFieldProps = {
   value: string;
@@ -58,8 +55,6 @@ const CopyableField = ({
 export default function Account() {
   const { logout } = useAuthStore((state) => state);
   const { account } = useAuthStore();
-  // Use the token balance hook
-  const { data: customerData } = useCustomer(account?.address);
 
   const [isCopied, setIsCopied] = useState<boolean>(false);
 
@@ -88,10 +83,10 @@ export default function Account() {
         <View className="flex-row py-6 px-4 justify-between bg-[#212121] rounded-xl items-center">
           <View className="gap-2">
             <Text className="text-[#FFCC00] text-xl font-bold">
-              {customerData?.customer?.name || "User"}
+              {"User"}
             </Text>
             <Text className="text-white/50 text-base">
-              {customerData?.customer?.email || "No email"}
+              {"No email"}
             </Text>
           </View>
           <Pressable
@@ -107,9 +102,9 @@ export default function Account() {
             <Text className="text-white/50 text-xl">Wallet Address</Text>
           </View>
           <CopyableField
-            value={customerData?.customer?.address || ""}
+            value={account?.address || ""}
             handleCopyValue={() =>
-              handleCopyValue(customerData?.customer?.address || "")
+              handleCopyValue(account?.address || "")
             }
             isCopied={isCopied}
           />

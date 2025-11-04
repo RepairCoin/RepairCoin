@@ -58,7 +58,7 @@ export const useConnectWallet = () => {
             router.push("/customer/tabs/home");
           } else if (isShop) {
             // TODO: Add shop dashboard when available
-            router.push("/customer/tabs/home");
+            router.push("/shop/tabs/home");
           } else {
             router.push("/customer/tabs/home");
           }
@@ -96,9 +96,9 @@ export const useSplashNavigation = () => {
         return '/customer/tabs/home';
       } else if (isShop) {
         // TODO: Add shop dashboard route when implemented
-        return '/customer/tabs/home';
+        return '/shop/tabs/home';
       } else {
-        return '/customer/tabs/home';
+        return null;
       }
     } else {
       // Not authenticated, go to onboarding
