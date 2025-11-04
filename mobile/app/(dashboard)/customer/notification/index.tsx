@@ -29,7 +29,7 @@ export default function Notification() {
     <View className="w-full h-full bg-zinc-950">
       <View className="pt-16 px-4 gap-4">
         <View className="flex-row justify-between items-center">
-          <AntDesign name="left" color="white" size={25} onPress={goBack} />
+          <AntDesign name="left" color="white" size={18} onPress={goBack} />
           <Text className="text-white text-2xl font-extrabold">
             Notification
           </Text>

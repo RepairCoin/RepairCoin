@@ -96,7 +96,7 @@ export default function EditProfilePage() {
             onChangeText={setPhone}
           />
         </View>
-        <View className="mx-2 mt-auto mb-2">
+        <View className="mx-2 mt-auto mb-8">
           <PrimaryButton
             title={
               updateProfileMutation.isPending ? "Saving..." : "Save Changes"

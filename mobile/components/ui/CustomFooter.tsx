@@ -63,7 +63,7 @@ export default function CustomFooter() {
           className="items-center flex-1 z-10"
           onPress={() => {
             setActive("Shop");
-            active !== "Shop" && router.push("/showShop/Onboarding");
+            active !== "Shop" && router.push("/customer/tabs/find-shop");
           }}
         >
           <Ionicons
