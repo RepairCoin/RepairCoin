@@ -23,6 +23,7 @@ import { WebhookDomain } from './domains/webhook/WebhookDomain';
 import { ShopDomain } from './domains/shop/ShopDomain';
 import { AdminDomain } from './domains/admin/AdminDomain';
 import { NotificationDomain } from './domains/notification/NotificationDomain';
+import { ShopGroupDomain } from './domains/ShopGroupDomain';
 import { eventBus } from './events/EventBus';
 import { monitoringService } from './services/MonitoringService';
 import { cleanupService } from './services/CleanupService';
@@ -197,6 +198,7 @@ class RepairCoinApp {
     domainRegistry.register(new ShopDomain());
     domainRegistry.register(new AdminDomain());
     domainRegistry.register(new NotificationDomain());
+    domainRegistry.register(new ShopGroupDomain());
 
     // Initialize all domains (sets up event subscriptions)
     await domainRegistry.initializeAll();

@@ -268,6 +268,213 @@ const options = {
           required: ['shopId', 'companyName', 'address', 'email']
         },
 
+        // Shop Group schemas
+        ShopGroup: {
+          type: 'object',
+          properties: {
+            groupId: {
+              type: 'string',
+              description: 'Unique group identifier',
+              example: 'grp_1234567890'
+            },
+            groupName: {
+              type: 'string',
+              description: 'Name of the shop group',
+              example: 'Downtown Auto Repair Coalition'
+            },
+            customTokenName: {
+              type: 'string',
+              description: 'Custom token name for the group',
+              example: 'DowntownBucks'
+            },
+            customTokenSymbol: {
+              type: 'string',
+              description: 'Custom token symbol (max 10 chars)',
+              example: 'DTB'
+            },
+            description: {
+              type: 'string',
+              description: 'Group description',
+              example: 'Coalition of auto repair shops in downtown area'
+            },
+            logoUrl: {
+              type: 'string',
+              format: 'url',
+              description: 'Group logo URL',
+              example: 'https://example.com/logo.png'
+            },
+            inviteCode: {
+              type: 'string',
+              description: 'Unique invite code for joining the group',
+              example: 'DTARC2025'
+            },
+            isPrivate: {
+              type: 'boolean',
+              description: 'Whether group requires approval to join',
+              example: false
+            },
+            createdByShopId: {
+              type: 'string',
+              description: 'Shop ID of the group creator',
+              example: 'shop001'
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Group creation timestamp',
+              example: '2025-01-01T00:00:00Z'
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Last update timestamp',
+              example: '2025-01-01T00:00:00Z'
+            },
+            memberCount: {
+              type: 'number',
+              description: 'Total number of active members',
+              example: 5
+            }
+          },
+          required: ['groupId', 'groupName', 'customTokenName', 'customTokenSymbol']
+        },
+
+        ShopGroupMember: {
+          type: 'object',
+          properties: {
+            groupId: {
+              type: 'string',
+              description: 'Group identifier',
+              example: 'grp_1234567890'
+            },
+            shopId: {
+              type: 'string',
+              description: 'Shop identifier',
+              example: 'shop001'
+            },
+            role: {
+              type: 'string',
+              enum: ['admin', 'member'],
+              description: 'Member role in the group',
+              example: 'member'
+            },
+            status: {
+              type: 'string',
+              enum: ['active', 'pending', 'rejected', 'removed'],
+              description: 'Membership status',
+              example: 'active'
+            },
+            joinedAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'When the member joined',
+              example: '2025-01-01T00:00:00Z'
+            },
+            requestMessage: {
+              type: 'string',
+              description: 'Message from shop when requesting to join',
+              example: 'We would love to be part of this coalition'
+            }
+          }
+        },
+
+        CustomerGroupBalance: {
+          type: 'object',
+          properties: {
+            customerAddress: {
+              type: 'string',
+              pattern: '^0x[a-fA-F0-9]{40}$',
+              description: 'Customer wallet address',
+              example: '0x1234567890123456789012345678901234567890'
+            },
+            groupId: {
+              type: 'string',
+              description: 'Group identifier',
+              example: 'grp_1234567890'
+            },
+            balance: {
+              type: 'number',
+              description: 'Current token balance',
+              example: 150
+            },
+            lifetimeEarned: {
+              type: 'number',
+              description: 'Total tokens earned in this group',
+              example: 200
+            },
+            lifetimeRedeemed: {
+              type: 'number',
+              description: 'Total tokens redeemed in this group',
+              example: 50
+            },
+            lastEarnedAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Last time tokens were earned',
+              example: '2025-01-01T00:00:00Z'
+            },
+            lastRedeemedAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Last time tokens were redeemed',
+              example: '2025-01-01T00:00:00Z'
+            }
+          }
+        },
+
+        GroupTokenTransaction: {
+          type: 'object',
+          properties: {
+            transactionId: {
+              type: 'string',
+              description: 'Unique transaction identifier',
+              example: 'gtx_1234567890'
+            },
+            groupId: {
+              type: 'string',
+              description: 'Group identifier',
+              example: 'grp_1234567890'
+            },
+            customerAddress: {
+              type: 'string',
+              pattern: '^0x[a-fA-F0-9]{40}$',
+              description: 'Customer wallet address',
+              example: '0x1234567890123456789012345678901234567890'
+            },
+            shopId: {
+              type: 'string',
+              description: 'Shop that processed the transaction',
+              example: 'shop001'
+            },
+            type: {
+              type: 'string',
+              enum: ['earn', 'redeem'],
+              description: 'Transaction type',
+              example: 'earn'
+            },
+            amount: {
+              type: 'number',
+              description: 'Token amount',
+              example: 50
+            },
+            reason: {
+              type: 'string',
+              description: 'Reason for transaction',
+              example: 'Oil change service'
+            },
+            metadata: {
+              type: 'object',
+              description: 'Additional transaction data'
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Transaction timestamp',
+              example: '2025-01-01T00:00:00Z'
+            }
+          }
+        },
+
         // Token schemas
         TokenStats: {
           type: 'object',
@@ -5612,6 +5819,10 @@ const options = {
       {
         name: 'Notifications',
         description: 'Real-time notification management for users'
+      },
+      {
+        name: 'Shop Groups',
+        description: 'Shop coalition management - create groups, manage members, and issue custom group tokens/points redeemable within the group'
       }
     ]
   },

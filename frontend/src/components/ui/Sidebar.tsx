@@ -210,6 +210,12 @@ const Sidebar: React.FC<SidebarProps> = ({
         //   tabId: "analytics",
         // },
         {
+          title: "Shop Groups",
+          href: "/shop/groups",
+          icon: <Users className="w-5 h-5" />,
+          tabId: "groups",
+        },
+        {
           title: "Promo Codes",
           href: "/shop?tab=promo-codes",
           icon: <span className="text-xl">🏷️</span>,
