@@ -32,7 +32,8 @@ export default function FindShop() {
         </View>
       ) : (
         <View className="flex-1 items-center justify-center">
-          <Text className="text-white">No shops found</Text>
+          <Feather name="tool" size={48} color="#666" />
+          <Text className="text-white text-lg mt-4">Under Development</Text>
         </View>
       )}
     </View>
