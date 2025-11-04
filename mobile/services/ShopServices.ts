@@ -1,49 +1,50 @@
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+import { apiClient } from "@/utilities/axios";
 
-export const listShops = async () => {
-  const response = await fetch(`${API_URL}/shops`, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch shops: ${response.status}`);
-  }
-
-  return response.json();
+export interface Location {
+    lat: number;
+    lng: number;
+    city: string;
+    state: string;
+    zipCode: string;
 }
 
-export const getShopById = async (shopId: string) => {
-  const response = await fetch(`${API_URL}/shops/${shopId}`, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch shop: ${response.status}`);
-  }
-
-  return response.json();
+export interface ShopData {
+    acceptTerms: boolean;
+    active: boolean;
+    address: string;
+    companySize: string;
+    country: string;
+    crossShopEnabled: boolean;
+    email: string;
+    facebook: string;
+    firstName: string;
+    instagram: string;
+    joinDate: string;
+    lastName: string;
+    location: Location;
+    monthlyRevenue: string;
+    name: string;
+    phone: string;
+    referral: string;
+    shopId: string;
+    twitter: string;
+    verified: boolean;
+    website: string;
 }
 
-export const getShopByWalletAddress = async (address: string) => {
-  const response = await fetch(`${API_URL}/shops/wallet/${address}`, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-  });
+export interface ShopResponse {
+    data: {
+      count: number;
+      shops: ShopData[]
+    };
+    success: boolean;
+    message?: string;
+}
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch shop: ${response.status}`);
+export const listShops = async (): Promise<ShopResponse> => {
+  try {
+    return await apiClient.get<ShopResponse>('/shops');
+  } catch (error: any) {
+    throw new Error(`Failed to fetch shops: ${error.response?.status || error.message}`);
   }
-
-  return response.json();
 }

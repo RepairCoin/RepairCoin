@@ -1,18 +1,15 @@
-import {
-  View,
-  Text,
-  TextInput,
-} from "react-native";
+import { View, Text, TextInput } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { useShops } from "@/hooks";
 
 export default function FindShop() {
+  const { data: shops, isLoading } = useShops();
+
   return (
     <View className="w-full h-full bg-zinc-950">
       <View className="pt-16 px-4 gap-4">
         <View className="flex-row justify-between items-center">
-          <Text className="text-white text-xl font-semibold">
-            Find Shop
-          </Text>
+          <Text className="text-white text-xl font-semibold">Find Shop</Text>
           <View className="w-[25px]" />
         </View>
         <View className="flex-row justify-between">
@@ -29,6 +26,15 @@ export default function FindShop() {
           </View>
         </View>
       </View>
+      {isLoading ? (
+        <View className="flex-1 items-center justify-center">
+          <Text className="text-white">Loading...</Text>
+        </View>
+      ) : (
+        <View className="flex-1 items-center justify-center">
+          <Text className="text-white">No shops found</Text>
+        </View>
+      )}
     </View>
   );
 }
