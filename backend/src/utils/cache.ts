@@ -1,6 +1,5 @@
 // backend/src/utils/cache.ts
 import { Request, Response, NextFunction } from 'express';
-// TODO: DatabaseService no longer exists - refactor caching logic
 
 interface CustomerData {
   address: string;
@@ -135,69 +134,41 @@ export function cached(ttlMs: number = 300000) {
   };
 }
 
-// Enhanced database service with caching
-// TODO: Refactor to work with repositories instead of DatabaseService
-/* 
-export class CachedDatabaseService extends DatabaseService {
-  // Use manual caching instead of decorators for better TypeScript support
-  async getCustomer(address: string): Promise<CustomerData | null> {
-    const cacheKey = `DatabaseService:getCustomer:${address}`;
-    const cached = generalCache.get<CustomerData>(cacheKey);
+// Helper functions for repository-level caching
+// Use these in repositories if you need caching for expensive queries
+export const repositoryCache = {
+  /**
+   * Cache a repository method call
+   * @param key - Unique cache key for this call
+   * @param fetchFn - Function that fetches the data
+   * @param ttlMs - Time to live in milliseconds (default: 5 minutes)
+   */
+  async get<T>(key: string, fetchFn: () => Promise<T>, ttlMs: number = 300000): Promise<T> {
+    const cached = generalCache.get<T>(key);
     if (cached !== null) {
       return cached;
     }
-    
-    const result = await super.getCustomer(address);
-    if (result) {
-      generalCache.set(cacheKey, result, 300000); // 5 minutes
-    }
+
+    const result = await fetchFn();
+    generalCache.set(key, result, ttlMs);
     return result;
-  }
+  },
 
-  async getShop(shopId: string): Promise<ShopData | null> {
-    const cacheKey = `DatabaseService:getShop:${shopId}`;
-    const cached = generalCache.get<ShopData>(cacheKey);
-    if (cached !== null) {
-      return cached;
-    }
-    
-    const result = await super.getShop(shopId);
-    if (result) {
-      generalCache.set(cacheKey, result, 600000); // 10 minutes
-    }
-    return result;
-  }
+  /**
+   * Invalidate cache entries by key or pattern
+   * @param key - Cache key to invalidate
+   */
+  invalidate(key: string): void {
+    generalCache.delete(key);
+  },
 
-  async getActiveShops(): Promise<ShopData[]> {
-    const cacheKey = `DatabaseService:getActiveShops:all`;
-    const cached = generalCache.get<ShopData[]>(cacheKey);
-    if (cached !== null) {
-      return cached;
-    }
-    
-    const result = await super.getActiveShops();
-    generalCache.set(cacheKey, result, 60000); // 1 minute
-    return result;
+  /**
+   * Clear all cache entries
+   */
+  clear(): void {
+    generalCache.clear();
   }
-
-  // Override update methods to invalidate cache
-  async updateCustomer(address: string, updates: Partial<CustomerData>): Promise<void> {
-    await super.updateCustomer(address, updates);
-    // Invalidate related cache entries
-    const cacheKey = `DatabaseService:getCustomer:${address}`;
-    generalCache.delete(cacheKey);
-  }
-
-  async updateShop(shopId: string, updates: Partial<ShopData>): Promise<void> {
-    await super.updateShop(shopId, updates);
-    // Invalidate related cache entries
-    const shopCacheKey = `DatabaseService:getShop:${shopId}`;
-    const activeShopsCacheKey = `DatabaseService:getActiveShops:all`;
-    generalCache.delete(shopCacheKey);
-    generalCache.delete(activeShopsCacheKey);
-  }
-}
-*/
+};
 
 // Request caching middleware
 export const requestCache = (ttlMs: number = 60000) => {
