@@ -495,77 +495,77 @@ export default function SubscriptionManagementTab() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Statistics Cards */}
       {stats && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
+        <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
           <Card className="border-2 border-[#FFCC00]">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active</CardTitle>
-              <CheckCircle className="h-4 w-4 text-green-600" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+              <CardTitle className="text-xs sm:text-sm font-medium">Active</CardTitle>
+              <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600 flex-shrink-0" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalActive}</div>
+            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+              <div className="text-xl sm:text-2xl font-bold">{stats.totalActive}</div>
             </CardContent>
           </Card>
 
           <Card className="border-2 border-[#FFCC00]">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending</CardTitle>
-              <Clock className="h-4 w-4 text-yellow-600" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+              <CardTitle className="text-xs sm:text-sm font-medium">Pending</CardTitle>
+              <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-yellow-600 flex-shrink-0" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalPending}</div>
+            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+              <div className="text-xl sm:text-2xl font-bold">{stats.totalPending}</div>
             </CardContent>
           </Card>
 
           <Card className="border-2 border-[#FFCC00]">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Paused</CardTitle>
-              <PauseCircle className="h-4 w-4 text-blue-600" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+              <CardTitle className="text-xs sm:text-sm font-medium">Paused</CardTitle>
+              <PauseCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 flex-shrink-0" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalPaused}</div>
+            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+              <div className="text-xl sm:text-2xl font-bold">{stats.totalPaused}</div>
             </CardContent>
           </Card>
 
           <Card className="border-2 border-[#FFCC00]">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Overdue</CardTitle>
-              <AlertCircle className="h-4 w-4 text-red-600" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+              <CardTitle className="text-xs sm:text-sm font-medium">Overdue</CardTitle>
+              <AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-red-600 flex-shrink-0" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.overdueCount}</div>
+            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+              <div className="text-xl sm:text-2xl font-bold">{stats.overdueCount}</div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2 border-[#FFCC00] col-span-2 sm:col-span-1">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+              <CardTitle className="text-xs sm:text-sm font-medium">Monthly Recurring</CardTitle>
+              <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600 flex-shrink-0" />
+            </CardHeader>
+            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+              <div className="text-xl sm:text-2xl font-bold">${stats.monthlyRecurring}</div>
             </CardContent>
           </Card>
 
           <Card className="border-2 border-[#FFCC00]">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Monthly Recurring</CardTitle>
-              <DollarSign className="h-4 w-4 text-green-600" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+              <CardTitle className="text-xs sm:text-sm font-medium">Total Revenue</CardTitle>
+              <CreditCard className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 flex-shrink-0" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">${stats.monthlyRecurring}</div>
+            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+              <div className="text-xl sm:text-2xl font-bold">${stats.totalRevenue}</div>
             </CardContent>
           </Card>
 
           <Card className="border-2 border-[#FFCC00]">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-              <CreditCard className="h-4 w-4 text-blue-600" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+              <CardTitle className="text-xs sm:text-sm font-medium">Cancelled</CardTitle>
+              <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-600 flex-shrink-0" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">${stats.totalRevenue}</div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-2 border-[#FFCC00]">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Cancelled</CardTitle>
-              <XCircle className="h-4 w-4 text-gray-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalCancelled}</div>
+            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+              <div className="text-xl sm:text-2xl font-bold">{stats.totalCancelled}</div>
             </CardContent>
           </Card>
         </div>
@@ -575,60 +575,62 @@ export default function SubscriptionManagementTab() {
       <Card className="border-2 border-[#FFCC00]">
         <CardContent className="p-0">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <div className="flex justify-between items-center border-b-2 border-[#FFCC00] bg-transparent">
-              <TabsList className="justify-start rounded-none h-auto p-0 bg-transparent border-none">
-
-              <TabsTrigger
-                value="all"
-                className="rounded-none px-6 py-3 data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold transition-all"
-              >
-                All Subscriptions
-              </TabsTrigger>
-              <TabsTrigger
-                value="active"
-                className="rounded-none px-6 py-3 data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold transition-all"
-              >
-                Active
-              </TabsTrigger>
-              <TabsTrigger
-                value="pending"
-                className="rounded-none px-6 py-3 data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold transition-all"
-              >
-                Pending Approval
-              </TabsTrigger>
-              <TabsTrigger
-                value="paused"
-                className="rounded-none px-6 py-3 data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold transition-all"
-              >
-                Paused
-              </TabsTrigger>
-              <TabsTrigger
-                value="overdue"
-                className="rounded-none px-6 py-3 data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold transition-all"
-              >
-                Overdue
-              </TabsTrigger>
-              <TabsTrigger
-                value="cancelled"
-                className="rounded-none px-6 py-3 data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold transition-all"
-              >
-                Cancelled
-              </TabsTrigger>
-              </TabsList>
+            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center border-b-2 border-[#FFCC00] bg-transparent">
+              <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+                <TabsList className="inline-flex justify-start rounded-none h-auto p-0 bg-transparent border-none w-full sm:w-auto min-w-max">
+                  <TabsTrigger
+                    value="all"
+                    className="rounded-none px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold transition-all whitespace-nowrap"
+                  >
+                    All
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="active"
+                    className="rounded-none px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold transition-all whitespace-nowrap"
+                  >
+                    Active
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="pending"
+                    className="rounded-none px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold transition-all whitespace-nowrap"
+                  >
+                    Pending
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="paused"
+                    className="rounded-none px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold transition-all whitespace-nowrap"
+                  >
+                    Paused
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="overdue"
+                    className="rounded-none px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold transition-all whitespace-nowrap"
+                  >
+                    Overdue
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="cancelled"
+                    className="rounded-none px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold transition-all whitespace-nowrap"
+                  >
+                    Cancelled
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
               <Button
                 onClick={handleSync}
                 disabled={syncing || loading}
                 variant="outline"
                 size="sm"
-                className="mr-4 border-[#FFCC00] text-[#FFCC00] hover:bg-[#FFCC00] hover:text-black transition-colors"
+                className="mx-2 my-2 sm:my-0 sm:mr-4 border-[#FFCC00] text-[#FFCC00] hover:bg-[#FFCC00] hover:text-black transition-colors text-xs sm:text-sm whitespace-nowrap flex-shrink-0"
               >
-                <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-                {syncing ? 'Syncing...' : 'Sync from Stripe'}
+                <RefreshCw className={`w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">{syncing ? 'Syncing...' : 'Sync from Stripe'}</span>
+                <span className="sm:hidden">{syncing ? 'Sync...' : 'Sync'}</span>
               </Button>
             </div>
 
-            <TabsContent value={activeTab} className="mt-0 p-6">
+            <TabsContent value={activeTab} className="mt-0 p-3 sm:p-6">
               <DataTable
                 data={filteredSubscriptions}
                 columns={columns}
