@@ -6,17 +6,18 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { 
-  CreditCard, 
-  Calendar, 
-  DollarSign, 
-  AlertCircle, 
-  CheckCircle, 
+import {
+  CreditCard,
+  Calendar,
+  DollarSign,
+  AlertCircle,
+  CheckCircle,
   XCircle,
   Clock,
   PauseCircle,
   PlayCircle,
-  RefreshCw
+  RefreshCw,
+  X
 } from 'lucide-react';
 
 interface Subscription {
@@ -324,11 +325,15 @@ export default function SubscriptionManagementTab() {
         if (!sub.nextPaymentDate || sub.status !== 'active') {
           return <span className="text-gray-400">-</span>;
         }
-        
+
         const date = new Date(sub.nextPaymentDate);
+        if (isNaN(date.getTime())) {
+          return <span className="text-gray-400">-</span>;
+        }
+
         const now = new Date();
         const daysUntil = Math.ceil((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        
+
         return (
           <div>
             <div>{date.toLocaleDateString()}</div>
@@ -432,7 +437,7 @@ export default function SubscriptionManagementTab() {
       {/* Statistics Cards */}
       {stats && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
-          <Card>
+          <Card className="border-2 border-[#FFCC00]">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Active</CardTitle>
               <CheckCircle className="h-4 w-4 text-green-600" />
@@ -441,8 +446,8 @@ export default function SubscriptionManagementTab() {
               <div className="text-2xl font-bold">{stats.totalActive}</div>
             </CardContent>
           </Card>
-          
-          <Card>
+
+          <Card className="border-2 border-[#FFCC00]">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Pending</CardTitle>
               <Clock className="h-4 w-4 text-yellow-600" />
@@ -451,8 +456,8 @@ export default function SubscriptionManagementTab() {
               <div className="text-2xl font-bold">{stats.totalPending}</div>
             </CardContent>
           </Card>
-          
-          <Card>
+
+          <Card className="border-2 border-[#FFCC00]">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Overdue</CardTitle>
               <AlertCircle className="h-4 w-4 text-red-600" />
@@ -461,8 +466,8 @@ export default function SubscriptionManagementTab() {
               <div className="text-2xl font-bold">{stats.overdueCount}</div>
             </CardContent>
           </Card>
-          
-          <Card>
+
+          <Card className="border-2 border-[#FFCC00]">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Monthly Recurring</CardTitle>
               <DollarSign className="h-4 w-4 text-green-600" />
@@ -471,8 +476,8 @@ export default function SubscriptionManagementTab() {
               <div className="text-2xl font-bold">${stats.monthlyRecurring}</div>
             </CardContent>
           </Card>
-          
-          <Card>
+
+          <Card className="border-2 border-[#FFCC00]">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
               <CreditCard className="h-4 w-4 text-blue-600" />
@@ -481,8 +486,8 @@ export default function SubscriptionManagementTab() {
               <div className="text-2xl font-bold">${stats.totalRevenue}</div>
             </CardContent>
           </Card>
-          
-          <Card>
+
+          <Card className="border-2 border-[#FFCC00]">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Cancelled</CardTitle>
               <XCircle className="h-4 w-4 text-gray-600" />
@@ -495,27 +500,42 @@ export default function SubscriptionManagementTab() {
       )}
 
       {/* Subscription Tabs */}
-      <Card>
+      <Card className="border-2 border-[#FFCC00]">
         <CardContent className="p-0">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="w-full justify-start rounded-none border-b h-auto p-0">
-              <TabsTrigger value="all" className="rounded-none px-6 py-3">
+            <TabsList className="w-full justify-start rounded-none border-b-2 border-[#FFCC00] h-auto p-0 bg-transparent">
+              <TabsTrigger
+                value="all"
+                className="rounded-none px-6 py-3 data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold transition-all"
+              >
                 All Subscriptions
               </TabsTrigger>
-              <TabsTrigger value="active" className="rounded-none px-6 py-3">
+              <TabsTrigger
+                value="active"
+                className="rounded-none px-6 py-3 data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold transition-all"
+              >
                 Active
               </TabsTrigger>
-              <TabsTrigger value="pending" className="rounded-none px-6 py-3">
+              <TabsTrigger
+                value="pending"
+                className="rounded-none px-6 py-3 data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold transition-all"
+              >
                 Pending Approval
               </TabsTrigger>
-              <TabsTrigger value="overdue" className="rounded-none px-6 py-3">
+              <TabsTrigger
+                value="overdue"
+                className="rounded-none px-6 py-3 data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold transition-all"
+              >
                 Overdue
               </TabsTrigger>
-              <TabsTrigger value="cancelled" className="rounded-none px-6 py-3">
+              <TabsTrigger
+                value="cancelled"
+                className="rounded-none px-6 py-3 data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold transition-all"
+              >
                 Cancelled
               </TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value={activeTab} className="mt-0 p-6">
               <DataTable
                 data={filteredSubscriptions}
@@ -640,85 +660,154 @@ export default function SubscriptionManagementTab() {
       </Dialog>
 
       {/* Details Modal */}
-      <Dialog open={showDetailsModal} onOpenChange={setShowDetailsModal}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Subscription Details</DialogTitle>
-          </DialogHeader>
-          
-          {selectedSubscription && (
-            <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Shop ID</label>
-                  <p className="font-medium">{selectedSubscription.shopId}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Status</label>
-                  <p className="font-medium capitalize">{selectedSubscription.status}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Monthly Amount</label>
-                  <p className="font-medium">${selectedSubscription.monthlyAmount}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Type</label>
-                  <p className="font-medium">{selectedSubscription.subscriptionType}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Enrolled Date</label>
-                  <p className="font-medium">{new Date(selectedSubscription.enrolledAt).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Activated Date</label>
-                  <p className="font-medium">
-                    {selectedSubscription.activatedAt 
-                      ? new Date(selectedSubscription.activatedAt).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })
-                      : '-'}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Payments Made</label>
-                  <p className="font-medium">{selectedSubscription.paymentsMade}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Total Paid</label>
-                  <p className="font-medium">${selectedSubscription.totalPaid}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Next Payment</label>
-                  <p className="font-medium">
-                    {selectedSubscription.nextPaymentDate 
-                      ? new Date(selectedSubscription.nextPaymentDate).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })
-                      : '-'}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Last Payment</label>
-                  <p className="font-medium">
-                    {selectedSubscription.lastPaymentDate 
-                      ? new Date(selectedSubscription.lastPaymentDate).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })
-                      : '-'}
-                  </p>
-                </div>
-              </div>
-              
-              {selectedSubscription.cancellationReason && (
-                <div className="pt-4 border-t">
-                  <label className="text-sm font-medium text-gray-500">Cancellation Reason</label>
-                  <p className="mt-1">{selectedSubscription.cancellationReason}</p>
-                </div>
-              )}
+      {showDetailsModal && selectedSubscription && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#212121] border border-gray-800 rounded-xl shadow-2xl w-full max-w-sm sm:max-w-md md:max-w-2xl lg:max-w-3xl transform transition-all">
+            <div
+              className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-3xl"
+              style={{
+                backgroundImage: `url('/img/cust-ref-widget3.png')`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                backgroundRepeat: "no-repeat",
+              }}
+            >
+              <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
+                Subscription Details
+              </p>
+              <button
+                onClick={() => setShowDetailsModal(false)}
+                className="p-2 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-900" />
+              </button>
             </div>
-          )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDetailsModal(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <div className="px-6 py-4 overflow-y-auto max-h-[calc(90vh-8rem)]">
+              <div className="space-y-6">
+                {/* Basic Information */}
+                <div className="border-b border-gray-700 pb-6">
+                  <h3 className="text-lg font-semibold text-[#FFCC00] mb-4">
+                    Basic Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Shop Name</label>
+                      <p className="text-white font-medium">{selectedSubscription.shopName || selectedSubscription.shopId}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Shop ID</label>
+                      <p className="text-white font-medium">{selectedSubscription.shopId}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Status</label>
+                      <p className="text-white font-medium capitalize">{selectedSubscription.status}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Subscription Type</label>
+                      <p className="text-white font-medium">{selectedSubscription.subscriptionType}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Payment Information */}
+                <div className="border-b border-gray-700 pb-6">
+                  <h3 className="text-lg font-semibold text-[#FFCC00] mb-4">
+                    Payment Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Monthly Amount</label>
+                      <p className="text-white font-medium">${selectedSubscription.monthlyAmount}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Payments Made</label>
+                      <p className="text-white font-medium">{selectedSubscription.paymentsMade}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Total Paid</label>
+                      <p className="text-white font-medium">${selectedSubscription.totalPaid}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Next Payment</label>
+                      <p className="text-white font-medium">
+                        {selectedSubscription.nextPaymentDate && !isNaN(new Date(selectedSubscription.nextPaymentDate).getTime())
+                          ? new Date(selectedSubscription.nextPaymentDate).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })
+                          : '-'}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Last Payment</label>
+                      <p className="text-white font-medium">
+                        {selectedSubscription.lastPaymentDate && !isNaN(new Date(selectedSubscription.lastPaymentDate).getTime())
+                          ? new Date(selectedSubscription.lastPaymentDate).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })
+                          : '-'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Timeline Information */}
+                <div className={selectedSubscription.cancellationReason ? "border-b border-gray-700 pb-6" : ""}>
+                  <h3 className="text-lg font-semibold text-[#FFCC00] mb-4">
+                    Timeline
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Enrolled Date</label>
+                      <p className="text-white font-medium">
+                        {selectedSubscription.enrolledAt && !isNaN(new Date(selectedSubscription.enrolledAt).getTime())
+                          ? new Date(selectedSubscription.enrolledAt).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })
+                          : '-'}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Activated Date</label>
+                      <p className="text-white font-medium">
+                        {selectedSubscription.activatedAt && !isNaN(new Date(selectedSubscription.activatedAt).getTime())
+                          ? new Date(selectedSubscription.activatedAt).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })
+                          : '-'}
+                      </p>
+                    </div>
+                    {selectedSubscription.cancelledAt && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-1">Cancelled Date</label>
+                        <p className="text-white font-medium">
+                          {!isNaN(new Date(selectedSubscription.cancelledAt).getTime())
+                            ? new Date(selectedSubscription.cancelledAt).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })
+                            : '-'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Cancellation Information */}
+                {selectedSubscription.cancellationReason && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-[#FFCC00] mb-4">
+                      Cancellation Information
+                    </h3>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Cancellation Reason</label>
+                      <p className="text-white">{selectedSubscription.cancellationReason}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-700 flex justify-end gap-3">
+              <button
+                onClick={() => setShowDetailsModal(false)}
+                className="px-4 py-2 bg-gray-700 text-white rounded-3xl hover:bg-gray-600 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
