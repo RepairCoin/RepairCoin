@@ -31,14 +31,14 @@ export const StatCard: React.FC<StatCardProps> = ({
         backgroundRepeat: "no-repeat",
       }}
     >
-      <div className="flex items-center h-full ">
-        <div className="flex flex-col gap-0.5 sm:gap-1 flex-1 min-w-0 ">
+      <div className="flex items-center h-full">
+        <div className={`flex flex-col gap-0.5 sm:gap-1 flex-1 min-w-0 ${icon ? "pr-12 sm:pr-14 md:pr-16" : ""}`}>
           <p className={valueClassName}>{value}</p>
           <p className={titleClassName}>{title}</p>
           {subtitle && <p className={subtitleClassName}>{subtitle}</p>}
         </div>
         {icon && (
-          <div className={`absolute flex items-center justify-center w-10 h-10 ${title === "Your Tier Level" ? "w-20 md:w-32 h-32 top-[-16px] md:top-2 right-[-6px] md:right-[-24px]" : "md:w-14 md:h-14 md:top-10 right-4"} flex-shrink-0`}>
+          <div className={`absolute flex items-center justify-center w-10 h-10 ${title === "Your Tier Level" ? "w-20 md:w-32 h-32 top-[-16px] md:top-2 right-[-6px] md:right-[-24px]" : "md:w-14 md:h-14 top-1/2 -translate-y-1/2 right-3 md:right-4"} flex-shrink-0`}>
             {icon}
           </div>
         )}
