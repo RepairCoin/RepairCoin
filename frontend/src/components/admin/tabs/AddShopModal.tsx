@@ -156,7 +156,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[#212121] border border-gray-800 rounded-xl shadow-2xl w-full max-w-lg transform transition-all">
+      <div className="bg-[#212121] border border-gray-800 rounded-xl shadow-2xl w-full max-w-sm sm:max-w-md md:max-w-2xl lg:max-w-3xl transform transition-all">
         <div
           className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-3xl"
           style={{
