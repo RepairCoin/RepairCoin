@@ -1,42 +1,63 @@
-import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
+import { View, Text, TextInput, Pressable, StyleSheet, Alert } from "react-native";
 import { AntDesign, Ionicons } from "@expo/vector-icons";
 import RNPickerSelect from "react-native-picker-select";
 import Screen from "@/components/ui/Screen";
 import { CompanySize, MonthlyRevenue } from "@/utilities/GlobalTypes";
+import type { ShopRegistrationFormData } from "@/app/(auth)/register/shop/index";
+import { useMemo } from "react";
 
 type Props = {
   handleGoBack: () => void;
   handleGoNext: () => void;
-  shopId: string;
-  setShopId: (arg0: string) => void;
-  companyName: string;
-  setCompanyName: (arg0: string) => void;
-  companySize: CompanySize;
-  setCompanySize: (arg0: CompanySize) => void;
-  monthlyRevenue: MonthlyRevenue;
-  setMonthlyRevenue: (arg0: MonthlyRevenue) => void;
-  websiteURL: string;
-  setWebsiteURL: (arg0: string) => void;
-  referral: string;
-  setReferral: (arg0: string) => void;
+  formData: ShopRegistrationFormData;
+  updateFormData: <K extends keyof ShopRegistrationFormData>(field: K, value: ShopRegistrationFormData[K]) => void;
 };
 
 export default function SecondShopRegisterSlide({
   handleGoBack,
-  shopId,
-  setShopId,
-  companyName,
-  setCompanyName,
-  companySize,
-  setCompanySize,
-  monthlyRevenue,
-  setMonthlyRevenue,
-  websiteURL,
-  setWebsiteURL,
-  referral,
-  setReferral,
   handleGoNext,
+  formData,
+  updateFormData,
 }: Props) {
+  // Validation function
+  const validateAndProceed = () => {
+    const errors = [];
+    
+    if (!formData.shopId.trim() || formData.shopId.trim().length < 3) {
+      errors.push("Shop ID must be at least 3 characters");
+    }
+    
+    if (!formData.companyName.trim() || formData.companyName.trim().length < 2) {
+      errors.push("Company name must be at least 2 characters");
+    }
+    
+    if (!formData.companySize) {
+      errors.push("Please select company size");
+    }
+    
+    if (!formData.monthlyRevenue) {
+      errors.push("Please select monthly revenue");
+    }
+    
+    
+    if (errors.length > 0) {
+      Alert.alert("Validation Error", errors.join("\n"));
+      return;
+    }
+    
+    handleGoNext();
+  };
+
+  // Check if all required fields are filled
+  const isFormValid = useMemo(() => {
+    const urlRegex = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/;
+    return (
+      formData.shopId.trim().length >= 3 &&
+      formData.companyName.trim().length >= 2 &&
+      formData.companySize !== "" &&
+      formData.monthlyRevenue !== "" 
+    );
+  }, [formData.shopId, formData.companyName, formData.companySize, formData.monthlyRevenue]);
   return (
     <Screen>
       <View className="px-10 py-20 w-[100vw]">
@@ -52,8 +73,8 @@ export default function SecondShopRegisterSlide({
             className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
             placeholder="Enter Shop ID"
             placeholderTextColor="#999"
-            value={shopId}
-            onChangeText={setShopId}
+            value={formData.shopId}
+            onChangeText={(value) => updateFormData('shopId', value)}
           />
         </View>
         <View className="mt-4">
@@ -64,8 +85,8 @@ export default function SecondShopRegisterSlide({
             className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
             placeholder="Enter Company Name"
             placeholderTextColor="#999"
-            value={companyName}
-            onChangeText={setCompanyName}
+            value={formData.companyName}
+            onChangeText={(value) => updateFormData('companyName', value)}
           />
         </View>
         <View className="mt-4">
@@ -73,8 +94,8 @@ export default function SecondShopRegisterSlide({
             Company Size <Text className="text-[#FFCC00]">*</Text>
           </Text>
           <RNPickerSelect
-            value={companySize}
-            onValueChange={setCompanySize}
+            value={formData.companySize}
+            onValueChange={(value) => updateFormData('companySize', value)}
             items={[
               { label: "1-10 employees", value: "1-10" },
               { label: "11-50 employees", value: "11-50" },
@@ -94,8 +115,8 @@ export default function SecondShopRegisterSlide({
             Monthly Revenue <Text className="text-[#FFCC00]">*</Text>
           </Text>
           <RNPickerSelect
-            value={monthlyRevenue}
-            onValueChange={setMonthlyRevenue}
+            value={formData.monthlyRevenue}
+            onValueChange={(value) => updateFormData('monthlyRevenue', value)}
             items={[
               { label: "Less than $10,000", value: "<10k" },
               { label: "$10,000 - $50,000", value: "10k-50k" },
@@ -112,14 +133,14 @@ export default function SecondShopRegisterSlide({
         </View>
         <View className="mt-4">
           <Text className="text-sm text-gray-300 mb-1">
-            Website URL <Text className="text-[#FFCC00]">*</Text>
+            Website URL (Optional)
           </Text>
           <TextInput
             className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
             placeholder="Enter your business website url"
             placeholderTextColor="#999"
-            value={websiteURL}
-            onChangeText={setWebsiteURL}
+            value={formData.websiteURL}
+            onChangeText={(value) => updateFormData('websiteURL', value)}
           />
         </View>
         <View className="mt-4">
@@ -130,8 +151,8 @@ export default function SecondShopRegisterSlide({
             className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
             placeholder="Who referred you to RepairCoin"
             placeholderTextColor="#999"
-            value={referral}
-            onChangeText={setReferral}
+            value={formData.referral}
+            onChangeText={(value) => updateFormData('referral', value)}
           />
           <Text className="text-sm text-gray-300 mt-2">
             Enter the name or company that referred you.
@@ -139,13 +160,14 @@ export default function SecondShopRegisterSlide({
         </View>
 
         <Pressable
-          className="ml-auto flex-row items-center mt-10"
-          onPress={handleGoNext}
+          className={`ml-auto flex-row items-center mt-10 ${!isFormValid ? 'opacity-50' : ''}`}
+          onPress={validateAndProceed}
+          disabled={!isFormValid}
         >
-          <Text className="text-white text-base mr-2">
+          <Text className={`text-base mr-2 ${isFormValid ? 'text-white' : 'text-gray-400'}`}>
             Continue Registration
           </Text>
-          <Ionicons name="arrow-forward" color="yellow" size={20} />
+          <Ionicons name="arrow-forward" color={isFormValid ? "yellow" : "#9CA3AF"} size={20} />
         </Pressable>
       </View>
     </Screen>

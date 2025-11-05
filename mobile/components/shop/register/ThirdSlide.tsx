@@ -1,38 +1,79 @@
-import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
+import { View, Text, TextInput, Pressable, StyleSheet, Alert } from "react-native";
 import { AntDesign, Ionicons } from "@expo/vector-icons";
 import RNPickerSelect from "react-native-picker-select";
 import Screen from "@/components/ui/Screen";
 import { CompanySize, MonthlyRevenue } from "@/utilities/GlobalTypes";
+import type { ShopRegistrationFormData } from "@/app/(auth)/register/shop/index";
+import { useMemo, useEffect } from "react";
 
 type Props = {
   handleGoBack: () => void;
   handleGoNext: () => void;
-  street: string;
-  setStreet: (arg0: string) => void;
-  city: string;
-  setCity: (arg0: string) => void;
-  country: string;
-  setCountry: (arg0: string) => void;
-  walletAddress: string;
-  setWalletAddress: (arg0: string) => void;
-  reimbursementAddress: string;
-  setReimbursementAddress: (arg0: string) => void;
+  formData: ShopRegistrationFormData;
+  updateFormData: <K extends keyof ShopRegistrationFormData>(field: K, value: ShopRegistrationFormData[K]) => void;
+  address: string;
 };
 
 export default function ThirdShopRegisterSlide({
   handleGoBack,
   handleGoNext,
-  street,
-  setStreet,
-  city,
-  setCity,
-  country,
-  setCountry,
-  walletAddress,
-  setWalletAddress,
-  reimbursementAddress,
-  setReimbursementAddress
+  formData,
+  updateFormData,
+  address
 }: Props) {
+  // Update formData with wallet address when address prop changes
+  useEffect(() => {
+    if (address) {
+      updateFormData('walletAddress', address);
+    }
+  }, [address, updateFormData]);
+
+  // Validation function
+  const validateAndProceed = () => {
+    const errors = [];
+    
+    if (!formData.street.trim() || formData.street.trim().length < 3) {
+      errors.push("Street address must be at least 3 characters");
+    }
+    
+    if (!formData.city.trim() || formData.city.trim().length < 2) {
+      errors.push("City must be at least 2 characters");
+    }
+    
+    if (!formData.country.trim() || formData.country.trim().length < 2) {
+      errors.push("Country must be at least 2 characters");
+    }
+    
+    // Ethereum address validation (basic check for 0x prefix and 40 hex chars)
+    const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
+    if (!address || !ethAddressRegex.test(address)) {
+      errors.push("Please connect your wallet first");
+    }
+    
+    // Reimbursement address is optional, but if provided should be valid
+    if (formData.reimbursementAddress.trim() && !ethAddressRegex.test(formData.reimbursementAddress.trim())) {
+      errors.push("If provided, reimbursement address must be valid (0x...)");
+    }
+    
+    if (errors.length > 0) {
+      Alert.alert("Validation Error", errors.join("\n"));
+      return;
+    }
+    
+    handleGoNext();
+  };
+
+  // Check if all required fields are filled
+  const isFormValid = useMemo(() => {
+    const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
+    return (
+      formData.street.trim().length >= 3 &&
+      formData.city.trim().length >= 2 &&
+      formData.country.trim().length >= 2 &&
+      address && ethAddressRegex.test(address) &&
+      (formData.reimbursementAddress.trim() === "" || ethAddressRegex.test(formData.reimbursementAddress.trim()))
+    );
+  }, [formData.street, formData.city, formData.country, address, formData.reimbursementAddress]);
   return (
     <Screen>
       <View className="px-10 py-20 w-[100vw]">
@@ -48,8 +89,8 @@ export default function ThirdShopRegisterSlide({
             className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
             placeholder="Enter Street Address"
             placeholderTextColor="#999"
-            value={street}
-            onChangeText={setStreet}
+            value={formData.street}
+            onChangeText={(value) => updateFormData('street', value)}
           />
         </View>
         <View className="mt-4">
@@ -60,8 +101,8 @@ export default function ThirdShopRegisterSlide({
             className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
             placeholder="Enter City"
             placeholderTextColor="#999"
-            value={city}
-            onChangeText={setCity}
+            value={formData.city}
+            onChangeText={(value) => updateFormData('city', value)}
           />
         </View>
         <View className="mt-4">
@@ -72,8 +113,8 @@ export default function ThirdShopRegisterSlide({
             className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
             placeholder="Enter Country"
             placeholderTextColor="#999"
-            value={country}
-            onChangeText={setCountry}
+            value={formData.country}
+            onChangeText={(value) => updateFormData('country', value)}
           />
         </View>
         <Text className="text-[#FFCC00] font-bold mt-14">
@@ -84,11 +125,12 @@ export default function ThirdShopRegisterSlide({
             Connected Wallet <Text className="text-[#FFCC00]">*</Text>
           </Text>
           <TextInput
-            className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
+            className="w-full h-12 bg-gray-400 text-gray-600 rounded-xl px-3 py-2 text-base"
             placeholder="Enter your wallet address..."
             placeholderTextColor="#999"
-            value={walletAddress}
-            onChangeText={setWalletAddress}
+            value={address || "Connect wallet to continue"}
+            editable={false}
+            selectTextOnFocus={false}
           />
           <Text className="text-sm text-gray-300 mt-2">
             Used for shop operations and token management
@@ -102,8 +144,8 @@ export default function ThirdShopRegisterSlide({
             className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
             placeholder="Enter reimbursement address..."
             placeholderTextColor="#999"
-            value={reimbursementAddress}
-            onChangeText={setReimbursementAddress}
+            value={formData.reimbursementAddress}
+            onChangeText={(value) => updateFormData('reimbursementAddress', value)}
           />
           <Text className="text-sm text-gray-300 mt-2">
             Where to receive payments for token redemptions
@@ -111,13 +153,14 @@ export default function ThirdShopRegisterSlide({
         </View>
 
         <Pressable
-          className="ml-auto flex-row items-center mt-10"
-          onPress={handleGoNext}
+          className={`ml-auto flex-row items-center mt-10 ${!isFormValid ? 'opacity-50' : ''}`}
+          onPress={validateAndProceed}
+          disabled={!isFormValid}
         >
-          <Text className="text-white text-base mr-2">
+          <Text className={`text-base mr-2 ${isFormValid ? 'text-white' : 'text-gray-400'}`}>
             Continue Registration
           </Text>
-          <Ionicons name="arrow-forward" color="yellow" size={20} />
+          <Ionicons name="arrow-forward" color={isFormValid ? "yellow" : "#9CA3AF"} size={20} />
         </Pressable>
       </View>
     </Screen>

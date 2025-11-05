@@ -3,31 +3,20 @@ import { AntDesign } from "@expo/vector-icons";
 import { Checkbox } from "expo-checkbox";
 import Screen from "@/components/ui/Screen";
 import PrimaryButton from "@/components/ui/PrimaryButton";
+import type { ShopRegistrationFormData } from "@/app/(auth)/register/shop/index";
 
 type Props = {
   handleGoBack: () => void;
-  handleGoNext: () => void;
-  state: string;
-  setState: (arg0: string) => void;
-  zipCode: string;
-  setZipCode: (arg0: string) => void;
-  fixFlowShopId: string;
-  setFixFlowShopId: (arg0: string) => void;
-  isConfirmed: boolean;
-  setIsConfirmed: (arg0: boolean) => void;
+  handleSubmit: () => void;
+  formData: ShopRegistrationFormData;
+  updateFormData: <K extends keyof ShopRegistrationFormData>(field: K, value: ShopRegistrationFormData[K]) => void;
 };
 
 export default function FourthShopRegisterSlide({
   handleGoBack,
-  handleGoNext,
-  state,
-  setState,
-  zipCode,
-  setZipCode,
-  fixFlowShopId,
-  setFixFlowShopId,
-  isConfirmed,
-  setIsConfirmed,
+  handleSubmit,
+  formData,
+  updateFormData,
 }: Props) {
   return (
     <Screen>
@@ -49,8 +38,8 @@ export default function FourthShopRegisterSlide({
               className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
               placeholder="Enter State / Province"
               placeholderTextColor="#999"
-              value={state}
-              onChangeText={setState}
+              value={formData.state}
+              onChangeText={(value) => updateFormData('state', value)}
             />
           </View>
           <View className="mt-4">
@@ -61,8 +50,8 @@ export default function FourthShopRegisterSlide({
               className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
               placeholder="Enter Zip / Postal Code"
               placeholderTextColor="#999"
-              value={zipCode}
-              onChangeText={setZipCode}
+              value={formData.zipCode}
+              onChangeText={(value) => updateFormData('zipCode', value)}
             />
           </View>
           <View className="mt-4">
@@ -73,8 +62,8 @@ export default function FourthShopRegisterSlide({
               className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
               placeholder="Enter FixFlow Shop ID"
               placeholderTextColor="#999"
-              value={fixFlowShopId}
-              onChangeText={setFixFlowShopId}
+              value={formData.fixFlowShopId}
+              onChangeText={(value) => updateFormData('fixFlowShopId', value)}
             />
             <Text className="text-sm text-gray-300 mt-2">
               If you use FixFIow on your repair business
@@ -125,11 +114,11 @@ export default function FourthShopRegisterSlide({
             </View>
             <View className="flex-row items-center my-8">
               <Checkbox
-                value={isConfirmed}
-                onValueChange={setIsConfirmed}
+                value={formData.isConfirmed}
+                onValueChange={(value) => updateFormData('isConfirmed', value)}
                 style={{
                   borderRadius: 8,
-                  backgroundColor: isConfirmed ? "#c8f7c5" : "#f5f5f5",
+                  backgroundColor: formData.isConfirmed ? "#c8f7c5" : "#f5f5f5",
                 }}
               />
               <Text className="ml-4 text-white text-[16px]">
@@ -140,8 +129,8 @@ export default function FourthShopRegisterSlide({
           </View>
           <PrimaryButton
             title="Register Shop"
-            onPress={handleGoNext}
-            disabled={!isConfirmed}
+            onPress={handleSubmit}
+            disabled={!formData.isConfirmed}
             className="mt-8"
           />
         </View>
