@@ -196,6 +196,72 @@ export class StripeService {
   }
 
   /**
+   * Pause subscription
+   */
+  async pauseSubscription(subscriptionId: string): Promise<Stripe.Subscription> {
+    try {
+      const subscription = await this.stripe.subscriptions.update(subscriptionId, {
+        pause_collection: {
+          behavior: 'keep_as_draft',
+        }
+      });
+
+      logger.info('Subscription paused', {
+        subscriptionId,
+        status: subscription.status
+      });
+
+      return subscription;
+    } catch (error) {
+      logger.error('Failed to pause subscription', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        subscriptionId
+      });
+      throw new Error(`Failed to pause subscription: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Resume paused subscription
+   */
+  async resumeSubscription(subscriptionId: string): Promise<Stripe.Subscription> {
+    try {
+      // First, check if subscription actually has pause_collection set
+      const currentSub = await this.stripe.subscriptions.retrieve(subscriptionId);
+
+      // If subscription doesn't have pause_collection, it's already active - just return it
+      if (!currentSub.pause_collection) {
+        logger.info('Subscription already active (no pause_collection)', {
+          subscriptionId,
+          status: currentSub.status
+        });
+        return currentSub;
+      }
+
+      // Resume the subscription
+      const subscription = await this.stripe.subscriptions.resume(
+        subscriptionId,
+        {
+          // proration_datetime: prorationTimestamp // Optional: Calculate prorations as of this time
+        }
+      );
+
+      logger.info('Subscription resumed', {
+        subscriptionId,
+        status: subscription.status
+      });
+
+      return subscription;
+    } catch (error) {
+      logger.error('Failed to resume subscription', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        subscriptionId
+      });
+      throw new Error(`Failed to resume subscription: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
    * Retry failed payment
    */
   async retryPayment(invoiceId: string): Promise<Stripe.Invoice> {

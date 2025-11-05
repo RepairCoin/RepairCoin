@@ -10,7 +10,7 @@ export interface SubscriptionData {
   stripeCustomerId: string;
   stripeSubscriptionId: string;
   stripePriceId: string;
-  status: 'active' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete';
+  status: 'active' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete' | 'paused';
   currentPeriodStart: Date;
   currentPeriodEnd: Date;
   cancelAtPeriodEnd: boolean;
@@ -257,6 +257,247 @@ export class SubscriptionService extends BaseRepository {
     ]);
     
     return this.mapSubscriptionRow(result.rows[0]);
+  }
+
+  /**
+   * Pause subscription
+   */
+  async pauseSubscription(stripeSubscriptionId: string): Promise<SubscriptionData> {
+    const client = await this.pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // Get subscription from database
+      const query = 'SELECT * FROM stripe_subscriptions WHERE stripe_subscription_id = $1';
+      const result = await client.query(query, [stripeSubscriptionId]);
+
+      if (result.rows.length === 0) {
+        throw new Error('Subscription not found');
+      }
+
+      const subscription = this.mapSubscriptionRow(result.rows[0]);
+
+      // Pause in Stripe by setting pause_collection
+      await this.stripeService.pauseSubscription(stripeSubscriptionId);
+
+      // Update subscription in database with 'paused' status
+      const updateQuery = `
+        UPDATE stripe_subscriptions
+        SET
+          status = 'paused',
+          updated_at = CURRENT_TIMESTAMP
+        WHERE stripe_subscription_id = $1
+        RETURNING *
+      `;
+
+      const updateResult = await client.query(updateQuery, [
+        stripeSubscriptionId
+      ]);
+
+      await client.query('COMMIT');
+
+      const updatedSubscription = this.mapSubscriptionRow(updateResult.rows[0]);
+
+      // Publish event
+      eventBus.publish({
+        type: 'subscription.paused',
+        aggregateId: subscription.shopId,
+        timestamp: new Date(),
+        source: 'SubscriptionService',
+        version: 1,
+        data: {
+          subscriptionId: stripeSubscriptionId,
+          status: updatedSubscription.status
+        }
+      });
+
+      logger.info('Subscription paused successfully', {
+        shopId: subscription.shopId,
+        subscriptionId: stripeSubscriptionId,
+        status: updatedSubscription.status
+      });
+
+      return updatedSubscription;
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      logger.error('Failed to pause subscription', {
+        stripeSubscriptionId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Resume a paused subscription
+   */
+  async resumeSubscription(stripeSubscriptionId: string): Promise<SubscriptionData> {
+    const client = await this.pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // Get subscription from database
+      const query = 'SELECT * FROM stripe_subscriptions WHERE stripe_subscription_id = $1';
+      const result = await client.query(query, [stripeSubscriptionId]);
+
+      if (result.rows.length === 0) {
+        throw new Error('Subscription not found');
+      }
+
+      const subscription = this.mapSubscriptionRow(result.rows[0]);
+
+      try {
+        // Try to resume in Stripe - this will fail if not actually paused in Stripe
+        await this.stripeService.resumeSubscription(stripeSubscriptionId);
+        logger.info('Successfully resumed subscription in Stripe', { stripeSubscriptionId });
+      } catch (stripeError) {
+        // If Stripe says it's not paused, just log it and continue
+        // We'll still update our database status
+        logger.warn('Stripe resume failed, subscription may not have been paused in Stripe', {
+          stripeSubscriptionId,
+          error: stripeError instanceof Error ? stripeError.message : 'Unknown error'
+        });
+      }
+
+      // Update subscription in database with 'active' status
+      const updateQuery = `
+        UPDATE stripe_subscriptions
+        SET
+          status = 'active',
+          updated_at = CURRENT_TIMESTAMP
+        WHERE stripe_subscription_id = $1
+        RETURNING *
+      `;
+
+      const updateResult = await client.query(updateQuery, [
+        stripeSubscriptionId
+      ]);
+
+      await client.query('COMMIT');
+
+      const updatedSubscription = this.mapSubscriptionRow(updateResult.rows[0]);
+
+      // Publish event
+      eventBus.publish({
+        type: 'subscription.resumed',
+        aggregateId: subscription.shopId,
+        timestamp: new Date(),
+        source: 'SubscriptionService',
+        version: 1,
+        data: {
+          subscriptionId: stripeSubscriptionId,
+          status: updatedSubscription.status
+        }
+      });
+
+      logger.info('Subscription resumed successfully', {
+        shopId: subscription.shopId,
+        subscriptionId: stripeSubscriptionId,
+        status: updatedSubscription.status
+      });
+
+      return updatedSubscription;
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      logger.error('Failed to resume subscription', {
+        stripeSubscriptionId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Sync subscription status from Stripe
+   * Fetches the latest subscription data from Stripe and updates the database
+   */
+  async syncSubscriptionFromStripe(stripeSubscriptionId: string): Promise<SubscriptionData> {
+    const client = await this.pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // Get current subscription from database
+      const query = 'SELECT * FROM stripe_subscriptions WHERE stripe_subscription_id = $1';
+      const result = await client.query(query, [stripeSubscriptionId]);
+
+      if (result.rows.length === 0) {
+        throw new Error('Subscription not found in database');
+      }
+
+      // Fetch latest data from Stripe
+      const stripeSubscription = await this.stripeService.getSubscription(stripeSubscriptionId);
+
+      // Determine the actual status based on Stripe data
+      let actualStatus = stripeSubscription.status;
+
+      // Check if subscription is paused via pause_collection
+      if (stripeSubscription.pause_collection && stripeSubscription.status === 'active') {
+        actualStatus = 'paused';
+      }
+
+      // Safely extract timestamps from Stripe subscription
+      const currentPeriodStart = (stripeSubscription as any).current_period_start;
+      const currentPeriodEnd = (stripeSubscription as any).current_period_end;
+      const canceledAt = stripeSubscription.canceled_at;
+
+      // Validate timestamps before converting
+      if (!currentPeriodStart || !currentPeriodEnd) {
+        throw new Error('Missing required period dates from Stripe subscription');
+      }
+
+      // Update database with latest Stripe data
+      const updateQuery = `
+        UPDATE stripe_subscriptions
+        SET
+          status = $1,
+          current_period_start = $2,
+          current_period_end = $3,
+          cancel_at_period_end = $4,
+          canceled_at = $5,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE stripe_subscription_id = $6
+        RETURNING *
+      `;
+
+      const updateResult = await client.query(updateQuery, [
+        actualStatus,
+        new Date(currentPeriodStart * 1000),
+        new Date(currentPeriodEnd * 1000),
+        stripeSubscription.cancel_at_period_end || false,
+        canceledAt ? new Date(canceledAt * 1000) : null,
+        stripeSubscriptionId
+      ]);
+
+      await client.query('COMMIT');
+
+      logger.info('Subscription synced from Stripe', {
+        subscriptionId: stripeSubscriptionId,
+        status: actualStatus,
+        stripeStatus: stripeSubscription.status,
+        hasPauseCollection: !!stripeSubscription.pause_collection
+      });
+
+      return this.mapSubscriptionRow(updateResult.rows[0]);
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      logger.error('Failed to sync subscription from Stripe', {
+        stripeSubscriptionId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   /**

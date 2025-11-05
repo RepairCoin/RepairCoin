@@ -29,6 +29,16 @@ CREATE TABLE IF NOT EXISTS shop_subscriptions (
 
 -- Add missing columns to existing table (if table already exists)
 ALTER TABLE shop_subscriptions
+  ADD COLUMN IF NOT EXISTS billing_method VARCHAR(20) CHECK (billing_method IN ('credit_card', 'ach', 'wire', 'crypto')),
+  ADD COLUMN IF NOT EXISTS billing_reference VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS payments_made INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS total_paid NUMERIC(10,2) NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS next_payment_date TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS last_payment_date TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS enrolled_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS activated_at TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS cancellation_reason TEXT,
   ADD COLUMN IF NOT EXISTS paused_at TIMESTAMP,
   ADD COLUMN IF NOT EXISTS resumed_at TIMESTAMP,
   ADD COLUMN IF NOT EXISTS pause_reason TEXT,
@@ -42,7 +52,7 @@ CREATE INDEX IF NOT EXISTS idx_shop_subscriptions_active ON shop_subscriptions (
 CREATE INDEX IF NOT EXISTS idx_shop_subscriptions_next_payment ON shop_subscriptions (next_payment_date);
 
 -- Check if commitment_enrollments table exists before migration
-DO $$
+DO $migration$
 DECLARE
   has_commitment_table BOOLEAN;
   has_subscription_data BOOLEAN;
@@ -125,10 +135,10 @@ BEGIN
       RAISE NOTICE 'Skipping migration: shop_subscriptions already has data.';
     END IF;
   END IF;
-END $$;
+END $migration$;
 
 -- Update shops table to use subscription terminology
-ALTER TABLE shops 
+ALTER TABLE shops
   ADD COLUMN IF NOT EXISTS subscription_active BOOLEAN DEFAULT false,
   ADD COLUMN IF NOT EXISTS subscription_id INTEGER REFERENCES shop_subscriptions(id);
 
@@ -137,22 +147,22 @@ UPDATE shops s
 SET subscription_active = true,
     subscription_id = sub.id
 FROM shop_subscriptions sub
-WHERE s.shop_id = sub.shop_id 
-  AND sub.status = 'active' 
+WHERE s.shop_id = sub.shop_id
+  AND sub.status = 'active'
   AND sub.is_active = true;
 
 -- Create trigger to update shop operational status when subscription changes
 CREATE OR REPLACE FUNCTION update_shop_operational_status_on_subscription()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER AS $func$
 BEGIN
   IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
     -- Update shop's subscription status
-    UPDATE shops 
-    SET 
+    UPDATE shops
+    SET
       subscription_active = (NEW.status = 'active' AND NEW.is_active = true),
-      subscription_id = CASE 
-        WHEN NEW.status = 'active' AND NEW.is_active = true THEN NEW.id 
-        ELSE NULL 
+      subscription_id = CASE
+        WHEN NEW.status = 'active' AND NEW.is_active = true THEN NEW.id
+        ELSE NULL
       END,
       operational_status = CASE
         WHEN NEW.status = 'active' AND NEW.is_active = true THEN 'commitment_qualified'
@@ -161,10 +171,10 @@ BEGIN
       END
     WHERE shop_id = NEW.shop_id;
   END IF;
-  
+
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$func$ LANGUAGE plpgsql;
 
 -- Drop trigger if it exists before creating
 DROP TRIGGER IF EXISTS trigger_update_shop_on_subscription_change ON shop_subscriptions;
@@ -182,19 +192,19 @@ COMMENT ON COLUMN shop_subscriptions.pause_reason IS 'Reason for pausing subscri
 
 -- Create view for active subscriptions
 CREATE OR REPLACE VIEW active_shop_subscriptions AS
-SELECT 
+SELECT
   s.*,
   sh.name as shop_name,
   sh.wallet_address as shop_wallet,
   sh.email as shop_email
 FROM shop_subscriptions s
 JOIN shops sh ON s.shop_id = sh.shop_id
-WHERE s.status = 'active' 
+WHERE s.status = 'active'
   AND s.is_active = true;
 
 -- Create view for subscription payment tracking
 CREATE OR REPLACE VIEW subscription_payment_status AS
-SELECT 
+SELECT
   s.id,
   s.shop_id,
   sh.name as shop_name,
@@ -203,19 +213,19 @@ SELECT
   s.last_payment_date,
   s.payments_made,
   s.total_paid,
-  CASE 
+  CASE
     WHEN s.next_payment_date < CURRENT_DATE THEN 'overdue'
     WHEN s.next_payment_date < CURRENT_DATE + INTERVAL '7 days' THEN 'due_soon'
     ELSE 'current'
   END as payment_status,
-  CASE 
-    WHEN s.next_payment_date < CURRENT_DATE THEN 
+  CASE
+    WHEN s.next_payment_date < CURRENT_DATE THEN
       EXTRACT(DAY FROM CURRENT_DATE - s.next_payment_date)::INTEGER
     ELSE 0
   END as days_overdue
 FROM shop_subscriptions s
 JOIN shops sh ON s.shop_id = sh.shop_id
-WHERE s.status = 'active' 
+WHERE s.status = 'active'
   AND s.is_active = true
 ORDER BY s.next_payment_date ASC;
 

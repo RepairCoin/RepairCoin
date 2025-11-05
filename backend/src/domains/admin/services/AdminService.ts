@@ -542,15 +542,25 @@ export class AdminService {
         throw new Error('Shop not found');
       }
 
-      if (shop.verified) {
-        throw new Error('Shop already verified');
+      // Only block approval if shop is BOTH verified AND active (already operational)
+      // Allow re-approval of rejected/suspended shops
+      if (shop.verified && shop.active && !shop.suspendedAt) {
+        throw new Error('Shop already verified and active');
       }
 
-      await shopRepository.updateShop(shopId, {
+      // Clear suspension fields if this is a re-approval
+      const updateData: any = {
         verified: true,
         active: true,
         lastActivity: new Date().toISOString()
-      });
+      };
+
+      if (shop.suspendedAt) {
+        updateData.suspendedAt = null;
+        updateData.suspensionReason = null;
+      }
+
+      await shopRepository.updateShop(shopId, updateData);
 
       // Publish event for shop approval
       await eventBus.publish(createDomainEvent(

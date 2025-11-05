@@ -7,7 +7,7 @@ export interface ShopSubscription {
   status: 'pending' | 'active' | 'cancelled' | 'paused' | 'defaulted';
   monthlyAmount: number;
   subscriptionType: 'standard' | 'premium' | 'custom' | 'trial';
-  billingMethod?: 'credit_card' | 'ach' | 'wire';
+  billingMethod?: 'credit_card' | 'ach' | 'wire' | 'crypto';
   billingReference?: string;
   paymentsMade: number;
   totalPaid: number;
@@ -20,6 +20,7 @@ export interface ShopSubscription {
   pausedAt?: Date;
   resumedAt?: Date;
   cancellationReason?: string;
+  pauseReason?: string;
   notes?: string;
   createdBy?: string;
 }
@@ -387,6 +388,7 @@ export class ShopSubscriptionRepository extends BaseRepository {
       pausedAt: row.paused_at,
       resumedAt: row.resumed_at,
       cancellationReason: row.cancellation_reason,
+      pauseReason: row.pause_reason,
       notes: row.notes,
       createdBy: row.created_by
     };
