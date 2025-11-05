@@ -94,7 +94,6 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
 
       if (cached && (now - cached.timestamp) < CACHE_DURATION) {
         // Use cached data
-        console.log('Using cached data');
         transactionsArray = cached.transactions;
         purchasesArray = cached.purchases;
       } else {
@@ -110,43 +109,27 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
 
         if (authToken) {
           headers['Authorization'] = `Bearer ${authToken}`;
-          console.log('Using auth token for API requests:', authToken.substring(0, 20) + '...');
-        } else {
-          console.log('No auth token available for API requests');
         }
 
         // Get API base URL from environment
         const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
-        console.log('API Base URL:', apiBaseUrl);
-        console.log('Fetching data for shopId:', shopId);
-
         // Fetch shop transactions and purchases data
         const [transactionsRes, purchasesRes] = await Promise.all([
           fetch(`${apiBaseUrl}/shops/${shopId}/transactions?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`, {
             headers
-          }).catch((err) => {
-            console.error('Transactions API fetch error:', err);
+          }).catch(() => {
             return { ok: false, status: 0, json: () => Promise.resolve({ data: [] }) };
           }),
           fetch(`${apiBaseUrl}/shops/${shopId}/purchases?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`, {
             headers
-          }).catch((err) => {
-            console.error('Purchases API fetch error:', err);
+          }).catch(() => {
             return { ok: false, status: 0, json: () => Promise.resolve({ data: { items: [] } }) };
           })
         ]);
 
-        // Log response status for debugging
-        console.log(`Transactions API response status: ${transactionsRes.status}`);
-        console.log(`Purchases API response status: ${purchasesRes.status}`);
-
         const transactions = await transactionsRes.json();
         const purchases = await purchasesRes.json();
-
-        // Log response data for debugging
-        console.log('Transactions response:', transactions);
-        console.log('Purchases response:', purchases);
 
         // Process data into profit metrics
         transactionsArray = Array.isArray(transactions.data) ? transactions.data :

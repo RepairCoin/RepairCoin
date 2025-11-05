@@ -22,6 +22,7 @@ import { SettingsTab } from "@/components/shop/tabs/SettingsTab";
 import { CustomersTab } from "@/components/shop/tabs/CustomersTab";
 import PromoCodesTab from "@/components/shop/tabs/PromoCodesTab";
 import { ShopLocationTab } from "@/components/shop/tabs/ShopLocationTab";
+import { GroupsTab } from "@/components/shop/tabs/GroupsTab";
 import { useShopRegistration } from "@/hooks/useShopRegistration";
 import { OnboardingModal } from "@/components/shop/OnboardingModal";
 import { OperationalRequiredTab } from "@/components/shop/OperationalRequiredTab";
@@ -815,6 +816,10 @@ export default function ShopDashboardClient() {
               shopData={shopData}
               onSettingsUpdate={loadShopData}
             />
+          )}
+
+          {activeTab === "groups" && shopData && (
+            <GroupsTab shopId={shopData.shopId} />
           )}
 
           {/* Error Display */}

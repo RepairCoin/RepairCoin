@@ -32,11 +32,16 @@ export default function GroupTransactionsTab({
         limit: 20,
         type: filterType === "all" ? undefined : filterType,
       });
-      setTransactions(result.items);
-      setTotalPages(result.pagination.totalPages);
+
+      console.log("📦 Transactions result:", result);
+
+      setTransactions(result?.items || []);
+      setTotalPages(result?.pagination?.totalPages || 1);
     } catch (error) {
       console.error("Error loading transactions:", error);
       toast.error("Failed to load transactions");
+      setTransactions([]);
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }

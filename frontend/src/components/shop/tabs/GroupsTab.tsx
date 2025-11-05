@@ -1,36 +1,31 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useActiveAccount } from "thirdweb/react";
-import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
-import DashboardLayout from "@/components/ui/DashboardLayout";
-import { Users, Plus, Settings, TrendingUp } from "lucide-react";
+import { Users, Plus } from "lucide-react";
 import * as shopGroupsAPI from "@/services/api/shopGroups";
-import CreateGroupModal from "./CreateGroupModal";
-import GroupCard from "./GroupCard";
-import JoinGroupModal from "./JoinGroupModal";
+import CreateGroupModal from "../groups/CreateGroupModal";
+import GroupCard from "../groups/GroupCard";
+import JoinGroupModal from "../groups/JoinGroupModal";
+import { useRouter } from "next/navigation";
 
-export default function ShopGroupsClient() {
-  const account = useActiveAccount();
+interface GroupsTabProps {
+  shopId: string;
+}
+
+export function GroupsTab({ shopId }: GroupsTabProps) {
   const router = useRouter();
-
   const [myGroups, setMyGroups] = useState<shopGroupsAPI.ShopGroup[]>([]);
   const [allGroups, setAllGroups] = useState<shopGroupsAPI.ShopGroup[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"my-groups" | "discover">("my-groups");
+  const [activeSubTab, setActiveSubTab] = useState<"my-groups" | "discover">("my-groups");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
 
   useEffect(() => {
-    console.log("🔍 ShopGroupsClient - account:", account?.address);
-    if (account?.address) {
-      loadData();
-    } else {
-      console.log("❌ No account address, setting loading to false");
-      setLoading(false);
-    }
-  }, [account?.address]);
+    console.log("🏪 GroupsTab mounted with shopId:", shopId);
+    loadData();
+  }, []);
 
   const loadData = async () => {
     try {
@@ -39,11 +34,18 @@ export default function ShopGroupsClient() {
         shopGroupsAPI.getMyGroups(),
         shopGroupsAPI.getAllGroups(),
       ]);
-      setMyGroups(myGroupsData);
-      setAllGroups(allGroupsData);
+
+      console.log("📦 My Groups Data:", myGroupsData);
+      console.log("📦 All Groups Data:", allGroupsData);
+
+      // Ensure data is always an array
+      setMyGroups(Array.isArray(myGroupsData) ? myGroupsData : []);
+      setAllGroups(Array.isArray(allGroupsData) ? allGroupsData : []);
     } catch (error) {
       console.error("Error loading groups:", error);
       toast.error("Failed to load shop groups");
+      setMyGroups([]);
+      setAllGroups([]);
     } finally {
       setLoading(false);
     }
@@ -79,33 +81,17 @@ export default function ShopGroupsClient() {
     router.push(`/shop/groups/${groupId}`);
   };
 
-  if (!account?.address) {
-    return (
-      <DashboardLayout
-        title="Shop Groups"
-        subtitle="Connect your wallet to manage shop groups"
-      >
-        <div className="text-center py-12">
-          <p className="text-gray-400">Please connect your wallet to continue</p>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
   return (
     <>
-      <DashboardLayout
-        title="Shop Groups"
-        subtitle="Create and manage shop coalitions with custom tokens"
-      >
-        {/* Header Actions */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-          {/* Tabs */}
+      <div className="space-y-6">
+        {/* Header with Actions */}
+        <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+          {/* Sub-Tabs */}
           <div className="flex gap-2">
             <button
-              onClick={() => setActiveTab("my-groups")}
+              onClick={() => setActiveSubTab("my-groups")}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                activeTab === "my-groups"
+                activeSubTab === "my-groups"
                   ? "bg-[#FFCC00] text-black"
                   : "bg-gray-800 text-gray-300 hover:bg-gray-700"
               }`}
@@ -113,9 +99,9 @@ export default function ShopGroupsClient() {
               My Groups ({myGroups.length})
             </button>
             <button
-              onClick={() => setActiveTab("discover")}
+              onClick={() => setActiveSubTab("discover")}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                activeTab === "discover"
+                activeSubTab === "discover"
                   ? "bg-[#FFCC00] text-black"
                   : "bg-gray-800 text-gray-300 hover:bg-gray-700"
               }`}
@@ -151,7 +137,7 @@ export default function ShopGroupsClient() {
           </div>
         ) : (
           <div>
-            {activeTab === "my-groups" ? (
+            {activeSubTab === "my-groups" ? (
               myGroups.length === 0 ? (
                 <div className="text-center py-12 bg-gray-800/50 rounded-lg">
                   <Users className="w-16 h-16 text-gray-600 mx-auto mb-4" />
@@ -189,7 +175,7 @@ export default function ShopGroupsClient() {
             ) : (
               allGroups.length === 0 ? (
                 <div className="text-center py-12 bg-gray-800/50 rounded-lg">
-                  <TrendingUp className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                  <Users className="w-16 h-16 text-gray-600 mx-auto mb-4" />
                   <h3 className="text-xl font-bold text-white mb-2">No Groups Available</h3>
                   <p className="text-gray-400">
                     Be the first to create a shop group!
@@ -209,7 +195,7 @@ export default function ShopGroupsClient() {
             )}
           </div>
         )}
-      </DashboardLayout>
+      </div>
 
       {/* Modals */}
       {showCreateModal && (

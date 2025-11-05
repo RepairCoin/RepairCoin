@@ -100,8 +100,8 @@ export const createGroup = async (data: CreateGroupData): Promise<ShopGroup | nu
 export const getAllGroups = async (params?: { isPrivate?: boolean }): Promise<ShopGroup[]> => {
   try {
     const queryString = params ? `?isPrivate=${params.isPrivate}` : '';
-    const response = await apiClient.get<ShopGroup[]>(`/shop-groups${queryString}`);
-    return response.data || [];
+    const response = await apiClient.get<{ success: boolean; data: ShopGroup[] }>(`/shop-groups${queryString}`);
+    return response.data?.data || [];
   } catch (error) {
     console.error('Error getting shop groups:', error);
     return [];
@@ -113,8 +113,8 @@ export const getAllGroups = async (params?: { isPrivate?: boolean }): Promise<Sh
  */
 export const getMyGroups = async (): Promise<ShopGroup[]> => {
   try {
-    const response = await apiClient.get<ShopGroup[]>('/shop-groups/my-groups');
-    return response.data || [];
+    const response = await apiClient.get<{ success: boolean; data: ShopGroup[] }>('/shop-groups/my-groups');
+    return response.data?.data || [];
   } catch (error) {
     console.error('Error getting my groups:', error);
     return [];
@@ -126,8 +126,8 @@ export const getMyGroups = async (): Promise<ShopGroup[]> => {
  */
 export const getGroup = async (groupId: string): Promise<ShopGroup | null> => {
   try {
-    const response = await apiClient.get<ShopGroup>(`/shop-groups/${groupId}`);
-    return response.data || null;
+    const response = await apiClient.get<{ success: boolean; data: ShopGroup }>(`/shop-groups/${groupId}`);
+    return response.data?.data || null;
   } catch (error) {
     console.error('Error getting group:', error);
     return null;
@@ -198,10 +198,10 @@ export const getGroupMembers = async (
 ): Promise<ShopGroupMember[]> => {
   try {
     const queryString = status ? `?status=${status}` : '';
-    const response = await apiClient.get<ShopGroupMember[]>(
+    const response = await apiClient.get<{ success: boolean; data: ShopGroupMember[] }>(
       `/shop-groups/${groupId}/members${queryString}`
     );
-    return response.data || [];
+    return response.data?.data || [];
   } catch (error) {
     console.error('Error getting group members:', error);
     return [];
@@ -325,10 +325,10 @@ export const getAllCustomerBalances = async (
   customerAddress: string
 ): Promise<CustomerGroupBalance[]> => {
   try {
-    const response = await apiClient.get<CustomerGroupBalance[]>(
+    const response = await apiClient.get<{ success: boolean; data: CustomerGroupBalance[] }>(
       `/shop-groups/balances/${customerAddress}`
     );
-    return response.data || [];
+    return response.data?.data || [];
   } catch (error) {
     console.error('Error getting all customer balances:', error);
     return [];
@@ -362,16 +362,19 @@ export const getGroupTransactions = async (
 
     const queryString = queryParams.toString();
     const response = await apiClient.get<{
-      items: GroupTokenTransaction[];
-      pagination: {
-        page: number;
-        limit: number;
-        total: number;
-        totalPages: number;
+      success: boolean;
+      data: {
+        items: GroupTokenTransaction[];
+        pagination: {
+          page: number;
+          limit: number;
+          total: number;
+          totalPages: number;
+        };
       };
     }>(`/shop-groups/${groupId}/transactions${queryString ? `?${queryString}` : ''}`);
     return (
-      response.data || {
+      response.data?.data || {
         items: [],
         pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
       }

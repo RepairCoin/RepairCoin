@@ -1,4 +1,4 @@
-import { WebSocket, WebSocketServer } from 'ws';
+import { WebSocket, Server as WebSocketServer } from 'ws';
 import { IncomingMessage } from 'http';
 import { logger } from '../utils/logger';
 import jwt from 'jsonwebtoken';

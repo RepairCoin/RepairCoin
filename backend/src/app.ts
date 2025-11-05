@@ -30,7 +30,7 @@ import { cleanupService } from './services/CleanupService';
 import { StartupValidationService } from './services/StartupValidationService';
 
 // WebSocket imports
-import { WebSocketServer } from 'ws';
+import { Server as WebSocketServer } from 'ws';
 import { Server as HTTPServer } from 'http';
 import { WebSocketManager } from './services/WebSocketManager';
 

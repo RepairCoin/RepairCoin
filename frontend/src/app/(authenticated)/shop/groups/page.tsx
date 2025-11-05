@@ -14,6 +14,7 @@ function LoadingFallback() {
 }
 
 export default function ShopGroupsPage() {
+  console.log("📄 ShopGroupsPage rendering");
   return (
     <Suspense fallback={<LoadingFallback />}>
       <ShopGroupsClient />
