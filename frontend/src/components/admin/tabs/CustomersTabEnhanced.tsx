@@ -649,25 +649,25 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
           </p>
         </div>
         {/* Controls */}
-        <div className="p-6 border-b border-gray-700/50 space-y-4">
+        <div className="p-4 md:p-6 border-b border-gray-700/50 space-y-4">
           {/* Search and Filters */}
-          <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex flex-col lg:flex-row gap-3 md:gap-4">
             <div className="flex-1 relative">
               <input
                 type="text"
                 placeholder="Search by name, address, email, or referral code..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 md:px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm md:text-base"
               />
             </div>
             {/* Filter controls - only show for customer views */}
             {viewMode !== "unsuspend-requests" && (
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <select
                   value={selectedTier}
                   onChange={(e) => setSelectedTier(e.target.value)}
-                  className="px-4 py-2 bg-[#FFCC00] border border-gray-600 rounded-3xl text-black focus:outline-none focus:border-yellow-400"
+                  className="w-full sm:w-auto px-3 md:px-4 py-2 bg-[#FFCC00] border border-gray-600 rounded-3xl text-black focus:outline-none focus:border-yellow-400 text-sm md:text-base"
                 >
                   <option value="all">All Tiers</option>
                   <option value="GOLD">Gold Tier</option>
@@ -678,7 +678,7 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as any)}
-                  className="px-4 py-2 bg-[#FFCC00] border border-gray-600 rounded-3xl text-black focus:outline-none focus:border-yellow-400"
+                  className="w-full sm:w-auto px-3 md:px-4 py-2 bg-[#FFCC00] border border-gray-600 rounded-3xl text-black focus:outline-none focus:border-yellow-400 text-sm md:text-base"
                 >
                   <option value="earnings">Sort by Earnings</option>
                   <option value="transactions">Sort by Transactions</option>
