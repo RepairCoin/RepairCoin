@@ -1,21 +1,18 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   CreditCard,
-  Calendar,
   DollarSign,
   AlertCircle,
   CheckCircle,
   XCircle,
   Clock,
   PauseCircle,
-  PlayCircle,
   RefreshCw,
   X
 } from 'lucide-react';
@@ -42,6 +39,7 @@ interface Subscription {
 interface SubscriptionStats {
   totalActive: number;
   totalPending: number;
+  totalPaused: number;
   totalCancelled: number;
   totalRevenue: number;
   monthlyRecurring: number;
@@ -53,32 +51,44 @@ export default function SubscriptionManagementTab() {
   const [filteredSubscriptions, setFilteredSubscriptions] = useState<Subscription[]>([]);
   const [stats, setStats] = useState<SubscriptionStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
-  
+
   // Modal states
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showPauseModal, setShowPauseModal] = useState(false);
+  const [showResumeModal, setShowResumeModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [cancellationReason, setCancellationReason] = useState('');
 
-  useEffect(() => {
-    loadSubscriptions();
+  const calculateStats = useCallback((subs: Subscription[]) => {
+    const stats: SubscriptionStats = {
+      totalActive: subs.filter(s => s.status === 'active').length,
+      totalPending: subs.filter(s => s.status === 'pending').length,
+      totalPaused: subs.filter(s => s.status === 'paused').length,
+      totalCancelled: subs.filter(s => s.status === 'cancelled').length,
+      totalRevenue: subs.reduce((sum, s) => sum + s.totalPaid, 0),
+      monthlyRecurring: subs.filter(s => s.status === 'active').reduce((sum, s) => sum + s.monthlyAmount, 0),
+      overdueCount: subs.filter(s => s.daysOverdue && s.daysOverdue > 0).length
+    };
+    setStats(stats);
   }, []);
 
-  useEffect(() => {
-    filterSubscriptions(activeTab);
-  }, [subscriptions, activeTab]);
-
-  const loadSubscriptions = async () => {
+  const loadSubscriptions = useCallback(async (syncFromStripe = false) => {
     try {
-      setLoading(true);
+      if (syncFromStripe) {
+        setSyncing(true);
+      } else {
+        setLoading(true);
+      }
       const token = localStorage.getItem('adminAuthToken');
-      
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/subscription/subscriptions`, {
+
+      // Add sync parameter to fetch latest status from Stripe (disabled by default for performance)
+      const syncParam = syncFromStripe ? '?sync=true' : '';
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/subscription/subscriptions${syncParam}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -96,33 +106,28 @@ export default function SubscriptionManagementTab() {
       }
     } catch (error) {
       console.error('Error loading subscriptions:', error);
-      setError(error instanceof Error ? error.message : 'Failed to load subscriptions');
     } finally {
       setLoading(false);
+      setSyncing(false);
     }
+  }, [calculateStats]);
+
+  const handleSync = async () => {
+    await loadSubscriptions(true);
   };
 
-  const calculateStats = (subs: Subscription[]) => {
-    const stats: SubscriptionStats = {
-      totalActive: subs.filter(s => s.status === 'active').length,
-      totalPending: subs.filter(s => s.status === 'pending').length,
-      totalCancelled: subs.filter(s => s.status === 'cancelled').length,
-      totalRevenue: subs.reduce((sum, s) => sum + s.totalPaid, 0),
-      monthlyRecurring: subs.filter(s => s.status === 'active').reduce((sum, s) => sum + s.monthlyAmount, 0),
-      overdueCount: subs.filter(s => s.daysOverdue && s.daysOverdue > 0).length
-    };
-    setStats(stats);
-  };
-
-  const filterSubscriptions = (tab: string) => {
+  const filterSubscriptions = useCallback((tab: string) => {
     let filtered: Subscription[] = [];
-    
+
     switch (tab) {
       case 'active':
         filtered = subscriptions.filter(s => s.status === 'active');
         break;
       case 'pending':
         filtered = subscriptions.filter(s => s.status === 'pending');
+        break;
+      case 'paused':
+        filtered = subscriptions.filter(s => s.status === 'paused');
         break;
       case 'overdue':
         filtered = subscriptions.filter(s => s.daysOverdue && s.daysOverdue > 0);
@@ -133,9 +138,17 @@ export default function SubscriptionManagementTab() {
       default:
         filtered = subscriptions;
     }
-    
+
     setFilteredSubscriptions(filtered);
-  };
+  }, [subscriptions]);
+
+  useEffect(() => {
+    loadSubscriptions();
+  }, [loadSubscriptions]);
+
+  useEffect(() => {
+    filterSubscriptions(activeTab);
+  }, [subscriptions, activeTab, filterSubscriptions]);
 
   const handleApprove = async () => {
     if (!selectedSubscription) return;
@@ -199,7 +212,8 @@ export default function SubscriptionManagementTab() {
 
       setShowCancelModal(false);
       setCancellationReason('');
-      await loadSubscriptions();
+      // Sync after canceling to get latest status from Stripe
+      await loadSubscriptions(true);
     } catch (error) {
       console.error('Error cancelling subscription:', error);
       alert('Failed to cancel subscription');
@@ -210,11 +224,11 @@ export default function SubscriptionManagementTab() {
 
   const handlePause = async () => {
     if (!selectedSubscription) return;
-    
+
     try {
       setActionLoading(true);
       const token = localStorage.getItem('adminAuthToken');
-      
+
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/admin/subscription/subscriptions/${selectedSubscription.id}/pause`,
         {
@@ -230,7 +244,9 @@ export default function SubscriptionManagementTab() {
       }
 
       setShowPauseModal(false);
-      await loadSubscriptions();
+      setSelectedSubscription(null);
+      // Sync after pausing to get latest status from Stripe
+      await loadSubscriptions(true);
     } catch (error) {
       console.error('Error pausing subscription:', error);
       alert('Failed to pause subscription');
@@ -239,12 +255,15 @@ export default function SubscriptionManagementTab() {
     }
   };
 
-  const handleResume = async (subscription: Subscription) => {
+  const handleResume = async () => {
+    if (!selectedSubscription) return;
+
     try {
+      setActionLoading(true);
       const token = localStorage.getItem('adminAuthToken');
-      
+
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/subscription/subscriptions/${subscription.id}/resume`,
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/subscription/subscriptions/${selectedSubscription.id}/resume`,
         {
           method: 'POST',
           headers: {
@@ -257,10 +276,15 @@ export default function SubscriptionManagementTab() {
         throw new Error('Failed to resume subscription');
       }
 
-      await loadSubscriptions();
+      setShowResumeModal(false);
+      setSelectedSubscription(null);
+      // Sync after resuming to get latest status from Stripe
+      await loadSubscriptions(true);
     } catch (error) {
       console.error('Error resuming subscription:', error);
       alert('Failed to resume subscription');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -403,7 +427,10 @@ export default function SubscriptionManagementTab() {
               size="sm"
               variant="outline"
               className="text-green-600 hover:text-green-700"
-              onClick={() => handleResume(sub)}
+              onClick={() => {
+                setSelectedSubscription(sub);
+                setShowResumeModal(true);
+              }}
             >
               Resume
             </Button>
@@ -459,6 +486,16 @@ export default function SubscriptionManagementTab() {
 
           <Card className="border-2 border-[#FFCC00]">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Paused</CardTitle>
+              <PauseCircle className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalPaused}</div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2 border-[#FFCC00]">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Overdue</CardTitle>
               <AlertCircle className="h-4 w-4 text-red-600" />
             </CardHeader>
@@ -503,7 +540,9 @@ export default function SubscriptionManagementTab() {
       <Card className="border-2 border-[#FFCC00]">
         <CardContent className="p-0">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="w-full justify-start rounded-none border-b-2 border-[#FFCC00] h-auto p-0 bg-transparent">
+            <div className="flex justify-between items-center border-b-2 border-[#FFCC00] bg-transparent">
+              <TabsList className="justify-start rounded-none h-auto p-0 bg-transparent border-none">
+
               <TabsTrigger
                 value="all"
                 className="rounded-none px-6 py-3 data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold transition-all"
@@ -523,6 +562,12 @@ export default function SubscriptionManagementTab() {
                 Pending Approval
               </TabsTrigger>
               <TabsTrigger
+                value="paused"
+                className="rounded-none px-6 py-3 data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold transition-all"
+              >
+                Paused
+              </TabsTrigger>
+              <TabsTrigger
                 value="overdue"
                 className="rounded-none px-6 py-3 data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold transition-all"
               >
@@ -534,7 +579,19 @@ export default function SubscriptionManagementTab() {
               >
                 Cancelled
               </TabsTrigger>
-            </TabsList>
+              </TabsList>
+
+              <Button
+                onClick={handleSync}
+                disabled={syncing || loading}
+                variant="outline"
+                size="sm"
+                className="mr-4 border-[#FFCC00] text-[#FFCC00] hover:bg-[#FFCC00] hover:text-black transition-colors"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                {syncing ? 'Syncing...' : 'Sync from Stripe'}
+              </Button>
+            </div>
 
             <TabsContent value={activeTab} className="mt-0 p-6">
               <DataTable
@@ -549,115 +606,260 @@ export default function SubscriptionManagementTab() {
       </Card>
 
       {/* Approve Modal */}
-      <Dialog open={showApproveModal} onOpenChange={setShowApproveModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Approve Subscription</DialogTitle>
-            <DialogDescription>
-              Approve subscription for {selectedSubscription?.shopName || selectedSubscription?.shopId}?
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <h4 className="font-semibold text-green-800 mb-2">This will:</h4>
-              <ul className="space-y-1 text-sm text-green-700">
-                <li>• Activate the subscription immediately</li>
-                <li>• Grant operational status to the shop</li>
-                <li>• Set first payment due in 30 days</li>
-                <li>• Send activation email to shop owner</li>
-              </ul>
+      {showApproveModal && selectedSubscription && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#212121] border border-gray-800 rounded-xl shadow-2xl w-full max-w-md transform transition-all">
+            <div
+              className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-3xl"
+              style={{
+                backgroundImage: `url('/img/cust-ref-widget3.png')`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                backgroundRepeat: "no-repeat",
+              }}
+            >
+              <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
+                Approve Subscription
+              </p>
+              <button
+                onClick={() => setShowApproveModal(false)}
+                disabled={actionLoading}
+                className="p-2 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-900" />
+              </button>
+            </div>
+
+            <div className="px-6 py-4">
+              <p className="text-gray-300 mb-4">
+                Approve subscription for <span className="text-white font-semibold">{selectedSubscription.shopName || selectedSubscription.shopId}</span>?
+              </p>
+
+              <div className="bg-green-900/30 border border-green-700 rounded-lg p-4">
+                <h4 className="font-semibold text-green-400 mb-2">This will:</h4>
+                <ul className="space-y-1 text-sm text-green-300">
+                  <li>• Activate the subscription immediately</li>
+                  <li>• Grant operational status to the shop</li>
+                  <li>• Set first payment due in 30 days</li>
+                  <li>• Send activation email to shop owner</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-700 flex justify-end gap-3">
+              <button
+                onClick={() => setShowApproveModal(false)}
+                disabled={actionLoading}
+                className="px-4 py-2 bg-gray-700 text-white rounded-3xl hover:bg-gray-600 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleApprove}
+                disabled={actionLoading}
+                className="px-4 py-2 bg-green-600 text-white rounded-3xl hover:bg-green-700 transition-colors disabled:opacity-50"
+              >
+                {actionLoading ? 'Approving...' : 'Approve Subscription'}
+              </button>
             </div>
           </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowApproveModal(false)} disabled={actionLoading}>
-              Cancel
-            </Button>
-            <Button onClick={handleApprove} disabled={actionLoading}>
-              {actionLoading ? 'Approving...' : 'Approve Subscription'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
 
       {/* Cancel Modal */}
-      <Dialog open={showCancelModal} onOpenChange={setShowCancelModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Cancel Subscription</DialogTitle>
-            <DialogDescription>
-              Cancel subscription for {selectedSubscription?.shopName || selectedSubscription?.shopId}?
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Cancellation Reason
-              </label>
-              <textarea
-                value={cancellationReason}
-                onChange={(e) => setCancellationReason(e.target.value)}
-                className="w-full p-2 border rounded-lg"
-                rows={3}
-                placeholder="Enter reason for cancellation..."
-              />
+      {showCancelModal && selectedSubscription && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#212121] border border-gray-800 rounded-xl shadow-2xl w-full max-w-md transform transition-all">
+            <div
+              className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-3xl"
+              style={{
+                backgroundImage: `url('/img/cust-ref-widget3.png')`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                backgroundRepeat: "no-repeat",
+              }}
+            >
+              <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
+                Cancel Subscription
+              </p>
+              <button
+                onClick={() => setShowCancelModal(false)}
+                disabled={actionLoading}
+                className="p-2 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-900" />
+              </button>
             </div>
-            
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <h4 className="font-semibold text-red-800 mb-2">Warning:</h4>
-              <ul className="space-y-1 text-sm text-red-700">
-                <li>• Shop will lose operational status immediately</li>
-                <li>• Cannot issue rewards or process redemptions</li>
-                <li>• Shop can resubscribe at any time</li>
-              </ul>
+
+            <div className="px-6 py-4 space-y-4">
+              <p className="text-gray-300">
+                Cancel subscription for <span className="text-white font-semibold">{selectedSubscription.shopName || selectedSubscription.shopId}</span>?
+              </p>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Cancellation Reason
+                </label>
+                <textarea
+                  value={cancellationReason}
+                  onChange={(e) => setCancellationReason(e.target.value)}
+                  className="w-full p-3 bg-[#2F2F2F] border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  rows={3}
+                  placeholder="Enter reason for cancellation..."
+                />
+              </div>
+
+              <div className="bg-red-900/30 border border-red-700 rounded-lg p-4">
+                <h4 className="font-semibold text-red-400 mb-2">Warning:</h4>
+                <ul className="space-y-1 text-sm text-red-300">
+                  <li>• Shop will lose operational status immediately</li>
+                  <li>• Cannot issue rewards or process redemptions</li>
+                  <li>• Shop can resubscribe at any time</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-700 flex justify-end gap-3">
+              <button
+                onClick={() => setShowCancelModal(false)}
+                disabled={actionLoading}
+                className="px-4 py-2 bg-gray-700 text-white rounded-3xl hover:bg-gray-600 transition-colors disabled:opacity-50"
+              >
+                Keep Active
+              </button>
+              <button
+                onClick={handleCancel}
+                disabled={actionLoading}
+                className="px-4 py-2 bg-red-600 text-white rounded-3xl hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                {actionLoading ? 'Cancelling...' : 'Cancel Subscription'}
+              </button>
             </div>
           </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCancelModal(false)} disabled={actionLoading}>
-              Keep Active
-            </Button>
-            <Button variant="destructive" onClick={handleCancel} disabled={actionLoading}>
-              {actionLoading ? 'Cancelling...' : 'Cancel Subscription'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
 
       {/* Pause Modal */}
-      <Dialog open={showPauseModal} onOpenChange={setShowPauseModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Pause Subscription</DialogTitle>
-            <DialogDescription>
-              Pause subscription for {selectedSubscription?.shopName || selectedSubscription?.shopId}?
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="font-semibold text-blue-800 mb-2">Pausing will:</h4>
-              <ul className="space-y-1 text-sm text-blue-700">
-                <li>• Temporarily suspend billing</li>
-                <li>• Maintain operational status for 30 days</li>
-                <li>• Allow shop to resume anytime</li>
-                <li>• Send notification to shop owner</li>
-              </ul>
+      {showPauseModal && selectedSubscription && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#212121] border border-gray-800 rounded-xl shadow-2xl w-full max-w-md transform transition-all">
+            <div
+              className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-3xl"
+              style={{
+                backgroundImage: `url('/img/cust-ref-widget3.png')`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                backgroundRepeat: "no-repeat",
+              }}
+            >
+              <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
+                Pause Subscription
+              </p>
+              <button
+                onClick={() => setShowPauseModal(false)}
+                disabled={actionLoading}
+                className="p-2 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-900" />
+              </button>
+            </div>
+
+            <div className="px-6 py-4">
+              <p className="text-gray-300 mb-4">
+                Pause subscription for <span className="text-white font-semibold">{selectedSubscription.shopName || selectedSubscription.shopId}</span>?
+              </p>
+
+              <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-4">
+                <h4 className="font-semibold text-blue-400 mb-2">Pausing will:</h4>
+                <ul className="space-y-1 text-sm text-blue-300">
+                  <li>• Temporarily suspend billing</li>
+                  <li>• Maintain operational status for 30 days</li>
+                  <li>• Allow shop to resume anytime</li>
+                  <li>• Send notification to shop owner</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-700 flex justify-end gap-3">
+              <button
+                onClick={() => setShowPauseModal(false)}
+                disabled={actionLoading}
+                className="px-4 py-2 bg-gray-700 text-white rounded-3xl hover:bg-gray-600 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePause}
+                disabled={actionLoading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-3xl hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {actionLoading ? 'Pausing...' : 'Pause Subscription'}
+              </button>
             </div>
           </div>
+        </div>
+      )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPauseModal(false)} disabled={actionLoading}>
-              Cancel
-            </Button>
-            <Button onClick={handlePause} disabled={actionLoading}>
-              {actionLoading ? 'Pausing...' : 'Pause Subscription'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Resume Modal */}
+      {showResumeModal && selectedSubscription && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#212121] border border-gray-800 rounded-xl shadow-2xl w-full max-w-md transform transition-all">
+            <div
+              className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-3xl"
+              style={{
+                backgroundImage: `url('/img/cust-ref-widget3.png')`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                backgroundRepeat: "no-repeat",
+              }}
+            >
+              <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
+                Resume Subscription
+              </p>
+              <button
+                onClick={() => setShowResumeModal(false)}
+                disabled={actionLoading}
+                className="p-2 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-900" />
+              </button>
+            </div>
+
+            <div className="px-6 py-4">
+              <p className="text-gray-300 mb-4">
+                Resume subscription for <span className="text-white font-semibold">{selectedSubscription.shopName || selectedSubscription.shopId}</span>?
+              </p>
+
+              <div className="bg-green-900/30 border border-green-700 rounded-lg p-4">
+                <h4 className="font-semibold text-green-400 mb-2">Resuming will:</h4>
+                <ul className="space-y-1 text-sm text-green-300">
+                  <li>• Reactivate billing immediately</li>
+                  <li>• Restore full operational status</li>
+                  <li>• Allow shop to issue rewards and redemptions</li>
+                  <li>• Send confirmation notification to shop owner</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-700 flex justify-end gap-3">
+              <button
+                onClick={() => setShowResumeModal(false)}
+                disabled={actionLoading}
+                className="px-4 py-2 bg-gray-700 text-white rounded-3xl hover:bg-gray-600 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleResume}
+                disabled={actionLoading}
+                className="px-4 py-2 bg-green-600 text-white rounded-3xl hover:bg-green-700 transition-colors disabled:opacity-50"
+              >
+                {actionLoading ? 'Resuming...' : 'Resume Subscription'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Details Modal */}
       {showDetailsModal && selectedSubscription && (

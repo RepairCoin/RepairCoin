@@ -12,11 +12,11 @@ const db = DatabaseService.getInstance();
 // Get all subscriptions for admin view
 router.get('/subscriptions', async (req: Request, res: Response) => {
   try {
-    const { status, page = 1, limit = 50 } = req.query;
+    const { status, page = 1, limit = 50, sync = 'false' } = req.query;
     const offset = (Number(page) - 1) * Number(limit);
 
     let query = `
-      SELECT 
+      SELECT
         ss.*,
         s.name as shop_name,
         s.email as shop_email,
@@ -38,6 +38,30 @@ router.get('/subscriptions', async (req: Request, res: Response) => {
     query += ` LIMIT ${Number(limit)} OFFSET ${offset}`;
 
     const result = await db.query(query, params);
+
+    // Only sync if explicitly requested via sync=true parameter
+    if (sync === 'true' && result.rows.length > 0) {
+      logger.info('Manual sync requested - Syncing subscriptions from Stripe', { count: result.rows.length });
+
+      // Sync each subscription from Stripe
+      const syncPromises = result.rows.map(async (row) => {
+        try {
+          await subscriptionService.syncSubscriptionFromStripe(row.stripe_subscription_id);
+        } catch (error) {
+          logger.error('Failed to sync subscription', {
+            subscriptionId: row.stripe_subscription_id,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
+      });
+
+      // Wait for all syncs to complete
+      await Promise.all(syncPromises);
+
+      // Re-fetch data after sync
+      const syncedResult = await db.query(query, params);
+      result.rows = syncedResult.rows;
+    }
     
     // Transform the data to match frontend expectations
     const transformedRows = result.rows.map((row: any) => ({
@@ -200,6 +224,78 @@ router.post('/subscriptions/:subscriptionId/cancel', async (req: Request, res: R
     res.status(500).json({
       success: false,
       error: 'Failed to cancel subscription'
+    });
+  }
+});
+
+// Pause a subscription
+router.post('/subscriptions/:subscriptionId/pause', async (req: Request, res: Response) => {
+  try {
+    const { subscriptionId } = req.params;
+
+    // Get subscription from database by ID
+    const subQuery = await db.query(
+      'SELECT stripe_subscription_id FROM stripe_subscriptions WHERE id = $1',
+      [subscriptionId]
+    );
+
+    if (subQuery.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Subscription not found'
+      });
+    }
+
+    const stripeSubscriptionId = subQuery.rows[0].stripe_subscription_id;
+
+    // Pause the subscription via Stripe
+    await subscriptionService.pauseSubscription(stripeSubscriptionId);
+
+    res.json({
+      success: true,
+      message: 'Subscription paused successfully'
+    });
+  } catch (error) {
+    logger.error('Error pausing subscription:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to pause subscription'
+    });
+  }
+});
+
+// Resume a paused subscription
+router.post('/subscriptions/:subscriptionId/resume', async (req: Request, res: Response) => {
+  try {
+    const { subscriptionId } = req.params;
+
+    // Get subscription from database by ID
+    const subQuery = await db.query(
+      'SELECT stripe_subscription_id FROM stripe_subscriptions WHERE id = $1',
+      [subscriptionId]
+    );
+
+    if (subQuery.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Subscription not found'
+      });
+    }
+
+    const stripeSubscriptionId = subQuery.rows[0].stripe_subscription_id;
+
+    // Resume the subscription via Stripe
+    await subscriptionService.resumeSubscription(stripeSubscriptionId);
+
+    res.json({
+      success: true,
+      message: 'Subscription resumed successfully'
+    });
+  } catch (error) {
+    logger.error('Error resuming subscription:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to resume subscription'
     });
   }
 });
