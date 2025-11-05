@@ -126,6 +126,11 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
   const [shopUnsuspendRequests, setShopUnsuspendRequests] = useState<any[]>([]);
   const [unsuspendRequestsLoading, setUnsuspendRequestsLoading] =
     useState(false);
+  const [confirmationModal, setConfirmationModal] = useState<{
+    isOpen: boolean;
+    type: "suspend" | "reconsider" | null;
+    shop: Shop | null;
+  }>({ isOpen: false, type: null, shop: null });
 
   // Fetch unsuspend requests for shops
   const fetchShopUnsuspendRequests = async () => {
@@ -544,10 +549,11 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleAction(
-                        () => onSuspendShop(shopId),
-                        "Shop suspended"
-                      );
+                      setConfirmationModal({
+                        isOpen: true,
+                        type: "suspend",
+                        shop: shop,
+                      });
                     }}
                     disabled={isProcessing}
                     className="p-1 md:p-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors disabled:opacity-50"
@@ -623,10 +629,11 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleAction(
-                      () => onApproveShop(shopId),
-                      "Shop reconsidered and approved"
-                    );
+                    setConfirmationModal({
+                      isOpen: true,
+                      type: "reconsider",
+                      shop: shop,
+                    });
                   }}
                   disabled={isProcessing}
                   className="p-1 md:p-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors disabled:opacity-50"
@@ -1312,6 +1319,113 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                 {unsuspendReviewModal.action === "approve"
                   ? "Approve"
                   : "Reject"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {confirmationModal.isOpen && confirmationModal.shop && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-start gap-4 mb-4">
+              <div
+                className={`p-3 rounded-full ${
+                  confirmationModal.type === "suspend"
+                    ? "bg-red-500/10"
+                    : "bg-green-500/10"
+                }`}
+              >
+                {confirmationModal.type === "suspend" ? (
+                  <ShieldOff className="w-6 h-6 text-red-400" />
+                ) : (
+                  <RefreshCw className="w-6 h-6 text-green-400" />
+                )}
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-white mb-2">
+                  {confirmationModal.type === "suspend"
+                    ? "Suspend Shop"
+                    : "Reconsider & Approve Shop"}
+                </h3>
+                <p className="text-gray-300">
+                  {confirmationModal.type === "suspend" ? (
+                    <>
+                      Are you sure you want to suspend{" "}
+                      <span className="font-semibold text-white">
+                        {confirmationModal.shop.name}
+                      </span>
+                      ?
+                    </>
+                  ) : (
+                    <>
+                      Reconsider and approve{" "}
+                      <span className="font-semibold text-white">
+                        {confirmationModal.shop.name}
+                      </span>
+                      ?
+                    </>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="mb-6 p-4 bg-gray-700/50 rounded-lg">
+              <p className="text-sm text-gray-300">
+                {confirmationModal.type === "suspend" ? (
+                  <>
+                    This will <strong className="text-red-400">deactivate</strong> the
+                    shop and prevent them from operating on the platform.
+                  </>
+                ) : (
+                  <>
+                    This will <strong className="text-green-400">activate</strong> the
+                    shop and clear any suspension status, allowing them to operate
+                    normally.
+                  </>
+                )}
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() =>
+                  setConfirmationModal({ isOpen: false, type: null, shop: null })
+                }
+                className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const shopId =
+                    confirmationModal.shop?.shopId ||
+                    confirmationModal.shop?.shop_id ||
+                    "";
+
+                  if (confirmationModal.type === "suspend") {
+                    await handleAction(
+                      () => onSuspendShop(shopId),
+                      "Shop suspended"
+                    );
+                  } else {
+                    await handleAction(
+                      () => onApproveShop(shopId),
+                      "Shop reconsidered and approved"
+                    );
+                  }
+
+                  setConfirmationModal({ isOpen: false, type: null, shop: null });
+                }}
+                disabled={isProcessing}
+                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 ${
+                  confirmationModal.type === "suspend"
+                    ? "bg-red-600 text-white hover:bg-red-700"
+                    : "bg-green-600 text-white hover:bg-green-700"
+                }`}
+              >
+                {confirmationModal.type === "suspend" ? "Suspend" : "Approve"}
               </button>
             </div>
           </div>
