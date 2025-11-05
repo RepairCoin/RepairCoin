@@ -770,7 +770,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
           )}
 
         {/* Additional Actions */}
-        <div className="flex flex-wrap gap-2">
+        <div className={`flex flex-wrap gap-2 ${shop.purchasedRcnBalance && shop.purchasedRcnBalance > 0 ? "" : "hidden"}`}>
           {shop.status === "active" &&
             shop.purchasedRcnBalance &&
             shop.purchasedRcnBalance > 0 &&
