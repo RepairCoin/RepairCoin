@@ -24,6 +24,8 @@ interface Subscription {
   status: 'pending' | 'active' | 'cancelled' | 'paused' | 'defaulted';
   monthlyAmount: number;
   subscriptionType: string;
+  billingMethod?: 'credit_card' | 'ach' | 'wire' | 'crypto';
+  billingReference?: string;
   paymentsMade: number;
   totalPaid: number;
   nextPaymentDate?: string;
@@ -31,7 +33,12 @@ interface Subscription {
   enrolledAt: string;
   activatedAt?: string;
   cancelledAt?: string;
+  pausedAt?: string;
+  resumedAt?: string;
   cancellationReason?: string;
+  pauseReason?: string;
+  notes?: string;
+  createdBy?: string;
   isActive: boolean;
   daysOverdue?: number;
 }
@@ -262,6 +269,33 @@ export default function SubscriptionManagementTab() {
       setActionLoading(true);
       const token = localStorage.getItem('adminAuthToken');
 
+      // First, try to sync from Stripe to ensure we have the latest status
+      console.log('Syncing subscription from Stripe before resume...');
+      const syncResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/subscription/subscriptions/${selectedSubscription.id}/sync`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      if (syncResponse.ok) {
+        const syncData = await syncResponse.json();
+        console.log('Sync result:', syncData);
+
+        // If sync shows it's already active, just reload and show success
+        if (syncData.data?.newStatus === 'active') {
+          await loadSubscriptions();
+          setShowResumeModal(false);
+          setSelectedSubscription(null);
+          alert('Subscription was already active in Stripe. Status updated successfully.');
+          return;
+        }
+      }
+
+      // Now attempt to resume
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/admin/subscription/subscriptions/${selectedSubscription.id}/resume`,
         {
@@ -273,7 +307,8 @@ export default function SubscriptionManagementTab() {
       );
 
       if (!response.ok) {
-        throw new Error('Failed to resume subscription');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to resume subscription');
       }
 
       setShowResumeModal(false);
