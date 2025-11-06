@@ -3,13 +3,14 @@ import { AntDesign } from "@expo/vector-icons";
 import { Checkbox } from "expo-checkbox";
 import Screen from "@/components/ui/Screen";
 import PrimaryButton from "@/components/ui/PrimaryButton";
-import type { ShopRegistrationFormData } from "@/app/(auth)/register/shop/index";
+import type { ShopRegistrationFormData } from "@/services/authServices";
 
 type Props = {
   handleGoBack: () => void;
   handleSubmit: () => void;
   formData: ShopRegistrationFormData;
   updateFormData: <K extends keyof ShopRegistrationFormData>(field: K, value: ShopRegistrationFormData[K]) => void;
+  isLoading?: boolean;
 };
 
 export default function FourthShopRegisterSlide({
@@ -17,6 +18,7 @@ export default function FourthShopRegisterSlide({
   handleSubmit,
   formData,
   updateFormData,
+  isLoading = false,
 }: Props) {
   return (
     <Screen>
@@ -128,9 +130,9 @@ export default function FourthShopRegisterSlide({
             </View>
           </View>
           <PrimaryButton
-            title="Register Shop"
+            title={isLoading ? "Registering..." : "Register Shop"}
             onPress={handleSubmit}
-            disabled={!formData.acceptTerms}
+            disabled={!formData.acceptTerms || isLoading}
             className="mt-8"
           />
         </View>

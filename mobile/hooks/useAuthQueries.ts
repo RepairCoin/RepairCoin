@@ -2,7 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useAuthStore } from '../store/authStore';
 import { queryKeys } from '@/config/queryClient';
-import { getAuthCustomer } from '@/services/authServices';
+import { getAuthCustomer, registerAsShop, ShopRegistrationFormData } from '@/services/authServices';
 
 // Legacy - keeping for backward compatibility if needed
 // All auth state is now managed by Zustand store (authStore.ts)
@@ -112,4 +112,30 @@ export const useSplashNavigation = () => {
     isAuthenticated,
     navigationRoute: getNavigationRoute(),
   };
+};
+
+export const useRegisterShop = () => {
+  const login = useAuthStore((state) => state.login);
+  
+  return useMutation({
+    mutationFn: async (formData: ShopRegistrationFormData) => {
+      if (!formData.walletAddress) {
+        throw new Error('No wallet address provided');
+      }
+
+      // Pass the form data directly to registerAsShop
+      return await registerAsShop(formData);
+    },
+    onSuccess: async (result) => {
+      if (result.success) {
+        // Login the shop after successful registration
+        await login();
+        router.push("/shop/tabs/home");
+      }
+    },
+    onError: (error: any) => {
+      console.error('[useRegisterShop] Error:', error);
+      throw error;
+    },
+  });
 };

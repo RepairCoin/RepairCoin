@@ -3,7 +3,7 @@ import { AntDesign, Ionicons } from "@expo/vector-icons";
 import CountryPicker, { CountryCode } from "react-native-country-picker-modal";
 import { MaskedTextInput } from "react-native-mask-text";
 import Screen from "@/components/ui/Screen";
-import type { ShopRegistrationFormData } from "@/app/(auth)/register/shop/index";
+import type { ShopRegistrationFormData } from "@/services/authServices";
 import { useMemo } from "react";
 
 type Props = {

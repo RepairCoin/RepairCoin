@@ -1,7 +1,7 @@
 import { View, Text, TextInput, Pressable, Alert } from "react-native";
 import { AntDesign, Ionicons } from "@expo/vector-icons";
 import Screen from "@/components/ui/Screen";
-import type { ShopRegistrationFormData } from "@/app/(auth)/register/shop/index";
+import type { ShopRegistrationFormData } from "@/services/authServices";
 import { useMemo } from "react";
 
 type Props = {

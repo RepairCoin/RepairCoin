@@ -3,7 +3,7 @@ import { AntDesign, Ionicons } from "@expo/vector-icons";
 import RNPickerSelect from "react-native-picker-select";
 import Screen from "@/components/ui/Screen";
 import { CompanySize, MonthlyRevenue } from "@/utilities/GlobalTypes";
-import type { ShopRegistrationFormData } from "@/app/(auth)/register/shop/index";
+import type { ShopRegistrationFormData } from "@/services/authServices";
 import { useMemo } from "react";
 
 type Props = {

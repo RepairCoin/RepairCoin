@@ -22,6 +22,8 @@ import ThirdShopRegisterSlide from "@/components/shop/register/ThirdSlide";
 import SocialMediaSlide from "@/components/shop/register/SocialMediaSlide";
 import FourthShopRegisterSlide from "@/components/shop/register/FourthSlide";
 import { useAuthStore } from "@/store/authStore";
+import { useRegisterShop } from "@/hooks/useAuthQueries";
+import { ShopRegistrationFormData } from "@/services/authServices";
 
 const { width } = Dimensions.get("window");
 
@@ -29,51 +31,9 @@ type Slide = {
   key: string;
 };
 
-export interface ShopRegistrationFormData {
-  // Shop Information
-  shopId: string;
-  name: string; // Company name
-
-  // Personal Information
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-
-  // Business Information
-  address: string; // Street address
-  city: string;
-  country: string;
-  companySize: string;
-  monthlyRevenue: string;
-  website: string;
-  referral: string;
-
-  // Social Media
-  facebook: string;
-  twitter: string;
-  instagram: string;
-
-  // Wallet Information
-  reimbursementAddress: string;
-  fixflowShopId: string;
-
-  // Location (for mapping)
-  location: {
-    city: string;
-    state: string;
-    zipCode: string;
-    lat: string;
-    lng: string;
-  };
-
-  // Terms and Conditions
-  acceptTerms: boolean;
-}
-
 export default function RegisterAsShopPage() {
   const account = useAuthStore((state) => state.account);
-  const login = useAuthStore((state) => state.login);
+  const { mutate: registerShop, isPending } = useRegisterShop();
   const [index, setIndex] = useState(0);
   const flatRef = useRef<FlatList<Slide>>(null);
   const slides: Slide[] = useMemo(
@@ -91,6 +51,7 @@ export default function RegisterAsShopPage() {
     // Shop Information
     shopId: "",
     name: "",
+    walletAddress: "",
     
     // Personal Information
     firstName: "",
@@ -128,7 +89,6 @@ export default function RegisterAsShopPage() {
     // Terms and Conditions
     acceptTerms: false,
   });
-  const [isLoading, setIsLoading] = useState(false);
   const [countryCode, setCountryCode] = useState<CountryCode>("US");
 
   const updateFormData = useCallback(
@@ -184,46 +144,39 @@ export default function RegisterAsShopPage() {
       return;
     }
 
-    setIsLoading(true);
-
     try {
-      const response = {
-        success: true,
+      // Add wallet address to form data
+      const submissionData = {
+        ...formData,
+        walletAddress: account.address,
       };
 
-      if (response.success) {
-        // Login the user after successful registration
-        // await login();
-        // router.push("/register/shop/Success");
-        console.log("Form submission successful!");
-        console.log(
-          "Final form data submitted:",
-          JSON.stringify(formData, null, 2)
-        );
-      } else {
-        Alert.alert(
-          "Registration Failed",
-          "An error occurred during registration. Please try again."
-        );
-      }
+      // Call the mutation
+      registerShop(submissionData, {
+        onSuccess: () => {
+          console.log("Form submission successful!");
+          console.log(
+            "Final form data submitted:",
+            JSON.stringify(submissionData, null, 2)
+          );
+          // Navigation is handled by the hook's onSuccess
+        },
+        onError: (error) => {
+          console.error("Registration error:", error);
+          Alert.alert(
+            "Registration Failed",
+            "An error occurred during registration. Please try again."
+          );
+        }
+      });
     } catch (error) {
       console.error("Registration error:", error);
       Alert.alert(
         "Registration Error",
         "Unable to complete registration. Please check your connection and try again."
       );
-    } finally {
-      setIsLoading(false);
     }
-  }, [formData, account, login]);
-
-  // Check if form is valid for submission
-  const isFormValid = useMemo(() => {
-    return (
-      formData.firstName.trim().length >= 2 &&
-      formData.lastName.trim().length >= 2
-    );
-  }, [formData]);
+  }, [formData, account, registerShop]);
 
   return (
     <FlatList
@@ -283,6 +236,7 @@ export default function RegisterAsShopPage() {
                 handleSubmit={handleSubmit}
                 formData={formData}
                 updateFormData={updateFormData}
+                isLoading={isPending}
               />
             );
           default:
@@ -292,6 +246,7 @@ export default function RegisterAsShopPage() {
                 handleSubmit={handleSubmit}
                 formData={formData}
                 updateFormData={updateFormData}
+                isLoading={isPending}
               />
             );
         }
