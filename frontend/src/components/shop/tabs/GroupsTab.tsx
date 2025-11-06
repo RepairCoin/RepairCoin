@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { Users, Plus } from "lucide-react";
-import * as shopGroupsAPI from "@/services/api/shopGroups";
+import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
 import CreateGroupModal from "../groups/CreateGroupModal";
 import GroupCard from "../groups/GroupCard";
 import JoinGroupModal from "../groups/JoinGroupModal";

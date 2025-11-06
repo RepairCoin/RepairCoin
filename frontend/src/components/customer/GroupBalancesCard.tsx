@@ -3,11 +3,11 @@
 import { useState, useEffect } from "react";
 import { useActiveAccount } from "thirdweb/react";
 import { Coins, TrendingUp, ChevronRight } from "lucide-react";
-import * as shopGroupsAPI from "@/services/api/shopGroups";
+import * as shopGroupsAPI from "../../services/api/affiliateShopGroups";
 
 export default function GroupBalancesCard() {
   const account = useActiveAccount();
-  const [balances, setBalances] = useState<shopGroupsAPI.CustomerGroupBalance[]>([]);
+  const [balances, setBalances] = useState<shopGroupsAPI.CustomerAffiliateGroupBalance[]>([]);
   const [groups, setGroups] = useState<Map<string, shopGroupsAPI.ShopGroup>>(new Map());
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);

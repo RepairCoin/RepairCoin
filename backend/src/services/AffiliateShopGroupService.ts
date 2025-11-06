@@ -1,5 +1,5 @@
-// backend/src/services/ShopGroupService.ts
-import { ShopGroupRepository, ShopGroup, CreateGroupParams, UpdateGroupParams, CustomerGroupBalance, GroupTokenTransaction } from '../repositories/ShopGroupRepository';
+// backend/src/services/AffiliateShopGroupService.ts
+import { AffiliateShopGroupRepository, AffiliateShopGroup, CreateGroupParams, UpdateGroupParams, CustomerAffiliateGroupBalance, AffiliateGroupTokenTransaction } from '../repositories/AffiliateShopGroupRepository';
 import { shopRepository } from '../repositories';
 import { logger } from '../utils/logger';
 import crypto from 'crypto';
@@ -35,17 +35,17 @@ export interface RedeemGroupTokensRequest {
   metadata?: Record<string, unknown>;
 }
 
-export class ShopGroupService {
-  private repository: ShopGroupRepository;
+export class AffiliateShopGroupService {
+  private repository: AffiliateShopGroupRepository;
 
   constructor() {
-    this.repository = new ShopGroupRepository();
+    this.repository = new AffiliateShopGroupRepository();
   }
 
   /**
-   * Create a new shop group
+   * Create a new affiliate shop group
    */
-  async createGroup(request: CreateGroupRequest): Promise<ShopGroup> {
+  async createGroup(request: CreateGroupRequest): Promise<AffiliateShopGroup> {
     try {
       // Validate shop exists and is active
       const shop = await shopRepository.getShop(request.createdByShopId);
@@ -81,7 +81,7 @@ export class ShopGroupService {
       await this.repository.addMemberRequest(groupId, request.createdByShopId);
       await this.repository.approveMemberRequest(groupId, request.createdByShopId, request.createdByShopId, 'admin');
 
-      logger.info('Shop group created successfully', { groupId, createdBy: request.createdByShopId });
+      logger.info('Affiliate affiliate shop group created successfully', { groupId, createdBy: request.createdByShopId });
       return group;
     } catch (error) {
       logger.error('Error in createGroup:', error);
@@ -96,7 +96,7 @@ export class ShopGroupService {
     groupId: string,
     shopId: string,
     updates: UpdateGroupParams
-  ): Promise<ShopGroup> {
+  ): Promise<AffiliateShopGroup> {
     try {
       // Verify shop is admin of group
       await this.verifyShopIsAdmin(groupId, shopId);
@@ -111,7 +111,7 @@ export class ShopGroupService {
   /**
    * Get group by ID
    */
-  async getGroup(groupId: string): Promise<ShopGroup | null> {
+  async getGroup(groupId: string): Promise<AffiliateShopGroup | null> {
     return await this.repository.getGroupById(groupId);
   }
 
@@ -272,7 +272,7 @@ export class ShopGroupService {
   /**
    * Get groups a shop is member of
    */
-  async getShopGroups(shopId: string): Promise<ShopGroup[]> {
+  async getShopGroups(shopId: string): Promise<AffiliateShopGroup[]> {
     return await this.repository.getShopGroups(shopId);
   }
 
@@ -280,8 +280,8 @@ export class ShopGroupService {
    * Issue group tokens to customer (earning)
    */
   async earnGroupTokens(request: EarnGroupTokensRequest): Promise<{
-    transaction: GroupTokenTransaction;
-    newBalance: CustomerGroupBalance;
+    transaction: AffiliateGroupTokenTransaction;
+    newBalance: CustomerAffiliateGroupBalance;
   }> {
     try {
       // Verify shop is member of group
@@ -333,8 +333,8 @@ export class ShopGroupService {
    * Redeem group tokens at member shop
    */
   async redeemGroupTokens(request: RedeemGroupTokensRequest): Promise<{
-    transaction: GroupTokenTransaction;
-    newBalance: CustomerGroupBalance;
+    transaction: AffiliateGroupTokenTransaction;
+    newBalance: CustomerAffiliateGroupBalance;
   }> {
     try {
       // Verify shop is member of group
@@ -393,14 +393,14 @@ export class ShopGroupService {
   /**
    * Get customer's balance in a specific group
    */
-  async getCustomerBalance(customerAddress: string, groupId: string): Promise<CustomerGroupBalance | null> {
+  async getCustomerBalance(customerAddress: string, groupId: string): Promise<CustomerAffiliateGroupBalance | null> {
     return await this.repository.getCustomerBalance(customerAddress, groupId);
   }
 
   /**
    * Get all customer's group balances
    */
-  async getAllCustomerBalances(customerAddress: string): Promise<CustomerGroupBalance[]> {
+  async getAllCustomerBalances(customerAddress: string): Promise<CustomerAffiliateGroupBalance[]> {
     return await this.repository.getAllCustomerBalances(customerAddress);
   }
 
@@ -426,6 +426,42 @@ export class ShopGroupService {
   }
 
   // ==================== HELPER METHODS ====================
+
+  /**
+   * Get analytics for a group
+   */
+  async getGroupAnalytics(groupId: string) {
+    try {
+      return await this.repository.getGroupAnalytics(groupId);
+    } catch (error) {
+      logger.error('Error in getGroupAnalytics:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get member activity statistics
+   */
+  async getMemberActivityStats(groupId: string) {
+    try {
+      return await this.repository.getMemberActivityStats(groupId);
+    } catch (error) {
+      logger.error('Error in getMemberActivityStats:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get transaction trends
+   */
+  async getTransactionTrends(groupId: string, days: number = 30) {
+    try {
+      return await this.repository.getTransactionTrends(groupId, days);
+    } catch (error) {
+      logger.error('Error in getTransactionTrends:', error);
+      throw error;
+    }
+  }
 
   private async verifyShopIsAdmin(groupId: string, shopId: string): Promise<void> {
     const members = await this.repository.getGroupMembers(groupId, 'active');

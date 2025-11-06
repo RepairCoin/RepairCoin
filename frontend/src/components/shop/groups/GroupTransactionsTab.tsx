@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { TrendingUp, TrendingDown, History, ChevronLeft, ChevronRight } from "lucide-react";
-import * as shopGroupsAPI from "@/services/api/shopGroups";
+import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
 
 interface GroupTransactionsTabProps {
   groupId: string;
@@ -14,7 +14,7 @@ export default function GroupTransactionsTab({
   groupId,
   tokenSymbol,
 }: GroupTransactionsTabProps) {
-  const [transactions, setTransactions] = useState<shopGroupsAPI.GroupTokenTransaction[]>([]);
+  const [transactions, setTransactions] = useState<shopGroupsAPI.AffiliateGroupTokenTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);

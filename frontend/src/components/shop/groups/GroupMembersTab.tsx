@@ -3,15 +3,15 @@
 import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { Users, Check, X, Trash2, Shield, User } from "lucide-react";
-import * as shopGroupsAPI from "@/services/api/shopGroups";
+import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
 
 interface GroupMembersTabProps {
   groupId: string;
 }
 
 export default function GroupMembersTab({ groupId }: GroupMembersTabProps) {
-  const [members, setMembers] = useState<shopGroupsAPI.ShopGroupMember[]>([]);
-  const [pendingMembers, setPendingMembers] = useState<shopGroupsAPI.ShopGroupMember[]>([]);
+  const [members, setMembers] = useState<shopGroupsAPI.AffiliateShopGroupMember[]>([]);
+  const [pendingMembers, setPendingMembers] = useState<shopGroupsAPI.AffiliateShopGroupMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<"all" | "pending">("all");
 

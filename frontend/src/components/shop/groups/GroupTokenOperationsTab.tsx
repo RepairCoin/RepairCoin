@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { toast } from "react-hot-toast";
 import { Coins, TrendingUp, TrendingDown, Search } from "lucide-react";
-import * as shopGroupsAPI from "@/services/api/shopGroups";
+import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
 
 interface GroupTokenOperationsTabProps {
   groupId: string;
@@ -18,7 +18,7 @@ export default function GroupTokenOperationsTab({
   const [customerAddress, setCustomerAddress] = useState("");
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
-  const [customerBalance, setCustomerBalance] = useState<shopGroupsAPI.CustomerGroupBalance | null>(
+  const [customerBalance, setCustomerBalance] = useState<shopGroupsAPI.CustomerAffiliateGroupBalance | null>(
     null
   );
   const [submitting, setSubmitting] = useState(false);
@@ -75,7 +75,7 @@ export default function GroupTokenOperationsTab({
             customerAddress,
             groupId,
             balance: result.newBalance,
-          } as shopGroupsAPI.CustomerGroupBalance);
+          } as shopGroupsAPI.CustomerAffiliateGroupBalance);
         }
       } else {
         const result = await shopGroupsAPI.redeemGroupTokens(groupId, {
@@ -90,7 +90,7 @@ export default function GroupTokenOperationsTab({
             customerAddress,
             groupId,
             balance: result.newBalance,
-          } as shopGroupsAPI.CustomerGroupBalance);
+          } as shopGroupsAPI.CustomerAffiliateGroupBalance);
         }
       }
 

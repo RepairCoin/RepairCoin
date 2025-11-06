@@ -4,11 +4,13 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import DashboardLayout from "@/components/ui/DashboardLayout";
-import { ArrowLeft, Users, Coins, TrendingUp, Settings, Copy, Check } from "lucide-react";
-import * as shopGroupsAPI from "@/services/api/shopGroups";
+import { ArrowLeft, Users, Coins, TrendingUp, Settings, Copy, Check, BarChart3 } from "lucide-react";
+import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
 import GroupMembersTab from "./GroupMembersTab";
 import GroupTokenOperationsTab from "./GroupTokenOperationsTab";
 import GroupTransactionsTab from "./GroupTransactionsTab";
+import AnalyticsDashboard from "./AnalyticsDashboard";
+import MemberActivityStats from "./MemberActivityStats";
 
 interface GroupDetailsClientProps {
   groupId: string;
@@ -16,9 +18,9 @@ interface GroupDetailsClientProps {
 
 export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps) {
   const router = useRouter();
-  const [group, setGroup] = useState<shopGroupsAPI.ShopGroup | null>(null);
+  const [group, setGroup] = useState<shopGroupsAPI.AffiliateShopGroup | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"overview" | "members" | "operations" | "transactions">(
+  const [activeTab, setActiveTab] = useState<"overview" | "members" | "operations" | "transactions" | "analytics">(
     "overview"
   );
   const [inviteCodeCopied, setInviteCodeCopied] = useState(false);
@@ -187,6 +189,19 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
               Transactions
             </div>
           </button>
+          <button
+            onClick={() => setActiveTab("analytics")}
+            className={`px-4 py-3 font-medium transition-colors ${
+              activeTab === "analytics"
+                ? "text-[#FFCC00] border-b-2 border-[#FFCC00]"
+                : "text-gray-400 hover:text-white"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Analytics
+            </div>
+          </button>
         </div>
       </div>
 
@@ -228,6 +243,13 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
 
         {activeTab === "transactions" && (
           <GroupTransactionsTab groupId={groupId} tokenSymbol={group.customTokenSymbol} />
+        )}
+
+        {activeTab === "analytics" && (
+          <div className="space-y-6">
+            <AnalyticsDashboard groupId={groupId} />
+            <MemberActivityStats groupId={groupId} />
+          </div>
         )}
       </div>
     </DashboardLayout>

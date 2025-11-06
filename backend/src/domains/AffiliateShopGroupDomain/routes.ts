@@ -1,8 +1,9 @@
-// backend/src/domains/ShopGroupDomain/routes.ts
+// backend/src/domains/AffiliateShopGroupDomain/routes.ts
 import { Router } from 'express';
 import { GroupController } from './controllers/GroupController';
 import { MembershipController } from './controllers/MembershipController';
 import { GroupTokenController } from './controllers/GroupTokenController';
+import { AnalyticsController } from './controllers/AnalyticsController';
 import { authMiddleware, requireRole } from '../../middleware/auth';
 
 const router = Router();
@@ -11,16 +12,17 @@ const router = Router();
 const groupController = new GroupController();
 const membershipController = new MembershipController();
 const tokenController = new GroupTokenController();
+const analyticsController = new AnalyticsController();
 
 // ==================== GROUP MANAGEMENT ROUTES ====================
 
 /**
  * @swagger
- * /api/shop-groups:
+ * /api/affiliate-shop-groups:
  *   post:
- *     summary: Create a new shop group
+ *     summary: Create a new affiliate shop group
  *     description: Create a new shop coalition with custom tokens. The creating shop becomes the admin.
- *     tags: [Shop Groups]
+ *     tags: [Affiliate Shop Groups]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -67,7 +69,7 @@ const tokenController = new GroupTokenController();
  *                   type: boolean
  *                   example: true
  *                 data:
- *                   $ref: '#/components/schemas/ShopGroup'
+ *                   $ref: '#/components/schemas/AffiliateShopGroup'
  *       400:
  *         description: Invalid request or validation error
  *       401:
@@ -84,11 +86,11 @@ router.post(
 
 /**
  * @swagger
- * /api/shop-groups:
+ * /api/affiliate-shop-groups:
  *   get:
- *     summary: Get all shop groups
- *     description: Retrieve all public shop groups or filter by criteria
- *     tags: [Shop Groups]
+ *     summary: Get all affiliate shop groups
+ *     description: Retrieve all public affiliate shop groups or filter by criteria
+ *     tags: [Affiliate Shop Groups]
  *     parameters:
  *       - in: query
  *         name: isPrivate
@@ -97,7 +99,7 @@ router.post(
  *         description: Filter by private/public status
  *     responses:
  *       200:
- *         description: List of shop groups
+ *         description: List of affiliate shop groups
  *         content:
  *           application/json:
  *             schema:
@@ -109,7 +111,7 @@ router.post(
  *                 data:
  *                   type: array
  *                   items:
- *                     $ref: '#/components/schemas/ShopGroup'
+ *                     $ref: '#/components/schemas/AffiliateShopGroup'
  */
 router.get(
   '/',
@@ -117,7 +119,7 @@ router.get(
 );
 
 /**
- * @route   GET /api/shop-groups/my-groups
+ * @route   GET /api/affiliate-shop-groups/my-groups
  * @desc    Get groups for authenticated shop
  * @access  Shop only
  */
@@ -129,7 +131,7 @@ router.get(
 );
 
 /**
- * @route   GET /api/shop-groups/:groupId
+ * @route   GET /api/affiliate-shop-groups/:groupId
  * @desc    Get group by ID
  * @access  Public
  */
@@ -139,7 +141,7 @@ router.get(
 );
 
 /**
- * @route   PUT /api/shop-groups/:groupId
+ * @route   PUT /api/affiliate-shop-groups/:groupId
  * @desc    Update group details
  * @access  Shop (admin of group) only
  */
@@ -153,7 +155,7 @@ router.put(
 // ==================== MEMBERSHIP ROUTES ====================
 
 /**
- * @route   POST /api/shop-groups/:groupId/join
+ * @route   POST /api/affiliate-shop-groups/:groupId/join
  * @desc    Request to join a group
  * @access  Shop only
  */
@@ -165,7 +167,7 @@ router.post(
 );
 
 /**
- * @route   POST /api/shop-groups/join-by-code
+ * @route   POST /api/affiliate-shop-groups/join-by-code
  * @desc    Join group by invite code
  * @access  Shop only
  */
@@ -177,7 +179,7 @@ router.post(
 );
 
 /**
- * @route   GET /api/shop-groups/:groupId/members
+ * @route   GET /api/affiliate-shop-groups/:groupId/members
  * @desc    Get group members
  * @access  Public
  */
@@ -187,7 +189,7 @@ router.get(
 );
 
 /**
- * @route   POST /api/shop-groups/:groupId/members/:shopIdToApprove/approve
+ * @route   POST /api/affiliate-shop-groups/:groupId/members/:shopIdToApprove/approve
  * @desc    Approve member request
  * @access  Shop (admin of group) only
  */
@@ -199,7 +201,7 @@ router.post(
 );
 
 /**
- * @route   POST /api/shop-groups/:groupId/members/:shopIdToReject/reject
+ * @route   POST /api/affiliate-shop-groups/:groupId/members/:shopIdToReject/reject
  * @desc    Reject member request
  * @access  Shop (admin of group) only
  */
@@ -211,7 +213,7 @@ router.post(
 );
 
 /**
- * @route   DELETE /api/shop-groups/:groupId/members/:shopIdToRemove
+ * @route   DELETE /api/affiliate-shop-groups/:groupId/members/:shopIdToRemove
  * @desc    Remove member from group
  * @access  Shop (admin of group) only
  */
@@ -226,11 +228,11 @@ router.delete(
 
 /**
  * @swagger
- * /api/shop-groups/{groupId}/tokens/earn:
+ * /api/affiliate-shop-groups/{groupId}/tokens/earn:
  *   post:
  *     summary: Issue group tokens to customer
  *     description: Shop members can issue custom group tokens to customers for services/purchases
- *     tags: [Shop Groups]
+ *     tags: [Affiliate Shop Groups]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -303,11 +305,11 @@ router.post(
 
 /**
  * @swagger
- * /api/shop-groups/{groupId}/tokens/redeem:
+ * /api/affiliate-shop-groups/{groupId}/tokens/redeem:
  *   post:
  *     summary: Redeem group tokens
  *     description: Shop members can redeem customer's group tokens for services/purchases
- *     tags: [Shop Groups]
+ *     tags: [Affiliate Shop Groups]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -379,7 +381,7 @@ router.post(
 );
 
 /**
- * @route   GET /api/shop-groups/:groupId/balance/:customerAddress
+ * @route   GET /api/affiliate-shop-groups/:groupId/balance/:customerAddress
  * @desc    Get customer's balance in a group
  * @access  Public
  */
@@ -389,7 +391,7 @@ router.get(
 );
 
 /**
- * @route   GET /api/shop-groups/balances/:customerAddress
+ * @route   GET /api/affiliate-shop-groups/balances/:customerAddress
  * @desc    Get all customer's group balances
  * @access  Public
  */
@@ -399,7 +401,7 @@ router.get(
 );
 
 /**
- * @route   GET /api/shop-groups/:groupId/transactions
+ * @route   GET /api/affiliate-shop-groups/:groupId/transactions
  * @desc    Get group transaction history
  * @access  Public
  */
@@ -409,13 +411,118 @@ router.get(
 );
 
 /**
- * @route   GET /api/shop-groups/:groupId/transactions/:customerAddress
+ * @route   GET /api/affiliate-shop-groups/:groupId/transactions/:customerAddress
  * @desc    Get customer's transaction history in a group
  * @access  Public
  */
 router.get(
   '/:groupId/transactions/:customerAddress',
   tokenController.getCustomerTransactions
+);
+
+// ==================== ANALYTICS ROUTES ====================
+
+/**
+ * @swagger
+ * /api/affiliate-shop-groups/{groupId}/analytics:
+ *   get:
+ *     summary: Get group analytics overview
+ *     description: Retrieve comprehensive analytics for a group including tokens issued, redeemed, members, and customers
+ *     tags: [Affiliate Shop Groups - Analytics]
+ *     parameters:
+ *       - in: path
+ *         name: groupId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Group ID
+ *     responses:
+ *       200:
+ *         description: Analytics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalTokensIssued:
+ *                       type: number
+ *                     totalTokensRedeemed:
+ *                       type: number
+ *                     totalTokensCirculating:
+ *                       type: number
+ *                     activeMembers:
+ *                       type: number
+ *                     totalTransactions:
+ *                       type: number
+ *                     uniqueCustomers:
+ *                       type: number
+ *                     averageTransactionSize:
+ *                       type: number
+ *                     tokensIssuedLast30Days:
+ *                       type: number
+ *                     tokensRedeemedLast30Days:
+ *                       type: number
+ */
+router.get(
+  '/:groupId/analytics',
+  analyticsController.getGroupAnalytics
+);
+
+/**
+ * @swagger
+ * /api/affiliate-shop-groups/{groupId}/analytics/members:
+ *   get:
+ *     summary: Get member activity statistics
+ *     description: Retrieve detailed activity statistics for all members in a group
+ *     tags: [Affiliate Shop Groups - Analytics]
+ *     parameters:
+ *       - in: path
+ *         name: groupId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Group ID
+ *     responses:
+ *       200:
+ *         description: Member activity stats retrieved successfully
+ */
+router.get(
+  '/:groupId/analytics/members',
+  analyticsController.getMemberActivityStats
+);
+
+/**
+ * @swagger
+ * /api/affiliate-shop-groups/{groupId}/analytics/trends:
+ *   get:
+ *     summary: Get transaction trends over time
+ *     description: Retrieve transaction trends showing daily token issuance and redemption
+ *     tags: [Affiliate Shop Groups - Analytics]
+ *     parameters:
+ *       - in: path
+ *         name: groupId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Group ID
+ *       - in: query
+ *         name: days
+ *         schema:
+ *           type: number
+ *           default: 30
+ *         description: Number of days to fetch trends for
+ *     responses:
+ *       200:
+ *         description: Transaction trends retrieved successfully
+ */
+router.get(
+  '/:groupId/analytics/trends',
+  analyticsController.getTransactionTrends
 );
 
 export default router;

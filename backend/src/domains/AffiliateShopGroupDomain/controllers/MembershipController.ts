@@ -1,13 +1,13 @@
-// backend/src/domains/ShopGroupDomain/controllers/MembershipController.ts
+// backend/src/domains/AffiliateShopGroupDomain/controllers/MembershipController.ts
 import { Request, Response } from 'express';
-import { ShopGroupService } from '../../../services/ShopGroupService';
+import { AffiliateShopGroupService } from '../../../services/AffiliateShopGroupService';
 import { logger } from '../../../utils/logger';
 
 export class MembershipController {
-  private service: ShopGroupService;
+  private service: AffiliateShopGroupService;
 
   constructor() {
-    this.service = new ShopGroupService();
+    this.service = new AffiliateShopGroupService();
   }
 
   /**

@@ -6,24 +6,24 @@ import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 import { Users, Plus, Settings, TrendingUp } from "lucide-react";
-import * as shopGroupsAPI from "@/services/api/shopGroups";
+import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
 import CreateGroupModal from "./CreateGroupModal";
 import GroupCard from "./GroupCard";
 import JoinGroupModal from "./JoinGroupModal";
 
-export default function ShopGroupsClient() {
+export default function AffiliateShopGroupsClient() {
   const account = useActiveAccount();
   const router = useRouter();
 
-  const [myGroups, setMyGroups] = useState<shopGroupsAPI.ShopGroup[]>([]);
-  const [allGroups, setAllGroups] = useState<shopGroupsAPI.ShopGroup[]>([]);
+  const [myGroups, setMyGroups] = useState<shopGroupsAPI.AffiliateShopGroup[]>([]);
+  const [allGroups, setAllGroups] = useState<shopGroupsAPI.AffiliateShopGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"my-groups" | "discover">("my-groups");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
 
   useEffect(() => {
-    console.log("🔍 ShopGroupsClient - account:", account?.address);
+    console.log("🔍 AffiliateShopGroupsClient - account:", account?.address);
     if (account?.address) {
       loadData();
     } else {

@@ -1,9 +1,9 @@
-// backend/src/domains/ShopGroupDomain/index.ts
+// backend/src/domains/AffiliateShopGroupDomain/index.ts
 import { DomainModule } from '../types';
 import routes from './routes';
 
-export class ShopGroupDomain implements DomainModule {
-  name = 'shop-groups';
+export class AffiliateShopGroupDomain implements DomainModule {
+  name = 'affiliate-shop-groups';
   routes = routes;
 
   async initialize(): Promise<void> {

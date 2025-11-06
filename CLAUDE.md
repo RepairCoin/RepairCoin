@@ -73,7 +73,7 @@ The backend uses a domain-driven architecture with event-based communication:
 **Core Domains** (`backend/src/domains/`):
 - `CustomerDomain` - Customer management, tiers, referrals, wallet detection
 - `ShopDomain` - Shop subscriptions, RCN purchasing, reward issuance
-- `ShopGroupDomain` - Shop coalitions with custom tokens/points redeemable within groups
+- `AffiliateShopGroupDomain` - Affiliate shop coalitions with custom tokens/points redeemable within groups
 - `AdminDomain` - Platform analytics, treasury, user management
 - `TokenDomain` - RCN/RCG minting, redemption, cross-shop transfers
 - `WebhookDomain` - FixFlow and Stripe webhook processing

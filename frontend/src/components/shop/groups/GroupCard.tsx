@@ -1,10 +1,10 @@
 "use client";
 
 import { Users, Lock, Globe } from "lucide-react";
-import * as shopGroupsAPI from "@/services/api/shopGroups";
+import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
 
 interface GroupCardProps {
-  group: shopGroupsAPI.ShopGroup;
+  group: shopGroupsAPI.AffiliateShopGroup;
   onClick: () => void;
   showMemberBadge?: boolean;
 }

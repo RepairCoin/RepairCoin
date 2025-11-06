@@ -30,7 +30,7 @@ To build the first community-governed loyalty ecosystem for the repair industry,
   - Standard (10K-49K RCG): $0.10 per RCN
   - Premium (50K-199K RCG): $0.08 per RCN (20% discount)
   - Elite (200K+ RCG): $0.06 per RCN (40% discount)
-- **Shop Groups/Coalitions** - Create custom loyalty programs with other shops using unique tokens/points redeemable within the group
+- **Affiliate Shop Groups/Coalitions** - Create custom loyalty programs with other shops using unique tokens/points redeemable within the group
 - **Governance Participation** - Vote on platform parameters via RCG holdings
 - **Revenue Sharing** - 10% of RCN sales distributed to RCG stakers
 

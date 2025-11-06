@@ -124,8 +124,11 @@ export const useNotifications = () => {
 
       setNotifications(response.data.items || []);
     } catch (error: any) {
-      console.error('Failed to fetch notifications:', error);
-      setError(error.message || 'Failed to fetch notifications');
+      // Don't log 401 errors - these are expected when user isn't authenticated
+      if (error.response?.status !== 401) {
+        console.error('Failed to fetch notifications:', error);
+        setError(error.message || 'Failed to fetch notifications');
+      }
     } finally {
       setLoading(false);
     }
@@ -143,8 +146,11 @@ export const useNotifications = () => {
       });
 
       setUnreadCount(response.data.count || 0);
-    } catch (error) {
-      console.error('Failed to fetch unread count:', error);
+    } catch (error: any) {
+      // Don't log 401 errors - these are expected when user isn't authenticated
+      if (error.response?.status !== 401) {
+        console.error('Failed to fetch unread count:', error);
+      }
     }
   }, [token, setUnreadCount]);
 

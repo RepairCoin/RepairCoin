@@ -2,7 +2,7 @@ import apiClient from './client';
 
 // ============= Types =============
 
-export interface ShopGroup {
+export interface AffiliateShopGroup {
   groupId: string;
   groupName: string;
   customTokenName: string;
@@ -17,7 +17,7 @@ export interface ShopGroup {
   memberCount?: number;
 }
 
-export interface ShopGroupMember {
+export interface AffiliateShopGroupMember {
   groupId: string;
   shopId: string;
   role: 'admin' | 'member';
@@ -27,7 +27,7 @@ export interface ShopGroupMember {
   shopName?: string;
 }
 
-export interface CustomerGroupBalance {
+export interface CustomerAffiliateGroupBalance {
   customerAddress: string;
   groupId: string;
   balance: number;
@@ -37,7 +37,7 @@ export interface CustomerGroupBalance {
   lastRedeemedAt?: string;
 }
 
-export interface GroupTokenTransaction {
+export interface AffiliateGroupTokenTransaction {
   transactionId: string;
   groupId: string;
   customerAddress: string;
@@ -84,9 +84,9 @@ export interface RedeemTokensData {
 /**
  * Create a new shop group
  */
-export const createGroup = async (data: CreateGroupData): Promise<ShopGroup | null> => {
+export const createGroup = async (data: CreateGroupData): Promise<AffiliateShopGroup | null> => {
   try {
-    const response = await apiClient.post<ShopGroup>('/shop-groups', data);
+    const response = await apiClient.post<AffiliateShopGroup>('/affiliate-shop-groups', data);
     return response.data || null;
   } catch (error) {
     console.error('Error creating shop group:', error);
@@ -97,10 +97,11 @@ export const createGroup = async (data: CreateGroupData): Promise<ShopGroup | nu
 /**
  * Get all shop groups (public or filtered)
  */
-export const getAllGroups = async (params?: { isPrivate?: boolean }): Promise<ShopGroup[]> => {
+export const getAllGroups = async (params?: { isPrivate?: boolean }): Promise<AffiliateShopGroup[]> => {
   try {
-    const queryString = params ? `?isPrivate=${params.isPrivate}` : '';
-    const response = await apiClient.get<{ success: boolean; data: ShopGroup[] }>(`/shop-groups${queryString}`);
+    // For discover page, we want to show all groups (both public and private)
+    // Private groups will just show as "invite only"
+    const response = await apiClient.get<{ success: boolean; data: AffiliateShopGroup[] }>(`/affiliate-shop-groups`);
     return response.data?.data || [];
   } catch (error) {
     console.error('Error getting shop groups:', error);
@@ -111,9 +112,9 @@ export const getAllGroups = async (params?: { isPrivate?: boolean }): Promise<Sh
 /**
  * Get groups for authenticated shop
  */
-export const getMyGroups = async (): Promise<ShopGroup[]> => {
+export const getMyGroups = async (): Promise<AffiliateShopGroup[]> => {
   try {
-    const response = await apiClient.get<{ success: boolean; data: ShopGroup[] }>('/shop-groups/my-groups');
+    const response = await apiClient.get<{ success: boolean; data: AffiliateShopGroup[] }>('/affiliate-shop-groups/my-groups');
     return response.data?.data || [];
   } catch (error) {
     console.error('Error getting my groups:', error);
@@ -124,9 +125,9 @@ export const getMyGroups = async (): Promise<ShopGroup[]> => {
 /**
  * Get a specific group by ID
  */
-export const getGroup = async (groupId: string): Promise<ShopGroup | null> => {
+export const getGroup = async (groupId: string): Promise<AffiliateShopGroup | null> => {
   try {
-    const response = await apiClient.get<{ success: boolean; data: ShopGroup }>(`/shop-groups/${groupId}`);
+    const response = await apiClient.get<{ success: boolean; data: AffiliateShopGroup }>(`/affiliate-shop-groups/${groupId}`);
     return response.data?.data || null;
   } catch (error) {
     console.error('Error getting group:', error);
@@ -140,9 +141,9 @@ export const getGroup = async (groupId: string): Promise<ShopGroup | null> => {
 export const updateGroup = async (
   groupId: string,
   data: UpdateGroupData
-): Promise<ShopGroup | null> => {
+): Promise<AffiliateShopGroup | null> => {
   try {
-    const response = await apiClient.put<ShopGroup>(`/shop-groups/${groupId}`, data);
+    const response = await apiClient.put<AffiliateShopGroup>(`/affiliate-shop-groups/${groupId}`, data);
     return response.data || null;
   } catch (error) {
     console.error('Error updating group:', error);
@@ -158,9 +159,9 @@ export const updateGroup = async (
 export const requestToJoinGroup = async (
   groupId: string,
   requestMessage?: string
-): Promise<ShopGroupMember | null> => {
+): Promise<AffiliateShopGroupMember | null> => {
   try {
-    const response = await apiClient.post<ShopGroupMember>(`/shop-groups/${groupId}/join`, {
+    const response = await apiClient.post<AffiliateShopGroupMember>(`/affiliate-shop-groups/${groupId}/join`, {
       requestMessage,
     });
     return response.data || null;
@@ -176,9 +177,9 @@ export const requestToJoinGroup = async (
 export const joinByInviteCode = async (
   inviteCode: string,
   requestMessage?: string
-): Promise<ShopGroupMember | null> => {
+): Promise<AffiliateShopGroupMember | null> => {
   try {
-    const response = await apiClient.post<ShopGroupMember>('/shop-groups/join-by-code', {
+    const response = await apiClient.post<AffiliateShopGroupMember>('/affiliate-shop-groups/join-by-code', {
       inviteCode,
       requestMessage,
     });
@@ -195,11 +196,11 @@ export const joinByInviteCode = async (
 export const getGroupMembers = async (
   groupId: string,
   status?: 'active' | 'pending' | 'rejected' | 'removed'
-): Promise<ShopGroupMember[]> => {
+): Promise<AffiliateShopGroupMember[]> => {
   try {
     const queryString = status ? `?status=${status}` : '';
-    const response = await apiClient.get<{ success: boolean; data: ShopGroupMember[] }>(
-      `/shop-groups/${groupId}/members${queryString}`
+    const response = await apiClient.get<{ success: boolean; data: AffiliateShopGroupMember[] }>(
+      `/affiliate-shop-groups/${groupId}/members${queryString}`
     );
     return response.data?.data || [];
   } catch (error) {
@@ -214,10 +215,10 @@ export const getGroupMembers = async (
 export const approveMember = async (
   groupId: string,
   shopId: string
-): Promise<ShopGroupMember | null> => {
+): Promise<AffiliateShopGroupMember | null> => {
   try {
-    const response = await apiClient.post<ShopGroupMember>(
-      `/shop-groups/${groupId}/members/${shopId}/approve`
+    const response = await apiClient.post<AffiliateShopGroupMember>(
+      `/affiliate-shop-groups/${groupId}/members/${shopId}/approve`
     );
     return response.data || null;
   } catch (error) {
@@ -231,7 +232,7 @@ export const approveMember = async (
  */
 export const rejectMember = async (groupId: string, shopId: string): Promise<void> => {
   try {
-    await apiClient.post(`/shop-groups/${groupId}/members/${shopId}/reject`);
+    await apiClient.post(`/affiliate-shop-groups/${groupId}/members/${shopId}/reject`);
   } catch (error) {
     console.error('Error rejecting member:', error);
     throw error;
@@ -243,7 +244,7 @@ export const rejectMember = async (groupId: string, shopId: string): Promise<voi
  */
 export const removeMember = async (groupId: string, shopId: string): Promise<void> => {
   try {
-    await apiClient.delete(`/shop-groups/${groupId}/members/${shopId}`);
+    await apiClient.delete(`/affiliate-shop-groups/${groupId}/members/${shopId}`);
   } catch (error) {
     console.error('Error removing member:', error);
     throw error;
@@ -268,7 +269,7 @@ export const earnGroupTokens = async (
       transaction: GroupTokenTransaction;
       newBalance: number;
       lifetimeEarned: number;
-    }>(`/shop-groups/${groupId}/tokens/earn`, data);
+    }>(`/affiliate-shop-groups/${groupId}/tokens/earn`, data);
     return response.data || null;
   } catch (error) {
     console.error('Error issuing group tokens:', error);
@@ -292,7 +293,7 @@ export const redeemGroupTokens = async (
       transaction: GroupTokenTransaction;
       newBalance: number;
       lifetimeRedeemed: number;
-    }>(`/shop-groups/${groupId}/tokens/redeem`, data);
+    }>(`/affiliate-shop-groups/${groupId}/tokens/redeem`, data);
     return response.data || null;
   } catch (error) {
     console.error('Error redeeming group tokens:', error);
@@ -306,10 +307,10 @@ export const redeemGroupTokens = async (
 export const getCustomerBalance = async (
   groupId: string,
   customerAddress: string
-): Promise<CustomerGroupBalance | null> => {
+): Promise<CustomerAffiliateGroupBalance | null> => {
   try {
-    const response = await apiClient.get<CustomerGroupBalance>(
-      `/shop-groups/${groupId}/balance/${customerAddress}`
+    const response = await apiClient.get<CustomerAffiliateGroupBalance>(
+      `/affiliate-shop-groups/${groupId}/balance/${customerAddress}`
     );
     return response.data || null;
   } catch (error) {
@@ -323,10 +324,10 @@ export const getCustomerBalance = async (
  */
 export const getAllCustomerBalances = async (
   customerAddress: string
-): Promise<CustomerGroupBalance[]> => {
+): Promise<CustomerAffiliateGroupBalance[]> => {
   try {
-    const response = await apiClient.get<{ success: boolean; data: CustomerGroupBalance[] }>(
-      `/shop-groups/balances/${customerAddress}`
+    const response = await apiClient.get<{ success: boolean; data: CustomerAffiliateGroupBalance[] }>(
+      `/affiliate-shop-groups/balances/${customerAddress}`
     );
     return response.data?.data || [];
   } catch (error) {
@@ -372,7 +373,7 @@ export const getGroupTransactions = async (
           totalPages: number;
         };
       };
-    }>(`/shop-groups/${groupId}/transactions${queryString ? `?${queryString}` : ''}`);
+    }>(`/affiliate-shop-groups/${groupId}/transactions${queryString ? `?${queryString}` : ''}`);
     return (
       response.data?.data || {
         items: [],
@@ -422,7 +423,7 @@ export const getCustomerTransactions = async (
         totalPages: number;
       };
     }>(
-      `/shop-groups/${groupId}/transactions/${customerAddress}${queryString ? `?${queryString}` : ''}`
+      `/affiliate-shop-groups/${groupId}/transactions/${customerAddress}${queryString ? `?${queryString}` : ''}`
     );
     return (
       response.data || {
@@ -436,5 +437,86 @@ export const getCustomerTransactions = async (
       items: [],
       pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
     };
+  }
+};
+
+// ============= Analytics =============
+
+export interface GroupAnalytics {
+  totalTokensIssued: number;
+  totalTokensRedeemed: number;
+  totalTokensCirculating: number;
+  activeMembers: number;
+  totalTransactions: number;
+  uniqueCustomers: number;
+  averageTransactionSize: number;
+  tokensIssuedLast30Days: number;
+  tokensRedeemedLast30Days: number;
+}
+
+export interface MemberActivityStat {
+  shopId: string;
+  shopName: string;
+  tokensIssued: number;
+  tokensRedeemed: number;
+  netContribution: number;
+  transactionCount: number;
+  uniqueCustomers: number;
+  lastActivity: string | null;
+  joinedAt: string;
+}
+
+export interface TransactionTrend {
+  date: string;
+  tokensIssued: number;
+  tokensRedeemed: number;
+  transactionCount: number;
+}
+
+/**
+ * Get group analytics overview
+ */
+export const getGroupAnalytics = async (groupId: string): Promise<GroupAnalytics | null> => {
+  try {
+    const response = await apiClient.get<{ success: boolean; data: GroupAnalytics }>(
+      `/affiliate-shop-groups/${groupId}/analytics`
+    );
+    return response.data?.data || null;
+  } catch (error) {
+    console.error('Error getting group analytics:', error);
+    return null;
+  }
+};
+
+/**
+ * Get member activity statistics
+ */
+export const getMemberActivityStats = async (groupId: string): Promise<MemberActivityStat[]> => {
+  try {
+    const response = await apiClient.get<{ success: boolean; data: MemberActivityStat[] }>(
+      `/affiliate-shop-groups/${groupId}/analytics/members`
+    );
+    return response.data?.data || [];
+  } catch (error) {
+    console.error('Error getting member activity stats:', error);
+    return [];
+  }
+};
+
+/**
+ * Get transaction trends
+ */
+export const getTransactionTrends = async (
+  groupId: string,
+  days: number = 30
+): Promise<TransactionTrend[]> => {
+  try {
+    const response = await apiClient.get<{ success: boolean; data: TransactionTrend[] }>(
+      `/affiliate-shop-groups/${groupId}/analytics/trends?days=${days}`
+    );
+    return response.data?.data || [];
+  } catch (error) {
+    console.error('Error getting transaction trends:', error);
+    return [];
   }
 };

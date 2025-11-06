@@ -1,8 +1,8 @@
-// backend/src/repositories/ShopGroupRepository.ts
+// backend/src/repositories/AffiliateShopGroupRepository.ts
 import { BaseRepository, PaginatedResult } from './BaseRepository';
 import { logger } from '../utils/logger';
 
-export interface ShopGroup {
+export interface AffiliateShopGroup {
   groupId: string;
   groupName: string;
   description?: string;
@@ -19,7 +19,7 @@ export interface ShopGroup {
   updatedAt: Date;
 }
 
-export interface ShopGroupMember {
+export interface AffiliateShopGroupMember {
   id: number;
   groupId: string;
   shopId: string;
@@ -34,7 +34,7 @@ export interface ShopGroupMember {
   updatedAt: Date;
 }
 
-export interface CustomerGroupBalance {
+export interface CustomerAffiliateGroupBalance {
   id: number;
   customerAddress: string;
   groupId: string;
@@ -46,7 +46,7 @@ export interface CustomerGroupBalance {
   updatedAt: Date;
 }
 
-export interface GroupTokenTransaction {
+export interface AffiliateGroupTokenTransaction {
   id: string;
   groupId: string;
   customerAddress: string;
@@ -61,7 +61,7 @@ export interface GroupTokenTransaction {
   createdAt: Date;
 }
 
-export interface GroupSettings {
+export interface AffiliateGroupSettings {
   groupId: string;
   dailyEarningLimit?: number;
   minimumRedemption?: number;
@@ -98,13 +98,13 @@ export interface UpdateGroupParams {
   active?: boolean;
 }
 
-export class ShopGroupRepository extends BaseRepository {
+export class AffiliateShopGroupRepository extends BaseRepository {
   // ==================== SHOP GROUPS ====================
 
-  async createGroup(params: CreateGroupParams): Promise<ShopGroup> {
+  async createGroup(params: CreateGroupParams): Promise<AffiliateShopGroup> {
     try {
       const query = `
-        INSERT INTO shop_groups (
+        INSERT INTO affiliate_shop_groups (
           group_id, group_name, description, custom_token_name, custom_token_symbol,
           token_value_usd, created_by_shop_id, group_type, logo_url, invite_code,
           auto_approve_requests
@@ -135,9 +135,9 @@ export class ShopGroupRepository extends BaseRepository {
     }
   }
 
-  async getGroupById(groupId: string): Promise<ShopGroup | null> {
+  async getGroupById(groupId: string): Promise<AffiliateShopGroup | null> {
     try {
-      const query = 'SELECT * FROM shop_groups WHERE group_id = $1';
+      const query = 'SELECT * FROM affiliate_shop_groups WHERE group_id = $1';
       const result = await this.pool.query(query, [groupId]);
 
       if (result.rows.length === 0) {
@@ -151,9 +151,9 @@ export class ShopGroupRepository extends BaseRepository {
     }
   }
 
-  async getGroupByInviteCode(inviteCode: string): Promise<ShopGroup | null> {
+  async getGroupByInviteCode(inviteCode: string): Promise<AffiliateShopGroup | null> {
     try {
-      const query = 'SELECT * FROM shop_groups WHERE invite_code = $1';
+      const query = 'SELECT * FROM affiliate_shop_groups WHERE invite_code = $1';
       const result = await this.pool.query(query, [inviteCode]);
 
       if (result.rows.length === 0) {
@@ -167,7 +167,7 @@ export class ShopGroupRepository extends BaseRepository {
     }
   }
 
-  async updateGroup(groupId: string, updates: UpdateGroupParams): Promise<ShopGroup> {
+  async updateGroup(groupId: string, updates: UpdateGroupParams): Promise<AffiliateShopGroup> {
     try {
       const fields: string[] = [];
       const values: unknown[] = [];
@@ -203,7 +203,7 @@ export class ShopGroupRepository extends BaseRepository {
       values.push(groupId);
 
       const query = `
-        UPDATE shop_groups
+        UPDATE affiliate_shop_groups
         SET ${fields.join(', ')}, updated_at = NOW()
         WHERE group_id = $${paramCount}
         RETURNING *
@@ -228,7 +228,7 @@ export class ShopGroupRepository extends BaseRepository {
     active?: boolean;
     page: number;
     limit: number;
-  }): Promise<PaginatedResult<ShopGroup>> {
+  }): Promise<PaginatedResult<AffiliateShopGroup>> {
     try {
       let whereClause = 'WHERE 1=1';
       const params: unknown[] = [];
@@ -247,7 +247,7 @@ export class ShopGroupRepository extends BaseRepository {
       }
 
       // Get total count
-      const countQuery = `SELECT COUNT(*) FROM shop_groups ${whereClause}`;
+      const countQuery = `SELECT COUNT(*) FROM affiliate_shop_groups ${whereClause}`;
       const countResult = await this.pool.query(countQuery, params);
       const totalItems = parseInt(countResult.rows[0].count);
 
@@ -259,7 +259,7 @@ export class ShopGroupRepository extends BaseRepository {
       params.push(offset);
 
       const query = `
-        SELECT * FROM shop_groups
+        SELECT * FROM affiliate_shop_groups
         ${whereClause}
         ORDER BY created_at DESC
         LIMIT $${paramCount - 1} OFFSET $${paramCount}
@@ -291,10 +291,10 @@ export class ShopGroupRepository extends BaseRepository {
     groupId: string,
     shopId: string,
     requestMessage?: string
-  ): Promise<ShopGroupMember> {
+  ): Promise<AffiliateShopGroupMember> {
     try {
       const query = `
-        INSERT INTO shop_group_members (
+        INSERT INTO affiliate_shop_group_members (
           group_id, shop_id, status, request_message
         ) VALUES ($1, $2, 'pending', $3)
         RETURNING *
@@ -314,10 +314,10 @@ export class ShopGroupRepository extends BaseRepository {
     shopId: string,
     approvedByShopId: string,
     role: 'admin' | 'member' = 'member'
-  ): Promise<ShopGroupMember> {
+  ): Promise<AffiliateShopGroupMember> {
     try {
       const query = `
-        UPDATE shop_group_members
+        UPDATE affiliate_shop_group_members
         SET status = 'active',
             role = $4,
             joined_at = NOW(),
@@ -345,7 +345,7 @@ export class ShopGroupRepository extends BaseRepository {
   async rejectMemberRequest(groupId: string, shopId: string): Promise<void> {
     try {
       const query = `
-        UPDATE shop_group_members
+        UPDATE affiliate_shop_group_members
         SET status = 'rejected', updated_at = NOW()
         WHERE group_id = $1 AND shop_id = $2 AND status = 'pending'
       `;
@@ -361,7 +361,7 @@ export class ShopGroupRepository extends BaseRepository {
   async removeMember(groupId: string, shopId: string): Promise<void> {
     try {
       const query = `
-        UPDATE shop_group_members
+        UPDATE affiliate_shop_group_members
         SET status = 'removed', updated_at = NOW()
         WHERE group_id = $1 AND shop_id = $2 AND status = 'active'
       `;
@@ -377,9 +377,9 @@ export class ShopGroupRepository extends BaseRepository {
   async getGroupMembers(
     groupId: string,
     status?: 'active' | 'pending' | 'rejected' | 'removed'
-  ): Promise<ShopGroupMember[]> {
+  ): Promise<AffiliateShopGroupMember[]> {
     try {
-      let query = 'SELECT * FROM shop_group_members WHERE group_id = $1';
+      let query = 'SELECT * FROM affiliate_shop_group_members WHERE group_id = $1';
       const params: unknown[] = [groupId];
 
       if (status) {
@@ -400,7 +400,7 @@ export class ShopGroupRepository extends BaseRepository {
   async isShopMemberOfGroup(groupId: string, shopId: string): Promise<boolean> {
     try {
       const query = `
-        SELECT 1 FROM shop_group_members
+        SELECT 1 FROM affiliate_shop_group_members
         WHERE group_id = $1 AND shop_id = $2 AND status = 'active'
       `;
 
@@ -412,11 +412,11 @@ export class ShopGroupRepository extends BaseRepository {
     }
   }
 
-  async getShopGroups(shopId: string): Promise<ShopGroup[]> {
+  async getShopGroups(shopId: string): Promise<AffiliateShopGroup[]> {
     try {
       const query = `
-        SELECT g.* FROM shop_groups g
-        INNER JOIN shop_group_members m ON g.group_id = m.group_id
+        SELECT g.* FROM affiliate_shop_groups g
+        INNER JOIN affiliate_shop_group_members m ON g.group_id = m.group_id
         WHERE m.shop_id = $1 AND m.status = 'active' AND g.active = true
         ORDER BY m.joined_at DESC
       `;
@@ -431,10 +431,10 @@ export class ShopGroupRepository extends BaseRepository {
 
   // ==================== CUSTOMER BALANCES ====================
 
-  async getCustomerBalance(customerAddress: string, groupId: string): Promise<CustomerGroupBalance | null> {
+  async getCustomerBalance(customerAddress: string, groupId: string): Promise<CustomerAffiliateGroupBalance | null> {
     try {
       const query = `
-        SELECT * FROM customer_group_balances
+        SELECT * FROM customer_affiliate_group_balances
         WHERE customer_address = $1 AND group_id = $2
       `;
 
@@ -451,10 +451,10 @@ export class ShopGroupRepository extends BaseRepository {
     }
   }
 
-  async getAllCustomerBalances(customerAddress: string): Promise<CustomerGroupBalance[]> {
+  async getAllCustomerBalances(customerAddress: string): Promise<CustomerAffiliateGroupBalance[]> {
     try {
       const query = `
-        SELECT * FROM customer_group_balances
+        SELECT * FROM customer_affiliate_group_balances
         WHERE customer_address = $1 AND balance > 0
         ORDER BY balance DESC
       `;
@@ -472,7 +472,7 @@ export class ShopGroupRepository extends BaseRepository {
     groupId: string,
     balanceChange: number,
     type: 'earn' | 'redeem'
-  ): Promise<CustomerGroupBalance> {
+  ): Promise<CustomerAffiliateGroupBalance> {
     const client = await this.pool.connect();
 
     try {
@@ -480,7 +480,7 @@ export class ShopGroupRepository extends BaseRepository {
 
       // Get or create balance record
       const getQuery = `
-        SELECT * FROM customer_group_balances
+        SELECT * FROM customer_affiliate_group_balances
         WHERE customer_address = $1 AND group_id = $2
         FOR UPDATE
       `;
@@ -490,7 +490,7 @@ export class ShopGroupRepository extends BaseRepository {
       if (result.rows.length === 0) {
         // Create new balance record
         const createQuery = `
-          INSERT INTO customer_group_balances (customer_address, group_id, balance, lifetime_earned, lifetime_redeemed)
+          INSERT INTO customer_affiliate_group_balances (customer_address, group_id, balance, lifetime_earned, lifetime_redeemed)
           VALUES ($1, $2, 0, 0, 0)
           RETURNING *
         `;
@@ -507,7 +507,7 @@ export class ShopGroupRepository extends BaseRepository {
       }
 
       const updateQuery = `
-        UPDATE customer_group_balances
+        UPDATE customer_affiliate_group_balances
         SET balance = $1,
             lifetime_earned = lifetime_earned + $2,
             lifetime_redeemed = lifetime_redeemed + $3,
@@ -550,10 +550,10 @@ export class ShopGroupRepository extends BaseRepository {
     balanceAfter: number;
     reason?: string;
     metadata?: Record<string, unknown>;
-  }): Promise<GroupTokenTransaction> {
+  }): Promise<AffiliateGroupTokenTransaction> {
     try {
       const query = `
-        INSERT INTO group_token_transactions (
+        INSERT INTO affiliate_group_token_transactions (
           id, group_id, customer_address, shop_id, type, amount,
           balance_before, balance_after, reason, metadata
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -585,7 +585,7 @@ export class ShopGroupRepository extends BaseRepository {
   async getGroupTransactions(
     groupId: string,
     filters: { page: number; limit: number; type?: 'earn' | 'redeem' }
-  ): Promise<PaginatedResult<GroupTokenTransaction>> {
+  ): Promise<PaginatedResult<AffiliateGroupTokenTransaction>> {
     try {
       let whereClause = 'WHERE group_id = $1';
       const params: unknown[] = [groupId];
@@ -598,7 +598,7 @@ export class ShopGroupRepository extends BaseRepository {
       }
 
       // Get total count
-      const countQuery = `SELECT COUNT(*) FROM group_token_transactions ${whereClause}`;
+      const countQuery = `SELECT COUNT(*) FROM affiliate_group_token_transactions ${whereClause}`;
       const countResult = await this.pool.query(countQuery, params);
       const totalItems = parseInt(countResult.rows[0].count);
 
@@ -610,7 +610,7 @@ export class ShopGroupRepository extends BaseRepository {
       params.push(offset);
 
       const query = `
-        SELECT * FROM group_token_transactions
+        SELECT * FROM affiliate_group_token_transactions
         ${whereClause}
         ORDER BY timestamp DESC
         LIMIT $${paramCount - 1} OFFSET $${paramCount}
@@ -640,13 +640,13 @@ export class ShopGroupRepository extends BaseRepository {
     customerAddress: string,
     groupId: string,
     filters: { page: number; limit: number }
-  ): Promise<PaginatedResult<GroupTokenTransaction>> {
+  ): Promise<PaginatedResult<AffiliateGroupTokenTransaction>> {
     try {
       const whereClause = 'WHERE customer_address = $1 AND group_id = $2';
       const baseParams: unknown[] = [customerAddress.toLowerCase(), groupId];
 
       // Get total count
-      const countQuery = `SELECT COUNT(*) FROM group_token_transactions ${whereClause}`;
+      const countQuery = `SELECT COUNT(*) FROM affiliate_group_token_transactions ${whereClause}`;
       const countResult = await this.pool.query(countQuery, baseParams);
       const totalItems = parseInt(countResult.rows[0].count);
 
@@ -655,7 +655,7 @@ export class ShopGroupRepository extends BaseRepository {
       const params = [...baseParams, filters.limit, offset];
 
       const query = `
-        SELECT * FROM group_token_transactions
+        SELECT * FROM affiliate_group_token_transactions
         ${whereClause}
         ORDER BY timestamp DESC
         LIMIT $3 OFFSET $4
@@ -683,7 +683,7 @@ export class ShopGroupRepository extends BaseRepository {
 
   // ==================== HELPER METHODS ====================
 
-  private mapGroupRow(row: any): ShopGroup {
+  private mapGroupRow(row: any): AffiliateShopGroup {
     return {
       groupId: row.group_id,
       groupName: row.group_name,
@@ -702,7 +702,7 @@ export class ShopGroupRepository extends BaseRepository {
     };
   }
 
-  private mapMemberRow(row: any): ShopGroupMember {
+  private mapMemberRow(row: any): AffiliateShopGroupMember {
     return {
       id: row.id,
       groupId: row.group_id,
@@ -719,7 +719,7 @@ export class ShopGroupRepository extends BaseRepository {
     };
   }
 
-  private mapBalanceRow(row: any): CustomerGroupBalance {
+  private mapBalanceRow(row: any): CustomerAffiliateGroupBalance {
     return {
       id: row.id,
       customerAddress: row.customer_address,
@@ -733,7 +733,7 @@ export class ShopGroupRepository extends BaseRepository {
     };
   }
 
-  private mapTransactionRow(row: any): GroupTokenTransaction {
+  private mapTransactionRow(row: any): AffiliateGroupTokenTransaction {
     return {
       id: row.id,
       groupId: row.group_id,
@@ -748,5 +748,146 @@ export class ShopGroupRepository extends BaseRepository {
       timestamp: row.timestamp,
       createdAt: row.created_at
     };
+  }
+
+  // ==================== ANALYTICS ====================
+
+  async getGroupAnalytics(groupId: string): Promise<{
+    totalTokensIssued: number;
+    totalTokensRedeemed: number;
+    totalTokensCirculating: number;
+    activeMembers: number;
+    totalTransactions: number;
+    uniqueCustomers: number;
+    averageTransactionSize: number;
+    tokensIssuedLast30Days: number;
+    tokensRedeemedLast30Days: number;
+  }> {
+    try {
+      const query = `
+        WITH stats AS (
+          SELECT
+            COUNT(DISTINCT CASE WHEN sgm.status = 'active' THEN sgm.shop_id END) as active_members,
+            COUNT(DISTINCT gtt.customer_address) as unique_customers,
+            COUNT(gtt.id) as total_transactions,
+            COALESCE(SUM(CASE WHEN gtt.type = 'earn' THEN gtt.amount ELSE 0 END), 0) as total_issued,
+            COALESCE(SUM(CASE WHEN gtt.type = 'redeem' THEN gtt.amount ELSE 0 END), 0) as total_redeemed,
+            COALESCE(AVG(gtt.amount), 0) as avg_transaction,
+            COALESCE(SUM(CASE
+              WHEN gtt.type = 'earn' AND gtt.created_at >= NOW() - INTERVAL '30 days'
+              THEN gtt.amount ELSE 0
+            END), 0) as issued_30d,
+            COALESCE(SUM(CASE
+              WHEN gtt.type = 'redeem' AND gtt.created_at >= NOW() - INTERVAL '30 days'
+              THEN gtt.amount ELSE 0
+            END), 0) as redeemed_30d
+          FROM affiliate_shop_groups sg
+          LEFT JOIN affiliate_shop_group_members sgm ON sg.group_id = sgm.group_id
+          LEFT JOIN affiliate_group_token_transactions gtt ON sg.group_id = gtt.group_id
+          WHERE sg.group_id = $1
+        )
+        SELECT * FROM stats
+      `;
+
+      const result = await this.pool.query(query, [groupId]);
+      const row = result.rows[0];
+
+      return {
+        totalTokensIssued: parseFloat(row.total_issued) || 0,
+        totalTokensRedeemed: parseFloat(row.total_redeemed) || 0,
+        totalTokensCirculating: parseFloat(row.total_issued) - parseFloat(row.total_redeemed) || 0,
+        activeMembers: parseInt(row.active_members) || 0,
+        totalTransactions: parseInt(row.total_transactions) || 0,
+        uniqueCustomers: parseInt(row.unique_customers) || 0,
+        averageTransactionSize: parseFloat(row.avg_transaction) || 0,
+        tokensIssuedLast30Days: parseFloat(row.issued_30d) || 0,
+        tokensRedeemedLast30Days: parseFloat(row.redeemed_30d) || 0
+      };
+    } catch (error) {
+      logger.error('Error fetching group analytics:', error);
+      throw error;
+    }
+  }
+
+  async getMemberActivityStats(groupId: string): Promise<Array<{
+    shopId: string;
+    shopName: string;
+    tokensIssued: number;
+    tokensRedeemed: number;
+    netContribution: number;
+    transactionCount: number;
+    uniqueCustomers: number;
+    lastActivity: Date | null;
+    joinedAt: Date;
+  }>> {
+    try {
+      const query = `
+        SELECT
+          sgm.shop_id,
+          s.company_name as shop_name,
+          sgm.joined_at,
+          COALESCE(SUM(CASE WHEN gtt.type = 'earn' THEN gtt.amount ELSE 0 END), 0) as tokens_issued,
+          COALESCE(SUM(CASE WHEN gtt.type = 'redeem' THEN gtt.amount ELSE 0 END), 0) as tokens_redeemed,
+          COUNT(gtt.id) as transaction_count,
+          COUNT(DISTINCT gtt.customer_address) as unique_customers,
+          MAX(gtt.created_at) as last_activity
+        FROM affiliate_shop_group_members sgm
+        JOIN shops s ON sgm.shop_id = s.shop_id
+        LEFT JOIN affiliate_group_token_transactions gtt ON sgm.shop_id = gtt.shop_id AND sgm.group_id = gtt.group_id
+        WHERE sgm.group_id = $1 AND sgm.status = 'active'
+        GROUP BY sgm.shop_id, s.company_name, sgm.joined_at
+        ORDER BY tokens_issued DESC
+      `;
+
+      const result = await this.pool.query(query, [groupId]);
+
+      return result.rows.map(row => ({
+        shopId: row.shop_id,
+        shopName: row.shop_name,
+        tokensIssued: parseFloat(row.tokens_issued) || 0,
+        tokensRedeemed: parseFloat(row.tokens_redeemed) || 0,
+        netContribution: (parseFloat(row.tokens_issued) || 0) - (parseFloat(row.tokens_redeemed) || 0),
+        transactionCount: parseInt(row.transaction_count) || 0,
+        uniqueCustomers: parseInt(row.unique_customers) || 0,
+        lastActivity: row.last_activity ? new Date(row.last_activity) : null,
+        joinedAt: new Date(row.joined_at)
+      }));
+    } catch (error) {
+      logger.error('Error fetching member activity stats:', error);
+      throw error;
+    }
+  }
+
+  async getTransactionTrends(groupId: string, days: number = 30): Promise<Array<{
+    date: string;
+    tokensIssued: number;
+    tokensRedeemed: number;
+    transactionCount: number;
+  }>> {
+    try {
+      const query = `
+        SELECT
+          DATE(created_at) as date,
+          COALESCE(SUM(CASE WHEN type = 'earn' THEN amount ELSE 0 END), 0) as tokens_issued,
+          COALESCE(SUM(CASE WHEN type = 'redeem' THEN amount ELSE 0 END), 0) as tokens_redeemed,
+          COUNT(*) as transaction_count
+        FROM affiliate_group_token_transactions
+        WHERE group_id = $1 AND created_at >= NOW() - INTERVAL '${days} days'
+        GROUP BY DATE(created_at)
+        ORDER BY date DESC
+      `;
+
+      const result = await this.pool.query(query, [groupId]);
+
+      return result.rows.map(row => ({
+        date: row.date,
+        tokensIssued: parseFloat(row.tokens_issued) || 0,
+        tokensRedeemed: parseFloat(row.tokens_redeemed) || 0,
+        transactionCount: parseInt(row.transaction_count) || 0
+      }));
+    } catch (error) {
+      logger.error('Error fetching transaction trends:', error);
+      throw error;
+    }
   }
 }

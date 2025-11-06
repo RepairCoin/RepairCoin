@@ -1,13 +1,13 @@
-// backend/src/domains/ShopGroupDomain/controllers/GroupTokenController.ts
+// backend/src/domains/AffiliateShopGroupDomain/controllers/GroupTokenController.ts
 import { Request, Response } from 'express';
-import { ShopGroupService, EarnGroupTokensRequest, RedeemGroupTokensRequest } from '../../../services/ShopGroupService';
+import { AffiliateShopGroupService, EarnGroupTokensRequest, RedeemGroupTokensRequest } from '../../../services/AffiliateShopGroupService';
 import { logger } from '../../../utils/logger';
 
 export class GroupTokenController {
-  private service: ShopGroupService;
+  private service: AffiliateShopGroupService;
 
   constructor() {
-    this.service = new ShopGroupService();
+    this.service = new AffiliateShopGroupService();
   }
 
   /**

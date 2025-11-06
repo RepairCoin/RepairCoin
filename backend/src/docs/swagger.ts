@@ -268,8 +268,8 @@ const options = {
           required: ['shopId', 'companyName', 'address', 'email']
         },
 
-        // Shop Group schemas
-        ShopGroup: {
+        // Affiliate Shop Group schemas
+        AffiliateShopGroup: {
           type: 'object',
           properties: {
             groupId: {
@@ -339,7 +339,7 @@ const options = {
           required: ['groupId', 'groupName', 'customTokenName', 'customTokenSymbol']
         },
 
-        ShopGroupMember: {
+        AffiliateShopGroupMember: {
           type: 'object',
           properties: {
             groupId: {
@@ -378,7 +378,7 @@ const options = {
           }
         },
 
-        CustomerGroupBalance: {
+        CustomerAffiliateGroupBalance: {
           type: 'object',
           properties: {
             customerAddress: {
