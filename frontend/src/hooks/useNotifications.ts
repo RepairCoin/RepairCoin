@@ -57,7 +57,7 @@ export const useNotifications = () => {
       return customerToken || shopToken || adminToken || genericToken || null;
     };
 
-    const getWalletAddress = () => {
+    const getWalletAddress = (tokenToUse: string | null) => {
       // First check userProfile
       if (userProfile?.address) {
         console.log('👛 Wallet address found in userProfile:', userProfile.address);
@@ -65,11 +65,10 @@ export const useNotifications = () => {
       }
 
       // Try to extract from token if available
-      const foundToken = token || getToken();
-      if (foundToken) {
+      if (tokenToUse) {
         try {
           // Decode JWT to get wallet address
-          const payload = foundToken.split('.')[1];
+          const payload = tokenToUse.split('.')[1];
           const decoded = JSON.parse(atob(payload));
           const address = decoded.address || decoded.walletAddress || decoded.wallet_address;
           if (address) {
@@ -86,10 +85,11 @@ export const useNotifications = () => {
     };
 
     const foundToken = getToken();
-    const foundAddress = getWalletAddress();
+    const foundAddress = getWalletAddress(foundToken);
 
-    setToken(foundToken);
-    setWalletAddress(foundAddress);
+    // Only update state if values actually changed to prevent unnecessary re-renders
+    setToken(prev => prev === foundToken ? prev : foundToken);
+    setWalletAddress(prev => prev === foundAddress ? prev : foundAddress);
 
     if (foundToken) {
       console.log('✅ Token set successfully');
@@ -102,7 +102,7 @@ export const useNotifications = () => {
     } else {
       console.warn('⚠️ No wallet address found');
     }
-  }, [userProfile, token]);
+  }, [userProfile]); // Removed 'token' from dependencies to break the cycle
 
   // Fetch initial notifications from API
   const fetchNotifications = useCallback(async () => {
@@ -350,13 +350,22 @@ export const useNotifications = () => {
       tokenLength: token?.length || 0,
       userProfileAddress: userProfile?.address,
       userProfileType: userProfile?.type,
+      currentConnectionState: wsRef.current?.readyState,
     });
 
     if (token && walletAddress) {
-      console.log('✅ CONDITIONS MET - Fetching notifications and connecting WebSocket...');
-      fetchNotifications();
-      fetchUnreadCount();
-      connectWebSocket();
+      // Only connect if we don't already have an open or connecting WebSocket
+      const currentState = wsRef.current?.readyState;
+      const isConnectedOrConnecting = currentState === WebSocket.OPEN || currentState === WebSocket.CONNECTING;
+
+      if (!isConnectedOrConnecting) {
+        console.log('✅ CONDITIONS MET - Fetching notifications and connecting WebSocket...');
+        fetchNotifications();
+        fetchUnreadCount();
+        connectWebSocket();
+      } else {
+        console.log('ℹ️ WebSocket already connected/connecting, skipping reconnection');
+      }
     } else {
       console.log('❌ NOT CONNECTING - Reason:', {
         missingToken: !token,
