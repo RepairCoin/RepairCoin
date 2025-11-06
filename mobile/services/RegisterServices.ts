@@ -6,6 +6,32 @@ import { sepolia } from "thirdweb/chains";
 const clientId =
   process.env.EXPO_PUBLIC_THIRDWEB_CLIENT_ID ||
   "99f01d5781fadab9f6a42660090e824b";
+export interface ShopRegistrationFormData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  shopId: string;
+  companyName: string;
+  websiteURL: string;
+  referral: string;
+  street: string;
+  city: string;
+  country: string;
+  walletAddress: string;
+  reimbursementAddress: string;
+  state: string;
+  zipCode: string;
+  fixFlowShopId: string;
+  countryCode: string;
+  companySize: string;
+  monthlyRevenue: string;
+  facebookUrl: string;
+  instagramUrl: string;
+  linkedinUrl: string;
+  isConfirmed: boolean;
+}
+
 
 export const externalWalletConnectService = async (walletType: WalletType) => {
   const client = createThirdwebClient({ clientId });
@@ -100,6 +126,35 @@ export const RegisterAsCustomerService = async (registrationData: {
   const response = { success: false, resData: {} };
 
   await fetch(`${apiUrl}/customers/register/`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(registrationData),
+  })
+    .then((res) => {
+      response.success = true;
+      response.resData = res;
+    })
+    .catch((err) => {
+      response.success = false;
+    });
+
+  return response;
+};
+
+export const RegisterAsShopService = async (registrationData: {
+  payload?: string;
+}) => {
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+
+  console.log(JSON.stringify(registrationData));
+  console.log(apiUrl);
+
+  const response = { success: false, resData: {} };
+
+  await fetch(`${apiUrl}/shops/register/`, {
     method: "POST",
     headers: {
       Accept: "application/json",

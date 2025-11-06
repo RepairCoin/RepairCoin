@@ -30,29 +30,45 @@ type Slide = {
 };
 
 export interface ShopRegistrationFormData {
+  // Shop Information
+  shopId: string;
+  name: string; // Company name
+
+  // Personal Information
   firstName: string;
   lastName: string;
   email: string;
   phone: string;
-  shopId: string;
-  companyName: string;
-  websiteURL: string;
-  referral: string;
-  street: string;
+
+  // Business Information
+  address: string; // Street address
   city: string;
   country: string;
-  walletAddress: string;
+  companySize: string;
+  monthlyRevenue: string;
+  website: string;
+  referral: string;
+
+  // Social Media
+  facebook: string;
+  twitter: string;
+  instagram: string;
+
+  // Wallet Information
   reimbursementAddress: string;
-  state: string;
-  zipCode: string;
-  fixFlowShopId: string;
-  countryCode: CountryCode;
-  companySize: CompanySize;
-  monthlyRevenue: MonthlyRevenue;
-  facebookUrl: string;
-  instagramUrl: string;
-  linkedinUrl: string;
-  isConfirmed: boolean;
+  fixflowShopId: string;
+
+  // Location (for mapping)
+  location: {
+    city: string;
+    state: string;
+    zipCode: string;
+    lat: string;
+    lng: string;
+  };
+
+  // Terms and Conditions
+  acceptTerms: boolean;
 }
 
 export default function RegisterAsShopPage() {
@@ -61,36 +77,59 @@ export default function RegisterAsShopPage() {
   const [index, setIndex] = useState(0);
   const flatRef = useRef<FlatList<Slide>>(null);
   const slides: Slide[] = useMemo(
-    () => [{ key: "1" }, { key: "2" }, { key: "3" }, { key: "4" }, { key: "5" }],
+    () => [
+      { key: "1" },
+      { key: "2" },
+      { key: "3" },
+      { key: "4" },
+      { key: "5" },
+    ],
     []
   );
 
   const [formData, setFormData] = useState<ShopRegistrationFormData>({
+    // Shop Information
+    shopId: "",
+    name: "",
+    
+    // Personal Information
     firstName: "",
     lastName: "",
     email: "",
     phone: "",
-    shopId: "",
-    companyName: "",
-    websiteURL: "",
-    referral: "",
-    street: "",
+    
+    // Business Information
+    address: "",
     city: "",
     country: "",
-    walletAddress: "",
-    reimbursementAddress: "",
-    state: "",
-    zipCode: "",
-    fixFlowShopId: "",
-    countryCode: "US",
     companySize: "",
     monthlyRevenue: "",
-    facebookUrl: "",
-    instagramUrl: "",
-    linkedinUrl: "",
-    isConfirmed: false,
+    website: "",
+    referral: "",
+    
+    // Social Media
+    facebook: "",
+    twitter: "",
+    instagram: "",
+    
+    // Wallet Information
+    reimbursementAddress: "",
+    fixflowShopId: "",
+    
+    // Location (for mapping)
+    location: {
+      city: "",
+      state: "",
+      zipCode: "",
+      lat: "",
+      lng: "",
+    },
+    
+    // Terms and Conditions
+    acceptTerms: false,
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [countryCode, setCountryCode] = useState<CountryCode>("US");
 
   const updateFormData = useCallback(
     <K extends keyof ShopRegistrationFormData>(
@@ -205,6 +244,8 @@ export default function RegisterAsShopPage() {
                 handleGoNext={handleGoNext}
                 formData={formData}
                 updateFormData={updateFormData}
+                countryCode={countryCode}
+                setCountryCode={setCountryCode}
               />
             );
           case "2":

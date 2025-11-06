@@ -4,7 +4,7 @@ import RNPickerSelect from "react-native-picker-select";
 import Screen from "@/components/ui/Screen";
 import { CompanySize, MonthlyRevenue } from "@/utilities/GlobalTypes";
 import type { ShopRegistrationFormData } from "@/app/(auth)/register/shop/index";
-import { useMemo, useEffect } from "react";
+import { useMemo } from "react";
 
 type Props = {
   handleGoBack: () => void;
@@ -21,18 +21,13 @@ export default function ThirdShopRegisterSlide({
   updateFormData,
   address
 }: Props) {
-  // Update formData with wallet address when address prop changes
-  useEffect(() => {
-    if (address) {
-      updateFormData('walletAddress', address);
-    }
-  }, [address, updateFormData]);
+  // No need to update formData as wallet address is passed via prop
 
   // Validation function
   const validateAndProceed = () => {
     const errors = [];
     
-    if (!formData.street.trim() || formData.street.trim().length < 3) {
+    if (!formData.address.trim() || formData.address.trim().length < 3) {
       errors.push("Street address must be at least 3 characters");
     }
     
@@ -67,13 +62,13 @@ export default function ThirdShopRegisterSlide({
   const isFormValid = useMemo(() => {
     const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
     return (
-      formData.street.trim().length >= 3 &&
+      formData.address.trim().length >= 3 &&
       formData.city.trim().length >= 2 &&
       formData.country.trim().length >= 2 &&
       address && ethAddressRegex.test(address) &&
       (formData.reimbursementAddress.trim() === "" || ethAddressRegex.test(formData.reimbursementAddress.trim()))
     );
-  }, [formData.street, formData.city, formData.country, address, formData.reimbursementAddress]);
+  }, [formData.address, formData.city, formData.country, address, formData.reimbursementAddress]);
   return (
     <Screen>
       <View className="px-10 py-20 w-[100vw]">
@@ -89,8 +84,8 @@ export default function ThirdShopRegisterSlide({
             className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
             placeholder="Enter Street Address"
             placeholderTextColor="#999"
-            value={formData.street}
-            onChangeText={(value) => updateFormData('street', value)}
+            value={formData.address}
+            onChangeText={(value) => updateFormData('address', value)}
           />
         </View>
         <View className="mt-4">

@@ -24,16 +24,16 @@ export default function SocialMediaSlide({
     // Basic URL validation for social media links if provided
     const urlRegex = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-@]*)*\/?$/;
     
-    if (formData.facebookUrl && formData.facebookUrl.trim() && !urlRegex.test(formData.facebookUrl.trim())) {
+    if (formData.facebook && formData.facebook.trim() && !urlRegex.test(formData.facebook.trim())) {
       errors.push("Please enter a valid Facebook URL");
     }
     
-    if (formData.instagramUrl && formData.instagramUrl.trim() && !urlRegex.test(formData.instagramUrl.trim())) {
+    if (formData.instagram && formData.instagram.trim() && !urlRegex.test(formData.instagram.trim())) {
       errors.push("Please enter a valid Instagram URL");
     }
     
-    if (formData.linkedinUrl && formData.linkedinUrl.trim() && !urlRegex.test(formData.linkedinUrl.trim())) {
-      errors.push("Please enter a valid LinkedIn URL");
+    if (formData.twitter && formData.twitter.trim() && !urlRegex.test(formData.twitter.trim())) {
+      errors.push("Please enter a valid Twitter URL");
     }
     
     if (errors.length > 0) {
@@ -66,8 +66,8 @@ export default function SocialMediaSlide({
             className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
             placeholder="facebook.com/yourpage"
             placeholderTextColor="#999"
-            value={formData.facebookUrl}
-            onChangeText={(value) => updateFormData('facebookUrl', value)}
+            value={formData.facebook}
+            onChangeText={(value) => updateFormData('facebook', value)}
             autoCapitalize="none"
             autoCorrect={false}
           />
@@ -84,8 +84,8 @@ export default function SocialMediaSlide({
             className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
             placeholder="instagram.com/yourhandle"
             placeholderTextColor="#999"
-            value={formData.instagramUrl}
-            onChangeText={(value) => updateFormData('instagramUrl', value)}
+            value={formData.instagram}
+            onChangeText={(value) => updateFormData('instagram', value)}
             autoCapitalize="none"
             autoCorrect={false}
           />
@@ -96,19 +96,19 @@ export default function SocialMediaSlide({
 
         <View className="mt-6">
           <Text className="text-sm text-gray-300 mb-1">
-            LinkedIn
+            Twitter
           </Text>
           <TextInput
             className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
-            placeholder="linkedin.com/company/yourcompany"
+            placeholder="twitter.com/yourhandle"
             placeholderTextColor="#999"
-            value={formData.linkedinUrl}
-            onChangeText={(value) => updateFormData('linkedinUrl', value)}
+            value={formData.twitter}
+            onChangeText={(value) => updateFormData('twitter', value)}
             autoCapitalize="none"
             autoCorrect={false}
           />
           <Text className="text-sm text-gray-300 mt-2">
-            Your LinkedIn company or profile URL
+            Your Twitter/X profile URL
           </Text>
         </View>
 

@@ -38,8 +38,8 @@ export default function FourthShopRegisterSlide({
               className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
               placeholder="Enter State / Province"
               placeholderTextColor="#999"
-              value={formData.state}
-              onChangeText={(value) => updateFormData('state', value)}
+              value={formData.location.state}
+              onChangeText={(value) => updateFormData('location', {...formData.location, state: value})}
             />
           </View>
           <View className="mt-4">
@@ -50,8 +50,8 @@ export default function FourthShopRegisterSlide({
               className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
               placeholder="Enter Zip / Postal Code"
               placeholderTextColor="#999"
-              value={formData.zipCode}
-              onChangeText={(value) => updateFormData('zipCode', value)}
+              value={formData.location.zipCode}
+              onChangeText={(value) => updateFormData('location', {...formData.location, zipCode: value})}
             />
           </View>
           <View className="mt-4">
@@ -62,8 +62,8 @@ export default function FourthShopRegisterSlide({
               className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
               placeholder="Enter FixFlow Shop ID"
               placeholderTextColor="#999"
-              value={formData.fixFlowShopId}
-              onChangeText={(value) => updateFormData('fixFlowShopId', value)}
+              value={formData.fixflowShopId}
+              onChangeText={(value) => updateFormData('fixflowShopId', value)}
             />
             <Text className="text-sm text-gray-300 mt-2">
               If you use FixFIow on your repair business
@@ -114,11 +114,11 @@ export default function FourthShopRegisterSlide({
             </View>
             <View className="flex-row items-center my-8">
               <Checkbox
-                value={formData.isConfirmed}
-                onValueChange={(value) => updateFormData('isConfirmed', value)}
+                value={formData.acceptTerms}
+                onValueChange={(value) => updateFormData('acceptTerms', value)}
                 style={{
                   borderRadius: 8,
-                  backgroundColor: formData.isConfirmed ? "#c8f7c5" : "#f5f5f5",
+                  backgroundColor: formData.acceptTerms ? "#c8f7c5" : "#f5f5f5",
                 }}
               />
               <Text className="ml-4 text-white text-[16px]">
@@ -130,7 +130,7 @@ export default function FourthShopRegisterSlide({
           <PrimaryButton
             title="Register Shop"
             onPress={handleSubmit}
-            disabled={!formData.isConfirmed}
+            disabled={!formData.acceptTerms}
             className="mt-8"
           />
         </View>

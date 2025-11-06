@@ -1,6 +1,6 @@
 import { View, Text, TextInput, Pressable, Alert } from "react-native";
 import { AntDesign, Ionicons } from "@expo/vector-icons";
-import CountryPicker from "react-native-country-picker-modal";
+import CountryPicker, { CountryCode } from "react-native-country-picker-modal";
 import { MaskedTextInput } from "react-native-mask-text";
 import Screen from "@/components/ui/Screen";
 import type { ShopRegistrationFormData } from "@/app/(auth)/register/shop/index";
@@ -11,10 +11,12 @@ type Props = {
   handleGoNext: () => void;
   formData: ShopRegistrationFormData;
   updateFormData: <K extends keyof ShopRegistrationFormData>(field: K, value: ShopRegistrationFormData[K]) => void;
+  countryCode: CountryCode;
+  setCountryCode: (code: CountryCode) => void;
 }
 
 export default function FirstShopRegisterSlide ({
-  handleGoBack, handleGoNext, formData, updateFormData
+  handleGoBack, handleGoNext, formData, updateFormData, countryCode, setCountryCode
 }: Props) {
   // Validation function
   const validateAndProceed = () => {
@@ -102,12 +104,12 @@ export default function FirstShopRegisterSlide ({
           <Text className="text-sm text-gray-300 mb-1">Phone Number{' '}<Text className="text-[#FFCC00]">*</Text></Text>
           <View className="flex-row bg-white h-12 items-center px-3 rounded-xl">
             <CountryPicker
-              countryCode={formData.countryCode}
+              countryCode={countryCode}
               withFilter
               withFlag
               withCallingCode
               withEmoji
-              onSelect={(country) => updateFormData('countryCode', country.cca2)}
+              onSelect={(country) => setCountryCode(country.cca2)}
             />
             <MaskedTextInput
               mask="(999) 999-9999"

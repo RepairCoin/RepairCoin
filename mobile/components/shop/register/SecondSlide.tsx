@@ -27,7 +27,7 @@ export default function SecondShopRegisterSlide({
       errors.push("Shop ID must be at least 3 characters");
     }
     
-    if (!formData.companyName.trim() || formData.companyName.trim().length < 2) {
+    if (!formData.name.trim() || formData.name.trim().length < 2) {
       errors.push("Company name must be at least 2 characters");
     }
     
@@ -53,11 +53,11 @@ export default function SecondShopRegisterSlide({
     const urlRegex = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/;
     return (
       formData.shopId.trim().length >= 3 &&
-      formData.companyName.trim().length >= 2 &&
+      formData.name.trim().length >= 2 &&
       formData.companySize !== "" &&
       formData.monthlyRevenue !== "" 
     );
-  }, [formData.shopId, formData.companyName, formData.companySize, formData.monthlyRevenue]);
+  }, [formData.shopId, formData.name, formData.companySize, formData.monthlyRevenue]);
   return (
     <Screen>
       <View className="px-10 py-20 w-[100vw]">
@@ -85,8 +85,8 @@ export default function SecondShopRegisterSlide({
             className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
             placeholder="Enter Company Name"
             placeholderTextColor="#999"
-            value={formData.companyName}
-            onChangeText={(value) => updateFormData('companyName', value)}
+            value={formData.name}
+            onChangeText={(value) => updateFormData('name', value)}
           />
         </View>
         <View className="mt-4">
@@ -139,8 +139,8 @@ export default function SecondShopRegisterSlide({
             className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
             placeholder="Enter your business website url"
             placeholderTextColor="#999"
-            value={formData.websiteURL}
-            onChangeText={(value) => updateFormData('websiteURL', value)}
+            value={formData.website}
+            onChangeText={(value) => updateFormData('website', value)}
           />
         </View>
         <View className="mt-4">
