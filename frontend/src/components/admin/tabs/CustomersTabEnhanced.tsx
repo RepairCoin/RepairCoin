@@ -123,6 +123,8 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
     isOpen: boolean;
     customer: Customer | null;
   }>({ isOpen: false, customer: null });
+  const [suspendLoading, setSuspendLoading] = useState(false);
+  const [unsuspendLoading, setUnsuspendLoading] = useState(false);
 
   // Define table columns for customers
   const customerColumns: Column<Customer>[] = [
@@ -1318,13 +1320,15 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                     customer: null,
                   });
                 }}
-                className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors font-medium"
+                disabled={suspendLoading}
+                className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button
                 onClick={async () => {
                   const customer = suspendConfirmModal.customer;
+                  setSuspendLoading(true);
                   try {
                     await onSuspendCustomer(customer!.address, "Admin decision");
                     toast.success("Customer suspended successfully");
@@ -1336,11 +1340,21 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                   } catch (error) {
                     console.error("Failed to suspend customer:", error);
                     toast.error("Failed to suspend customer");
+                  } finally {
+                    setSuspendLoading(false);
                   }
                 }}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                disabled={suspendLoading}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                Suspend Customer
+                {suspendLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    <span>Suspending...</span>
+                  </>
+                ) : (
+                  "Suspend Customer"
+                )}
               </button>
             </div>
           </div>
@@ -1395,13 +1409,15 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                     customer: null,
                   });
                 }}
-                className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors font-medium"
+                disabled={unsuspendLoading}
+                className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button
                 onClick={async () => {
                   const customer = unsuspendConfirmModal.customer;
+                  setUnsuspendLoading(true);
                   try {
                     await onUnsuspendCustomer(customer!.address);
                     toast.success("Customer unsuspended successfully");
@@ -1413,11 +1429,21 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                   } catch (error) {
                     console.error("Failed to unsuspend customer:", error);
                     toast.error("Failed to unsuspend customer");
+                  } finally {
+                    setUnsuspendLoading(false);
                   }
                 }}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                disabled={unsuspendLoading}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                Unsuspend Customer
+                {unsuspendLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    <span>Unsuspending...</span>
+                  </>
+                ) : (
+                  "Unsuspend Customer"
+                )}
               </button>
             </div>
           </div>
