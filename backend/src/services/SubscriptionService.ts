@@ -1,4 +1,3 @@
-import { Pool } from 'pg';
 import { getStripeService, StripeService } from './StripeService';
 import { logger } from '../utils/logger';
 import { BaseRepository } from '../repositories/BaseRepository';
@@ -47,61 +46,56 @@ export class SubscriptionService extends BaseRepository {
     subscription: SubscriptionData;
     clientSecret?: string;
   }> {
-    const client = await this.pool.connect();
-    
-    try {
-      await client.query('BEGIN');
+    // Check for existing active subscription BEFORE doing anything
+    const existingSubscription = await this.getActiveSubscription(shopId);
+    if (existingSubscription) {
+      throw new Error('Shop already has an active subscription');
+    }
 
-      // Check if shop already has an active subscription
-      const existingQuery = `
-        SELECT s.*, sc.stripe_customer_id 
-        FROM stripe_subscriptions s
-        JOIN stripe_customers sc ON s.stripe_customer_id = sc.stripe_customer_id
-        WHERE s.shop_id = $1 AND s.status IN ('active', 'past_due', 'unpaid')
-      `;
-      const existingResult = await client.query(existingQuery, [shopId]);
-      
-      if (existingResult.rows.length > 0) {
-        throw new Error('Shop already has an active subscription');
-      }
+    // Get or create customer BEFORE acquiring connection
+    let customer = await this.getCustomerByShopId(shopId);
 
-      // Get or create Stripe customer
-      let customer = await this.getCustomerByShopId(shopId);
-      
-      if (!customer) {
-        const stripeCustomer = await this.stripeService.createCustomer({
-          email,
-          name,
-          shopId,
-          metadata: { shopId }
-        });
-
-        // Save customer to database
-        const customerQuery = `
-          INSERT INTO stripe_customers (shop_id, stripe_customer_id, email, name)
-          VALUES ($1, $2, $3, $4)
-          RETURNING *
-        `;
-        const customerResult = await client.query(customerQuery, [
-          shopId,
-          stripeCustomer.id,
-          email,
-          name
-        ]);
-        
-        customer = this.mapCustomerRow(customerResult.rows[0]);
-      }
-
-      // Get price ID from environment
-      const priceId = process.env.STRIPE_MONTHLY_PRICE_ID!;
-
-      // Create Stripe subscription
-      const stripeSubscription = await this.stripeService.createSubscription({
-        customerId: customer.stripeCustomerId,
-        priceId,
-        paymentMethodId,
+    if (!customer) {
+      // Create Stripe customer first
+      const stripeCustomer = await this.stripeService.createCustomer({
+        email,
+        name,
+        shopId,
         metadata: { shopId }
       });
+
+      // Save customer to database
+      const customerQuery = `
+        INSERT INTO stripe_customers (shop_id, stripe_customer_id, email, name)
+        VALUES ($1, $2, $3, $4)
+        RETURNING *
+      `;
+      const customerResult = await this.pool.query(customerQuery, [
+        shopId,
+        stripeCustomer.id,
+        email,
+        name
+      ]);
+
+      customer = this.mapCustomerRow(customerResult.rows[0]);
+    }
+
+    // Get price ID from environment
+    const priceId = process.env.STRIPE_MONTHLY_PRICE_ID!;
+
+    // Create Stripe subscription BEFORE acquiring connection
+    const stripeSubscription = await this.stripeService.createSubscription({
+      customerId: customer.stripeCustomerId,
+      priceId,
+      paymentMethodId,
+      metadata: { shopId }
+    });
+
+    // NOW acquire connection only for final database insert
+    const client = await this.pool.connect();
+
+    try {
+      await client.query('BEGIN');
       
       logger.debug('Stripe subscription object structure', {
         id: stripeSubscription.id,
@@ -263,6 +257,9 @@ export class SubscriptionService extends BaseRepository {
    * Pause subscription
    */
   async pauseSubscription(stripeSubscriptionId: string): Promise<SubscriptionData> {
+    // Pause in Stripe BEFORE acquiring connection
+    await this.stripeService.pauseSubscription(stripeSubscriptionId);
+
     const client = await this.pool.connect();
 
     try {
@@ -277,9 +274,6 @@ export class SubscriptionService extends BaseRepository {
       }
 
       const subscription = this.mapSubscriptionRow(result.rows[0]);
-
-      // Pause in Stripe by setting pause_collection
-      await this.stripeService.pauseSubscription(stripeSubscriptionId);
 
       // Update subscription in database with 'paused' status
       const updateQuery = `
@@ -336,6 +330,19 @@ export class SubscriptionService extends BaseRepository {
    * Resume a paused subscription
    */
   async resumeSubscription(stripeSubscriptionId: string): Promise<SubscriptionData> {
+    // Try to resume in Stripe BEFORE acquiring connection
+    try {
+      await this.stripeService.resumeSubscription(stripeSubscriptionId);
+      logger.info('Successfully resumed subscription in Stripe', { stripeSubscriptionId });
+    } catch (stripeError) {
+      // If Stripe says it's not paused, just log it and continue
+      // We'll still update our database status
+      logger.warn('Stripe resume failed, subscription may not have been paused in Stripe', {
+        stripeSubscriptionId,
+        error: stripeError instanceof Error ? stripeError.message : 'Unknown error'
+      });
+    }
+
     const client = await this.pool.connect();
 
     try {
@@ -350,19 +357,6 @@ export class SubscriptionService extends BaseRepository {
       }
 
       const subscription = this.mapSubscriptionRow(result.rows[0]);
-
-      try {
-        // Try to resume in Stripe - this will fail if not actually paused in Stripe
-        await this.stripeService.resumeSubscription(stripeSubscriptionId);
-        logger.info('Successfully resumed subscription in Stripe', { stripeSubscriptionId });
-      } catch (stripeError) {
-        // If Stripe says it's not paused, just log it and continue
-        // We'll still update our database status
-        logger.warn('Stripe resume failed, subscription may not have been paused in Stripe', {
-          stripeSubscriptionId,
-          error: stripeError instanceof Error ? stripeError.message : 'Unknown error'
-        });
-      }
 
       // Update subscription in database with 'active' status
       const updateQuery = `
@@ -420,6 +414,9 @@ export class SubscriptionService extends BaseRepository {
    * Fetches the latest subscription data from Stripe and updates the database
    */
   async syncSubscriptionFromStripe(stripeSubscriptionId: string): Promise<SubscriptionData> {
+    // Fetch from Stripe BEFORE acquiring connection to avoid holding connection during API call
+    const stripeSubscription = await this.stripeService.getSubscription(stripeSubscriptionId);
+
     const client = await this.pool.connect();
 
     try {
@@ -432,9 +429,6 @@ export class SubscriptionService extends BaseRepository {
       if (result.rows.length === 0) {
         throw new Error('Subscription not found in database');
       }
-
-      // Fetch latest data from Stripe
-      const stripeSubscription = await this.stripeService.getSubscription(stripeSubscriptionId);
 
       // Determine the actual status based on Stripe data
       let actualStatus = stripeSubscription.status;
@@ -503,28 +497,28 @@ export class SubscriptionService extends BaseRepository {
   /**
    * Cancel subscription
    */
-  async cancelSubscription(shopId: string, immediately: boolean = false): Promise<SubscriptionData> {
+  async cancelSubscription(shopId: string, immediately: boolean = false, reason?: string): Promise<SubscriptionData> {
+    // Get active subscription BEFORE acquiring a connection to avoid pool deadlock
+    const subscription = await this.getActiveSubscription(shopId);
+    if (!subscription) {
+      throw new Error('No active subscription found');
+    }
+
+    // Cancel in Stripe BEFORE acquiring connection
+    const updatedStripeSubscription = await this.stripeService.cancelSubscription(
+      subscription.stripeSubscriptionId,
+      immediately
+    );
+
     const client = await this.pool.connect();
-    
+
     try {
       await client.query('BEGIN');
 
-      // Get active subscription
-      const subscription = await this.getActiveSubscription(shopId);
-      if (!subscription) {
-        throw new Error('No active subscription found');
-      }
-
-      // Cancel in Stripe
-      const updatedStripeSubscription = await this.stripeService.cancelSubscription(
-        subscription.stripeSubscriptionId,
-        immediately
-      );
-
-      // Update subscription in database
-      const updateQuery = `
-        UPDATE stripe_subscriptions 
-        SET 
+      // Update stripe_subscriptions table
+      const updateStripeQuery = `
+        UPDATE stripe_subscriptions
+        SET
           status = $1,
           cancel_at_period_end = $2,
           canceled_at = $3,
@@ -533,11 +527,28 @@ export class SubscriptionService extends BaseRepository {
         RETURNING *
       `;
 
-      const updateResult = await client.query(updateQuery, [
+      const updateResult = await client.query(updateStripeQuery, [
         updatedStripeSubscription.status,
         updatedStripeSubscription.cancel_at_period_end,
         updatedStripeSubscription.canceled_at ? new Date(updatedStripeSubscription.canceled_at * 1000) : new Date(),
         subscription.stripeSubscriptionId
+      ]);
+
+      // Also update shop_subscriptions table for consistency
+      const updateShopSubQuery = `
+        UPDATE shop_subscriptions
+        SET
+          status = 'cancelled',
+          is_active = false,
+          cancelled_at = $1,
+          cancellation_reason = $2
+        WHERE shop_id = $3 AND status = 'active'
+      `;
+
+      await client.query(updateShopSubQuery, [
+        new Date(),
+        reason || 'Cancelled by shop owner',
+        shopId
       ]);
 
       await client.query('COMMIT');
@@ -558,7 +569,7 @@ export class SubscriptionService extends BaseRepository {
         }
       });
 
-      logger.info('Subscription canceled successfully', {
+      logger.info('Subscription canceled successfully in both tables', {
         shopId,
         subscriptionId: subscription.stripeSubscriptionId,
         immediately,

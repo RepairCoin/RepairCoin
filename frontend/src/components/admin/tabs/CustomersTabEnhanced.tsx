@@ -115,6 +115,21 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
   const [unsuspendRequests, setUnsuspendRequests] = useState<any[]>([]);
   const [unsuspendRequestsLoading, setUnsuspendRequestsLoading] =
     useState(false);
+  const [suspendConfirmModal, setSuspendConfirmModal] = useState<{
+    isOpen: boolean;
+    customer: Customer | null;
+  }>({ isOpen: false, customer: null });
+  const [unsuspendConfirmModal, setUnsuspendConfirmModal] = useState<{
+    isOpen: boolean;
+    customer: Customer | null;
+  }>({ isOpen: false, customer: null });
+  const [suspendLoading, setSuspendLoading] = useState(false);
+  const [unsuspendLoading, setUnsuspendLoading] = useState(false);
+  const [mintConfirmModal, setMintConfirmModal] = useState<{
+    isOpen: boolean;
+    customer: Customer | null;
+  }>({ isOpen: false, customer: null });
+  const [mintLoading, setMintLoading] = useState(false);
 
   // Define table columns for customers
   const customerColumns: Column<Customer>[] = [
@@ -232,7 +247,10 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              handleQuickMint(customer.address);
+              setMintConfirmModal({
+                isOpen: true,
+                customer,
+              });
             }}
             className="p-1.5 bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 rounded-lg hover:bg-yellow-500/20 transition-colors"
             title="Mint 100 RCN"
@@ -244,9 +262,10 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                // For now, use a default reason - could add a modal for this
-                onSuspendCustomer(customer.address, "Admin decision");
-                toast.success("Customer suspended");
+                setSuspendConfirmModal({
+                  isOpen: true,
+                  customer,
+                });
               }}
               className="p-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors"
               title="Suspend Customer"
@@ -289,8 +308,10 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onUnsuspendCustomer(customer.address);
-                toast.success("Customer unsuspended");
+                setUnsuspendConfirmModal({
+                  isOpen: true,
+                  customer,
+                });
               }}
               className="p-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors"
               title="Unsuspend Customer"
@@ -307,9 +328,29 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
-  const handleQuickMint = (address: string) => {
-    onMintTokens(address, 100, "Quick admin bonus");
-    toast.success(`Minted 100 RCN to ${formatAddress(address)}`);
+  const handleQuickMint = async (address: string) => {
+    setMintLoading(true);
+    try {
+      await onMintTokens(address, 100, "Quick admin bonus");
+      toast.success(`Minted 100 RCN to ${formatAddress(address)}`);
+      // Reload the customer data
+      await loadCustomersData();
+      setMintConfirmModal({
+        isOpen: false,
+        customer: null,
+      });
+    } catch (error: any) {
+      console.error("Failed to mint tokens - Full error:", error);
+      console.error("Error response data:", error?.response?.data);
+      const errorMessage =
+        error?.response?.data?.error ||
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to mint tokens";
+      toast.error(errorMessage);
+    } finally {
+      setMintLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -621,10 +662,26 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
     );
   }
 
-  const allCustomers = [
-    ...data.shopsWithCustomers.flatMap((shop) => shop.customers),
-    ...data.customersWithoutShops,
-  ];
+  // Deduplicate customers by address to avoid duplicate keys
+  const customerMap = new Map<string, Customer>();
+
+  // Add customers from shops
+  data.shopsWithCustomers.forEach((shop) => {
+    shop.customers.forEach((customer) => {
+      if (!customerMap.has(customer.address)) {
+        customerMap.set(customer.address, customer);
+      }
+    });
+  });
+
+  // Add customers without shops
+  data.customersWithoutShops.forEach((customer) => {
+    if (!customerMap.has(customer.address)) {
+      customerMap.set(customer.address, customer);
+    }
+  });
+
+  const allCustomers = Array.from(customerMap.values());
 
   return (
     <div className="space-y-6">
@@ -1202,23 +1259,30 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                 onClick={async () => {
                   const customer = unsuspendReviewModal.customer;
 
-                  if (
-                    unsuspendReviewModal.action === "approve" &&
-                    onUnsuspendCustomer
-                  ) {
-                    await onUnsuspendCustomer(customer!.address);
-                    toast.success("Unsuspend request approved");
-                  } else {
-                    // For reject, we might need a separate API endpoint
-                    toast.success("Unsuspend request rejected");
-                  }
+                  try {
+                    if (
+                      unsuspendReviewModal.action === "approve" &&
+                      onUnsuspendCustomer
+                    ) {
+                      await onUnsuspendCustomer(customer!.address);
+                      toast.success("Unsuspend request approved");
+                      // Reload the customer data
+                      await loadCustomersData();
+                    } else {
+                      // For reject, we might need a separate API endpoint
+                      toast.success("Unsuspend request rejected");
+                    }
 
-                  setUnsuspendReviewModal({
-                    isOpen: false,
-                    customer: null,
-                    action: "approve",
-                  });
-                  setUnsuspendNotes("");
+                    setUnsuspendReviewModal({
+                      isOpen: false,
+                      customer: null,
+                      action: "approve",
+                    });
+                    setUnsuspendNotes("");
+                  } catch (error) {
+                    console.error(`Failed to ${unsuspendReviewModal.action} unsuspend request:`, error);
+                    toast.error(`Failed to ${unsuspendReviewModal.action} unsuspend request`);
+                  }
                 }}
                 className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
                   unsuspendReviewModal.action === "approve"
@@ -1229,6 +1293,255 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                 {unsuspendReviewModal.action === "approve"
                   ? "Approve"
                   : "Reject"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Suspend Confirmation Modal */}
+      {suspendConfirmModal.isOpen && suspendConfirmModal.customer && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-red-500/10 rounded-lg">
+                <AlertCircle className="w-6 h-6 text-red-400" />
+              </div>
+              <h3 className="text-xl font-bold text-white">
+                Suspend Customer
+              </h3>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-gray-300 mb-4">
+                Are you sure you want to suspend this customer?
+              </p>
+              <div className="bg-gray-700/50 rounded-lg p-4 space-y-2">
+                <p className="text-sm text-gray-300">
+                  <span className="font-medium text-white">Customer:</span>{" "}
+                  {suspendConfirmModal.customer.name || "Anonymous"}
+                </p>
+                <p className="text-sm text-gray-300">
+                  <span className="font-medium text-white">Address:</span>{" "}
+                  <span className="font-mono">{formatAddress(suspendConfirmModal.customer.address)}</span>
+                </p>
+              </div>
+              <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                <p className="text-sm text-yellow-400">
+                  ⚠️ This action will prevent the customer from earning or redeeming tokens.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setSuspendConfirmModal({
+                    isOpen: false,
+                    customer: null,
+                  });
+                }}
+                disabled={suspendLoading}
+                className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const customer = suspendConfirmModal.customer;
+                  setSuspendLoading(true);
+                  try {
+                    await onSuspendCustomer(customer!.address, "Admin decision");
+                    toast.success("Customer suspended successfully");
+                    await loadCustomersData();
+                    setSuspendConfirmModal({
+                      isOpen: false,
+                      customer: null,
+                    });
+                  } catch (error) {
+                    console.error("Failed to suspend customer:", error);
+                    toast.error("Failed to suspend customer");
+                  } finally {
+                    setSuspendLoading(false);
+                  }
+                }}
+                disabled={suspendLoading}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {suspendLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    <span>Suspending...</span>
+                  </>
+                ) : (
+                  "Suspend Customer"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unsuspend Confirmation Modal */}
+      {unsuspendConfirmModal.isOpen && unsuspendConfirmModal.customer && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-green-500/10 rounded-lg">
+                <CheckCircle className="w-6 h-6 text-green-400" />
+              </div>
+              <h3 className="text-xl font-bold text-white">
+                Unsuspend Customer
+              </h3>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-gray-300 mb-4">
+                Are you sure you want to unsuspend this customer?
+              </p>
+              <div className="bg-gray-700/50 rounded-lg p-4 space-y-2">
+                <p className="text-sm text-gray-300">
+                  <span className="font-medium text-white">Customer:</span>{" "}
+                  {unsuspendConfirmModal.customer.name || "Anonymous"}
+                </p>
+                <p className="text-sm text-gray-300">
+                  <span className="font-medium text-white">Address:</span>{" "}
+                  <span className="font-mono">{formatAddress(unsuspendConfirmModal.customer.address)}</span>
+                </p>
+                {unsuspendConfirmModal.customer.suspension_reason && (
+                  <p className="text-sm text-gray-300">
+                    <span className="font-medium text-white">Suspension Reason:</span>{" "}
+                    {unsuspendConfirmModal.customer.suspension_reason}
+                  </p>
+                )}
+              </div>
+              <div className="mt-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                <p className="text-sm text-green-400">
+                  ✓ This will restore the customer's ability to earn and redeem tokens.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setUnsuspendConfirmModal({
+                    isOpen: false,
+                    customer: null,
+                  });
+                }}
+                disabled={unsuspendLoading}
+                className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const customer = unsuspendConfirmModal.customer;
+                  setUnsuspendLoading(true);
+                  try {
+                    await onUnsuspendCustomer(customer!.address);
+                    toast.success("Customer unsuspended successfully");
+                    await loadCustomersData();
+                    setUnsuspendConfirmModal({
+                      isOpen: false,
+                      customer: null,
+                    });
+                  } catch (error) {
+                    console.error("Failed to unsuspend customer:", error);
+                    toast.error("Failed to unsuspend customer");
+                  } finally {
+                    setUnsuspendLoading(false);
+                  }
+                }}
+                disabled={unsuspendLoading}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {unsuspendLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    <span>Unsuspending...</span>
+                  </>
+                ) : (
+                  "Unsuspend Customer"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mint Confirmation Modal */}
+      {mintConfirmModal.isOpen && mintConfirmModal.customer && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-yellow-500/10 rounded-lg">
+                <Coins className="w-6 h-6 text-yellow-400" />
+              </div>
+              <h3 className="text-xl font-bold text-white">
+                Mint Tokens
+              </h3>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-gray-300 mb-4">
+                Are you sure you want to mint tokens to this customer?
+              </p>
+              <div className="bg-gray-700/50 rounded-lg p-4 space-y-2">
+                <p className="text-sm text-gray-300">
+                  <span className="font-medium text-white">Customer:</span>{" "}
+                  {mintConfirmModal.customer.name || "Anonymous"}
+                </p>
+                <p className="text-sm text-gray-300">
+                  <span className="font-medium text-white">Address:</span>{" "}
+                  <span className="font-mono">{formatAddress(mintConfirmModal.customer.address)}</span>
+                </p>
+                <p className="text-sm text-gray-300">
+                  <span className="font-medium text-white">Amount:</span>{" "}
+                  <span className="text-yellow-400 font-semibold">100 RCN</span>
+                </p>
+                <p className="text-sm text-gray-300">
+                  <span className="font-medium text-white">Reason:</span>{" "}
+                  Quick admin bonus
+                </p>
+              </div>
+              <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <p className="text-sm text-blue-400">
+                  ℹ️ This will add 100 RCN tokens to the customer's balance.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setMintConfirmModal({
+                    isOpen: false,
+                    customer: null,
+                  });
+                }}
+                disabled={mintLoading}
+                className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const customer = mintConfirmModal.customer;
+                  await handleQuickMint(customer!.address);
+                }}
+                disabled={mintLoading}
+                className="flex-1 px-4 py-2 bg-yellow-500 text-black rounded-lg hover:bg-yellow-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {mintLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-black border-t-transparent"></div>
+                    <span>Minting...</span>
+                  </>
+                ) : (
+                  "Mint 100 RCN"
+                )}
               </button>
             </div>
           </div>

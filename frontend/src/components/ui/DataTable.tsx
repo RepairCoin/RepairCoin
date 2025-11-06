@@ -8,6 +8,7 @@ export interface Column<T = any> {
   header: string;
   accessor?: (item: T) => React.ReactNode;
   sortable?: boolean;
+  sortValue?: (item: T) => string | number; // Function to extract the value for sorting
   className?: string;
   headerClassName?: string;
 }
@@ -92,19 +93,35 @@ export function DataTable<T>({
 
     const sorted = [...data].sort((a, b) => {
       const column = columns.find((col) => col.key === sortConfig.key);
-      if (!column || !column.accessor) return 0;
+      if (!column) return 0;
 
-      const aValue = column.accessor(a);
-      const bValue = column.accessor(b);
+      let aValue: any;
+      let bValue: any;
+
+      // Use sortValue if provided, otherwise fall back to accessor
+      if (column.sortValue) {
+        aValue = column.sortValue(a);
+        bValue = column.sortValue(b);
+      } else if (column.accessor) {
+        aValue = column.accessor(a);
+        bValue = column.accessor(b);
+      } else {
+        return 0;
+      }
+
+      // Handle numeric comparisons
+      if (typeof aValue === "number" && typeof bValue === "number") {
+        return sortConfig.direction === "asc" ? aValue - bValue : bValue - aValue;
+      }
 
       // Convert to string for comparison
       const aStr = String(aValue ?? "");
       const bStr = String(bValue ?? "");
 
       if (sortConfig.direction === "asc") {
-        return aStr.localeCompare(bStr);
+        return aStr.localeCompare(bStr, undefined, { numeric: true, sensitivity: "base" });
       }
-      return bStr.localeCompare(aStr);
+      return bStr.localeCompare(aStr, undefined, { numeric: true, sensitivity: "base" });
     });
 
     return sorted;

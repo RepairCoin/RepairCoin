@@ -203,7 +203,7 @@ export class AdminService {
         id: `admin_mint_${Date.now()}`,
         type: 'mint',
         customerAddress: params.customerAddress.toLowerCase(),
-        shopId: 'admin_system',
+        shopId: null,
         amount: params.amount,
         reason: `Admin mint: ${params.reason}`,
         transactionHash: transactionHash,

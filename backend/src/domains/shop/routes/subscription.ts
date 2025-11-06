@@ -543,8 +543,8 @@ router.post('/subscription/cancel', async (req: Request, res: Response) => {
       });
     }
 
-    // Cancel the subscription at period end (graceful cancellation)
-    const updatedSubscription = await subscriptionService.cancelSubscription(shopId, false);
+    // Cancel the subscription at period end (graceful cancellation) with user's reason
+    const updatedSubscription = await subscriptionService.cancelSubscription(shopId, false, reason);
 
     logger.info('Subscription cancelled', {
       shopId,
@@ -632,43 +632,76 @@ router.post('/subscription/reactivate', async (req: Request, res: Response) => {
       }
     );
 
-    // Update subscription in database
+    // Update both subscription tables in database
     const db = DatabaseService.getInstance();
-    const updateQuery = `
-      UPDATE stripe_subscriptions 
-      SET 
-        cancel_at_period_end = false,
-        canceled_at = NULL,
-        updated_at = CURRENT_TIMESTAMP
-      WHERE stripe_subscription_id = $1
-      RETURNING *
-    `;
+    const pool = db.getPool();
+    const client = await pool.connect();
 
-    const updateResult = await db.query(updateQuery, [activeSubscription.stripeSubscriptionId]);
+    try {
+      await client.query('BEGIN');
 
-    logger.info('Subscription reactivated', {
-      shopId,
-      subscriptionId: activeSubscription.stripeSubscriptionId
-    });
+      // Update stripe_subscriptions table
+      const updateStripeQuery = `
+        UPDATE stripe_subscriptions
+        SET
+          cancel_at_period_end = false,
+          canceled_at = NULL,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE stripe_subscription_id = $1
+        RETURNING *
+      `;
 
-    res.json({
-      success: true,
-      data: {
-        message: 'Subscription reactivated successfully! Your subscription will continue as normal.',
-        subscription: updateResult.rows[0]
-      }
-    });
+      const updateResult = await client.query(updateStripeQuery, [activeSubscription.stripeSubscriptionId]);
+
+      // Also reactivate shop_subscriptions table
+      const updateShopSubQuery = `
+        UPDATE shop_subscriptions
+        SET
+          status = 'active',
+          is_active = true,
+          cancelled_at = NULL,
+          cancellation_reason = NULL,
+          resumed_at = CURRENT_TIMESTAMP
+        WHERE shop_id = $1 AND status = 'cancelled'
+      `;
+
+      await client.query(updateShopSubQuery, [shopId]);
+
+      await client.query('COMMIT');
+
+      logger.info('Subscription reactivated in both tables', {
+        shopId,
+        subscriptionId: activeSubscription.stripeSubscriptionId
+      });
+
+      res.json({
+        success: true,
+        data: {
+          message: 'Subscription reactivated successfully! Your subscription will continue as normal.',
+          subscription: updateResult.rows[0]
+        }
+      });
+
+      client.release();
+    } catch (error) {
+      await client.query('ROLLBACK');
+      client.release();
+      throw error;
+    }
+
+    return;
 
   } catch (error) {
     logger.error('Failed to reactivate subscription', {
       error: error instanceof Error ? error.message : 'Unknown error',
       shopId: req.user?.shopId
     });
-    
+
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to reactivate subscription'
     });
+    return;
   }
 });
 

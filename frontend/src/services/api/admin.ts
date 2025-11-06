@@ -31,7 +31,7 @@ export interface CreateShopData {
 }
 
 export interface MintTokensData {
-  address: string;
+  customerAddress: string;
   amount: number;
   reason: string;
 }
@@ -257,17 +257,12 @@ export const mintTokens = async (data: MintTokensData): Promise<{
   txHash?: string;
   amount?: number;
 }> => {
-  try {
-    const response = await apiClient.post<{ txHash?: string; amount?: number }>('/admin/mint', data);
-    return {
-      success: true,
-      txHash: response.data?.txHash,
-      amount: response.data?.amount,
-    };
-  } catch (error) {
-    console.error('Error minting tokens:', error);
-    return { success: false };
-  }
+  const response = await apiClient.post<{ txHash?: string; amount?: number }>('/admin/mint', data);
+  return {
+    success: true,
+    txHash: response.data?.txHash,
+    amount: response.data?.amount,
+  };
 };
 
 // RCN Sales

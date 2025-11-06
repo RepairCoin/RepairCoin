@@ -384,6 +384,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
       key: "shop",
       header: "Shop",
       sortable: true,
+      sortValue: (shop) => shop.name.toLowerCase(), // Sort by shop name
       accessor: (shop) => {
         const shopId = shop.shopId || shop.shop_id || "";
         return (
@@ -407,6 +408,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
       key: "contact",
       header: "Contact",
       sortable: true,
+      sortValue: (shop) => (shop.email || "").toLowerCase(), // Sort by email
       className: "hidden lg:table-cell",
       headerClassName: "hidden lg:table-cell",
       accessor: (shop) => (
@@ -439,6 +441,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
       key: "tokens",
       header: "Tokens",
       sortable: true,
+      sortValue: (shop) => shop.totalTokensIssued || 0, // Sort by total tokens issued (numeric)
       className: "hidden xl:table-cell",
       headerClassName: "hidden xl:table-cell",
       accessor: (shop) => (
@@ -456,6 +459,12 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
       key: "joined",
       header: "Joined",
       sortable: true,
+      sortValue: (shop) => {
+        const dateStr = shop.joinDate || shop.join_date;
+        if (!dateStr) return 0;
+        const timestamp = new Date(dateStr).getTime();
+        return isNaN(timestamp) ? 0 : timestamp;
+      }, // Sort by date timestamp
       className: "hidden xl:table-cell",
       headerClassName: "hidden xl:table-cell",
       accessor: (shop) => (

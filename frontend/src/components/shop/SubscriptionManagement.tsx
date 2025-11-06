@@ -720,51 +720,67 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
 
       {/* Cancel Modal */}
       <Dialog open={showCancelModal} onOpenChange={setShowCancelModal}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-[#1A1A1A] border-gray-800 text-white">
           <DialogHeader>
-            <DialogTitle>Cancel Subscription</DialogTitle>
-            <DialogDescription className="pt-4">
+            <DialogTitle className="text-2xl font-bold text-white">Cancel Subscription</DialogTitle>
+            <DialogDescription className="pt-2 text-gray-400">
               Are you sure you want to cancel your subscription? You'll lose operational status immediately.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <h4 className="font-semibold text-red-800 mb-2">After cancellation:</h4>
-              <ul className="space-y-1 text-sm text-red-700">
-                <li>• Cannot issue RCN rewards</li>
-                <li>• Cannot process redemptions</li>
-                <li>• Cannot purchase RCN tokens</li>
-                <li>• Lose operational status</li>
+            <div className="bg-red-900/20 border border-red-700 rounded-lg p-4">
+              <h4 className="font-semibold text-red-400 mb-3">After cancellation:</h4>
+              <ul className="space-y-2 text-sm text-red-300">
+                <li className="flex items-start gap-2">
+                  <span className="text-red-400">•</span>
+                  <span>Cannot issue RCN rewards</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-red-400">•</span>
+                  <span>Cannot process redemptions</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-red-400">•</span>
+                  <span>Cannot purchase RCN tokens</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-red-400">•</span>
+                  <span>Lose operational status</span>
+                </li>
               </ul>
             </div>
-            
+
             <div>
-              <label className="block text-sm font-medium mb-2">
-                Reason for cancellation (optional)
+              <label className="block text-sm font-medium mb-2 text-gray-300">
+                Let us know why you're cancelling...
               </label>
               <textarea
                 value={cancellationReason}
                 onChange={(e) => setCancellationReason(e.target.value)}
-                className="w-full p-2 border rounded-lg"
+                className="w-full p-3 bg-[#2F2F2F] border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent resize-none placeholder:text-gray-500"
                 rows={3}
-                placeholder="Let us know why you're cancelling..."
+                placeholder="Share your feedback (optional)"
               />
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex gap-3 sm:gap-3">
             <Button
               variant="outline"
-              onClick={() => setShowCancelModal(false)}
+              onClick={() => {
+                setShowCancelModal(false);
+                setCancellationReason('');
+              }}
               disabled={cancelling}
+              className="flex-1 bg-transparent border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white"
             >
               Keep Subscription
             </Button>
             <Button
-              variant="destructive"
               onClick={handleCancel}
               disabled={cancelling}
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold disabled:opacity-50"
             >
               {cancelling ? 'Cancelling...' : 'Cancel Subscription'}
             </Button>

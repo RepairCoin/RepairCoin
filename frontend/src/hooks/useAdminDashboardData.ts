@@ -143,7 +143,7 @@ export function useAdminDashboardData(
     if (!success) {
       throw new Error("Failed to suspend shop");
     }
-    
+
     // Refresh the data to show updated status
     loadDashboardData();
   };
@@ -153,7 +153,7 @@ export function useAdminDashboardData(
     if (!success) {
       throw new Error("Failed to unsuspend shop");
     }
-    
+
     // Refresh the data to show updated status
     loadDashboardData();
   };
@@ -232,21 +232,16 @@ export function useAdminDashboardData(
     amount: number,
     reason: string
   ) => {
-    try {
-      const result = await adminApi.mintTokens({
-        address: customerAddress,
-        amount,
-        reason,
-      });
+    const result = await adminApi.mintTokens({
+      customerAddress,
+      amount,
+      reason,
+    });
 
-      if (result.success) {
-        await loadDashboardData();
-      } else {
-        setError("Failed to mint tokens");
-      }
-    } catch (error) {
-      console.error("Error minting tokens:", error);
-      setError("Failed to mint tokens");
+    if (result.success) {
+      await loadDashboardData();
+    } else {
+      throw new Error("Failed to mint tokens");
     }
   };
 
@@ -255,7 +250,7 @@ export function useAdminDashboardData(
     if (!success) {
       throw new Error("Failed to suspend customer");
     }
-    
+
     // Refresh the data to show updated status
     loadDashboardData();
   };
@@ -265,7 +260,7 @@ export function useAdminDashboardData(
     if (!success) {
       throw new Error("Failed to unsuspend customer");
     }
-    
+
     // Refresh the data to show updated status
     loadDashboardData();
   };
