@@ -242,11 +242,18 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
           {/* Suspension/Unsuspension actions */}
           {customer.isActive && onSuspendCustomer ? (
             <button
-              onClick={(e) => {
+              onClick={async (e) => {
                 e.stopPropagation();
-                // For now, use a default reason - could add a modal for this
-                onSuspendCustomer(customer.address, "Admin decision");
-                toast.success("Customer suspended");
+                try {
+                  // For now, use a default reason - could add a modal for this
+                  await onSuspendCustomer(customer.address, "Admin decision");
+                  toast.success("Customer suspended successfully");
+                  // Reload the customer data
+                  await loadCustomersData();
+                } catch (error) {
+                  console.error("Failed to suspend customer:", error);
+                  toast.error("Failed to suspend customer");
+                }
               }}
               className="p-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors"
               title="Suspend Customer"
@@ -287,10 +294,17 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
             </>
           ) : !customer.isActive && onUnsuspendCustomer ? (
             <button
-              onClick={(e) => {
+              onClick={async (e) => {
                 e.stopPropagation();
-                onUnsuspendCustomer(customer.address);
-                toast.success("Customer unsuspended");
+                try {
+                  await onUnsuspendCustomer(customer.address);
+                  toast.success("Customer unsuspended successfully");
+                  // Reload the customer data
+                  await loadCustomersData();
+                } catch (error) {
+                  console.error("Failed to unsuspend customer:", error);
+                  toast.error("Failed to unsuspend customer");
+                }
               }}
               className="p-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors"
               title="Unsuspend Customer"
@@ -307,9 +321,16 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
-  const handleQuickMint = (address: string) => {
-    onMintTokens(address, 100, "Quick admin bonus");
-    toast.success(`Minted 100 RCN to ${formatAddress(address)}`);
+  const handleQuickMint = async (address: string) => {
+    try {
+      await onMintTokens(address, 100, "Quick admin bonus");
+      toast.success(`Minted 100 RCN to ${formatAddress(address)}`);
+      // Reload the customer data
+      await loadCustomersData();
+    } catch (error) {
+      console.error("Failed to mint tokens:", error);
+      toast.error("Failed to mint tokens");
+    }
   };
 
   useEffect(() => {
@@ -1218,23 +1239,30 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                 onClick={async () => {
                   const customer = unsuspendReviewModal.customer;
 
-                  if (
-                    unsuspendReviewModal.action === "approve" &&
-                    onUnsuspendCustomer
-                  ) {
-                    await onUnsuspendCustomer(customer!.address);
-                    toast.success("Unsuspend request approved");
-                  } else {
-                    // For reject, we might need a separate API endpoint
-                    toast.success("Unsuspend request rejected");
-                  }
+                  try {
+                    if (
+                      unsuspendReviewModal.action === "approve" &&
+                      onUnsuspendCustomer
+                    ) {
+                      await onUnsuspendCustomer(customer!.address);
+                      toast.success("Unsuspend request approved");
+                      // Reload the customer data
+                      await loadCustomersData();
+                    } else {
+                      // For reject, we might need a separate API endpoint
+                      toast.success("Unsuspend request rejected");
+                    }
 
-                  setUnsuspendReviewModal({
-                    isOpen: false,
-                    customer: null,
-                    action: "approve",
-                  });
-                  setUnsuspendNotes("");
+                    setUnsuspendReviewModal({
+                      isOpen: false,
+                      customer: null,
+                      action: "approve",
+                    });
+                    setUnsuspendNotes("");
+                  } catch (error) {
+                    console.error(`Failed to ${unsuspendReviewModal.action} unsuspend request:`, error);
+                    toast.error(`Failed to ${unsuspendReviewModal.action} unsuspend request`);
+                  }
                 }}
                 className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
                   unsuspendReviewModal.action === "approve"
