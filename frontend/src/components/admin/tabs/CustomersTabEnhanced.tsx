@@ -115,6 +115,14 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
   const [unsuspendRequests, setUnsuspendRequests] = useState<any[]>([]);
   const [unsuspendRequestsLoading, setUnsuspendRequestsLoading] =
     useState(false);
+  const [suspendConfirmModal, setSuspendConfirmModal] = useState<{
+    isOpen: boolean;
+    customer: Customer | null;
+  }>({ isOpen: false, customer: null });
+  const [unsuspendConfirmModal, setUnsuspendConfirmModal] = useState<{
+    isOpen: boolean;
+    customer: Customer | null;
+  }>({ isOpen: false, customer: null });
 
   // Define table columns for customers
   const customerColumns: Column<Customer>[] = [
@@ -242,18 +250,12 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
           {/* Suspension/Unsuspension actions */}
           {customer.isActive && onSuspendCustomer ? (
             <button
-              onClick={async (e) => {
+              onClick={(e) => {
                 e.stopPropagation();
-                try {
-                  // For now, use a default reason - could add a modal for this
-                  await onSuspendCustomer(customer.address, "Admin decision");
-                  toast.success("Customer suspended successfully");
-                  // Reload the customer data
-                  await loadCustomersData();
-                } catch (error) {
-                  console.error("Failed to suspend customer:", error);
-                  toast.error("Failed to suspend customer");
-                }
+                setSuspendConfirmModal({
+                  isOpen: true,
+                  customer,
+                });
               }}
               className="p-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors"
               title="Suspend Customer"
@@ -294,17 +296,12 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
             </>
           ) : !customer.isActive && onUnsuspendCustomer ? (
             <button
-              onClick={async (e) => {
+              onClick={(e) => {
                 e.stopPropagation();
-                try {
-                  await onUnsuspendCustomer(customer.address);
-                  toast.success("Customer unsuspended successfully");
-                  // Reload the customer data
-                  await loadCustomersData();
-                } catch (error) {
-                  console.error("Failed to unsuspend customer:", error);
-                  toast.error("Failed to unsuspend customer");
-                }
+                setUnsuspendConfirmModal({
+                  isOpen: true,
+                  customer,
+                });
               }}
               className="p-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors"
               title="Unsuspend Customer"
@@ -1273,6 +1270,154 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                 {unsuspendReviewModal.action === "approve"
                   ? "Approve"
                   : "Reject"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Suspend Confirmation Modal */}
+      {suspendConfirmModal.isOpen && suspendConfirmModal.customer && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-red-500/10 rounded-lg">
+                <AlertCircle className="w-6 h-6 text-red-400" />
+              </div>
+              <h3 className="text-xl font-bold text-white">
+                Suspend Customer
+              </h3>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-gray-300 mb-4">
+                Are you sure you want to suspend this customer?
+              </p>
+              <div className="bg-gray-700/50 rounded-lg p-4 space-y-2">
+                <p className="text-sm text-gray-300">
+                  <span className="font-medium text-white">Customer:</span>{" "}
+                  {suspendConfirmModal.customer.name || "Anonymous"}
+                </p>
+                <p className="text-sm text-gray-300">
+                  <span className="font-medium text-white">Address:</span>{" "}
+                  <span className="font-mono">{formatAddress(suspendConfirmModal.customer.address)}</span>
+                </p>
+              </div>
+              <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                <p className="text-sm text-yellow-400">
+                  ⚠️ This action will prevent the customer from earning or redeeming tokens.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setSuspendConfirmModal({
+                    isOpen: false,
+                    customer: null,
+                  });
+                }}
+                className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const customer = suspendConfirmModal.customer;
+                  try {
+                    await onSuspendCustomer(customer!.address, "Admin decision");
+                    toast.success("Customer suspended successfully");
+                    await loadCustomersData();
+                    setSuspendConfirmModal({
+                      isOpen: false,
+                      customer: null,
+                    });
+                  } catch (error) {
+                    console.error("Failed to suspend customer:", error);
+                    toast.error("Failed to suspend customer");
+                  }
+                }}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+              >
+                Suspend Customer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unsuspend Confirmation Modal */}
+      {unsuspendConfirmModal.isOpen && unsuspendConfirmModal.customer && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-green-500/10 rounded-lg">
+                <CheckCircle className="w-6 h-6 text-green-400" />
+              </div>
+              <h3 className="text-xl font-bold text-white">
+                Unsuspend Customer
+              </h3>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-gray-300 mb-4">
+                Are you sure you want to unsuspend this customer?
+              </p>
+              <div className="bg-gray-700/50 rounded-lg p-4 space-y-2">
+                <p className="text-sm text-gray-300">
+                  <span className="font-medium text-white">Customer:</span>{" "}
+                  {unsuspendConfirmModal.customer.name || "Anonymous"}
+                </p>
+                <p className="text-sm text-gray-300">
+                  <span className="font-medium text-white">Address:</span>{" "}
+                  <span className="font-mono">{formatAddress(unsuspendConfirmModal.customer.address)}</span>
+                </p>
+                {unsuspendConfirmModal.customer.suspension_reason && (
+                  <p className="text-sm text-gray-300">
+                    <span className="font-medium text-white">Suspension Reason:</span>{" "}
+                    {unsuspendConfirmModal.customer.suspension_reason}
+                  </p>
+                )}
+              </div>
+              <div className="mt-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                <p className="text-sm text-green-400">
+                  ✓ This will restore the customer's ability to earn and redeem tokens.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setUnsuspendConfirmModal({
+                    isOpen: false,
+                    customer: null,
+                  });
+                }}
+                className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const customer = unsuspendConfirmModal.customer;
+                  try {
+                    await onUnsuspendCustomer(customer!.address);
+                    toast.success("Customer unsuspended successfully");
+                    await loadCustomersData();
+                    setUnsuspendConfirmModal({
+                      isOpen: false,
+                      customer: null,
+                    });
+                  } catch (error) {
+                    console.error("Failed to unsuspend customer:", error);
+                    toast.error("Failed to unsuspend customer");
+                  }
+                }}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+              >
+                Unsuspend Customer
               </button>
             </div>
           </div>
