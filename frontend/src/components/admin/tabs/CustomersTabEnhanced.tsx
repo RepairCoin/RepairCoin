@@ -621,10 +621,26 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
     );
   }
 
-  const allCustomers = [
-    ...data.shopsWithCustomers.flatMap((shop) => shop.customers),
-    ...data.customersWithoutShops,
-  ];
+  // Deduplicate customers by address to avoid duplicate keys
+  const customerMap = new Map<string, Customer>();
+
+  // Add customers from shops
+  data.shopsWithCustomers.forEach((shop) => {
+    shop.customers.forEach((customer) => {
+      if (!customerMap.has(customer.address)) {
+        customerMap.set(customer.address, customer);
+      }
+    });
+  });
+
+  // Add customers without shops
+  data.customersWithoutShops.forEach((customer) => {
+    if (!customerMap.has(customer.address)) {
+      customerMap.set(customer.address, customer);
+    }
+  });
+
+  const allCustomers = Array.from(customerMap.values());
 
   return (
     <div className="space-y-6">
