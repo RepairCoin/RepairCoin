@@ -148,18 +148,58 @@ export class MembershipController {
 
   /**
    * Get group members
+   * Security:
+   * - Pending members can only see their own request status
+   * - Active members can see all active members and pending requests
+   * - Admins can see all members and requests
    */
   getGroupMembers = async (req: Request, res: Response) => {
     try {
       const { groupId } = req.params;
+      const requestingShopId = req.user?.shopId;
       const status = req.query.status as 'active' | 'pending' | 'rejected' | 'removed' | undefined;
 
-      const members = await this.service.getGroupMembers(groupId, status);
+      // Check if requesting shop is a member of this group
+      if (requestingShopId) {
+        const requestingMembership = await this.service.getShopMembershipStatus(groupId, requestingShopId);
 
-      res.json({
+        if (requestingMembership) {
+          // If requester is only pending, they can only see their own status
+          if (requestingMembership.status === 'pending') {
+            return res.json({
+              success: true,
+              data: [requestingMembership], // Only their own request
+              _message: 'Your membership request is pending approval'
+            });
+          }
+
+          // If requester is rejected or removed, they can't see members
+          if (requestingMembership.status === 'rejected' || requestingMembership.status === 'removed') {
+            return res.status(403).json({
+              success: false,
+              error: 'You do not have access to view this group\'s members'
+            });
+          }
+
+          // Active member or admin - can see all members
+          const members = await this.service.getGroupMembers(groupId, status);
+          return res.json({
+            success: true,
+            data: members
+          });
+        }
+      }
+
+      // Not authenticated or not a member - can only see active member count, not details
+      const activeMembers = await this.service.getGroupMembers(groupId, 'active');
+      return res.json({
         success: true,
-        data: members
+        data: {
+          memberCount: activeMembers.length,
+          _message: 'Join this group to see member details'
+        }
       });
+
     } catch (error: unknown) {
       logger.error('Error in getGroupMembers controller:', error);
       res.status(500).json({

@@ -1,5 +1,5 @@
 // backend/src/services/AffiliateShopGroupService.ts
-import { AffiliateShopGroupRepository, AffiliateShopGroup, CreateGroupParams, UpdateGroupParams, CustomerAffiliateGroupBalance, AffiliateGroupTokenTransaction } from '../repositories/AffiliateShopGroupRepository';
+import { AffiliateShopGroupRepository, AffiliateShopGroup, AffiliateShopGroupMember, CreateGroupParams, UpdateGroupParams, CustomerAffiliateGroupBalance, AffiliateGroupTokenTransaction } from '../repositories/AffiliateShopGroupRepository';
 import { shopRepository } from '../repositories';
 import { logger } from '../utils/logger';
 import crypto from 'crypto';
@@ -124,6 +124,20 @@ export class AffiliateShopGroupService {
     } catch (error) {
       logger.error('Error checking shop membership:', error);
       return false;
+    }
+  }
+
+  /**
+   * Get shop's membership status in a group
+   * Returns the membership record with status (active, pending, rejected, removed) or null
+   */
+  async getShopMembershipStatus(groupId: string, shopId: string): Promise<AffiliateShopGroupMember | null> {
+    try {
+      const members = await this.repository.getGroupMembers(groupId);
+      return members.find(m => m.shopId === shopId) || null;
+    } catch (error) {
+      logger.error('Error getting shop membership status:', error);
+      return null;
     }
   }
 
