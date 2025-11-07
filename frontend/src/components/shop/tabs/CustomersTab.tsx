@@ -112,7 +112,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
       sortable: true,
       accessor: (customer) => (
         <span
-          className={`px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r ${getTierColor(
+          className={`inline-flex items-center justify-center w-20 px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r ${getTierColor(
             customer.tier
           )} text-white`}
         >
