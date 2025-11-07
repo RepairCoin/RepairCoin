@@ -1,6 +1,7 @@
 import { getRCGTokenReader } from '../contracts/RCGTokenReader';
 import { ShopRepository } from '../repositories/ShopRepository';
 import { BaseRepository } from '../repositories/BaseRepository';
+import { logger } from '../utils/logger';
 
 export interface ShopTierInfo {
   shopId: number;
@@ -75,7 +76,7 @@ export class RCGService extends BaseRepository {
         tierBenefits
       };
     } catch (error) {
-      console.error('Failed to get shop tier info:', error);
+      logger.error('Failed to get shop tier info:', error);
       return null;
     }
   }
@@ -140,7 +141,7 @@ export class RCGService extends BaseRepository {
 
       return distribution;
     } catch (error) {
-      console.error('Failed to get shop tier distribution:', error);
+      logger.error('Failed to get shop tier distribution:', error);
       return {
         standard: 0,
         premium: 0,
@@ -165,7 +166,7 @@ export class RCGService extends BaseRepository {
         [tierInfo.tier, tierInfo.rcgBalance, shopId]
       );
     } catch (error) {
-      console.error('Failed to update shop tier:', error);
+      logger.error('Failed to update shop tier:', error);
     }
   }
 
@@ -204,7 +205,7 @@ export class RCGService extends BaseRepository {
         discountsGiven: parseFloat(rows[0]?.discounts_given || 0)
       };
     } catch (error) {
-      console.error('Failed to calculate revenue by tier:', error);
+      logger.error('Failed to calculate revenue by tier:', error);
       return {
         standardRevenue: 0,
         premiumRevenue: 0,
@@ -241,7 +242,7 @@ export class RCGService extends BaseRepository {
         revenueImpact: revenueByTier
       };
     } catch (error) {
-      console.error('Failed to get RCG metrics:', error);
+      logger.error('Failed to get RCG metrics:', error);
       throw error;
     }
   }
@@ -288,7 +289,7 @@ export class RCGService extends BaseRepository {
       holders.sort((a, b) => parseFloat(b.balance) - parseFloat(a.balance));
       return holders.slice(0, 10);
     } catch (error) {
-      console.error('Failed to get top holders:', error);
+      logger.error('Failed to get top holders:', error);
       return [];
     }
   }

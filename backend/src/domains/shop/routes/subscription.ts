@@ -3,7 +3,6 @@ import { getSubscriptionService } from '../../../services/SubscriptionService';
 import { getStripeService } from '../../../services/StripeService';
 import { logger } from '../../../utils/logger';
 import { authMiddleware } from '../../../middleware/auth';
-// import { CommitmentRepository } from '../../../repositories/CommitmentRepository'; // Removed - commitment system deprecated
 import { DatabaseService } from '../../../services/DatabaseService';
 import { shopRepository } from '../../../repositories';
 
@@ -55,9 +54,9 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
       });
     }
 
-    console.log('🔍 SUBSCRIPTION STATUS - Checking for shop:', { 
-      shopId, 
-      user: req.user 
+    logger.info('🔍 SUBSCRIPTION STATUS - Checking for shop:', {
+      shopId,
+      user: req.user
     });
 
     // Check for Stripe subscription only (commitment enrollment system removed)
@@ -66,7 +65,7 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
     
     if (stripeSubscription) {
       // Log subscription found
-      console.log('✅ BACKEND - SUBSCRIPTION STATUS: TRUE - Active subscription found for shop:', {
+      logger.info('✅ BACKEND - SUBSCRIPTION STATUS: TRUE - Active subscription found for shop:', {
         shopId,
         subscriptionId: stripeSubscription.stripeSubscriptionId,
         status: stripeSubscription.status,
@@ -103,7 +102,7 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
         }
       });
     } else {
-      console.log('❌ BACKEND - SUBSCRIPTION STATUS: FALSE - No active subscription found for shop:', { shopId });
+      logger.info('❌ BACKEND - SUBSCRIPTION STATUS: FALSE - No active subscription found for shop:', { shopId });
       res.json({
         success: true,
         data: {
@@ -1590,8 +1589,8 @@ router.post('/subscription/cancel', async (req: Request, res: Response) => {
 publicRouter.get('/subscription/debug/:shopId', async (req: Request, res: Response) => {
   try {
     const { shopId } = req.params;
-    
-    console.log('🔍 DEBUG - Starting subscription debug for shop:', shopId);
+
+    logger.info('🔍 DEBUG - Starting subscription debug for shop:', shopId);
 
     // Check stripe_subscriptions table
     const subscriptionsQuery = `
@@ -1619,7 +1618,7 @@ publicRouter.get('/subscription/debug/:shopId', async (req: Request, res: Respon
       }
     };
 
-    console.log('🔍 DEBUG - Database results:', JSON.stringify(debugInfo, null, 2));
+    logger.info('🔍 DEBUG - Database results:', JSON.stringify(debugInfo, null, 2));
 
     res.json({
       success: true,
@@ -1627,7 +1626,7 @@ publicRouter.get('/subscription/debug/:shopId', async (req: Request, res: Respon
     });
 
   } catch (error) {
-    console.error('❌ DEBUG - Error:', error);
+    logger.error('❌ DEBUG - Error:', error);
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Debug failed'

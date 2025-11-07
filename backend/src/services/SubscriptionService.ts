@@ -188,13 +188,13 @@ export class SubscriptionService extends BaseRepository {
    */
   async getActiveSubscription(shopId: string): Promise<SubscriptionData | null> {
     const query = `
-      SELECT * FROM stripe_subscriptions 
+      SELECT * FROM stripe_subscriptions
       WHERE shop_id = $1 AND status IN ('active', 'past_due', 'unpaid')
       ORDER BY created_at DESC LIMIT 1
     `;
     const result = await this.pool.query(query, [shopId]);
-    
-    console.log('🔍 SUBSCRIPTION SERVICE - Database query result for shop:', {
+
+    logger.debug('SUBSCRIPTION SERVICE - Database query result for shop:', {
       shopId,
       rowsFound: result.rows.length,
       subscriptions: result.rows.map(row => ({
@@ -204,7 +204,7 @@ export class SubscriptionService extends BaseRepository {
         created_at: row.created_at
       }))
     });
-    
+
     return result.rows.length > 0 ? this.mapSubscriptionRow(result.rows[0]) : null;
   }
 

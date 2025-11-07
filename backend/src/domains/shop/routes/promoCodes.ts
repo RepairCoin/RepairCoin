@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { PromoCodeService } from '../../../services/PromoCodeService';
 import { authMiddleware } from '../../../middleware/auth';
+import { logger } from '../../../utils/logger';
 
 const router = Router();
 const promoCodeService = new PromoCodeService();
@@ -35,7 +36,7 @@ router.get(
         data: promoCodes
       });
     } catch (error) {
-      console.error('Error fetching promo codes:', error);
+      logger.error('Error fetching promo codes:', error);
       res.status(500).json({ 
         success: false, 
         error: error instanceof Error ? error.message : 'Failed to fetch promo codes' 
@@ -96,7 +97,7 @@ router.post(
         data: promoCode
       });
     } catch (error) {
-      console.error('Error creating promo code:', error);
+      logger.error('Error creating promo code:', error);
       res.status(400).json({ 
         success: false, 
         error: error instanceof Error ? error.message : 'Failed to create promo code' 
@@ -132,7 +133,7 @@ router.put(
         data: promoCode
       });
     } catch (error) {
-      console.error('Error updating promo code:', error);
+      logger.error('Error updating promo code:', error);
       res.status(400).json({ 
         success: false, 
         error: error instanceof Error ? error.message : 'Failed to update promo code' 
@@ -164,7 +165,7 @@ router.delete(
         message: 'Promo code deactivated successfully'
       });
     } catch (error) {
-      console.error('Error deactivating promo code:', error);
+      logger.error('Error deactivating promo code:', error);
       res.status(400).json({ 
         success: false, 
         error: error instanceof Error ? error.message : 'Failed to deactivate promo code' 
@@ -196,7 +197,7 @@ router.get(
         data: stats
       });
     } catch (error) {
-      console.error('Error fetching promo code stats:', error);
+      logger.error('Error fetching promo code stats:', error);
       res.status(400).json({ 
         success: false, 
         error: error instanceof Error ? error.message : 'Failed to fetch statistics' 
@@ -239,7 +240,7 @@ router.post(
         data: validation
       });
     } catch (error) {
-      console.error('Error validating promo code:', error);
+      logger.error('Error validating promo code:', error);
       res.status(500).json({ 
         success: false, 
         error: 'Failed to validate promo code' 
@@ -288,7 +289,7 @@ router.post(
         data: validation
       });
     } catch (error) {
-      console.error('Error validating promo code:', error);
+      logger.error('Error validating promo code:', error);
       res.status(500).json({ 
         success: false, 
         error: 'Failed to validate promo code' 
@@ -327,7 +328,7 @@ router.get(
         data: history
       });
     } catch (error) {
-      console.error('Error fetching promo history:', error);
+      logger.error('Error fetching promo history:', error);
       res.status(500).json({ 
         success: false, 
         error: 'Failed to fetch promo code history' 
@@ -367,7 +368,7 @@ router.get(
         data: promoCodes
       });
     } catch (error) {
-      console.error('Error fetching all promo codes:', error);
+      logger.error('Error fetching all promo codes:', error);
       res.status(500).json({ 
         success: false, 
         error: 'Failed to fetch promo codes' 
@@ -396,7 +397,7 @@ router.get(
         data: analytics
       });
     } catch (error) {
-      console.error('Error fetching promo code analytics:', error);
+      logger.error('Error fetching promo code analytics:', error);
       res.status(500).json({ 
         success: false, 
         error: 'Failed to fetch analytics' 

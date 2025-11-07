@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import request from 'supertest';
 import express from 'express';
-import { RepairCoinApp } from '../app';
+import RepairCoinApp from '../../src/app';
 
 describe('Wallet Detection System Tests', () => {
   let app: express.Application;
@@ -18,7 +18,7 @@ describe('Wallet Detection System Tests', () => {
   beforeAll(async () => {
     const repairCoinApp = new RepairCoinApp();
     await repairCoinApp.initialize();
-    app = repairCoinApp.getApp();
+    app = repairCoinApp.app;
     server = app.listen(0); // Use random port for testing
   });
 

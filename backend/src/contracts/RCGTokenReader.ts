@@ -1,6 +1,7 @@
 import { createThirdwebClient, getContract, ThirdwebClient, ThirdwebContract } from 'thirdweb';
 import { baseSepolia } from 'thirdweb/chains';
 import { balanceOf, totalSupply } from 'thirdweb/extensions/erc20';
+import { logger } from '../utils/logger';
 
 interface RCGStats {
   totalSupply: string;
@@ -48,7 +49,7 @@ export class RCGTokenReader {
     this.secretKey = process.env.RCG_THIRDWEB_SECRET_KEY || process.env.THIRDWEB_SECRET_KEY || '';
 
     if (!this.contractAddress || !this.clientId || !this.secretKey) {
-      console.warn('RCG token reader configuration incomplete');
+      logger.warn('RCG token reader configuration incomplete');
     }
   }
 
@@ -67,7 +68,7 @@ export class RCGTokenReader {
         address: this.contractAddress,
       });
     } catch (error) {
-      console.error('Failed to initialize RCG token reader:', error);
+      logger.error('Failed to initialize RCG token reader:', error);
       throw error;
     }
   }
@@ -95,7 +96,7 @@ export class RCGTokenReader {
         stakedAmount: '0' // Would come from staking contract
       };
     } catch (error) {
-      console.error('Failed to get RCG contract stats:', error);
+      logger.error('Failed to get RCG contract stats:', error);
       throw error;
     }
   }
@@ -131,7 +132,7 @@ export class RCGTokenReader {
       const decimalPart = (Number(remainder) / 1e18).toFixed(6).substring(2);
       return `${wholePartStr}.${decimalPart}`;
     } catch (error) {
-      console.error('Failed to get RCG balance:', error);
+      logger.error('Failed to get RCG balance:', error);
       return '0';
     }
   }
@@ -184,7 +185,7 @@ export class RCGTokenReader {
       
       return 0.10; // Fallback
     } catch (error) {
-      console.warn('Error fetching dynamic pricing, using fallback:', error);
+      logger.warn('Error fetching dynamic pricing, using fallback:', error);
       return this.getRCNPriceForTier(tier);
     }
   }

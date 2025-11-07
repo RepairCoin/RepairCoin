@@ -50,7 +50,7 @@ router.get('/treasury', async (req: Request, res: Response) => {
             treasuryData.totalSold = parseFloat(shopPurchases.rows[0]?.total_sold || '0');
             treasuryData.totalRevenue = parseFloat(shopPurchases.rows[0]?.total_revenue || '0');
         } catch (error) {
-            console.warn('shop_rcn_purchases table not found, using default values:', error);
+            logger.warn('shop_rcn_purchases table not found, using default values:', error);
         }
         
         // Get actual circulating supply from blockchain
@@ -60,10 +60,10 @@ router.get('/treasury', async (req: Request, res: Response) => {
             const contractStats = await getTokenMinter().getContractStats();
             if (contractStats && contractStats.totalSupplyReadable > 0) {
                 circulatingSupply = contractStats.totalSupplyReadable;
-                console.log('✅ Fetched circulating supply from blockchain:', circulatingSupply);
+                logger.info('✅ Fetched circulating supply from blockchain:', circulatingSupply);
             }
         } catch (error) {
-            console.warn('Could not fetch contract stats, using database value:', error);
+            logger.warn('Could not fetch contract stats, using database value:', error);
         }
         
         // Get top RCN buyers (shops with most purchases)
@@ -86,7 +86,7 @@ router.get('/treasury', async (req: Request, res: Response) => {
             `);
             topBuyers = topBuyersQuery.rows;
         } catch (error) {
-            console.warn('Error fetching top buyers, using empty list:', error);
+            logger.warn('Error fetching top buyers, using empty list:', error);
         }
         
         // Get recent RCN purchases
@@ -110,7 +110,7 @@ router.get('/treasury', async (req: Request, res: Response) => {
             `);
             recentPurchases = recentPurchasesQuery.rows;
         } catch (error) {
-            console.warn('Error fetching recent purchases, using empty list:', error);
+            logger.warn('Error fetching recent purchases, using empty list:', error);
         }
         
         // With unlimited supply, we can't calculate percentage sold
@@ -135,7 +135,7 @@ router.get('/treasury', async (req: Request, res: Response) => {
         
         res.json({ success: true, data });
     } catch (error: any) {
-        console.error('Treasury stats error:', error);
+        logger.error('Treasury stats error:', error);
         
         // Check if it's a database table missing error
         if (error.message?.includes('does not exist')) {
@@ -205,7 +205,7 @@ router.get('/treasury/rcg', async (req: Request, res: Response) => {
             });
         }
     } catch (error) {
-        console.error('Error fetching RCG metrics:', error);
+        logger.error('Error fetching RCG metrics:', error);
         res.status(500).json({ 
             success: false, 
             error: 'Failed to fetch RCG metrics' 
@@ -252,7 +252,7 @@ router.post('/treasury/update-shop-tier/:shopId', async (req: Request, res: Resp
             }
         });
     } catch (error) {
-        console.error('Error updating shop tier:', error);
+        logger.error('Error updating shop tier:', error);
         res.status(500).json({ 
             success: false, 
             error: error instanceof Error ? error.message : 'Failed to update shop tier'
@@ -327,7 +327,7 @@ router.post('/treasury/update', async (req: Request, res: Response) => {
             }
         });
     } catch (error) {
-        console.error('Error updating treasury calculations:', error);
+        logger.error('Error updating treasury calculations:', error);
         res.status(500).json({ 
             success: false, 
             error: 'Failed to update treasury calculations' 

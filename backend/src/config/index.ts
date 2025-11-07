@@ -1,3 +1,5 @@
+import { logger } from '../utils/logger';
+
 export class Config {
   static get database() {
     return {
@@ -32,7 +34,7 @@ export class Config {
   static get admin() {
     const addresses = process.env.ADMIN_ADDRESSES;
     if (!addresses) {
-      console.warn('No ADMIN_ADDRESSES configured');
+      logger.warn('No ADMIN_ADDRESSES configured');
       return [];
     }
     return addresses.split(',').map(addr => addr.trim().toLowerCase());

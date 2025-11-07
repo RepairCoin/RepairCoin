@@ -1,135 +1,185 @@
 # Production Database Migrations Guide
 
-This document lists all database migrations that need to be applied to production in the correct order.
+This document lists all database migrations in the correct order for production deployment.
 
 ## Migration System
 
-The RepairCoin backend uses a migration tracking system with the `schema_migrations` table. Each migration has a version number and must be applied in order.
+The RepairCoin backend uses a migration tracking system with the `schema_migrations` table. Each migration is numbered and must be applied in sequence.
 
-## Base Schema Setup
+## Prerequisites
 
-### 1. Initial Database Setup (`src/database/init.sql`)
-- Creates core tables: customers, shops, transactions, webhook_logs
-- Creates shop_rcn_purchases, token_sources, cross_shop_verifications
-- Creates tier_bonuses, admin_treasury tables
-- Sets up indexes and triggers
-- Creates system_health view
+Before running migrations, ensure:
+- PostgreSQL 15+ is installed
+- Database is created: `repaircoin`
+- User has necessary permissions
+- Environment variables are set (DATABASE_URL or individual DB_* vars)
 
-### 2. Migration Tracking (`migrations/000_create_migration_tracking.sql`)
-- Creates `schema_migrations` table to track applied migrations
-- Must be run first to enable migration tracking
+## Current Migration Files (In Order)
 
-## Migration Files to Apply (in order)
+The following migrations exist in `backend/migrations/`:
 
-### 3. Admin Logs (`src/migrations/003_add_admin_logs.sql`)
-- Creates `admin_activity_logs` table for audit trail
-- Creates `admin_alerts` table for monitoring
-- Adds necessary indexes
+### 1. `004_add_completed_at_to_purchases.sql`
+- Adds `completed_at` timestamp to `shop_rcn_purchases` table
+- Tracks when purchases are finalized
 
-### 4. Admin Tables (`src/migrations/004_add_admin_tables.sql`)
-- Creates comprehensive admin user management system
-- Note: Also check `migrations/008_add_admins_table.sql` for additional admin setup
+### 2. `006_remove_obsolete_columns.sql`
+- Cleans up deprecated columns from schema
+- Removes unused fields
 
-### 5. Suspension Fields (`src/migrations/005_add_suspension_fields.sql`)
-- Adds suspension functionality to customers and shops
+### 3. `016_add_social_media_fields.sql`
+- Adds social media links to shops table
+- Fields: facebook, twitter, instagram, website
 
-### 6. Admins Table (`migrations/008_add_admins_table.sql`)
-- Creates `admins` table with proper constraints
-- Includes migration version tracking
+### 4. `017_create_notifications_table.sql`
+- Creates `notifications` table for real-time user notifications
+- Supports WebSocket notification system
 
-### 7. Promo Codes System (`src/migrations/009_add_promo_codes.sql`)
-- Creates `promo_codes` table for promotional campaigns
-- Creates `promo_code_uses` tracking table
-- Includes validation function
+### 5. `018_create_affiliate_shop_groups.sql`
+- Creates `affiliate_shop_groups` table
+- Creates `affiliate_shop_group_members` table
+- Creates `affiliate_shop_group_transactions` table
+- Enables shop coalitions with custom tokens/points
 
-### 8. Stripe Subscription System (`src/migrations/012_stripe_subscriptions.sql`)
-- Creates complete Stripe integration tables:
-  - `stripe_customers`
-  - `stripe_subscriptions`
-  - `stripe_payment_methods`
-  - `stripe_payment_attempts`
-  - `stripe_subscription_events`
-  - `subscription_notifications`
-- Includes triggers for operational status updates
+### 6. `019_rename_to_affiliate_shop_groups.sql`
+- Renames shop_groups to affiliate_shop_groups
+- Updates references and constraints
 
-### 9. Fix Stripe Detection (`src/migrations/014_fix_stripe_subscription_detection.sql`)
-- Updates operational status triggers to properly detect Stripe subscriptions
-- Fixes existing shops with active subscriptions
+### 7. `020_migrate_promo_codes_schema.sql`
+- Updates promo codes schema
+- Adds new fields for enhanced promo functionality
 
-### 10. Subscription Model Updates (`migrations/add_shop_subscriptions.sql` and `update_commitment_to_subscription.sql`)
-- Converts commitment system to subscription model
-- Creates `shop_subscriptions` table (if using non-Stripe path)
-- Updates triggers and views
+### 8. `021_add_max_bonus_to_validation.sql`
+- Adds `max_bonus` field to promo code validation
+- Caps percentage-based promo bonuses
 
-### 11. RCG Token Support (`migrations/add_rcg_support.sql`)
-- Adds RCG tier system columns to shops
-- Creates `revenue_distributions` table
-- Creates `rcg_staking` table for future use
-- Adds tier calculation triggers
+### 9. `022_emergency_freeze_audit.sql`
+- Creates audit tables for emergency freezes
+- Tracks security-related account actions
 
-### 12. Purchase Revenue Tracking (`migrations/add_purchase_revenue_tracking.sql`)
-- Enhances shop_rcn_purchases with revenue distribution
-- Creates weekly revenue summary view
-- Adds automatic revenue calculation triggers
+### 10. `023_hotfix_platform_stats.sql`
+- Fixes platform statistics calculations
+- Updates aggregation queries
 
-## Migration Commands
+### 11. `024_add_shop_subscriptions_fixed_v2.sql`
+- Adds/fixes shop subscription tracking
+- Stripe subscription integration
 
-### Using npm script:
+### 12. `025_add_stripe_email_column.sql`
+- Adds email column for Stripe customer tracking
+- Required for subscription management
+
+### 13. `026_add_unique_constraints.sql`
+- Adds unique constraints to prevent duplicate data
+- Improves data integrity
+
+## Running Migrations
+
+### Using npm script (recommended):
 ```bash
+cd backend
 npm run db:migrate
 ```
 
+This executes `./scripts/run-migrations.sh` which:
+- Connects to the database
+- Checks which migrations have been applied
+- Runs only new migrations in order
+- Updates the `schema_migrations` table
+
 ### Manual migration:
 ```bash
-# Check current migration status
-psql -U $DB_USER -d $DB_NAME -c "SELECT version, name, applied_at FROM schema_migrations ORDER BY version;"
+# Check migration status
+psql $DATABASE_URL -c "SELECT version, name, applied_at FROM schema_migrations ORDER BY version;"
 
 # Apply specific migration
-psql -U $DB_USER -d $DB_NAME -f migrations/[migration-file].sql
+psql $DATABASE_URL -f migrations/004_add_completed_at_to_purchases.sql
 ```
 
-### For DigitalOcean or cloud deployment:
-Use the `src/migrations/apply_to_digitalocean.sql` which contains cloud-specific adjustments.
+## Migration Tracking
 
-## Important Notes
+The system tracks applied migrations in the `schema_migrations` table:
+```sql
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version INT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
 
-1. **Extension Requirements**: 
-   - `uuid-ossp` extension is required but may need superuser privileges
-   - `pgcrypto` extension is used in some migrations
+## Environment Variables Required
 
-2. **Migration Order**: 
-   - Always apply migrations in version order
-   - Check `schema_migrations` table before applying new ones
+```bash
+# Database connection (use one approach)
+DATABASE_URL=postgresql://user:password@host:5432/repaircoin
 
-3. **Referral System**: 
-   - There's a separate `create_referral_system.sql` migration that may need to be applied
+# OR individual variables:
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=repaircoin
+DB_USER=repaircoin
+DB_PASSWORD=your_password
 
-4. **Redemption Sessions**: 
-   - The `008_create_redemption_sessions.sql` creates customer-shop redemption approval system
-
-5. **Legacy Tables**:
-   - `commitment_enrollments` table exists but is being phased out
-   - Being replaced by Stripe subscriptions
-
-6. **Environment Variables Required**:
-   - `STRIPE_SECRET_KEY`
-   - `STRIPE_WEBHOOK_SECRET`
-   - `STRIPE_MONTHLY_PRICE_ID`
+# Stripe (for subscription migrations)
+STRIPE_SECRET_KEY=sk_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_MONTHLY_PRICE_ID=price_...
+```
 
 ## Verification
 
-After applying all migrations, verify by checking:
-```sql
--- Check all tables exist
-SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;
+After running migrations, verify everything is correct:
 
--- Check migration status
+```sql
+-- Check all applied migrations
 SELECT * FROM schema_migrations ORDER BY version;
 
--- Verify operational status triggers work
-SELECT routine_name FROM information_schema.routines WHERE routine_type = 'FUNCTION' AND routine_schema = 'public';
+-- Verify table structure
+\dt
+
+-- Check for missing tables
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
+ORDER BY table_name;
 ```
 
-## Rollback Information
+## Important Notes
 
-Most migrations include comments for rollback procedures. Always backup the database before applying migrations to production.
+1. **Never skip migrations** - Always run them in order
+2. **Backup first** - Always backup production database before migrations
+3. **Test locally** - Test migrations in development/staging first
+4. **Migration gaps** - Version numbers 001-003, 005, 007-015 were deleted during cleanup
+5. **No rollbacks** - These migrations don't include rollback scripts; restore from backup if needed
+
+## Creating New Migrations
+
+```bash
+# Use the create-migration script
+npm run db:create-migration "description_of_change"
+
+# This creates: migrations/NNN_description_of_change.sql
+# where NNN is the next sequential number
+```
+
+## Troubleshooting
+
+**"Migration already applied" error:**
+- Check `schema_migrations` table
+- Migration was already run
+
+**"Permission denied" error:**
+- Ensure database user has CREATE, ALTER, DROP permissions
+- May need SUPERUSER for certain extensions
+
+**"Table already exists" error:**
+- Migration was partially applied
+- Check which tables exist, may need manual cleanup
+- Restore from backup if unsure
+
+## Support
+
+For issues with migrations:
+1. Check migration logs for detailed error messages
+2. Verify database connection settings
+3. Ensure database user has necessary permissions
+4. Review individual migration SQL for requirements

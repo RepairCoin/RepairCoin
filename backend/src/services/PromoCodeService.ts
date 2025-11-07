@@ -1,6 +1,7 @@
 import { DatabaseService } from './DatabaseService';
 import { PromoCodeRepository, PromoCode, CreatePromoCodeData, PromoCodeValidation } from '../repositories/PromoCodeRepository';
 import { eventBus } from '../events/EventBus';
+import { logger } from '../utils/logger';
 
 export interface PromoCodeBonus {
   isValid: boolean;
@@ -230,13 +231,13 @@ export class PromoCodeService {
   }
 
   async validatePromoCode(code: string, shopId: string, customerAddress: string): Promise<PromoCodeValidation> {
-    console.log('PromoCodeService.validatePromoCode called:', { code, shopId, customerAddress });
+    logger.debug('PromoCodeService.validatePromoCode called:', { code, shopId, customerAddress });
     try {
       const result = await this.promoCodeRepo.validate(code, shopId, customerAddress);
-      console.log('PromoCodeService validation result:', result);
+      logger.debug('PromoCodeService validation result:', result);
       return result;
     } catch (error) {
-      console.error('PromoCodeService.validatePromoCode error:', error);
+      logger.error('PromoCodeService.validatePromoCode error:', error);
       throw error;
     }
   }

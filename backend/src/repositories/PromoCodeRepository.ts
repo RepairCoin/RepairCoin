@@ -1,5 +1,6 @@
 import { BaseRepository } from './BaseRepository';
 import { Pool } from 'pg';
+import { logger } from '../utils/logger';
 
 export interface PromoCode {
   id: number;
@@ -191,14 +192,14 @@ export class PromoCodeRepository extends BaseRepository {
     const query = 'SELECT * FROM validate_promo_code($1, $2, $3)';
     const values = [code, shopId, customerAddress.toLowerCase()];
 
-    console.log('Validating promo code:', { code, shopId, customerAddress: customerAddress.toLowerCase() });
+    logger.debug('Validating promo code:', { code, shopId, customerAddress: customerAddress.toLowerCase() });
 
     try {
       const result = await this.pool.query<PromoCodeValidation>(query, values);
-      console.log('Validation result:', result.rows[0]);
+      logger.debug('Validation result:', result.rows[0]);
       return result.rows[0];
     } catch (error) {
-      console.error('Error in validate method:', error);
+      logger.error('Error in validate method:', error);
       throw error;
     }
   }

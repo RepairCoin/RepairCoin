@@ -133,10 +133,19 @@ router.get(
 /**
  * @route   GET /api/affiliate-shop-groups/:groupId
  * @desc    Get group by ID
- * @access  Public
+ * @access  Public (limited info for non-members of private groups)
+ * @note    Optional authentication - if authenticated, checks membership for private groups
  */
 router.get(
   '/:groupId',
+  (req, res, next) => {
+    // Try to authenticate but don't fail if not authenticated
+    if (req.headers.authorization) {
+      authMiddleware(req, res, next);
+    } else {
+      next();
+    }
+  },
   groupController.getGroup
 );
 

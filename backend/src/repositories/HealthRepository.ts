@@ -1,5 +1,6 @@
 // backend/src/repositories/HealthRepository.ts
 import { BaseRepository } from './BaseRepository';
+import { logger } from '../utils/logger';
 
 export interface DatabaseHealthStatus {
   status: 'healthy' | 'degraded' | 'unhealthy';
@@ -45,7 +46,7 @@ export class HealthRepository extends BaseRepository {
         }
       };
     } catch (error) {
-      console.error('Database health check failed:', error);
+      logger.error('Database health check failed:', error);
       return {
         status: 'unhealthy',
         details: {

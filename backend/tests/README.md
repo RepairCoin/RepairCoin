@@ -1,6 +1,6 @@
 # RepairCoin Backend Tests
 
-This directory contains comprehensive test suites for the RepairCoin backend, organized by user perspective.
+This directory contains comprehensive test suites for the RepairCoin backend, organized by user perspective and test type.
 
 ## Test Structure
 
@@ -15,7 +15,13 @@ tests/
 │   └── shop.operations.test.ts
 ├── customer/            # Customer-specific tests
 │   ├── customer.registration.test.ts
-│   └── customer.earnings.test.ts
+│   ├── customer.earnings.test.ts
+│   ├── customer.edge-cases.test.ts
+│   └── customer.comprehensive.test.ts
+├── integration/         # End-to-end integration tests
+│   └── full-flow.test.ts
+├── unit/                # Unit tests for specific features
+│   └── wallet-detection.test.ts
 └── setup.ts            # Global test setup
 ```
 

@@ -116,6 +116,18 @@ export class AffiliateShopGroupService {
   }
 
   /**
+   * Check if a shop is a member of a group
+   */
+  async isShopMember(groupId: string, shopId: string): Promise<boolean> {
+    try {
+      return await this.repository.isShopMemberOfGroup(groupId, shopId);
+    } catch (error) {
+      logger.error('Error checking shop membership:', error);
+      return false;
+    }
+  }
+
+  /**
    * Get all public groups or groups filtered by criteria
    */
   async getAllGroups(filters: {

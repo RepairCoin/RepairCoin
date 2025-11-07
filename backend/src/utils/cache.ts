@@ -1,5 +1,6 @@
 // backend/src/utils/cache.ts
 import { Request, Response, NextFunction } from 'express';
+import { logger } from './logger';
 
 interface CustomerData {
   address: string;
@@ -88,7 +89,7 @@ export class MemoryCache {
     }
     
     if (deletedCount > 0) {
-      console.log(`Cache cleanup: removed ${deletedCount} expired items`);
+      logger.debug(`Cache cleanup: removed ${deletedCount} expired items`);
     }
   }
 

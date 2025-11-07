@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { ShopRepository } from '../../../repositories/ShopRepository';
 import jwt from 'jsonwebtoken';
+import { logger } from '../../../utils/logger';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
@@ -86,9 +87,9 @@ router.post('/shops/:shopId/update-rcg-balance', verifyAdminToken, async (req: R
             }
         });
     } catch (error) {
-        console.error('Error updating shop RCG balance:', error);
-        res.status(500).json({ 
-            success: false, 
+        logger.error('Error updating shop RCG balance:', error);
+        res.status(500).json({
+            success: false,
             error: 'Failed to update shop RCG balance',
             details: error instanceof Error ? error.message : 'Unknown error'
         });

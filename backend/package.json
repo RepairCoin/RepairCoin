@@ -31,12 +31,8 @@
     "postbuild": "cp package.json dist/",
     "typecheck": "tsc --noEmit",
     "healthcheck": "curl http://localhost:3000/api/health",
-    "_comment_migrations": "# Database Migration Commands - Clean migration system",
-    "migrate": "cd migrations/clean && ./run-migrations.sh update",
-    "migrate:fresh": "cd migrations/clean && ./run-migrations.sh fresh",
-    "migrate:update": "cd migrations/clean && ./run-migrations.sh update",
+    "_comment_migrations": "# Database Migration Commands",
     "db:migrate": "./scripts/run-migrations.sh",
-    "db:check": "node scripts/check-db.js",
     "db:create-migration": "node scripts/create-migration.js",
     "_predev_disabled": "npm run db:check",
     "docs": "echo 'API Documentation available at: http://localhost:3000/api-docs'",
@@ -45,11 +41,6 @@
     "docs:validate": "swagger-codegen validate -i http://localhost:3000/api-docs.json || echo 'swagger-codegen not installed'",
     "dev:docs": "concurrently \"npm run dev\" \"sleep 5 && npm run docs:open\"",
     "postinstall": "echo 'Development server: npm run dev' && echo 'API Documentation: npm run docs:open'",
-    "db:init": "node scripts/init-db.js",
-    "db:init:prod": "NODE_ENV=production node scripts/init-db.js",
-    "check-redemptions": "node scripts/check-redemptions.js",
-    "fix-invalid-redemptions": "node scripts/fix-invalid-redemptions.js",
-    "db:test": "node scripts/init-db-simple.js",
     "admin": "ts-node src/cli/admin.ts",
     "admin:list": "ts-node src/cli/admin.ts list",
     "admin:add": "ts-node src/cli/admin.ts add",
@@ -150,18 +141,5 @@
       "src/**/*.test.ts"
     ],
     "exec": "ts-node src/app.ts"
-  },
-  "jest": {
-    "preset": "ts-jest",
-    "testEnvironment": "node",
-    "testMatch": [
-      "**/__tests__/**/*.ts",
-      "**/?(*.)+(spec|test).ts"
-    ],
-    "collectCoverageFrom": [
-      "src/**/*.ts",
-      "!src/**/*.test.ts",
-      "!src/**/*.spec.ts"
-    ]
   }
 }

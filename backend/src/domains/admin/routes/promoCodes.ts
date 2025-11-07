@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { PromoCodeService } from '../../../services/PromoCodeService';
+import { logger } from '../../../utils/logger';
 
 const router = Router();
 const promoCodeService = new PromoCodeService();
@@ -26,7 +27,7 @@ router.get(
         data: promoCodes
       });
     } catch (error: any) {
-      console.error('Error fetching all promo codes:', error);
+      logger.error('Error fetching all promo codes:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to fetch promo codes'
@@ -47,7 +48,7 @@ router.get(
         data: analytics
       });
     } catch (error: any) {
-      console.error('Error fetching promo code analytics:', error);
+      logger.error('Error fetching promo code analytics:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to fetch analytics'
