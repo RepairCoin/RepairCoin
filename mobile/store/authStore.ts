@@ -332,7 +332,7 @@ export const useAuthStore = create<AuthState>()(
           try {
             // Set the account
             setAccount({ address });
-            
+
             // Check if user exists
             const userCheck = await checkUserExists(address);
             

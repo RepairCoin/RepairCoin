@@ -51,7 +51,8 @@ router.post('/token', async (req, res) => {
       if (!userType) {
         // Check if user is a shop
         try {
-          const allShops = await shopRepository.getShopsPaginated({ active: true, page: 1, limit: 1000 });
+          // Don't filter by active status - check all shops
+          const allShops = await shopRepository.getShopsPaginated({ page: 1, limit: 1000 });
           const shop = allShops.items.find(s => s.walletAddress?.toLowerCase() === normalizedAddress);
           
           if (shop) {
@@ -225,7 +226,8 @@ router.post('/check-user', async (req, res) => {
     // Check if user is a shop  
     try {
       // Get shop by wallet address - we need to find the shop with this wallet
-      const allShops = await shopRepository.getShopsPaginated({ active: true, page: 1, limit: 1000 });
+      // Don't filter by active status here - we need to check if the shop exists first
+      const allShops = await shopRepository.getShopsPaginated({ page: 1, limit: 1000 });
       const shop = allShops.items.find(s => s.walletAddress?.toLowerCase() === normalizedAddress);
       
       if (shop) {
@@ -238,9 +240,14 @@ router.post('/check-user', async (req, res) => {
             address: shop.walletAddress,
             walletAddress: shop.walletAddress,
             name: shop.name,
+            companyName: shop.name,
             shopName: shop.name,
             email: shop.email,
+            phone: shop.phone,
             active: shop.active,
+            isActive: shop.active,
+            verified: shop.verified,
+            isVerified: shop.verified,
             createdAt: shop.joinDate
           }
         });
@@ -341,7 +348,8 @@ router.post('/profile', async (req, res) => {
 
     // Check shop
     try {
-      const allShops = await shopRepository.getShopsPaginated({ active: true, page: 1, limit: 1000 });
+      // Don't filter by active status - check all shops
+      const allShops = await shopRepository.getShopsPaginated({ page: 1, limit: 1000 });
       const shop = allShops.items.find(s => s.walletAddress?.toLowerCase() === normalizedAddress);
       
       if (shop) {

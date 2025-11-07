@@ -122,19 +122,11 @@ export default function RegisterAsShopPage() {
   const handleGoNext = useCallback(() => {
     if (index < slides.length - 1) {
       flatRef.current?.scrollToIndex({ index: index + 1, animated: true });
-      console.log("Moving to slide", index + 1);
-      console.log("Current form data:", formData);
     }
   }, [index, slides.length, formData]);
 
   // Form Submission
   const handleSubmit = useCallback(async () => {
-    console.log("=== FORM SUBMISSION STARTED ===");
-    console.log(
-      "Current formData at submission:",
-      JSON.stringify(formData, null, 2)
-    );
-
     if (!account?.address) {
       Alert.alert(
         "Error",
@@ -153,13 +145,10 @@ export default function RegisterAsShopPage() {
 
       // Call the mutation
       registerShop(submissionData, {
-        onSuccess: () => {
-          console.log("Form submission successful!");
-          console.log(
-            "Final form data submitted:",
-            JSON.stringify(submissionData, null, 2)
-          );
-          // Navigation is handled by the hook's onSuccess
+        onSuccess: (result) => {
+          if (result.success) {
+            router.push("/register/pending");
+          }
         },
         onError: (error) => {
           console.error("Registration error:", error);

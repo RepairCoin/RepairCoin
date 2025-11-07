@@ -1,8 +1,12 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { router } from 'expo-router';
-import { useAuthStore } from '../store/authStore';
-import { queryKeys } from '@/config/queryClient';
-import { getAuthCustomer, registerAsShop, ShopRegistrationFormData } from '@/services/authServices';
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { router } from "expo-router";
+import { useAuthStore } from "../store/authStore";
+import { queryKeys } from "@/config/queryClient";
+import {
+  getAuthCustomer,
+  registerAsShop,
+  ShopRegistrationFormData,
+} from "@/services/authServices";
 
 // Legacy - keeping for backward compatibility if needed
 // All auth state is now managed by Zustand store (authStore.ts)
@@ -25,11 +29,11 @@ export const useAuthCustomer = (address: string) => {
 // Hook to handle logout
 export const useLogout = () => {
   const logout = useAuthStore((state) => state.logout);
-  
+
   return useMutation({
     mutationFn: async () => {
       logout();
-      router.replace('/onboarding1');
+      router.replace("/onboarding1");
     },
   });
 };
@@ -39,11 +43,12 @@ export const useConnectWallet = () => {
   const connectWallet = useAuthStore((state) => state.connectWallet);
   const isCustomer = useAuthStore((state) => state.isCustomer);
   const isShop = useAuthStore((state) => state.isShop);
-  
+  const profile = useAuthStore((state) => state.userProfile);
+
   return useMutation({
     mutationFn: async (address: string) => {
       if (!address) {
-        throw new Error('No wallet address provided');
+        throw new Error("No wallet address provided");
       }
       return await connectWallet(address);
     },
@@ -57,8 +62,12 @@ export const useConnectWallet = () => {
           if (isCustomer) {
             router.push("/customer/tabs/home");
           } else if (isShop) {
-            // TODO: Add shop dashboard when available
-            router.push("/shop/tabs/home");
+            const active = profile?.isActive || false;
+            if (active) {
+              router.push("/shop/tabs/home");
+            } else {
+              router.push("/register/pending");
+            }
           } else {
             router.push("/customer/tabs/home");
           }
@@ -66,7 +75,7 @@ export const useConnectWallet = () => {
       }
     },
     onError: (error: any) => {
-      console.error('[useConnectWallet] Error:', error);
+      console.error("[useConnectWallet] Error:", error);
     },
   });
 };
@@ -78,34 +87,40 @@ export const useSplashNavigation = () => {
   const isShop = useAuthStore((state) => state.isShop);
   const checkStoredAuth = useAuthStore((state) => state.checkStoredAuth);
   const isLoading = useAuthStore((state) => state.isLoading);
-  
+
   // Check stored auth on mount
   const { mutate: checkAuth, isPending } = useMutation({
     mutationFn: checkStoredAuth,
   });
-  
+
   // Determine navigation route
   const getNavigationRoute = () => {
+    const profile = useAuthStore((state) => state.userProfile);
+
     if (isPending || isLoading) {
       return null; // Still checking
     }
-    
+
     if (isAuthenticated) {
       // User is authenticated, go to appropriate dashboard
       if (isCustomer) {
-        return '/customer/tabs/home';
+        return "/customer/tabs/home";
       } else if (isShop) {
-        // TODO: Add shop dashboard route when implemented
-        return '/shop/tabs/home';
+        const active = profile?.isActive || false;
+        if (active) {
+          return "/shop/tabs/home";
+        } else {
+          return "/register/pending";
+        }
       } else {
         return null;
       }
     } else {
       // Not authenticated, go to onboarding
-      return '/onboarding1';
+      return "/onboarding1";
     }
   };
-  
+
   return {
     checkAuth,
     isLoading: isPending || isLoading,
@@ -116,11 +131,11 @@ export const useSplashNavigation = () => {
 
 export const useRegisterShop = () => {
   const login = useAuthStore((state) => state.login);
-  
+
   return useMutation({
     mutationFn: async (formData: ShopRegistrationFormData) => {
       if (!formData.walletAddress) {
-        throw new Error('No wallet address provided');
+        throw new Error("No wallet address provided");
       }
 
       // Pass the form data directly to registerAsShop
@@ -134,7 +149,7 @@ export const useRegisterShop = () => {
       }
     },
     onError: (error: any) => {
-      console.error('[useRegisterShop] Error:', error);
+      console.error("[useRegisterShop] Error:", error);
       throw error;
     },
   });

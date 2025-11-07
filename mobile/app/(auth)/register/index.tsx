@@ -1,10 +1,18 @@
 import PrimaryButton from "@/components/ui/PrimaryButton";
 import Screen from "@/components/ui/Screen";
-import { Entypo, MaterialIcons } from "@expo/vector-icons";
+import { Entypo, MaterialIcons, Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { View, Image, Text, ImageBackground, Pressable } from "react-native";
+import { useAuthStore } from "@/store/authStore";
 
 export default function ChoosePage() {
+  const logout = useAuthStore((state) => state.logout);
+
+  const handleLogout = () => {
+    logout();
+    router.replace("/onboarding1");
+  };
+
   return (
     <Screen>
       <ImageBackground
@@ -41,6 +49,19 @@ export default function ChoosePage() {
             <Entypo name="shop" color="#000" size={24} />
             <Text className="text-xl font-extrabold text-black">
               I'm a Shop Owner
+            </Text>
+          </Pressable>
+          
+          {/* Logout Button */}
+          <Pressable
+            onPress={handleLogout}
+            className="w-full items-center py-4 bg-gray-700 mt-6 rounded-full flex-row justify-center gap-3"
+            style={{ minHeight: 50 }}
+            android_ripple={{ color: "rgba(255,255,255,0.1)", borderless: false }}
+          >
+            <Ionicons name="log-out-outline" color="#FFF" size={24} />
+            <Text className="text-xl font-semibold text-white">
+              Logout
             </Text>
           </Pressable>
         </View>
