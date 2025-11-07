@@ -1,6 +1,6 @@
 import { AntDesign } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
-import { View, Text, TextInput, Alert } from "react-native";
+import { View, Text, TextInput, Alert, Platform } from "react-native";
 import Screen from "@/components/ui/Screen";
 import { useState } from "react";
 import PrimaryButton from "@/components/ui/PrimaryButton";
@@ -51,7 +51,7 @@ export default function EditProfilePage() {
   return (
     <Screen>
       <View className="w-full h-full px-4">
-        <View className="pt-16 gap-4">
+        <View className={`${Platform.OS === "ios" ? "pt-4" : "pt-16"} gap-4`}>
           <View className="flex-row justify-between items-center">
             <AntDesign name="left" color="white" size={18} onPress={goBack} />
             <Text className="text-white text-2xl font-extrabold">
