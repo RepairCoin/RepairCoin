@@ -383,34 +383,37 @@ export const AdvancedTreasuryTab: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 pb-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-white">Advanced Treasury Management</h1>
-        <div className="flex gap-3">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-white">Advanced Treasury Management</h1>
+        <div className="flex flex-col xs:flex-row gap-2 sm:gap-3">
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+            className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 text-sm sm:text-base"
           >
             {refreshing && <RefreshCw className="w-4 h-4 animate-spin" />}
-            Refresh Data
+            <span className="hidden xs:inline">Refresh Data</span>
+            <span className="xs:hidden">Refresh</span>
           </button>
           {freezeStatus?.isFrozen ? (
             <button
               onClick={() => setShowEmergencyUnfreeze(true)}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+              className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base whitespace-nowrap"
             >
               <Shield className="w-4 h-4" />
-              Lift Emergency Freeze
+              <span className="hidden sm:inline">Lift Emergency Freeze</span>
+              <span className="sm:hidden">Unfreeze</span>
             </button>
           ) : (
             <button
               onClick={() => setShowEmergencyFreeze(true)}
-              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+              className="bg-red-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base whitespace-nowrap"
             >
               <Shield className="w-4 h-4" />
-              Emergency Freeze
+              <span className="hidden sm:inline">Emergency Freeze</span>
+              <span className="sm:hidden">Freeze</span>
             </button>
           )}
         </div>
@@ -462,128 +465,130 @@ export const AdvancedTreasuryTab: React.FC = () => {
       )}
 
       {/* Navigation Tabs */}
-      <div className="flex space-x-1 bg-gray-800 rounded-xl p-1">
-        {[
-          { id: 'overview', label: 'Overview', icon: DollarSign },
-          { id: 'rcg', label: 'RCG Metrics', icon: PieChart },
-          { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-          { id: 'operations', label: 'Operations', icon: Settings },
-          { id: 'pricing', label: 'Pricing', icon: TrendingUp }
-        ].map((tab) => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-                activeTab === tab.id
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-700'
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              {tab.label}
-            </button>
-          );
-        })}
+      <div className="bg-gray-800 rounded-xl p-1 overflow-x-auto">
+        <div className="flex space-x-1 min-w-max sm:min-w-0">
+          {[
+            { id: 'overview', label: 'Overview', icon: DollarSign },
+            { id: 'rcg', label: 'RCG Metrics', icon: PieChart },
+            { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+            { id: 'operations', label: 'Operations', icon: Settings },
+            { id: 'pricing', label: 'Pricing', icon: TrendingUp }
+          ].map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex-1 sm:flex-1 py-2.5 sm:py-3 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-medium transition-colors flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                <span className="hidden xs:inline">{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Tab Content */}
       {activeTab === 'overview' && treasuryStats && (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Treasury Overview Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-xl p-6 border border-blue-700">
-              <div className="text-3xl mb-2">💎</div>
-              <p className="text-sm text-gray-400 mb-1">Total Revenue</p>
-              <p className="text-2xl font-bold text-white">{formatCurrency(treasuryStats.totalRevenue)}</p>
-              <p className="text-sm text-blue-400 mt-1">From shop purchases</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+            <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-xl p-4 sm:p-6 border border-blue-700">
+              <div className="text-2xl sm:text-3xl mb-2">💎</div>
+              <p className="text-xs sm:text-sm text-gray-400 mb-1">Total Revenue</p>
+              <p className="text-xl sm:text-2xl font-bold text-white">{formatCurrency(treasuryStats.totalRevenue)}</p>
+              <p className="text-xs sm:text-sm text-blue-400 mt-1">From shop purchases</p>
             </div>
 
-            <div className="bg-gradient-to-br from-green-900 to-green-800 rounded-xl p-6 border border-green-700">
-              <div className="text-3xl mb-2">🏪</div>
-              <p className="text-sm text-gray-400 mb-1">RCN Sold to Shops</p>
-              <p className="text-2xl font-bold text-white">{formatNumber(treasuryStats.totalSold)} RCN</p>
-              <p className="text-sm text-green-400 mt-1">Available for rewards</p>
+            <div className="bg-gradient-to-br from-green-900 to-green-800 rounded-xl p-4 sm:p-6 border border-green-700">
+              <div className="text-2xl sm:text-3xl mb-2">🏪</div>
+              <p className="text-xs sm:text-sm text-gray-400 mb-1">RCN Sold to Shops</p>
+              <p className="text-xl sm:text-2xl font-bold text-white">{formatNumber(treasuryStats.totalSold)} RCN</p>
+              <p className="text-xs sm:text-sm text-green-400 mt-1">Available for rewards</p>
             </div>
 
-            <div className="bg-gradient-to-br from-purple-900 to-purple-800 rounded-xl p-6 border border-purple-700">
-              <div className="text-3xl mb-2">🎁</div>
-              <p className="text-sm text-gray-400 mb-1">Circulating Supply</p>
-              <p className="text-2xl font-bold text-white">{formatNumber(treasuryStats.circulatingSupply || 0)} RCN</p>
-              <p className="text-sm text-purple-400 mt-1">In customer wallets</p>
+            <div className="bg-gradient-to-br from-purple-900 to-purple-800 rounded-xl p-4 sm:p-6 border border-purple-700">
+              <div className="text-2xl sm:text-3xl mb-2">🎁</div>
+              <p className="text-xs sm:text-sm text-gray-400 mb-1">Circulating Supply</p>
+              <p className="text-xl sm:text-2xl font-bold text-white">{formatNumber(treasuryStats.circulatingSupply || 0)} RCN</p>
+              <p className="text-xs sm:text-sm text-purple-400 mt-1">In customer wallets</p>
             </div>
 
-            <div className="bg-gradient-to-br from-orange-900 to-orange-800 rounded-xl p-6 border border-orange-700">
-              <div className="text-3xl mb-2">⚠️</div>
-              <p className="text-sm text-gray-400 mb-1">Discrepancies</p>
-              <p className="text-2xl font-bold text-white">{treasuryStats.warnings?.customersWithMissingTokens || 0}</p>
-              <p className="text-sm text-orange-400 mt-1">Customers affected</p>
+            <div className="bg-gradient-to-br from-orange-900 to-orange-800 rounded-xl p-4 sm:p-6 border border-orange-700">
+              <div className="text-2xl sm:text-3xl mb-2">⚠️</div>
+              <p className="text-xs sm:text-sm text-gray-400 mb-1">Discrepancies</p>
+              <p className="text-xl sm:text-2xl font-bold text-white">{treasuryStats.warnings?.customersWithMissingTokens || 0}</p>
+              <p className="text-xs sm:text-sm text-orange-400 mt-1">Customers affected</p>
             </div>
           </div>
         </div>
       )}
 
       {activeTab === 'rcg' && rcgMetrics && (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* RCG Token Overview */}
-          <div className="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700">
-            <h2 className="text-2xl font-bold text-white mb-6">RCG Token Distribution</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-gradient-to-br from-purple-900 to-purple-800 rounded-xl p-6 border border-purple-700">
-                <div className="text-3xl mb-2">💜</div>
-                <p className="text-sm text-gray-400 mb-1">Total Supply</p>
-                <p className="text-2xl font-bold text-white">{formatNumber(parseInt(rcgMetrics.totalSupply))} RCG</p>
+          <div className="bg-gray-800 rounded-xl sm:rounded-2xl shadow-xl p-4 sm:p-6 md:p-8 border border-gray-700">
+            <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-white mb-4 sm:mb-6">RCG Token Distribution</h2>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
+              <div className="bg-gradient-to-br from-purple-900 to-purple-800 rounded-xl p-4 sm:p-6 border border-purple-700">
+                <div className="text-2xl sm:text-3xl mb-2">💜</div>
+                <p className="text-xs sm:text-sm text-gray-400 mb-1">Total Supply</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">{formatNumber(parseInt(rcgMetrics.totalSupply))} RCG</p>
                 <p className="text-xs text-purple-400 mt-1">Fixed supply</p>
               </div>
-              
-              <div className="bg-gradient-to-br from-indigo-900 to-indigo-800 rounded-xl p-6 border border-indigo-700">
-                <div className="text-3xl mb-2">🔄</div>
-                <p className="text-sm text-gray-400 mb-1">Circulating Supply</p>
-                <p className="text-2xl font-bold text-white">{formatNumber(parseInt(rcgMetrics.circulatingSupply))} RCG</p>
+
+              <div className="bg-gradient-to-br from-indigo-900 to-indigo-800 rounded-xl p-4 sm:p-6 border border-indigo-700">
+                <div className="text-2xl sm:text-3xl mb-2">🔄</div>
+                <p className="text-xs sm:text-sm text-gray-400 mb-1">Circulating Supply</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">{formatNumber(parseInt(rcgMetrics.circulatingSupply))} RCG</p>
                 <p className="text-xs text-indigo-400 mt-1">Available for trading</p>
               </div>
-              
-              <div className="bg-gradient-to-br from-pink-900 to-pink-800 rounded-xl p-6 border border-pink-700">
-                <div className="text-3xl mb-2">🏪</div>
-                <p className="text-sm text-gray-400 mb-1">Total Shops</p>
-                <p className="text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.total}</p>
+
+              <div className="bg-gradient-to-br from-pink-900 to-pink-800 rounded-xl p-4 sm:p-6 border border-pink-700">
+                <div className="text-2xl sm:text-3xl mb-2">🏪</div>
+                <p className="text-xs sm:text-sm text-gray-400 mb-1">Total Shops</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.total}</p>
                 <p className="text-xs text-pink-400 mt-1">Active partners</p>
               </div>
             </div>
           </div>
 
           {/* Shop Tier Distribution */}
-          <div className="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700">
-            <h3 className="text-xl font-bold text-white mb-4">Shop Tier Distribution</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-gradient-to-br from-green-900 to-green-800 rounded-xl p-6 border border-green-700">
-                <div className="text-2xl mb-2">🥉</div>
-                <p className="text-sm text-gray-400 mb-1">Standard Tier</p>
-                <p className="text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.standard}</p>
+          <div className="bg-gray-800 rounded-xl sm:rounded-2xl shadow-xl p-4 sm:p-6 md:p-8 border border-gray-700">
+            <h3 className="text-base sm:text-lg md:text-xl font-bold text-white mb-3 sm:mb-4">Shop Tier Distribution</h3>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+              <div className="bg-gradient-to-br from-green-900 to-green-800 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-green-700">
+                <div className="text-xl sm:text-2xl mb-1 sm:mb-2">🥉</div>
+                <p className="text-xs sm:text-sm text-gray-400 mb-1">Standard Tier</p>
+                <p className="text-lg sm:text-xl md:text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.standard}</p>
                 <p className="text-xs text-gray-500">10K-49K RCG</p>
               </div>
-              
-              <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-xl p-6 border border-blue-700">
-                <div className="text-2xl mb-2">🥈</div>
-                <p className="text-sm text-gray-400 mb-1">Premium Tier</p>
-                <p className="text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.premium}</p>
+
+              <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-blue-700">
+                <div className="text-xl sm:text-2xl mb-1 sm:mb-2">🥈</div>
+                <p className="text-xs sm:text-sm text-gray-400 mb-1">Premium Tier</p>
+                <p className="text-lg sm:text-xl md:text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.premium}</p>
                 <p className="text-xs text-blue-400">50K-199K RCG</p>
               </div>
-              
-              <div className="bg-gradient-to-br from-yellow-900 to-yellow-800 rounded-xl p-6 border border-yellow-700">
-                <div className="text-2xl mb-2">🥇</div>
-                <p className="text-sm text-gray-400 mb-1">Elite Tier</p>
-                <p className="text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.elite}</p>
+
+              <div className="bg-gradient-to-br from-yellow-900 to-yellow-800 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-yellow-700">
+                <div className="text-xl sm:text-2xl mb-1 sm:mb-2">🥇</div>
+                <p className="text-xs sm:text-sm text-gray-400 mb-1">Elite Tier</p>
+                <p className="text-lg sm:text-xl md:text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.elite}</p>
                 <p className="text-xs text-yellow-400">200K+ RCG</p>
               </div>
-              
-              <div className="bg-gradient-to-br from-red-900 to-red-800 rounded-xl p-6 border border-red-700">
-                <div className="text-2xl mb-2">❌</div>
-                <p className="text-sm text-gray-400 mb-1">No Tier</p>
-                <p className="text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.none}</p>
+
+              <div className="bg-gradient-to-br from-red-900 to-red-800 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-red-700">
+                <div className="text-xl sm:text-2xl mb-1 sm:mb-2">❌</div>
+                <p className="text-xs sm:text-sm text-gray-400 mb-1">No Tier</p>
+                <p className="text-lg sm:text-xl md:text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.none}</p>
                 <p className="text-xs text-red-400">&lt;10K RCG</p>
               </div>
             </div>
@@ -629,17 +634,17 @@ export const AdvancedTreasuryTab: React.FC = () => {
       )}
 
       {activeTab === 'analytics' && (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Analytics Controls */}
-          <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-white">Treasury Analytics</h2>
-              <div className="flex items-center gap-4">
-                <label className="text-sm text-gray-400">Period:</label>
+          <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+              <h2 className="text-lg sm:text-xl font-bold text-white">Treasury Analytics</h2>
+              <div className="flex items-center gap-2 sm:gap-4">
+                <label className="text-xs sm:text-sm text-gray-400">Period:</label>
                 <select
                   value={analyticsPeriod}
                   onChange={(e) => setAnalyticsPeriod(e.target.value as any)}
-                  className="bg-gray-700 text-white rounded-lg px-3 py-2 border border-gray-600"
+                  className="bg-gray-700 text-white rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-sm border border-gray-600 flex-1 sm:flex-initial"
                 >
                   <option value="7d">Last 7 days</option>
                   <option value="30d">Last 30 days</option>
@@ -803,9 +808,9 @@ export const AdvancedTreasuryTab: React.FC = () => {
       )}
 
       {activeTab === 'operations' && (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Operations Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
             {/* Manual Token Transfer */}
             <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
               <div className="flex items-center gap-3 mb-4">
@@ -942,56 +947,56 @@ export const AdvancedTreasuryTab: React.FC = () => {
       
       {/* Manual Transfer Modal */}
       {showManualTransfer && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md border border-gray-700">
-            <h3 className="text-xl font-bold text-white mb-4">Manual Token Transfer</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-xl p-4 sm:p-6 w-full max-w-md border border-gray-700">
+            <h3 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">Manual Token Transfer</h3>
             
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Customer Address</label>
+                <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-2">Customer Address</label>
                 <input
                   type="text"
                   value={manualTransferForm.customerAddress}
                   onChange={(e) => setManualTransferForm(prev => ({ ...prev, customerAddress: e.target.value }))}
-                  className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 border border-gray-600 focus:border-blue-500"
+                  className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm border border-gray-600 focus:border-blue-500 focus:outline-none"
                   placeholder="0x..."
                 />
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Amount (RCN)</label>
+                <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-2">Amount (RCN)</label>
                 <input
                   type="number"
                   value={manualTransferForm.amount}
                   onChange={(e) => setManualTransferForm(prev => ({ ...prev, amount: e.target.value }))}
-                  className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 border border-gray-600 focus:border-blue-500"
+                  className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm border border-gray-600 focus:border-blue-500 focus:outline-none"
                   placeholder="0.00"
                 />
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Reason</label>
+                <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-2">Reason</label>
                 <textarea
                   value={manualTransferForm.reason}
                   onChange={(e) => setManualTransferForm(prev => ({ ...prev, reason: e.target.value }))}
-                  className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 border border-gray-600 focus:border-blue-500"
+                  className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm border border-gray-600 focus:border-blue-500 focus:outline-none"
                   placeholder="Explain the reason for this transfer..."
                   rows={3}
                 />
               </div>
             </div>
             
-            <div className="flex gap-3 mt-6">
+            <div className="flex flex-col xs:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
               <button
                 onClick={() => setShowManualTransfer(false)}
-                className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
+                className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors text-sm sm:text-base"
               >
                 Cancel
               </button>
               <button
                 onClick={handleManualTransfer}
                 disabled={!manualTransferForm.customerAddress || !manualTransferForm.amount || !manualTransferForm.reason}
-                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 text-sm sm:text-base"
               >
                 Transfer
               </button>
@@ -1002,9 +1007,9 @@ export const AdvancedTreasuryTab: React.FC = () => {
 
       {/* Bulk Mint Modal */}
       {showBulkMint && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md border border-gray-700">
-            <h3 className="text-xl font-bold text-white mb-4">Bulk Token Mint</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-xl p-4 sm:p-6 w-full max-w-md border border-gray-700 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">Bulk Token Mint</h3>
             
             <div className="space-y-4">
               <div>
@@ -1043,17 +1048,17 @@ export const AdvancedTreasuryTab: React.FC = () => {
               </div>
             </div>
             
-            <div className="flex gap-3 mt-6">
+            <div className="flex flex-col xs:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
               <button
                 onClick={() => setShowBulkMint(false)}
-                className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
+                className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors text-sm sm:text-base"
               >
                 Cancel
               </button>
               <button
                 onClick={handleBulkMint}
                 disabled={!bulkMintForm.recipients || !bulkMintForm.amount || !bulkMintForm.reason}
-                className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 text-sm sm:text-base"
               >
                 Mint Tokens
               </button>
@@ -1064,9 +1069,9 @@ export const AdvancedTreasuryTab: React.FC = () => {
 
       {/* Pricing Adjustment Modal */}
       {showPricingAdjust && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md border border-gray-700">
-            <h3 className="text-xl font-bold text-white mb-4">Adjust Tier Pricing</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-xl p-4 sm:p-6 w-full max-w-md border border-gray-700">
+            <h3 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">Adjust Tier Pricing</h3>
             
             <div className="space-y-4">
               <div>
@@ -1106,17 +1111,17 @@ export const AdvancedTreasuryTab: React.FC = () => {
               </div>
             </div>
             
-            <div className="flex gap-3 mt-6">
+            <div className="flex flex-col xs:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
               <button
                 onClick={() => setShowPricingAdjust(false)}
-                className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
+                className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors text-sm sm:text-base"
               >
                 Cancel
               </button>
               <button
                 onClick={handlePricingAdjust}
                 disabled={!pricingForm.newPrice || !pricingForm.reason}
-                className="flex-1 bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                className="flex-1 bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 text-sm sm:text-base"
               >
                 Update Pricing
               </button>
@@ -1127,9 +1132,9 @@ export const AdvancedTreasuryTab: React.FC = () => {
 
       {/* Emergency Freeze Modal */}
       {showEmergencyFreeze && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md border border-gray-700">
-            <h3 className="text-xl font-bold text-red-400 mb-4">🚨 Emergency Treasury Freeze</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-xl p-4 sm:p-6 w-full max-w-md border border-gray-700">
+            <h3 className="text-lg sm:text-xl font-bold text-red-400 mb-3 sm:mb-4">🚨 Emergency Treasury Freeze</h3>
             
             <div className="bg-red-900/20 border border-red-700 rounded-lg p-4 mb-4">
               <p className="text-red-300 text-sm">
@@ -1149,17 +1154,17 @@ export const AdvancedTreasuryTab: React.FC = () => {
               />
             </div>
             
-            <div className="flex gap-3 mt-6">
+            <div className="flex flex-col xs:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
               <button
                 onClick={() => setShowEmergencyFreeze(false)}
-                className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
+                className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors text-sm sm:text-base"
               >
                 Cancel
               </button>
               <button
                 onClick={handleEmergencyFreeze}
                 disabled={!freezeReason}
-                className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 text-sm sm:text-base"
               >
                 🚨 Emergency Freeze
               </button>
@@ -1170,9 +1175,9 @@ export const AdvancedTreasuryTab: React.FC = () => {
 
       {/* Emergency Unfreeze Modal */}
       {showEmergencyUnfreeze && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-900 rounded-xl p-6 w-full max-w-md">
-            <h3 className="text-xl font-bold text-green-400 mb-4">✅ Lift Emergency Freeze</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 rounded-xl p-4 sm:p-6 w-full max-w-md">
+            <h3 className="text-lg sm:text-xl font-bold text-green-400 mb-3 sm:mb-4">✅ Lift Emergency Freeze</h3>
             <p className="text-gray-300 mb-4">
               This will restore normal treasury operations. Please provide a reason for lifting the emergency freeze.
             </p>
@@ -1190,17 +1195,17 @@ export const AdvancedTreasuryTab: React.FC = () => {
               />
             </div>
             
-            <div className="flex gap-3 mt-6">
+            <div className="flex flex-col xs:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
               <button
                 onClick={() => setShowEmergencyUnfreeze(false)}
-                className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
+                className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors text-sm sm:text-base"
               >
                 Cancel
               </button>
               <button
                 onClick={handleEmergencyUnfreeze}
                 disabled={!freezeReason}
-                className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 text-sm sm:text-base"
               >
                 ✅ Lift Emergency Freeze
               </button>
