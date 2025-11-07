@@ -10,6 +10,7 @@ interface MemberActivityStatsProps {
 export default function MemberActivityStats({ groupId }: MemberActivityStatsProps) {
   const [stats, setStats] = useState<shopGroupsAPI.MemberActivityStat[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"issued" | "redeemed" | "net" | "transactions">("issued");
 
   useEffect(() => {
@@ -18,9 +19,24 @@ export default function MemberActivityStats({ groupId }: MemberActivityStatsProp
 
   const loadStats = async () => {
     setLoading(true);
-    const data = await shopGroupsAPI.getMemberActivityStats(groupId);
-    setStats(data);
-    setLoading(false);
+    setError(null);
+    try {
+      const data = await shopGroupsAPI.getMemberActivityStats(groupId);
+      // Ensure data is an array
+      if (Array.isArray(data)) {
+        setStats(data);
+      } else {
+        console.error('Invalid data format received:', data);
+        setStats([]);
+        setError('Unable to load member activity data. You may not have access to view this information.');
+      }
+    } catch (error: unknown) {
+      console.error('Error loading member activity stats:', error);
+      setStats([]);
+      setError('Unable to load member activity data. Please check your permissions or try again later.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const sortedStats = [...stats].sort((a, b) => {
@@ -48,6 +64,23 @@ export default function MemberActivityStats({ groupId }: MemberActivityStatsProp
               <div key={i} className="h-16 bg-gray-700 rounded"></div>
             ))}
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-[#1A1A1A] rounded-lg p-6">
+        <h3 className="text-2xl font-bold text-white mb-4">👥 Member Activity</h3>
+        <div className="bg-red-900/20 border border-red-700 rounded-lg p-4">
+          <p className="text-red-400">{error}</p>
+          <button
+            onClick={loadStats}
+            className="mt-3 px-4 py-2 bg-red-700 hover:bg-red-600 text-white rounded transition-colors"
+          >
+            Try Again
+          </button>
         </div>
       </div>
     );
