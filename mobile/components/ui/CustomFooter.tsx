@@ -63,7 +63,7 @@ export default function CustomFooter() {
       },
       {
         id: "Transaction",
-        label: "Transaction",
+        label: "History",
         icon: (isActive: boolean) => (
           <Ionicons
             name="cash-outline"

@@ -7,7 +7,7 @@ export default function FindShop() {
 
   return (
     <View className="w-full h-full bg-zinc-950">
-      <View className="pt-16 px-4 gap-4">
+      <View className="pt-20 px-4 gap-4">
         <View className="flex-row justify-between items-center">
           <Text className="text-white text-xl font-semibold">Find Shop</Text>
           <View className="w-[25px]" />
@@ -21,7 +21,7 @@ export default function FindShop() {
               value={""}
               onChangeText={() => {}}
               keyboardType="email-address"
-              className="color-[#666] ml-2 w-full"
+              className="color-[#666] ml-2 w-full py-2"
             />
           </View>
         </View>

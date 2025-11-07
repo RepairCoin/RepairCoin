@@ -132,7 +132,7 @@ const BalanceCard: React.FC<{
 
           {/* Tier Badge */}
           <View
-            className="w-28 h-8 mt-4 rounded-full overflow-hidden"
+            className="w-32 h-8 mt-4 rounded-full overflow-hidden"
             style={{
               shadowColor: "black",
               shadowOffset: { width: 0, height: 6 },
@@ -147,7 +147,7 @@ const BalanceCard: React.FC<{
               end={{ x: 1, y: 1 }}
               className="w-full h-full items-center justify-center"
             >
-              <View className="items-center justify-center flex-row">
+              <View className="items-center h-full justify-center flex-row">
                 <SimpleLineIcons name="badge" color="#000" size={12} />
                 <Text className="text-black text-sm font-semibold ml-2">
                   {tierInfo.label} Tier

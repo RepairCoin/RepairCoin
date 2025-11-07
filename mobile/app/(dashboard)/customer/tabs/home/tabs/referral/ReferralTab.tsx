@@ -30,7 +30,7 @@ const HorizontalCard = ({ label, Icon, number }: HorizontalCardProps) => (
       colors={["#373737", "#121212"]}
       start={{ x: 1, y: 0 }}
       end={{ x: 0, y: 1 }}
-      className="flex-1 h-28 p-4 relative"
+      className="flex-1 h-full p-4 relative"
     >
       <View
         className="w-48 h-48 border-[#141414] border-[40px] rounded-full absolute"
@@ -39,13 +39,13 @@ const HorizontalCard = ({ label, Icon, number }: HorizontalCardProps) => (
           left: 100,
         }}
       />
-      <View className="flex-row justify-between items-center">
-        <Text className="text-[#FFCC00] text-sm font-bold">{label}</Text>
-        {Icon}
+      <View className="flex-col justify-center px-2 h-full">
+        <View className="flex-row items-center justify-between w-full">
+          <Text className="text-[#FFCC00] text-sm font-bold">{label}</Text>
+          {Icon}
+        </View>
+        <Text className="text-white text-2xl mt-2 font-semibold">{number}</Text>
       </View>
-      <Text className="text-white text-2xl mt-auto font-semibold">
-        {number}
-      </Text>
     </LinearGradient>
   </View>
 );
@@ -55,13 +55,16 @@ const CopyableField = ({
   isCopied,
   handleCopyValue,
 }: CopyableFieldProps) => {
-  const displayValue = value.length > 26 ? `${value.substring(0, 26)}...` : value;
-  
+  const displayValue =
+    value.length > 26 ? `${value.substring(0, 26)}...` : value;
+
   return (
     <Pressable
       onPress={handleCopyValue}
       className={`p-4 ${
-        isCopied ? "bg-[#FFCC00] justify-center" : "border-dashed justify-between"
+        isCopied
+          ? "bg-[#FFCC00] justify-center"
+          : "border-dashed justify-between"
       } border-2 border-[#FFCC00] flex-row  rounded-xl`}
     >
       {isCopied ? (
@@ -71,7 +74,9 @@ const CopyableField = ({
         </Text>
       ) : (
         <React.Fragment>
-          <Text className="text-base text-[#FFCC00] font-semibold">{displayValue}</Text>
+          <Text className="text-base text-[#FFCC00] font-semibold">
+            {displayValue}
+          </Text>
           <Text className="text-base text-[#ffcc00a2] font-semibold">
             Tap to copy
           </Text>
@@ -83,9 +88,7 @@ const CopyableField = ({
 
 export default function ReferralTab() {
   const { account } = useAuthStore();
-  const {
-    data: customerData,
-  } = useCustomer(account?.address);
+  const { data: customerData } = useCustomer(account?.address);
   const [codeCopied, setCodeCopied] = useState<boolean>(false);
   const [linkCopied, setLinkCopied] = useState<boolean>(false);
 
@@ -96,7 +99,7 @@ export default function ReferralTab() {
     totalEarned: (customerData?.customer?.referralCount || 0) * 25,
     referralCode: customerData?.customer?.referralCode || "",
     referralLink: customerData?.customer?.referralCode
-      ? `${typeof window !== 'undefined' ? window.location.origin : ''}/customer/register?ref=${customerData?.customer?.referralCode}`
+      ? `${typeof window !== "undefined" ? window.location.origin : ""}/customer/register?ref=${customerData?.customer?.referralCode}`
       : "",
   };
 
@@ -105,16 +108,6 @@ export default function ReferralTab() {
       label: "Total Referrals",
       Icon: <Octicons name="people" color="#ffcc00" size={22} />,
       number: referralData.totalReferrals,
-    },
-    {
-      label: "Successful\nReferrals",
-      Icon: <Feather name="user-check" color="#ffcc00" size={22} />,
-      number: referralData.successfulReferrals,
-    },
-    {
-      label: "Pending\nReferrals",
-      Icon: <Fontisto name="clock" color="#ffcc00" size={22} />,
-      number: referralData.pendingReferrals,
     },
     {
       label: "RCN Earned",
@@ -126,6 +119,16 @@ export default function ReferralTab() {
         />
       ),
       number: referralData.totalEarned,
+    },
+    {
+      label: "Pending\nReferrals",
+      Icon: <Fontisto name="clock" color="#ffcc00" size={22} />,
+      number: referralData.pendingReferrals,
+    },
+    {
+      label: "Successful\nReferrals",
+      Icon: <Feather name="user-check" color="#ffcc00" size={22} />,
+      number: referralData.successfulReferrals,
     },
   ];
 
@@ -203,7 +206,9 @@ export default function ReferralTab() {
         </Text>
         <CopyableField
           value="EKREF5368"
-          handleCopyValue={() => handleCopyValue(referralData.referralCode, "code")}
+          handleCopyValue={() =>
+            handleCopyValue(referralData.referralCode, "code")
+          }
           isCopied={codeCopied}
         />
         <Text className="text-white text-lg font-semibold my-4">
@@ -211,7 +216,9 @@ export default function ReferralTab() {
         </Text>
         <CopyableField
           value={referralData.referralLink}
-          handleCopyValue={() => handleCopyValue(referralData.referralLink, "link")}
+          handleCopyValue={() =>
+            handleCopyValue(referralData.referralLink, "link")
+          }
           isCopied={linkCopied}
         />
       </ScrollView>
