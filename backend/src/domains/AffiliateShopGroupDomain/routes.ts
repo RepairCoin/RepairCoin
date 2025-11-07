@@ -503,6 +503,8 @@ router.get(
  */
 router.get(
   '/:groupId/analytics',
+  authMiddleware,
+  requireRole(['shop']),
   analyticsController.getGroupAnalytics
 );
 
@@ -513,6 +515,8 @@ router.get(
  *     summary: Get member activity statistics
  *     description: Retrieve detailed activity statistics for all members in a group
  *     tags: [Affiliate Shop Groups - Analytics]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: groupId
@@ -523,9 +527,15 @@ router.get(
  *     responses:
  *       200:
  *         description: Member activity stats retrieved successfully
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Not authorized to view analytics
  */
 router.get(
   '/:groupId/analytics/members',
+  authMiddleware,
+  requireRole(['shop']),
   analyticsController.getMemberActivityStats
 );
 
@@ -536,6 +546,8 @@ router.get(
  *     summary: Get transaction trends over time
  *     description: Retrieve transaction trends showing daily token issuance and redemption
  *     tags: [Affiliate Shop Groups - Analytics]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: groupId
@@ -552,9 +564,15 @@ router.get(
  *     responses:
  *       200:
  *         description: Transaction trends retrieved successfully
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Not authorized to view analytics
  */
 router.get(
   '/:groupId/analytics/trends',
+  authMiddleware,
+  requireRole(['shop']),
   analyticsController.getTransactionTrends
 );
 
