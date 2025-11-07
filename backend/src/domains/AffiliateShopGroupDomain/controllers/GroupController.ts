@@ -146,7 +146,7 @@ export class GroupController {
 
   /**
    * Get all groups (with filters)
-   * Privacy: Only returns public groups. Private groups are not listed.
+   * Privacy: Shows all groups but hides sensitive data for private groups when not a member
    */
   getAllGroups = async (req: Request, res: Response) => {
     try {
@@ -159,31 +159,18 @@ export class GroupController {
         limit: parseInt(req.query.limit as string) || 20
       };
 
-      // Security: Only return public groups in general listing
-      // Private groups should only be visible to members via /my-groups
-      if (!filters.groupType) {
-        filters.groupType = 'public';
-      }
-
       const result = await this.service.getAllGroups(filters);
 
-      // If private groups requested and not authenticated, return empty
-      if (filters.groupType === 'private' && !requestingShopId) {
-        return res.json({
-          success: true,
-          data: [],
-          pagination: { page: 1, limit: filters.limit, totalItems: 0, totalPages: 0 }
-        });
-      }
-
-      // Filter out sensitive data from private groups for non-members
-      if (requestingShopId) {
-        const sanitizedItems = await Promise.all(
-          result.items.map(async (group) => {
-            if (group.groupType === 'private') {
+      // Sanitize private group data for non-members
+      const sanitizedItems = await Promise.all(
+        result.items.map(async (group) => {
+          // For private groups, hide sensitive info from non-members
+          if (group.groupType === 'private') {
+            // If authenticated, check membership
+            if (requestingShopId) {
               const isMember = await this.service.isShopMember(group.groupId, requestingShopId);
               if (!isMember) {
-                // Hide sensitive fields for non-members
+                // Not a member - hide sensitive fields
                 return {
                   ...group,
                   inviteCode: null,
@@ -191,21 +178,24 @@ export class GroupController {
                   customTokenSymbol: null,
                 };
               }
+            } else {
+              // Not authenticated - hide sensitive fields
+              return {
+                ...group,
+                inviteCode: null,
+                customTokenName: null,
+                customTokenSymbol: null,
+              };
             }
-            return group;
-          })
-        );
-
-        return res.json({
-          success: true,
-          data: sanitizedItems,
-          pagination: result.pagination
-        });
-      }
+          }
+          // Public group or member of private group - return full data
+          return group;
+        })
+      );
 
       res.json({
         success: true,
-        data: result.items,
+        data: sanitizedItems,
         pagination: result.pagination
       });
     } catch (error: unknown) {

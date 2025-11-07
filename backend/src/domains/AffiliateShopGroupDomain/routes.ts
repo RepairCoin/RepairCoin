@@ -89,17 +89,33 @@ router.post(
  * /api/affiliate-shop-groups:
  *   get:
  *     summary: Get all affiliate shop groups
- *     description: Retrieve all public affiliate shop groups or filter by criteria
+ *     description: Retrieve all affiliate shop groups. Private groups show limited info to non-members.
  *     tags: [Affiliate Shop Groups]
  *     parameters:
  *       - in: query
- *         name: isPrivate
+ *         name: groupType
+ *         schema:
+ *           type: string
+ *           enum: [public, private]
+ *         description: Filter by group type
+ *       - in: query
+ *         name: active
  *         schema:
  *           type: boolean
- *         description: Filter by private/public status
+ *         description: Filter by active status
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
  *     responses:
  *       200:
- *         description: List of affiliate shop groups
+ *         description: List of affiliate shop groups (sensitive data hidden for private groups if not a member)
  *         content:
  *           application/json:
  *             schema:
@@ -115,6 +131,14 @@ router.post(
  */
 router.get(
   '/',
+  (req, res, next) => {
+    // Optional authentication - try to authenticate if token present
+    if (req.headers.authorization) {
+      authMiddleware(req, res, next);
+    } else {
+      next();
+    }
+  },
   groupController.getAllGroups
 );
 
