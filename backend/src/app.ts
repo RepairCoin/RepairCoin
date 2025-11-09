@@ -530,8 +530,11 @@ class RepairCoinApp {
         logger.info(`🔍 Monitoring service started`);
 
         // Start cleanup service - runs daily at 2 AM UTC
-        cleanupService.scheduleCleanup(24); // Run every 24 hours
-        logger.info('🧹 Cleanup service scheduled (daily)');
+        // Disable transaction archiving (function doesn't exist yet)
+        cleanupService.scheduleCleanup(24, {
+          enableTransactionArchiving: false
+        });
+        logger.info('🧹 Cleanup service scheduled (daily, webhook cleanup only)');
 
         // Schedule platform statistics refresh every 5 minutes
         setInterval(async () => {
