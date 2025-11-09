@@ -20,6 +20,24 @@ export default function LandingPage() {
   const { walletType, isRegistered, isDetecting } = useWalletDetection();
   const [showAuthModal, setShowAuthModal] = useState(false);
 
+  // Auto-redirect registered users to their dashboard
+  React.useEffect(() => {
+    if (account && isRegistered && !isDetecting && walletType !== 'unknown') {
+      console.log('🔄 [LandingPage] Auto-redirecting registered user to:', walletType);
+      switch (walletType) {
+        case "admin":
+          router.push("/admin");
+          break;
+        case "shop":
+          router.push("/shop");
+          break;
+        case "customer":
+          router.push("/customer");
+          break;
+      }
+    }
+  }, [account, isRegistered, isDetecting, walletType, router]);
+
   const handleGetStarted = () => {
     if (!account) {
       // If no wallet connected, the ConnectButton will handle it
