@@ -361,19 +361,17 @@ export default function ShopDashboardClient() {
 
         const response = await apiClient.post('/shops/purchase/stripe-checkout', {
           amount: purchaseAmount,
-        });
+        }) as any;
 
         console.log("Stripe checkout response:", response);
 
         if (!response.success) {
-          const errorMessage =
-            responseData.error ||
-            `HTTP ${response.status}: ${response.statusText}`;
+          const errorMessage = response.error || "Stripe checkout creation failed";
           console.error("Stripe checkout creation failed:", errorMessage);
           throw new Error(errorMessage);
         }
 
-        const checkoutUrl = responseData.data?.checkoutUrl;
+        const checkoutUrl = response.data?.checkoutUrl;
         if (!checkoutUrl) {
           throw new Error("No checkout URL received from server");
         }
@@ -420,7 +418,7 @@ export default function ShopDashboardClient() {
 
   const checkPurchaseStatus = async (purchaseId: string) => {
     try {
-      const result = await apiClient.post(`/shops/purchase-sync/check-payment/${purchaseId}`);
+      const result = await apiClient.post(`/shops/purchase-sync/check-payment/${purchaseId}`) as any;
 
       if (result.success && result.data.status === "completed") {
         toast.success(
@@ -663,7 +661,7 @@ export default function ShopDashboardClient() {
               shopData={shopData}
               purchases={purchases}
               onRefreshData={loadShopData}
-              authToken={authToken}
+              authToken={authToken ?? undefined}
             />
           )}
 
