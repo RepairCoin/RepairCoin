@@ -389,7 +389,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
           {/* Profit Chart - Full Width */}
           <div className="w-full">
-            <ProfitChart shopId={shopData.shopId} authToken={authToken} />
+            <ProfitChart shopId={shopData.shopId} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">

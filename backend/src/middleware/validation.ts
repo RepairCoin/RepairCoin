@@ -483,27 +483,27 @@ export const validateUniqueness = (options: {
 
       if (options.email && email) {
         const emailCheck = await uniquenessService.checkEmailUniqueness(
-          email, 
-          excludeCustomerAddress, 
+          email,
+          excludeCustomerAddress,
           excludeShopId
         );
-        
+
         if (!emailCheck.isUnique) {
           const conflictType = emailCheck.conflictType === 'customer' ? 'customer' : 'shop';
-          errors.push(`Email address is already registered to a ${conflictType} account`);
+          errors.push(`This email address is already in use. Please use a different email or sign in to your existing ${conflictType} account.`);
         }
       }
 
       if (options.wallet && walletAddress) {
         const walletCheck = await uniquenessService.checkWalletUniqueness(
-          walletAddress, 
-          excludeCustomerAddress, 
+          walletAddress,
+          excludeCustomerAddress,
           excludeShopId
         );
-        
+
         if (!walletCheck.isUnique) {
           const conflictType = walletCheck.conflictType === 'customer' ? 'customer' : 'shop';
-          errors.push(`Wallet address is already registered to a ${conflictType} account`);
+          errors.push(`This wallet address is already in use. Please use a different wallet or sign in to your existing ${conflictType} account.`);
         }
       }
 

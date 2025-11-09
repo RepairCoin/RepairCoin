@@ -1,13 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useAdminDashboard } from '@/hooks/useAdminDashboard';
+import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { ArrowLeft, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
+import apiClient from '@/services/api/client';
 
 export default function PurchaseManager() {
-  const { generateAdminToken } = useAdminDashboard();
   const [shopId, setShopId] = useState('zwiftech');
   const [purchases, setPurchases] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -16,22 +15,9 @@ export default function PurchaseManager() {
   const fetchPurchases = async () => {
     setLoading(true);
     try {
-      const token = await generateAdminToken();
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/debug/purchase-status/${shopId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
-        setPurchases(data.data || []);
-      } else {
-        toast.error('Failed to fetch purchases');
-      }
+      // Cookies sent automatically with apiClient
+      const data = await apiClient.get(`/admin/debug/purchase-status/${shopId}`);
+      setPurchases(data.data || []);
     } catch (error) {
       console.error('Error fetching purchases:', error);
       toast.error('Failed to load purchase data');
@@ -47,32 +33,19 @@ export default function PurchaseManager() {
 
     setCompleting(purchaseId);
     try {
-      const token = await generateAdminToken();
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/shops/${shopId}/complete-purchase/${purchaseId}`,
+      // Cookies sent automatically with apiClient
+      const result = await apiClient.post(
+        `/admin/shops/${shopId}/complete-purchase/${purchaseId}`,
         {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            paymentReference: `MANUAL_ADMIN_${new Date().toISOString()}`
-          })
+          paymentReference: `MANUAL_ADMIN_${new Date().toISOString()}`
         }
       );
 
-      if (response.ok) {
-        const result = await response.json();
-        toast.success(`Purchase completed! ${result.data.amount} RCN now ready for minting.`);
-        await fetchPurchases(); // Reload the list
-      } else {
-        const error = await response.json();
-        toast.error(error.error || 'Failed to complete purchase');
-      }
-    } catch (error) {
+      toast.success(`Purchase completed! ${result.data.amount} RCN now ready for minting.`);
+      await fetchPurchases(); // Reload the list
+    } catch (error: any) {
       console.error('Error completing purchase:', error);
-      toast.error('Failed to complete purchase');
+      toast.error(error.response?.data?.error || 'Failed to complete purchase');
     } finally {
       setCompleting(null);
     }

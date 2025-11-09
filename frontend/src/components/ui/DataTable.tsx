@@ -89,6 +89,7 @@ export function DataTable<T>({
   };
 
   const sortedData = useMemo(() => {
+    if (!data || !Array.isArray(data)) return [];
     if (!sortConfig) return data;
 
     const sorted = [...data].sort((a, b) => {
