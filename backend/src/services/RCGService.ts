@@ -179,20 +179,20 @@ export class RCGService extends BaseRepository {
   }> {
     try {
       const result = await this.pool.query(`
-        SELECT 
-          COALESCE(SUM(CASE WHEN s.rcg_tier = 'standard' THEN p.total_cost ELSE 0 END), 0) as standard_revenue,
-          COALESCE(SUM(CASE WHEN s.rcg_tier = 'premium' THEN p.total_cost ELSE 0 END), 0) as premium_revenue,
-          COALESCE(SUM(CASE WHEN s.rcg_tier = 'elite' THEN p.total_cost ELSE 0 END), 0) as elite_revenue,
+        SELECT
+          COALESCE(SUM(CASE WHEN LOWER(s.rcg_tier) = 'standard' THEN p.total_cost ELSE 0 END), 0) as standard_revenue,
+          COALESCE(SUM(CASE WHEN LOWER(s.rcg_tier) = 'premium' THEN p.total_cost ELSE 0 END), 0) as premium_revenue,
+          COALESCE(SUM(CASE WHEN LOWER(s.rcg_tier) = 'elite' THEN p.total_cost ELSE 0 END), 0) as elite_revenue,
           COALESCE(SUM(p.total_cost), 0) as total_revenue,
           COALESCE(SUM(
-            CASE 
-              WHEN s.rcg_tier = 'premium' THEN p.rcn_amount * 0.02  -- 20% discount = $0.02 per RCN saved
-              WHEN s.rcg_tier = 'elite' THEN p.rcn_amount * 0.04    -- 40% discount = $0.04 per RCN saved
-              ELSE 0 
+            CASE
+              WHEN LOWER(s.rcg_tier) = 'premium' THEN p.amount * 0.02  -- 20% discount = $0.02 per RCN saved
+              WHEN LOWER(s.rcg_tier) = 'elite' THEN p.amount * 0.04    -- 40% discount = $0.04 per RCN saved
+              ELSE 0
             END
           ), 0) as discounts_given
         FROM shop_rcn_purchases p
-        LEFT JOIN shops s ON p.shop_id = s.id
+        LEFT JOIN shops s ON p.shop_id = s.shop_id
         WHERE p.created_at >= NOW() - INTERVAL '30 days'
       `);
 

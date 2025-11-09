@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
+import apiClient from "@/services/api/client";
 
 export interface CustomerData {
   address: string;
@@ -129,14 +130,11 @@ export const useCustomerStore = create<CustomerStore>()(
         set({ isLoading: true, error: null });
 
         try {
-          // Fetch customer data
-          const customerResponse = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/customers/${address}`
-          );
-          
-          if (customerResponse.ok) {
-            const customerResult = await customerResponse.json();
-            const customerData = customerResult.data.customer || customerResult.data;
+          // Fetch customer data (cookies sent automatically)
+          const customerResponse = await apiClient.get(`/customers/${address}`);
+
+          if (customerResponse.success && customerResponse.data) {
+            const customerData = customerResponse.data.customer || customerResponse.data;
 
             console.log("=".repeat(60));
             console.log("👤 CUSTOMER DATA (Customer POV):");
@@ -156,46 +154,18 @@ export const useCustomerStore = create<CustomerStore>()(
             set({ customerData });
 
             // Store blockchain balance separately (rounded to 2 decimal places)
-            if (customerResult.data.blockchainBalance !== undefined) {
-              set({ blockchainBalance: Math.round(customerResult.data.blockchainBalance * 100) / 100 });
+            if (customerResponse.data.blockchainBalance !== undefined) {
+              set({ blockchainBalance: Math.round(customerResponse.data.blockchainBalance * 100) / 100 });
             }
-          } else if (customerResponse.status === 404) {
+          } else if (customerResponse.code === 'NOT_FOUND') {
             set({ error: 'Address not associated with a customer account.' });
             return;
           }
 
-          // Authenticate customer to get JWT token if not already present
-          const existingToken = localStorage.getItem("customerAuthToken");
-          if (!existingToken) {
-            try {
-              const authResponse = await fetch(
-                `${process.env.NEXT_PUBLIC_API_URL}/auth/customer`,
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({ address }),
-                }
-              );
-
-              if (authResponse.ok) {
-                const authResult = await authResponse.json();
-                localStorage.setItem("customerAuthToken", authResult.token);
-                sessionStorage.setItem("customerAuthToken", authResult.token);
-              }
-            } catch (authError) {
-              console.log("Customer authentication error:", authError);
-            }
-          }
-
-          // Fetch balance data
-          const balanceResponse = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/tokens/balance/${address}`
-          );
-          if (balanceResponse.ok) {
-            const balanceResult = await balanceResponse.json();
-            const data = balanceResult.data;
+          // Fetch balance data (cookies sent automatically)
+          const balanceResponse = await apiClient.get(`/tokens/balance/${address}`);
+          if (balanceResponse.success && balanceResponse.data) {
+            const data = balanceResponse.data;
             // Round all numeric values to 2 decimal places
             if (data) {
               const roundedData = {
@@ -210,21 +180,12 @@ export const useCustomerStore = create<CustomerStore>()(
             }
           }
 
-          // Fetch recent transactions
-          const customerToken = localStorage.getItem("customerAuthToken");
-          const transactionsResponse = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/customers/${address}/transactions?limit=10`,
-            {
-              headers: {
-                ...(customerToken
-                  ? { Authorization: `Bearer ${customerToken}` }
-                  : {}),
-              },
-            }
+          // Fetch recent transactions (cookies sent automatically)
+          const transactionsResponse = await apiClient.get(
+            `/customers/${address}/transactions?limit=10`
           );
-          if (transactionsResponse.ok) {
-            const transactionsResult = await transactionsResponse.json();
-            set({ transactions: transactionsResult.data?.transactions || [] });
+          if (transactionsResponse.success) {
+            set({ transactions: transactionsResponse.data?.transactions || [] });
           }
         } catch (err) {
           console.log("Error fetching customer data:", err);

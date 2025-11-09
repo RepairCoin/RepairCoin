@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useActiveAccount } from "thirdweb/react";
+import { authApi } from '@/services/api/auth';
 
 export interface UserProfile {
   id: string;
@@ -25,7 +26,7 @@ interface AuthContextType {
   isShop: boolean;
   isCustomer: boolean;
   login: () => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   checkUserExists: (address: string) => Promise<{ exists: boolean; type?: string; data?: any }>;
 }
@@ -119,8 +120,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   // Logout function
-  const logout = () => {
+  const logout = async () => {
     setUserProfile(null);
+    // Call backend to clear httpOnly cookie
+    await authApi.logout();
   };
 
   // Refresh profile

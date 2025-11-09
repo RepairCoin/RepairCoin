@@ -18,9 +18,9 @@ import {
   MapPin,
   Gift,
 } from "lucide-react";
-import { 
-  IssueRewardsIcon, 
-  RedeemIcon, 
+import {
+  IssueRewardsIcon,
+  RedeemIcon,
   OverviewIcon,
   CustomerIcon,
   BuyRcnIcon,
@@ -29,6 +29,7 @@ import {
   LookupIcon
 } from "../icon";
 import { useAuthStore } from "@/stores/authStore";
+import { logout } from "@/services/api/auth";
 
 interface SidebarItem {
   title: string;
@@ -95,18 +96,18 @@ const Sidebar: React.FC<SidebarProps> = ({
     onCollapseChange?.(newCollapsed);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     // Clear auth store state
     resetAuth();
-    
+
     // Disconnect wallet
     if (wallet && disconnect) {
       disconnect(wallet);
       localStorage.clear();
     }
-    
-    // Redirect to home page
-    router.push("/");
+
+    // Call backend to clear httpOnly cookie and redirect
+    await logout();
   };
 
   const getMenuItems = (): SidebarItem[] => {

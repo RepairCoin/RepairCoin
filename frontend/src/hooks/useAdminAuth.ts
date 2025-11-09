@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "react-hot-toast";
-import { authManager } from "@/utils/auth";
+import apiClient from "@/services/api/client";
 import { adminApi } from "@/services/api/admin";
 import { useAuthStore } from "@/stores/authStore";
 
@@ -28,107 +28,65 @@ export function useAdminAuth() {
   // Combine loading states
   const loading = baseAuthLoading || adminProfileLoading;
 
-  // Generate JWT token for admin authentication
-  const generateAdminToken = useCallback(async (
-    forceRefresh: boolean = false
-  ): Promise<string | null> => {
+  // Authenticate admin (cookie set by backend automatically)
+  const authenticateAdmin = useCallback(async (): Promise<boolean> => {
     if (!account?.address) {
-      return null;
-    }
-
-    // Check if we already have a token stored (unless forcing refresh)
-    if (!forceRefresh) {
-      const storedToken = authManager.getToken("admin");
-      if (storedToken) {
-        return storedToken;
-      }
+      return false;
     }
 
     try {
-      const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'}/auth/admin`;
-      
-      // Note: auth/admin endpoint is not in adminApi, using direct fetch
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          address: account.address,
-        }),
+      const response = await apiClient.post('/auth/admin', {
+        address: account.address,
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        const token = data.token;
-        if (token) {
-          console.log("=".repeat(60));
-          console.log("🔐 ADMIN DATA (Admin POV):");
-          console.log("=".repeat(60));
-          console.log("Address:", account.address);
-          console.log("Is Super Admin:", data.user?.isSuperAdmin);
-          console.log("Role:", data.user?.role);
-          console.log("Permissions:", data.user?.permissions || "Not specified");
-          console.log("=".repeat(60));
-          console.log("Full Admin Object:", data.user);
-          console.log("=".repeat(60));
+      if (response.success && response.data) {
+        console.log("=".repeat(60));
+        console.log("🔐 ADMIN DATA (Admin POV):");
+        console.log("=".repeat(60));
+        console.log("Address:", account.address);
+        console.log("Is Super Admin:", response.data.user?.isSuperAdmin);
+        console.log("Role:", response.data.user?.role);
+        console.log("Permissions:", response.data.user?.permissions || "Not specified");
+        console.log("=".repeat(60));
+        console.log("Full Admin Object:", response.data.user);
+        console.log("=".repeat(60));
 
-          // Store token using authManager
-          authManager.setToken("admin", token, 24); // 24 hour expiry
-
-          // Also store in localStorage for the axios interceptor
-          localStorage.setItem("adminAuthToken", token);
-
-          // Update super admin status if provided in response
-          if (data.user?.isSuperAdmin !== undefined) {
-            setIsSuperAdmin(data.user.isSuperAdmin);
-            if (data.user.isSuperAdmin) {
-              localStorage.setItem('isSuperAdmin', 'true');
-            } else {
-              localStorage.removeItem('isSuperAdmin');
-            }
-          }
-
-          return token;
+        // Update super admin status from response
+        if (response.data.user?.isSuperAdmin !== undefined) {
+          setIsSuperAdmin(response.data.user.isSuperAdmin);
         }
+        return true;
       } else {
-        const errorData = await response.json();
-        // Only show error if it's not a 403 (which is expected when switching from admin to non-admin)
-        if (response.status !== 403) {
-          console.error("Admin auth failed:", response.status, errorData);
-          toast.error(errorData.error || "Admin authentication failed");
-        }
-        // For 403, silently fail as this is expected when the user is not an admin
+        // Silently fail for non-admins (403 is expected)
+        return false;
       }
     } catch (error) {
-      console.error("Failed to generate admin token:", error);
-      toast.error("Network error during authentication");
+      console.error("Failed to authenticate admin:", error);
+      return false;
     }
-
-    return null;
   }, [account, setIsSuperAdmin]);
 
-  // Fetch admin profile with permissions
+  // Fetch admin profile with permissions (cookies sent automatically)
   const fetchAdminProfile = useCallback(async () => {
     if (!account?.address) return null;
-    
+
     // Don't attempt to fetch admin profile if not an admin
     if (!isAdminFromAuth) return null;
-    
+
     try {
-      const adminToken = await generateAdminToken();
-      if (!adminToken) {
-        // Don't log error - this is expected when switching from admin to non-admin
+      // Ensure admin is authenticated
+      const authenticated = await authenticateAdmin();
+      if (!authenticated) {
         return null;
       }
-      
-      // Use the admin API service
+
+      // Use the admin API service (cookies sent automatically)
       const profile = await adminApi.getAdminProfile();
       return profile;
     } catch (error) {
       return null;
     }
-  }, [account, generateAdminToken, isAdminFromAuth]);
+  }, [account, authenticateAdmin, isAdminFromAuth]);
 
   // Check admin-specific permissions and status
   useEffect(() => {
@@ -136,12 +94,7 @@ export function useAdminAuth() {
     setIsSuperAdmin(false);
     setAdminRole("");
     setAdminPermissions([]);
-    
-    // Clear any cached admin tokens
-    authManager.clearToken("admin");
-    localStorage.removeItem('isSuperAdmin');
-    localStorage.removeItem('adminRole');
-    
+
     setAdminProfileLoading(true);
     
     const checkAdminStatus = async () => {
@@ -180,22 +133,14 @@ export function useAdminAuth() {
           // Trust the backend's determination of super admin status
           const isSuper = profile.isSuperAdmin === true;
           setIsSuperAdmin(isSuper);
-          
+
           // Set role from profile
           const role = profile.role || (isSuper ? 'super_admin' : 'admin');
           setAdminRole(role);
-          localStorage.setItem('adminRole', role);
-          
+
           // Set permissions - super admin gets ['*'], others get specific permissions
           const perms = profile.permissions || [];
           setAdminPermissions(perms);
-          
-          // Store super admin status for future reference
-          if (isSuper) {
-            localStorage.setItem('isSuperAdmin', 'true');
-          } else {
-            localStorage.removeItem('isSuperAdmin');
-          }
         } else {
           // Fallback: If no profile endpoint exists, use env-based determination
           // All addresses in ADMIN_ADDRESSES are super admins
@@ -203,15 +148,11 @@ export function useAdminAuth() {
             setIsSuperAdmin(true);
             setAdminRole('super_admin');
             setAdminPermissions(['*']); // Super admin gets all permissions
-            localStorage.setItem('isSuperAdmin', 'true');
-            localStorage.setItem('adminRole', 'super_admin');
           } else {
             // Regular admin
             setIsSuperAdmin(false);
             setAdminRole('admin');
             setAdminPermissions(['shops.view', 'customers.view', 'transactions.view']);
-            localStorage.removeItem('isSuperAdmin');
-            localStorage.setItem('adminRole', 'admin');
           }
         }
       } catch (error) {
@@ -241,7 +182,7 @@ export function useAdminAuth() {
     adminRole,
     adminPermissions,
     loading,
-    generateAdminToken,
+    authenticateAdmin,
     hasPermission,
   };
 }

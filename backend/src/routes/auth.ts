@@ -1,10 +1,26 @@
 // backend/src/routes/auth.ts
-import { Router } from 'express';
+import { Router, Response } from 'express';
 import { customerRepository, shopRepository, adminRepository } from '../repositories';
 import { logger } from '../utils/logger';
-import { generateToken } from '../middleware/auth';
+import { generateToken, authMiddleware } from '../middleware/auth';
 
 const router = Router();
+
+/**
+ * Helper function to set httpOnly cookie with JWT token
+ */
+const setAuthCookie = (res: Response, token: string) => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const cookieOptions = {
+    httpOnly: true,
+    secure: isProduction, // Only send over HTTPS in production
+    sameSite: isProduction ? 'strict' as const : 'lax' as const,
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    path: '/'
+  };
+
+  res.cookie('auth_token', token, cookieOptions);
+};
 
 /**
  * Generate JWT token for authenticated users
@@ -78,9 +94,12 @@ router.post('/token', async (req, res) => {
     // Generate JWT token
     const token = generateToken(userData);
 
+    // Set httpOnly cookie
+    setAuthCookie(res, token);
+
     return res.json({
       success: true,
-      token,
+      token, // Still send in response for backward compatibility
       userType,
       address: normalizedAddress
     });
@@ -574,9 +593,12 @@ router.post('/admin', async (req, res) => {
       role: 'admin'
     });
 
+    // Set httpOnly cookie
+    setAuthCookie(res, token);
+
     res.json({
       success: true,
-      token,
+      token, // Still send in response for backward compatibility
       user: {
         id: adminData?.id?.toString() || 'super_admin',
         address: normalizedAddress,
@@ -638,9 +660,12 @@ router.post('/customer', async (req, res) => {
         role: 'customer'
       });
 
+      // Set httpOnly cookie
+      setAuthCookie(res, token);
+
       res.json({
         success: true,
-        token,
+        token, // Still send in response for backward compatibility
         user: {
           id: customer.address,
           address: customer.address,
@@ -709,9 +734,12 @@ router.post('/shop', async (req, res) => {
         shopId: shop.shopId
       });
 
+      // Set httpOnly cookie
+      setAuthCookie(res, token);
+
       res.json({
         success: true,
-        token,
+        token, // Still send in response for backward compatibility
         user: {
           id: shop.shopId,
           shopId: shop.shopId,
@@ -737,6 +765,72 @@ router.post('/shop', async (req, res) => {
     return res.status(500).json({
       error: 'Internal server error',
       message: 'Error generating shop token'
+    });
+  }
+});
+
+/**
+ * Logout - Clear auth cookie
+ * POST /api/auth/logout
+ */
+router.post('/logout', (req, res) => {
+  try {
+    // Clear the auth cookie
+    res.clearCookie('auth_token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      path: '/'
+    });
+
+    res.json({
+      success: true,
+      message: 'Logged out successfully'
+    });
+  } catch (error) {
+    logger.error('Logout error:', error);
+    return res.status(500).json({
+      error: 'Internal server error',
+      message: 'Error during logout'
+    });
+  }
+});
+
+/**
+ * Refresh token - Generate new token for authenticated user
+ * POST /api/auth/refresh
+ */
+router.post('/refresh', authMiddleware, async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required',
+        code: 'AUTH_REQUIRED'
+      });
+    }
+
+    // Generate new token with same payload
+    const newToken = generateToken({
+      address: req.user.address,
+      role: req.user.role as any,
+      shopId: req.user.shopId
+    });
+
+    // Set new cookie
+    setAuthCookie(res, newToken);
+
+    res.json({
+      success: true,
+      token: newToken, // Also send in response for backward compatibility
+      user: req.user
+    });
+  } catch (error: any) {
+    logger.error('Token refresh error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Token refresh failed',
+      code: 'TOKEN_REFRESH_ERROR'
     });
   }
 });
