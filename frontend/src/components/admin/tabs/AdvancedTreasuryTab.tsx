@@ -71,7 +71,7 @@ interface AnalyticsData {
 }
 
 export const AdvancedTreasuryTab: React.FC = () => {
-  const { generateAdminToken } = useAdminDashboard();
+  const {  } = useAdminDashboard();
   
   // Main tab state
   const [activeTab, setActiveTab] = useState<'overview' | 'rcg' | 'analytics' | 'operations' | 'pricing'>('overview');
@@ -132,12 +132,11 @@ export const AdvancedTreasuryTab: React.FC = () => {
   const loadAllData = async () => {
     setLoading(true);
     try {
-      const token = await generateAdminToken();
-      if (!token) throw new Error('Authentication failed');
+      // Cookies sent automatically with apiClient
 
       // Load basic treasury stats
       const treasuryResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/treasury`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include'
       });
       if (treasuryResponse.ok) {
         const treasuryResult = await treasuryResponse.json();
@@ -165,11 +164,7 @@ export const AdvancedTreasuryTab: React.FC = () => {
   const loadAnalytics = async () => {
     setAnalyticsLoading(true);
     try {
-      // Get admin token first to ensure authentication
-      const token = await generateAdminToken();
-      if (!token) {
-        throw new Error('Authentication failed - no admin token available');
-      }
+      // Cookies sent automatically with apiClient
 
       const response = await getTreasuryAnalytics(analyticsPeriod);
       
@@ -225,10 +220,11 @@ export const AdvancedTreasuryTab: React.FC = () => {
         getPricingHistory(undefined, 20)
       ]);
       setPricingData(pricingResult.data);
-      setPricingHistory(historyResult.data);
+      setPricingHistory(historyResult.data || []);
     } catch (error) {
       console.error('Error loading pricing data:', error);
       toast.error('Failed to load pricing data');
+      setPricingHistory([]);
     }
   };
 
@@ -911,10 +907,10 @@ export const AdvancedTreasuryTab: React.FC = () => {
           )}
 
           {/* Pricing History */}
-          {pricingHistory.length > 0 && (
+          {pricingHistory && pricingHistory.length > 0 && (
             <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
               <h3 className="text-xl font-bold text-white mb-6">Pricing History</h3>
-              
+
               <div className="space-y-3">
                 {pricingHistory.slice(0, 10).map((entry) => (
                   <div key={entry.id} className="bg-gray-900 rounded-lg p-4 border border-gray-700">

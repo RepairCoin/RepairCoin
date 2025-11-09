@@ -5,6 +5,7 @@ import { toast } from "react-hot-toast";
 import Tooltip from "../../ui/tooltip";
 import { Camera, X } from "lucide-react";
 import QrScanner from "qr-scanner";
+import apiClient from '@/services/api/client';
 
 interface ShopData {
   purchasedRcnBalance: number;
@@ -133,24 +134,12 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
       if (!shopId) return;
 
       try {
-        const authToken =
-          localStorage.getItem("shopAuthToken") ||
-          sessionStorage.getItem("shopAuthToken");
-
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/promo-codes`,
-          {
-            headers: {
-              Authorization: authToken ? `Bearer ${authToken}` : "",
-            },
-          }
+        const response = await apiClient.get(
+          `/shops/${shopId}/promo-codes`
         );
 
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success && result.data) {
-            setAvailablePromoCodes(result.data);
-          }
+        if (response.success && response.data) {
+          setAvailablePromoCodes(response.data);
         }
       } catch (err) {
         console.error("Error fetching promo codes:", err);
@@ -180,59 +169,41 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
       setFetchingPromo(true);
       setPromoError(null);
       try {
-        const authToken =
-          localStorage.getItem("shopAuthToken") ||
-          sessionStorage.getItem("shopAuthToken");
-
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/promo-codes/validate`,
+        const result = await apiClient.post(
+          `/shops/${shopId}/promo-codes/validate`,
           {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: authToken ? `Bearer ${authToken}` : "",
-            },
-            body: JSON.stringify({
-              code: promoCode.trim(),
-              customer_address: customerAddress,
-            }),
+            code: promoCode.trim(),
+            customer_address: customerAddress,
           }
         );
 
-        if (response.ok) {
-          const result = await response.json();
-          console.log('Promo validation result:', result);
-          if (result.success && result.data.is_valid) {
-            // Calculate bonus based on validation result
-            const rewardBeforePromo = baseReward + tierBonus;
-            let bonusAmount = 0;
+        console.log('Promo validation result:', result);
+        if (result.success && result.data.is_valid) {
+          // Calculate bonus based on validation result
+          const rewardBeforePromo = baseReward + tierBonus;
+          let bonusAmount = 0;
 
-            if (result.data.bonus_type === 'fixed') {
-              bonusAmount = parseFloat(result.data.bonus_value) || 0;
-            } else if (result.data.bonus_type === 'percentage') {
-              bonusAmount = (rewardBeforePromo * (parseFloat(result.data.bonus_value) || 0)) / 100;
-            }
-
-            // Apply max_bonus cap if it exists
-            if (result.data.max_bonus) {
-              const maxBonus = parseFloat(result.data.max_bonus);
-              if (!isNaN(maxBonus) && bonusAmount > maxBonus) {
-                bonusAmount = maxBonus;
-              }
-            }
-
-            console.log('Calculated promo bonus:', bonusAmount);
-            setPromoBonus(bonusAmount);
-            setPromoError(null);
-          } else {
-            console.log('Promo invalid:', result.data?.error_message);
-            setPromoBonus(0);
-            setPromoError(result.data?.error_message || 'Invalid promo code');
+          if (result.data.bonus_type === 'fixed') {
+            bonusAmount = parseFloat(result.data.bonus_value) || 0;
+          } else if (result.data.bonus_type === 'percentage') {
+            bonusAmount = (rewardBeforePromo * (parseFloat(result.data.bonus_value) || 0)) / 100;
           }
+
+          // Apply max_bonus cap if it exists
+          if (result.data.max_bonus) {
+            const maxBonus = parseFloat(result.data.max_bonus);
+            if (!isNaN(maxBonus) && bonusAmount > maxBonus) {
+              bonusAmount = maxBonus;
+            }
+          }
+
+          console.log('Calculated promo bonus:', bonusAmount);
+          setPromoBonus(bonusAmount);
+          setPromoError(null);
         } else {
-          console.error('Promo validation failed:', response.status);
+          console.log('Promo invalid:', result.data?.error_message);
           setPromoBonus(0);
-          setPromoError('Failed to validate promo code');
+          setPromoError(result.data?.error_message || 'Invalid promo code');
         }
       } catch (err) {
         console.error("Error fetching promo bonus:", err);
@@ -326,22 +297,6 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
     setSuccess(null);
 
     try {
-      const authToken =
-        localStorage.getItem("shopAuthToken") ||
-        sessionStorage.getItem("shopAuthToken");
-
-      const headers: HeadersInit = {
-        "Content-Type": "application/json",
-      };
-
-      if (authToken) {
-        headers["Authorization"] = `Bearer ${authToken}`;
-      } else {
-        throw new Error(
-          "No authentication token found. Please refresh the page and try again."
-        );
-      }
-
       const requestBody: any = {
         customerAddress,
         repairAmount: getRepairAmount(),
@@ -358,7 +313,6 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
       }
 
       console.log("Issuing reward with request body:", requestBody);
-      console.log("API URL:", `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/issue-reward`);
       console.log("Frontend balance check:", {
         shopBalance: shopData?.purchasedRcnBalance,
         totalReward,
@@ -367,45 +321,11 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
         promoBonus,
         hasSufficientBalance
       });
-      
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/issue-reward`,
-        {
-          method: "POST",
-          headers,
-          body: JSON.stringify(requestBody),
-        }
+
+      const result = await apiClient.post(
+        `/shops/${shopId}/issue-reward`,
+        requestBody
       );
-
-      if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch (e) {
-          errorData = { error: "Failed to parse error response" };
-        }
-        console.error("Error response from server:", {
-          status: response.status,
-          statusText: response.statusText,
-          errorData: errorData,
-          requestBody: requestBody
-        });
-        
-        // Check for specific error messages
-        if (errorData.error === "Failed to process promo code") {
-          console.error("Promo code error details:", errorData.details || "No details provided");
-          console.error("Promo code:", errorData.promoCode);
-          console.error("Shop ID:", errorData.shopId);
-          
-          // Include details in the error message if available
-          const detailMessage = errorData.details ? `: ${errorData.details}` : "";
-          throw new Error(`${errorData.error}${detailMessage}`);
-        }
-        
-        throw new Error(errorData.error || "Failed to issue reward");
-      }
-
-      const result = await response.json();
 
       // Show success toast notification
       toast.success(

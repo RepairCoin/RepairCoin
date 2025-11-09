@@ -33,7 +33,7 @@ export function TransactionsTab({ generateAdminToken, onError }: TransactionsTab
   const loadTransactions = async () => {
     try {
       setLoading(true);
-      const adminToken = await generateAdminToken();
+      // Cookies sent automatically with apiClient
       if (!adminToken) {
         onError('Authentication required');
         return;

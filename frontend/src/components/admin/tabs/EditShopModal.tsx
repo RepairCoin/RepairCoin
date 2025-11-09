@@ -71,7 +71,7 @@ export const EditShopModal: React.FC<EditShopModalProps> = ({
 
     setIsLoading(true);
     try {
-      const adminToken = await generateAdminToken();
+      // Cookies sent automatically with apiClient
       if (!adminToken) {
         toast.error('Failed to authenticate as admin');
         return;

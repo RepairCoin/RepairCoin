@@ -138,7 +138,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
 
     setUnsuspendRequestsLoading(true);
     try {
-      const adminToken = await generateAdminToken();
+      // Cookies sent automatically with apiClient
       if (!adminToken) {
         toast.error("Failed to authenticate as admin");
         return;
@@ -182,7 +182,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     if (!generateAdminToken) return;
 
     try {
-      const adminToken = await generateAdminToken();
+      // Cookies sent automatically with apiClient
       if (!adminToken) {
         toast.error("Failed to authenticate as admin");
         return;

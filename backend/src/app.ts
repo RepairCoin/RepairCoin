@@ -10,6 +10,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import cookieParser from 'cookie-parser';
 import { Config } from './config';
 import { logger } from './utils/logger';
 import { setupSwagger } from './docs/swagger';
@@ -144,7 +145,10 @@ class RepairCoinApp {
     // JSON parsing for all other routes
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true }));
-    
+
+    // Cookie parser middleware
+    this.app.use(cookieParser());
+
     // Add request ID middleware
     this.app.use(requestIdMiddleware);
     

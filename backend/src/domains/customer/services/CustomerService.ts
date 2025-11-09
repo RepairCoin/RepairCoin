@@ -144,7 +144,7 @@ export class CustomerService {
       // Check if customer already exists
       const existingCustomer = await customerRepository.getCustomer(data.walletAddress);
       if (existingCustomer) {
-        throw new Error('Customer already registered');
+        throw new Error('This wallet address is already registered as a customer. Please sign in to your existing account.');
       }
 
       // Role conflict validation is handled by middleware

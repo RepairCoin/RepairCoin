@@ -185,6 +185,50 @@ export class ShopPurchaseService {
   }
 
   /**
+   * Cancel a pending shop RCN purchase
+   */
+  async cancelPurchase(purchaseId: string, shopId: string): Promise<PurchaseResponse> {
+    try {
+      // Get purchase details
+      const purchase = await shopRepository.getShopPurchase(purchaseId);
+      if (!purchase) {
+        throw new Error('Purchase not found');
+      }
+
+      // Verify the purchase belongs to the shop
+      if (purchase.shopId !== shopId) {
+        throw new Error('Unauthorized: Purchase does not belong to this shop');
+      }
+
+      // Only pending purchases can be cancelled
+      if (purchase.status !== 'pending') {
+        throw new Error(`Cannot cancel purchase with status: ${purchase.status}`);
+      }
+
+      // Update purchase status to cancelled
+      await shopRepository.cancelShopPurchase(purchaseId);
+
+      logger.info(`RCN purchase cancelled:`, {
+        purchaseId,
+        shopId: purchase.shopId,
+        amount: purchase.amount,
+        totalCost: purchase.totalCost
+      });
+
+      return {
+        purchaseId,
+        totalCost: purchase.totalCost,
+        status: 'failed',
+        message: 'Purchase cancelled successfully.'
+      };
+
+    } catch (error) {
+      logger.error('Error cancelling RCN purchase:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get purchase history for a shop
    */
   async getPurchaseHistory(shopId: string, page: number = 1, limit: number = 20, startDate?: string, endDate?: string): Promise<{
