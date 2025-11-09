@@ -68,17 +68,17 @@ router.post('/check-payment/:purchaseId', asyncHandler(async (req: Authenticated
           paymentStatus: session.payment_status,
           status: session.status
         });
-        
+
         if (session.payment_status === 'paid' && session.status === 'complete') {
           // Payment successful, update purchase
           await shopRepository.completeShopPurchase(purchaseId, session.id);
-          
+
           logger.info('Purchase synced and completed', {
             purchaseId,
             shopId,
             amount: purchase.amount
           });
-          
+
           return res.json({
             success: true,
             message: 'Payment verified and purchase completed!',
@@ -86,6 +86,26 @@ router.post('/check-payment/:purchaseId', asyncHandler(async (req: Authenticated
               status: 'completed',
               amount: purchase.amount,
               stripeStatus: session.payment_status
+            }
+          });
+        } else if (session.status === 'expired') {
+          // Session expired, mark purchase as failed
+          await shopRepository.failShopPurchase(purchaseId, 'Stripe checkout session expired');
+
+          logger.info('Purchase marked as failed due to expired session', {
+            purchaseId,
+            shopId,
+            amount: purchase.amount
+          });
+
+          return res.json({
+            success: false,
+            message: 'Payment session has expired. Please create a new purchase.',
+            data: {
+              status: 'failed',
+              reason: 'expired',
+              stripeStatus: session.payment_status,
+              sessionStatus: session.status
             }
           });
         } else {

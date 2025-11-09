@@ -658,30 +658,30 @@ export class ShopRepository extends BaseRepository {
       // Get purchase details
       const purchaseQuery = 'SELECT * FROM shop_rcn_purchases WHERE id = $1 AND status = $2';
       const purchaseResult = await client.query(purchaseQuery, [purchaseId, 'pending']);
-      
+
       if (purchaseResult.rows.length === 0) {
         // Check if purchase exists at all
         const checkQuery = 'SELECT id, status FROM shop_rcn_purchases WHERE id = $1';
         const checkResult = await client.query(checkQuery, [purchaseId]);
-        
+
         if (checkResult.rows.length === 0) {
           throw new Error(`Purchase not found: ${purchaseId}`);
         } else {
           throw new Error(`Purchase already completed or in status: ${checkResult.rows[0].status}`);
         }
       }
-      
+
       const purchase = purchaseResult.rows[0];
-      logger.info('Found purchase to complete:', { 
-        shopId: purchase.shop_id, 
+      logger.info('Found purchase to complete:', {
+        shopId: purchase.shop_id,
         amount: purchase.amount,
-        totalCost: purchase.total_cost 
+        totalCost: purchase.total_cost
       });
 
       // Update purchase status
       const updatePurchaseQuery = `
-        UPDATE shop_rcn_purchases 
-        SET status = 'completed', 
+        UPDATE shop_rcn_purchases
+        SET status = 'completed',
             payment_reference = COALESCE($2, payment_reference),
             completed_at = CURRENT_TIMESTAMP
         WHERE id = $1
@@ -690,15 +690,15 @@ export class ShopRepository extends BaseRepository {
 
       // Update shop balance
       const updateShopQuery = `
-        UPDATE shops 
+        UPDATE shops
         SET purchased_rcn_balance = purchased_rcn_balance + $1,
             total_rcn_purchased = total_rcn_purchased + $1,
             last_purchase_date = CURRENT_TIMESTAMP
         WHERE shop_id = $2
       `;
       await client.query(updateShopQuery, [purchase.amount, purchase.shop_id]);
-      
-      logger.info('Shop purchase completed successfully:', { 
+
+      logger.info('Shop purchase completed successfully:', {
         purchaseId,
         shopId: purchase.shop_id,
         amountAdded: purchase.amount
@@ -711,6 +711,65 @@ export class ShopRepository extends BaseRepository {
       throw error;
     } finally {
       client.release();
+    }
+  }
+
+  async cancelShopPurchase(purchaseId: string): Promise<void> {
+    try {
+      logger.info('Attempting to cancel shop purchase:', { purchaseId });
+
+      // Update purchase status to cancelled/failed
+      const updatePurchaseQuery = `
+        UPDATE shop_rcn_purchases
+        SET status = 'cancelled'
+        WHERE id = $1 AND status = 'pending'
+        RETURNING id, shop_id, amount
+      `;
+      const result = await this.pool.query(updatePurchaseQuery, [purchaseId]);
+
+      if (result.rowCount === 0) {
+        throw new Error('Purchase not found or cannot be cancelled');
+      }
+
+      logger.info('Shop purchase cancelled successfully:', {
+        purchaseId,
+        shopId: result.rows[0].shop_id,
+        amount: result.rows[0].amount
+      });
+    } catch (error) {
+      logger.error('Error cancelling shop purchase:', error);
+      throw error;
+    }
+  }
+
+  async failShopPurchase(purchaseId: string, reason?: string): Promise<void> {
+    try {
+      logger.info('Marking shop purchase as failed:', { purchaseId, reason });
+
+      // Update purchase status to failed
+      const updatePurchaseQuery = `
+        UPDATE shop_rcn_purchases
+        SET status = 'failed'
+        WHERE id = $1 AND status = 'pending'
+        RETURNING id, shop_id, amount
+      `;
+      const result = await this.pool.query(updatePurchaseQuery, [purchaseId]);
+
+      if (result.rowCount === 0) {
+        // Purchase might already be processed, just log it
+        logger.warn('Purchase not found or already processed:', { purchaseId });
+        return;
+      }
+
+      logger.info('Shop purchase marked as failed:', {
+        purchaseId,
+        shopId: result.rows[0].shop_id,
+        amount: result.rows[0].amount,
+        reason
+      });
+    } catch (error) {
+      logger.error('Error marking shop purchase as failed:', error);
+      throw error;
     }
   }
 
