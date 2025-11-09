@@ -58,6 +58,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const response = await fetch(`${API_URL}/auth/check-user`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Send cookies with request
         body: JSON.stringify({ address })
       });
 
@@ -104,16 +105,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Login function
+  // Login function - Now properly authenticates and sets cookie
   const login = async () => {
     if (!account?.address) return;
-    
+
     setIsLoading(true);
     try {
+      // First, check what type of user this is
+      const userCheck = await checkUserExists(account.address);
+
+      if (!userCheck.exists || !userCheck.type) {
+        console.log('User not registered');
+        setUserProfile(null);
+        return;
+      }
+
+      // Call the appropriate authentication endpoint to set the cookie
+      let authResult = null;
+      switch (userCheck.type) {
+        case 'admin':
+          authResult = await authApi.authenticateAdmin(account.address);
+          break;
+        case 'shop':
+          authResult = await authApi.authenticateShop(account.address);
+          break;
+        case 'customer':
+          authResult = await authApi.authenticateCustomer(account.address);
+          break;
+      }
+
+      if (!authResult) {
+        console.error('Authentication failed');
+        setUserProfile(null);
+        return;
+      }
+
+      // Now fetch the full profile
       const profile = await fetchUserProfile(account.address);
       setUserProfile(profile);
     } catch (error) {
       console.error('Login error:', error);
+      setUserProfile(null);
     } finally {
       setIsLoading(false);
     }
