@@ -8,20 +8,31 @@ const router = Router();
 
 /**
  * Helper function to set httpOnly cookie with JWT token
- * For cross-origin deployments (frontend on Vercel, backend on Digital Ocean),
- * we need sameSite: 'none' with secure: true
+ * For cross-origin deployments (frontend: www.repaircoin.ai on Vercel,
+ * backend: *.ondigitalocean.app), we need sameSite: 'none' with secure: true.
+ *
+ * IMPORTANT: Do NOT set domain attribute for cross-origin cookies - let browser handle it
  */
 const setAuthCookie = (res: Response, token: string) => {
   const isProduction = process.env.NODE_ENV === 'production';
+
   const cookieOptions = {
     httpOnly: true,
-    secure: true, // Always true - required for sameSite: 'none' and for production HTTPS
-    sameSite: 'none' as const, // Allow cross-site cookies (Vercel <-> Digital Ocean)
+    secure: true, // Required for sameSite: 'none'
+    sameSite: 'none' as const, // Required for cross-origin (different domains)
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    path: '/'
+    path: '/',
+    // Do NOT set domain for cross-origin cookies - it will prevent them from working
   };
 
   res.cookie('auth_token', token, cookieOptions);
+
+  logger.info('Auth cookie set', {
+    secure: cookieOptions.secure,
+    sameSite: cookieOptions.sameSite,
+    httpOnly: cookieOptions.httpOnly,
+    maxAge: cookieOptions.maxAge
+  });
 };
 
 /**
@@ -777,13 +788,17 @@ router.post('/shop', async (req, res) => {
  */
 router.post('/logout', (req, res) => {
   try {
-    // Clear the auth cookie
-    res.clearCookie('auth_token', {
+    // Cookie clear options must match the options used when setting the cookie
+    const clearOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      secure: true,
+      sameSite: 'none' as const,
       path: '/'
-    });
+      // Do NOT set domain for cross-origin cookies
+    };
+
+    // Clear the auth cookie with matching options
+    res.clearCookie('auth_token', clearOptions);
 
     res.json({
       success: true,
