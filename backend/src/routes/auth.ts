@@ -8,13 +8,15 @@ const router = Router();
 
 /**
  * Helper function to set httpOnly cookie with JWT token
+ * For cross-origin deployments (frontend on Vercel, backend on Digital Ocean),
+ * we need sameSite: 'none' with secure: true
  */
 const setAuthCookie = (res: Response, token: string) => {
   const isProduction = process.env.NODE_ENV === 'production';
   const cookieOptions = {
     httpOnly: true,
-    secure: isProduction, // Only send over HTTPS in production
-    sameSite: isProduction ? 'strict' as const : 'lax' as const,
+    secure: true, // Always true - required for sameSite: 'none' and for production HTTPS
+    sameSite: 'none' as const, // Allow cross-site cookies (Vercel <-> Digital Ocean)
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
     path: '/'
   };
