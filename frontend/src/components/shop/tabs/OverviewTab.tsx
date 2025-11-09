@@ -1,14 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { WalletIcon } from "../../icon/index";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatCard } from "@/components/ui/StatCard";
-import { ChevronDown } from "lucide-react";
-import { RCGBalanceCard } from "@/components/shop/RCGBalanceCard";
+import { ChevronDown, MoreHorizontal } from "lucide-react";
 import { useRCGBalance } from "@/hooks/useRCGBalance";
 import { formatRCGBalance } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { ProfitChart } from "@/components/shop/ProfitChart";
 import { toast } from "react-hot-toast";
 
@@ -104,6 +102,7 @@ const purchaseColumns: Column<PurchaseHistory>[] = [
         completed: "bg-green-500/10 text-green-400",
         pending: "bg-yellow-500/10 text-yellow-400",
         failed: "bg-red-500/10 text-red-400",
+        cancelled: "bg-red-500/10 text-red-400",
         minted: "bg-blue-500/10 text-blue-400",
       };
 
@@ -123,7 +122,7 @@ const purchaseColumns: Column<PurchaseHistory>[] = [
     key: "runningBalance",
     header: "Balance",
     sortable: true,
-    accessor: (purchase: any) => (
+    accessor: (purchase: PurchaseHistory & { runningBalance?: number }) => (
       <span className="text-sm font-semibold text-green-400">
         {purchase.runningBalance ? `${purchase.runningBalance} RCN` : "0 RCN"}
       </span>
@@ -132,17 +131,44 @@ const purchaseColumns: Column<PurchaseHistory>[] = [
   {
     key: "actions",
     header: "Actions",
-    accessor: (purchase: any) => {
+    accessor: (purchase: PurchaseHistory & {
+      onToggleMenu?: (id: string | number) => void;
+      onContinuePayment?: (id: string | number) => void;
+      onCancelPayment?: (id: string | number) => void;
+      continuingPayment?: string | null;
+      cancellingPayment?: string | null;
+      showMenu?: string | null;
+    }) => {
       if (purchase.status === 'pending') {
         return (
-          <Button
-            onClick={() => purchase.onContinuePayment?.(purchase.id)}
-            size="sm"
-            disabled={purchase.continuingPayment === purchase.id}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs px-3 py-1"
-          >
-            {purchase.continuingPayment === purchase.id ? 'Loading...' : 'Continue Payment'}
-          </Button>
+          <div className="relative actions-menu-container">
+            <button
+              onClick={() => purchase.onToggleMenu?.(purchase.id)}
+              className="p-2 hover:bg-gray-700 rounded-full transition-colors"
+              title="More actions"
+            >
+              <MoreHorizontal className="w-5 h-5 text-gray-300" />
+            </button>
+
+            {purchase.showMenu === purchase.id && (
+              <div className="absolute right-0 mt-1 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50">
+                <button
+                  onClick={() => purchase.onContinuePayment?.(purchase.id)}
+                  disabled={purchase.continuingPayment === purchase.id}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded-t-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {purchase.continuingPayment === purchase.id ? 'Loading...' : 'Continue Payment'}
+                </button>
+                <button
+                  onClick={() => purchase.onCancelPayment?.(purchase.id)}
+                  disabled={purchase.cancellingPayment === purchase.id}
+                  className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-700 rounded-b-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {purchase.cancellingPayment === purchase.id ? 'Cancelling...' : 'Cancel Payment'}
+                </button>
+              </div>
+            )}
+          </div>
         );
       }
       return null;
@@ -163,6 +189,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     "all" | "completed" | "pending" | "failed"
   >("all");
   const [continuingPayment, setContinuingPayment] = useState<string | null>(null);
+  const [cancellingPayment, setCancellingPayment] = useState<string | null>(null);
+  const [showMenu, setShowMenu] = useState<string | null>(null);
 
   // Filter purchases based on selected filter
   const filteredPurchases = purchases.filter((purchase) => {
@@ -171,14 +199,15 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   });
 
   // Handle continue payment
-  const handleContinuePayment = async (purchaseId: string) => {
+  const handleContinuePayment = useCallback(async (purchaseId: string) => {
     if (!authToken) {
       toast.error('Authentication required');
       return;
     }
 
     setContinuingPayment(purchaseId);
-    
+    setShowMenu(null);
+
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/purchase/${purchaseId}/continue`, {
         method: 'POST',
@@ -202,7 +231,50 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     } finally {
       setContinuingPayment(null);
     }
-  };
+  }, [authToken]);
+
+  // Handle cancel payment
+  const handleCancelPayment = useCallback(async (purchaseId: string) => {
+    if (!authToken) {
+      toast.error('Authentication required');
+      return;
+    }
+
+    setCancellingPayment(purchaseId);
+    setShowMenu(null);
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/purchase/${purchaseId}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        toast.success('Purchase cancelled successfully');
+        // Refresh the data to show updated status
+        if (onRefreshData) {
+          onRefreshData();
+        }
+      } else {
+        toast.error(result.error || 'Failed to cancel payment');
+      }
+    } catch (error) {
+      console.error('Error cancelling payment:', error);
+      toast.error('Failed to cancel payment');
+    } finally {
+      setCancellingPayment(null);
+    }
+  }, [authToken, onRefreshData]);
+
+  // Handle toggle menu
+  const handleToggleMenu = useCallback((purchaseId: string) => {
+    setShowMenu(showMenu === purchaseId ? null : purchaseId);
+  }, [showMenu]);
 
   // Calculate running balances for purchases
   const purchasesWithBalance = React.useMemo(() => {
@@ -239,13 +311,17 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           ...purchase,
           runningBalance: balanceAfterPurchase,
           onContinuePayment: handleContinuePayment,
+          onCancelPayment: handleCancelPayment,
+          onToggleMenu: handleToggleMenu,
           continuingPayment: continuingPayment,
+          cancellingPayment: cancellingPayment,
+          showMenu: showMenu,
         };
       }
     );
 
     return purchasesWithRunningBalance;
-  }, [filteredPurchases, purchases, shopData?.purchasedRcnBalance, continuingPayment]);
+  }, [purchases, filteredPurchases, shopData?.purchasedRcnBalance, handleContinuePayment, handleCancelPayment, handleToggleMenu, continuingPayment, cancellingPayment, showMenu]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -262,6 +338,22 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [showFilterDropdown]);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest(".actions-menu-container") && showMenu) {
+        setShowMenu(null);
+      }
+    };
+
+    if (showMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showMenu]);
 
   if (!shopData) {
     return <div>Loading shop data...</div>;
