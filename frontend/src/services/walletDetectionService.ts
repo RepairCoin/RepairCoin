@@ -38,13 +38,15 @@ export class WalletDetectionService {
       }
 
       // Check if customer
-      const customerResponse = await fetch(`${this.apiUrl}/customers/${address}`);
+      const customerResponse = await fetch(`${this.apiUrl}/customers/${address}`, {
+        credentials: 'include' // Send cookies with request
+      });
       if (customerResponse.ok) {
         const customerData = await customerResponse.json();
         console.log(`✅ Wallet ${address} detected as registered customer`);
-        return { 
-          type: 'customer', 
-          isRegistered: true, 
+        return {
+          type: 'customer',
+          isRegistered: true,
           route: '/customer',
           data: customerData.data
         };
@@ -53,13 +55,15 @@ export class WalletDetectionService {
       }
 
       // Check if shop
-      const shopResponse = await fetch(`${this.apiUrl}/shops/wallet/${address}`);
+      const shopResponse = await fetch(`${this.apiUrl}/shops/wallet/${address}`, {
+        credentials: 'include' // Send cookies with request
+      });
       if (shopResponse.ok) {
         const shopData = await shopResponse.json();
         console.log(`✅ Wallet ${address} detected as registered shop`);
-        return { 
-          type: 'shop', 
-          isRegistered: true, 
+        return {
+          type: 'shop',
+          isRegistered: true,
           route: '/shop',
           data: shopData.data
         };
