@@ -129,10 +129,8 @@ export const useAuth = () => {
     }
   }, [account?.address, setLoading, setError, setUserProfile, fetchUserProfile]);
 
-  const logout = useCallback(async () => {
+  const logout = useCallback(() => {
     resetAuth();
-    // Call backend to clear httpOnly cookie
-    await authApi.logout();
   }, [resetAuth]);
 
   const refreshProfile = useCallback(async () => {
@@ -159,11 +157,9 @@ export const useAuth = () => {
       setAccount(account);
       login();
     } else {
-      // When wallet disconnects, only clear local state
-      // Don't call backend logout endpoint (no session to clear)
-      resetAuth();
+      logout();
       setAccount(null);
-
+      
       if (typeof window !== 'undefined') {
         sessionStorage.clear();
       }

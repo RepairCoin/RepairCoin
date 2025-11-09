@@ -5,7 +5,6 @@ import { SubscriptionManagement } from "../SubscriptionManagement";
 import { Store, Mail, Phone, MapPin, Globe, Clock, User } from "lucide-react";
 import toast from "react-hot-toast";
 import { LocationPickerWrapper } from "../../maps/LocationPickerWrapper";
-import apiClient from '@/services/api/client';
 
 interface ShopData {
   // crossShopEnabled removed - universal redemption is now always enabled
@@ -97,6 +96,16 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const handleSaveShopDetails = async () => {
     setLoadingShopUpdate(true);
     try {
+      // Get the JWT token from localStorage/sessionStorage (try both)
+      const token =
+        localStorage.getItem("token") ||
+        localStorage.getItem("shopAuthToken") ||
+        sessionStorage.getItem("shopAuthToken");
+
+      if (!token) {
+        throw new Error("Authentication token not found. Please log in again.");
+      }
+
       // Filter out fields that don't exist in the database
       const validFields = {
         name: shopFormData.name,
@@ -113,14 +122,33 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         },
       };
 
-      // Update shop details
-      const data = await apiClient.put(
-        `/shops/${shopId}/details`,
-        validFields
+      // First update shop details
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/details`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(validFields),
+        }
       );
+
+      if (!response.ok) {
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: `HTTP ${response.status}` }));
+        console.error("Shop update error response:", errorData);
+        throw new Error(
+          errorData.error ||
+            `Failed to update shop details (${response.status})`
+        );
+      }
 
       // Cross-shop settings removed - universal redemption is now always enabled
 
+      const data = await response.json();
       toast.success(
         data.message || "Shop details and settings updated successfully!"
       );

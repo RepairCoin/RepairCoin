@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useNotificationStore } from '../stores/notificationStore';
 import { useAuthStore } from '../stores/authStore';
-import apiClient from '@/services/api/client';
+import axios from 'axios';
 
 // Use NEXT_PUBLIC_API_URL and extract base URL by removing /api suffix
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
@@ -28,45 +28,101 @@ export const useNotifications = () => {
 
   const { userProfile } = useAuthStore();
 
-  // Token for WebSocket only (backend still returns it for WS use)
+  // Use state to track token from localStorage (more reliable than userProfile.token)
   const [token, setToken] = useState<string | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
 
-  // Update token and wallet address from userProfile
+  // Update token and wallet address whenever userProfile changes or component mounts
   useEffect(() => {
-    // Get token from userProfile (backend still returns it in response for WS use)
-    const wsToken = userProfile?.token || null;
-    const address = userProfile?.address || null;
+    const getToken = () => {
+      // First check userProfile
+      if (userProfile?.token) {
+        console.log('🔑 Token found in userProfile');
+        return userProfile.token;
+      }
 
-    setToken(prev => prev === wsToken ? prev : wsToken);
-    setWalletAddress(prev => prev === address ? prev : address);
+      // Check localStorage for any auth token
+      const customerToken = localStorage.getItem('customerAuthToken');
+      const shopToken = localStorage.getItem('shopAuthToken');
+      const adminToken = localStorage.getItem('adminAuthToken');
+      const genericToken = localStorage.getItem('token');
 
-    if (wsToken) {
-      console.log('✅ WebSocket token from userProfile');
+      console.log('🔍 Checking localStorage for tokens:', {
+        customerToken: customerToken ? '✅ Found' : '❌ Missing',
+        shopToken: shopToken ? '✅ Found' : '❌ Missing',
+        adminToken: adminToken ? '✅ Found' : '❌ Missing',
+        genericToken: genericToken ? '✅ Found' : '❌ Missing',
+      });
+
+      return customerToken || shopToken || adminToken || genericToken || null;
+    };
+
+    const getWalletAddress = (tokenToUse: string | null) => {
+      // First check userProfile
+      if (userProfile?.address) {
+        console.log('👛 Wallet address found in userProfile:', userProfile.address);
+        return userProfile.address;
+      }
+
+      // Try to extract from token if available
+      if (tokenToUse) {
+        try {
+          // Decode JWT to get wallet address
+          const payload = tokenToUse.split('.')[1];
+          const decoded = JSON.parse(atob(payload));
+          const address = decoded.address || decoded.walletAddress || decoded.wallet_address;
+          if (address) {
+            console.log('👛 Wallet address extracted from token:', address);
+            return address;
+          }
+        } catch (error) {
+          console.error('Failed to decode token for wallet address:', error);
+        }
+      }
+
+      console.warn('⚠️ No wallet address found in userProfile or token');
+      return null;
+    };
+
+    const foundToken = getToken();
+    const foundAddress = getWalletAddress(foundToken);
+
+    // Only update state if values actually changed to prevent unnecessary re-renders
+    setToken(prev => prev === foundToken ? prev : foundToken);
+    setWalletAddress(prev => prev === foundAddress ? prev : foundAddress);
+
+    if (foundToken) {
+      console.log('✅ Token set successfully');
+    } else {
+      console.warn('⚠️ No token found in userProfile or localStorage');
     }
 
-    if (address) {
-      console.log('✅ Wallet address:', address);
+    if (foundAddress) {
+      console.log('✅ Wallet address set successfully');
+    } else {
+      console.warn('⚠️ No wallet address found');
     }
-  }, [userProfile]);
+  }, [userProfile]); // Removed 'token' from dependencies to break the cycle
 
-  // Fetch initial notifications from API (uses cookies automatically)
+  // Fetch initial notifications from API
   const fetchNotifications = useCallback(async () => {
-    if (!userProfile?.address) return;
+    if (!token) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const response = await apiClient.get('/notifications', {
+      const response = await axios.get(`${BACKEND_URL}/api/notifications`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
         params: {
           page: 1,
           limit: 50,
         },
       });
 
-      // apiClient already returns response.data, so response is the unwrapped data
-      setNotifications(response.items || []);
+      setNotifications(response.data.items || []);
     } catch (error: any) {
       // Don't log 401 errors - these are expected when user isn't authenticated
       if (error.response?.status !== 401) {
@@ -76,64 +132,91 @@ export const useNotifications = () => {
     } finally {
       setLoading(false);
     }
-  }, [userProfile?.address, setNotifications, setLoading, setError]);
+  }, [token, setNotifications, setLoading, setError]);
 
-  // Fetch unread count (uses cookies automatically)
+  // Fetch unread count
   const fetchUnreadCount = useCallback(async () => {
-    if (!userProfile?.address) return;
+    if (!token) return;
 
     try {
-      const response = await apiClient.get('/notifications/unread/count');
-      // apiClient already returns response.data, so response is the unwrapped data
-      setUnreadCount(response.count || 0);
+      const response = await axios.get(`${BACKEND_URL}/api/notifications/unread/count`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      setUnreadCount(response.data.count || 0);
     } catch (error: any) {
       // Don't log 401 errors - these are expected when user isn't authenticated
       if (error.response?.status !== 401) {
         console.error('Failed to fetch unread count:', error);
       }
     }
-  }, [userProfile?.address, setUnreadCount]);
+  }, [token, setUnreadCount]);
 
-  // Mark notification as read (uses cookies automatically)
+  // Mark notification as read (API call)
   const markAsRead = useCallback(
     async (notificationId: string) => {
-      if (!userProfile?.address) return;
+      if (!token) return;
 
       try {
-        await apiClient.patch(`/notifications/${notificationId}/read`);
+        await axios.patch(
+          `${BACKEND_URL}/api/notifications/${notificationId}/read`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
         markAsReadInStore(notificationId);
       } catch (error) {
         console.error('Failed to mark notification as read:', error);
       }
     },
-    [userProfile?.address, markAsReadInStore]
+    [token, markAsReadInStore]
   );
 
-  // Mark all notifications as read (uses cookies automatically)
+  // Mark all notifications as read (API call)
   const markAllAsRead = useCallback(async () => {
-    if (!userProfile?.address) return;
+    if (!token) return;
 
     try {
-      await apiClient.patch('/notifications/read-all');
+      await axios.patch(
+        `${BACKEND_URL}/api/notifications/read-all`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
       markAllAsReadInStore();
     } catch (error) {
       console.error('Failed to mark all notifications as read:', error);
     }
-  }, [userProfile?.address, markAllAsReadInStore]);
+  }, [token, markAllAsReadInStore]);
 
-  // Delete notification (uses cookies automatically)
+  // Delete notification (API call)
   const deleteNotification = useCallback(
     async (notificationId: string) => {
-      if (!userProfile?.address) return;
+      if (!token) return;
 
       try {
-        await apiClient.delete(`/notifications/${notificationId}`);
+        await axios.delete(`${BACKEND_URL}/api/notifications/${notificationId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
         removeNotificationFromStore(notificationId);
       } catch (error) {
         console.error('Failed to delete notification:', error);
       }
     },
-    [userProfile?.address, removeNotificationFromStore]
+    [token, removeNotificationFromStore]
   );
 
   // Connect to WebSocket

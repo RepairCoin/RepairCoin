@@ -76,7 +76,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
 
     setLoading(true);
     try {
-      // Cookies sent automatically with apiClient
+      const adminToken = await generateAdminToken();
       if (!adminToken) {
         toast.error("Failed to authenticate as admin");
         return;

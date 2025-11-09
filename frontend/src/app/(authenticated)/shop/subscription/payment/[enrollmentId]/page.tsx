@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, CheckCircle, CreditCard, Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import apiClient from '@/services/api/client';
 
 interface EnrollmentDetails {
   id: number;
@@ -43,9 +42,18 @@ export default function SubscriptionPaymentPage() {
       setLoading(true);
       setError(null);
 
-      // Use public endpoint for payment page
-      const result = await apiClient.get(`/shops/subscription/enrollment-public/${enrollmentId}`);
+      const token = localStorage.getItem('shopAuthToken');
 
+      // Use public endpoint for payment page
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/subscription/enrollment-public/${enrollmentId}`);
+
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || `Failed to load enrollment details (${response.status})`);
+      }
+
+      const result = await response.json();
       if (result.success) {
         setEnrollment(result.data);
       } else {
@@ -68,19 +76,33 @@ export default function SubscriptionPaymentPage() {
       // For now, we'll simulate the payment process
       await new Promise(resolve => setTimeout(resolve, 2000));
 
+      const token = localStorage.getItem('shopAuthToken');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
       // Call backend to confirm payment
-      const result = await apiClient.post('/shops/subscription/payment/confirm', {
-        enrollmentId: enrollmentId,
-        paymentMethodId: 'pm_card_visa', // This would come from Stripe
-        amount: enrollment?.monthlyAmount || 500
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/subscription/payment/confirm`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          enrollmentId: enrollmentId,
+          paymentMethodId: 'pm_card_visa', // This would come from Stripe
+          amount: enrollment?.monthlyAmount || 500
+        })
       });
 
-      if (!result.success) {
+      const result = await response.json();
+      
+      if (!response.ok) {
         throw new Error(result.error || 'Payment failed');
       }
 
       setPaymentComplete(true);
-
+      
       // Redirect to dashboard after 3 seconds
       setTimeout(() => {
         router.push('/shop?tab=subscription');

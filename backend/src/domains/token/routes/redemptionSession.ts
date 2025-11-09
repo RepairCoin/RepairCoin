@@ -260,18 +260,19 @@ router.get('/my-sessions',
 
       res.json({
         success: true,
-        sessions: filteredSessions.map(s => ({
-          sessionId: s.sessionId,
-          shopId: s.shopId,
-          maxAmount: s.maxAmount,
-          customerAddress: s.customerAddress,
-          status: s.status,
-          createdAt: s.createdAt,
-          expiresAt: s.expiresAt,
-          approvedAt: s.approvedAt,
-          usedAt: s.usedAt
-        })),
-        pendingCount: filteredSessions.filter(s => s.status === 'pending').length
+        data: {
+          sessions: filteredSessions.map(s => ({
+            sessionId: s.sessionId,
+            shopId: s.shopId,
+            amount: s.maxAmount,
+            status: s.status,
+            createdAt: s.createdAt,
+            expiresAt: s.expiresAt,
+            approvedAt: s.approvedAt,
+            usedAt: s.usedAt
+          })),
+          pendingCount: filteredSessions.filter(s => s.status === 'pending').length
+        }
       });
 
     } catch (error) {

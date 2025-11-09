@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
-import apiClient from '@/services/api/client';
 
 // Icon components
 const PlusIcon = ({ className }: { className?: string }) => (
@@ -140,8 +139,24 @@ export default function PromoCodesTab({ shopId }: PromoCodesTabProps) {
 
     try {
       setLoading(true);
+      const apiUrl =
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+      const token =
+        localStorage.getItem("shopAuthToken") ||
+        sessionStorage.getItem("shopAuthToken");
 
-      const data = await apiClient.get(`/shops/${shopId}/promo-codes`);
+      const response = await fetch(`${apiUrl}/shops/${shopId}/promo-codes`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch promo codes");
+      }
+
+      const data = await response.json();
       setPromoCodes(data.data || []);
     } catch (err) {
       console.error("Error fetching promo codes:", err);
@@ -176,7 +191,26 @@ export default function PromoCodesTab({ shopId }: PromoCodesTabProps) {
         per_customer_limit: parseInt(formData.per_customer_limit) || 1,
       };
 
-      const data = await apiClient.post(`/shops/${shopId}/promo-codes`, payload);
+      const apiUrl =
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+      const token =
+        localStorage.getItem("shopAuthToken") ||
+        sessionStorage.getItem("shopAuthToken");
+
+      const response = await fetch(`${apiUrl}/shops/${shopId}/promo-codes`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create promo code");
+      }
 
       setPromoCodes([data.data, ...promoCodes]);
       setShowCreateForm(false);
@@ -196,7 +230,26 @@ export default function PromoCodesTab({ shopId }: PromoCodesTabProps) {
     }
 
     try {
-      await apiClient.delete(`/shops/${shopId}/promo-codes/${promoCodeId}`);
+      const apiUrl =
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+      const token =
+        localStorage.getItem("shopAuthToken") ||
+        sessionStorage.getItem("shopAuthToken");
+
+      const response = await fetch(
+        `${apiUrl}/shops/${shopId}/promo-codes/${promoCodeId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to deactivate promo code");
+      }
 
       // Update local state
       setPromoCodes(
@@ -686,10 +739,50 @@ function PromoCodeStats({
 
   const fetchStats = async () => {
     try {
-      const url = `/shops/${shopId}/promo-codes/${promoCode.id}/stats`;
+      const apiUrl =
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+      const token =
+        localStorage.getItem("shopAuthToken") ||
+        sessionStorage.getItem("shopAuthToken");
+
+      if (!token) {
+        console.error("No auth token found");
+        setStats(null);
+        setLoading(false);
+        return;
+      }
+
+      const url = `${apiUrl}/shops/${shopId}/promo-codes/${promoCode.id}/stats`;
       console.log("Fetching promo code stats from:", url);
 
-      const data = await apiClient.get(url);
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error(`Failed to fetch stats: ${response.status} - ${response.statusText}`, errorData);
+        
+        // Set empty stats as fallback to show UI without data
+        setStats({
+          stats: {
+            total_uses: promoCode.times_used || 0,
+            unique_customers: 0,
+            total_bonus_issued: promoCode.total_bonus_issued || 0,
+            average_bonus: promoCode.times_used > 0 
+              ? (promoCode.total_bonus_issued || 0) / promoCode.times_used 
+              : 0,
+            uses_by_day: []
+          }
+        });
+        setLoading(false);
+        return;
+      }
+
+      const data = await response.json();
       console.log("Stats received:", data);
       setStats(data.data || data);
     } catch (err) {
@@ -700,8 +793,8 @@ function PromoCodeStats({
           total_uses: promoCode.times_used || 0,
           unique_customers: 0,
           total_bonus_issued: promoCode.total_bonus_issued || 0,
-          average_bonus: promoCode.times_used > 0
-            ? (promoCode.total_bonus_issued || 0) / promoCode.times_used
+          average_bonus: promoCode.times_used > 0 
+            ? (promoCode.total_bonus_issued || 0) / promoCode.times_used 
             : 0,
           uses_by_day: []
         }

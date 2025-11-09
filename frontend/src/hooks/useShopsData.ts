@@ -45,6 +45,7 @@ export function useShopsData() {
     isAdmin,
     isSuperAdmin,
     adminRole,
+    generateAdminToken,
   } = useAdminAuth();
 
   const [loading, setLoading] = useState(false);
@@ -64,7 +65,12 @@ export function useShopsData() {
     setError(null);
 
     try {
-      // Cookies sent automatically with apiClient
+      const adminToken = await generateAdminToken();
+      if (!adminToken) {
+        setError("Failed to authenticate as admin");
+        return;
+      }
+
       // Fetch ALL shops to get complete data
       const allShops = await adminApi.getShops({ active: 'all' as any, verified: 'all' as any });
       
@@ -92,7 +98,7 @@ export function useShopsData() {
     } finally {
       setLoading(false);
     }
-  }, [isAdmin, isSuperAdmin, adminRole, dataFetched]);
+  }, [isAdmin, isSuperAdmin, adminRole, generateAdminToken, dataFetched]);
 
   // Load data when component mounts and conditions are met
   useEffect(() => {

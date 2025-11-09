@@ -29,34 +29,36 @@ declare global {
 // Main authentication middleware
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    // Try to get token from cookies first (preferred method)
-    let token = req.cookies?.auth_token;
-
-    // Fallback to Authorization header for backward compatibility
-    if (!token) {
-      const authHeader = req.headers.authorization;
-
-      if (authHeader) {
-        token = authHeader.startsWith('Bearer ')
-          ? authHeader.slice(7)
-          : authHeader;
-      }
-    }
-
-    // If no token found in either location
-    if (!token) {
-      logger.security('Authentication attempt without token', {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader) {
+      logger.security('Authentication attempt without authorization header', {
         ip: req.ip,
         userAgent: req.get('User-Agent'),
-        path: req.path,
-        hasCookie: !!req.cookies?.auth_token,
-        hasAuthHeader: !!req.headers.authorization
+        path: req.path
       });
-
+      
       return res.status(401).json({
         success: false,
-        error: 'Authentication required',
-        code: 'MISSING_AUTH_TOKEN'
+        error: 'Authorization header required',
+        code: 'MISSING_AUTH_HEADER'
+      });
+    }
+    
+    const token = authHeader.startsWith('Bearer ') 
+      ? authHeader.slice(7) 
+      : authHeader;
+    
+    if (!token) {
+      logger.security('Authentication attempt with malformed authorization header', {
+        ip: req.ip,
+        authHeader: authHeader.substring(0, 20) + '...'
+      });
+      
+      return res.status(401).json({
+        success: false,
+        error: 'Bearer token required',
+        code: 'MALFORMED_AUTH_HEADER'
       });
     }
     

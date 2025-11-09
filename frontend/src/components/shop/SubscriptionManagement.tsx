@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { AlertCircle, CheckCircle, XCircle, CreditCard, Calendar, DollarSign } from 'lucide-react';
 import Link from 'next/link';
-import apiClient from '@/services/api/client';
 
 interface Subscription {
   id?: number;
@@ -77,14 +76,24 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
       setLoading(true);
       setError(null);
 
-      const response = await apiClient.get('/shops/subscription/status');
-
-      if (!response.success) {
-        console.error('Subscription status error:', response);
-        throw new Error(response.error || 'Failed to load subscription status');
+      const token = localStorage.getItem('shopAuthToken');
+      if (!token) {
+        throw new Error('Authentication required');
       }
 
-      const result = response;
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/subscription/status`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        console.error('Subscription status error:', response.status, errorData);
+        throw new Error(errorData?.error || 'Failed to load subscription status');
+      }
+
+      const result = await response.json();
       if (result.success && result.data.currentSubscription) {
         const sub = result.data.currentSubscription;
         setSubscription({
@@ -117,13 +126,25 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
       setSyncing(true);
       setError(null);
 
-      const response = await apiClient.post('/shops/subscription/sync');
-
-      if (!response.success) {
-        throw new Error(response.error || 'Failed to sync subscription');
+      const token = localStorage.getItem('shopAuthToken');
+      if (!token) {
+        throw new Error('Authentication required');
       }
 
-      const result = response;
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/subscription/sync`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || 'Failed to sync subscription');
+      }
+
+      const result = await response.json();
       if (result.data?.synced) {
         setSuccessMessage('Subscription synced successfully!');
         // Reload subscription status
@@ -151,13 +172,32 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
         return;
       }
 
-      const result = await apiClient.post('/shops/subscription/subscribe', {
-        billingMethod: 'credit_card', // Always credit card now
-        billingEmail: billingForm.billingEmail,
-        billingContact: billingForm.billingContact,
-        billingPhone: billingForm.billingPhone,
-        notes: 'Monthly subscription enrollment'
+      const token = localStorage.getItem('shopAuthToken');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/subscription/subscribe`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          billingMethod: 'credit_card', // Always credit card now
+          billingEmail: billingForm.billingEmail,
+          billingContact: billingForm.billingContact,
+          billingPhone: billingForm.billingPhone,
+          notes: 'Monthly subscription enrollment'
+        })
       });
+
+      const result = await response.json();
+      
+      // Check if response is successful (2xx status codes)
+      if (!response.ok && !(response.status >= 200 && response.status < 300)) {
+        throw new Error(result.error || 'Failed to create subscription');
+      }
       
       // If we get a successful response, check if it's because of existing pending subscription
       if (!result.success && result.error) {
@@ -206,11 +246,25 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
       setCancelling(true);
       setError(null);
 
-      const result = await apiClient.post('/shops/subscription/cancel', {
-        reason: cancellationReason || 'Cancelled by shop owner'
+      const token = localStorage.getItem('shopAuthToken');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/subscription/cancel`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          reason: cancellationReason || 'Cancelled by shop owner'
+        })
       });
 
-      if (!result.success) {
+      const result = await response.json();
+      
+      if (!response.ok) {
         throw new Error(result.error || 'Failed to cancel subscription');
       }
 
@@ -245,9 +299,22 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
       setSubscribing(true);
       setError(null);
 
-      const result = await apiClient.post('/shops/subscription/reactivate');
+      const token = localStorage.getItem('shopAuthToken');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
 
-      if (!result.success) {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/subscription/reactivate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const result = await response.json();
+      
+      if (!response.ok) {
         throw new Error(result.error || 'Failed to reactivate subscription');
       }
 

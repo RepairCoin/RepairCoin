@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useActiveAccount } from "thirdweb/react";
-import { authApi } from '@/services/api/auth';
 
 export interface UserProfile {
   id: string;
@@ -26,7 +25,7 @@ interface AuthContextType {
   isShop: boolean;
   isCustomer: boolean;
   login: () => Promise<void>;
-  logout: () => Promise<void>;
+  logout: () => void;
   refreshProfile: () => Promise<void>;
   checkUserExists: (address: string) => Promise<{ exists: boolean; type?: string; data?: any }>;
 }
@@ -58,7 +57,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const response = await fetch(`${API_URL}/auth/check-user`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // Send cookies with request
         body: JSON.stringify({ address })
       });
 
@@ -105,69 +103,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Login function - Now properly authenticates and sets cookie
+  // Login function
   const login = async () => {
     if (!account?.address) return;
-
+    
     setIsLoading(true);
     try {
-      // First, check what type of user this is
-      const userCheck = await checkUserExists(account.address);
-
-      if (!userCheck.exists || !userCheck.type) {
-        console.log('User not registered');
-        setUserProfile(null);
-        return;
-      }
-
-      // Call the appropriate authentication endpoint to set the cookie
-      let authResult = null;
-      switch (userCheck.type) {
-        case 'admin':
-          authResult = await authApi.authenticateAdmin(account.address);
-          break;
-        case 'shop':
-          authResult = await authApi.authenticateShop(account.address);
-          break;
-        case 'customer':
-          authResult = await authApi.authenticateCustomer(account.address);
-          break;
-      }
-
-      if (!authResult) {
-        console.error('Authentication failed');
-        setUserProfile(null);
-        return;
-      }
-
-      // Use the user data we already have from checkUserExists (no need to fetch again)
-      const userData = userCheck.data;
-      const profile: UserProfile = {
-        id: userData.id,
-        address: userData.walletAddress || userData.address || account.address,
-        type: userCheck.type as 'customer' | 'shop' | 'admin',
-        name: userData.name || userData.shopName,
-        email: userData.email,
-        isActive: userData.active !== false,
-        tier: userData.tier,
-        shopId: userData.shopId,
-        registrationDate: userData.createdAt || userData.created_at
-      };
-
+      const profile = await fetchUserProfile(account.address);
       setUserProfile(profile);
     } catch (error) {
       console.error('Login error:', error);
-      setUserProfile(null);
     } finally {
       setIsLoading(false);
     }
   };
 
   // Logout function
-  const logout = async () => {
+  const logout = () => {
     setUserProfile(null);
-    // Call backend to clear httpOnly cookie
-    await authApi.logout();
   };
 
   // Refresh profile

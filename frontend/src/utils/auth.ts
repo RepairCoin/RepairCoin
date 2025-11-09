@@ -1,9 +1,4 @@
 // frontend/src/utils/auth.ts
-/**
- * DEPRECATED: This file is kept for backward compatibility only.
- * Authentication now uses httpOnly cookies managed by the backend.
- * Token management is no longer needed on the client side.
- */
 
 interface AuthTokens {
   adminToken?: string;
@@ -18,116 +13,152 @@ interface TokenInfo {
 }
 
 class AuthManager {
-  /**
-   * DEPRECATED: Tokens are now stored in httpOnly cookies by the backend
-   */
+  private readonly TOKEN_PREFIX = 'repaircoin_';
+  private readonly TOKEN_EXPIRY_BUFFER = 5 * 60 * 1000; // 5 minutes buffer
+
+  // Store tokens in memory for the session
+  private tokens: Map<string, TokenInfo> = new Map();
+
+  // Get stored token
   getToken(role: 'admin' | 'shop' | 'customer'): string | null {
-    console.warn('[DEPRECATED] getToken() - Tokens are now managed via httpOnly cookies');
+    const key = `${this.TOKEN_PREFIX}${role}_token`;
+    const legacyKey = `${role}AuthToken`;
+    
+    // Check memory first
+    const memoryToken = this.tokens.get(role);
+    if (memoryToken && this.isTokenValid(memoryToken)) {
+      return memoryToken.token;
+    }
+
+    // Check localStorage with new key
+    const storedData = localStorage.getItem(key);
+    if (storedData) {
+      try {
+        const tokenInfo: TokenInfo = JSON.parse(storedData);
+        if (this.isTokenValid(tokenInfo)) {
+          // Store in memory for faster access
+          this.tokens.set(role, tokenInfo);
+          return tokenInfo.token;
+        } else {
+          // Token expired, clean up
+          this.clearToken(role);
+        }
+      } catch (error) {
+        console.error('Error parsing stored token:', error);
+        this.clearToken(role);
+      }
+    }
+
+    // Check for legacy tokens (backward compatibility)
+    const legacyToken = localStorage.getItem(legacyKey) || sessionStorage.getItem(legacyKey);
+    if (legacyToken) {
+      // Legacy tokens are stored as plain strings
+      try {
+        // Verify it's a valid JWT token (has 3 parts)
+        if (legacyToken.split('.').length === 3) {
+          return legacyToken;
+        }
+      } catch (error) {
+        console.error('Invalid legacy token format:', error);
+      }
+    }
+
     return null;
   }
 
-  /**
-   * DEPRECATED: Tokens are now automatically set in httpOnly cookies by backend
-   */
+  // Store token with expiry
   setToken(role: 'admin' | 'shop' | 'customer', token: string, expiryHours: number = 24): void {
-    console.warn('[DEPRECATED] setToken() - Tokens are now managed via httpOnly cookies');
-    // No-op: Cookies are set by backend
+    const key = `${this.TOKEN_PREFIX}${role}_token`;
+    const expiresAt = Date.now() + (expiryHours * 60 * 60 * 1000);
+    
+    const tokenInfo: TokenInfo = {
+      token,
+      expiresAt,
+      role
+    };
+
+    // Store in memory
+    this.tokens.set(role, tokenInfo);
+    
+    // Store in localStorage
+    localStorage.setItem(key, JSON.stringify(tokenInfo));
+    
+    // Also store in sessionStorage for current session
+    sessionStorage.setItem(key, JSON.stringify(tokenInfo));
   }
 
-  /**
-   * DEPRECATED: Use authApi.logout() instead
-   */
+  // Clear specific token
   clearToken(role: 'admin' | 'shop' | 'customer'): void {
-    console.warn('[DEPRECATED] clearToken() - Use authApi.logout() instead');
-    // Clean up any legacy localStorage tokens if they exist
-    if (typeof window !== 'undefined') {
-      const legacyKeys = [
-        `repaircoin_${role}_token`,
-        `${role}AuthToken`,
-        'token'
-      ];
-      legacyKeys.forEach(key => {
-        localStorage.removeItem(key);
-        sessionStorage.removeItem(key);
-      });
-    }
+    const key = `${this.TOKEN_PREFIX}${role}_token`;
+    const legacyKey = `${role}AuthToken`;
+    
+    // Clear from memory
+    this.tokens.delete(role);
+    
+    // Clear from storage (both new and legacy keys)
+    localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
+    localStorage.removeItem(legacyKey);
+    sessionStorage.removeItem(legacyKey);
   }
 
-  /**
-   * DEPRECATED: Use authApi.logout() instead
-   */
+  // Clear all tokens
   clearAllTokens(): void {
-    console.warn('[DEPRECATED] clearAllTokens() - Use authApi.logout() instead');
-    // Clean up all legacy tokens
-    if (typeof window !== 'undefined') {
-      const roles: Array<'admin' | 'shop' | 'customer'> = ['admin', 'shop', 'customer'];
-      roles.forEach(role => this.clearToken(role));
-    }
+    const roles: Array<'admin' | 'shop' | 'customer'> = ['admin', 'shop', 'customer'];
+    roles.forEach(role => this.clearToken(role));
   }
 
-  /**
-   * DEPRECATED: Tokens are managed via httpOnly cookies, no headers needed
-   */
+  // Check if token is still valid
+  private isTokenValid(tokenInfo: TokenInfo): boolean {
+    return Date.now() < (tokenInfo.expiresAt - this.TOKEN_EXPIRY_BUFFER);
+  }
+
+  // Get auth headers for API requests
   getAuthHeaders(role: 'admin' | 'shop' | 'customer'): Record<string, string> {
-    console.warn('[DEPRECATED] getAuthHeaders() - Cookies are automatically sent with requests');
+    const token = this.getToken(role);
+    if (token) {
+      return {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+    }
     return {
       'Content-Type': 'application/json'
     };
   }
 
-  /**
-   * DEPRECATED: Use authApi.isAuthenticated() instead
-   */
+  // Check if user is authenticated for a specific role
   isAuthenticated(role: 'admin' | 'shop' | 'customer'): boolean {
-    console.warn('[DEPRECATED] isAuthenticated() - Use authApi.isAuthenticated() instead');
-    return false;
+    return !!this.getToken(role);
   }
 
-  /**
-   * DEPRECATED: User info should be fetched from authStore or API
-   */
+  // Get current user info from token (if JWT)
   getUserInfo(role: 'admin' | 'shop' | 'customer'): any | null {
-    console.warn('[DEPRECATED] getUserInfo() - Use authStore.userProfile instead');
-    return null;
+    const token = this.getToken(role);
+    if (!token) return null;
+
+    try {
+      // Decode JWT payload (base64)
+      const payload = token.split('.')[1];
+      const decoded = JSON.parse(atob(payload));
+      return decoded;
+    } catch (error) {
+      console.error('Error decoding token:', error);
+      return null;
+    }
   }
 }
 
-// Export singleton instance (for backward compatibility)
+// Export singleton instance
 export const authManager = new AuthManager();
 
-// Helper functions (deprecated but kept for backward compatibility)
-export const getAdminToken = () => {
-  console.warn('[DEPRECATED] getAdminToken() - Tokens managed via httpOnly cookies');
-  return null;
-};
+// Helper functions for backward compatibility
+export const getAdminToken = () => authManager.getToken('admin');
+export const getShopToken = () => authManager.getToken('shop');
+export const getCustomerToken = () => authManager.getToken('customer');
 
-export const getShopToken = () => {
-  console.warn('[DEPRECATED] getShopToken() - Tokens managed via httpOnly cookies');
-  return null;
-};
+export const setAdminToken = (token: string) => authManager.setToken('admin', token);
+export const setShopToken = (token: string) => authManager.setToken('shop', token);
+export const setCustomerToken = (token: string) => authManager.setToken('customer', token);
 
-export const getCustomerToken = () => {
-  console.warn('[DEPRECATED] getCustomerToken() - Tokens managed via httpOnly cookies');
-  return null;
-};
-
-export const setAdminToken = (token: string) => {
-  console.warn('[DEPRECATED] setAdminToken() - Tokens managed via httpOnly cookies');
-  // No-op
-};
-
-export const setShopToken = (token: string) => {
-  console.warn('[DEPRECATED] setShopToken() - Tokens managed via httpOnly cookies');
-  // No-op
-};
-
-export const setCustomerToken = (token: string) => {
-  console.warn('[DEPRECATED] setCustomerToken() - Tokens managed via httpOnly cookies');
-  // No-op
-};
-
-export const clearAuthTokens = () => {
-  console.warn('[DEPRECATED] clearAuthTokens() - Use authApi.logout() instead');
-  // Clean up legacy tokens
-  authManager.clearAllTokens();
-};
+export const clearAuthTokens = () => authManager.clearAllTokens();

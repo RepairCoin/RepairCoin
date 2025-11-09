@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useAdminDashboard } from '@/hooks/useAdminDashboard';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import apiClient from '@/services/api/client';
 
 export default function DebugPendingMints() {
+  const { generateAdminToken } = useAdminDashboard();
   const [shopId, setShopId] = useState('zwiftech');
   const [debugData, setDebugData] = useState<any>(null);
   const [allShopsData, setAllShopsData] = useState<any>(null);
@@ -14,8 +15,13 @@ export default function DebugPendingMints() {
   const fetchShopDebug = async () => {
     setLoading(true);
     try {
-      // Cookies sent automatically with apiClient
-      const data = await apiClient.get(`/admin/debug/pending-mints/${shopId}`);
+      const token = await generateAdminToken();
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/debug/pending-mints/${shopId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
       setDebugData(data);
     } catch (error) {
       console.error('Error fetching debug data:', error);
@@ -27,8 +33,13 @@ export default function DebugPendingMints() {
   const fetchAllShops = async () => {
     setLoading(true);
     try {
-      // Cookies sent automatically with apiClient
-      const data = await apiClient.get(`/admin/debug/all-shops-purchases`);
+      const token = await generateAdminToken();
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/debug/all-shops-purchases`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
       setAllShopsData(data);
     } catch (error) {
       console.error('Error fetching all shops data:', error);

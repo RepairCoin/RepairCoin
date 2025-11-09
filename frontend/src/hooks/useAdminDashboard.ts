@@ -14,6 +14,7 @@ export function useAdminDashboard(options?: {
     adminRole,
     adminPermissions,
     loading: authLoading,
+    generateAdminToken,
     hasPermission,
   } = useAdminAuth();
 
@@ -44,6 +45,7 @@ export function useAdminDashboard(options?: {
     isSuperAdmin,
     adminRole,
     adminPermissions,
+    generateAdminToken,
     hasPermission
   );
 
@@ -58,7 +60,8 @@ export function useAdminDashboard(options?: {
     adminRole,
     adminPermissions,
     hasPermission,
-
+    generateAdminToken,
+    
     // Data
     stats,
     shops,

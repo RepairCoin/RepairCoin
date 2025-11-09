@@ -1,39 +1,10 @@
 // backend/src/routes/auth.ts
-import { Router, Response } from 'express';
+import { Router } from 'express';
 import { customerRepository, shopRepository, adminRepository } from '../repositories';
 import { logger } from '../utils/logger';
-import { generateToken, authMiddleware } from '../middleware/auth';
+import { generateToken } from '../middleware/auth';
 
 const router = Router();
-
-/**
- * Helper function to set httpOnly cookie with JWT token
- * For cross-origin deployments (frontend: www.repaircoin.ai on Vercel,
- * backend: *.ondigitalocean.app), we need sameSite: 'none' with secure: true.
- *
- * IMPORTANT: Do NOT set domain attribute for cross-origin cookies - let browser handle it
- */
-const setAuthCookie = (res: Response, token: string) => {
-  const isProduction = process.env.NODE_ENV === 'production';
-
-  const cookieOptions = {
-    httpOnly: true,
-    secure: true, // Required for sameSite: 'none'
-    sameSite: 'none' as const, // Required for cross-origin (different domains)
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    path: '/',
-    // Do NOT set domain for cross-origin cookies - it will prevent them from working
-  };
-
-  res.cookie('auth_token', token, cookieOptions);
-
-  logger.info('Auth cookie set', {
-    secure: cookieOptions.secure,
-    sameSite: cookieOptions.sameSite,
-    httpOnly: cookieOptions.httpOnly,
-    maxAge: cookieOptions.maxAge
-  });
-};
 
 /**
  * Generate JWT token for authenticated users
@@ -80,8 +51,10 @@ router.post('/token', async (req, res) => {
       if (!userType) {
         // Check if user is a shop
         try {
-          const shop = await shopRepository.getShopByWallet(normalizedAddress);
-
+          // Don't filter by active status - check all shops
+          const allShops = await shopRepository.getShopsPaginated({ page: 1, limit: 1000 });
+          const shop = allShops.items.find(s => s.walletAddress?.toLowerCase() === normalizedAddress);
+          
           if (shop) {
             userType = 'shop';
             userData = {
@@ -105,12 +78,9 @@ router.post('/token', async (req, res) => {
     // Generate JWT token
     const token = generateToken(userData);
 
-    // Set httpOnly cookie
-    setAuthCookie(res, token);
-
     return res.json({
       success: true,
-      token, // Still send in response for backward compatibility
+      token,
       userType,
       address: normalizedAddress
     });
@@ -253,10 +223,13 @@ router.post('/check-user', async (req, res) => {
       logger.debug('Customer not found for address:', normalizedAddress);
     }
 
-    // Check if user is a shop
+    // Check if user is a shop  
     try {
-      const shop = await shopRepository.getShopByWallet(normalizedAddress);
-
+      // Get shop by wallet address - we need to find the shop with this wallet
+      // Don't filter by active status here - we need to check if the shop exists first
+      const allShops = await shopRepository.getShopsPaginated({ page: 1, limit: 1000 });
+      const shop = allShops.items.find(s => s.walletAddress?.toLowerCase() === normalizedAddress);
+      
       if (shop) {
         return res.json({
           exists: true,
@@ -375,8 +348,10 @@ router.post('/profile', async (req, res) => {
 
     // Check shop
     try {
-      const shop = await shopRepository.getShopByWallet(normalizedAddress);
-
+      // Don't filter by active status - check all shops
+      const allShops = await shopRepository.getShopsPaginated({ page: 1, limit: 1000 });
+      const shop = allShops.items.find(s => s.walletAddress?.toLowerCase() === normalizedAddress);
+      
       if (shop) {
         return res.json({
           type: 'shop',
@@ -599,12 +574,9 @@ router.post('/admin', async (req, res) => {
       role: 'admin'
     });
 
-    // Set httpOnly cookie
-    setAuthCookie(res, token);
-
     res.json({
       success: true,
-      token, // Still send in response for backward compatibility
+      token,
       user: {
         id: adminData?.id?.toString() || 'super_admin',
         address: normalizedAddress,
@@ -666,12 +638,9 @@ router.post('/customer', async (req, res) => {
         role: 'customer'
       });
 
-      // Set httpOnly cookie
-      setAuthCookie(res, token);
-
       res.json({
         success: true,
-        token, // Still send in response for backward compatibility
+        token,
         user: {
           id: customer.address,
           address: customer.address,
@@ -718,8 +687,9 @@ router.post('/shop', async (req, res) => {
 
     // Check if address belongs to a shop
     try {
-      const shop = await shopRepository.getShopByWallet(normalizedAddress);
-
+      const allShops = await shopRepository.getShopsPaginated({ active: true, page: 1, limit: 1000 });
+      const shop = allShops.items.find(s => s.walletAddress?.toLowerCase() === normalizedAddress);
+      
       if (!shop) {
         return res.status(403).json({
           error: 'Address not associated with a shop'
@@ -739,12 +709,9 @@ router.post('/shop', async (req, res) => {
         shopId: shop.shopId
       });
 
-      // Set httpOnly cookie
-      setAuthCookie(res, token);
-
       res.json({
         success: true,
-        token, // Still send in response for backward compatibility
+        token,
         user: {
           id: shop.shopId,
           shopId: shop.shopId,
@@ -770,76 +737,6 @@ router.post('/shop', async (req, res) => {
     return res.status(500).json({
       error: 'Internal server error',
       message: 'Error generating shop token'
-    });
-  }
-});
-
-/**
- * Logout - Clear auth cookie
- * POST /api/auth/logout
- */
-router.post('/logout', (req, res) => {
-  try {
-    // Cookie clear options must match the options used when setting the cookie
-    const clearOptions = {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'none' as const,
-      path: '/'
-      // Do NOT set domain for cross-origin cookies
-    };
-
-    // Clear the auth cookie with matching options
-    res.clearCookie('auth_token', clearOptions);
-
-    res.json({
-      success: true,
-      message: 'Logged out successfully'
-    });
-  } catch (error) {
-    logger.error('Logout error:', error);
-    return res.status(500).json({
-      error: 'Internal server error',
-      message: 'Error during logout'
-    });
-  }
-});
-
-/**
- * Refresh token - Generate new token for authenticated user
- * POST /api/auth/refresh
- */
-router.post('/refresh', authMiddleware, async (req, res) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        error: 'Authentication required',
-        code: 'AUTH_REQUIRED'
-      });
-    }
-
-    // Generate new token with same payload
-    const newToken = generateToken({
-      address: req.user.address,
-      role: req.user.role as any,
-      shopId: req.user.shopId
-    });
-
-    // Set new cookie
-    setAuthCookie(res, newToken);
-
-    res.json({
-      success: true,
-      token: newToken, // Also send in response for backward compatibility
-      user: req.user
-    });
-  } catch (error: any) {
-    logger.error('Token refresh error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Token refresh failed',
-      code: 'TOKEN_REFRESH_ERROR'
     });
   }
 });

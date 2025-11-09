@@ -39,7 +39,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = React.memo(() => {
   
   // Fetch overview data only for this tab
   const { stats, loading: statsLoading, error: statsError } = useOverviewData();
-  const {  } = useAdminAuth();
+  const { generateAdminToken } = useAdminAuth();
   const { pendingShops } = useShopsData();
   const pendingShopsCount = pendingShops?.length || 0;
 
@@ -53,20 +53,28 @@ export const OverviewTab: React.FC<OverviewTabProps> = React.memo(() => {
   // Fetch transactions with optimized parallel loading
   useEffect(() => {
     const loadTransactions = async () => {
+      if (!generateAdminToken) {
+        return;
+      }
 
       try {
         setTransactionsLoading(true);
-        // Cookies sent automatically with fetch when using credentials: 'include'
+        const adminToken = await generateAdminToken();
+
+        const headers = {
+          Authorization: `Bearer ${adminToken}`,
+          "Content-Type": "application/json",
+        };
 
         // Parallel fetch both data sources
         const [treasuryResponse, customersResponse] = await Promise.allSettled([
           fetch(
             `${process.env.NEXT_PUBLIC_API_URL}/admin/treasury`,
-            { credentials: 'include' }
+            { headers }
           ),
           fetch(
             `${process.env.NEXT_PUBLIC_API_URL}/admin/customers?limit=2&orderBy=last_earned_date&order=DESC`,
-            { credentials: 'include' }
+            { headers }
           )
         ]);
 
@@ -140,7 +148,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = React.memo(() => {
     };
 
     loadTransactions();
-  }, []);
+  }, [generateAdminToken]);
 
   return (
     <div className="space-y-6">
@@ -219,7 +227,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = React.memo(() => {
         </div>
 
         {/* Right Column: Recent Activity Section (40% width) */}
-        <RecentActivityTimeline />
+        <RecentActivityTimeline generateAdminToken={generateAdminToken} />
       </div>
     </div>
   );

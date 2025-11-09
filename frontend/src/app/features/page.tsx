@@ -405,7 +405,7 @@ export default function FeaturesPage() {
               Join as Customer
             </Link>
             <Link
-              href="/register/shop"
+              href="/shop/register"
               className="bg-white text-gray-900 px-8 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors"
             >
               Register Your Shop

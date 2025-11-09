@@ -44,7 +44,7 @@ export const RecentActivitySection: React.FC<RecentActivitySectionProps> = ({ ge
       
       try {
         setLoading(true);
-        // Cookies sent automatically with apiClient
+        const token = await generateAdminToken();
         if (!token) return;
 
         const headers = {
@@ -178,7 +178,7 @@ export const RecentActivitySection: React.FC<RecentActivitySectionProps> = ({ ge
     };
 
     fetchActivities();
-  }, []);
+  }, [generateAdminToken]);
 
   const filteredActivities = activities.filter(activity => {
     if (filter === 'all') return true;

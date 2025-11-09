@@ -61,14 +61,11 @@ const buildQueryString = (params: Record<string, any>): string => {
 // Profile Management
 export const registerCustomer = async (data: CustomerRegistrationData): Promise<Customer | null> => {
   try {
-    // apiClient interceptor returns response.data directly, so response is already the Customer object or wrapped data
-    const response = await apiClient.post('/customers/register', data);
-    // Backend might return { success: true, data: customer } or just the customer
-    const customer = (response as { data?: Customer }).data || response;
-    return customer as Customer || null;
+    const response = await apiClient.post<Customer>('/customers/register', data);
+    return response.data || null;
   } catch (error) {
     console.error('Error registering customer:', error);
-    throw error; // Re-throw to allow proper error handling in useCustomer
+    return null;
   }
 };
 
@@ -183,12 +180,12 @@ export const generateReferralCode = async (address: string): Promise<{ code: str
       `/customers/${address}/referrals/generate`,
       {}
     );
-
+    
     if (response.data) {
       const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
       return {
         code: response.data.code,
-        shareUrl: `${baseUrl}/register/customer?ref=${response.data.code}`,
+        shareUrl: `${baseUrl}/customer/register?ref=${response.data.code}`,
       };
     }
     return null;

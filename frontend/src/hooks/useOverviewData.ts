@@ -52,8 +52,8 @@ export interface OptimizedPlatformStats {
 }
 
 export function useOverviewData() {
-  const { isAdmin } = useAdminAuth();
-
+  const { isAdmin, generateAdminToken } = useAdminAuth();
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<PlatformStats | null>(null);
@@ -66,7 +66,12 @@ export function useOverviewData() {
     setError(null);
 
     try {
-      // Cookies sent automatically with apiClient
+      const adminToken = await generateAdminToken();
+      if (!adminToken) {
+        setError("Failed to authenticate as admin");
+        return;
+      }
+
       // Fetch optimized platform statistics from materialized view
       const optimizedStats = await adminApi.getPlatformStatistics();
       if (optimizedStats) {
@@ -102,7 +107,7 @@ export function useOverviewData() {
     } finally {
       setLoading(false);
     }
-  }, [isAdmin, dataFetched]);
+  }, [isAdmin, generateAdminToken, dataFetched]);
 
   // Load data when component mounts
   useEffect(() => {

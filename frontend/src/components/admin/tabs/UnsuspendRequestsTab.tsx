@@ -36,7 +36,7 @@ export function UnsuspendRequestsTab({ generateAdminToken, onError }: UnsuspendR
     setLoading(true);
     
     try {
-      // Cookies sent automatically with apiClient
+      const adminToken = await generateAdminToken();
       if (!adminToken) {
         onError('Failed to authenticate as admin');
         return;
@@ -73,7 +73,7 @@ export function UnsuspendRequestsTab({ generateAdminToken, onError }: UnsuspendR
     if (!selectedRequest) return;
 
     try {
-      // Cookies sent automatically with apiClient
+      const adminToken = await generateAdminToken();
       if (!adminToken) {
         onError('Failed to authenticate as admin');
         return;

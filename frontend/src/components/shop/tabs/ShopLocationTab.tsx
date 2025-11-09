@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import { MapPin } from "lucide-react";
 import toast from "react-hot-toast";
 import { LocationPickerWrapper } from "../../maps/LocationPickerWrapper";
-import apiClient from '@/services/api/client';
 
 interface ShopData {
   walletAddress: string;
@@ -81,17 +80,44 @@ export const ShopLocationTab: React.FC<ShopLocationTabProps> = ({
   const handleSaveLocation = async () => {
     setLoadingLocationUpdate(true);
     try {
-      const data = await apiClient.put(
-        `/shops/${shopId}/details`,
+      const token =
+        localStorage.getItem("token") ||
+        localStorage.getItem("shopAuthToken") ||
+        sessionStorage.getItem("shopAuthToken");
+
+      if (!token) {
+        throw new Error("Authentication token not found. Please log in again.");
+      }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/details`,
         {
-          address: locationFormData.address,
-          location: {
-            lat: locationFormData.location.lat,
-            lng: locationFormData.location.lng,
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
+          body: JSON.stringify({
+            address: locationFormData.address,
+            location: {
+              lat: locationFormData.location.lat,
+              lng: locationFormData.location.lng,
+            },
+          }),
         }
       );
 
+      if (!response.ok) {
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: `HTTP ${response.status}` }));
+        throw new Error(
+          errorData.error ||
+            `Failed to update location (${response.status})`
+        );
+      }
+
+      const data = await response.json();
       toast.success(data.message || "Location updated successfully!");
       setIsEditingLocation(false);
       onLocationUpdate();

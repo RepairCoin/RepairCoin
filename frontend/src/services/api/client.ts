@@ -5,42 +5,65 @@ const apiClient = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  withCredentials: true, // Send cookies with requests
 });
 
-// Request interceptor - cookies are automatically sent with withCredentials: true
-// No need to manually add Authorization header anymore
+// Helper function to get token from authManager format
+function getTokenFromAuthManager(role: string): string | null {
+  const key = `repaircoin_${role}_token`;
+  const storedData = localStorage.getItem(key);
+  if (storedData) {
+    try {
+      const tokenInfo = JSON.parse(storedData);
+      return tokenInfo.token || null;
+    } catch (e) {
+      return null;
+    }
+  }
+  return null;
+}
+
+// Request interceptor for auth tokens
 apiClient.interceptors.request.use((config) => {
-  // Cookies are automatically sent by the browser
-  // No manual token management needed
+  // Check for specific auth type tokens first (legacy format)
+  const adminTokenLegacy = localStorage.getItem("adminAuthToken");
+  const shopTokenLegacy = localStorage.getItem("shopAuthToken");
+  const customerTokenLegacy = localStorage.getItem("customerAuthToken");
+  const genericToken = localStorage.getItem("token");
+  
+  // Check for new authManager format
+  const adminTokenNew = getTokenFromAuthManager('admin');
+  const shopTokenNew = getTokenFromAuthManager('shop');
+  const customerTokenNew = getTokenFromAuthManager('customer');
+  
+  // Use the most specific token available (prefer new format over legacy)
+  const token = adminTokenNew || adminTokenLegacy || 
+                shopTokenNew || shopTokenLegacy || 
+                customerTokenNew || customerTokenLegacy || 
+                genericToken;
+  
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  } else {
+    // Only log when no token is available for protected endpoints
+    if (config.url && !config.url.includes('/auth/')) {
+      console.warn('⚠️ No auth token available for protected endpoint:', config.url);
+    }
+  }
   return config;
 });
 
-// Response interceptor - return response.data directly for cleaner code
+// Response interceptor for error handling
 apiClient.interceptors.response.use(
-  (response) => response.data, // Return just the data, not the full axios response
+  (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // On 401 Unauthorized, redirect to home page
-      // Cookie will be cleared by backend or expired
-      if (typeof window !== 'undefined' && window.location.pathname !== '/') {
-        window.location.href = '/?session=expired';
-      }
+      // Clear tokens on unauthorized
+      localStorage.removeItem("adminAuthToken");
+      localStorage.removeItem("shopAuthToken");
+      localStorage.removeItem("customerAuthToken");
+      localStorage.removeItem("token");
     }
-
-    // Extract user-friendly error message from backend response
-    const errorMessage =
-      error.response?.data?.error ||
-      error.response?.data?.message ||
-      error.message ||
-      'An unexpected error occurred';
-
-    // Create a new error with the extracted message
-    const enhancedError = new Error(errorMessage);
-    (enhancedError as any).response = error.response;
-    (enhancedError as any).status = error.response?.status;
-
-    return Promise.reject(enhancedError);
+    return Promise.reject(error);
   }
 );
 

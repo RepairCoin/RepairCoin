@@ -11,7 +11,6 @@ import {
   ArrowLeft,
   Zap,
 } from "lucide-react";
-import apiClient from '@/services/api/client';
 
 export default function SubscriptionForm() {
   const router = useRouter();
@@ -47,21 +46,56 @@ export default function SubscriptionForm() {
   const loadShopData = async () => {
     setLoadingShopData(true);
     try {
-      // First, authenticate (cookie will be set automatically by backend)
-      await apiClient.post('/auth/shop', { address: account?.address });
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+      // First, authenticate and get JWT token
+      const authResponse = await fetch(`${apiUrl}/auth/shop`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ address: account?.address }),
+      });
+
+      if (authResponse.ok) {
+        const authResult = await authResponse.json();
+        // Store token for future requests
+        localStorage.setItem("shopAuthToken", authResult.token);
+        sessionStorage.setItem("shopAuthToken", authResult.token);
+      } else {
+        console.error("Shop auth failed:", authResponse.status);
+        return;
+      }
+
+      // Get auth token for authenticated requests
+      const authToken =
+        localStorage.getItem("shopAuthToken") ||
+        sessionStorage.getItem("shopAuthToken");
 
       // Load shop data with authentication
-      const shopResult = await apiClient.get(`/shops/wallet/${account?.address}`);
+      const shopResponse = await fetch(
+        `${apiUrl}/shops/wallet/${account?.address}`,
+        {
+          cache: "no-store",
+          headers: {
+            Authorization: authToken ? `Bearer ${authToken}` : "",
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
-      if (shopResult.success && shopResult.data) {
-        // Pre-fill the form with existing shop data
-        setFormData(prev => ({
-          ...prev,
-          shopName: shopResult.data.name || "",
-          email: shopResult.data.email || "",
-          phone: shopResult.data.phone || "",
-          address: shopResult.data.address || ""
-        }));
+      if (shopResponse.ok) {
+        const shopResult = await shopResponse.json();
+        if (shopResult.success && shopResult.data) {
+          // Pre-fill the form with existing shop data
+          setFormData(prev => ({
+            ...prev,
+            shopName: shopResult.data.name || "",
+            email: shopResult.data.email || "",
+            phone: shopResult.data.phone || "",
+            address: shopResult.data.address || ""
+          }));
+        }
       }
     } catch (err) {
       console.error("Error loading shop data:", err);
@@ -72,7 +106,7 @@ export default function SubscriptionForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    
     try {
       setSubscribing(true);
       setError(null);
@@ -84,17 +118,35 @@ export default function SubscriptionForm() {
         return;
       }
 
-      const result = await apiClient.post('/shops/subscription/subscribe', {
-        billingMethod: 'credit_card',
-        billingEmail: formData.email,
-        billingContact: formData.shopName,
-        billingPhone: formData.phone,
-        billingAddress: formData.address,
-        notes: 'Monthly subscription enrollment via subscription form'
+      const token = localStorage.getItem('shopAuthToken');
+      if (!token) {
+        setError('Authentication required. Please login first.');
+        setTimeout(() => {
+          router.push('/shop');
+        }, 2000);
+        return;
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/subscription/subscribe`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          billingMethod: 'credit_card',
+          billingEmail: formData.email,
+          billingContact: formData.shopName,
+          billingPhone: formData.phone,
+          billingAddress: formData.address,
+          notes: 'Monthly subscription enrollment via subscription form'
+        })
       });
 
+      const result = await response.json();
+      
       // Check if response is successful
-      if (!result.success) {
+      if (!response.ok && !(response.status >= 200 && response.status < 300)) {
         throw new Error(result.error || 'Failed to create subscription');
       }
       

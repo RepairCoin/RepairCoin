@@ -484,77 +484,6 @@ router.post('/stripe-checkout', async (req: Request, res: Response) => {
 
 /**
  * @swagger
- * /api/shops/purchase/{purchaseId}/cancel:
- *   post:
- *     summary: Cancel a pending purchase
- *     tags: [Shop Purchase]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: purchaseId
- *         required: true
- *         schema:
- *           type: string
- *         description: The purchase ID to cancel
- *     responses:
- *       200:
- *         description: Purchase cancelled successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   properties:
- *                     message:
- *                       type: string
- *                     purchaseId:
- *                       type: string
- *       400:
- *         description: Purchase cannot be cancelled
- *       401:
- *         description: Unauthorized
- *       404:
- *         description: Purchase not found
- */
-router.post('/:purchaseId/cancel', async (req: Request, res: Response) => {
-  try {
-    const { purchaseId } = req.params;
-    const shopId = req.user?.shopId;
-
-    if (!shopId) {
-      return res.status(401).json({
-        success: false,
-        error: 'Shop authentication required'
-      });
-    }
-
-    // Cancel the purchase
-    const result = await shopPurchaseService.cancelPurchase(purchaseId, shopId);
-
-    res.json({
-      success: true,
-      data: {
-        message: result.message,
-        purchaseId: result.purchaseId
-      }
-    });
-
-  } catch (error) {
-    logger.error('Error cancelling purchase:', error);
-    res.status(400).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to cancel purchase'
-    });
-  }
-});
-
-/**
- * @swagger
  * /api/shops/purchase/{purchaseId}/continue:
  *   post:
  *     summary: Get payment URL to continue a pending purchase
@@ -622,9 +551,6 @@ router.post('/:purchaseId/continue', async (req: Request, res: Response) => {
     // Check if purchase is too old (>24 hours) - might be expired
     const ageHours = (Date.now() - new Date(purchase.created_at).getTime()) / (1000 * 60 * 60);
     if (ageHours > 24) {
-      // Mark as failed since it's expired
-      await shopRepository.failShopPurchase(purchaseId, 'Purchase expired (>24 hours old)');
-
       return res.status(400).json({
         success: false,
         error: 'Purchase has expired. Please create a new purchase.'
@@ -638,17 +564,7 @@ router.post('/:purchaseId/continue', async (req: Request, res: Response) => {
       try {
         const stripeService = getStripeService();
         const session = await stripeService.getCheckoutSession(purchase.payment_reference);
-
-        if (session.status === 'expired') {
-          // Mark purchase as failed since session is expired
-          await shopRepository.failShopPurchase(purchaseId, 'Stripe checkout session expired');
-
-          return res.status(400).json({
-            success: false,
-            error: 'Payment session has expired. Please create a new purchase.'
-          });
-        }
-
+        
         if (session.status === 'open' && session.url) {
           paymentUrl = session.url;
         }

@@ -103,8 +103,6 @@ export const useCustomer = (): UseCustomerReturn => {
   // Registration handler for the registration page
   const handleRegistrationSubmit = useCallback(async (
     walletAddress: string,
-    walletType?: string,
-    authMethod?: string
   ): Promise<void> => {
     setLoading(true);
     setError(null);
@@ -134,34 +132,21 @@ export const useCustomer = (): UseCustomerReturn => {
       }
     } catch (err: any) {
       console.error('Registration error:', err);
-
+      
       // Handle specific error cases
       let errorMessage = 'Registration failed';
-
-      // Check if it's a duplicate registration (wallet or email already in use)
-      if (
-        err?.response?.status === 409 ||
-        err?.response?.status === 400 ||
-        err?.message?.includes('already registered') ||
-        err?.message?.includes('already in use')
-      ) {
-        // If the error mentions wallet being registered, redirect to dashboard
-        if (err?.message?.includes('wallet') && err?.message?.includes('already registered')) {
-          errorMessage = 'This wallet is already registered. Redirecting to your dashboard...';
-          showToast.warning(errorMessage);
-          setTimeout(() => router.push('/customer'), 3000);
-        } else {
-          // For other conflicts (like email already in use), just show the error
-          errorMessage = err.message || 'This information is already in use';
-          showToast.error(errorMessage);
-        }
+      
+      if (err?.response?.status === 409 || err?.message?.includes('already registered')) {
+        errorMessage = 'This wallet is already registered. Redirecting to your dashboard...';
+        showToast.warning(errorMessage);
+        setTimeout(() => router.push('/customer'), 3000);
       } else if (err?.message) {
         errorMessage = err.message;
         showToast.error(errorMessage);
       } else {
         showToast.error('Registration failed. Please try again.');
       }
-
+      
       setError(errorMessage);
     } finally {
       setLoading(false);

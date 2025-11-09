@@ -1,8 +1,5 @@
 // frontend/src/utils/apiClient.ts
-/**
- * API Client with automatic cookie-based authentication
- * Cookies are sent automatically with credentials: 'include'
- */
+import { authManager } from './auth';
 
 interface ApiConfig {
   baseURL: string;
@@ -38,18 +35,18 @@ class ApiClient {
     };
   }
 
-  // Make an API request with automatic cookie-based auth
+  // Make an API request with automatic auth handling
   async request<T = any>(
     endpoint: string,
-    options: RequestInit & {
-      role?: 'admin' | 'shop' | 'customer'; // Deprecated - kept for backward compatibility
-      skipAuth?: boolean; // Deprecated - cookies sent automatically
+    options: RequestInit & { 
+      role?: 'admin' | 'shop' | 'customer';
+      skipAuth?: boolean;
       retry?: boolean;
     } = {}
   ): Promise<ApiResponse<T>> {
     const {
-      role, // Deprecated
-      skipAuth = false, // Deprecated
+      role,
+      skipAuth = false,
       retry = true,
       ...fetchOptions
     } = options;
@@ -74,11 +71,18 @@ class ApiClient {
         ...fetchOptions.headers
       };
 
-      // Make the request with credentials to send cookies
+      // Add auth header if needed
+      if (!skipAuth && role) {
+        const token = authManager.getToken(role);
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+      }
+
+      // Make the request
       const response = await fetch(`${this.config.baseURL}${endpoint}`, {
         ...fetchOptions,
         headers,
-        credentials: 'include', // Send cookies with request
         signal: abortController.signal
       });
 
@@ -87,16 +91,16 @@ class ApiClient {
 
       // Handle auth errors
       if (response.status === 401) {
-        // Emit auth error event
-        window.dispatchEvent(new CustomEvent('auth:unauthorized', {
-          detail: { endpoint }
-        }));
-
-        // Redirect to home page (cookie expired or invalid)
-        if (typeof window !== 'undefined' && window.location.pathname !== '/') {
-          window.location.href = '/?session=expired';
+        // Clear the token for this role
+        if (role) {
+          authManager.clearToken(role);
         }
-
+        
+        // Emit auth error event
+        window.dispatchEvent(new CustomEvent('auth:unauthorized', { 
+          detail: { role, endpoint } 
+        }));
+        
         return {
           success: false,
           error: 'Authentication required',
