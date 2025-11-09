@@ -140,8 +140,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return;
       }
 
-      // Now fetch the full profile
-      const profile = await fetchUserProfile(account.address);
+      // Use the user data we already have from checkUserExists (no need to fetch again)
+      const userData = userCheck.data;
+      const profile: UserProfile = {
+        id: userData.id,
+        address: userData.walletAddress || userData.address || account.address,
+        type: userCheck.type as 'customer' | 'shop' | 'admin',
+        name: userData.name || userData.shopName,
+        email: userData.email,
+        isActive: userData.active !== false,
+        tier: userData.tier,
+        shopId: userData.shopId,
+        registrationDate: userData.createdAt || userData.created_at
+      };
+
       setUserProfile(profile);
     } catch (error) {
       console.error('Login error:', error);

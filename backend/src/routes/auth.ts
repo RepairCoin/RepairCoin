@@ -80,10 +80,8 @@ router.post('/token', async (req, res) => {
       if (!userType) {
         // Check if user is a shop
         try {
-          // Don't filter by active status - check all shops
-          const allShops = await shopRepository.getShopsPaginated({ page: 1, limit: 1000 });
-          const shop = allShops.items.find(s => s.walletAddress?.toLowerCase() === normalizedAddress);
-          
+          const shop = await shopRepository.getShopByWallet(normalizedAddress);
+
           if (shop) {
             userType = 'shop';
             userData = {
@@ -255,13 +253,10 @@ router.post('/check-user', async (req, res) => {
       logger.debug('Customer not found for address:', normalizedAddress);
     }
 
-    // Check if user is a shop  
+    // Check if user is a shop
     try {
-      // Get shop by wallet address - we need to find the shop with this wallet
-      // Don't filter by active status here - we need to check if the shop exists first
-      const allShops = await shopRepository.getShopsPaginated({ page: 1, limit: 1000 });
-      const shop = allShops.items.find(s => s.walletAddress?.toLowerCase() === normalizedAddress);
-      
+      const shop = await shopRepository.getShopByWallet(normalizedAddress);
+
       if (shop) {
         return res.json({
           exists: true,
@@ -380,10 +375,8 @@ router.post('/profile', async (req, res) => {
 
     // Check shop
     try {
-      // Don't filter by active status - check all shops
-      const allShops = await shopRepository.getShopsPaginated({ page: 1, limit: 1000 });
-      const shop = allShops.items.find(s => s.walletAddress?.toLowerCase() === normalizedAddress);
-      
+      const shop = await shopRepository.getShopByWallet(normalizedAddress);
+
       if (shop) {
         return res.json({
           type: 'shop',
@@ -725,9 +718,8 @@ router.post('/shop', async (req, res) => {
 
     // Check if address belongs to a shop
     try {
-      const allShops = await shopRepository.getShopsPaginated({ active: true, page: 1, limit: 1000 });
-      const shop = allShops.items.find(s => s.walletAddress?.toLowerCase() === normalizedAddress);
-      
+      const shop = await shopRepository.getShopByWallet(normalizedAddress);
+
       if (!shop) {
         return res.status(403).json({
           error: 'Address not associated with a shop'
