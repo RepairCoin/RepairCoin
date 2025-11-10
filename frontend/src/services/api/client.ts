@@ -8,11 +8,23 @@ const apiClient = axios.create({
   withCredentials: true, // Send cookies with requests
 });
 
-// Request interceptor - cookies are automatically sent with withCredentials: true
-// No need to manually add Authorization header anymore
+// Request interceptor - Add Authorization header from cookie as backup
+// Cookies are sent via withCredentials, but some browsers/scenarios block cross-origin cookies
 apiClient.interceptors.request.use((config) => {
-  // Cookies are automatically sent by the browser
-  // No manual token management needed
+  // Extract token from cookie and add as Authorization header for backup
+  // This ensures protected routes work even if cookies are blocked
+  if (typeof document !== 'undefined') {
+    const cookies = document.cookie.split(';');
+    const authCookie = cookies.find(cookie => cookie.trim().startsWith('auth_token='));
+
+    if (authCookie) {
+      const token = authCookie.split('=')[1];
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    }
+  }
+
   return config;
 });
 

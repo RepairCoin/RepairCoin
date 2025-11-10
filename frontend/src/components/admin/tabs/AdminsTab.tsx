@@ -13,7 +13,7 @@ import {
   Search,
   User,
 } from "lucide-react";
-import apiClient from "@/utils/apiClient";
+import apiClient from "@/services/api/client";
 import { showToast } from "@/utils/toast";
 import { DataTable } from "@/components/ui/DataTable";
 import { DashboardHeader } from "@/components/ui/DashboardHeader";
@@ -58,16 +58,16 @@ export default function AdminsTab() {
 
   const fetchAdmins = useCallback(async () => {
     if (dataFetched || isFetching) return; // Prevent duplicate fetches
-    
+
     try {
       setIsFetching(true);
       setLoading(true);
-      const response = await apiClient.get("/admin/admins", { role: "admin" });
+      const response = await apiClient.get("/admin/admins");
       setAdmins(response.data || []);
       setDataFetched(true);
     } catch (error: any) {
       console.error("Error fetching admins:", error);
-      showToast.error(error.response?.data?.error || "Failed to fetch admins");
+      showToast.error(error.message || "Failed to fetch admins");
       // Don't set dataFetched on error to allow retry
     } finally {
       setLoading(false);
@@ -77,14 +77,14 @@ export default function AdminsTab() {
 
   const handleCreateAdmin = useCallback(async () => {
     try {
-      await apiClient.post("/admin/admins/create", formData, { role: "admin" });
+      await apiClient.post("/admin/admins/create", formData);
       showToast.success(`${formData.role === 'admin' ? 'Admin' : 'Moderator'} created successfully`);
       setShowCreateModal(false);
       setFormData({ walletAddress: "", name: "", email: "", role: "admin" });
       setDataFetched(false); // Force refresh
       fetchAdmins();
     } catch (error: any) {
-      showToast.error(error.response?.data?.error || "Failed to create admin");
+      showToast.error(error.message || "Failed to create admin");
     }
   }, [formData, fetchAdmins]);
 
@@ -92,9 +92,7 @@ export default function AdminsTab() {
     if (!selectedAdmin) return;
 
     try {
-      await apiClient.put(`/admin/admins/${selectedAdmin.walletAddress}`, formData, {
-        role: "admin",
-      });
+      await apiClient.put(`/admin/admins/${selectedAdmin.walletAddress}`, formData);
       showToast.success("Admin updated successfully");
       setShowEditModal(false);
       setSelectedAdmin(null);
@@ -102,7 +100,7 @@ export default function AdminsTab() {
       setDataFetched(false); // Force refresh
       fetchAdmins();
     } catch (error: any) {
-      showToast.error(error.response?.data?.error || "Failed to update admin");
+      showToast.error(error.message || "Failed to update admin");
     }
   }, [selectedAdmin, formData, fetchAdmins]);
 
@@ -110,9 +108,7 @@ export default function AdminsTab() {
     if (!selectedAdmin) return;
 
     try {
-      await apiClient.delete(`/admin/admins/${selectedAdmin.walletAddress}`, {
-        role: "admin",
-      });
+      await apiClient.delete(`/admin/admins/${selectedAdmin.walletAddress}`);
       showToast.success("Admin deleted successfully");
       setShowDeleteModal(false);
       setSelectedAdmin(null);

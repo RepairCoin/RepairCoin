@@ -21,8 +21,13 @@ export default function LandingPage() {
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Auto-redirect registered users to their dashboard
+  // IMPORTANT: Only redirect if user has valid auth cookie to prevent infinite loop
   React.useEffect(() => {
-    if (account && isRegistered && !isDetecting && walletType !== 'unknown') {
+    // Check if auth cookie exists before redirecting
+    const hasAuthCookie = typeof document !== 'undefined' &&
+                          document.cookie.split(';').some(cookie => cookie.trim().startsWith('auth_token='));
+
+    if (account && isRegistered && !isDetecting && walletType !== 'unknown' && hasAuthCookie) {
       console.log('🔄 [LandingPage] Auto-redirecting registered user to:', walletType);
       switch (walletType) {
         case "admin":
@@ -35,6 +40,8 @@ export default function LandingPage() {
           router.push("/customer");
           break;
       }
+    } else if (account && isRegistered && !isDetecting && walletType !== 'unknown' && !hasAuthCookie) {
+      console.warn('🚫 [LandingPage] User is registered but missing auth cookie - not redirecting to prevent loop');
     }
   }, [account, isRegistered, isDetecting, walletType, router]);
 
