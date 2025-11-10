@@ -12,6 +12,7 @@ import { router } from "expo-router";
 import { useAuthStore } from "@/store/authStore";
 import { useTheme } from "@/hooks/useTheme";
 import { useThemeColor } from "@/hooks/useThemeColor";
+import { ThemedView } from "@/components/ui/ThemedView";
 
 type CopyableFieldProps = {
   value: string;
@@ -85,7 +86,7 @@ export default function Account() {
   }, [isCopied]);
 
   return (
-    <View className="w-full h-full bg-zinc-950 px-4 pt-24">
+    <ThemedView className="w-full h-full px-4 pt-24">
       <ScrollView>
         <View className="flex-row py-6 px-4 justify-between bg-[#212121] rounded-xl items-center">
           <View className="gap-2">
@@ -166,6 +167,6 @@ export default function Account() {
           </Pressable>
         </View>
       </ScrollView>
-    </View>
+    </ThemedView>
   );
 }
