@@ -17,7 +17,7 @@ BEGIN
             token_id VARCHAR(255) UNIQUE NOT NULL,
             user_address VARCHAR(42) NOT NULL,
             user_role VARCHAR(20) NOT NULL CHECK (user_role IN ('admin', 'shop', 'customer')),
-            shop_id UUID REFERENCES shops(id) ON DELETE CASCADE,
+            shop_id VARCHAR(100) REFERENCES shops(shop_id) ON DELETE CASCADE,
             token_hash VARCHAR(255) NOT NULL,
             expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

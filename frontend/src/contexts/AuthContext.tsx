@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useActiveAccount } from "thirdweb/react";
 import { authApi } from '@/services/api/auth';
+import { useTokenRefresh } from '@/hooks/useTokenRefresh';
 
 export interface UserProfile {
   id: string;
@@ -51,6 +52,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(false);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+
+  // Automatically refresh access tokens before they expire
+  useTokenRefresh();
 
   // Check if user exists in database
   const checkUserExists = async (address: string) => {
