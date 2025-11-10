@@ -1,9 +1,10 @@
 import React from "react";
 import { Image, Pressable, Text, View } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialIcons, Octicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useShopByWalletAddress } from "@/hooks";
 import { useAuthStore } from "@/store/authStore";
+import WalletTab from "./tabs/wallet/WalletTab";
 
 type ShopTabs = "Wallet" | "Analysis" | "Promo Code";
 
@@ -65,6 +66,7 @@ export default function Home() {
             </React.Fragment>
           ))}
         </View>
+        {activeTab === "Wallet" && <WalletTab />}
       </View>
     </View>
   );
