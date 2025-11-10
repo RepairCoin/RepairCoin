@@ -11,8 +11,6 @@ import { ThemedView } from "./ThemedView";
 import { useThemeColor } from "@/hooks/useThemeColor";
 
 export type ThemedInputProps = {
-	lightColor?: string;
-	darkColor?: string;
 	onSubmit?: (value: string) => void;
 	isSubmitting?: boolean;
 } & TextInputProps;
@@ -20,18 +18,8 @@ export type ThemedInputProps = {
 export function ThemedInput(props: ThemedInputProps) {
 	const [val, setVal] = React.useState("");
 	const onSubmit = props.onSubmit;
-	const borderColor = useThemeColor(
-		{ light: props.lightColor, dark: props.darkColor },
-		"border",
-	);
-	const primaryText = useThemeColor(
-		{ light: props.lightColor, dark: props.darkColor },
-		"text",
-	);
-	const secondaryText = useThemeColor(
-		{ light: props.lightColor, dark: props.darkColor },
-		"icon",
-	);
+	const theme = useThemeColor();
+	
 	return (
 		<ThemedView
 			style={{
@@ -41,12 +29,12 @@ export function ThemedInput(props: ThemedInputProps) {
 				borderRadius: 6,
 				borderWidth: 1,
 				borderStyle: "solid",
-				borderColor: borderColor,
+				borderColor: theme.border,
 			}}
 		>
 			<TextInput
-				placeholderTextColor={secondaryText}
-				style={[styles.input, { color: primaryText, borderColor: borderColor }]}
+				placeholderTextColor={theme.icon}
+				style={[styles.input, { color: theme.text, borderColor: theme.border }]}
 				value={val}
 				onChangeText={setVal}
 				{...props}
@@ -66,7 +54,7 @@ export function ThemedInput(props: ThemedInputProps) {
 						<Ionicons
 							name="arrow-forward-circle-outline"
 							size={32}
-							color={secondaryText}
+							color={theme.icon}
 						/>
 					)}
 				</TouchableOpacity>
