@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, Pressable } from "react-native";
-import { Ionicons, MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
+import { Ionicons, MaterialIcons, FontAwesome5, FontAwesome6 } from "@expo/vector-icons";
 import { router, usePathname } from "expo-router";
 import { useAuthStore } from "@/store/authStore";
 
@@ -31,6 +31,30 @@ export default function CustomFooter() {
             />
           ),
           route: "/shop/tabs/home",
+        },
+        {
+          id: "Transaction",
+          label: "History",
+          icon: (isActive: boolean) => (
+            <FontAwesome6
+              name="clock-rotate-left"
+              size={25}
+              color={isActive ? "#FFD600" : "#888"}
+            />
+          ),
+          route: "/shop/tabs/transaction",
+        },
+        {
+          id: "Customer",
+          label: "Customer",
+          icon: (isActive: boolean) => (
+            <Ionicons
+              name="person-outline"
+              size={25}
+              color={isActive ? "#FFD600" : "#888"}
+            />
+          ),
+          route: "/shop/tabs/customer",
         },
         {
           id: "Account",
@@ -65,8 +89,8 @@ export default function CustomFooter() {
         id: "Transaction",
         label: "History",
         icon: (isActive: boolean) => (
-          <Ionicons
-            name="cash-outline"
+          <FontAwesome6
+            name="clock-rotate-left"
             size={25}
             color={isActive ? "#FFD600" : "#888"}
           />
