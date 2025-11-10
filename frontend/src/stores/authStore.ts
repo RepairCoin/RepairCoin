@@ -12,7 +12,7 @@ export interface UserProfile {
   tier?: 'bronze' | 'silver' | 'gold';
   shopId?: string;
   registrationDate?: string;
-  token?: string;
+  // Note: token is stored in httpOnly cookie, not in profile
 }
 
 export interface AuthState {
@@ -156,6 +156,7 @@ export const useAuthStore = create<AuthState>()(
           }
 
           // Build user profile
+          // Note: token is stored in httpOnly cookie by backend, not in profile
           const userData = userCheck.user;
           const profile: UserProfile = {
             id: userData.id,
@@ -166,8 +167,7 @@ export const useAuthStore = create<AuthState>()(
             isActive: userData.active !== false,
             tier: userData.tier,
             shopId: userData.shopId,
-            registrationDate: userData.createdAt || userData.created_at,
-            token: authResult.token
+            registrationDate: userData.createdAt || userData.created_at
           };
 
           // Update state with profile

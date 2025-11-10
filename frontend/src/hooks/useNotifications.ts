@@ -28,27 +28,55 @@ export const useNotifications = () => {
 
   const { userProfile } = useAuthStore();
 
-  // Token for WebSocket only (backend still returns it for WS use)
+  // Token for WebSocket only - read from cookie to get fresh token
   const [token, setToken] = useState<string | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
 
-  // Update token and wallet address from userProfile
+  // Helper to get token from cookie
+  const getTokenFromCookie = useCallback(() => {
+    if (typeof document === 'undefined') return null;
+
+    const cookies = document.cookie.split(';');
+    const authCookie = cookies.find(cookie => cookie.trim().startsWith('auth_token='));
+
+    if (authCookie) {
+      const token = authCookie.split('=')[1];
+      return token || null;
+    }
+    return null;
+  }, []);
+
+  // Get token from cookie and wallet address from userProfile
+  // This ensures we always use the fresh token after refresh
   useEffect(() => {
-    // Get token from userProfile (backend still returns it in response for WS use)
-    const wsToken = userProfile?.token || null;
+    const wsToken = getTokenFromCookie();
     const address = userProfile?.address || null;
 
     setToken(prev => prev === wsToken ? prev : wsToken);
     setWalletAddress(prev => prev === address ? prev : address);
 
     if (wsToken) {
-      console.log('✅ WebSocket token from userProfile');
+      console.log('✅ WebSocket token from cookie (fresh)');
     }
 
     if (address) {
       console.log('✅ Wallet address:', address);
     }
-  }, [userProfile]);
+  }, [userProfile, getTokenFromCookie]);
+
+  // Poll for token changes (in case token is refreshed)
+  // This will detect when the cookie token changes and update WebSocket connection
+  useEffect(() => {
+    const checkTokenInterval = setInterval(() => {
+      const currentToken = getTokenFromCookie();
+      if (currentToken && currentToken !== token) {
+        console.log('🔄 Token refreshed detected, updating WebSocket token...');
+        setToken(currentToken);
+      }
+    }, 30000); // Check every 30 seconds
+
+    return () => clearInterval(checkTokenInterval);
+  }, [token, getTokenFromCookie]);
 
   // Fetch initial notifications from API (uses cookies automatically)
   const fetchNotifications = useCallback(async () => {
@@ -287,7 +315,14 @@ export const useNotifications = () => {
         fetchUnreadCount();
         connectWebSocket();
       } else {
-        console.log('ℹ️ WebSocket already connected/connecting, skipping reconnection');
+        // If WebSocket is connected but token changed, reconnect with new token
+        console.log('ℹ️ WebSocket already connected/connecting, checking if token changed...');
+        // Disconnect and reconnect to use new token
+        disconnectWebSocket();
+        setTimeout(() => {
+          console.log('🔄 Reconnecting WebSocket with fresh token...');
+          connectWebSocket();
+        }, 100);
       }
     } else {
       console.log('❌ NOT CONNECTING - Reason:', {
@@ -297,9 +332,12 @@ export const useNotifications = () => {
     }
 
     return () => {
-      disconnectWebSocket();
+      // Clean up on unmount only
+      if (!token || !walletAddress) {
+        disconnectWebSocket();
+      }
     };
-  }, [token, walletAddress]); // Only reconnect when token or address changes
+  }, [token, walletAddress]); // Reconnect when token or address changes
 
   return {
     fetchNotifications,
