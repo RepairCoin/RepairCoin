@@ -1,4 +1,3 @@
-import { useThemeColor } from "@/hooks/useThemeColor";
 import {
   type PressableProps,
   StyleSheet,
@@ -6,6 +5,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { ThemedText } from "./ThemedText";
+import { useThemeColor } from "@/hooks/useThemeColor";
 
 export type ThemedButtonProps = {
   lightColor?: string;
