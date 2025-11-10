@@ -284,8 +284,8 @@ export class RefreshTokenRepository extends BaseRepository {
       const query = `
         SELECT
           rt.*,
-          COALESCE(c.name, s.shop_name, a.name) as user_name,
-          s.shop_name as shop_name
+          COALESCE(c.name, s.name, a.name) as user_name,
+          s.name as shop_name
         FROM refresh_tokens rt
         LEFT JOIN customers c ON rt.user_address = c.wallet_address AND rt.user_role = 'customer'
         LEFT JOIN shops s ON rt.user_address = s.wallet_address AND rt.user_role = 'shop'
