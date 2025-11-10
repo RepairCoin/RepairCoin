@@ -5,6 +5,7 @@ import { router } from "expo-router";
 import { useShopByWalletAddress } from "@/hooks";
 import { useAuthStore } from "@/store/authStore";
 import WalletTab from "./tabs/wallet/WalletTab";
+import { ThemedView } from "@/components/ui/ThemedView";
 
 type ShopTabs = "Wallet" | "Analysis" | "Promo Code";
 
@@ -17,10 +18,8 @@ export default function Home() {
   const [activeTab, setActiveTab] = React.useState<ShopTabs>("Wallet");
   const shopTabs: ShopTabs[] = ["Wallet", "Analysis", "Promo Code"];
 
-  console.log("SHOPPP DATAA: ", data);
-
   return (
-    <View className="h-full w-full bg-zinc-950">
+    <ThemedView className="h-full w-full">
       <View className="h-full w-full pt-14 px-4">
         <View className="flex-row items-center justify-between">
           <Image
@@ -68,6 +67,6 @@ export default function Home() {
         </View>
         {activeTab === "Wallet" && <WalletTab />}
       </View>
-    </View>
+    </ThemedView>
   );
 }
