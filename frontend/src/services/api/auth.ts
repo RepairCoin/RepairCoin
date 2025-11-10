@@ -132,20 +132,14 @@ export const isAuthenticated = async (): Promise<boolean> => {
 
 /**
  * Logout user - Calls backend to clear httpOnly cookie
+ * Note: Does NOT redirect - let the calling component handle navigation
  */
 export const logout = async (): Promise<void> => {
   try {
     await apiClient.post('/auth/logout');
-    // Redirect to home page
-    if (typeof window !== 'undefined') {
-      window.location.href = '/';
-    }
   } catch (error) {
     console.error('Logout error:', error);
-    // Still redirect even if backend call fails
-    if (typeof window !== 'undefined') {
-      window.location.href = '/';
-    }
+    // Don't throw - allow logout to proceed even if API call fails
   }
 };
 

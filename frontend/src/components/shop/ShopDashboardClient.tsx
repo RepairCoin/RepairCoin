@@ -268,32 +268,8 @@ export default function ShopDashboardClient() {
     setError(null);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-
-      // First, authenticate and get JWT token
-      const authResponse = await fetch(`${apiUrl}/auth/shop`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ address: account?.address }),
-      });
-
-      if (authResponse.ok) {
-        const authResult = await authResponse.json();
-        // Cookie set automatically by backend - no manual storage needed
-        console.log("Shop authenticated successfully");
-      } else if (authResponse.status === 403) {
-        const errorData = await authResponse.json();
-        setError(errorData.error || "Shop authentication failed");
-        setLoading(false);
-        return;
-      } else {
-        console.error("Shop auth failed:", authResponse.status);
-        setError("Authentication failed. Please try again.");
-        setLoading(false);
-        return;
-      }
+      // NOTE: Authentication is now handled globally by useAuthInitializer
+      // No need to call /auth/shop here - cookies are already set
 
       // Load shop data with authentication (cookies sent automatically)
       const shopResult = await apiClient.get(`/shops/wallet/${account?.address}`);

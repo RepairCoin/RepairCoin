@@ -4,6 +4,7 @@ import React, { useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import { authManager } from '@/utils/auth';
+import { useAuthInitializer } from '@/hooks/useAuthInitializer';
 
 interface AuthProviderProps {
   children: React.ReactNode;
@@ -11,6 +12,9 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const router = useRouter();
+
+  // Initialize authentication ONCE at the app root
+  useAuthInitializer();
   
   // Handle unauthorized errors globally
   const handleUnauthorized = useCallback((event: CustomEvent) => {

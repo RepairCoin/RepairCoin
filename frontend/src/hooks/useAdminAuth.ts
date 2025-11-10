@@ -1,8 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { toast } from "react-hot-toast";
-import apiClient from "@/services/api/client";
+import { useState, useEffect, useCallback } from "react";
 import { adminApi } from "@/services/api/admin";
 import { useAuthStore } from "@/stores/authStore";
 
@@ -24,58 +22,12 @@ export function useAdminAuth() {
   const [adminRole, setAdminRole] = useState<string>("");
   const [adminPermissions, setAdminPermissions] = useState<string[]>([]);
   const [adminProfileLoading, setAdminProfileLoading] = useState(true);
-  const authInProgressRef = useRef(false);
 
   // Combine loading states
   const loading = baseAuthLoading || adminProfileLoading;
 
-  // Authenticate admin (cookie set by backend automatically)
-  const authenticateAdmin = useCallback(async (): Promise<boolean> => {
-    if (!account?.address) {
-      return false;
-    }
-
-    // Prevent duplicate authentication attempts
-    if (authInProgressRef.current) {
-      console.log('[useAdminAuth] Authentication already in progress, skipping duplicate call');
-      return false;
-    }
-
-    authInProgressRef.current = true;
-
-    try {
-      const response = await apiClient.post('/auth/admin', {
-        address: account.address,
-      });
-
-      if (response.success && response.data) {
-        console.log("=".repeat(60));
-        console.log("🔐 ADMIN DATA (Admin POV):");
-        console.log("=".repeat(60));
-        console.log("Address:", account.address);
-        console.log("Is Super Admin:", response.data.user?.isSuperAdmin);
-        console.log("Role:", response.data.user?.role);
-        console.log("Permissions:", response.data.user?.permissions || "Not specified");
-        console.log("=".repeat(60));
-        console.log("Full Admin Object:", response.data.user);
-        console.log("=".repeat(60));
-
-        // Update super admin status from response
-        if (response.data.user?.isSuperAdmin !== undefined) {
-          setIsSuperAdmin(response.data.user.isSuperAdmin);
-        }
-        return true;
-      } else {
-        // Silently fail for non-admins (403 is expected)
-        return false;
-      }
-    } catch (error) {
-      console.error("Failed to authenticate admin:", error);
-      return false;
-    } finally {
-      authInProgressRef.current = false;
-    }
-  }, [account, setIsSuperAdmin]);
+  // NOTE: authenticateAdmin removed - authentication is handled by useAuthInitializer
+  // Admin authentication happens automatically when wallet connects
 
   // Fetch admin profile with permissions (cookies sent automatically)
   const fetchAdminProfile = useCallback(async () => {
@@ -85,19 +37,14 @@ export function useAdminAuth() {
     if (!isAdminFromAuth) return null;
 
     try {
-      // Ensure admin is authenticated
-      const authenticated = await authenticateAdmin();
-      if (!authenticated) {
-        return null;
-      }
-
-      // Use the admin API service (cookies sent automatically)
+      // NOTE: Authentication is now handled globally by useAuthInitializer
+      // Just fetch the admin profile directly (cookies are already set)
       const profile = await adminApi.getAdminProfile();
       return profile;
-    } catch (error) {
+    } catch {
       return null;
     }
-  }, [account, authenticateAdmin, isAdminFromAuth]);
+  }, [account, isAdminFromAuth]);
 
   // Check admin-specific permissions and status
   useEffect(() => {
@@ -166,7 +113,7 @@ export function useAdminAuth() {
             setAdminPermissions(['shops.view', 'customers.view', 'transactions.view']);
           }
         }
-      } catch (error) {
+      } catch {
         // Silent fail
       } finally {
         setAdminProfileLoading(false);
@@ -193,7 +140,6 @@ export function useAdminAuth() {
     adminRole,
     adminPermissions,
     loading,
-    authenticateAdmin,
     hasPermission,
   };
 }
