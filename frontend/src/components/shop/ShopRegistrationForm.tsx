@@ -195,6 +195,21 @@ export const ShopRegistrationForm: React.FC<ShopRegistrationFormProps> = ({
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
+              label="Business Category"
+              name="category"
+              value={formData.category}
+              onChange={onChange}
+              as="select"
+              required
+            >
+              <option value="">Select business category</option>
+              <option value="Repairs and Tech">Repairs and Tech</option>
+              <option value="Health and Wellness">Health and Wellness</option>
+              <option value="Beauty and Personal Care">Beauty and Personal Care</option>
+              <option value="Fitness and Lifestyle">Fitness and Lifestyle</option>
+              <option value="Home and Auto Service">Home and Auto Service</option>
+            </FormField>
+            <FormField
               label="Company Size"
               name="companySize"
               value={formData.companySize}

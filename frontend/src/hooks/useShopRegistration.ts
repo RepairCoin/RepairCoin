@@ -69,6 +69,7 @@ export const useShopRegistration = () => {
     if (!formData.address?.trim()) return "Street address is required";
     if (!formData.city?.trim()) return "City is required";
     if (!formData.country?.trim()) return "Country is required";
+    if (!formData.category) return "Please select a business category";
     if (!formData.companySize) return "Please select a company size";
     if (!formData.monthlyRevenue) return "Please select your monthly revenue range";
     if (!formData.acceptTerms) return "You must accept the terms and conditions to register";

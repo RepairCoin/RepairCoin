@@ -52,6 +52,7 @@ interface ShopData {
   referral?: string;
   acceptTerms?: boolean;
   country?: string;
+  category?: string;
 }
 
 export interface ShopFilters {
@@ -109,7 +110,8 @@ export class ShopRepository extends BaseRepository {
         monthlyRevenue: row.monthly_revenue,
         referral: row.referral,
         acceptTerms: row.accept_terms,
-        country: row.country
+        country: row.country,
+        category: row.category
       };
     } catch (error) {
       logger.error('Error fetching shop:', error);
@@ -124,11 +126,11 @@ export class ShopRepository extends BaseRepository {
           shop_id, name, address, phone, email, wallet_address,
           reimbursement_address, verified, active, cross_shop_enabled,
           total_tokens_issued, total_redemptions, total_reimbursements,
-          join_date, last_activity, fixflow_shop_id, 
+          join_date, last_activity, fixflow_shop_id,
           location_city, location_state, location_zip_code, location_lat, location_lng,
           facebook, twitter, instagram,
-          first_name, last_name, company_size, monthly_revenue, website, referral, accept_terms, country
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32)
+          first_name, last_name, company_size, monthly_revenue, website, referral, accept_terms, country, category
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33)
         RETURNING shop_id
       `;
       
@@ -164,7 +166,8 @@ export class ShopRepository extends BaseRepository {
         shop.website,
         shop.referral,
         shop.acceptTerms,
-        shop.country
+        shop.country,
+        shop.category
       ];
       
       const result = await this.pool.query(query, values);
@@ -224,6 +227,7 @@ export class ShopRepository extends BaseRepository {
         locationZipCode: 'location_zip_code',
         firstName: 'first_name',
         lastName: 'last_name',
+        category: 'category',
       };
 
       for (const [key, value] of Object.entries(updates)) {

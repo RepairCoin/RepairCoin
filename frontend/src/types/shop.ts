@@ -13,6 +13,7 @@ export interface ShopRegistrationFormData {
   address: string; // Street address
   city: string;
   country: string;
+  category: string;
   companySize: string;
   monthlyRevenue: string;
   website: string;
@@ -57,6 +58,7 @@ export const initialShopFormData: ShopRegistrationFormData = {
   address: "",
   city: "",
   country: "",
+  category: "",
   companySize: "",
   monthlyRevenue: "",
   website: "",

@@ -135,7 +135,8 @@ router.get('/', async (req: Request, res: Response) => {
       country: shop.country,
       facebook: shop.facebook,
       twitter: shop.twitter,
-      instagram: shop.instagram
+      instagram: shop.instagram,
+      category: shop.category
     }));
 
     res.json({
@@ -194,7 +195,8 @@ router.get('/:shopId', async (req: Request, res: Response) => {
         country: shop.country,
         facebook: shop.facebook,
         twitter: shop.twitter,
-        instagram: shop.instagram
+        instagram: shop.instagram,
+        category: shop.category
       };
     }
 
@@ -323,7 +325,8 @@ router.post('/register',
         facebook,
         twitter,
         instagram,
-        acceptTerms
+        acceptTerms,
+        category
       } = req.body;
 
       // Check if shop already exists
@@ -383,7 +386,8 @@ router.post('/register',
         twitter,
         instagram,
         acceptTerms,
-        country
+        country,
+        category
       };
 
       await shopRepository.createShop(newShop);
