@@ -1,8 +1,20 @@
 # Authentication & Security Audit Report
 
-**Date**: 2025-11-10
+**Date**: 2025-11-10 (Updated: 2025-11-10 after auth refactor)
 **Scope**: Complete authentication system review (backend + frontend)
 **Status**: ✅ Generally Secure with Recommended Improvements
+
+## 🎉 Recent Improvements (2025-11-10)
+
+**Authentication Refactor Completed:**
+- ✅ Fixed duplicate refresh token creation issue
+- ✅ Implemented single source of truth for authentication (useAuthInitializer)
+- ✅ Added global locking mechanism to prevent race conditions
+- ✅ Improved logout UX with automatic redirect
+- ✅ Removed redundant/duplicate authentication code
+- ✅ Centralized authentication in authStore
+
+See: [AUTHENTICATION_REFACTOR.md](../frontend/AUTHENTICATION_REFACTOR.md) for details.
 
 ---
 
