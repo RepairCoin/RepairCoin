@@ -62,12 +62,23 @@ export function useAdminAuth() {
         const data = await response.json();
         const token = data.token;
         if (token) {
+          console.log("=".repeat(60));
+          console.log("🔐 ADMIN DATA (Admin POV):");
+          console.log("=".repeat(60));
+          console.log("Address:", account.address);
+          console.log("Is Super Admin:", data.user?.isSuperAdmin);
+          console.log("Role:", data.user?.role);
+          console.log("Permissions:", data.user?.permissions || "Not specified");
+          console.log("=".repeat(60));
+          console.log("Full Admin Object:", data.user);
+          console.log("=".repeat(60));
+
           // Store token using authManager
           authManager.setToken("admin", token, 24); // 24 hour expiry
-          
+
           // Also store in localStorage for the axios interceptor
           localStorage.setItem("adminAuthToken", token);
-          
+
           // Update super admin status if provided in response
           if (data.user?.isSuperAdmin !== undefined) {
             setIsSuperAdmin(data.user.isSuperAdmin);
@@ -77,7 +88,7 @@ export function useAdminAuth() {
               localStorage.removeItem('isSuperAdmin');
             }
           }
-          
+
           return token;
         }
       } else {

@@ -137,8 +137,24 @@ export const useCustomerStore = create<CustomerStore>()(
           if (customerResponse.ok) {
             const customerResult = await customerResponse.json();
             const customerData = customerResult.data.customer || customerResult.data;
+
+            console.log("=".repeat(60));
+            console.log("👤 CUSTOMER DATA (Customer POV):");
+            console.log("=".repeat(60));
+            console.log("Address:", customerData.address);
+            console.log("Email:", customerData.email);
+            console.log("Name:", customerData.name || "Not set");
+            console.log("Tier:", customerData.tier);
+            console.log("Current Balance:", customerData.currentBalance);
+            console.log("Lifetime Earnings:", customerData.lifetimeEarnings);
+            console.log("Referral Code:", customerData.referralCode);
+            console.log("Is Active:", customerData.isActive);
+            console.log("=".repeat(60));
+            console.log("Full Customer Object:", customerData);
+            console.log("=".repeat(60));
+
             set({ customerData });
-            
+
             // Store blockchain balance separately (rounded to 2 decimal places)
             if (customerResult.data.blockchainBalance !== undefined) {
               set({ blockchainBalance: Math.round(customerResult.data.blockchainBalance * 100) / 100 });
