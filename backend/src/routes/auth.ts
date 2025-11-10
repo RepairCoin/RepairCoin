@@ -1,8 +1,9 @@
 // backend/src/routes/auth.ts
-import { Router, Response } from 'express';
-import { customerRepository, shopRepository, adminRepository } from '../repositories';
+import { Router, Response, Request } from 'express';
+import { customerRepository, shopRepository, adminRepository, refreshTokenRepository } from '../repositories';
 import { logger } from '../utils/logger';
-import { generateToken, authMiddleware } from '../middleware/auth';
+import { generateToken, generateAccessToken, generateRefreshToken, authMiddleware } from '../middleware/auth';
+import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
 
@@ -33,6 +34,66 @@ const setAuthCookie = (res: Response, token: string) => {
     httpOnly: cookieOptions.httpOnly,
     maxAge: cookieOptions.maxAge
   });
+};
+
+/**
+ * Helper to generate and set both access and refresh tokens
+ * Returns both tokens for response
+ */
+const generateAndSetTokens = async (
+  res: Response,
+  req: Request,
+  payload: { address: string; role: 'admin' | 'shop' | 'customer'; shopId?: string }
+): Promise<{ accessToken: string; refreshToken: string; tokenId: string }> => {
+  // Generate unique token ID for refresh token
+  const tokenId = uuidv4();
+
+  // Generate both tokens
+  const accessToken = generateAccessToken(payload);
+  const refreshToken = generateRefreshToken(payload, tokenId);
+
+  // Store refresh token in database
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
+
+  await refreshTokenRepository.createRefreshToken({
+    tokenId,
+    userAddress: payload.address,
+    userRole: payload.role,
+    shopId: payload.shopId,
+    token: refreshToken,
+    expiresAt,
+    userAgent: req.get('User-Agent'),
+    ipAddress: req.ip
+  });
+
+  // Set access token as httpOnly cookie (15 minutes)
+  res.cookie('auth_token', accessToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none' as const,
+    maxAge: 15 * 60 * 1000, // 15 minutes
+    path: '/'
+  });
+
+  // Set refresh token as httpOnly cookie (7 days)
+  res.cookie('refresh_token', refreshToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none' as const,
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: '/'
+  });
+
+  logger.info('Access and refresh tokens generated', {
+    address: payload.address,
+    role: payload.role,
+    tokenId,
+    accessTokenExpiry: '15m',
+    refreshTokenExpiry: '7d'
+  });
+
+  return { accessToken, refreshToken, tokenId };
 };
 
 /**
@@ -593,18 +654,15 @@ router.post('/admin', async (req, res) => {
       }
     }
 
-    // Generate JWT token for admin
-    const token = generateToken({
+    // Generate access and refresh tokens
+    const { accessToken } = await generateAndSetTokens(res, req, {
       address: normalizedAddress,
       role: 'admin'
     });
 
-    // Set httpOnly cookie
-    setAuthCookie(res, token);
-
     res.json({
       success: true,
-      token, // Still send in response for backward compatibility
+      token: accessToken, // Send access token for backward compatibility
       user: {
         id: adminData?.id?.toString() || 'super_admin',
         address: normalizedAddress,
@@ -660,18 +718,15 @@ router.post('/customer', async (req, res) => {
         });
       }
 
-      // Generate JWT token for customer
-      const token = generateToken({
+      // Generate access and refresh tokens
+      const { accessToken } = await generateAndSetTokens(res, req, {
         address: normalizedAddress,
         role: 'customer'
       });
 
-      // Set httpOnly cookie
-      setAuthCookie(res, token);
-
       res.json({
         success: true,
-        token, // Still send in response for backward compatibility
+        token: accessToken, // Send access token for backward compatibility
         user: {
           id: customer.address,
           address: customer.address,
@@ -732,19 +787,16 @@ router.post('/shop', async (req, res) => {
         });
       }
 
-      // Generate JWT token for shop
-      const token = generateToken({
+      // Generate access and refresh tokens
+      const { accessToken } = await generateAndSetTokens(res, req, {
         address: normalizedAddress,
         role: 'shop',
         shopId: shop.shopId
       });
 
-      // Set httpOnly cookie
-      setAuthCookie(res, token);
-
       res.json({
         success: true,
-        token, // Still send in response for backward compatibility
+        token: accessToken, // Send access token for backward compatibility
         user: {
           id: shop.shopId,
           shopId: shop.shopId,
@@ -778,8 +830,28 @@ router.post('/shop', async (req, res) => {
  * Logout - Clear auth cookie
  * POST /api/auth/logout
  */
-router.post('/logout', (req, res) => {
+router.post('/logout', async (req, res) => {
   try {
+    // Extract refresh token from cookie to revoke it
+    const refreshTokenCookie = req.cookies?.refresh_token;
+
+    if (refreshTokenCookie) {
+      try {
+        // Decode refresh token to get tokenId
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(refreshTokenCookie, process.env.JWT_SECRET || '') as any;
+
+        if (decoded.tokenId) {
+          // Revoke refresh token in database
+          await refreshTokenRepository.revokeToken(decoded.tokenId, 'User logout');
+          logger.info('Refresh token revoked on logout', { tokenId: decoded.tokenId });
+        }
+      } catch (error) {
+        // If token can't be decoded/verified, just continue with cookie clearing
+        logger.warn('Could not revoke refresh token on logout:', error);
+      }
+    }
+
     // Cookie clear options must match the options used when setting the cookie
     const clearOptions = {
       httpOnly: true,
@@ -789,8 +861,9 @@ router.post('/logout', (req, res) => {
       // Do NOT set domain for cross-origin cookies
     };
 
-    // Clear the auth cookie with matching options
+    // Clear both auth cookies
     res.clearCookie('auth_token', clearOptions);
+    res.clearCookie('refresh_token', clearOptions);
 
     res.json({
       success: true,
@@ -806,33 +879,106 @@ router.post('/logout', (req, res) => {
 });
 
 /**
- * Refresh token - Generate new token for authenticated user
+ * Refresh token - Use refresh token to get new access token
  * POST /api/auth/refresh
+ *
+ * This endpoint does NOT require authMiddleware since the access token may be expired.
+ * Instead, it validates the refresh token from the cookie.
  */
-router.post('/refresh', authMiddleware, async (req, res) => {
+router.post('/refresh', async (req, res) => {
   try {
-    if (!req.user) {
+    const jwt = require('jsonwebtoken');
+
+    // Get refresh token from cookie
+    const refreshTokenCookie = req.cookies?.refresh_token;
+
+    if (!refreshTokenCookie) {
       return res.status(401).json({
         success: false,
-        error: 'Authentication required',
-        code: 'AUTH_REQUIRED'
+        error: 'No refresh token provided',
+        code: 'NO_REFRESH_TOKEN'
       });
     }
 
-    // Generate new token with same payload
-    const newToken = generateToken({
-      address: req.user.address,
-      role: req.user.role as any,
-      shopId: req.user.shopId
+    // Verify and decode refresh token
+    let decoded: any;
+    try {
+      decoded = jwt.verify(refreshTokenCookie, process.env.JWT_SECRET || '');
+    } catch (error: any) {
+      logger.security('Invalid refresh token', {
+        error: error.message,
+        ip: req.ip
+      });
+
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid refresh token',
+        code: 'INVALID_REFRESH_TOKEN'
+      });
+    }
+
+    // Validate token type
+    if (decoded.type !== 'refresh') {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid token type for refresh',
+        code: 'INVALID_TOKEN_TYPE'
+      });
+    }
+
+    // Validate refresh token in database
+    const storedToken = await refreshTokenRepository.validateRefreshToken(
+      decoded.tokenId,
+      refreshTokenCookie
+    );
+
+    if (!storedToken) {
+      logger.security('Refresh token not found or revoked', {
+        tokenId: decoded.tokenId,
+        address: decoded.address,
+        ip: req.ip
+      });
+
+      return res.status(401).json({
+        success: false,
+        error: 'Refresh token invalid or revoked',
+        code: 'TOKEN_REVOKED'
+      });
+    }
+
+    // Update last used timestamp
+    await refreshTokenRepository.updateLastUsed(decoded.tokenId);
+
+    // Generate new access token (refresh token stays the same)
+    const newAccessToken = generateAccessToken({
+      address: decoded.address,
+      role: decoded.role,
+      shopId: decoded.shopId
     });
 
-    // Set new cookie
-    setAuthCookie(res, newToken);
+    // Set new access token cookie
+    res.cookie('auth_token', newAccessToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none' as const,
+      maxAge: 15 * 60 * 1000, // 15 minutes
+      path: '/'
+    });
+
+    logger.info('Access token refreshed', {
+      address: decoded.address,
+      role: decoded.role,
+      tokenId: decoded.tokenId
+    });
 
     res.json({
       success: true,
-      token: newToken, // Also send in response for backward compatibility
-      user: req.user
+      token: newAccessToken, // Send for backward compatibility
+      user: {
+        address: decoded.address,
+        role: decoded.role,
+        shopId: decoded.shopId
+      }
     });
   } catch (error: any) {
     logger.error('Token refresh error:', error);

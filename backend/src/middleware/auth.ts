@@ -5,13 +5,24 @@ import { logger } from '../utils/logger';
 import { customerRepository, shopRepository, adminRepository } from '../repositories';
 import { AdminService } from '../domains/admin/services/AdminService';
 
-interface JWTPayload {
+interface BaseJWTPayload {
   address: string;
   role: 'admin' | 'shop' | 'customer';
   shopId?: string;
   iat: number;
   exp: number;
 }
+
+interface AccessTokenPayload extends BaseJWTPayload {
+  type: 'access';
+}
+
+interface RefreshTokenPayload extends BaseJWTPayload {
+  type: 'refresh';
+  tokenId: string; // Unique identifier for revocation
+}
+
+type JWTPayload = AccessTokenPayload | RefreshTokenPayload;
 
 // Extend Express Request to include user
 declare global {
@@ -102,11 +113,27 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
         ip: req.ip,
         tokenPayload: { address: !!decoded.address, role: !!decoded.role }
       });
-      
+
       return res.status(401).json({
         success: false,
         error: 'Invalid token payload',
         code: 'INVALID_TOKEN_PAYLOAD'
+      });
+    }
+
+    // Check token type - only accept access tokens for API calls
+    // Legacy tokens without 'type' field are accepted for backward compatibility
+    if ('type' in decoded && decoded.type !== 'access') {
+      logger.security('Attempt to use non-access token for API call', {
+        ip: req.ip,
+        address: decoded.address,
+        tokenType: decoded.type
+      });
+
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid token type. Use access token for API calls.',
+        code: 'INVALID_TOKEN_TYPE'
       });
     }
     
@@ -315,15 +342,57 @@ async function validateUserInDatabase(tokenPayload: JWTPayload): Promise<boolean
   }
 }
 
-// JWT token generation utility
-export const generateToken = (payload: Omit<JWTPayload, 'iat' | 'exp'>): string => {
+// Legacy JWT token generation utility (for backward compatibility during migration)
+export const generateToken = (payload: Omit<BaseJWTPayload, 'iat' | 'exp'>): string => {
   const jwtSecret = process.env.JWT_SECRET;
   if (!jwtSecret) {
     throw new Error('JWT_SECRET not configured');
   }
-  
+
   return jwt.sign(payload, jwtSecret, {
     expiresIn: process.env.JWT_EXPIRES_IN || '24h',
+    issuer: 'repaircoin-api',
+    audience: 'repaircoin-users'
+  } as jwt.SignOptions);
+};
+
+// Generate short-lived access token (15 minutes)
+export const generateAccessToken = (payload: Omit<BaseJWTPayload, 'iat' | 'exp'>): string => {
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret) {
+    throw new Error('JWT_SECRET not configured');
+  }
+
+  const accessPayload: Omit<AccessTokenPayload, 'iat' | 'exp'> = {
+    ...payload,
+    type: 'access'
+  };
+
+  return jwt.sign(accessPayload, jwtSecret, {
+    expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || '15m',
+    issuer: 'repaircoin-api',
+    audience: 'repaircoin-users'
+  } as jwt.SignOptions);
+};
+
+// Generate long-lived refresh token (7 days)
+export const generateRefreshToken = (
+  payload: Omit<BaseJWTPayload, 'iat' | 'exp'>,
+  tokenId: string
+): string => {
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret) {
+    throw new Error('JWT_SECRET not configured');
+  }
+
+  const refreshPayload: Omit<RefreshTokenPayload, 'iat' | 'exp'> = {
+    ...payload,
+    type: 'refresh',
+    tokenId
+  };
+
+  return jwt.sign(refreshPayload, jwtSecret, {
+    expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '7d',
     issuer: 'repaircoin-api',
     audience: 'repaircoin-users'
   } as jwt.SignOptions);
