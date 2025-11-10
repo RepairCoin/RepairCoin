@@ -85,14 +85,25 @@ export function SessionManagementTab() {
     fetchSessions();
   }, [page, roleFilter, statusFilter]);
 
-  const handleRevokeSession = async (tokenId: string, reason?: string) => {
+  const handleRevokeSession = async (tokenId: string, userName?: string) => {
+    // First confirm the action
     if (!confirm("Are you sure you want to revoke this session? The user will be logged out immediately.")) {
+      return;
+    }
+
+    // Then ask for a reason
+    const reason = prompt("Enter reason for revocation (optional):", "Revoked by admin");
+
+    // If user cancels the prompt, reason will be null - abort
+    if (reason === null) {
       return;
     }
 
     try {
       setRevoking(tokenId);
-      await adminApi.revokeSession(tokenId, reason);
+      // Use the provided reason or a default one
+      const finalReason = reason.trim() || `Revoked by admin for user: ${userName || 'Unknown'}`;
+      await adminApi.revokeSession(tokenId, finalReason);
       toast.success("Session revoked successfully");
       fetchSessions();
     } catch (error: any) {
@@ -104,12 +115,23 @@ export function SessionManagementTab() {
   };
 
   const handleRevokeAllUserSessions = async (userAddress: string, userName?: string) => {
+    // First confirm the action
     if (!confirm(`Are you sure you want to revoke ALL sessions for ${userName || userAddress}?`)) {
       return;
     }
 
+    // Then ask for a reason
+    const reason = prompt("Enter reason for revoking all sessions (optional):", "Revoked by admin");
+
+    // If user cancels the prompt, reason will be null - abort
+    if (reason === null) {
+      return;
+    }
+
     try {
-      await adminApi.revokeAllUserSessions(userAddress);
+      // Use the provided reason or a default one
+      const finalReason = reason.trim() || `All sessions revoked by admin for user: ${userName || userAddress}`;
+      await adminApi.revokeAllUserSessions(userAddress, finalReason);
       toast.success("All user sessions revoked successfully");
       fetchSessions();
     } catch (error: any) {
@@ -321,7 +343,7 @@ export function SessionManagementTab() {
                         {!session.revoked && (
                           <>
                             <button
-                              onClick={() => handleRevokeSession(session.tokenId)}
+                              onClick={() => handleRevokeSession(session.tokenId, session.userName || session.shopName)}
                               disabled={revoking === session.tokenId}
                               className="px-3 py-1 text-xs bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded disabled:opacity-50 transition-colors"
                             >

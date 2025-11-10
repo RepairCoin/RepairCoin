@@ -57,9 +57,11 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       // Don't retry the refresh endpoint itself
       if (originalRequest.url?.includes('/auth/refresh')) {
-        // Refresh token failed, redirect to login
-        if (typeof window !== 'undefined' && window.location.pathname !== '/') {
-          window.location.href = '/?session=expired';
+        // Refresh token failed, trigger logout
+        if (typeof window !== 'undefined') {
+          // Trigger wallet disconnect event to prevent auto-login after revocation
+          // AuthProvider will handle the wallet disconnect and redirect
+          window.dispatchEvent(new CustomEvent('auth:session-revoked'));
         }
         return Promise.reject(error);
       }
@@ -95,16 +97,31 @@ apiClient.interceptors.response.use(
         // Retry the original request
         return apiClient(originalRequest);
       } catch (refreshError) {
-        // Refresh failed, clear queue and redirect to login
+        // Refresh failed, clear queue and trigger logout
         processQueue(refreshError, null);
         isRefreshing = false;
 
-        if (typeof window !== 'undefined' && window.location.pathname !== '/') {
-          window.location.href = '/?session=expired';
+        if (typeof window !== 'undefined') {
+          // Trigger wallet disconnect event to prevent auto-login after revocation
+          // AuthProvider will handle the wallet disconnect and redirect
+          window.dispatchEvent(new CustomEvent('auth:session-revoked'));
         }
 
         return Promise.reject(refreshError);
       }
+    }
+
+    // Check if session was revoked
+    if (error.response?.data?.code === 'SESSION_REVOKED') {
+      console.log('[API Client] Session revoked - triggering logout');
+
+      // Trigger wallet disconnect event to prevent auto-login
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('auth:session-revoked'));
+      }
+
+      // Don't redirect here - let the event handler in AuthProvider handle it
+      return Promise.reject(new Error('Your session has been revoked. Please login again.'));
     }
 
     // Extract user-friendly error message from backend response

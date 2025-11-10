@@ -508,75 +508,94 @@ router.post('/profile', async (req, res) => {
 /**
  * Validate session and return user info
  * GET /api/auth/session
+ * Uses access token from cookie - automatically refreshed by client if needed
  */
-router.get('/session', async (req, res) => {
+router.get('/session', authMiddleware, async (req, res) => {
   try {
-    const { authorization } = req.headers;
-    
-    if (!authorization) {
-      return res.status(401).json({ error: 'No authorization header' });
+    if (!req.user || !req.user.address || !req.user.role) {
+      return res.status(401).json({
+        isValid: false,
+        error: 'Invalid session'
+      });
     }
 
-    // Extract wallet address from JWT or session token
-    // For now, we'll expect the address to be passed in the Authorization header
-    const address = authorization.replace('Bearer ', '');
-    
-    if (!address || !address.startsWith('0x')) {
-      return res.status(401).json({ error: 'Invalid authorization format' });
-    }
+    const { address, role, shopId } = req.user;
 
-    // For now, we'll implement a simple admin check since we don't have full session management yet
-    const normalizedAddress = address.toLowerCase();
-    const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
-    
-    if (adminAddresses.includes(normalizedAddress)) {
-      return res.json({
-        authenticated: true,
-        user: {
+    // Fetch full user data based on role
+    let userData: any = null;
+
+    if (role === 'admin') {
+      const admin = await adminRepository.getAdminByWalletAddress(address);
+      if (admin) {
+        userData = {
+          id: admin.id,
+          address: admin.walletAddress,
+          walletAddress: admin.walletAddress,
           type: 'admin',
-          user: {
-            id: 'admin_' + normalizedAddress,
-            address: normalizedAddress,
-            walletAddress: normalizedAddress,
-            name: 'Administrator',
-            active: true,
-            createdAt: new Date().toISOString()
-          }
-        }
-      });
-    }
-
-    // Check user existence by calling our own endpoint
-    try {
-      const checkResponse = await fetch(`${req.protocol}://${req.get('host')}/api/auth/check-user`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address })
-      });
-
-      if (checkResponse.ok) {
-        const userData = await checkResponse.json();
-        return res.json({
-          authenticated: true,
-          user: userData
-        });
-      } else {
-        return res.status(401).json({
-          authenticated: false,
-          error: 'User not found'
-        });
+          role: 'admin',
+          name: admin.name || 'Administrator',
+          email: admin.email,
+          active: admin.isActive,
+          isSuperAdmin: admin.isSuperAdmin,
+          createdAt: admin.createdAt,
+          created_at: admin.createdAt
+        };
       }
-    } catch (fetchError) {
-      logger.error('Error checking user during session validation:', fetchError);
-      return res.status(500).json({
-        authenticated: false,
-        error: 'Internal server error'
+    } else if (role === 'shop' && shopId) {
+      const shop = await shopRepository.getShop(shopId);
+      if (shop) {
+        userData = {
+          id: shop.shopId,
+          address: shop.walletAddress,
+          walletAddress: shop.walletAddress,
+          type: 'shop',
+          role: 'shop',
+          shopName: shop.name,
+          name: shop.name,
+          email: shop.email,
+          active: shop.active,
+          shopId: shop.shopId,
+          createdAt: shop.joinDate,
+          created_at: shop.joinDate
+        };
+      }
+    } else if (role === 'customer') {
+      const customer = await customerRepository.getCustomer(address);
+      if (customer) {
+        userData = {
+          id: customer.address, // Use address as ID for customers
+          address: customer.address,
+          walletAddress: customer.address,
+          type: 'customer',
+          role: 'customer',
+          name: customer.name,
+          email: customer.email,
+          active: customer.isActive,
+          tier: customer.tier,
+          createdAt: customer.joinDate,
+          created_at: customer.joinDate
+        };
+      }
+    }
+
+    if (!userData) {
+      return res.status(404).json({
+        isValid: false,
+        error: 'User not found'
       });
     }
+
+    return res.json({
+      isValid: true,
+      authenticated: true,
+      user: userData,
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString() // Access token expires in 15 minutes
+    });
 
   } catch (error) {
     logger.error('Error validating session:', error);
     return res.status(500).json({
+      isValid: false,
       error: 'Internal server error',
       message: 'Error validating session'
     });

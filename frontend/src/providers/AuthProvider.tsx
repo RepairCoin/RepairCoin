@@ -3,6 +3,7 @@
 import React, { useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
+import { useActiveWallet, useDisconnect } from 'thirdweb/react';
 import { authManager } from '@/utils/auth';
 import { useAuthInitializer } from '@/hooks/useAuthInitializer';
 import { useTokenRefresh } from '@/hooks/useTokenRefresh';
@@ -13,13 +14,17 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const router = useRouter();
+  const wallet = useActiveWallet();
+  const { disconnect } = useDisconnect();
 
   // Initialize authentication ONCE at the app root
   useAuthInitializer();
 
   // Auto-refresh tokens before expiry
+  // When access token expires, /auth/refresh validates refresh token in database
+  // If revoked, user is logged out - this is the industry-standard approach
   useTokenRefresh();
-  
+
   // Handle unauthorized errors globally
   const handleUnauthorized = useCallback((event: CustomEvent) => {
     const { role, endpoint } = event.detail;
@@ -73,11 +78,44 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
 
     window.addEventListener('wallet:disconnect', handleDisconnect);
-    
+
     return () => {
       window.removeEventListener('wallet:disconnect', handleDisconnect);
     };
   }, []);
+
+  // Handle session revocation - disconnect wallet to prevent auto-login
+  useEffect(() => {
+    const handleSessionRevoked = async () => {
+      console.log('[AuthProvider] Session revoked - disconnecting wallet to prevent auto-login');
+
+      // Clear all auth state
+      authManager.clearAllTokens();
+
+      // Disconnect Thirdweb wallet using the hook
+      if (wallet && disconnect) {
+        try {
+          await disconnect(wallet);
+          console.log('[AuthProvider] Wallet disconnected successfully');
+        } catch (error) {
+          console.error('[AuthProvider] Error disconnecting wallet:', error);
+        }
+      }
+
+      // After wallet is disconnected, redirect to home
+      // This prevents auto-login when landing page loads
+      if (window.location.pathname !== '/') {
+        console.log('[AuthProvider] Redirecting to home after wallet disconnect');
+        window.location.href = '/?session=expired';
+      }
+    };
+
+    window.addEventListener('auth:session-revoked', handleSessionRevoked as EventListener);
+
+    return () => {
+      window.removeEventListener('auth:session-revoked', handleSessionRevoked as EventListener);
+    };
+  }, [wallet, disconnect]);
 
   return <>{children}</>;
 };

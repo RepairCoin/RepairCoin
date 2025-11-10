@@ -19,10 +19,14 @@ export function getSharedPool(): Pool {
     const config: any = {
       connectionString: process.env.DATABASE_URL,
       ssl: sslConfig,
-      max: parseInt(process.env.DB_POOL_MAX || '5'), // Reduced to 5 connections to avoid timeout issues
+      max: parseInt(process.env.DB_POOL_MAX || '20'), // Increased to 20 connections for better concurrency
+      min: parseInt(process.env.DB_POOL_MIN || '5'), // Maintain minimum 5 connections
       idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT_MS || '30000'), // 30 seconds
-      connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT_MS || '5000'), // Reduced to 5 seconds for faster failure
+      connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT_MS || '10000'), // Increased to 10 seconds
       keepAlive: true,
+      statement_timeout: parseInt(process.env.DB_STATEMENT_TIMEOUT_MS || '30000'), // 30 second query timeout
+      query_timeout: parseInt(process.env.DB_QUERY_TIMEOUT_MS || '30000'), // 30 second query timeout
+      allowExitOnIdle: false, // Keep pool alive even when idle
     };
 
     if (!process.env.DATABASE_URL) {
@@ -55,8 +59,11 @@ export function getSharedPool(): Pool {
       port: config.port,
       database: config.database,
       max: config.max,
+      min: config.min,
       idleTimeout: config.idleTimeoutMillis,
-      connectionTimeout: config.connectionTimeoutMillis
+      connectionTimeout: config.connectionTimeoutMillis,
+      statementTimeout: config.statement_timeout,
+      queryTimeout: config.query_timeout
     });
     
     sharedPool = new Pool(config);
@@ -105,4 +112,36 @@ export async function warmUpPool(): Promise<void> {
     // Don't crash the app, just continue without warmup
     logger.warn('Continuing startup without database pool warmup...');
   }
+}
+
+// Get pool statistics for monitoring
+export function getPoolStats() {
+  if (!sharedPool) {
+    return null;
+  }
+
+  return {
+    totalCount: sharedPool.totalCount,
+    idleCount: sharedPool.idleCount,
+    waitingCount: sharedPool.waitingCount,
+  };
+}
+
+// Log pool stats periodically for monitoring
+export function startPoolMonitoring(intervalMs: number = 60000) {
+  setInterval(() => {
+    const stats = getPoolStats();
+    if (stats) {
+      logger.debug('Database pool stats:', stats);
+
+      // Warn if pool is under pressure
+      if (stats.waitingCount > 0) {
+        logger.warn('Database pool has waiting clients - consider increasing pool size', {
+          waiting: stats.waitingCount,
+          total: stats.totalCount,
+          idle: stats.idleCount
+        });
+      }
+    }
+  }, intervalMs);
 }

@@ -136,7 +136,12 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
         code: 'INVALID_TOKEN_TYPE'
       });
     }
-    
+
+    // NOTE: Refresh token validation removed from here for performance
+    // Validation happens at /auth/refresh endpoint when access token expires
+    // This is more efficient than checking database on every API call
+    // Max time for revoked user to stay logged in: 15 minutes (access token lifetime)
+
     // Additional validation based on role
     if (decoded.role === 'shop' && !decoded.shopId) {
       logger.security('Shop role token missing shopId', {
