@@ -90,6 +90,7 @@ interface Shop {
   website?: string;
   verified: boolean;
   crossShopEnabled: boolean;
+  category?: string;
   facebook?: string;
   twitter?: string;
   instagram?: string;
@@ -252,6 +253,15 @@ export function FindShop() {
                       >
                         {shop.name}
                       </h4>
+                      {shop.category && (
+                        <p className={`text-xs mt-1 ${
+                          selectedShop?.shopId === shop.shopId
+                            ? "text-gray-700"
+                            : "text-gray-400"
+                        }`}>
+                          {shop.category}
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center space-x-2">
                       {shop.verified && (
@@ -347,6 +357,11 @@ export function FindShop() {
                         <Popup>
                           <div className="p-2">
                             <h4 className="font-semibold">{shop.name}</h4>
+                            {shop.category && (
+                              <p className="text-xs text-gray-500 mb-1">
+                                {shop.category}
+                              </p>
+                            )}
                             <p className="text-sm text-gray-600">
                               {shop.address}
                             </p>
@@ -375,9 +390,14 @@ export function FindShop() {
               <div className="mt-6 bg-[#2F2F2F] rounded-xl p-4 border border-gray-600 shadow-xl">
                 {/* Contact Information */}
                 <div className="mb-4">
-                  <h3 className="text-lg font-bold text-[#FFCC00] mb-3">
+                  <h3 className="text-lg font-bold text-[#FFCC00] mb-1">
                     {selectedShop.name}
                   </h3>
+                  {selectedShop.category && (
+                    <p className="text-sm text-gray-400 mb-3">
+                      {selectedShop.category}
+                    </p>
+                  )}
                   <div className="space-y-2">
                     <div className="flex items-start">
                       <MapPin className="w-4 h-4 text-[#FFCC00] mt-0.5 mr-2 flex-shrink-0" />
