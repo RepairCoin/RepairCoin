@@ -54,59 +54,23 @@ export function useTokenRefresh() {
         const now = Date.now();
         const timeUntilExpiry = expiresAt - now;
 
-        // Log token status (for debugging)
-        const minutesUntilExpiry = Math.floor(timeUntilExpiry / 60000);
-        console.log(`[useTokenRefresh] Token expires in ${minutesUntilExpiry} minutes`);
-
-        // Show warning 10 minutes before expiry (once)
-        if (timeUntilExpiry < 10 * 60 * 1000 && timeUntilExpiry > 5 * 60 * 1000) {
-          const now = Date.now();
-          // Only show warning once per 5 minutes to avoid spam
-          if (now - lastWarningRef.current > 5 * 60 * 1000) {
-            lastWarningRef.current = now;
-            toast('Your session will expire soon. We\'ll refresh it automatically.', {
-              icon: '⏰',
-              duration: 4000,
-              position: 'top-right',
-            });
-          }
-        }
-
-        // Auto-refresh 5 minutes before expiry
+        // Auto-refresh 5 minutes before expiry (silently)
         if (timeUntilExpiry < 5 * 60 * 1000 && timeUntilExpiry > 0) {
-          console.log('[useTokenRefresh] Token expiring soon, refreshing...');
+          console.log('[useTokenRefresh] Token expiring in', Math.floor(timeUntilExpiry / 60000), 'minutes, refreshing silently...');
 
           const success = await authApi.refreshToken();
 
           if (success) {
             console.log('[useTokenRefresh] ✅ Token refreshed successfully');
-            toast.success('Session refreshed automatically', {
-              duration: 2000,
-              position: 'top-right',
-            });
+            // No toast - silent refresh for better UX
           } else {
             console.error('[useTokenRefresh] ❌ Token refresh failed');
-            toast.error('Session refresh failed. Please re-login.', {
+            // Only show error if refresh fails
+            toast.error('Session expired. Please reconnect your wallet.', {
               duration: 5000,
               position: 'top-right',
             });
           }
-        }
-
-        // Show urgent warning 2 minutes before expiry
-        if (timeUntilExpiry < 2 * 60 * 1000 && timeUntilExpiry > 0) {
-          // Dismiss previous toast if exists
-          if (toastIdRef.current) {
-            toast.dismiss(toastIdRef.current);
-          }
-
-          toastIdRef.current = toast.error(
-            'Your session is expiring soon! Please save your work.',
-            {
-              duration: 60000, // Show for 1 minute
-              position: 'top-right',
-            }
-          ) as string;
         }
       } catch (error) {
         console.error('[useTokenRefresh] Error in token refresh check:', error);
