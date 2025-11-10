@@ -5,7 +5,8 @@ import {
   transactionRepository,
   adminRepository,
   webhookRepository,
-  treasuryRepository
+  treasuryRepository,
+  refreshTokenRepository
 } from '../../../repositories';
 import { TokenMinter } from '../../../contracts/TokenMinter';
 import { TierManager, CustomerData, TierLevel } from '../../../contracts/TierManager';
@@ -1192,6 +1193,12 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
         suspensionReason: reason
       });
 
+      // Revoke all active sessions for this customer
+      const revokedCount = await refreshTokenRepository.revokeAllUserTokens(
+        customerAddress,
+        `Customer suspended: ${reason || 'No reason provided'}`
+      );
+
       // Log admin activity
       await adminRepository.logAdminActivity({
         adminAddress: adminAddress || 'system',
@@ -1199,10 +1206,10 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
         actionDescription: `Suspended customer: ${reason || 'No reason provided'}`,
         entityType: 'customer',
         entityId: customerAddress,
-        metadata: { reason }
+        metadata: { reason, sessionsRevoked: revokedCount }
       });
 
-      logger.info('Customer suspended', { customerAddress, reason, adminAddress });
+      logger.info('Customer suspended', { customerAddress, reason, adminAddress, sessionsRevoked: revokedCount });
 
       return {
         success: true,
@@ -1211,7 +1218,8 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
           address: customerAddress,
           isActive: false,
           suspendedAt: new Date().toISOString()
-        }
+        },
+        sessionsRevoked: revokedCount
       };
     } catch (error) {
       logger.error('Customer suspension error:', error);
@@ -1270,6 +1278,12 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
         suspensionReason: reason
       });
 
+      // Revoke all active sessions for this shop
+      const revokedCount = await refreshTokenRepository.revokeAllShopTokens(
+        shopId,
+        `Shop suspended: ${reason || 'No reason provided'}`
+      );
+
       // Log admin activity
       await adminRepository.logAdminActivity({
         adminAddress: adminAddress || 'system',
@@ -1277,13 +1291,14 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
         actionDescription: `Suspended shop: ${reason || 'No reason provided'}`,
         entityType: 'shop',
         entityId: shopId,
-        metadata: { 
+        metadata: {
           shopName: shop.name,
-          reason 
+          reason,
+          sessionsRevoked: revokedCount
         }
       });
 
-      logger.info('Shop suspended', { shopId, reason, adminAddress });
+      logger.info('Shop suspended', { shopId, reason, adminAddress, sessionsRevoked: revokedCount });
 
       return {
         success: true,
@@ -1292,7 +1307,8 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
           shopId,
           active: false,
           suspendedAt: new Date().toISOString()
-        }
+        },
+        sessionsRevoked: revokedCount
       };
     } catch (error) {
       logger.error('Shop suspension error:', error);

@@ -17,6 +17,7 @@ import revenueRoutes from '../../../routes/admin/revenue';
 import subscriptionRoutes from './subscription';
 import adminsRoutes from './admins';
 import promoCodeRoutes from './promoCodes';
+import sessionsRoutes from './sessions';
 import { logger } from '../../../utils/logger';
 
 const router = Router();
@@ -439,6 +440,9 @@ router.use('/subscription', subscriptionRoutes);
 
 // Admin management routes (create, update, delete admins)
 router.use('/admins', adminsRoutes);
+
+// Session management routes
+router.use('/sessions', sessionsRoutes);
 
 // RCG management routes
 import rcgManagementRoutes from '../../../routes/admin/rcg-management';

@@ -239,4 +239,86 @@ export class RefreshTokenRepository extends BaseRepository {
       throw new Error('Failed to get token statistics');
     }
   }
+
+  // Get all sessions with pagination (for admin session management)
+  async getAllSessions(options: {
+    page?: number;
+    limit?: number;
+    role?: 'admin' | 'shop' | 'customer';
+    status?: 'active' | 'expired' | 'revoked' | 'all';
+  } = {}): Promise<{
+    sessions: (RefreshToken & { userName?: string; shopName?: string })[];
+    pagination: { page: number; limit: number; total: number; pages: number };
+  }> {
+    try {
+      const page = options.page || 1;
+      const limit = options.limit || 50;
+      const offset = (page - 1) * limit;
+
+      // Build WHERE clause
+      const conditions: string[] = [];
+      const values: any[] = [];
+      let paramIndex = 1;
+
+      if (options.role) {
+        conditions.push(`rt.user_role = $${paramIndex++}`);
+        values.push(options.role);
+      }
+
+      if (options.status === 'active') {
+        conditions.push(`rt.revoked = false AND rt.expires_at > NOW()`);
+      } else if (options.status === 'expired') {
+        conditions.push(`rt.expires_at <= NOW()`);
+      } else if (options.status === 'revoked') {
+        conditions.push(`rt.revoked = true`);
+      }
+
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+      // Get total count
+      const countQuery = `SELECT COUNT(*) as total FROM refresh_tokens rt ${whereClause}`;
+      const countResult = await this.pool.query(countQuery, values);
+      const total = parseInt(countResult.rows[0].total);
+
+      // Get sessions with user/shop names
+      const query = `
+        SELECT
+          rt.*,
+          COALESCE(c.name, s.shop_name, a.name) as user_name,
+          s.shop_name as shop_name
+        FROM refresh_tokens rt
+        LEFT JOIN customers c ON rt.user_address = c.wallet_address AND rt.user_role = 'customer'
+        LEFT JOIN shops s ON rt.user_address = s.wallet_address AND rt.user_role = 'shop'
+        LEFT JOIN admins a ON rt.user_address = a.wallet_address AND rt.user_role = 'admin'
+        ${whereClause}
+        ORDER BY rt.last_used_at DESC NULLS LAST, rt.created_at DESC
+        LIMIT $${paramIndex++} OFFSET $${paramIndex++}
+      `;
+
+      values.push(limit, offset);
+      const result = await this.pool.query(query, values);
+
+      const sessions = result.rows.map(row => {
+        const mapped = this.mapSnakeToCamel(row);
+        return {
+          ...mapped,
+          userName: row.user_name,
+          shopName: row.shop_name
+        };
+      });
+
+      return {
+        sessions,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit)
+        }
+      };
+    } catch (error) {
+      logger.error('Error getting all sessions:', error);
+      throw new Error('Failed to get all sessions');
+    }
+  }
 }

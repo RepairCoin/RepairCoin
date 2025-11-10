@@ -331,9 +331,15 @@ const Sidebar: React.FC<SidebarProps> = ({
           href: "/admin?tab=promo-codes",
           icon: <span className="text-xl">🏷️</span>,
           tabId: "promo-codes",
+        },
+        {
+          title: "Sessions",
+          href: "/admin?tab=sessions",
+          icon: <span className="text-xl">🔐</span>,
+          tabId: "sessions",
         }
       );
-      
+
       return adminItems;
     }
 
