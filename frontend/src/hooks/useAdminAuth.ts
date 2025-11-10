@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "react-hot-toast";
 import apiClient from "@/services/api/client";
 import { adminApi } from "@/services/api/admin";
@@ -18,13 +18,14 @@ export interface AdminProfile {
 export function useAdminAuth() {
   // Leverage the existing useAuth hook for base authentication
   const { account, isAdmin: isAdminFromAuth, isLoading: baseAuthLoading } = useAuthStore();
-  
+
   // Admin-specific state
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [adminRole, setAdminRole] = useState<string>("");
   const [adminPermissions, setAdminPermissions] = useState<string[]>([]);
   const [adminProfileLoading, setAdminProfileLoading] = useState(true);
-  
+  const authInProgressRef = useRef(false);
+
   // Combine loading states
   const loading = baseAuthLoading || adminProfileLoading;
 
@@ -33,6 +34,14 @@ export function useAdminAuth() {
     if (!account?.address) {
       return false;
     }
+
+    // Prevent duplicate authentication attempts
+    if (authInProgressRef.current) {
+      console.log('[useAdminAuth] Authentication already in progress, skipping duplicate call');
+      return false;
+    }
+
+    authInProgressRef.current = true;
 
     try {
       const response = await apiClient.post('/auth/admin', {
@@ -63,6 +72,8 @@ export function useAdminAuth() {
     } catch (error) {
       console.error("Failed to authenticate admin:", error);
       return false;
+    } finally {
+      authInProgressRef.current = false;
     }
   }, [account, setIsSuperAdmin]);
 

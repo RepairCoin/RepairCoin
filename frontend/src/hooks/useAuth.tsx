@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useActiveAccount } from "thirdweb/react";
 import { useAuthStore, UserProfile } from '../stores/authStore';
 import { authApi } from '@/services/api/auth';
@@ -11,6 +11,7 @@ import { authApi } from '@/services/api/auth';
  */
 export const useAuth = () => {
   const account = useActiveAccount();
+  const loginInProgressRef = useRef(false);
   const {
     userProfile,
     isAuthenticated,
@@ -84,13 +85,20 @@ export const useAuth = () => {
 
   const login = useCallback(async () => {
     if (!account?.address) return;
-    
+
+    // Prevent duplicate login attempts
+    if (loginInProgressRef.current) {
+      console.log('[useAuth] Login already in progress, skipping duplicate call');
+      return;
+    }
+
+    loginInProgressRef.current = true;
     setLoading(true);
     setError(null);
-    
+
     try {
       const profile = await fetchUserProfile(account.address);
-      
+
       if (profile) {
         try {
           // Use role-specific authentication endpoint based on user type
@@ -108,7 +116,7 @@ export const useAuth = () => {
             default:
               console.warn('Unknown user type for authentication:', profile.type);
           }
-          
+
           if (tokenData && tokenData.token) {
             profile.token = tokenData.token;
             console.log('✅ Authentication token obtained successfully');
@@ -119,17 +127,19 @@ export const useAuth = () => {
           console.error('❌ Network error fetching token:', tokenError);
         }
       }
-      
+
       setUserProfile(profile);
     } catch (error) {
       console.error('Login error:', error);
       setError('Failed to authenticate user');
     } finally {
       setLoading(false);
+      loginInProgressRef.current = false;
     }
   }, [account?.address, setLoading, setError, setUserProfile, fetchUserProfile]);
 
   const logout = useCallback(async () => {
+    loginInProgressRef.current = false; // Reset login lock
     resetAuth();
     // Call backend to clear httpOnly cookie
     await authApi.logout();

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { useActiveAccount } from "thirdweb/react";
 import { authApi } from '@/services/api/auth';
 import { useTokenRefresh } from '@/hooks/useTokenRefresh';
@@ -50,6 +50,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const account = useActiveAccount();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const loginInProgressRef = useRef(false);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
@@ -113,6 +114,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async () => {
     if (!account?.address) return;
 
+    // Prevent duplicate login attempts
+    if (loginInProgressRef.current) {
+      console.log('[AuthContext] Login already in progress, skipping duplicate call');
+      return;
+    }
+
+    loginInProgressRef.current = true;
     setIsLoading(true);
     try {
       // First, check what type of user this is
@@ -164,11 +172,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUserProfile(null);
     } finally {
       setIsLoading(false);
+      loginInProgressRef.current = false;
     }
   };
 
   // Logout function
   const logout = async () => {
+    loginInProgressRef.current = false; // Reset login lock
     setUserProfile(null);
     // Call backend to clear httpOnly cookie
     await authApi.logout();
