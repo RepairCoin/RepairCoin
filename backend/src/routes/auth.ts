@@ -1,11 +1,35 @@
 // backend/src/routes/auth.ts
 import { Router, Response, Request } from 'express';
+import rateLimit from 'express-rate-limit';
 import { customerRepository, shopRepository, adminRepository, refreshTokenRepository } from '../repositories';
 import { logger } from '../utils/logger';
 import { generateToken, generateAccessToken, generateRefreshToken, authMiddleware } from '../middleware/auth';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
+
+/**
+ * Rate limiting for authentication endpoints
+ * Prevents brute force attacks and account enumeration
+ */
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 requests per windowMs
+  message: 'Too many authentication attempts from this IP, please try again after 15 minutes',
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  handler: (req, res) => {
+    logger.security('Rate limit exceeded for auth endpoint', {
+      ip: req.ip,
+      path: req.path,
+      userAgent: req.get('User-Agent')
+    });
+    res.status(429).json({
+      success: false,
+      error: 'Too many authentication attempts from this IP, please try again after 15 minutes'
+    });
+  }
+});
 
 /**
  * Helper function to set httpOnly cookie with JWT token
@@ -21,7 +45,7 @@ const setAuthCookie = (res: Response, token: string) => {
     httpOnly: true,
     secure: true, // Required for sameSite: 'none'
     sameSite: 'none' as const, // Required for cross-origin (different domains)
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    maxAge: 2 * 60 * 60 * 1000, // 2 hours (changed from 24h for better security)
     path: '/',
     // Do NOT set domain for cross-origin cookies - it will prevent them from working
   };
@@ -562,8 +586,9 @@ router.get('/session', async (req, res) => {
 /**
  * Generate admin JWT token
  * POST /api/auth/admin
+ * Rate limited to prevent brute force attacks
  */
-router.post('/admin', async (req, res) => {
+router.post('/admin', authLimiter, async (req, res) => {
   try {
     const { address } = req.body;
 
@@ -689,8 +714,9 @@ router.post('/admin', async (req, res) => {
 /**
  * Generate customer JWT token
  * POST /api/auth/customer
+ * Rate limited to prevent brute force attacks
  */
-router.post('/customer', async (req, res) => {
+router.post('/customer', authLimiter, async (req, res) => {
   try {
     const { address } = req.body;
 
@@ -758,8 +784,9 @@ router.post('/customer', async (req, res) => {
 /**
  * Generate shop JWT token
  * POST /api/auth/shop
+ * Rate limited to prevent brute force attacks
  */
-router.post('/shop', async (req, res) => {
+router.post('/shop', authLimiter, async (req, res) => {
   try {
     const { address } = req.body;
 

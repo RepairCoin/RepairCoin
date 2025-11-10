@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import { authManager } from '@/utils/auth';
 import { useAuthInitializer } from '@/hooks/useAuthInitializer';
+import { useTokenRefresh } from '@/hooks/useTokenRefresh';
 
 interface AuthProviderProps {
   children: React.ReactNode;
@@ -15,6 +16,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Initialize authentication ONCE at the app root
   useAuthInitializer();
+
+  // Auto-refresh tokens before expiry
+  useTokenRefresh();
   
   // Handle unauthorized errors globally
   const handleUnauthorized = useCallback((event: CustomEvent) => {

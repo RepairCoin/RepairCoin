@@ -350,7 +350,7 @@ export const generateToken = (payload: Omit<BaseJWTPayload, 'iat' | 'exp'>): str
   }
 
   return jwt.sign(payload, jwtSecret, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '24h',
+    expiresIn: process.env.JWT_EXPIRES_IN || '2h', // Changed from 24h to 2h for better security
     issuer: 'repaircoin-api',
     audience: 'repaircoin-users'
   } as jwt.SignOptions);

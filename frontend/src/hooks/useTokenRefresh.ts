@@ -1,98 +1,115 @@
-// frontend/src/hooks/useTokenRefresh.ts
+'use client';
+
 import { useEffect, useRef } from 'react';
-import axios from 'axios';
+import { toast } from 'react-hot-toast';
+import { authApi } from '@/services/api/auth';
 
 /**
- * Hook to automatically refresh access tokens before they expire
+ * Automatic Token Refresh Hook
  *
- * This hook:
- * - Checks token expiry every minute
- * - Automatically refreshes tokens 2 minutes before expiry
- * - Prevents multiple simultaneous refresh requests
- * - Handles errors gracefully
+ * Monitors token expiration and automatically refreshes before expiry.
+ * Shows warnings to user when token is about to expire.
  *
- * Usage: Call this hook in your main app component or auth context
+ * This hook should be used ONCE at the app root (in AuthProvider).
  */
 export function useTokenRefresh() {
-  const refreshInProgressRef = useRef(false);
+  const toastIdRef = useRef<string | null>(null);
+  const lastWarningRef = useRef<number>(0);
 
   useEffect(() => {
     const checkAndRefreshToken = async () => {
-      // Skip if already refreshing
-      if (refreshInProgressRef.current) {
-        return;
-      }
-
-      // Skip if not in browser
-      if (typeof document === 'undefined') {
-        return;
-      }
-
       try {
-        // Extract access token from cookie
-        const cookies = document.cookie.split(';');
-        const authCookie = cookies.find(cookie =>
-          cookie.trim().startsWith('auth_token=')
-        );
-
-        if (!authCookie) {
-          // No auth token, user not logged in
+        // Get auth token from cookie
+        const cookieMatch = document.cookie.match(/auth_token=([^;]+)/);
+        if (!cookieMatch) {
+          // No token, user not authenticated
           return;
         }
 
-        const token = authCookie.split('=')[1];
-        if (!token) {
-          return;
-        }
+        const token = cookieMatch[1];
 
-        // Decode JWT to get expiration time
-        // JWT format: header.payload.signature
-        const parts = token.split('.');
-        if (parts.length !== 3) {
-          console.warn('[useTokenRefresh] Invalid token format');
-          return;
-        }
-
+        // Parse JWT to get expiration time
+        let payload: any;
         try {
-          const payload = JSON.parse(atob(parts[1]));
+          const base64Url = token.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = decodeURIComponent(
+            atob(base64)
+              .split('')
+              .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+              .join('')
+          );
+          payload = JSON.parse(jsonPayload);
+        } catch (error) {
+          console.error('[useTokenRefresh] Failed to parse JWT:', error);
+          return;
+        }
 
-          if (!payload.exp) {
-            console.warn('[useTokenRefresh] Token missing expiration');
-            return;
-          }
+        if (!payload.exp) {
+          console.error('[useTokenRefresh] Token has no expiration');
+          return;
+        }
 
-          // Calculate time until expiry
-          const expiresAt = payload.exp * 1000; // Convert to milliseconds
+        const expiresAt = payload.exp * 1000; // Convert to milliseconds
+        const now = Date.now();
+        const timeUntilExpiry = expiresAt - now;
+
+        // Log token status (for debugging)
+        const minutesUntilExpiry = Math.floor(timeUntilExpiry / 60000);
+        console.log(`[useTokenRefresh] Token expires in ${minutesUntilExpiry} minutes`);
+
+        // Show warning 10 minutes before expiry (once)
+        if (timeUntilExpiry < 10 * 60 * 1000 && timeUntilExpiry > 5 * 60 * 1000) {
           const now = Date.now();
-          const timeUntilExpiry = expiresAt - now;
-
-          // Refresh 2 minutes (120 seconds) before expiry
-          const REFRESH_THRESHOLD = 2 * 60 * 1000; // 2 minutes in milliseconds
-
-          if (timeUntilExpiry < REFRESH_THRESHOLD && timeUntilExpiry > 0) {
-            console.log(`[useTokenRefresh] Token expiring in ${Math.round(timeUntilExpiry / 1000)}s, refreshing...`);
-
-            refreshInProgressRef.current = true;
-
-            // Call refresh endpoint
-            await axios.post(
-              `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'}/auth/refresh`,
-              {},
-              { withCredentials: true }
-            );
-
-            console.log('[useTokenRefresh] Token refreshed successfully');
-            refreshInProgressRef.current = false;
-          } else if (timeUntilExpiry <= 0) {
-            console.log('[useTokenRefresh] Token already expired, will be handled by interceptor');
+          // Only show warning once per 5 minutes to avoid spam
+          if (now - lastWarningRef.current > 5 * 60 * 1000) {
+            lastWarningRef.current = now;
+            toast('Your session will expire soon. We\'ll refresh it automatically.', {
+              icon: '⏰',
+              duration: 4000,
+              position: 'top-right',
+            });
           }
-        } catch (decodeError) {
-          console.error('[useTokenRefresh] Error decoding token:', decodeError);
+        }
+
+        // Auto-refresh 5 minutes before expiry
+        if (timeUntilExpiry < 5 * 60 * 1000 && timeUntilExpiry > 0) {
+          console.log('[useTokenRefresh] Token expiring soon, refreshing...');
+
+          const success = await authApi.refreshToken();
+
+          if (success) {
+            console.log('[useTokenRefresh] ✅ Token refreshed successfully');
+            toast.success('Session refreshed automatically', {
+              duration: 2000,
+              position: 'top-right',
+            });
+          } else {
+            console.error('[useTokenRefresh] ❌ Token refresh failed');
+            toast.error('Session refresh failed. Please re-login.', {
+              duration: 5000,
+              position: 'top-right',
+            });
+          }
+        }
+
+        // Show urgent warning 2 minutes before expiry
+        if (timeUntilExpiry < 2 * 60 * 1000 && timeUntilExpiry > 0) {
+          // Dismiss previous toast if exists
+          if (toastIdRef.current) {
+            toast.dismiss(toastIdRef.current);
+          }
+
+          toastIdRef.current = toast.error(
+            'Your session is expiring soon! Please save your work.',
+            {
+              duration: 60000, // Show for 1 minute
+              position: 'top-right',
+            }
+          ) as string;
         }
       } catch (error) {
-        refreshInProgressRef.current = false;
-        console.error('[useTokenRefresh] Error refreshing token:', error);
-        // Don't redirect here, let the axios interceptor handle it
+        console.error('[useTokenRefresh] Error in token refresh check:', error);
       }
     };
 
@@ -100,10 +117,16 @@ export function useTokenRefresh() {
     checkAndRefreshToken();
 
     // Then check every minute
-    const interval = setInterval(checkAndRefreshToken, 60 * 1000); // 60 seconds
+    const interval = setInterval(checkAndRefreshToken, 60000);
 
     return () => {
       clearInterval(interval);
+      // Clean up toast on unmount
+      if (toastIdRef.current) {
+        toast.dismiss(toastIdRef.current);
+      }
     };
   }, []);
+
+  return null;
 }
