@@ -119,7 +119,13 @@ export class ShopManagementService {
     active: boolean;
     crossShopEnabled?: boolean;
     fixflowShopId?: string;
-    location?: string;
+    location?: string | {
+      lat?: number;
+      lng?: number;
+      city?: string;
+      state?: string;
+      zipCode?: string;
+    };
   }) {
     try {
       logger.info('Admin creating shop', { shopId: shopData.shopId });

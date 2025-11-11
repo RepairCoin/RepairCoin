@@ -439,7 +439,13 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
     active: boolean;
     crossShopEnabled?: boolean;
     fixflowShopId?: string;
-    location?: string;
+    location?: string | {
+      lat?: number;
+      lng?: number;
+      city?: string;
+      state?: string;
+      zipCode?: string;
+    };
   }) {
     return shopManagementService.createShop(shopData);
   }
