@@ -11,7 +11,7 @@ type ShopTabs = "Wallet" | "Analysis" | "Promo Code";
 
 export default function Home() {
   const { account } = useAuthStore();
-  const { data, isLoading, error } = useShopByWalletAddress(
+  const { data: shopData, isLoading, error } = useShopByWalletAddress(
     account?.address || ""
   );
 
@@ -40,7 +40,7 @@ export default function Home() {
               Hello!
             </Text>
             <Text className="text-lg font-semibold text-white">
-              {data?.data.name}
+              {shopData?.data.name}
             </Text>
           </View>
         </View>
@@ -65,7 +65,7 @@ export default function Home() {
             </React.Fragment>
           ))}
         </View>
-        {activeTab === "Wallet" && <WalletTab />}
+        {activeTab === "Wallet" && shopData?.data && <WalletTab shopData={shopData.data}/>}
       </View>
     </ThemedView>
   );
