@@ -13,10 +13,8 @@ import {
   MaterialCommunityIcons,
   MaterialIcons,
   Octicons,
-  SimpleLineIcons,
 } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-
+import { router, useRouter } from "expo-router";
 import { useAuthStore } from "@/store/authStore";
 import { Tier } from "@/utilities/GlobalTypes";
 import DetailCard from "@/components/ui/DetailCard";
@@ -133,6 +131,7 @@ export default function WalletTab({
 }: {
   shopData: ShopByWalletAddressData;
 }) {
+  const router = useRouter();
   const { account } = useAuthStore();
 
   // Early return for missing data
@@ -165,19 +164,28 @@ export default function WalletTab({
 
       <View className="flex-row justify-between mt-6 px-8">
         <View className="items-center">
-          <Pressable className="w-16 h-16 rounded-full bg-[#1A1A1C] justify-center items-center">
+          <Pressable
+            onPress={() => router.push("/shop/buy-token")}
+            className="w-16 h-16 rounded-full bg-[#1A1A1C] justify-center items-center"
+          >
             <MaterialIcons name="summarize" color="#fff" size={24} />
           </Pressable>
           <Text className="text-white text-lg font-semibold mt-2">Buy</Text>
         </View>
         <View className="items-center">
-          <Pressable className="w-16 h-16 rounded-full bg-[#1A1A1C] justify-center items-center">
+          <Pressable
+            onPress={() => router.push("/shop/reward-token")}
+            className="w-16 h-16 rounded-full bg-[#1A1A1C] justify-center items-center"
+          >
             <MaterialIcons name="info" color="#fff" size={24} />
           </Pressable>
           <Text className="text-white text-lg font-semibold mt-2">Reward</Text>
         </View>
         <View className="items-center">
-          <Pressable className="w-16 h-16 rounded-full bg-[#1A1A1C] justify-center items-center">
+          <Pressable
+            onPress={() => router.push("/shop/redeem-token")}
+            className="w-16 h-16 rounded-full bg-[#1A1A1C] justify-center items-center"
+          >
             <Octicons name="history" color="#fff" size={24} />
           </Pressable>
           <Text className="text-white text-lg font-semibold mt-2">Redeem</Text>
