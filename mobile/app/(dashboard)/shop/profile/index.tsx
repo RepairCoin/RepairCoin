@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { AntDesign } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
-import { View, Text, TextInput, Platform, ScrollView } from "react-native";
+import { View, Text, TextInput, Platform, ScrollView, Alert } from "react-native";
 import PrimaryButton from "@/components/ui/PrimaryButton";
 import { ThemedView } from "@/components/ui/ThemedView";
 import { useAuthStore } from "@/store/authStore";
-import { useShopByWalletAddress } from "@/hooks";
+import { useShopByWalletAddress, useUpdateShopDetails } from "@/hooks";
 
 
 export default function EditShopProfilePage() {
@@ -13,8 +13,7 @@ export default function EditShopProfilePage() {
   const { data: shopData, isLoading, error } = useShopByWalletAddress(
     account?.address || ""
   );
-
-  console.log("datadata: ", shopData)
+  const updateShopMutation = useUpdateShopDetails(account?.address || "");
 
   const [shopFormData, setShopFormData] = useState({
     name: shopData?.data?.name || "",
@@ -27,6 +26,38 @@ export default function EditShopProfilePage() {
     website: shopData?.data?.website || "",
     walletAddress: shopData?.data?.walletAddress || "",
   });
+
+  const handleSaveChanges = async () => {
+    if (!shopData?.data?.shopId) {
+      Alert.alert("Error", "Shop ID not found");
+      return;
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(shopFormData.email)) {
+      Alert.alert("Error", "Please enter a valid email address");
+      return;
+    }
+
+    try {
+      await updateShopMutation.mutateAsync({
+        shopId: shopData.data.shopId,
+        shopData: {
+          ...shopFormData,
+          active: shopData.data.active,
+          crossShopEnabled: shopData.data.crossShopEnabled,
+          verified: shopData.data.verified,
+          joinDate: shopData.data.joinDate,
+          operational_status: shopData.data.operational_status,
+        },
+      });
+      Alert.alert("Success", "Shop details updated successfully", [
+        { text: "OK", onPress: () => goBack() },
+      ]);
+    } catch (error) {
+      Alert.alert("Error", "Failed to update shop details");
+    }
+  };
 
   return (
     <ThemedView className="h-full w-full py-14">
@@ -193,8 +224,8 @@ export default function EditShopProfilePage() {
           <View className="absolute bottom-8 left-0 right-0 mx-6">
             <PrimaryButton
               title={"Save Changes"}
-              onPress={() => {}}
-              loading={false}
+              onPress={handleSaveChanges}
+              loading={updateShopMutation.isPending}
             />
           </View>
         </ScrollView>

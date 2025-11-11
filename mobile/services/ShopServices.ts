@@ -90,3 +90,12 @@ export const getShopByWalletAddress = async (
     throw error;
   }
 };
+
+export const updateShopDetails = async (shopId: string, shopData: ShopData): Promise<any> => {
+  try {
+    return await apiClient.put<any>(`/shops/${shopId}/details`, shopData);
+  } catch (error: any) {
+    console.error("Failed to update shop details:", error.message);
+    throw error;
+  }
+};
