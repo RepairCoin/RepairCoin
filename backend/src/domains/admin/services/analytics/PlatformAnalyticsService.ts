@@ -124,12 +124,14 @@ export class PlatformAnalyticsService {
       // For now, return recent failed webhooks as alerts
       const failedWebhooks = await webhookRepository.getFailedWebhooks(limit);
 
-      return failedWebhooks.map(webhook => ({
-        id: webhook.id,
+      return failedWebhooks.map((webhook, index) => ({
+        id: index + 1,
         type: 'webhook_failure',
         severity: 'warning',
         message: `Webhook ${webhook.event} failed`,
-        timestamp: webhook.timestamp,
+        timestamp: webhook.timestamp instanceof Date
+          ? webhook.timestamp.toISOString()
+          : String(webhook.timestamp),
         data: webhook
       }));
     } catch (error) {
