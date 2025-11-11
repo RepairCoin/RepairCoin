@@ -1,11 +1,32 @@
+import { useState } from "react";
 import { AntDesign } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
-import { View, Text, TextInput, Platform } from "react-native";
-import Screen from "@/components/ui/Screen";
+import { View, Text, TextInput, Platform, ScrollView } from "react-native";
 import PrimaryButton from "@/components/ui/PrimaryButton";
 import { ThemedView } from "@/components/ui/ThemedView";
+import { useAuthStore } from "@/store/authStore";
+import { useShopByWalletAddress } from "@/hooks";
+
 
 export default function EditShopProfilePage() {
+  const { account } = useAuthStore();
+  const { data: shopData, isLoading, error } = useShopByWalletAddress(
+    account?.address || ""
+  );
+
+  console.log("datadata: ", shopData)
+
+  const [shopFormData, setShopFormData] = useState({
+    name: shopData?.data?.name || "",
+    email: shopData?.data?.email || "",
+    phone: shopData?.data?.phone || "",
+    address: shopData?.data?.address || "",
+    facebook: shopData?.data?.facebook || "",
+    twitter: shopData?.data?.twitter || "",
+    instagram: shopData?.data?.instagram || "",
+    website: shopData?.data?.website || "",
+    walletAddress: shopData?.data?.walletAddress || "",
+  });
 
   return (
     <ThemedView className="h-full w-full py-14">
@@ -19,43 +40,164 @@ export default function EditShopProfilePage() {
             <View className="w-[25px]" />
           </View>
         </View>
-        <View className="mt-8 mx-2">
-          <Text className="text-base font-bold text-gray-300 mb-1">
-            Shop Name
-          </Text>
-          <TextInput
-            className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
-            placeholder="Enter your shop name here"
-            placeholderTextColor="#999"
-          />
-        </View>
-        <View className="mt-4 mx-2">
-          <Text className="text-base font-bold text-gray-300 mb-1">
-            Shop Address
-          </Text>
-          <TextInput
-            className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
-            placeholder="Enter your shop address here"
-            placeholderTextColor="#999"
-          />
-        </View>
-        <View className="mt-4 mx-2">
-          <Text className="text-base font-bold text-gray-300 mb-1">
-            Shop Phone Number
-          </Text>
-          <TextInput
-            className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
-            placeholder="Enter your shop phone number here"
-            placeholderTextColor="#999"
-          />
-        </View> 
-        <View className="mx-2 mt-auto mb-8">
-          <PrimaryButton
-            title={"Save Changes"}
-            onPress={() => {}}
-            loading={false}
-          />
-        </View>
+
+        <ScrollView
+          className="flex-1 mt-8"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 100 }}
+        >
+          <View className="mx-2">
+            <Text className="text-base font-bold text-gray-300 mb-1">
+              Shop Name
+            </Text>
+            <TextInput
+              className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
+              placeholder="Enter your shop name here"
+              placeholderTextColor="#999"
+              value={shopFormData.name}
+              onChangeText={(text) =>
+                setShopFormData({ ...shopFormData, name: text })
+              }
+            />
+          </View>
+
+          <View className="mt-4 mx-2">
+            <Text className="text-base font-bold text-gray-300 mb-1">
+              Email Address
+            </Text>
+            <TextInput
+              className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
+              placeholder="Enter your email address here"
+              placeholderTextColor="#999"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={shopFormData.email}
+              onChangeText={(text) =>
+                setShopFormData({ ...shopFormData, email: text })
+              }
+            />
+          </View>
+
+          <View className="mt-4 mx-2">
+            <Text className="text-base font-bold text-gray-300 mb-1">
+              Phone Number
+            </Text>
+            <TextInput
+              className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
+              placeholder="Enter your phone number here"
+              placeholderTextColor="#999"
+              keyboardType="phone-pad"
+              value={shopFormData.phone}
+              onChangeText={(text) =>
+                setShopFormData({ ...shopFormData, phone: text })
+              }
+            />
+          </View>
+
+          <View className="mt-4 mx-2">
+            <Text className="text-base font-bold text-gray-300 mb-1">
+              Wallet Address
+            </Text>
+            <TextInput
+              className="w-full h-12 bg-gray-200 text-gray-500 rounded-xl px-3 py-2 text-base"
+              placeholder="Enter your wallet address here"
+              placeholderTextColor="#999"
+              autoCapitalize="none"
+              value={shopFormData.walletAddress}
+              editable={false}
+            />
+          </View>
+
+          <View className="mt-4 mx-2">
+            <Text className="text-base font-bold text-gray-300 mb-1">
+              Shop Address
+            </Text>
+            <TextInput
+              className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
+              placeholder="Enter your shop address here"
+              placeholderTextColor="#999"
+              value={shopFormData.address}
+              onChangeText={(text) =>
+                setShopFormData({ ...shopFormData, address: text })
+              }
+            />
+          </View>
+
+          <View className="mt-4 mx-2">
+            <Text className="text-base font-bold text-gray-300 mb-1">
+              Website
+            </Text>
+            <TextInput
+              className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
+              placeholder="Enter your website URL here"
+              placeholderTextColor="#999"
+              keyboardType="url"
+              autoCapitalize="none"
+              value={shopFormData.website}
+              onChangeText={(text) =>
+                setShopFormData({ ...shopFormData, website: text })
+              }
+            />
+          </View>
+
+          <View className="mt-4 mx-2">
+            <Text className="text-base font-bold text-gray-300 mb-1">
+              Facebook
+            </Text>
+            <TextInput
+              className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
+              placeholder="Enter your Facebook profile URL"
+              placeholderTextColor="#999"
+              keyboardType="url"
+              autoCapitalize="none"
+              value={shopFormData.facebook}
+              onChangeText={(text) =>
+                setShopFormData({ ...shopFormData, facebook: text })
+              }
+            />
+          </View>
+
+          <View className="mt-4 mx-2">
+            <Text className="text-base font-bold text-gray-300 mb-1">
+              Twitter
+            </Text>
+            <TextInput
+              className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
+              placeholder="Enter your Twitter handle or URL"
+              placeholderTextColor="#999"
+              keyboardType="url"
+              autoCapitalize="none"
+              value={shopFormData.twitter}
+              onChangeText={(text) =>
+                setShopFormData({ ...shopFormData, twitter: text })
+              }
+            />
+          </View>
+
+          <View className="mt-4 mx-2">
+            <Text className="text-base font-bold text-gray-300 mb-1">
+              Instagram
+            </Text>
+            <TextInput
+              className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
+              placeholder="Enter your Instagram handle or URL"
+              placeholderTextColor="#999"
+              keyboardType="url"
+              autoCapitalize="none"
+              value={shopFormData.instagram}
+              onChangeText={(text) =>
+                setShopFormData({ ...shopFormData, instagram: text })
+              }
+            />
+          </View>
+          <View className="absolute bottom-8 left-0 right-0 mx-6">
+            <PrimaryButton
+              title={"Save Changes"}
+              onPress={() => {}}
+              loading={false}
+            />
+          </View>
+        </ScrollView>
       </View>
     </ThemedView>
   );
