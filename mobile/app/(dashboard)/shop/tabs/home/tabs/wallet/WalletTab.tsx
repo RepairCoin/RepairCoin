@@ -20,6 +20,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useAuthStore } from "@/store/authStore";
 import { Tier } from "@/utilities/GlobalTypes";
 import DetailCard from "@/components/ui/DetailCard";
+import { ShopByWalletAddressData } from "@/services/ShopServices";
 
 interface TierInfo {
   color: [string, string];
@@ -77,11 +78,8 @@ const ActionButton: React.FC<ActionButtonProps> = ({
 
 const BalanceCard: React.FC<{
   balance: number | undefined;
-  tier: Tier;
   isLoading: boolean;
-}> = ({ balance, tier, isLoading }) => {
-  const tierInfo = TIER_CONFIG[tier];
-
+}> = ({ balance, isLoading }) => {
   return (
     <View className="h-40">
       <View className="w-full h-full bg-[#FFCC00] rounded-3xl flex-row overflow-hidden relative">
@@ -124,39 +122,17 @@ const BalanceCard: React.FC<{
               </>
             )}
           </View>
-
-          {/* Tier Badge */}
-          <View
-            className="w-32 h-8 mt-4 rounded-full overflow-hidden"
-            style={{
-              shadowColor: "black",
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.25,
-              shadowRadius: 10,
-              elevation: 12,
-            }}
-          >
-            <LinearGradient
-              colors={tierInfo.color}
-              start={{ x: 0, y: 1 }}
-              end={{ x: 1, y: 1 }}
-              className="w-full h-full items-center justify-center"
-            >
-              <View className="items-center h-full justify-center flex-row">
-                <SimpleLineIcons name="badge" color="#000" size={12} />
-                <Text className="text-black text-sm font-semibold ml-2">
-                  {tierInfo.label} Tier
-                </Text>
-              </View>
-            </LinearGradient>
-          </View>
         </View>
       </View>
     </View>
   );
 };
 
-export default function WalletTab() {
+export default function WalletTab({
+  shopData,
+}: {
+  shopData: ShopByWalletAddressData;
+}) {
   const { account } = useAuthStore();
 
   // Early return for missing data
@@ -185,7 +161,7 @@ export default function WalletTab() {
   return (
     <View className="mt-4 flex-1">
       {/* Balance Card */}
-      <BalanceCard balance={2} tier={"BRONZE"} isLoading={false} />
+      <BalanceCard balance={shopData?.purchasedRcnBalance} isLoading={false} />
 
       <View className="flex-row justify-between mt-6 px-8">
         <View className="items-center">
@@ -198,9 +174,7 @@ export default function WalletTab() {
           <Pressable className="w-16 h-16 rounded-full bg-[#1A1A1C] justify-center items-center">
             <MaterialIcons name="info" color="#fff" size={24} />
           </Pressable>
-          <Text className="text-white text-lg font-semibold mt-2">
-            Reward
-          </Text>
+          <Text className="text-white text-lg font-semibold mt-2">Reward</Text>
         </View>
         <View className="items-center">
           <Pressable className="w-16 h-16 rounded-full bg-[#1A1A1C] justify-center items-center">
@@ -233,31 +207,46 @@ export default function WalletTab() {
       >
         <DetailCard
           icon={
-            <MaterialCommunityIcons
-              name="hand-coin-outline"
-              color="#000"
-              size={16}
-            />
+            <MaterialCommunityIcons name="screwdriver" color="#000" size={16} />
           }
-          title="Tokens Redeemed"
-          label="Total RCN tokens you've spent at shops"
+          title="Total Purchased"
+          label="Total RCN tokens you've purchased"
           badge={
             false ? (
               <ActivityIndicator size="small" color="#000" />
             ) : (
               <>
-                <Text className="text-3xl font-semibold">2</Text>{" "}
+                <Text className="text-3xl font-semibold">
+                  {shopData?.totalRcnPurchased}
+                </Text>{" "}
               </>
             )
           }
         />
-
         <DetailCard
           icon={
             <MaterialCommunityIcons name="screwdriver" color="#000" size={16} />
           }
-          title="Tokens Earned"
-          label="Total RCN tokens earned from repairs"
+          title="Tokens Issued"
+          label="Total RCN tokens issued to customers"
+          badge={
+            false ? (
+              <ActivityIndicator size="small" color="#000" />
+            ) : (
+              <>
+                <Text className="text-3xl font-semibold">
+                  {shopData?.totalTokensIssued}
+                </Text>{" "}
+              </>
+            )
+          }
+        />
+        <DetailCard
+          icon={
+            <MaterialCommunityIcons name="screwdriver" color="#000" size={16} />
+          }
+          title="RCG Balance"
+          label="RCG tokens in your wallet"
           badge={
             false ? (
               <ActivityIndicator size="small" color="#000" />
@@ -267,13 +256,6 @@ export default function WalletTab() {
               </>
             )
           }
-        />
-
-        <DetailCard
-          icon={<SimpleLineIcons name="badge" color="#000" size={16} />}
-          title="Your Tier Level"
-          label="Bronze Tier"
-          badge={"Bronze"}
         />
       </ScrollView>
     </View>

@@ -6,6 +6,8 @@ import {
   getShopByWalletAddress,
   ShopByWalletAddressResponse,
   updateShopDetails,
+  UpdateShopData,
+  ShopData,
 } from "@/services/ShopServices";
 
 export const useShops = () => {
@@ -25,7 +27,6 @@ export const useShopByWalletAddress = (walletAddress: string) => {
     queryFn: async () => {
       const response: ShopByWalletAddressResponse =
         await getShopByWalletAddress(walletAddress);
-      console.log("SHOPP RESPONSEE: ", response);
       return response;
     },
     staleTime: 10 * 60 * 1000, // 10 minutes
@@ -34,9 +35,8 @@ export const useShopByWalletAddress = (walletAddress: string) => {
 
 export const useUpdateShopDetails = (address: string) => {
   return useMutation({
-    mutationFn: async ({ shopId, shopData }: { shopId: string; shopData: any }) => {
-      const response: any = await updateShopDetails(shopId, shopData);
-      console.log("SHOP RESPONSE UPDATE: ", response);
+    mutationFn: async ({ shopId, shopData }: { shopId: string; shopData: ShopData }) => {
+      const response: UpdateShopData = await updateShopDetails(shopId, shopData);
       return response;
     },
     onSuccess: () => {

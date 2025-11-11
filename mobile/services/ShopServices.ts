@@ -71,6 +71,11 @@ export interface ShopByWalletAddressResponse {
   message?: string;
 }
 
+export interface UpdateShopData {
+  message: string;
+  success: boolean;
+}
+
 export const listShops = async (): Promise<ShopResponse> => {
   try {
     return await apiClient.get<ShopResponse>("/shops");
@@ -91,9 +96,9 @@ export const getShopByWalletAddress = async (
   }
 };
 
-export const updateShopDetails = async (shopId: string, shopData: ShopData): Promise<any> => {
+export const updateShopDetails = async (shopId: string, shopData: ShopData): Promise<UpdateShopData> => {
   try {
-    return await apiClient.put<any>(`/shops/${shopId}/details`, shopData);
+    return await apiClient.put<UpdateShopData>(`/shops/${shopId}/details`, shopData);
   } catch (error: any) {
     console.error("Failed to update shop details:", error.message);
     throw error;
