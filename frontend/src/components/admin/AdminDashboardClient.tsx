@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { ConnectButton } from "thirdweb/react";
 import { createThirdwebClient } from "thirdweb";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useAuthStore } from "@/stores/authStore";
 import { Toaster } from "react-hot-toast";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { useAuth } from "@/hooks/useAuth";
@@ -27,7 +28,9 @@ const client = createThirdwebClient({
 });
 
 export default function AdminDashboardClient() {
+  const router = useRouter();
   const searchParams = useSearchParams();
+  const { isAuthenticated, userType } = useAuthStore();
 
   // Connect to Thirdweb and populate auth store
   useAuth();
@@ -39,6 +42,15 @@ export default function AdminDashboardClient() {
     isSuperAdmin,
     adminRole,
   } = useAdminAuth();
+
+  // Client-side auth protection (since middleware is disabled for cross-domain)
+  useEffect(() => {
+    // If not authenticated or not an admin, redirect to landing page
+    if (!isAuthenticated || (userType && userType !== 'admin')) {
+      console.log('[AdminDashboard] Unauthorized access, redirecting to home');
+      router.push('/');
+    }
+  }, [isAuthenticated, userType, router]);
 
   // UI state
   const [activeTab, setActiveTab] = useState("overview");

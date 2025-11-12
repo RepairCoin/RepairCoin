@@ -77,9 +77,17 @@ export function middleware(request: NextRequest) {
   } */
 
   // Role-based access control
+  // NOTE: This only runs if authToken exists (works in localhost, may not work in production cross-domain)
+  // Client-side protection in dashboard components provides additional security layer
   if (authToken && isProtectedRoute) {
     const decoded = decodeJWT(authToken);
     const userRole = decoded?.role?.toLowerCase();
+
+    console.log('[Middleware] Role-based access check:', {
+      pathname,
+      userRole,
+      hasRole: !!userRole
+    });
 
     // Define role-based route mappings
     const roleRouteMap: Record<string, string[]> = {
@@ -95,6 +103,12 @@ export function middleware(request: NextRequest) {
       const hasAccess = allowedRoutes.some(route => pathname.startsWith(route));
 
       if (!hasAccess) {
+        console.log('[Middleware] Role mismatch - redirecting:', {
+          userRole,
+          attemptedPath: pathname,
+          redirectTo: roleRouteMap[userRole]?.[0]
+        });
+
         // Redirect to user's appropriate dashboard
         const redirectMap: Record<string, string> = {
           customer: '/customer',
