@@ -16,6 +16,7 @@ export interface AffiliateShopGroup {
   createdAt: string;
   updatedAt: string;
   memberCount?: number;
+  membershipStatus?: 'active' | 'pending' | 'rejected' | 'removed' | null;
 }
 
 export interface AffiliateShopGroupMember {

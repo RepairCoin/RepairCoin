@@ -86,10 +86,17 @@ export class GroupController {
         });
       }
 
+      // Check membership status for all groups (both public and private)
+      let membershipStatus = null;
+      if (requestingShopId) {
+        const membership = await this.service.getShopMembershipStatus(groupId, requestingShopId);
+        membershipStatus = membership ? membership.status : null;
+      }
+
       // If group is private, check if requesting shop is a member
       if (group.groupType === 'private') {
         // If not authenticated or not a member, return limited info
-        if (!requestingShopId) {
+        if (!requestingShopId || !membershipStatus || membershipStatus !== 'active') {
           return res.json({
             success: true,
             data: {
@@ -98,42 +105,25 @@ export class GroupController {
               groupType: group.groupType,
               description: group.description,
               logoUrl: group.logoUrl,
+              memberCount: group.memberCount,
               // Hide sensitive fields
               inviteCode: null,
               customTokenName: null,
               customTokenSymbol: null,
-              _message: 'This is a private group. Join to see full details.'
-            }
-          });
-        }
-
-        // Check if shop is a member
-        const isMember = await this.service.isShopMember(groupId, requestingShopId);
-
-        if (!isMember) {
-          // Not a member - return limited info
-          return res.json({
-            success: true,
-            data: {
-              groupId: group.groupId,
-              groupName: group.groupName,
-              groupType: group.groupType,
-              description: group.description,
-              logoUrl: group.logoUrl,
-              // Hide sensitive fields
-              inviteCode: null,
-              customTokenName: null,
-              customTokenSymbol: null,
+              membershipStatus: membershipStatus,
               _message: 'This is a private group. Join to see full details.'
             }
           });
         }
       }
 
-      // Public group OR authenticated member of private group - return full details
+      // Public group OR authenticated member of private group - return full details with membership status
       res.json({
         success: true,
-        data: group
+        data: {
+          ...group,
+          membershipStatus
+        }
       });
     } catch (error: unknown) {
       logger.error('Error in getGroup controller:', error);
@@ -161,35 +151,34 @@ export class GroupController {
 
       const result = await this.service.getAllGroups(filters);
 
-      // Sanitize private group data for non-members
+      // Add membership status and sanitize private group data for non-members
       const sanitizedItems = await Promise.all(
         result.items.map(async (group) => {
+          // Check membership status for all groups
+          let membershipStatus = null;
+          if (requestingShopId) {
+            const membership = await this.service.getShopMembershipStatus(group.groupId, requestingShopId);
+            membershipStatus = membership ? membership.status : null;
+          }
+
           // For private groups, hide sensitive info from non-members
           if (group.groupType === 'private') {
-            // If authenticated, check membership
-            if (requestingShopId) {
-              const isMember = await this.service.isShopMember(group.groupId, requestingShopId);
-              if (!isMember) {
-                // Not a member - hide sensitive fields
-                return {
-                  ...group,
-                  inviteCode: null,
-                  customTokenName: null,
-                  customTokenSymbol: null,
-                };
-              }
-            } else {
-              // Not authenticated - hide sensitive fields
+            // If not authenticated or not a member, hide sensitive fields
+            if (!requestingShopId || !membershipStatus || membershipStatus !== 'active') {
               return {
                 ...group,
                 inviteCode: null,
                 customTokenName: null,
                 customTokenSymbol: null,
+                membershipStatus
               };
             }
           }
-          // Public group or member of private group - return full data
-          return group;
+          // Public group or member of private group - return full data with membership status
+          return {
+            ...group,
+            membershipStatus
+          };
         })
       );
 

@@ -48,14 +48,9 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
     }
   };
 
-  // Check if user has restricted access (non-member viewing private group)
-  // Backend returns null for inviteCode and customTokenName when user is not a member of a private group
-  const isRestrictedAccess = group && group.isPrivate && (
-    group.inviteCode === null ||
-    group.inviteCode === undefined ||
-    group.customTokenName === null ||
-    group.customTokenName === undefined
-  );
+  // Check if user has restricted access (non-member viewing any group)
+  // Backend returns membershipStatus: 'active' for members, null for non-members
+  const isRestrictedAccess = group && group.membershipStatus !== 'active';
 
   // Debug logging
   if (group) {
@@ -63,6 +58,7 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
       groupId: group.groupId,
       groupName: group.groupName,
       isPrivate: group.isPrivate,
+      membershipStatus: group.membershipStatus,
       inviteCode: group.inviteCode,
       customTokenName: group.customTokenName,
       customTokenSymbol: group.customTokenSymbol,
