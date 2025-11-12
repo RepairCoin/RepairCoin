@@ -21,14 +21,12 @@ export default function LandingPage() {
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Auto-redirect registered users to their dashboard
-  // IMPORTANT: Only redirect if user has valid auth cookie to prevent infinite loop
+  // IMPORTANT: Only redirect if user is authenticated (has valid session)
   React.useEffect(() => {
-    // Check if auth cookie exists before redirecting
-    const hasAuthCookie = typeof document !== 'undefined' &&
-                          document.cookie.split(';').some(cookie => cookie.trim().startsWith('auth_token='));
-
-    if (account && isRegistered && !isDetecting && walletType !== 'unknown' && hasAuthCookie) {
-      console.log('🔄 [LandingPage] Auto-redirecting registered user to:', walletType);
+    // Use isAuthenticated from authStore instead of trying to read httpOnly cookies
+    // (httpOnly cookies cannot be read by JavaScript - that's the security feature!)
+    if (account && isRegistered && isAuthenticated && !isDetecting && walletType !== 'unknown') {
+      console.log('🔄 [LandingPage] Auto-redirecting authenticated user to:', walletType);
       switch (walletType) {
         case "admin":
           router.push("/admin");
@@ -40,10 +38,8 @@ export default function LandingPage() {
           router.push("/customer");
           break;
       }
-    } else if (account && isRegistered && !isDetecting && walletType !== 'unknown' && !hasAuthCookie) {
-      console.warn('🚫 [LandingPage] User is registered but missing auth cookie - not redirecting to prevent loop');
     }
-  }, [account, isRegistered, isDetecting, walletType, router]);
+  }, [account, isRegistered, isAuthenticated, isDetecting, walletType, router]);
 
   const handleGetStarted = () => {
     if (!account) {
