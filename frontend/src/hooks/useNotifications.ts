@@ -278,8 +278,22 @@ export const useNotifications = () => {
               break;
 
             case 'error':
-              console.error('WebSocket error message:', message.payload);
-              setError(message.payload.error);
+              // Handle authentication errors gracefully (expired tokens, etc.)
+              const payload = message.payload || {};
+              const errorMsg = payload.error || payload.message || '';
+
+              // Don't show error for token expiration or empty payload - user just needs to re-authenticate
+              if (!errorMsg || errorMsg.includes('expired') || errorMsg.includes('invalid') || errorMsg.includes('Token')) {
+                console.log('🔄 WebSocket authentication issue - please refresh and log in again');
+                // Close connection gracefully
+                if (wsRef.current) {
+                  wsRef.current.close();
+                  wsRef.current = null;
+                }
+              } else {
+                console.error('WebSocket error:', errorMsg);
+                setError(errorMsg);
+              }
               break;
 
             case 'pong':

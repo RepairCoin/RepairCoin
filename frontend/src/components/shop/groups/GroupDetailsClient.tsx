@@ -49,7 +49,26 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
   };
 
   // Check if user has restricted access (non-member viewing private group)
-  const isRestrictedAccess = group && !group.inviteCode && !group.customTokenName;
+  // Backend returns null for inviteCode and customTokenName when user is not a member of a private group
+  const isRestrictedAccess = group && group.isPrivate && (
+    group.inviteCode === null ||
+    group.inviteCode === undefined ||
+    group.customTokenName === null ||
+    group.customTokenName === undefined
+  );
+
+  // Debug logging
+  if (group) {
+    console.log('🔍 Group Access Check:', {
+      groupId: group.groupId,
+      groupName: group.groupName,
+      isPrivate: group.isPrivate,
+      inviteCode: group.inviteCode,
+      customTokenName: group.customTokenName,
+      customTokenSymbol: group.customTokenSymbol,
+      isRestrictedAccess
+    });
+  }
 
   const copyInviteCode = async () => {
     if (!group) return;
