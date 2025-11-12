@@ -19,30 +19,37 @@ export default function LandingPage() {
   const { isAuthenticated } = useAuthStore();
   const { walletType, isRegistered, isDetecting } = useWalletDetection();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   // Auto-redirect registered users to their dashboard
   // IMPORTANT: Only redirect if user is authenticated (has valid session)
   React.useEffect(() => {
+    // Prevent multiple redirect attempts
+    if (isRedirecting) {
+      console.log('🔄 [LandingPage] Redirect already in progress, skipping');
+      return;
+    }
+
     // Use isAuthenticated from authStore instead of trying to read httpOnly cookies
     // (httpOnly cookies cannot be read by JavaScript - that's the security feature!)
     if (account && isRegistered && isAuthenticated && !isDetecting && walletType !== 'unknown') {
       console.log('🔄 [LandingPage] Auto-redirecting authenticated user to:', walletType);
+      setIsRedirecting(true);
 
-      // Use router.replace instead of router.push to avoid adding to history
-      // This prevents back button issues
+      // Use window.location for immediate hard redirect (more reliable than router.replace)
       switch (walletType) {
         case "admin":
-          router.replace("/admin");
+          window.location.href = "/admin";
           break;
         case "shop":
-          router.replace("/shop");
+          window.location.href = "/shop";
           break;
         case "customer":
-          router.replace("/customer");
+          window.location.href = "/customer";
           break;
       }
     }
-  }, [account, isRegistered, isAuthenticated, isDetecting, walletType, router]);
+  }, [account, isRegistered, isAuthenticated, isDetecting, walletType, isRedirecting]);
 
   const handleGetStarted = () => {
     if (!account) {
