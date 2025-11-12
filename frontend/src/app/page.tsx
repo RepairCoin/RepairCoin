@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useTransition } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useActiveAccount } from "thirdweb/react";
 import { useWalletDetection } from "@/hooks/useWalletDetection";
@@ -21,7 +21,6 @@ export default function LandingPage() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const redirectAttemptedRef = React.useRef(false);
   const [isRedirecting, setIsRedirecting] = React.useState(false);
-  const [, startTransition] = useTransition();
 
   // Auto-redirect registered users to their dashboard
   // IMPORTANT: Only redirect if user is authenticated (has valid session)
@@ -42,10 +41,13 @@ export default function LandingPage() {
                         walletType === "shop" ? "/shop" :
                         "/customer";
 
-      // Use startTransition to ensure the navigation completes
-      startTransition(() => {
-        router.replace(targetPath);
-      });
+      // Use window.location.assign for server-side navigation
+      // This ensures cookies are sent with the request to middleware
+      // Small delay to ensure state is stable
+      setTimeout(() => {
+        console.log('🔄 [LandingPage] Executing redirect to:', targetPath);
+        window.location.assign(targetPath);
+      }, 100);
     }
   }, [account, isRegistered, isAuthenticated, isDetecting, walletType, router, isRedirecting]);
 
