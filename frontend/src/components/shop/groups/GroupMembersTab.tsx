@@ -7,17 +7,20 @@ import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
 
 interface GroupMembersTabProps {
   groupId: string;
+  currentShopId?: string;
 }
 
-export default function GroupMembersTab({ groupId }: GroupMembersTabProps) {
+export default function GroupMembersTab({ groupId, currentShopId }: GroupMembersTabProps) {
   const [members, setMembers] = useState<shopGroupsAPI.AffiliateShopGroupMember[]>([]);
   const [pendingMembers, setPendingMembers] = useState<shopGroupsAPI.AffiliateShopGroupMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<"all" | "pending">("all");
+  const [memberToRemove, setMemberToRemove] = useState<shopGroupsAPI.AffiliateShopGroupMember | null>(null);
+  const [isCurrentUserAdmin, setIsCurrentUserAdmin] = useState(false);
 
   useEffect(() => {
     loadMembers();
-  }, [groupId]);
+  }, [groupId, currentShopId]);
 
   const loadMembers = async () => {
     try {
@@ -26,13 +29,21 @@ export default function GroupMembersTab({ groupId }: GroupMembersTabProps) {
         shopGroupsAPI.getGroupMembers(groupId, "active"),
         shopGroupsAPI.getGroupMembers(groupId, "pending"),
       ]);
-      setMembers(Array.isArray(activeMembers) ? activeMembers : []);
+      const activeMembersList = Array.isArray(activeMembers) ? activeMembers : [];
+      setMembers(activeMembersList);
       setPendingMembers(Array.isArray(pending) ? pending : []);
+
+      // Check if current user is an admin
+      if (currentShopId) {
+        const currentMember = activeMembersList.find(m => m.shopId === currentShopId);
+        setIsCurrentUserAdmin(currentMember?.role === 'admin');
+      }
     } catch (error) {
       console.error("Error loading members:", error);
       toast.error("Failed to load members");
       setMembers([]);
       setPendingMembers([]);
+      setIsCurrentUserAdmin(false);
     } finally {
       setLoading(false);
     }
@@ -60,12 +71,13 @@ export default function GroupMembersTab({ groupId }: GroupMembersTabProps) {
     }
   };
 
-  const handleRemoveMember = async (shopId: string) => {
-    if (!confirm("Are you sure you want to remove this member?")) return;
+  const handleRemoveMember = async () => {
+    if (!memberToRemove) return;
 
     try {
-      await shopGroupsAPI.removeMember(groupId, shopId);
-      toast.success("Member removed");
+      await shopGroupsAPI.removeMember(groupId, memberToRemove.shopId);
+      toast.success("Member removed successfully");
+      setMemberToRemove(null);
       loadMembers();
     } catch (error: any) {
       console.error("Error removing member:", error);
@@ -211,40 +223,80 @@ export default function GroupMembersTab({ groupId }: GroupMembersTabProps) {
                   </div>
                 </div>
 
-                {/* Actions */}
-                <div className="flex gap-2 flex-shrink-0">
-                  {member.status === "pending" ? (
-                    <>
-                      <button
-                        onClick={() => handleApproveMember(member.shopId)}
-                        className="p-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white rounded-xl transition-all duration-200 shadow-lg shadow-green-600/20 hover:shadow-green-500/40"
-                        title="Approve member"
-                      >
-                        <Check className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() => handleRejectMember(member.shopId)}
-                        className="p-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-xl transition-all duration-200 shadow-lg shadow-red-600/20 hover:shadow-red-500/40"
-                        title="Reject request"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    </>
-                  ) : (
-                    member.role !== "admin" && (
-                      <button
-                        onClick={() => handleRemoveMember(member.shopId)}
-                        className="p-3 bg-red-600/10 hover:bg-gradient-to-r hover:from-red-600 hover:to-red-700 text-red-400 hover:text-white border border-red-600/30 hover:border-transparent rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-red-600/20"
-                        title="Remove member"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    )
-                  )}
-                </div>
+                {/* Actions - Only show for admins */}
+                {isCurrentUserAdmin && (
+                  <div className="flex gap-2 flex-shrink-0">
+                    {member.status === "pending" ? (
+                      <>
+                        <button
+                          onClick={() => handleApproveMember(member.shopId)}
+                          className="p-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white rounded-xl transition-all duration-200 shadow-lg shadow-green-600/20 hover:shadow-green-500/40"
+                          title="Approve member"
+                        >
+                          <Check className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleRejectMember(member.shopId)}
+                          className="p-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-xl transition-all duration-200 shadow-lg shadow-red-600/20 hover:shadow-red-500/40"
+                          title="Reject request"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </>
+                    ) : (
+                      member.role !== "admin" && (
+                        <button
+                          onClick={() => setMemberToRemove(member)}
+                          className="p-3 bg-red-600/10 hover:bg-gradient-to-r hover:from-red-600 hover:to-red-700 text-red-400 hover:text-white border border-red-600/30 hover:border-transparent rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-red-600/20"
+                          title="Remove member"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      )
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Remove Member Modal */}
+      {memberToRemove && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl border border-gray-700/50 max-w-md w-full p-6 shadow-2xl">
+            <div className="flex items-start gap-4 mb-6">
+              <div className="flex-shrink-0 p-3 bg-red-500/20 rounded-xl">
+                <Trash2 className="w-6 h-6 text-red-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-white mb-2">Remove Member?</h3>
+                <p className="text-gray-400">
+                  Are you sure you want to remove{" "}
+                  <span className="font-semibold text-white">
+                    {memberToRemove.shopName || memberToRemove.shopId}
+                  </span>{" "}
+                  from this group? This action cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setMemberToRemove(null)}
+                className="flex-1 px-6 py-3 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-xl transition-all duration-200 border border-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRemoveMember}
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-red-600/20"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

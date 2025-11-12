@@ -11,6 +11,7 @@ import GroupTokenOperationsTab from "./GroupTokenOperationsTab";
 import GroupTransactionsTab from "./GroupTransactionsTab";
 import AnalyticsDashboard from "./AnalyticsDashboard";
 import MemberActivityStats from "./MemberActivityStats";
+import { useAuthStore } from "../../../stores/authStore";
 
 interface GroupDetailsClientProps {
   groupId: string;
@@ -18,6 +19,7 @@ interface GroupDetailsClientProps {
 
 export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps) {
   const router = useRouter();
+  const { userProfile } = useAuthStore();
   const [group, setGroup] = useState<shopGroupsAPI.AffiliateShopGroup | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"overview" | "members" | "operations" | "transactions" | "analytics">(
@@ -25,10 +27,18 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
   );
   const [inviteCodeCopied, setInviteCodeCopied] = useState(false);
   const [joiningGroup, setJoiningGroup] = useState(false);
+  const [currentShopId, setCurrentShopId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     loadGroupData();
   }, [groupId]);
+
+  useEffect(() => {
+    // Get current shop ID from user profile
+    if (userProfile?.shopId) {
+      setCurrentShopId(userProfile.shopId);
+    }
+  }, [userProfile]);
 
   const loadGroupData = async () => {
     try {
@@ -377,7 +387,7 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
             </div>
           )}
 
-          {!isRestrictedAccess && activeTab === "members" && <GroupMembersTab groupId={groupId} />}
+          {!isRestrictedAccess && activeTab === "members" && <GroupMembersTab groupId={groupId} currentShopId={currentShopId} />}
 
           {!isRestrictedAccess && activeTab === "operations" && (
             <GroupTokenOperationsTab groupId={groupId} tokenSymbol={group.customTokenSymbol} />
