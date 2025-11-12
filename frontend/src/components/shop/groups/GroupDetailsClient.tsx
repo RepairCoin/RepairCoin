@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import DashboardLayout from "@/components/ui/DashboardLayout";
-import { ArrowLeft, Users, Coins, TrendingUp, Copy, Check, BarChart3, Sparkles } from "lucide-react";
+import { ArrowLeft, Users, Coins, TrendingUp, Copy, Check, BarChart3, Sparkles, Shield } from "lucide-react";
 import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
 import GroupMembersTab from "./GroupMembersTab";
 import GroupTokenOperationsTab from "./GroupTokenOperationsTab";
