@@ -30,9 +30,13 @@ class ApiClient {
           const token = await AsyncStorage.getItem('auth_token');
           if (token) {
             config.headers.Authorization = `Bearer ${token}`;
+            console.log('[Axios Interceptor] Added token to request:', config.url);
+            console.log('[Axios Interceptor] Token preview:', token.substring(0, 30) + '...');
+          } else {
+            console.log('[Axios Interceptor] No token found for request:', config.url);
           }
         } catch (error) {
-          console.warn('Failed to get auth token:', error);
+          console.warn('[Axios Interceptor] Failed to get auth token:', error);
         }
         
         return config;
