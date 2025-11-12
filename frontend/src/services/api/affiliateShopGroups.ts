@@ -5,16 +5,18 @@ import apiClient from './client';
 export interface AffiliateShopGroup {
   groupId: string;
   groupName: string;
-  customTokenName: string;
-  customTokenSymbol: string;
+  customTokenName: string | null;
+  customTokenSymbol: string | null;
   description?: string;
   logoUrl?: string;
-  inviteCode: string;
+  inviteCode: string | null;
   isPrivate: boolean;
+  groupType?: 'public' | 'private'; // Backend uses groupType
   createdByShopId: string;
   createdAt: string;
   updatedAt: string;
   memberCount?: number;
+  membershipStatus?: 'active' | 'pending' | 'rejected' | 'removed' | null;
 }
 
 export interface AffiliateShopGroupMember {
@@ -102,9 +104,14 @@ export const getAllGroups = async (params?: { isPrivate?: boolean }): Promise<Af
   try {
     // For discover page, we want to show all groups (both public and private)
     // Private groups will just show as "invite only"
-    const response = await apiClient.get<{ success: boolean; data: AffiliateShopGroup[] }>(`/affiliate-shop-groups`);
-    // apiClient already returns response.data
-    return response.data || [];
+    const response = await apiClient.get<{ success: boolean; data: any[] }>(`/affiliate-shop-groups`);
+    const groups = response.data?.data || [];
+
+    // Map backend groupType to frontend isPrivate
+    return groups.map((group: any) => ({
+      ...group,
+      isPrivate: group.groupType === 'private',
+    }));
   } catch (error) {
     console.error('Error getting shop groups:', error);
     return [];
@@ -116,9 +123,14 @@ export const getAllGroups = async (params?: { isPrivate?: boolean }): Promise<Af
  */
 export const getMyGroups = async (): Promise<AffiliateShopGroup[]> => {
   try {
-    const response = await apiClient.get<{ success: boolean; data: AffiliateShopGroup[] }>('/affiliate-shop-groups/my-groups');
-    // apiClient already returns response.data
-    return response.data || [];
+    const response = await apiClient.get<{ success: boolean; data: any[] }>('/affiliate-shop-groups/my-groups');
+    const groups = response.data?.data || [];
+
+    // Map backend groupType to frontend isPrivate
+    return groups.map((group: any) => ({
+      ...group,
+      isPrivate: group.groupType === 'private',
+    }));
   } catch (error) {
     console.error('Error getting my groups:', error);
     return [];
@@ -130,9 +142,18 @@ export const getMyGroups = async (): Promise<AffiliateShopGroup[]> => {
  */
 export const getGroup = async (groupId: string): Promise<AffiliateShopGroup | null> => {
   try {
-    const response = await apiClient.get<{ success: boolean; data: AffiliateShopGroup }>(`/affiliate-shop-groups/${groupId}`);
-    // apiClient already returns response.data
-    return response || null;
+    const response = await apiClient.get<{ success: boolean; data: any }>(`/affiliate-shop-groups/${groupId}`);
+    const data = response.data?.data;
+    if (!data) return null;
+
+    // Map backend groupType to frontend isPrivate
+    return {
+      ...data,
+      isPrivate: data.groupType === 'private',
+      customTokenName: data.customTokenName || null,
+      customTokenSymbol: data.customTokenSymbol || null,
+      inviteCode: data.inviteCode || null,
+    };
   } catch (error) {
     console.error('Error getting group:', error);
     return null;
@@ -204,10 +225,19 @@ export const getGroupMembers = async (
 ): Promise<AffiliateShopGroupMember[]> => {
   try {
     const queryString = status ? `?status=${status}` : '';
-    const response = await apiClient.get<{ success: boolean; data: AffiliateShopGroupMember[] }>(
+    const response = await apiClient.get<{ success: boolean; data: AffiliateShopGroupMember[] | { memberCount: number; _message: string } }>(
       `/affiliate-shop-groups/${groupId}/members${queryString}`
     );
-    return response.data || [];
+    const data = response.data?.data;
+
+    // Backend returns an object with memberCount when user is not a member
+    // Return empty array in that case instead of trying to map over object
+    if (!Array.isArray(data)) {
+      console.log('Not a member of this group or no access to member list');
+      return [];
+    }
+
+    return data || [];
   } catch (error) {
     console.error('Error getting group members:', error);
     return [];

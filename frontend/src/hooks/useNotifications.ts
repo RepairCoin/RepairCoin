@@ -12,6 +12,7 @@ export const useNotifications = () => {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
+  const manuallyClosedRef = useRef(false); // Track if we manually closed due to auth errors
   const maxReconnectAttempts = 5;
 
   const {
@@ -186,6 +187,7 @@ export const useNotifications = () => {
         console.log('WebSocket connected');
         setConnected(true);
         reconnectAttemptsRef.current = 0;
+        manuallyClosedRef.current = false; // Reset manual close flag on successful connection
 
         // Authenticate with the server
         ws.send(
@@ -223,8 +225,33 @@ export const useNotifications = () => {
               break;
 
             case 'error':
-              console.error('WebSocket error message:', message.payload);
-              setError(message.payload.error);
+              // Handle authentication errors gracefully (expired tokens, etc.)
+              const payload = message.payload || {};
+              const errorMsg = payload.error || payload.message || '';
+
+              // Check if this is an authentication-related error
+              const isAuthError = !errorMsg ||
+                errorMsg.includes('expired') ||
+                errorMsg.includes('invalid') ||
+                errorMsg.includes('Token') ||
+                errorMsg.includes('Authentication') ||
+                errorMsg.includes('authentication');
+
+              if (isAuthError) {
+                console.log('🔄 WebSocket authentication issue - please refresh and log in again');
+                // Mark as manually closed to prevent error messages
+                manuallyClosedRef.current = true;
+                // Prevent reconnection attempts by setting to max
+                reconnectAttemptsRef.current = maxReconnectAttempts;
+                // Close connection gracefully
+                if (wsRef.current) {
+                  wsRef.current.close();
+                  wsRef.current = null;
+                }
+              } else {
+                console.error('WebSocket error:', errorMsg);
+                setError(errorMsg);
+              }
               break;
 
             case 'pong':
@@ -247,6 +274,12 @@ export const useNotifications = () => {
       ws.onclose = () => {
         console.log('WebSocket disconnected');
         setConnected(false);
+
+        // Don't show error or try to reconnect if we manually closed due to auth issues
+        if (manuallyClosedRef.current) {
+          manuallyClosedRef.current = false; // Reset flag
+          return;
+        }
 
         // Attempt to reconnect
         if (reconnectAttemptsRef.current < maxReconnectAttempts) {

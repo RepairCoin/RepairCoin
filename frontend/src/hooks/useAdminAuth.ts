@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { toast } from "react-hot-toast";
+import { authManager } from "@/utils/auth";
 import { adminApi } from "@/services/api/admin";
 import { useAuthStore } from "@/stores/authStore";
 
@@ -22,6 +24,9 @@ export function useAdminAuth() {
   const [adminRole, setAdminRole] = useState<string>("");
   const [adminPermissions, setAdminPermissions] = useState<string[]>([]);
   const [adminProfileLoading, setAdminProfileLoading] = useState(true);
+
+  // Track previous account address to detect actual changes
+  const previousAddressRef = useRef<string | null>(null);
 
   // Combine loading states
   const loading = baseAuthLoading || adminProfileLoading;
@@ -52,9 +57,30 @@ export function useAdminAuth() {
     setIsSuperAdmin(false);
     setAdminRole("");
     setAdminPermissions([]);
+    const currentAddress = account?.address || null;
+    const hasAddressChanged = previousAddressRef.current !== currentAddress;
+
+    // Only clear tokens if the address actually changed (account switch or disconnect)
+    if (hasAddressChanged && previousAddressRef.current !== null) {
+      console.log("🔄 Account changed, clearing admin tokens");
+      authManager.clearToken("admin");
+      localStorage.removeItem('adminAuthToken');
+      localStorage.removeItem('isSuperAdmin');
+      localStorage.removeItem('adminRole');
+    }
+
+    // Update the previous address ref
+    previousAddressRef.current = currentAddress;
+
+    // Reset admin-specific state when account changes or on first load
+    if (hasAddressChanged) {
+      setIsSuperAdmin(false);
+      setAdminRole("");
+      setAdminPermissions([]);
+    }
 
     setAdminProfileLoading(true);
-    
+
     const checkAdminStatus = async () => {
       if (!account?.address || !isAdminFromAuth) {
         setAdminProfileLoading(false);
