@@ -5,12 +5,13 @@ import apiClient from './client';
 export interface AffiliateShopGroup {
   groupId: string;
   groupName: string;
-  customTokenName: string;
-  customTokenSymbol: string;
+  customTokenName: string | null;
+  customTokenSymbol: string | null;
   description?: string;
   logoUrl?: string;
-  inviteCode: string;
+  inviteCode: string | null;
   isPrivate: boolean;
+  groupType?: 'public' | 'private'; // Backend uses groupType
   createdByShopId: string;
   createdAt: string;
   updatedAt: string;
@@ -101,8 +102,14 @@ export const getAllGroups = async (params?: { isPrivate?: boolean }): Promise<Af
   try {
     // For discover page, we want to show all groups (both public and private)
     // Private groups will just show as "invite only"
-    const response = await apiClient.get<{ success: boolean; data: AffiliateShopGroup[] }>(`/affiliate-shop-groups`);
-    return response.data?.data || [];
+    const response = await apiClient.get<{ success: boolean; data: any[] }>(`/affiliate-shop-groups`);
+    const groups = response.data?.data || [];
+
+    // Map backend groupType to frontend isPrivate
+    return groups.map((group: any) => ({
+      ...group,
+      isPrivate: group.groupType === 'private',
+    }));
   } catch (error) {
     console.error('Error getting shop groups:', error);
     return [];
@@ -114,8 +121,14 @@ export const getAllGroups = async (params?: { isPrivate?: boolean }): Promise<Af
  */
 export const getMyGroups = async (): Promise<AffiliateShopGroup[]> => {
   try {
-    const response = await apiClient.get<{ success: boolean; data: AffiliateShopGroup[] }>('/affiliate-shop-groups/my-groups');
-    return response.data?.data || [];
+    const response = await apiClient.get<{ success: boolean; data: any[] }>('/affiliate-shop-groups/my-groups');
+    const groups = response.data?.data || [];
+
+    // Map backend groupType to frontend isPrivate
+    return groups.map((group: any) => ({
+      ...group,
+      isPrivate: group.groupType === 'private',
+    }));
   } catch (error) {
     console.error('Error getting my groups:', error);
     return [];
@@ -127,8 +140,18 @@ export const getMyGroups = async (): Promise<AffiliateShopGroup[]> => {
  */
 export const getGroup = async (groupId: string): Promise<AffiliateShopGroup | null> => {
   try {
-    const response = await apiClient.get<{ success: boolean; data: AffiliateShopGroup }>(`/affiliate-shop-groups/${groupId}`);
-    return response.data?.data || null;
+    const response = await apiClient.get<{ success: boolean; data: any }>(`/affiliate-shop-groups/${groupId}`);
+    const data = response.data?.data;
+    if (!data) return null;
+
+    // Map backend groupType to frontend isPrivate
+    return {
+      ...data,
+      isPrivate: data.groupType === 'private',
+      customTokenName: data.customTokenName || null,
+      customTokenSymbol: data.customTokenSymbol || null,
+      inviteCode: data.inviteCode || null,
+    };
   } catch (error) {
     console.error('Error getting group:', error);
     return null;

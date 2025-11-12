@@ -48,6 +48,9 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
     }
   };
 
+  // Check if user has restricted access (non-member viewing private group)
+  const isRestrictedAccess = group && !group.inviteCode && !group.customTokenName;
+
   const copyInviteCode = async () => {
     if (!group) return;
     try {
@@ -109,71 +112,96 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
               </div>
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Token Info */}
-              <div className="group relative bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl p-5 border border-gray-700/50 hover:border-[#FFCC00]/30 transition-all duration-300">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#FFCC00]/0 to-[#FFCC00]/0 group-hover:from-[#FFCC00]/5 group-hover:to-transparent rounded-xl transition-all duration-300"></div>
-                <div className="relative">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Coins className="w-4 h-4 text-[#FFCC00]" />
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Token</p>
+            {/* Restricted Access Warning */}
+            {isRestrictedAccess ? (
+              <div className="bg-gradient-to-br from-orange-500/10 to-red-500/10 border border-orange-500/30 rounded-xl p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0 p-2 bg-orange-500/20 rounded-lg">
+                    <Shield className="w-6 h-6 text-orange-400" />
                   </div>
-                  <p className="text-2xl font-bold text-white mb-1">{group.customTokenSymbol}</p>
-                  <p className="text-sm text-gray-400">{group.customTokenName}</p>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-bold text-white mb-2">Private Group - Access Restricted</h3>
+                    <p className="text-gray-300 mb-4">
+                      This is a private group. You need to be a member to view detailed information including token details, members, transactions, and analytics.
+                    </p>
+                    <button
+                      onClick={() => router.push("/shop/groups")}
+                      className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg transition-all duration-200"
+                    >
+                      Back to Groups
+                    </button>
+                  </div>
                 </div>
               </div>
+            ) : (
+              <>
+                {/* Stats Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Token Info */}
+                  <div className="group relative bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl p-5 border border-gray-700/50 hover:border-[#FFCC00]/30 transition-all duration-300">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#FFCC00]/0 to-[#FFCC00]/0 group-hover:from-[#FFCC00]/5 group-hover:to-transparent rounded-xl transition-all duration-300"></div>
+                    <div className="relative">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Coins className="w-4 h-4 text-[#FFCC00]" />
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Token</p>
+                      </div>
+                      <p className="text-2xl font-bold text-white mb-1">{group.customTokenSymbol}</p>
+                      <p className="text-sm text-gray-400">{group.customTokenName}</p>
+                    </div>
+                  </div>
 
-              {/* Members */}
-              <div className="group relative bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl p-5 border border-gray-700/50 hover:border-[#FFCC00]/30 transition-all duration-300">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#FFCC00]/0 to-[#FFCC00]/0 group-hover:from-[#FFCC00]/5 group-hover:to-transparent rounded-xl transition-all duration-300"></div>
-                <div className="relative">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Users className="w-4 h-4 text-[#FFCC00]" />
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Members</p>
+                  {/* Members */}
+                  <div className="group relative bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl p-5 border border-gray-700/50 hover:border-[#FFCC00]/30 transition-all duration-300">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#FFCC00]/0 to-[#FFCC00]/0 group-hover:from-[#FFCC00]/5 group-hover:to-transparent rounded-xl transition-all duration-300"></div>
+                    <div className="relative">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Users className="w-4 h-4 text-[#FFCC00]" />
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Members</p>
+                      </div>
+                      <p className="text-2xl font-bold text-white">{group.memberCount || 0}</p>
+                      <p className="text-sm text-gray-400">Active participants</p>
+                    </div>
                   </div>
-                  <p className="text-2xl font-bold text-white">{group.memberCount || 0}</p>
-                  <p className="text-sm text-gray-400">Active participants</p>
-                </div>
-              </div>
 
-              {/* Privacy */}
-              <div className="group relative bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl p-5 border border-gray-700/50 hover:border-[#FFCC00]/30 transition-all duration-300">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#FFCC00]/0 to-[#FFCC00]/0 group-hover:from-[#FFCC00]/5 group-hover:to-transparent rounded-xl transition-all duration-300"></div>
-                <div className="relative">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Sparkles className="w-4 h-4 text-[#FFCC00]" />
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Access</p>
+                  {/* Privacy */}
+                  <div className="group relative bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl p-5 border border-gray-700/50 hover:border-[#FFCC00]/30 transition-all duration-300">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#FFCC00]/0 to-[#FFCC00]/0 group-hover:from-[#FFCC00]/5 group-hover:to-transparent rounded-xl transition-all duration-300"></div>
+                    <div className="relative">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Sparkles className="w-4 h-4 text-[#FFCC00]" />
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Access</p>
+                      </div>
+                      <p className="text-2xl font-bold text-white">{group.isPrivate ? "Private" : "Public"}</p>
+                      <p className="text-sm text-gray-400">{group.isPrivate ? "Invite only" : "Open to join"}</p>
+                    </div>
                   </div>
-                  <p className="text-2xl font-bold text-white">{group.isPrivate ? "Private" : "Public"}</p>
-                  <p className="text-sm text-gray-400">{group.isPrivate ? "Invite only" : "Open to join"}</p>
-                </div>
-              </div>
 
-              {/* Invite Code */}
-              <div className="group relative bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl p-5 border border-gray-700/50 hover:border-[#FFCC00]/30 transition-all duration-300">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#FFCC00]/0 to-[#FFCC00]/0 group-hover:from-[#FFCC00]/5 group-hover:to-transparent rounded-xl transition-all duration-300"></div>
-                <div className="relative">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Copy className="w-4 h-4 text-[#FFCC00]" />
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Invite Code</p>
+                  {/* Invite Code */}
+                  <div className="group relative bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl p-5 border border-gray-700/50 hover:border-[#FFCC00]/30 transition-all duration-300">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#FFCC00]/0 to-[#FFCC00]/0 group-hover:from-[#FFCC00]/5 group-hover:to-transparent rounded-xl transition-all duration-300"></div>
+                    <div className="relative">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Copy className="w-4 h-4 text-[#FFCC00]" />
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Invite Code</p>
+                      </div>
+                      <button
+                        onClick={copyInviteCode}
+                        className="w-full flex items-center justify-between gap-3 px-4 py-2.5 bg-black/30 hover:bg-black/50 rounded-lg transition-all duration-200 border border-gray-700/30 hover:border-[#FFCC00]/30"
+                      >
+                        <span className="font-mono text-lg font-bold text-[#FFCC00] tracking-wider">
+                          {group.inviteCode}
+                        </span>
+                        {inviteCodeCopied ? (
+                          <Check className="w-4 h-4 text-green-400" />
+                        ) : (
+                          <Copy className="w-4 h-4 text-gray-400" />
+                        )}
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    onClick={copyInviteCode}
-                    className="w-full flex items-center justify-between gap-3 px-4 py-2.5 bg-black/30 hover:bg-black/50 rounded-lg transition-all duration-200 border border-gray-700/30 hover:border-[#FFCC00]/30"
-                  >
-                    <span className="font-mono text-lg font-bold text-[#FFCC00] tracking-wider">
-                      {group.inviteCode}
-                    </span>
-                    {inviteCodeCopied ? (
-                      <Check className="w-4 h-4 text-green-400" />
-                    ) : (
-                      <Copy className="w-4 h-4 text-gray-400" />
-                    )}
-                  </button>
                 </div>
-              </div>
-            </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -182,10 +210,12 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
             {[
               { key: "overview", label: "Overview", icon: TrendingUp },
-              { key: "members", label: "Members", icon: Users },
-              { key: "operations", label: "Token Operations", icon: Coins },
-              { key: "transactions", label: "Transactions", icon: TrendingUp },
-              { key: "analytics", label: "Analytics", icon: BarChart3 },
+              ...(isRestrictedAccess ? [] : [
+                { key: "members", label: "Members", icon: Users },
+                { key: "operations", label: "Token Operations", icon: Coins },
+                { key: "transactions", label: "Transactions", icon: TrendingUp },
+                { key: "analytics", label: "Analytics", icon: BarChart3 },
+              ]),
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.key;
@@ -207,8 +237,8 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
                 </button>
               );
             })}
+            </div>
           </div>
-        </div>
 
         {/* Tab Content */}
         <div className="animate-in fade-in duration-300">
@@ -218,50 +248,78 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
                 <div className="w-1 h-8 bg-gradient-to-b from-[#FFCC00] to-transparent rounded-full"></div>
                 Group Overview
               </h3>
-              <div className="space-y-6">
-                {group.description && (
-                  <div className="p-6 bg-gray-800/50 rounded-xl border border-gray-700/30">
-                    <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Description</p>
-                    <p className="text-white leading-relaxed">{group.description}</p>
+              {isRestrictedAccess ? (
+                <div className="space-y-6">
+                  <div className="p-6 bg-orange-500/10 border border-orange-500/30 rounded-xl">
+                    <div className="flex items-start gap-4">
+                      <Shield className="w-6 h-6 text-orange-400 flex-shrink-0 mt-1" />
+                      <div>
+                        <h4 className="text-lg font-bold text-white mb-2">Members Only Content</h4>
+                        <p className="text-gray-300 mb-4">
+                          This private group's detailed information is only visible to members. Join the group using an invite code to access:
+                        </p>
+                        <ul className="list-disc list-inside space-y-2 text-gray-300 mb-4">
+                          <li>Custom token details and operations</li>
+                          <li>Member roster and management</li>
+                          <li>Transaction history and analytics</li>
+                          <li>Group statistics and insights</li>
+                        </ul>
+                      </div>
+                    </div>
                   </div>
-                )}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="p-6 bg-gray-800/50 rounded-xl border border-gray-700/30">
-                    <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Created</p>
-                    <p className="text-white text-lg font-medium">
-                      {new Date(group.createdAt).toLocaleDateString("en-US", {
-                        month: "long",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </p>
-                  </div>
-                  <div className="p-6 bg-gray-800/50 rounded-xl border border-gray-700/30">
-                    <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Last Updated</p>
-                    <p className="text-white text-lg font-medium">
-                      {new Date(group.updatedAt).toLocaleDateString("en-US", {
-                        month: "long",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </p>
+                  {group.description && (
+                    <div className="p-6 bg-gray-800/50 rounded-xl border border-gray-700/30">
+                      <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Description</p>
+                      <p className="text-white leading-relaxed">{group.description}</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {group.description && (
+                    <div className="p-6 bg-gray-800/50 rounded-xl border border-gray-700/30">
+                      <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Description</p>
+                      <p className="text-white leading-relaxed">{group.description}</p>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="p-6 bg-gray-800/50 rounded-xl border border-gray-700/30">
+                      <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Created</p>
+                      <p className="text-white text-lg font-medium">
+                        {new Date(group.createdAt).toLocaleDateString("en-US", {
+                          month: "long",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </p>
+                    </div>
+                    <div className="p-6 bg-gray-800/50 rounded-xl border border-gray-700/30">
+                      <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Last Updated</p>
+                      <p className="text-white text-lg font-medium">
+                        {new Date(group.updatedAt).toLocaleDateString("en-US", {
+                          month: "long",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
-          {activeTab === "members" && <GroupMembersTab groupId={groupId} />}
+          {!isRestrictedAccess && activeTab === "members" && <GroupMembersTab groupId={groupId} />}
 
-          {activeTab === "operations" && (
+          {!isRestrictedAccess && activeTab === "operations" && (
             <GroupTokenOperationsTab groupId={groupId} tokenSymbol={group.customTokenSymbol} />
           )}
 
-          {activeTab === "transactions" && (
+          {!isRestrictedAccess && activeTab === "transactions" && (
             <GroupTransactionsTab groupId={groupId} tokenSymbol={group.customTokenSymbol} />
           )}
 
-          {activeTab === "analytics" && (
+          {!isRestrictedAccess && activeTab === "analytics" && (
             <div className="space-y-8">
               <AnalyticsDashboard groupId={groupId} />
               <MemberActivityStats groupId={groupId} />
