@@ -824,7 +824,7 @@ export class AffiliateShopGroupRepository extends BaseRepository {
       const query = `
         SELECT
           sgm.shop_id,
-          s.company_name as shop_name,
+          s.name as shop_name,
           sgm.joined_at,
           COALESCE(SUM(CASE WHEN gtt.type = 'earn' THEN gtt.amount ELSE 0 END), 0) as tokens_issued,
           COALESCE(SUM(CASE WHEN gtt.type = 'redeem' THEN gtt.amount ELSE 0 END), 0) as tokens_redeemed,
@@ -835,7 +835,7 @@ export class AffiliateShopGroupRepository extends BaseRepository {
         JOIN shops s ON sgm.shop_id = s.shop_id
         LEFT JOIN affiliate_group_token_transactions gtt ON sgm.shop_id = gtt.shop_id AND sgm.group_id = gtt.group_id
         WHERE sgm.group_id = $1 AND sgm.status = 'active'
-        GROUP BY sgm.shop_id, s.company_name, sgm.joined_at
+        GROUP BY sgm.shop_id, s.name, sgm.joined_at
         ORDER BY tokens_issued DESC
       `;
 
