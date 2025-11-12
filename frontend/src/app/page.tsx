@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from "react";
+import React, { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useActiveAccount } from "thirdweb/react";
 import { useWalletDetection } from "@/hooks/useWalletDetection";
@@ -20,12 +20,14 @@ export default function LandingPage() {
   const { walletType, isRegistered, isDetecting } = useWalletDetection();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const redirectAttemptedRef = React.useRef(false);
+  const [isRedirecting, setIsRedirecting] = React.useState(false);
+  const [, startTransition] = useTransition();
 
   // Auto-redirect registered users to their dashboard
   // IMPORTANT: Only redirect if user is authenticated (has valid session)
   React.useEffect(() => {
     // Prevent multiple redirect attempts using ref (persists across renders)
-    if (redirectAttemptedRef.current) {
+    if (redirectAttemptedRef.current || isRedirecting) {
       return;
     }
 
@@ -34,16 +36,18 @@ export default function LandingPage() {
     if (account && isRegistered && isAuthenticated && !isDetecting && walletType !== 'unknown') {
       console.log('🔄 [LandingPage] Auto-redirecting authenticated user to:', walletType);
       redirectAttemptedRef.current = true;
+      setIsRedirecting(true);
 
-      // Use router.push with small delay to ensure state is ready
       const targetPath = walletType === "admin" ? "/admin" :
                         walletType === "shop" ? "/shop" :
                         "/customer";
 
-      // Immediate redirect without delay
-      router.push(targetPath);
+      // Use startTransition to ensure the navigation completes
+      startTransition(() => {
+        router.replace(targetPath);
+      });
     }
-  }, [account, isRegistered, isAuthenticated, isDetecting, walletType, router]);
+  }, [account, isRegistered, isAuthenticated, isDetecting, walletType, router, isRedirecting]);
 
   const handleGetStarted = () => {
     if (!account) {
@@ -91,6 +95,18 @@ export default function LandingPage() {
     }
     return null;
   };
+
+  // Show minimal loading state while redirecting
+  if (isRedirecting) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFCC00] mx-auto"></div>
+          <p className="mt-4 text-white">Redirecting to dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <main>
