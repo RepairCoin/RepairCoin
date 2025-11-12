@@ -19,14 +19,13 @@ export default function LandingPage() {
   const { isAuthenticated } = useAuthStore();
   const { walletType, isRegistered, isDetecting } = useWalletDetection();
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [isRedirecting, setIsRedirecting] = useState(false);
+  const redirectAttemptedRef = React.useRef(false);
 
   // Auto-redirect registered users to their dashboard
   // IMPORTANT: Only redirect if user is authenticated (has valid session)
   React.useEffect(() => {
-    // Prevent multiple redirect attempts
-    if (isRedirecting) {
-      console.log('🔄 [LandingPage] Redirect already in progress, skipping');
+    // Prevent multiple redirect attempts using ref (persists across renders)
+    if (redirectAttemptedRef.current) {
       return;
     }
 
@@ -34,22 +33,17 @@ export default function LandingPage() {
     // (httpOnly cookies cannot be read by JavaScript - that's the security feature!)
     if (account && isRegistered && isAuthenticated && !isDetecting && walletType !== 'unknown') {
       console.log('🔄 [LandingPage] Auto-redirecting authenticated user to:', walletType);
-      setIsRedirecting(true);
+      redirectAttemptedRef.current = true;
 
-      // Use window.location for immediate hard redirect (more reliable than router.replace)
-      switch (walletType) {
-        case "admin":
-          window.location.href = "/admin";
-          break;
-        case "shop":
-          window.location.href = "/shop";
-          break;
-        case "customer":
-          window.location.href = "/customer";
-          break;
-      }
+      // Use router.push with small delay to ensure state is ready
+      const targetPath = walletType === "admin" ? "/admin" :
+                        walletType === "shop" ? "/shop" :
+                        "/customer";
+
+      // Immediate redirect without delay
+      router.push(targetPath);
     }
-  }, [account, isRegistered, isAuthenticated, isDetecting, walletType, isRedirecting]);
+  }, [account, isRegistered, isAuthenticated, isDetecting, walletType, router]);
 
   const handleGetStarted = () => {
     if (!account) {
