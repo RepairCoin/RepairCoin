@@ -26,11 +26,15 @@ export default function GroupMembersTab({ groupId }: GroupMembersTabProps) {
         shopGroupsAPI.getGroupMembers(groupId, "active"),
         shopGroupsAPI.getGroupMembers(groupId, "pending"),
       ]);
-      setMembers(activeMembers);
-      setPendingMembers(pending);
+      // Ensure we always have arrays, even if API returns undefined/null
+      setMembers(Array.isArray(activeMembers) ? activeMembers : []);
+      setPendingMembers(Array.isArray(pending) ? pending : []);
     } catch (error) {
       console.error("Error loading members:", error);
       toast.error("Failed to load members");
+      // Set empty arrays on error to prevent map errors
+      setMembers([]);
+      setPendingMembers([]);
     } finally {
       setLoading(false);
     }
@@ -122,7 +126,7 @@ export default function GroupMembersTab({ groupId }: GroupMembersTabProps) {
       </div>
 
       {/* Members List */}
-      {displayMembers.length === 0 ? (
+      {!Array.isArray(displayMembers) || displayMembers.length === 0 ? (
         <div className="text-center py-8">
           <Users className="w-12 h-12 text-gray-600 mx-auto mb-3" />
           <p className="text-gray-400">
