@@ -11,7 +11,7 @@ export const NotificationDebug = () => {
   const [cookieToken, setCookieToken] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check localStorage tokens
+    // Check localStorage tokens (these should NOT exist - we use httpOnly cookies now)
     const tokens = {
       customerToken: localStorage.getItem('customerAuthToken'),
       shopToken: localStorage.getItem('shopAuthToken'),
@@ -20,18 +20,17 @@ export const NotificationDebug = () => {
     };
     setLocalStorageTokens(tokens);
 
-    // Get token from cookie
-    const cookies = document.cookie.split(';');
-    const authCookie = cookies.find(cookie => cookie.trim().startsWith('auth_token='));
-    const tokenFromCookie = authCookie ? authCookie.split('=')[1] : null;
-    setCookieToken(tokenFromCookie);
+    // NOTE: We CANNOT read httpOnly cookies from JavaScript - that's the security feature!
+    // Instead, check if user is authenticated via the auth store
+    const hasValidSession = !!userProfile && !!userProfile.address;
+    setCookieToken(hasValidSession ? 'present-but-hidden' : null);
 
     console.log('🔍 Notification Debug Info:', {
       hasUserProfile: !!userProfile,
       userAddress: userProfile?.address,
       userType: userProfile?.type,
-      hasTokenInCookie: !!tokenFromCookie,
-      tokenInCookie: tokenFromCookie?.substring(0, 20) + '...',
+      hasValidAuthSession: hasValidSession,
+      note: 'HttpOnly cookies cannot be read by JS - this is intentional for security',
       localStorageTokens: tokens,
       notificationsCount: notifications.length,
       unreadCount,
@@ -73,7 +72,8 @@ export const NotificationDebug = () => {
         <div>Address in Profile: {userProfile?.address ? `${userProfile.address.substring(0, 10)}...` : '❌ Missing'}</div>
         <div>Address in Token: {walletFromToken ? `${walletFromToken.substring(0, 10)}...` : '❌ Missing'}</div>
         <div>Type: {userProfile?.type || 'Unknown'}</div>
-        <div>Token in Cookie: {cookieToken ? '✅ Set' : '❌ Missing'}</div>
+        <div>Auth Session: {cookieToken ? '✅ Valid (HttpOnly cookie)' : '❌ No session'}</div>
+        <div className="text-yellow-400 text-xs">ℹ️ HttpOnly cookies hidden from JS (security)</div>
         <div className="border-t border-gray-600 pt-1 mt-1">
           <div className="font-semibold">localStorage Tokens:</div>
           <div className="ml-2">
