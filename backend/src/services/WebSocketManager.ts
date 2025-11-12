@@ -7,6 +7,7 @@ import { Notification } from '../repositories/NotificationRepository';
 type WebSocketClient = WebSocket & {
   walletAddress?: string;
   isAlive?: boolean;
+  authTimeout?: NodeJS.Timeout;
 }
 
 interface AuthenticatedMessage {
@@ -46,6 +47,15 @@ export class WebSocketManager {
 
     logger.info('New WebSocket connection established');
 
+    // Set a timeout for authentication - if not authenticated within 5 seconds, close connection
+    ws.authTimeout = setTimeout(() => {
+      if (!ws.walletAddress) {
+        logger.debug('WebSocket authentication timeout - closing unauthenticated connection');
+        this.sendError(ws, 'Authentication required');
+        ws.close();
+      }
+    }, 5000);
+
     // Try to authenticate from cookie on connection
     this.tryAuthenticateFromCookie(ws, request);
 
@@ -65,6 +75,10 @@ export class WebSocketManager {
     });
 
     ws.on('close', () => {
+      // Clear auth timeout if exists
+      if (ws.authTimeout) {
+        clearTimeout(ws.authTimeout);
+      }
       this.handleDisconnection(ws);
     });
 
@@ -137,6 +151,12 @@ export class WebSocketManager {
       // Associate wallet address with this connection
       ws.walletAddress = walletAddress;
 
+      // Clear authentication timeout since we successfully authenticated
+      if (ws.authTimeout) {
+        clearTimeout(ws.authTimeout);
+        ws.authTimeout = undefined;
+      }
+
       // Add to clients map
       if (!this.clients.has(walletAddress)) {
         this.clients.set(walletAddress, new Set());
@@ -195,6 +215,12 @@ export class WebSocketManager {
 
       // Associate wallet address with this connection
       ws.walletAddress = walletAddress;
+
+      // Clear authentication timeout since we successfully authenticated
+      if (ws.authTimeout) {
+        clearTimeout(ws.authTimeout);
+        ws.authTimeout = undefined;
+      }
 
       // Add to clients map
       if (!this.clients.has(walletAddress)) {

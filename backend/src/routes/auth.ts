@@ -1090,4 +1090,52 @@ router.post('/refresh', async (req, res) => {
   }
 });
 
+/**
+ * DIAGNOSTIC ENDPOINT - Test cookie setting
+ * GET /api/auth/test-cookie
+ *
+ * This endpoint helps diagnose cookie issues by:
+ * 1. Setting a test cookie with current configuration
+ * 2. Returning information about the request context
+ * 3. Showing what cookies were received
+ */
+router.get('/test-cookie', (req, res) => {
+  const protocol = req.protocol;
+  const isHttps = protocol === 'https' || req.get('x-forwarded-proto') === 'https';
+  const origin = req.get('origin') || req.get('referer') || 'unknown';
+  const cookies = req.cookies || {};
+
+  // Set a test cookie
+  res.cookie('test_cookie', 'test_value_' + Date.now(), {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none' as const,
+    maxAge: 60 * 1000, // 1 minute
+    path: '/'
+  });
+
+  res.json({
+    success: true,
+    message: 'Test cookie set',
+    diagnostic: {
+      protocol,
+      isHttps,
+      origin,
+      host: req.get('host'),
+      forwardedProto: req.get('x-forwarded-proto'),
+      cookiesReceived: Object.keys(cookies),
+      cookieCount: Object.keys(cookies).length,
+      hasAuthToken: !!cookies.auth_token,
+      hasRefreshToken: !!cookies.refresh_token,
+      userAgent: req.get('User-Agent'),
+      corsOrigin: req.get('origin'),
+      environment: {
+        nodeEnv: process.env.NODE_ENV,
+        frontendUrl: process.env.FRONTEND_URL
+      }
+    },
+    instructions: 'Check the Set-Cookie header in the response and verify it appears in your browser cookies'
+  });
+});
+
 export default router;
