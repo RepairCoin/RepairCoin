@@ -121,16 +121,16 @@ export class RefreshTokenRepository extends BaseRepository {
   }
 
   // Revoke single token
-  async revokeToken(tokenId: string, reason?: string): Promise<void> {
+  async revokeToken(tokenId: string, reason?: string, revokedByAdmin: boolean = false): Promise<void> {
     try {
       const query = `
         UPDATE refresh_tokens
-        SET revoked = true, revoked_at = NOW(), revoked_reason = $2
+        SET revoked = true, revoked_at = NOW(), revoked_reason = $2, revoked_by_admin = $3
         WHERE token_id = $1
       `;
 
-      await this.pool.query(query, [tokenId, reason || 'User logout']);
-      logger.info('Refresh token revoked', { tokenId, reason });
+      await this.pool.query(query, [tokenId, reason || 'User logout', revokedByAdmin]);
+      logger.info('Refresh token revoked', { tokenId, reason, revokedByAdmin });
     } catch (error) {
       logger.error('Error revoking refresh token:', error);
       throw new Error('Failed to revoke refresh token');
@@ -138,17 +138,17 @@ export class RefreshTokenRepository extends BaseRepository {
   }
 
   // Revoke all tokens for a user
-  async revokeAllUserTokens(userAddress: string, reason?: string): Promise<number> {
+  async revokeAllUserTokens(userAddress: string, reason?: string, revokedByAdmin: boolean = false): Promise<number> {
     try {
       const query = `
         UPDATE refresh_tokens
-        SET revoked = true, revoked_at = NOW(), revoked_reason = $2
+        SET revoked = true, revoked_at = NOW(), revoked_reason = $2, revoked_by_admin = $3
         WHERE user_address = $1 AND revoked = false
         RETURNING id
       `;
 
-      const result = await this.pool.query(query, [userAddress.toLowerCase(), reason || 'Logout all devices']);
-      logger.info('Revoked all tokens for user', { userAddress, count: result.rowCount });
+      const result = await this.pool.query(query, [userAddress.toLowerCase(), reason || 'Logout all devices', revokedByAdmin]);
+      logger.info('Revoked all tokens for user', { userAddress, count: result.rowCount, revokedByAdmin });
       return result.rowCount || 0;
     } catch (error) {
       logger.error('Error revoking all user tokens:', error);
@@ -157,17 +157,17 @@ export class RefreshTokenRepository extends BaseRepository {
   }
 
   // Revoke all tokens for a shop
-  async revokeAllShopTokens(shopId: string, reason?: string): Promise<number> {
+  async revokeAllShopTokens(shopId: string, reason?: string, revokedByAdmin: boolean = true): Promise<number> {
     try {
       const query = `
         UPDATE refresh_tokens
-        SET revoked = true, revoked_at = NOW(), revoked_reason = $2
+        SET revoked = true, revoked_at = NOW(), revoked_reason = $2, revoked_by_admin = $3
         WHERE shop_id = $1 AND revoked = false
         RETURNING id
       `;
 
-      const result = await this.pool.query(query, [shopId, reason || 'Shop deactivated']);
-      logger.info('Revoked all tokens for shop', { shopId, count: result.rowCount });
+      const result = await this.pool.query(query, [shopId, reason || 'Shop deactivated', revokedByAdmin]);
+      logger.info('Revoked all tokens for shop', { shopId, count: result.rowCount, revokedByAdmin });
       return result.rowCount || 0;
     } catch (error) {
       logger.error('Error revoking all shop tokens:', error);
@@ -319,6 +319,50 @@ export class RefreshTokenRepository extends BaseRepository {
     } catch (error) {
       logger.error('Error getting all sessions:', error);
       throw new Error('Failed to get all sessions');
+    }
+  }
+
+  /**
+   * Check if a user has had any tokens revoked by admin recently (within last X hours)
+   * This prevents immediate re-authentication after admin revocation
+   * Note: Only checks for admin-initiated revocations, NOT user logouts
+   *
+   * @param userAddress - The wallet address to check
+   * @param withinHours - How many hours back to check (default: 1 hour)
+   * @returns The most recent admin revocation info if found, null otherwise
+   */
+  async hasRecentRevocation(userAddress: string, withinHours: number = 1): Promise<{
+    revokedAt: Date;
+    reason: string;
+    tokenId: string;
+  } | null> {
+    try {
+      const query = `
+        SELECT token_id, revoked_at, revoked_reason
+        FROM refresh_tokens
+        WHERE user_address = $1
+          AND revoked = true
+          AND revoked_by_admin = true
+          AND revoked_at > NOW() - INTERVAL '${withinHours} hours'
+        ORDER BY revoked_at DESC
+        LIMIT 1
+      `;
+
+      const result = await this.pool.query(query, [userAddress.toLowerCase()]);
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const row = result.rows[0];
+      return {
+        revokedAt: row.revoked_at,
+        reason: row.revoked_reason || 'Token revoked by admin',
+        tokenId: row.token_id
+      };
+    } catch (error) {
+      logger.error('Error checking recent revocation:', error);
+      throw new Error('Failed to check recent revocation');
     }
   }
 }

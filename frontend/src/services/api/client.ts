@@ -55,14 +55,12 @@ apiClient.interceptors.response.use(
 
     // If error is 401 and we haven't tried to refresh yet
     if (error.response?.status === 401 && !originalRequest._retry) {
-      // Don't retry the refresh endpoint itself
-      if (originalRequest.url?.includes('/auth/refresh')) {
-        // Refresh token failed, trigger logout
-        if (typeof window !== 'undefined') {
-          // Trigger wallet disconnect event to prevent auto-login after revocation
-          // AuthProvider will handle the wallet disconnect and redirect
-          window.dispatchEvent(new CustomEvent('auth:session-revoked'));
-        }
+      // Don't retry certain endpoints - they're expected to fail when not authenticated
+      if (originalRequest.url?.includes('/auth/refresh') ||
+          originalRequest.url?.includes('/auth/session') ||
+          originalRequest.url?.includes('/auth/check-user')) {
+        // These endpoints failing is normal when not authenticated
+        // Don't trigger logout/refresh for these
         return Promise.reject(error);
       }
 

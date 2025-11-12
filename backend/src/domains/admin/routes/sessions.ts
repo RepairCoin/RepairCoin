@@ -53,7 +53,8 @@ router.delete('/:tokenId', asyncHandler(async (req: Request, res: Response) => {
 
   await refreshTokenRepository.revokeToken(
     tokenId,
-    reason || `Revoked by admin ${req.user?.address}`
+    reason || `Revoked by admin ${req.user?.address}`,
+    true // revokedByAdmin flag
   );
 
   res.json({
@@ -78,7 +79,8 @@ router.delete('/user/:userAddress', asyncHandler(async (req: Request, res: Respo
 
   const count = await refreshTokenRepository.revokeAllUserTokens(
     userAddress,
-    reason || `All sessions revoked by admin ${req.user?.address}`
+    reason || `All sessions revoked by admin ${req.user?.address}`,
+    true // revokedByAdmin flag
   );
 
   res.json({

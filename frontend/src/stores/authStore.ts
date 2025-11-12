@@ -130,8 +130,10 @@ export const useAuthStore = create<AuthState>()(
           const userCheck = await authApi.checkUser(address);
 
           if (!userCheck.exists || !userCheck.type) {
-            console.log('[authStore] User not registered');
+            console.log('[authStore] User not registered - this is normal for new users');
             set({ userProfile: null, isAuthenticated: false }, false, 'login:not-found');
+            // Don't show error toast for unregistered users - it's normal for new signups
+            // Just silently fail and let them stay on the public page
             return;
           }
 
@@ -151,7 +153,15 @@ export const useAuthStore = create<AuthState>()(
 
           if (!authResult) {
             console.error('[authStore] Authentication failed');
-            set({ userProfile: null, isAuthenticated: false }, false, 'login:failed');
+            const errorMessage = 'Authentication failed. Please try again or contact support.';
+            set({ error: errorMessage, userProfile: null, isAuthenticated: false }, false, 'login:failed');
+
+            // Trigger wallet disconnect on auth failure
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('auth:login-failed', {
+                detail: { isRevoked: false, error: errorMessage }
+              }));
+            }
             return;
           }
 
@@ -181,9 +191,37 @@ export const useAuthStore = create<AuthState>()(
           }, false, 'login:success');
 
           console.log('[authStore] Login successful:', profile.type);
-        } catch (error) {
+        } catch (error: any) {
           console.error('[authStore] Login error:', error);
-          set({ error: 'Failed to authenticate user', userProfile: null }, false, 'login:error');
+
+          // Check if it's a revocation error
+          const isRevoked = error?.response?.data?.code === 'RECENT_REVOCATION';
+
+          // Get more specific error message from backend if available
+          let errorMessage: string;
+          if (isRevoked) {
+            errorMessage = 'Your account access has been revoked. Please try again later or contact support.';
+          } else if (error?.response?.data?.error) {
+            // Use backend error message if available
+            errorMessage = error.response.data.error;
+          } else if (error?.response?.status === 403) {
+            errorMessage = 'Access denied. Your account may be suspended or inactive.';
+          } else if (error?.response?.status === 401) {
+            errorMessage = 'Authentication failed. Please try reconnecting your wallet.';
+          } else if (error?.message) {
+            errorMessage = `Authentication error: ${error.message}`;
+          } else {
+            errorMessage = 'Failed to authenticate. Please check your connection and try again.';
+          }
+
+          set({ error: errorMessage, userProfile: null }, false, 'login:error');
+
+          // Trigger wallet disconnect on auth failure (especially for revocation)
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('auth:login-failed', {
+              detail: { isRevoked, error: errorMessage }
+            }));
+          }
         } finally {
           set({ isLoading: false, loginInProgress: false }, false, 'login:complete');
         }

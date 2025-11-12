@@ -81,7 +81,8 @@ export const authenticateAdmin = async (address: string): Promise<AuthToken | nu
     return response || null;
   } catch (error) {
     console.error('Error authenticating admin:', error);
-    return null;
+    // Re-throw error so caller can handle revocation and other error cases
+    throw error;
   }
 };
 
@@ -96,7 +97,8 @@ export const authenticateCustomer = async (address: string): Promise<AuthToken |
     return response || null;
   } catch (error) {
     console.error('Error authenticating customer:', error);
-    return null;
+    // Re-throw error so caller can handle revocation and other error cases
+    throw error;
   }
 };
 
@@ -111,7 +113,8 @@ export const authenticateShop = async (address: string): Promise<AuthToken | nul
     return response || null;
   } catch (error) {
     console.error('Error authenticating shop:', error);
-    return null;
+    // Re-throw error so caller can handle revocation and other error cases
+    throw error;
   }
 };
 

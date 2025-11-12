@@ -698,6 +698,24 @@ router.post('/admin', authLimiter, async (req, res) => {
       }
     }
 
+    // Check if user has had tokens revoked recently (prevents immediate re-auth after revocation)
+    const recentRevocation = await refreshTokenRepository.hasRecentRevocation(normalizedAddress, 1); // 1 hour cooldown
+    if (recentRevocation) {
+      logger.security('Login blocked - recent revocation detected', {
+        address: normalizedAddress,
+        revokedAt: recentRevocation.revokedAt,
+        reason: recentRevocation.reason
+      });
+
+      return res.status(403).json({
+        success: false,
+        error: 'Your session was recently revoked. Please wait before logging in again.',
+        code: 'RECENT_REVOCATION',
+        revokedAt: recentRevocation.revokedAt,
+        cooldownMinutes: 60
+      });
+    }
+
     // Generate access and refresh tokens
     const { accessToken } = await generateAndSetTokens(res, req, {
       address: normalizedAddress,
@@ -760,6 +778,24 @@ router.post('/customer', authLimiter, async (req, res) => {
       if (!customer.isActive) {
         return res.status(403).json({
           error: 'Customer account is not active'
+        });
+      }
+
+      // Check if user has had tokens revoked recently (prevents immediate re-auth after revocation)
+      const recentRevocation = await refreshTokenRepository.hasRecentRevocation(normalizedAddress, 1); // 1 hour cooldown
+      if (recentRevocation) {
+        logger.security('Login blocked - recent revocation detected', {
+          address: normalizedAddress,
+          revokedAt: recentRevocation.revokedAt,
+          reason: recentRevocation.reason
+        });
+
+        return res.status(403).json({
+          success: false,
+          error: 'Your session was recently revoked. Please wait before logging in again.',
+          code: 'RECENT_REVOCATION',
+          revokedAt: recentRevocation.revokedAt,
+          cooldownMinutes: 60
         });
       }
 
@@ -830,6 +866,24 @@ router.post('/shop', authLimiter, async (req, res) => {
       if (!shop.active || !shop.verified) {
         return res.status(403).json({
           error: 'Shop must be active and verified to authenticate'
+        });
+      }
+
+      // Check if user has had tokens revoked recently (prevents immediate re-auth after revocation)
+      const recentRevocation = await refreshTokenRepository.hasRecentRevocation(normalizedAddress, 1); // 1 hour cooldown
+      if (recentRevocation) {
+        logger.security('Login blocked - recent revocation detected', {
+          address: normalizedAddress,
+          revokedAt: recentRevocation.revokedAt,
+          reason: recentRevocation.reason
+        });
+
+        return res.status(403).json({
+          success: false,
+          error: 'Your session was recently revoked. Please wait before logging in again.',
+          code: 'RECENT_REVOCATION',
+          revokedAt: recentRevocation.revokedAt,
+          cooldownMinutes: 60
         });
       }
 

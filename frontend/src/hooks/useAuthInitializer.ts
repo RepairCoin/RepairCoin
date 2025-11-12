@@ -45,16 +45,18 @@ export function useAuthInitializer() {
             console.log('[AuthInitializer] Valid session found, restoring state without new login');
 
             // Restore user profile from existing session
+            // Session user has extended properties beyond the basic User type
+            const userData = session.user as any;
             const profile = {
-              id: session.user.id,
-              address: session.user.address || session.user.walletAddress || currentAddress,
-              type: session.user.type || session.user.role as 'customer' | 'shop' | 'admin',
-              name: session.user.name || session.user.shopName,
-              email: session.user.email,
-              isActive: session.user.active !== false,
-              tier: session.user.tier,
-              shopId: session.user.shopId,
-              registrationDate: session.user.createdAt || session.user.created_at,
+              id: userData.id,
+              address: userData.address || userData.walletAddress || currentAddress,
+              type: userData.type || userData.role as 'customer' | 'shop' | 'admin',
+              name: userData.name || userData.shopName,
+              email: userData.email,
+              isActive: userData.active !== false,
+              tier: userData.tier,
+              shopId: userData.shopId,
+              registrationDate: userData.createdAt || userData.created_at,
             };
 
             setUserProfile(profile);
@@ -71,7 +73,7 @@ export function useAuthInitializer() {
         isInitializedRef.current = true;
       } else if (previousAddress) {
         // User disconnected wallet (only logout if we were previously connected)
-        console.log('[AuthInitializer] Account disconnected');
+        console.log('[AuthInitializer] Account disconnected:', previousAddress);
         logout();
         isInitializedRef.current = false;
       }

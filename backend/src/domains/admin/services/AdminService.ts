@@ -487,7 +487,8 @@ export class AdminService {
       // Revoke all active sessions for this customer
       const revokedCount = await refreshTokenRepository.revokeAllUserTokens(
         customerAddress,
-        `Customer suspended: ${reason || 'No reason provided'}`
+        `Customer suspended: ${reason || 'No reason provided'}`,
+        true // revokedByAdmin flag
       );
 
       // Log admin activity
@@ -547,7 +548,8 @@ export class AdminService {
       // Revoke all active sessions for this shop
       const revokedCount = await refreshTokenRepository.revokeAllShopTokens(
         shopId,
-        `Shop suspended: ${reason || 'No reason provided'}`
+        `Shop suspended: ${reason || 'No reason provided'}`,
+        true // revokedByAdmin flag (default is already true, but being explicit)
       );
 
       // Log admin activity

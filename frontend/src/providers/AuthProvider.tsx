@@ -25,6 +25,50 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // If revoked, user is logged out - this is the industry-standard approach
   useTokenRefresh();
 
+  // Check for and display auth error messages from localStorage (after redirects)
+  useEffect(() => {
+    // Small delay to ensure toast container is mounted
+    const timer = setTimeout(() => {
+      const authError = localStorage.getItem('auth_error');
+      const authErrorType = localStorage.getItem('auth_error_type');
+
+      if (authError) {
+        console.log('[AuthProvider] 🔔 Displaying stored auth error:', authError);
+        console.log('[AuthProvider] Error type:', authErrorType);
+
+        // Show the error toast with longer durations
+        if (authErrorType === 'revoked') {
+          toast.error(authError, {
+            duration: 10000, // 10 seconds for revocation messages
+            icon: '🚫',
+            style: {
+              background: '#991b1b',
+              color: '#fff',
+              fontWeight: 'bold'
+            }
+          });
+        } else {
+          toast.error(authError, {
+            duration: 8000,
+            style: {
+              background: '#dc2626',
+              color: '#fff'
+            }
+          });
+        }
+
+        // Clear the stored error after a delay to ensure it's shown
+        setTimeout(() => {
+          localStorage.removeItem('auth_error');
+          localStorage.removeItem('auth_error_type');
+          console.log('[AuthProvider] ✅ Cleared stored auth error');
+        }, 1000);
+      }
+    }, 100); // 100ms delay to ensure toast container is ready
+
+    return () => clearTimeout(timer);
+  }, []); // Run once on mount
+
   // Handle unauthorized errors globally
   const handleUnauthorized = useCallback((event: CustomEvent) => {
     const { role, endpoint } = event.detail;
@@ -84,10 +128,76 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   }, []);
 
-  // Handle session revocation - disconnect wallet to prevent auto-login
+  // Handle login failures - disconnect wallet on auth failures
+  useEffect(() => {
+    const handleLoginFailed = async (event: CustomEvent) => {
+      const { isRevoked, error } = event.detail || {};
+
+      console.log('[AuthProvider] Login failed - handling WITHOUT wallet disconnect to avoid page refresh', {
+        isRevoked,
+        error
+      });
+
+      // DON'T disconnect wallet here - that triggers useAuthInitializer logout → page refresh
+      // Instead, just clear the Thirdweb storage so wallet appears disconnected on next page load
+      try {
+        if (typeof window !== 'undefined') {
+          const thirdwebKeys = Object.keys(localStorage).filter(key =>
+            key.includes('thirdweb') ||
+            key.includes('walletconnect') ||
+            key.includes('WALLET_')
+          );
+
+          thirdwebKeys.forEach(key => {
+            localStorage.removeItem(key);
+          });
+          console.log('[AuthProvider] ✅ Cleared Thirdweb localStorage');
+        }
+      } catch (error) {
+        console.error('[AuthProvider] Error clearing Thirdweb storage:', error);
+      }
+
+      // Show error toast - NO page refresh, so user will see it!
+      if (isRevoked) {
+        toast.error('Your account access has been revoked. Please try again later or contact support.', {
+          duration: 10000,
+          icon: '🚫',
+          style: {
+            background: '#991b1b',
+            color: '#fff',
+            fontWeight: 'bold',
+            fontSize: '15px'
+          }
+        });
+      } else {
+        toast.error(error || 'Authentication failed. Please try again or contact support.', {
+          duration: 8000,
+          style: {
+            background: '#dc2626',
+            color: '#fff',
+            fontSize: '15px'
+          }
+        });
+      }
+
+      // Force a page reload after user has seen the toast
+      setTimeout(() => {
+        console.log('[AuthProvider] Reloading page after login failure');
+        window.location.reload();
+      }, 3000); // 3 seconds - enough time to read the message
+    };
+
+    window.addEventListener('auth:login-failed', handleLoginFailed as EventListener);
+
+    return () => {
+      window.removeEventListener('auth:login-failed', handleLoginFailed as EventListener);
+    };
+  }, [wallet, disconnect]);
+
+  // Handle session revocation - disconnect wallet
   useEffect(() => {
     const handleSessionRevoked = async () => {
-      console.log('[AuthProvider] Session revoked - disconnecting wallet to prevent auto-login');
+      console.log('[AuthProvider] Session revoked - disconnecting wallet');
 
       // Clear all auth state
       authManager.clearAllTokens();
@@ -95,18 +205,60 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Disconnect Thirdweb wallet using the hook
       if (wallet && disconnect) {
         try {
+          console.log('[AuthProvider] Attempting to disconnect wallet:', wallet.id);
           await disconnect(wallet);
-          console.log('[AuthProvider] Wallet disconnected successfully');
+          console.log('[AuthProvider] ✅ Wallet disconnected successfully');
         } catch (error) {
-          console.error('[AuthProvider] Error disconnecting wallet:', error);
+          console.error('[AuthProvider] ❌ Error disconnecting wallet:', error);
         }
+      } else {
+        console.warn('[AuthProvider] ⚠️ Wallet or disconnect function not available', {
+          hasWallet: !!wallet,
+          hasDisconnect: !!disconnect
+        });
       }
 
-      // After wallet is disconnected, redirect to home
-      // This prevents auto-login when landing page loads
-      if (window.location.pathname !== '/') {
-        console.log('[AuthProvider] Redirecting to home after wallet disconnect');
-        window.location.href = '/?session=expired';
+      // Clear any Thirdweb local storage
+      try {
+        if (typeof window !== 'undefined') {
+          // Clear Thirdweb's wallet connection state from localStorage
+          const thirdwebKeys = Object.keys(localStorage).filter(key =>
+            key.includes('thirdweb') ||
+            key.includes('walletconnect') ||
+            key.includes('WALLET_')
+          );
+
+          thirdwebKeys.forEach(key => {
+            console.log('[AuthProvider] Clearing localStorage key:', key);
+            localStorage.removeItem(key);
+          });
+        }
+      } catch (error) {
+        console.error('[AuthProvider] Error clearing Thirdweb storage:', error);
+      }
+
+      // Store error message for display after redirect
+      localStorage.setItem('auth_error', 'Your session has been revoked by an administrator.');
+      localStorage.setItem('auth_error_type', 'revoked');
+
+      // Show a toast message immediately (visible before redirect)
+      toast.error('Your session has been revoked by an administrator.', {
+        duration: 3000
+      });
+
+      // Redirect to home with session expired message (only if on authenticated pages)
+      const isAuthenticatedPage = window.location.pathname.includes('/customer') ||
+                                    window.location.pathname.includes('/shop') ||
+                                    window.location.pathname.includes('/admin');
+
+      if (isAuthenticatedPage) {
+        console.log('[AuthProvider] Redirecting to home after session revocation (from:', window.location.pathname, ')');
+        // Use a longer delay to let user see the toast before redirect
+        setTimeout(() => {
+          window.location.href = '/?session=expired';
+        }, 2000); // 2 seconds to see the toast
+      } else {
+        console.log('[AuthProvider] Already on public page, not redirecting');
       }
     };
 
