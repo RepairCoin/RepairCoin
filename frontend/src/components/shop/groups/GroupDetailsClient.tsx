@@ -24,6 +24,7 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
     "overview"
   );
   const [inviteCodeCopied, setInviteCodeCopied] = useState(false);
+  const [joiningGroup, setJoiningGroup] = useState(false);
 
   useEffect(() => {
     loadGroupData();
@@ -75,6 +76,27 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
       setTimeout(() => setInviteCodeCopied(false), 2000);
     } catch (error) {
       toast.error("Failed to copy invite code");
+    }
+  };
+
+  const handleJoinGroup = async () => {
+    if (!group) return;
+
+    setJoiningGroup(true);
+    try {
+      await shopGroupsAPI.requestToJoinGroup(groupId);
+      toast.success(
+        group.isPrivate
+          ? "Join request sent! Waiting for admin approval."
+          : "Join request sent!"
+      );
+      // Reload group data to get updated membership status
+      await loadGroupData();
+    } catch (error: any) {
+      console.error("Error joining group:", error);
+      toast.error(error.response?.data?.error || "Failed to join group");
+    } finally {
+      setJoiningGroup(false);
     }
   };
 
@@ -161,16 +183,34 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
                           ? 'This is a private group. You need to be a member to view detailed information including token details, members, transactions, and analytics.'
                           : 'Join this group to access token operations, view members, track transactions, and see detailed analytics.'}
                     </p>
-                    <button
-                      onClick={() => router.push("/shop/groups")}
-                      className={`px-4 py-2 ${
-                        group.membershipStatus === 'pending'
-                          ? 'bg-blue-500 hover:bg-blue-600'
-                          : 'bg-orange-500 hover:bg-orange-600'
-                      } text-white font-semibold rounded-lg transition-all duration-200`}
-                    >
-                      Back to Groups
-                    </button>
+                    <div className="flex gap-3">
+                      {group.membershipStatus === null && (
+                        <button
+                          onClick={handleJoinGroup}
+                          disabled={joiningGroup}
+                          className="px-6 py-2.5 bg-gradient-to-r from-[#FFCC00] to-[#FFD700] hover:from-[#FFD700] hover:to-[#FFCC00] text-black font-bold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#FFCC00]/20"
+                        >
+                          {joiningGroup ? (
+                            <span className="flex items-center gap-2">
+                              <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin"></div>
+                              Joining...
+                            </span>
+                          ) : (
+                            "Request to Join Group"
+                          )}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => router.push("/shop/groups")}
+                        className={`px-4 py-2 ${
+                          group.membershipStatus === 'pending'
+                            ? 'bg-blue-500 hover:bg-blue-600'
+                            : 'bg-gray-700 hover:bg-gray-600'
+                        } text-white font-semibold rounded-lg transition-all duration-200`}
+                      >
+                        Back to Groups
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
