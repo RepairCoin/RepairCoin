@@ -41,10 +41,12 @@ const authLimiter = rateLimit({
 const setAuthCookie = (res: Response, token: string) => {
   const isProduction = process.env.NODE_ENV === 'production';
 
+  // In production with separate domains, we MUST use secure: true and sameSite: 'none'
+  // In development (localhost), we can be more flexible
   const cookieOptions = {
     httpOnly: true,
-    secure: true, // Required for sameSite: 'none'
-    sameSite: 'none' as const, // Required for cross-origin (different domains)
+    secure: isProduction || process.env.COOKIE_SECURE === 'true', // Can override via env var
+    sameSite: (isProduction ? 'none' : 'lax') as 'none' | 'lax', // 'none' for prod cross-domain, 'lax' for dev
     maxAge: 2 * 60 * 60 * 1000, // 2 hours (changed from 24h for better security)
     path: '/',
     // Do NOT set domain for cross-origin cookies - it will prevent them from working
@@ -56,7 +58,8 @@ const setAuthCookie = (res: Response, token: string) => {
     secure: cookieOptions.secure,
     sameSite: cookieOptions.sameSite,
     httpOnly: cookieOptions.httpOnly,
-    maxAge: cookieOptions.maxAge
+    maxAge: cookieOptions.maxAge,
+    environment: process.env.NODE_ENV
   });
 };
 
@@ -91,22 +94,26 @@ const generateAndSetTokens = async (
     ipAddress: req.ip
   });
 
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  // Cookie options for cross-domain authentication
+  const baseCookieOptions = {
+    httpOnly: true,
+    secure: isProduction || process.env.COOKIE_SECURE === 'true',
+    sameSite: (isProduction ? 'none' : 'lax') as 'none' | 'lax',
+    path: '/'
+  };
+
   // Set access token as httpOnly cookie (15 minutes)
   res.cookie('auth_token', accessToken, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'none' as const,
+    ...baseCookieOptions,
     maxAge: 15 * 60 * 1000, // 15 minutes
-    path: '/'
   });
 
   // Set refresh token as httpOnly cookie (7 days)
   res.cookie('refresh_token', refreshToken, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'none' as const,
+    ...baseCookieOptions,
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    path: '/'
   });
 
   logger.info('Access and refresh tokens generated', {
@@ -952,11 +959,13 @@ router.post('/logout', async (req, res) => {
       }
     }
 
+    const isProduction = process.env.NODE_ENV === 'production';
+
     // Cookie clear options must match the options used when setting the cookie
     const clearOptions = {
       httpOnly: true,
-      secure: true,
-      sameSite: 'none' as const,
+      secure: isProduction || process.env.COOKIE_SECURE === 'true',
+      sameSite: (isProduction ? 'none' : 'lax') as 'none' | 'lax',
       path: '/'
       // Do NOT set domain for cross-origin cookies
     };
@@ -1056,11 +1065,13 @@ router.post('/refresh', async (req, res) => {
       shopId: decoded.shopId
     });
 
+    const isProduction = process.env.NODE_ENV === 'production';
+
     // Set new access token cookie
     res.cookie('auth_token', newAccessToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'none' as const,
+      secure: isProduction || process.env.COOKIE_SECURE === 'true',
+      sameSite: (isProduction ? 'none' : 'lax') as 'none' | 'lax',
       maxAge: 15 * 60 * 1000, // 15 minutes
       path: '/'
     });
@@ -1105,11 +1116,13 @@ router.get('/test-cookie', (req, res) => {
   const origin = req.get('origin') || req.get('referer') || 'unknown';
   const cookies = req.cookies || {};
 
+  const isProduction = process.env.NODE_ENV === 'production';
+
   // Set a test cookie
   res.cookie('test_cookie', 'test_value_' + Date.now(), {
     httpOnly: true,
-    secure: true,
-    sameSite: 'none' as const,
+    secure: isProduction || process.env.COOKIE_SECURE === 'true',
+    sameSite: (isProduction ? 'none' : 'lax') as 'none' | 'lax',
     maxAge: 60 * 1000, // 1 minute
     path: '/'
   });
