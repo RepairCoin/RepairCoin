@@ -27,15 +27,18 @@ export default function LandingPage() {
     // (httpOnly cookies cannot be read by JavaScript - that's the security feature!)
     if (account && isRegistered && isAuthenticated && !isDetecting && walletType !== 'unknown') {
       console.log('🔄 [LandingPage] Auto-redirecting authenticated user to:', walletType);
+
+      // Use router.replace instead of router.push to avoid adding to history
+      // This prevents back button issues
       switch (walletType) {
         case "admin":
-          router.push("/admin");
+          router.replace("/admin");
           break;
         case "shop":
-          router.push("/shop");
+          router.replace("/shop");
           break;
         case "customer":
-          router.push("/customer");
+          router.replace("/customer");
           break;
       }
     }
