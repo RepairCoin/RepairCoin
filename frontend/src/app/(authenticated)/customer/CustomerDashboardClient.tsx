@@ -31,9 +31,15 @@ export default function CustomerDashboardClient() {
 
   // Client-side auth protection (since middleware is disabled for cross-domain)
   useEffect(() => {
-    // If not authenticated or not a customer, redirect to landing page
-    if (!isAuthenticated || (userType && userType !== 'customer')) {
-      console.log('[CustomerDashboard] Unauthorized access, redirecting to home');
+    // Wait for auth to initialize before checking
+    // Don't redirect if we're still loading (isAuthenticated is false but may become true)
+    if (isAuthenticated === false && userType) {
+      // Auth has loaded and user is not authenticated
+      console.log('[CustomerDashboard] Not authenticated, redirecting to home');
+      router.push('/');
+    } else if (isAuthenticated && userType && userType !== 'customer') {
+      // User is authenticated but wrong role
+      console.log('[CustomerDashboard] Wrong role, redirecting to home');
       router.push('/');
     }
   }, [isAuthenticated, userType, router]);

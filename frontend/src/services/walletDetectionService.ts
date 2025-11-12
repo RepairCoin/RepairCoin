@@ -31,10 +31,30 @@ export class WalletDetectionService {
     }
 
     try {
-      // Check if admin
+      // Check if admin (first check environment variable, then API)
       const adminAddresses = process.env.NEXT_PUBLIC_ADMIN_ADDRESSES?.split(',') || [];
       if (adminAddresses.some(admin => admin.toLowerCase() === address.toLowerCase())) {
+        console.log(`✅ Wallet ${address} detected as admin (from environment)`);
         return { type: 'admin', isRegistered: true, route: '/admin' };
+      }
+
+      // Also check backend API for admin status using check-user endpoint
+      try {
+        const adminCheckResponse = await fetch(`${this.apiUrl}/auth/check-user`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ address })
+        });
+        if (adminCheckResponse.ok) {
+          const userData = await adminCheckResponse.json();
+          if (userData.type === 'admin') {
+            console.log(`✅ Wallet ${address} detected as admin (from backend)`);
+            return { type: 'admin', isRegistered: true, route: '/admin', data: userData.user };
+          }
+        }
+      } catch (adminError) {
+        console.log(`ℹ️ Could not check admin status from backend for ${address}`);
       }
 
       // Check if customer

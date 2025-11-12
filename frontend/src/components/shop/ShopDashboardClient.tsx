@@ -134,9 +134,15 @@ export default function ShopDashboardClient() {
 
   // Client-side auth protection (since middleware is disabled for cross-domain)
   useEffect(() => {
-    // If not authenticated or not a shop, redirect to landing page
-    if (!isAuthenticated || (userType && userType !== 'shop')) {
-      console.log('[ShopDashboard] Unauthorized access, redirecting to home');
+    // Wait for auth to initialize before checking
+    // Don't redirect if we're still loading (isAuthenticated is false but may become true)
+    if (isAuthenticated === false && userType) {
+      // Auth has loaded and user is not authenticated
+      console.log('[ShopDashboard] Not authenticated, redirecting to home');
+      router.push('/');
+    } else if (isAuthenticated && userType && userType !== 'shop') {
+      // User is authenticated but wrong role
+      console.log('[ShopDashboard] Wrong role, redirecting to home');
       router.push('/');
     }
   }, [isAuthenticated, userType, router]);
