@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useNotificationStore } from '../stores/notificationStore';
 import { useAuthStore } from '../stores/authStore';
 import apiClient from '@/services/api/client';
@@ -27,57 +27,7 @@ export const useNotifications = () => {
     removeNotification: removeNotificationFromStore,
   } = useNotificationStore();
 
-  const { userProfile } = useAuthStore();
-
-  // Token for WebSocket only - read from cookie to get fresh token
-  const [token, setToken] = useState<string | null>(null);
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
-
-  // Helper to get token from cookie
-  const getTokenFromCookie = useCallback(() => {
-    if (typeof document === 'undefined') return null;
-
-    const cookies = document.cookie.split(';');
-    const authCookie = cookies.find(cookie => cookie.trim().startsWith('auth_token='));
-
-    if (authCookie) {
-      const token = authCookie.split('=')[1];
-      return token || null;
-    }
-    return null;
-  }, []);
-
-  // Get token from cookie and wallet address from userProfile
-  // This ensures we always use the fresh token after refresh
-  useEffect(() => {
-    const wsToken = getTokenFromCookie();
-    const address = userProfile?.address || null;
-
-    setToken(prev => prev === wsToken ? prev : wsToken);
-    setWalletAddress(prev => prev === address ? prev : address);
-
-    if (wsToken) {
-      console.log('✅ WebSocket token from cookie (fresh)');
-    }
-
-    if (address) {
-      console.log('✅ Wallet address:', address);
-    }
-  }, [userProfile, getTokenFromCookie]);
-
-  // Poll for token changes (in case token is refreshed)
-  // This will detect when the cookie token changes and update WebSocket connection
-  useEffect(() => {
-    const checkTokenInterval = setInterval(() => {
-      const currentToken = getTokenFromCookie();
-      if (currentToken && currentToken !== token) {
-        console.log('🔄 Token refreshed detected, updating WebSocket token...');
-        setToken(currentToken);
-      }
-    }, 30000); // Check every 30 seconds
-
-    return () => clearInterval(checkTokenInterval);
-  }, [token, getTokenFromCookie]);
+  const { userProfile, isAuthenticated } = useAuthStore();
 
   // Fetch initial notifications from API (uses cookies automatically)
   const fetchNotifications = useCallback(async () => {
@@ -87,7 +37,7 @@ export const useNotifications = () => {
     setError(null);
 
     try {
-      const response = await apiClient.get('/notifications', {
+      const response = await apiClient.get<{ items: any[]; total: number }>('/notifications', {
         params: {
           page: 1,
           limit: 50,
@@ -95,12 +45,13 @@ export const useNotifications = () => {
       });
 
       // apiClient already returns response.data, so response is the unwrapped data
-      setNotifications(response.items || []);
-    } catch (error: any) {
+      setNotifications(response.data.items || []);
+    } catch (error: unknown) {
       // Don't log 401 errors - these are expected when user isn't authenticated
-      if (error.response?.status !== 401) {
+      const err = error as { response?: { status?: number }; message?: string };
+      if (err.response?.status !== 401) {
         console.error('Failed to fetch notifications:', error);
-        setError(error.message || 'Failed to fetch notifications');
+        setError(err.message || 'Failed to fetch notifications');
       }
     } finally {
       setLoading(false);
@@ -112,12 +63,13 @@ export const useNotifications = () => {
     if (!userProfile?.address) return;
 
     try {
-      const response = await apiClient.get('/notifications/unread/count');
+      const response = await apiClient.get<{ count: number }>('/notifications/unread/count');
       // apiClient already returns response.data, so response is the unwrapped data
-      setUnreadCount(response.count || 0);
-    } catch (error: any) {
+      setUnreadCount(response.data.count || 0);
+    } catch (error: unknown) {
       // Don't log 401 errors - these are expected when user isn't authenticated
-      if (error.response?.status !== 401) {
+      const err = error as { response?: { status?: number } };
+      if (err.response?.status !== 401) {
         console.error('Failed to fetch unread count:', error);
       }
     }
@@ -167,8 +119,8 @@ export const useNotifications = () => {
 
   // Connect to WebSocket
   const connectWebSocket = useCallback(() => {
-    if (!token || !walletAddress) {
-      console.log('Cannot connect to WebSocket: missing token or wallet address');
+    if (!userProfile?.address || !isAuthenticated) {
+      console.log('Cannot connect to WebSocket: user not authenticated');
       return;
     }
 
@@ -177,25 +129,16 @@ export const useNotifications = () => {
       return;
     }
 
-    console.log('Connecting to WebSocket...');
+    console.log('🔌 Connecting to WebSocket for wallet:', userProfile.address);
 
     try {
       const ws = new WebSocket(WS_URL);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('WebSocket connected');
-        setConnected(true);
+        console.log('✅ WebSocket connected - waiting for auto-authentication from cookie');
         reconnectAttemptsRef.current = 0;
-        manuallyClosedRef.current = false; // Reset manual close flag on successful connection
-
-        // Authenticate with the server
-        ws.send(
-          JSON.stringify({
-            type: 'authenticate',
-            payload: { token },
-          })
-        );
+        manuallyClosedRef.current = false;
       };
 
       ws.onmessage = (event) => {
@@ -204,11 +147,12 @@ export const useNotifications = () => {
 
           switch (message.type) {
             case 'connected':
-              console.log('WebSocket handshake complete');
+              console.log('🤝 WebSocket handshake complete');
               break;
 
             case 'authenticated':
-              console.log('WebSocket authenticated for:', message.payload.walletAddress);
+              console.log('🔐 WebSocket authenticated for:', message.payload.walletAddress, '(via', message.payload.source + ')');
+              setConnected(true);
               break;
 
             case 'notification':
@@ -267,12 +211,12 @@ export const useNotifications = () => {
       };
 
       ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        console.error('❌ WebSocket error:', error);
         setError('WebSocket connection error');
       };
 
       ws.onclose = () => {
-        console.log('WebSocket disconnected');
+        console.log('🔌 WebSocket disconnected');
         setConnected(false);
 
         // Don't show error or try to reconnect if we manually closed due to auth issues
@@ -284,22 +228,22 @@ export const useNotifications = () => {
         // Attempt to reconnect
         if (reconnectAttemptsRef.current < maxReconnectAttempts) {
           const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
-          console.log(`Reconnecting in ${delay}ms...`);
+          console.log(`🔄 Reconnecting in ${delay}ms...`);
 
           reconnectTimeoutRef.current = setTimeout(() => {
             reconnectAttemptsRef.current += 1;
             connectWebSocket();
           }, delay);
         } else {
-          console.error('Max reconnection attempts reached');
+          console.error('❌ Max reconnection attempts reached');
           setError('Failed to connect to notification server');
         }
       };
     } catch (error) {
-      console.error('Failed to create WebSocket connection:', error);
+      console.error('❌ Failed to create WebSocket connection:', error);
       setError('Failed to create WebSocket connection');
     }
-  }, [token, walletAddress, addNotification, setConnected, setError]);
+  }, [userProfile, isAuthenticated, addNotification, setConnected, setError]);
 
   // Disconnect WebSocket
   const disconnectWebSocket = useCallback(() => {
@@ -327,50 +271,42 @@ export const useNotifications = () => {
   // Initialize: fetch notifications and connect WebSocket
   useEffect(() => {
     console.log('🔔 useNotifications effect triggered', {
-      hasToken: !!token,
-      hasWalletAddress: !!walletAddress,
-      walletAddress,
-      tokenPreview: token ? token.substring(0, 20) + '...' : 'null',
-      tokenLength: token?.length || 0,
-      userProfileAddress: userProfile?.address,
-      userProfileType: userProfile?.type,
+      isAuthenticated,
+      hasUserProfile: !!userProfile,
+      walletAddress: userProfile?.address,
+      userType: userProfile?.type,
       currentConnectionState: wsRef.current?.readyState,
     });
 
-    if (token && walletAddress) {
+    if (isAuthenticated && userProfile?.address) {
       // Only connect if we don't already have an open or connecting WebSocket
       const currentState = wsRef.current?.readyState;
       const isConnectedOrConnecting = currentState === WebSocket.OPEN || currentState === WebSocket.CONNECTING;
 
       if (!isConnectedOrConnecting) {
-        console.log('✅ CONDITIONS MET - Fetching notifications and connecting WebSocket...');
+        console.log('✅ Authenticated user detected - Fetching notifications and connecting WebSocket...');
         fetchNotifications();
         fetchUnreadCount();
         connectWebSocket();
       } else {
-        // If WebSocket is connected but token changed, reconnect with new token
-        console.log('ℹ️ WebSocket already connected/connecting, checking if token changed...');
-        // Disconnect and reconnect to use new token
-        disconnectWebSocket();
-        setTimeout(() => {
-          console.log('🔄 Reconnecting WebSocket with fresh token...');
-          connectWebSocket();
-        }, 100);
+        console.log('ℹ️ WebSocket already connected/connecting');
       }
     } else {
-      console.log('❌ NOT CONNECTING - Reason:', {
-        missingToken: !token,
-        missingWalletAddress: !walletAddress,
-      });
+      console.log('❌ NOT CONNECTING - User not authenticated or profile missing');
+      // Disconnect if user logged out
+      if (!isAuthenticated) {
+        disconnectWebSocket();
+      }
     }
 
     return () => {
-      // Clean up on unmount only
-      if (!token || !walletAddress) {
+      // Clean up on unmount only if user is not authenticated
+      if (!isAuthenticated) {
         disconnectWebSocket();
       }
     };
-  }, [token, walletAddress]); // Reconnect when token or address changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, userProfile?.address]);
 
   return {
     fetchNotifications,

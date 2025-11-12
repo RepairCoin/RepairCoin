@@ -41,10 +41,13 @@ export class WebSocketManager {
     logger.info('WebSocket manager initialized');
   }
 
-  private handleConnection(ws: WebSocketClient, _request: IncomingMessage): void {
+  private handleConnection(ws: WebSocketClient, request: IncomingMessage): void {
     ws.isAlive = true;
 
     logger.info('New WebSocket connection established');
+
+    // Try to authenticate from cookie on connection
+    this.tryAuthenticateFromCookie(ws, request);
 
     // Ping/pong for connection health
     ws.on('pong', () => {
@@ -92,6 +95,71 @@ export class WebSocketManager {
     }
   }
 
+  private async tryAuthenticateFromCookie(ws: WebSocketClient, request: IncomingMessage): Promise<void> {
+    try {
+      // Parse cookies from request headers
+      const cookieHeader = request.headers.cookie;
+      if (!cookieHeader) {
+        logger.debug('No cookies found in WebSocket connection request');
+        return;
+      }
+
+      // Extract auth_token from cookies
+      const cookies = cookieHeader.split(';').map(c => c.trim());
+      const authCookie = cookies.find(c => c.startsWith('auth_token='));
+
+      if (!authCookie) {
+        logger.debug('No auth_token cookie found in WebSocket connection');
+        return;
+      }
+
+      const token = authCookie.split('=')[1];
+      if (!token) {
+        logger.debug('Empty auth_token cookie in WebSocket connection');
+        return;
+      }
+
+      // Verify JWT token
+      const jwtSecret = process.env.JWT_SECRET;
+      if (!jwtSecret) {
+        logger.error('JWT_SECRET not configured');
+        return;
+      }
+
+      const decoded = jwt.verify(token, jwtSecret) as { address?: string; walletAddress?: string };
+      const walletAddress = (decoded.address || decoded.walletAddress)?.toLowerCase();
+
+      if (!walletAddress) {
+        logger.warn('Invalid token in cookie: wallet address not found');
+        return;
+      }
+
+      // Associate wallet address with this connection
+      ws.walletAddress = walletAddress;
+
+      // Add to clients map
+      if (!this.clients.has(walletAddress)) {
+        this.clients.set(walletAddress, new Set());
+      }
+      this.clients.get(walletAddress)!.add(ws);
+
+      logger.info(`WebSocket auto-authenticated from cookie for wallet: ${walletAddress}`);
+
+      // Send authentication success
+      this.send(ws, {
+        type: 'authenticated',
+        payload: { walletAddress, source: 'cookie' }
+      });
+    } catch (error: any) {
+      if (error.name === 'TokenExpiredError') {
+        logger.debug('Expired token in cookie for WebSocket connection');
+      } else {
+        logger.error('Error authenticating WebSocket from cookie:', error);
+      }
+      // Don't close the connection - allow manual authentication
+    }
+  }
+
   private async handleAuthentication(ws: WebSocketClient, payload: AuthenticatedMessage): Promise<void> {
     try {
       const { token } = payload;
@@ -132,7 +200,7 @@ export class WebSocketManager {
       // Send authentication success
       this.send(ws, {
         type: 'authenticated',
-        payload: { walletAddress }
+        payload: { walletAddress, source: 'manual' }
       });
     } catch (error: any) {
       logger.error('WebSocket authentication error:', error);
