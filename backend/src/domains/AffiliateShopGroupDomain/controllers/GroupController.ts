@@ -86,38 +86,36 @@ export class GroupController {
         });
       }
 
-      // Check membership status for all groups (both public and private)
+      // Check membership status for all groups
       let membershipStatus = null;
       if (requestingShopId) {
         const membership = await this.service.getShopMembershipStatus(groupId, requestingShopId);
         membershipStatus = membership ? membership.status : null;
       }
 
-      // If group is private, check if requesting shop is a member
-      if (group.groupType === 'private') {
-        // If not authenticated or not a member, return limited info
-        if (!requestingShopId || !membershipStatus || membershipStatus !== 'active') {
-          return res.json({
-            success: true,
-            data: {
-              groupId: group.groupId,
-              groupName: group.groupName,
-              groupType: group.groupType,
-              description: group.description,
-              logoUrl: group.logoUrl,
-              memberCount: group.memberCount,
-              // Hide sensitive fields
-              inviteCode: null,
-              customTokenName: null,
-              customTokenSymbol: null,
-              membershipStatus: membershipStatus,
-              _message: 'This is a private group. Join to see full details.'
-            }
-          });
-        }
+      // All groups now work the same: hide sensitive info from non-members
+      // If not authenticated or not an active member, return limited info
+      if (!requestingShopId || !membershipStatus || membershipStatus !== 'active') {
+        return res.json({
+          success: true,
+          data: {
+            groupId: group.groupId,
+            groupName: group.groupName,
+            groupType: group.groupType,
+            description: group.description,
+            logoUrl: group.logoUrl,
+            memberCount: group.memberCount,
+            // Hide sensitive fields from non-members
+            inviteCode: null,
+            customTokenName: null,
+            customTokenSymbol: null,
+            membershipStatus: membershipStatus,
+            _message: 'Join this group to see full details.'
+          }
+        });
       }
 
-      // Public group OR authenticated member of private group - return full details with membership status
+      // Active member - return full details with membership status
       res.json({
         success: true,
         data: {
@@ -151,7 +149,7 @@ export class GroupController {
 
       const result = await this.service.getAllGroups(filters);
 
-      // Add membership status and sanitize private group data for non-members
+      // Add membership status and sanitize group data for non-members
       const sanitizedItems = await Promise.all(
         result.items.map(async (group) => {
           // Check membership status for all groups
@@ -161,20 +159,19 @@ export class GroupController {
             membershipStatus = membership ? membership.status : null;
           }
 
-          // For private groups, hide sensitive info from non-members
-          if (group.groupType === 'private') {
-            // If not authenticated or not a member, hide sensitive fields
-            if (!requestingShopId || !membershipStatus || membershipStatus !== 'active') {
-              return {
-                ...group,
-                inviteCode: null,
-                customTokenName: null,
-                customTokenSymbol: null,
-                membershipStatus
-              };
-            }
+          // All groups now work the same: hide sensitive info from non-members
+          // If not authenticated or not an active member, hide sensitive fields
+          if (!requestingShopId || !membershipStatus || membershipStatus !== 'active') {
+            return {
+              ...group,
+              inviteCode: null,
+              customTokenName: null,
+              customTokenSymbol: null,
+              membershipStatus
+            };
           }
-          // Public group or member of private group - return full data with membership status
+
+          // Active member - return full data with membership status
           return {
             ...group,
             membershipStatus
