@@ -214,10 +214,18 @@ router.post(
 /**
  * @route   GET /api/affiliate-shop-groups/:groupId/members
  * @desc    Get group members
- * @access  Public
+ * @access  Public (optional auth - returns more data if authenticated)
  */
 router.get(
   '/:groupId/members',
+  (req, res, next) => {
+    // Optional authentication - try to authenticate if token present
+    if (req.headers.authorization) {
+      authMiddleware(req, res, next);
+    } else {
+      next();
+    }
+  },
   membershipController.getGroupMembers
 );
 
