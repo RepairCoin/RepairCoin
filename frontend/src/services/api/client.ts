@@ -57,11 +57,16 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Clear tokens on unauthorized
+      // Clear tokens on unauthorized (both legacy and new formats)
       localStorage.removeItem("adminAuthToken");
       localStorage.removeItem("shopAuthToken");
       localStorage.removeItem("customerAuthToken");
       localStorage.removeItem("token");
+
+      // Clear new authManager format tokens
+      localStorage.removeItem("repaircoin_admin_token");
+      localStorage.removeItem("repaircoin_shop_token");
+      localStorage.removeItem("repaircoin_customer_token");
     }
     return Promise.reject(error);
   }
