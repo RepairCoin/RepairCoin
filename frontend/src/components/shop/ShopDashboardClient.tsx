@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { createThirdwebClient, getContract, readContract } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useAuthStore } from "@/stores/authStore";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 import ThirdwebPayment from "../ThirdwebPayment";
 import "@/styles/animations.css";
@@ -90,8 +91,10 @@ interface TierBonusStats {
 }
 
 export default function ShopDashboardClient() {
+  const router = useRouter();
   const account = useActiveAccount();
   const searchParams = useSearchParams();
+  const { isAuthenticated, userType } = useAuthStore();
   const { existingApplication } = useShopRegistration();
   const [shopData, setShopData] = useState<ShopData | null>(null);
   const [purchases, setPurchases] = useState<PurchaseHistory[]>([]);
@@ -128,6 +131,15 @@ export default function ShopDashboardClient() {
     // Token now managed by cookies - this is deprecated
     setAuthToken(null);
   }, []);
+
+  // Client-side auth protection (since middleware is disabled for cross-domain)
+  useEffect(() => {
+    // If not authenticated or not a shop, redirect to landing page
+    if (!isAuthenticated || (userType && userType !== 'shop')) {
+      console.log('[ShopDashboard] Unauthorized access, redirecting to home');
+      router.push('/');
+    }
+  }, [isAuthenticated, userType, router]);
 
   useEffect(() => {
     // Set active tab from URL query param
