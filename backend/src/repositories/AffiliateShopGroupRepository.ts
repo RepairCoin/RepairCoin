@@ -17,6 +17,7 @@ export interface AffiliateShopGroup {
   active: boolean;
   createdAt: Date;
   updatedAt: Date;
+  memberCount?: number;
 }
 
 export interface AffiliateShopGroupMember {
