@@ -76,6 +76,34 @@ export interface UpdateShopData {
   success: boolean;
 }
 
+export interface PurchaseHistory {
+  id: string;
+  amount: number;
+  totalCost?: number;
+  status: string;
+  createdAt: string;
+  transactionHash?: string;
+}
+
+export interface PurchaseTokenResponse {
+  data: {
+    checkoutUrl: string;
+    sessionId: string;
+    purchaseId: string;
+  };
+  success: boolean;
+  message?: string;
+}
+
+export interface PurchaseHistoryResponse {
+  data: {
+    purchases: PurchaseHistory[];
+    count: number;
+  };
+  success: boolean;
+  message?: string;
+}
+
 export const listShops = async (): Promise<ShopResponse> => {
   try {
     return await apiClient.get<ShopResponse>("/shops");
@@ -101,6 +129,28 @@ export const updateShopDetails = async (shopId: string, shopData: ShopData): Pro
     return await apiClient.put<UpdateShopData>(`/shops/${shopId}/details`, shopData);
   } catch (error: any) {
     console.error("Failed to update shop details:", error.message);
+    throw error;
+  }
+};
+
+export const createStripeCheckout = async (amount: number): Promise<PurchaseTokenResponse> => {
+  try {
+    // Debug: Check if we have a token
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    const token = await AsyncStorage.getItem('auth_token');
+    console.log('[createStripeCheckout] Token exists:', !!token);
+    if (token) {
+      console.log('[createStripeCheckout] Token preview:', token.substring(0, 20) + '...');
+    }
+    
+    const response = await apiClient.post<PurchaseTokenResponse>("/shops/purchase/stripe-checkout", { amount });
+    return response;
+  } catch (error: any) {
+    console.error("Failed to create Stripe checkout:", error.message);
+    if (error.response) {
+      console.error("Response status:", error.response.status);
+      console.error("Response data:", error.response.data);
+    }
     throw error;
   }
 };
