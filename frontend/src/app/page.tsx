@@ -19,37 +19,9 @@ export default function LandingPage() {
   const { isAuthenticated } = useAuthStore();
   const { walletType, isRegistered, isDetecting } = useWalletDetection();
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const redirectAttemptedRef = React.useRef(false);
-  const [isRedirecting, setIsRedirecting] = React.useState(false);
-
-  // Auto-redirect registered users to their dashboard
-  // IMPORTANT: Only redirect if user is authenticated (has valid session)
-  React.useEffect(() => {
-    // Prevent multiple redirect attempts using ref (persists across renders)
-    if (redirectAttemptedRef.current || isRedirecting) {
-      return;
-    }
-
-    // Use isAuthenticated from authStore instead of trying to read httpOnly cookies
-    // (httpOnly cookies cannot be read by JavaScript - that's the security feature!)
-    if (account && isRegistered && isAuthenticated && !isDetecting && walletType !== 'unknown') {
-      console.log('🔄 [LandingPage] Auto-redirecting authenticated user to:', walletType);
-      redirectAttemptedRef.current = true;
-      setIsRedirecting(true);
-
-      const targetPath = walletType === "admin" ? "/admin" :
-                        walletType === "shop" ? "/shop" :
-                        "/customer";
-
-      // Use window.location.assign for server-side navigation
-      // This ensures cookies are sent with the request to middleware
-      // Small delay to ensure state is stable
-      setTimeout(() => {
-        console.log('🔄 [LandingPage] Executing redirect to:', targetPath);
-        window.location.assign(targetPath);
-      }, 100);
-    }
-  }, [account, isRegistered, isAuthenticated, isDetecting, walletType, router, isRedirecting]);
+  // DON'T auto-redirect on landing page - let user click the button
+  // This avoids redirect loops with middleware
+  // The middleware will protect the routes if they try to access directly
 
   const handleGetStarted = () => {
     if (!account) {
@@ -97,18 +69,6 @@ export default function LandingPage() {
     }
     return null;
   };
-
-  // Show minimal loading state while redirecting
-  if (isRedirecting) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFCC00] mx-auto"></div>
-          <p className="mt-4 text-white">Redirecting to dashboard...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <main>

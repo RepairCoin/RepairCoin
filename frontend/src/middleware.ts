@@ -28,6 +28,16 @@ export function middleware(request: NextRequest) {
   // Get auth token from cookies
   const authToken = request.cookies.get('auth_token')?.value;
 
+  // Debug logging for protected routes
+  if (pathname.startsWith('/shop') || pathname.startsWith('/customer') || pathname.startsWith('/admin')) {
+    console.log('[Middleware] Protected route access:', {
+      pathname,
+      hasAuthToken: !!authToken,
+      authTokenPreview: authToken ? `${authToken.substring(0, 20)}...` : 'none',
+      allCookies: request.cookies.getAll().map(c => c.name)
+    });
+  }
+
   // Define public routes that don't require authentication
   const publicRoutes = [
     '/',
@@ -38,12 +48,15 @@ export function middleware(request: NextRequest) {
     '/features',
     '/rewards',
     '/status',
-    '/choose',
     '/api/auth/register'
   ];
 
   // Check if the current path is public
-  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
+  // Use exact match for '/' and startsWith for others to avoid matching everything
+  const isPublicRoute = pathname === '/' || publicRoutes.some(route => {
+    if (route === '/') return false; // Skip '/' in startsWith check
+    return pathname.startsWith(route);
+  });
 
   // Protected route patterns
   const isAdminRoute = pathname.startsWith('/admin');
