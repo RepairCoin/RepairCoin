@@ -86,6 +86,10 @@ class RepairCoinApp {
   }
 
   private setupMiddleware(): void {
+    // Trust proxy - CRITICAL for Digital Ocean App Platform
+    // This must come BEFORE any middleware that uses req.ip or req.protocol
+    this.app.set('trust proxy', true);
+
     // CORS must come before helmet to handle preflight requests properly
     this.app.use(cors({
       origin: function(origin, callback) {
