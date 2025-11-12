@@ -1,8 +1,10 @@
 // Script to update shops with NULL category to 'Repairs and Tech'
-import { pool } from '../config/database-pool';
+import { getSharedPool } from '../utils/database-pool';
 
 async function updateShopCategories() {
   console.log('🔄 Starting shop category update...\n');
+
+  const pool = getSharedPool();
 
   try {
     // First, check how many shops have NULL category
