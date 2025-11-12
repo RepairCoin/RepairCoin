@@ -130,7 +130,7 @@ export class WebSocketManager {
       const walletAddress = (decoded.address || decoded.walletAddress)?.toLowerCase();
 
       if (!walletAddress) {
-        logger.warn('Invalid token in cookie: wallet address not found');
+        logger.debug('Invalid token in cookie: wallet address not found');
         return;
       }
 
@@ -152,11 +152,18 @@ export class WebSocketManager {
       });
     } catch (error: any) {
       if (error.name === 'TokenExpiredError') {
-        logger.debug('Expired token in cookie for WebSocket connection');
+        // This is expected when user has an expired session - log as debug, not error
+        logger.debug('Expired token in cookie for WebSocket connection - user needs to refresh session');
+        // Send error message to client so it knows not to reconnect
+        this.sendError(ws, 'Authentication failed: token expired');
+        // Close after a brief delay to ensure error message is sent
+        setImmediate(() => {
+          ws.close();
+        });
       } else {
         logger.error('Error authenticating WebSocket from cookie:', error);
       }
-      // Don't close the connection - allow manual authentication
+      // Don't allow manual authentication attempts with expired tokens
     }
   }
 
@@ -203,9 +210,18 @@ export class WebSocketManager {
         payload: { walletAddress, source: 'manual' }
       });
     } catch (error: any) {
-      logger.error('WebSocket authentication error:', error);
-      this.sendError(ws, 'Authentication failed');
-      ws.close();
+      // Expired tokens are expected behavior - log as debug, not error
+      if (error.name === 'TokenExpiredError') {
+        logger.debug('WebSocket authentication failed: token expired - user needs to refresh session');
+        this.sendError(ws, 'Authentication failed: token expired');
+      } else {
+        logger.error('WebSocket authentication error:', error);
+        this.sendError(ws, 'Authentication failed');
+      }
+      // Close after a brief delay to ensure error message is sent
+      setImmediate(() => {
+        ws.close();
+      });
     }
   }
 
