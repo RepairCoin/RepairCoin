@@ -199,10 +199,19 @@ export const getGroupMembers = async (
 ): Promise<AffiliateShopGroupMember[]> => {
   try {
     const queryString = status ? `?status=${status}` : '';
-    const response = await apiClient.get<{ success: boolean; data: AffiliateShopGroupMember[] }>(
+    const response = await apiClient.get<{ success: boolean; data: AffiliateShopGroupMember[] | { memberCount: number; _message: string } }>(
       `/affiliate-shop-groups/${groupId}/members${queryString}`
     );
-    return response.data?.data || [];
+    const data = response.data?.data;
+
+    // Backend returns an object with memberCount when user is not a member
+    // Return empty array in that case instead of trying to map over object
+    if (!Array.isArray(data)) {
+      console.log('Not a member of this group or no access to member list');
+      return [];
+    }
+
+    return data || [];
   } catch (error) {
     console.error('Error getting group members:', error);
     return [];
