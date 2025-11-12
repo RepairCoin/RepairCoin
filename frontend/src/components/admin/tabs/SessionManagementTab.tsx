@@ -3,6 +3,9 @@
 import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { adminApi } from "@/services/api/admin";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { AlertTriangle } from "lucide-react";
 
 interface Session {
   id: string;
@@ -54,6 +57,22 @@ export function SessionManagementTab() {
   // Search
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Revoke modal state
+  const [revokeModal, setRevokeModal] = useState<{
+    isOpen: boolean;
+    tokenId: string | null;
+    userName: string | null;
+    isRevokeAll: boolean;
+    userAddress: string | null;
+  }>({
+    isOpen: false,
+    tokenId: null,
+    userName: null,
+    isRevokeAll: false,
+    userAddress: null,
+  });
+  const [revokeReason, setRevokeReason] = useState("");
+
   const fetchSessions = async () => {
     try {
       setLoading(true);
@@ -85,58 +104,53 @@ export function SessionManagementTab() {
     fetchSessions();
   }, [page, roleFilter, statusFilter]);
 
-  const handleRevokeSession = async (tokenId: string, userName?: string) => {
-    // First confirm the action
-    if (!confirm("Are you sure you want to revoke this session? The user will be logged out immediately.")) {
-      return;
-    }
-
-    // Then ask for a reason
-    const reason = prompt("Enter reason for revocation (optional):", "Revoked by admin");
-
-    // If user cancels the prompt, reason will be null - abort
-    if (reason === null) {
-      return;
-    }
-
-    try {
-      setRevoking(tokenId);
-      // Use the provided reason or a default one
-      const finalReason = reason.trim() || `Revoked by admin for user: ${userName || 'Unknown'}`;
-      await adminApi.revokeSession(tokenId, finalReason);
-      toast.success("Session revoked successfully");
-      fetchSessions();
-    } catch (error: any) {
-      console.error("Error revoking session:", error);
-      toast.error(error.message || "Failed to revoke session");
-    } finally {
-      setRevoking(null);
-    }
+  const openRevokeModal = (tokenId: string, userName: string | undefined, isRevokeAll: boolean = false, userAddress?: string) => {
+    setRevokeModal({
+      isOpen: true,
+      tokenId,
+      userName: userName || null,
+      isRevokeAll,
+      userAddress: userAddress || null,
+    });
+    setRevokeReason("Revoked by admin");
   };
 
-  const handleRevokeAllUserSessions = async (userAddress: string, userName?: string) => {
-    // First confirm the action
-    if (!confirm(`Are you sure you want to revoke ALL sessions for ${userName || userAddress}?`)) {
-      return;
-    }
+  const closeRevokeModal = () => {
+    setRevokeModal({
+      isOpen: false,
+      tokenId: null,
+      userName: null,
+      isRevokeAll: false,
+      userAddress: null,
+    });
+    setRevokeReason("");
+  };
 
-    // Then ask for a reason
-    const reason = prompt("Enter reason for revoking all sessions (optional):", "Revoked by admin");
-
-    // If user cancels the prompt, reason will be null - abort
-    if (reason === null) {
-      return;
-    }
+  const handleConfirmRevoke = async () => {
+    if (!revokeModal.tokenId && !revokeModal.userAddress) return;
 
     try {
-      // Use the provided reason or a default one
-      const finalReason = reason.trim() || `All sessions revoked by admin for user: ${userName || userAddress}`;
-      await adminApi.revokeAllUserSessions(userAddress, finalReason);
-      toast.success("All user sessions revoked successfully");
+      if (revokeModal.isRevokeAll && revokeModal.userAddress) {
+        // Revoke all sessions for user
+        setRevoking(revokeModal.userAddress);
+        const finalReason = revokeReason.trim() || `All sessions revoked by admin for user: ${revokeModal.userName || revokeModal.userAddress}`;
+        await adminApi.revokeAllUserSessions(revokeModal.userAddress, finalReason);
+        toast.success("All user sessions revoked successfully");
+      } else if (revokeModal.tokenId) {
+        // Revoke single session
+        setRevoking(revokeModal.tokenId);
+        const finalReason = revokeReason.trim() || `Revoked by admin for user: ${revokeModal.userName || 'Unknown'}`;
+        await adminApi.revokeSession(revokeModal.tokenId, finalReason);
+        toast.success("Session revoked successfully");
+      }
+
       fetchSessions();
+      closeRevokeModal();
     } catch (error: any) {
-      console.error("Error revoking all user sessions:", error);
-      toast.error(error.message || "Failed to revoke sessions");
+      console.error("Error revoking session(s):", error);
+      toast.error(error.message || "Failed to revoke session(s)");
+    } finally {
+      setRevoking(null);
     }
   };
 
@@ -343,14 +357,14 @@ export function SessionManagementTab() {
                         {!session.revoked && (
                           <>
                             <button
-                              onClick={() => handleRevokeSession(session.tokenId, session.userName || session.shopName)}
+                              onClick={() => openRevokeModal(session.tokenId, session.userName || session.shopName, false, session.userAddress)}
                               disabled={revoking === session.tokenId}
                               className="px-3 py-1 text-xs bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded disabled:opacity-50 transition-colors"
                             >
                               {revoking === session.tokenId ? "Revoking..." : "Revoke"}
                             </button>
                             <button
-                              onClick={() => handleRevokeAllUserSessions(session.userAddress, session.userName || session.shopName)}
+                              onClick={() => openRevokeModal(session.tokenId, session.userName || session.shopName, true, session.userAddress)}
                               className="px-3 py-1 text-xs bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 rounded transition-colors"
                             >
                               Revoke All
@@ -394,6 +408,82 @@ export function SessionManagementTab() {
           </button>
         </div>
       )}
+
+      {/* Revoke Confirmation Modal */}
+      <Dialog open={revokeModal.isOpen} onOpenChange={closeRevokeModal}>
+        <DialogContent className="sm:max-w-[500px] bg-gray-900 border-gray-700">
+          <DialogHeader className="flex flex-row items-start gap-3">
+            <div className="mt-1">
+              <AlertTriangle className="w-6 h-6 text-red-500" />
+            </div>
+            <div className="flex-1">
+              <DialogTitle className="text-lg font-semibold text-white">
+                {revokeModal.isRevokeAll ? "Revoke All Sessions" : "Revoke Session"}
+              </DialogTitle>
+              <DialogDescription className="mt-2 text-sm text-gray-400">
+                {revokeModal.isRevokeAll ? (
+                  <>
+                    Are you sure you want to revoke <strong>ALL sessions</strong> for{" "}
+                    <strong className="text-white">{revokeModal.userName || revokeModal.userAddress}</strong>?
+                    <br />
+                    <span className="text-red-400">
+                      The user will be logged out from all devices immediately.
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    Are you sure you want to revoke this session for{" "}
+                    <strong className="text-white">{revokeModal.userName || "this user"}</strong>?
+                    <br />
+                    <span className="text-red-400">
+                      The user will be logged out immediately.
+                    </span>
+                  </>
+                )}
+              </DialogDescription>
+            </div>
+          </DialogHeader>
+
+          <div className="mt-4">
+            <label htmlFor="revoke-reason" className="block text-sm font-medium text-gray-300 mb-2">
+              Reason for revocation (optional)
+            </label>
+            <textarea
+              id="revoke-reason"
+              value={revokeReason}
+              onChange={(e) => setRevokeReason(e.target.value)}
+              placeholder="Enter reason for revocation..."
+              rows={3}
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+            />
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0 mt-4">
+            <Button
+              variant="outline"
+              onClick={closeRevokeModal}
+              disabled={!!revoking}
+              className="sm:mr-2 border-gray-600 text-gray-300 hover:bg-gray-800"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmRevoke}
+              disabled={!!revoking}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {revoking ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Revoking...
+                </div>
+              ) : (
+                revokeModal.isRevokeAll ? "Revoke All Sessions" : "Revoke Session"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

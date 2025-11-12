@@ -37,15 +37,15 @@ export const useNotifications = () => {
     setError(null);
 
     try {
-      const response = await apiClient.get<{ items: any[]; total: number }>('/notifications', {
+      // apiClient interceptor returns response.data directly
+      const data = await apiClient.get('/notifications', {
         params: {
           page: 1,
           limit: 50,
         },
-      });
+      }) as { items: unknown[]; total: number };
 
-      // apiClient already returns response.data, so response is the unwrapped data
-      setNotifications(response.data.items || []);
+      setNotifications(data.items || []);
     } catch (error: unknown) {
       // Don't log 401 errors - these are expected when user isn't authenticated
       const err = error as { response?: { status?: number }; message?: string };
@@ -63,9 +63,9 @@ export const useNotifications = () => {
     if (!userProfile?.address) return;
 
     try {
-      const response = await apiClient.get<{ count: number }>('/notifications/unread/count');
-      // apiClient already returns response.data, so response is the unwrapped data
-      setUnreadCount(response.data.count || 0);
+      // apiClient interceptor returns response.data directly
+      const data = await apiClient.get('/notifications/unread/count') as { count: number };
+      setUnreadCount(data.count || 0);
     } catch (error: unknown) {
       // Don't log 401 errors - these are expected when user isn't authenticated
       const err = error as { response?: { status?: number } };
