@@ -129,19 +129,45 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
 
             {/* Restricted Access Warning */}
             {isRestrictedAccess ? (
-              <div className="bg-gradient-to-br from-orange-500/10 to-red-500/10 border border-orange-500/30 rounded-xl p-6">
+              <div className={`bg-gradient-to-br ${
+                group.membershipStatus === 'pending'
+                  ? 'from-blue-500/10 to-indigo-500/10 border-blue-500/30'
+                  : 'from-orange-500/10 to-red-500/10 border-orange-500/30'
+              } border rounded-xl p-6`}>
                 <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0 p-2 bg-orange-500/20 rounded-lg">
-                    <Shield className="w-6 h-6 text-orange-400" />
+                  <div className={`flex-shrink-0 p-2 ${
+                    group.membershipStatus === 'pending'
+                      ? 'bg-blue-500/20'
+                      : 'bg-orange-500/20'
+                  } rounded-lg`}>
+                    <Shield className={`w-6 h-6 ${
+                      group.membershipStatus === 'pending'
+                        ? 'text-blue-400'
+                        : 'text-orange-400'
+                    }`} />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-lg font-bold text-white mb-2">Private Group - Access Restricted</h3>
+                    <h3 className="text-lg font-bold text-white mb-2">
+                      {group.membershipStatus === 'pending'
+                        ? 'Membership Request Pending'
+                        : group.isPrivate
+                          ? 'Private Group - Access Restricted'
+                          : 'Join Group to Access Full Features'}
+                    </h3>
                     <p className="text-gray-300 mb-4">
-                      This is a private group. You need to be a member to view detailed information including token details, members, transactions, and analytics.
+                      {group.membershipStatus === 'pending'
+                        ? 'Your request to join this group is awaiting approval from the group admin. Once approved, you will have access to all group features including token operations, member list, transactions, and analytics.'
+                        : group.isPrivate
+                          ? 'This is a private group. You need to be a member to view detailed information including token details, members, transactions, and analytics.'
+                          : 'Join this group to access token operations, view members, track transactions, and see detailed analytics.'}
                     </p>
                     <button
                       onClick={() => router.push("/shop/groups")}
-                      className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg transition-all duration-200"
+                      className={`px-4 py-2 ${
+                        group.membershipStatus === 'pending'
+                          ? 'bg-blue-500 hover:bg-blue-600'
+                          : 'bg-orange-500 hover:bg-orange-600'
+                      } text-white font-semibold rounded-lg transition-all duration-200`}
                     >
                       Back to Groups
                     </button>
@@ -265,13 +291,29 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
               </h3>
               {isRestrictedAccess ? (
                 <div className="space-y-6">
-                  <div className="p-6 bg-orange-500/10 border border-orange-500/30 rounded-xl">
+                  <div className={`p-6 ${
+                    group.membershipStatus === 'pending'
+                      ? 'bg-blue-500/10 border-blue-500/30'
+                      : 'bg-orange-500/10 border-orange-500/30'
+                  } border rounded-xl`}>
                     <div className="flex items-start gap-4">
-                      <Shield className="w-6 h-6 text-orange-400 flex-shrink-0 mt-1" />
+                      <Shield className={`w-6 h-6 ${
+                        group.membershipStatus === 'pending'
+                          ? 'text-blue-400'
+                          : 'text-orange-400'
+                      } flex-shrink-0 mt-1`} />
                       <div>
-                        <h4 className="text-lg font-bold text-white mb-2">Members Only Content</h4>
+                        <h4 className="text-lg font-bold text-white mb-2">
+                          {group.membershipStatus === 'pending'
+                            ? 'Awaiting Approval'
+                            : 'Members Only Content'}
+                        </h4>
                         <p className="text-gray-300 mb-4">
-                          This private group's detailed information is only visible to members. Join the group using an invite code to access:
+                          {group.membershipStatus === 'pending'
+                            ? 'Your membership request is pending admin approval. Once approved, you will gain access to:'
+                            : group.isPrivate
+                              ? 'This private group\'s detailed information is only visible to members. Join the group using an invite code to access:'
+                              : 'Join this public group to unlock access to:'}
                         </p>
                         <ul className="list-disc list-inside space-y-2 text-gray-300 mb-4">
                           <li>Custom token details and operations</li>
