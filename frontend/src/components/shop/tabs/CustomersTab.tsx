@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { authManager } from "@/utils/auth";
 import { toast } from "react-hot-toast";
+import apiClient from "@/services/api/client";
 import { StatCard } from "@/components/ui/StatCard";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import {
@@ -52,7 +52,6 @@ interface Customer {
 
 interface CustomersTabProps {
   shopId: string;
-  shopToken?: string;
 }
 
 interface GrowthStats {
@@ -70,7 +69,6 @@ interface GrowthStats {
 
 export const CustomersTab: React.FC<CustomersTabProps> = ({
   shopId,
-  shopToken,
 }) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -112,7 +110,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
       sortable: true,
       accessor: (customer) => (
         <span
-          className={`px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r ${getTierColor(
+          className={`inline-flex items-center justify-center w-20 px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r ${getTierColor(
             customer.tier
           )} text-white`}
         >
@@ -153,10 +151,10 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
   useEffect(() => {
     loadCustomers();
     loadGrowthStats();
-  }, [shopId, shopToken]);
+  }, [shopId]);
 
   useEffect(() => {
-    if (shopId && shopToken) {
+    if (shopId) {
       loadGrowthStats();
     }
   }, [growthPeriod]);
@@ -165,56 +163,33 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
     setLoading(true);
 
     try {
-      const token = shopToken || authManager.getToken("shop");
+      // Use apiClient with automatic cookie authentication
+      const result = await apiClient.get(`/shops/${shopId}/customers?limit=100`);
 
-      if (!token) {
-        toast.error("Please authenticate to view customers");
-        setCustomers([]);
-        setLoading(false);
-        return;
-      }
+      const customerData = result.data?.customers || [];
 
-      const headers = {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      };
+      const transformedCustomers = customerData.map((c: any) => ({
+        address: c.address || c.customer_address,
+        name: c.name || c.customer_name,
+        tier: c.tier || "BRONZE",
+        lifetimeEarnings: c.lifetime_earnings || c.lifetimeEarnings || 0,
+        lastTransactionDate:
+          c.last_transaction_date ||
+          c.lastTransactionDate ||
+          c.last_earned_date,
+        totalTransactions: c.total_transactions || c.transaction_count || 0,
+        isRegular: (c.total_transactions || c.transaction_count || 0) >= 5,
+      }));
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/customers?limit=100`,
-        {
-          headers,
-        }
-      );
-
-      if (response.ok) {
-        const result = await response.json();
-        const customerData = result.data?.customers || [];
-
-        const transformedCustomers = customerData.map((c: any) => ({
-          address: c.address || c.customer_address,
-          name: c.name || c.customer_name,
-          tier: c.tier || "BRONZE",
-          lifetimeEarnings: c.lifetime_earnings || c.lifetimeEarnings || 0,
-          lastTransactionDate:
-            c.last_transaction_date ||
-            c.lastTransactionDate ||
-            c.last_earned_date,
-          totalTransactions: c.total_transactions || c.transaction_count || 0,
-          isRegular: (c.total_transactions || c.transaction_count || 0) >= 5,
-        }));
-
-        setCustomers(transformedCustomers);
-      } else if (response.status === 401) {
-        authManager.clearToken("shop");
-        toast.error("Session expired. Please sign in again.");
-        setCustomers([]);
-      } else {
-        console.warn("Shop customers endpoint failed");
-        setCustomers([]);
-      }
-    } catch (error) {
+      setCustomers(transformedCustomers);
+    } catch (error: any) {
       console.error("Error loading customers:", error);
-      toast.error("Failed to load customers");
+
+      if (error?.response?.status === 401) {
+        toast.error("Session expired. Please sign in again.");
+      } else {
+        toast.error("Failed to load customers");
+      }
       setCustomers([]);
     } finally {
       setLoading(false);
@@ -223,28 +198,9 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
 
   const loadGrowthStats = async () => {
     try {
-      const token = shopToken || authManager.getToken("shop");
-
-      if (!token) {
-        return;
-      }
-
-      const headers = {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      };
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/customer-growth?period=${growthPeriod}`,
-        { headers }
-      );
-
-      if (response.ok) {
-        const result = await response.json();
-        setGrowthStats(result.data);
-      } else {
-        console.warn("Failed to load growth statistics");
-      }
+      // Use apiClient with automatic cookie authentication
+      const result = await apiClient.get(`/shops/${shopId}/customer-growth?period=${growthPeriod}`);
+      setGrowthStats(result.data);
     } catch (error) {
       console.error("Error loading growth stats:", error);
     }

@@ -13,6 +13,7 @@ import { DashboardHeader } from "../ui/DashboardHeader";
 import { Coins, X, Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "react-hot-toast";
 import Tooltip from "../ui/tooltip";
+import apiClient from '@/services/api/client';
 
 const client = createThirdwebClient({
   clientId:
@@ -217,23 +218,12 @@ export const OverviewTab: React.FC = () => {
     setIsMinting(true);
 
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/customers/balance/${account.address}/queue-mint`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${
-              localStorage.getItem("customerAuthToken") || ""
-            }`,
-          },
-          body: JSON.stringify({ amount }),
-        }
+      const result = await apiClient.post(
+        `/customers/balance/${account.address}/queue-mint`,
+        { amount }
       );
 
-      const result = await response.json();
-
-      if (response.ok) {
+      if (result.success) {
         toast.success(
           `Successfully queued ${amount} RCN for minting to your wallet!`
         );

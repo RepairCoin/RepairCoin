@@ -5,7 +5,8 @@ import {
   transactionRepository,
   adminRepository,
   webhookRepository,
-  treasuryRepository
+  treasuryRepository,
+  refreshTokenRepository
 } from '../../../repositories';
 import { TokenMinter } from '../../../contracts/TokenMinter';
 import { TierManager, CustomerData, TierLevel } from '../../../contracts/TierManager';
@@ -90,11 +91,11 @@ export class AdminService {
       const totalCustomers = await this.getTotalCustomersCount();
       const totalShops = await this.getTotalShopsCount();
       const totalTransactions = await this.getTotalTransactionsCount();
-      
+
       // Get total tokens minted from database
       const totalTokensIssued = await this.getTotalTokensMinted();
       const totalRedemptions = await this.getTotalRedemptions();
-      
+
       // Get blockchain stats
       let totalSupply = 0;
       try {
@@ -105,7 +106,7 @@ export class AdminService {
       } catch (error) {
         logger.warn('Could not fetch contract stats:', error);
       }
-      
+
       const recentActivity = {
         newCustomersToday: await this.getNewCustomersToday(),
         transactionsToday: await this.getTransactionsToday(),
@@ -347,11 +348,11 @@ export class AdminService {
     }
   }
 
-    async updatePlatformMetrics(eventType: string, amount?: number): Promise<void> {
+  async updatePlatformMetrics(eventType: string, amount?: number): Promise<void> {
     try {
       // In a real implementation, you might update a metrics database
       // or send to analytics service like DataDog, New Relic, etc.
-      
+
       logger.info('Platform metric updated', {
         eventType,
         amount,
@@ -360,15 +361,15 @@ export class AdminService {
 
       // Example: Could store in Redis or send to analytics service
       // await metricsService.increment(`platform.${eventType}`, amount);
-      
+
       // For now, we'll just log and potentially store in database
       // You could add a metrics table to track these events over time
-      
+
     } catch (error) {
       logger.error('Failed to update platform metrics:', error);
     }
   }
-async alertOnWebhookFailure(failureData: any): Promise<void> {
+  async alertOnWebhookFailure(failureData: any): Promise<void> {
     try {
       logger.warn('Webhook failure detected by admin domain', failureData);
 
@@ -380,11 +381,11 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
       // - Store in alerts table
 
       // For now, just log at warn level with structured data
-      
+
       // Future: Could implement actual alerting
       // await this.sendSlackAlert(failureData);
       // await this.createIncident(failureData);
-      
+
     } catch (error) {
       logger.error('Failed to send webhook failure alert:', error);
     }
@@ -471,7 +472,52 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
    * @delegatesTo CustomerManagementService.suspendCustomer
    */
   async suspendCustomer(customerAddress: string, reason?: string, adminAddress?: string) {
-    return customerManagementService.suspendCustomer(customerAddress, reason, adminAddress);
+    try {
+      const customer = await customerRepository.getCustomer(customerAddress);
+      if (!customer) {
+        throw new Error('Customer not found');
+      }
+
+      await customerRepository.updateCustomer(customerAddress, {
+        isActive: false,
+        suspendedAt: new Date().toISOString(),
+        suspensionReason: reason
+      });
+
+      // Revoke all active sessions for this customer
+      const revokedCount = await refreshTokenRepository.revokeAllUserTokens(
+        customerAddress,
+        `Customer suspended: ${reason || 'No reason provided'}`,
+        true // revokedByAdmin flag
+      );
+
+      // Log admin activity
+      await adminRepository.logAdminActivity({
+        adminAddress: adminAddress || 'system',
+        actionType: 'customer_suspension',
+        actionDescription: `Suspended customer: ${reason || 'No reason provided'}`,
+        entityType: 'customer',
+        entityId: customerAddress,
+        metadata: { reason, sessionsRevoked: revokedCount }
+      });
+
+      logger.info('Customer suspended', { customerAddress, reason, adminAddress, sessionsRevoked: revokedCount });
+      await customerManagementService.suspendCustomer(customerAddress, reason, adminAddress);
+
+      return {
+        success: true,
+        message: 'Customer suspended successfully',
+        customer: {
+          address: customerAddress,
+          isActive: false,
+          suspendedAt: new Date().toISOString()
+        },
+        sessionsRevoked: revokedCount
+      };
+    } catch (error) {
+      logger.error('Customer suspension error:', error);
+      throw error;
+    }
   }
 
   /**
@@ -487,7 +533,56 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
    * @delegatesTo ShopManagementService.suspendShop
    */
   async suspendShop(shopId: string, reason?: string, adminAddress?: string) {
-    return shopManagementService.suspendShop(shopId, reason, adminAddress);
+    try {
+      const shop = await shopRepository.getShop(shopId);
+      if (!shop) {
+        throw new Error('Shop not found');
+      }
+
+      await shopRepository.updateShop(shopId, {
+        active: false,
+        suspendedAt: new Date().toISOString(),
+        suspensionReason: reason
+      });
+
+      // Revoke all active sessions for this shop
+      const revokedCount = await refreshTokenRepository.revokeAllShopTokens(
+        shopId,
+        `Shop suspended: ${reason || 'No reason provided'}`,
+        true // revokedByAdmin flag (default is already true, but being explicit)
+      );
+
+      // Log admin activity
+      await adminRepository.logAdminActivity({
+        adminAddress: adminAddress || 'system',
+        actionType: 'shop_suspension',
+        actionDescription: `Suspended shop: ${reason || 'No reason provided'}`,
+        entityType: 'shop',
+        entityId: shopId,
+        metadata: {
+          shopName: shop.name,
+          reason,
+          sessionsRevoked: revokedCount
+        }
+      });
+
+      logger.info('Shop suspended', { shopId, reason, adminAddress, sessionsRevoked: revokedCount });
+      await shopManagementService.suspendShop(shopId, reason, adminAddress);
+      return {
+        success: true,
+        message: 'Shop suspended successfully',
+        shop: {
+          shopId,
+          active: false,
+          suspendedAt: new Date().toISOString()
+        },
+        sessionsRevoked: revokedCount
+      };
+    } catch (error) {
+      logger.error('Shop suspension error:', error);
+      throw error;
+    }
+
   }
 
   /**
@@ -546,24 +641,24 @@ async alertOnWebhookFailure(failureData: any): Promise<void> {
     return adminManagementService.getAdmins();
   }
 
-    /**
-   * Update admin permissions
-   * @delegatesTo AdminManagementService.updateAdminPermissions
-   */
+  /**
+ * Update admin permissions
+ * @delegatesTo AdminManagementService.updateAdminPermissions
+ */
   async updateAdminPermissions(walletAddress: string, permissions: string[], updatedBy?: string) {
     return adminManagementService.updateAdminPermissions(walletAddress, permissions, updatedBy);
   }
 
-    /**
-   * Check admin access
-   * @delegatesTo AdminManagementService.checkAdminAccess
-   */
+  /**
+ * Check admin access
+ * @delegatesTo AdminManagementService.checkAdminAccess
+ */
   async checkAdminAccess(walletAddress: string): Promise<boolean> {
     return adminManagementService.checkAdminAccess(walletAddress);
   }
 
   // Admin Management Methods
-  
+
   /**
    * Get all admins including protected status
    * @delegatesTo AdminManagementService.getAllAdmins

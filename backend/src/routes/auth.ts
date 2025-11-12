@@ -1,10 +1,124 @@
 // backend/src/routes/auth.ts
-import { Router } from 'express';
-import { customerRepository, shopRepository, adminRepository } from '../repositories';
+import { Router, Response, Request } from 'express';
+import rateLimit from 'express-rate-limit';
+import { customerRepository, shopRepository, adminRepository, refreshTokenRepository } from '../repositories';
 import { logger } from '../utils/logger';
-import { generateToken } from '../middleware/auth';
+import { generateToken, generateAccessToken, generateRefreshToken, authMiddleware } from '../middleware/auth';
+import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
+
+/**
+ * Rate limiting for authentication endpoints
+ * Prevents brute force attacks and account enumeration
+ */
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 requests per windowMs
+  message: 'Too many authentication attempts from this IP, please try again after 15 minutes',
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  handler: (req, res) => {
+    logger.security('Rate limit exceeded for auth endpoint', {
+      ip: req.ip,
+      path: req.path,
+      userAgent: req.get('User-Agent')
+    });
+    res.status(429).json({
+      success: false,
+      error: 'Too many authentication attempts from this IP, please try again after 15 minutes'
+    });
+  }
+});
+
+/**
+ * Helper function to set httpOnly cookie with JWT token
+ * For cross-origin deployments (frontend: www.repaircoin.ai on Vercel,
+ * backend: *.ondigitalocean.app), we need sameSite: 'none' with secure: true.
+ *
+ * IMPORTANT: Do NOT set domain attribute for cross-origin cookies - let browser handle it
+ */
+const setAuthCookie = (res: Response, token: string) => {
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  const cookieOptions = {
+    httpOnly: true,
+    secure: true, // Required for sameSite: 'none'
+    sameSite: 'none' as const, // Required for cross-origin (different domains)
+    maxAge: 2 * 60 * 60 * 1000, // 2 hours (changed from 24h for better security)
+    path: '/',
+    // Do NOT set domain for cross-origin cookies - it will prevent them from working
+  };
+
+  res.cookie('auth_token', token, cookieOptions);
+
+  logger.info('Auth cookie set', {
+    secure: cookieOptions.secure,
+    sameSite: cookieOptions.sameSite,
+    httpOnly: cookieOptions.httpOnly,
+    maxAge: cookieOptions.maxAge
+  });
+};
+
+/**
+ * Helper to generate and set both access and refresh tokens
+ * Returns both tokens for response
+ */
+const generateAndSetTokens = async (
+  res: Response,
+  req: Request,
+  payload: { address: string; role: 'admin' | 'shop' | 'customer'; shopId?: string }
+): Promise<{ accessToken: string; refreshToken: string; tokenId: string }> => {
+  // Generate unique token ID for refresh token
+  const tokenId = uuidv4();
+
+  // Generate both tokens
+  const accessToken = generateAccessToken(payload);
+  const refreshToken = generateRefreshToken(payload, tokenId);
+
+  // Store refresh token in database
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
+
+  await refreshTokenRepository.createRefreshToken({
+    tokenId,
+    userAddress: payload.address,
+    userRole: payload.role,
+    shopId: payload.shopId,
+    token: refreshToken,
+    expiresAt,
+    userAgent: req.get('User-Agent'),
+    ipAddress: req.ip
+  });
+
+  // Set access token as httpOnly cookie (15 minutes)
+  res.cookie('auth_token', accessToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none' as const,
+    maxAge: 15 * 60 * 1000, // 15 minutes
+    path: '/'
+  });
+
+  // Set refresh token as httpOnly cookie (7 days)
+  res.cookie('refresh_token', refreshToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none' as const,
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: '/'
+  });
+
+  logger.info('Access and refresh tokens generated', {
+    address: payload.address,
+    role: payload.role,
+    tokenId,
+    accessTokenExpiry: '15m',
+    refreshTokenExpiry: '7d'
+  });
+
+  return { accessToken, refreshToken, tokenId };
+};
 
 /**
  * Generate JWT token for authenticated users
@@ -51,10 +165,8 @@ router.post('/token', async (req, res) => {
       if (!userType) {
         // Check if user is a shop
         try {
-          // Don't filter by active status - check all shops
-          const allShops = await shopRepository.getShopsPaginated({ page: 1, limit: 1000 });
-          const shop = allShops.items.find(s => s.walletAddress?.toLowerCase() === normalizedAddress);
-          
+          const shop = await shopRepository.getShopByWallet(normalizedAddress);
+
           if (shop) {
             userType = 'shop';
             userData = {
@@ -78,9 +190,12 @@ router.post('/token', async (req, res) => {
     // Generate JWT token
     const token = generateToken(userData);
 
+    // Set httpOnly cookie
+    setAuthCookie(res, token);
+
     return res.json({
       success: true,
-      token,
+      token, // Still send in response for backward compatibility
       userType,
       address: normalizedAddress
     });
@@ -223,13 +338,10 @@ router.post('/check-user', async (req, res) => {
       logger.debug('Customer not found for address:', normalizedAddress);
     }
 
-    // Check if user is a shop  
+    // Check if user is a shop
     try {
-      // Get shop by wallet address - we need to find the shop with this wallet
-      // Don't filter by active status here - we need to check if the shop exists first
-      const allShops = await shopRepository.getShopsPaginated({ page: 1, limit: 1000 });
-      const shop = allShops.items.find(s => s.walletAddress?.toLowerCase() === normalizedAddress);
-      
+      const shop = await shopRepository.getShopByWallet(normalizedAddress);
+
       if (shop) {
         return res.json({
           exists: true,
@@ -348,10 +460,8 @@ router.post('/profile', async (req, res) => {
 
     // Check shop
     try {
-      // Don't filter by active status - check all shops
-      const allShops = await shopRepository.getShopsPaginated({ page: 1, limit: 1000 });
-      const shop = allShops.items.find(s => s.walletAddress?.toLowerCase() === normalizedAddress);
-      
+      const shop = await shopRepository.getShopByWallet(normalizedAddress);
+
       if (shop) {
         return res.json({
           type: 'shop',
@@ -398,75 +508,94 @@ router.post('/profile', async (req, res) => {
 /**
  * Validate session and return user info
  * GET /api/auth/session
+ * Uses access token from cookie - automatically refreshed by client if needed
  */
-router.get('/session', async (req, res) => {
+router.get('/session', authMiddleware, async (req, res) => {
   try {
-    const { authorization } = req.headers;
-    
-    if (!authorization) {
-      return res.status(401).json({ error: 'No authorization header' });
+    if (!req.user || !req.user.address || !req.user.role) {
+      return res.status(401).json({
+        isValid: false,
+        error: 'Invalid session'
+      });
     }
 
-    // Extract wallet address from JWT or session token
-    // For now, we'll expect the address to be passed in the Authorization header
-    const address = authorization.replace('Bearer ', '');
-    
-    if (!address || !address.startsWith('0x')) {
-      return res.status(401).json({ error: 'Invalid authorization format' });
-    }
+    const { address, role, shopId } = req.user;
 
-    // For now, we'll implement a simple admin check since we don't have full session management yet
-    const normalizedAddress = address.toLowerCase();
-    const adminAddresses = (process.env.ADMIN_ADDRESSES || '').split(',').map(addr => addr.toLowerCase().trim());
-    
-    if (adminAddresses.includes(normalizedAddress)) {
-      return res.json({
-        authenticated: true,
-        user: {
+    // Fetch full user data based on role
+    let userData: any = null;
+
+    if (role === 'admin') {
+      const admin = await adminRepository.getAdminByWalletAddress(address);
+      if (admin) {
+        userData = {
+          id: admin.id,
+          address: admin.walletAddress,
+          walletAddress: admin.walletAddress,
           type: 'admin',
-          user: {
-            id: 'admin_' + normalizedAddress,
-            address: normalizedAddress,
-            walletAddress: normalizedAddress,
-            name: 'Administrator',
-            active: true,
-            createdAt: new Date().toISOString()
-          }
-        }
-      });
-    }
-
-    // Check user existence by calling our own endpoint
-    try {
-      const checkResponse = await fetch(`${req.protocol}://${req.get('host')}/api/auth/check-user`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address })
-      });
-
-      if (checkResponse.ok) {
-        const userData = await checkResponse.json();
-        return res.json({
-          authenticated: true,
-          user: userData
-        });
-      } else {
-        return res.status(401).json({
-          authenticated: false,
-          error: 'User not found'
-        });
+          role: 'admin',
+          name: admin.name || 'Administrator',
+          email: admin.email,
+          active: admin.isActive,
+          isSuperAdmin: admin.isSuperAdmin,
+          createdAt: admin.createdAt,
+          created_at: admin.createdAt
+        };
       }
-    } catch (fetchError) {
-      logger.error('Error checking user during session validation:', fetchError);
-      return res.status(500).json({
-        authenticated: false,
-        error: 'Internal server error'
+    } else if (role === 'shop' && shopId) {
+      const shop = await shopRepository.getShop(shopId);
+      if (shop) {
+        userData = {
+          id: shop.shopId,
+          address: shop.walletAddress,
+          walletAddress: shop.walletAddress,
+          type: 'shop',
+          role: 'shop',
+          shopName: shop.name,
+          name: shop.name,
+          email: shop.email,
+          active: shop.active,
+          shopId: shop.shopId,
+          createdAt: shop.joinDate,
+          created_at: shop.joinDate
+        };
+      }
+    } else if (role === 'customer') {
+      const customer = await customerRepository.getCustomer(address);
+      if (customer) {
+        userData = {
+          id: customer.address, // Use address as ID for customers
+          address: customer.address,
+          walletAddress: customer.address,
+          type: 'customer',
+          role: 'customer',
+          name: customer.name,
+          email: customer.email,
+          active: customer.isActive,
+          tier: customer.tier,
+          createdAt: customer.joinDate,
+          created_at: customer.joinDate
+        };
+      }
+    }
+
+    if (!userData) {
+      return res.status(404).json({
+        isValid: false,
+        error: 'User not found'
       });
     }
+
+    return res.json({
+      isValid: true,
+      authenticated: true,
+      user: userData,
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString() // Access token expires in 15 minutes
+    });
 
   } catch (error) {
     logger.error('Error validating session:', error);
     return res.status(500).json({
+      isValid: false,
       error: 'Internal server error',
       message: 'Error validating session'
     });
@@ -476,8 +605,9 @@ router.get('/session', async (req, res) => {
 /**
  * Generate admin JWT token
  * POST /api/auth/admin
+ * Rate limited to prevent brute force attacks
  */
-router.post('/admin', async (req, res) => {
+router.post('/admin', authLimiter, async (req, res) => {
   try {
     const { address } = req.body;
 
@@ -568,15 +698,33 @@ router.post('/admin', async (req, res) => {
       }
     }
 
-    // Generate JWT token for admin
-    const token = generateToken({
+    // Check if user has had tokens revoked recently (prevents immediate re-auth after revocation)
+    const recentRevocation = await refreshTokenRepository.hasRecentRevocation(normalizedAddress, 1); // 1 hour cooldown
+    if (recentRevocation) {
+      logger.security('Login blocked - recent revocation detected', {
+        address: normalizedAddress,
+        revokedAt: recentRevocation.revokedAt,
+        reason: recentRevocation.reason
+      });
+
+      return res.status(403).json({
+        success: false,
+        error: 'Your session was recently revoked. Please wait before logging in again.',
+        code: 'RECENT_REVOCATION',
+        revokedAt: recentRevocation.revokedAt,
+        cooldownMinutes: 60
+      });
+    }
+
+    // Generate access and refresh tokens
+    const { accessToken } = await generateAndSetTokens(res, req, {
       address: normalizedAddress,
       role: 'admin'
     });
 
     res.json({
       success: true,
-      token,
+      token: accessToken, // Send access token for backward compatibility
       user: {
         id: adminData?.id?.toString() || 'super_admin',
         address: normalizedAddress,
@@ -603,8 +751,9 @@ router.post('/admin', async (req, res) => {
 /**
  * Generate customer JWT token
  * POST /api/auth/customer
+ * Rate limited to prevent brute force attacks
  */
-router.post('/customer', async (req, res) => {
+router.post('/customer', authLimiter, async (req, res) => {
   try {
     const { address } = req.body;
 
@@ -632,15 +781,33 @@ router.post('/customer', async (req, res) => {
         });
       }
 
-      // Generate JWT token for customer
-      const token = generateToken({
+      // Check if user has had tokens revoked recently (prevents immediate re-auth after revocation)
+      const recentRevocation = await refreshTokenRepository.hasRecentRevocation(normalizedAddress, 1); // 1 hour cooldown
+      if (recentRevocation) {
+        logger.security('Login blocked - recent revocation detected', {
+          address: normalizedAddress,
+          revokedAt: recentRevocation.revokedAt,
+          reason: recentRevocation.reason
+        });
+
+        return res.status(403).json({
+          success: false,
+          error: 'Your session was recently revoked. Please wait before logging in again.',
+          code: 'RECENT_REVOCATION',
+          revokedAt: recentRevocation.revokedAt,
+          cooldownMinutes: 60
+        });
+      }
+
+      // Generate access and refresh tokens
+      const { accessToken } = await generateAndSetTokens(res, req, {
         address: normalizedAddress,
         role: 'customer'
       });
 
       res.json({
         success: true,
-        token,
+        token: accessToken, // Send access token for backward compatibility
         user: {
           id: customer.address,
           address: customer.address,
@@ -672,8 +839,9 @@ router.post('/customer', async (req, res) => {
 /**
  * Generate shop JWT token
  * POST /api/auth/shop
+ * Rate limited to prevent brute force attacks
  */
-router.post('/shop', async (req, res) => {
+router.post('/shop', authLimiter, async (req, res) => {
   try {
     const { address } = req.body;
 
@@ -687,9 +855,8 @@ router.post('/shop', async (req, res) => {
 
     // Check if address belongs to a shop
     try {
-      const allShops = await shopRepository.getShopsPaginated({ active: true, page: 1, limit: 1000 });
-      const shop = allShops.items.find(s => s.walletAddress?.toLowerCase() === normalizedAddress);
-      
+      const shop = await shopRepository.getShopByWallet(normalizedAddress);
+
       if (!shop) {
         return res.status(403).json({
           error: 'Address not associated with a shop'
@@ -702,8 +869,26 @@ router.post('/shop', async (req, res) => {
         });
       }
 
-      // Generate JWT token for shop
-      const token = generateToken({
+      // Check if user has had tokens revoked recently (prevents immediate re-auth after revocation)
+      const recentRevocation = await refreshTokenRepository.hasRecentRevocation(normalizedAddress, 1); // 1 hour cooldown
+      if (recentRevocation) {
+        logger.security('Login blocked - recent revocation detected', {
+          address: normalizedAddress,
+          revokedAt: recentRevocation.revokedAt,
+          reason: recentRevocation.reason
+        });
+
+        return res.status(403).json({
+          success: false,
+          error: 'Your session was recently revoked. Please wait before logging in again.',
+          code: 'RECENT_REVOCATION',
+          revokedAt: recentRevocation.revokedAt,
+          cooldownMinutes: 60
+        });
+      }
+
+      // Generate access and refresh tokens
+      const { accessToken } = await generateAndSetTokens(res, req, {
         address: normalizedAddress,
         role: 'shop',
         shopId: shop.shopId
@@ -711,7 +896,7 @@ router.post('/shop', async (req, res) => {
 
       res.json({
         success: true,
-        token,
+        token: accessToken, // Send access token for backward compatibility
         user: {
           id: shop.shopId,
           shopId: shop.shopId,
@@ -737,6 +922,170 @@ router.post('/shop', async (req, res) => {
     return res.status(500).json({
       error: 'Internal server error',
       message: 'Error generating shop token'
+    });
+  }
+});
+
+/**
+ * Logout - Clear auth cookie
+ * POST /api/auth/logout
+ */
+router.post('/logout', async (req, res) => {
+  try {
+    // Extract refresh token from cookie to revoke it
+    const refreshTokenCookie = req.cookies?.refresh_token;
+
+    if (refreshTokenCookie) {
+      try {
+        // Decode refresh token to get tokenId
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(refreshTokenCookie, process.env.JWT_SECRET || '') as any;
+
+        if (decoded.tokenId) {
+          // Revoke refresh token in database
+          await refreshTokenRepository.revokeToken(decoded.tokenId, 'User logout');
+          logger.info('Refresh token revoked on logout', { tokenId: decoded.tokenId });
+        }
+      } catch (error) {
+        // If token can't be decoded/verified, just continue with cookie clearing
+        logger.warn('Could not revoke refresh token on logout:', error);
+      }
+    }
+
+    // Cookie clear options must match the options used when setting the cookie
+    const clearOptions = {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none' as const,
+      path: '/'
+      // Do NOT set domain for cross-origin cookies
+    };
+
+    // Clear both auth cookies
+    res.clearCookie('auth_token', clearOptions);
+    res.clearCookie('refresh_token', clearOptions);
+
+    res.json({
+      success: true,
+      message: 'Logged out successfully'
+    });
+  } catch (error) {
+    logger.error('Logout error:', error);
+    return res.status(500).json({
+      error: 'Internal server error',
+      message: 'Error during logout'
+    });
+  }
+});
+
+/**
+ * Refresh token - Use refresh token to get new access token
+ * POST /api/auth/refresh
+ *
+ * This endpoint does NOT require authMiddleware since the access token may be expired.
+ * Instead, it validates the refresh token from the cookie.
+ */
+router.post('/refresh', async (req, res) => {
+  try {
+    const jwt = require('jsonwebtoken');
+
+    // Get refresh token from cookie
+    const refreshTokenCookie = req.cookies?.refresh_token;
+
+    if (!refreshTokenCookie) {
+      return res.status(401).json({
+        success: false,
+        error: 'No refresh token provided',
+        code: 'NO_REFRESH_TOKEN'
+      });
+    }
+
+    // Verify and decode refresh token
+    let decoded: any;
+    try {
+      decoded = jwt.verify(refreshTokenCookie, process.env.JWT_SECRET || '');
+    } catch (error: any) {
+      logger.security('Invalid refresh token', {
+        error: error.message,
+        ip: req.ip
+      });
+
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid refresh token',
+        code: 'INVALID_REFRESH_TOKEN'
+      });
+    }
+
+    // Validate token type
+    if (decoded.type !== 'refresh') {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid token type for refresh',
+        code: 'INVALID_TOKEN_TYPE'
+      });
+    }
+
+    // Validate refresh token in database
+    const storedToken = await refreshTokenRepository.validateRefreshToken(
+      decoded.tokenId,
+      refreshTokenCookie
+    );
+
+    if (!storedToken) {
+      logger.security('Refresh token not found or revoked', {
+        tokenId: decoded.tokenId,
+        address: decoded.address,
+        ip: req.ip
+      });
+
+      return res.status(401).json({
+        success: false,
+        error: 'Refresh token invalid or revoked',
+        code: 'TOKEN_REVOKED'
+      });
+    }
+
+    // Update last used timestamp
+    await refreshTokenRepository.updateLastUsed(decoded.tokenId);
+
+    // Generate new access token (refresh token stays the same)
+    const newAccessToken = generateAccessToken({
+      address: decoded.address,
+      role: decoded.role,
+      shopId: decoded.shopId
+    });
+
+    // Set new access token cookie
+    res.cookie('auth_token', newAccessToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none' as const,
+      maxAge: 15 * 60 * 1000, // 15 minutes
+      path: '/'
+    });
+
+    logger.info('Access token refreshed', {
+      address: decoded.address,
+      role: decoded.role,
+      tokenId: decoded.tokenId
+    });
+
+    res.json({
+      success: true,
+      token: newAccessToken, // Send for backward compatibility
+      user: {
+        address: decoded.address,
+        role: decoded.role,
+        shopId: decoded.shopId
+      }
+    });
+  } catch (error: any) {
+    logger.error('Token refresh error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Token refresh failed',
+      code: 'TOKEN_REFRESH_ERROR'
     });
   }
 });

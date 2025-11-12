@@ -8,6 +8,7 @@ export const NotificationDebug = () => {
   const { userProfile } = useAuthStore();
   const { notifications, unreadCount, isConnected } = useNotificationStore();
   const [localStorageTokens, setLocalStorageTokens] = useState<any>({});
+  const [cookieToken, setCookieToken] = useState<string | null>(null);
 
   useEffect(() => {
     // Check localStorage tokens
@@ -19,12 +20,18 @@ export const NotificationDebug = () => {
     };
     setLocalStorageTokens(tokens);
 
+    // Get token from cookie
+    const cookies = document.cookie.split(';');
+    const authCookie = cookies.find(cookie => cookie.trim().startsWith('auth_token='));
+    const tokenFromCookie = authCookie ? authCookie.split('=')[1] : null;
+    setCookieToken(tokenFromCookie);
+
     console.log('🔍 Notification Debug Info:', {
       hasUserProfile: !!userProfile,
       userAddress: userProfile?.address,
       userType: userProfile?.type,
-      hasTokenInProfile: !!userProfile?.token,
-      tokenInProfile: userProfile?.token?.substring(0, 20) + '...',
+      hasTokenInCookie: !!tokenFromCookie,
+      tokenInCookie: tokenFromCookie?.substring(0, 20) + '...',
       localStorageTokens: tokens,
       notificationsCount: notifications.length,
       unreadCount,
@@ -39,7 +46,7 @@ export const NotificationDebug = () => {
     localStorageTokens.shopToken ||
     localStorageTokens.adminToken ||
     localStorageTokens.genericToken ||
-    userProfile?.token
+    cookieToken
   );
 
   // Try to extract wallet from token
@@ -66,7 +73,7 @@ export const NotificationDebug = () => {
         <div>Address in Profile: {userProfile?.address ? `${userProfile.address.substring(0, 10)}...` : '❌ Missing'}</div>
         <div>Address in Token: {walletFromToken ? `${walletFromToken.substring(0, 10)}...` : '❌ Missing'}</div>
         <div>Type: {userProfile?.type || 'Unknown'}</div>
-        <div>Token in Profile: {userProfile?.token ? '✅ Set' : '❌ Missing'}</div>
+        <div>Token in Cookie: {cookieToken ? '✅ Set' : '❌ Missing'}</div>
         <div className="border-t border-gray-600 pt-1 mt-1">
           <div className="font-semibold">localStorage Tokens:</div>
           <div className="ml-2">

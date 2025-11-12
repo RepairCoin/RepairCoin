@@ -20,6 +20,31 @@ export default function LandingPage() {
   const { walletType, isRegistered, isDetecting } = useWalletDetection();
   const [showAuthModal, setShowAuthModal] = useState(false);
 
+  // Auto-redirect registered users to their dashboard
+  // IMPORTANT: Only redirect if user has valid auth cookie to prevent infinite loop
+  React.useEffect(() => {
+    // Check if auth cookie exists before redirecting
+    const hasAuthCookie = typeof document !== 'undefined' &&
+                          document.cookie.split(';').some(cookie => cookie.trim().startsWith('auth_token='));
+
+    if (account && isRegistered && !isDetecting && walletType !== 'unknown' && hasAuthCookie) {
+      console.log('🔄 [LandingPage] Auto-redirecting registered user to:', walletType);
+      switch (walletType) {
+        case "admin":
+          router.push("/admin");
+          break;
+        case "shop":
+          router.push("/shop");
+          break;
+        case "customer":
+          router.push("/customer");
+          break;
+      }
+    } else if (account && isRegistered && !isDetecting && walletType !== 'unknown' && !hasAuthCookie) {
+      console.warn('🚫 [LandingPage] User is registered but missing auth cookie - not redirecting to prevent loop');
+    }
+  }, [account, isRegistered, isDetecting, walletType, router]);
+
   const handleGetStarted = () => {
     if (!account) {
       // If no wallet connected, the ConnectButton will handle it

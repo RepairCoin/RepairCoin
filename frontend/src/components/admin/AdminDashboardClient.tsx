@@ -16,6 +16,7 @@ import { AnalyticsTab } from "@/components/admin/tabs/AnalyticsTab";
 import SubscriptionManagementTab from "@/components/admin/tabs/SubscriptionManagementTab";
 import PromoCodesAnalyticsTab from "@/components/admin/tabs/PromoCodesAnalyticsTab";
 import { CreateAdminTab } from "@/components/admin/tabs/CreateAdminTab";
+import { SessionManagementTab } from "@/components/admin/tabs/SessionManagementTab";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 import { LazyTabWrapper } from "@/components/admin/LazyTabWrapper";
 
@@ -314,6 +315,16 @@ export default function AdminDashboardClient() {
               adminRole === "admin") && (
               <LazyTabWrapper isActive={activeTab === "promo-codes"}>
                 <PromoCodesAnalyticsTab />
+              </LazyTabWrapper>
+            )}
+
+          {/* Session Management Tab */}
+          {activeTab === "sessions" &&
+            (isSuperAdmin ||
+              adminRole === "super_admin" ||
+              adminRole === "admin") && (
+              <LazyTabWrapper isActive={activeTab === "sessions"}>
+                <SessionManagementTab />
               </LazyTabWrapper>
             )}
         </div>
