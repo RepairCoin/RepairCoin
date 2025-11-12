@@ -16,7 +16,6 @@ export default function CreateGroupModal({ onClose, onSubmit }: CreateGroupModal
     customTokenSymbol: "",
     description: "",
     logoUrl: "",
-    isPrivate: false,
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -128,24 +127,6 @@ export default function CreateGroupModal({ onClose, onSubmit }: CreateGroupModal
               placeholder="https://example.com/logo.png"
               className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-[#FFCC00]"
             />
-          </div>
-
-          {/* Privacy Setting */}
-          <div className="flex items-start gap-3">
-            <input
-              type="checkbox"
-              id="isPrivate"
-              checked={formData.isPrivate}
-              onChange={(e) => setFormData({ ...formData, isPrivate: e.target.checked })}
-              className="mt-1 w-4 h-4 rounded border-gray-700 bg-gray-800 text-[#FFCC00] focus:ring-[#FFCC00]"
-            />
-            <label htmlFor="isPrivate" className="text-sm text-gray-300">
-              <span className="font-medium text-white">Private Group</span>
-              <br />
-              <span className="text-gray-400">
-                Require approval for shops to join this group
-              </span>
-            </label>
           </div>
 
           {/* Info Box */}

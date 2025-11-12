@@ -85,11 +85,7 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
     setJoiningGroup(true);
     try {
       await shopGroupsAPI.requestToJoinGroup(groupId);
-      toast.success(
-        group.isPrivate
-          ? "Join request sent! Waiting for admin approval."
-          : "Join request sent!"
-      );
+      toast.success("Join request sent! Waiting for admin approval.");
       // Reload group data to get updated membership status
       await loadGroupData();
     } catch (error: any) {
@@ -141,12 +137,6 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
                   <p className="text-gray-400 text-lg">{group.description}</p>
                 )}
               </div>
-              <div className="flex items-center gap-2 px-4 py-2 bg-gray-800/50 rounded-full border border-gray-700">
-                <div className={`w-2 h-2 rounded-full ${group.isPrivate ? 'bg-orange-500' : 'bg-green-500'} animate-pulse`}></div>
-                <span className="text-sm font-medium text-gray-300">
-                  {group.isPrivate ? "Private" : "Public"}
-                </span>
-              </div>
             </div>
 
             {/* Restricted Access Warning */}
@@ -172,16 +162,12 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
                     <h3 className="text-lg font-bold text-white mb-2">
                       {group.membershipStatus === 'pending'
                         ? 'Membership Request Pending'
-                        : group.isPrivate
-                          ? 'Private Group - Access Restricted'
-                          : 'Join Group to Access Full Features'}
+                        : 'Join Group to Access Full Features'}
                     </h3>
                     <p className="text-gray-300 mb-4">
                       {group.membershipStatus === 'pending'
                         ? 'Your request to join this group is awaiting approval from the group admin. Once approved, you will have access to all group features including token operations, member list, transactions, and analytics.'
-                        : group.isPrivate
-                          ? 'This is a private group. You need to be a member to view detailed information including token details, members, transactions, and analytics.'
-                          : 'Join this group to access token operations, view members, track transactions, and see detailed analytics.'}
+                        : 'You need to be a member to view detailed information including token details, members, transactions, and analytics. Send a join request to access all features.'}
                     </p>
                     <div className="flex gap-3">
                       {group.membershipStatus === null && (
@@ -217,7 +203,7 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
             ) : (
               <>
                 {/* Stats Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {/* Token Info */}
                   <div className="group relative bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl p-5 border border-gray-700/50 hover:border-[#FFCC00]/30 transition-all duration-300">
                     <div className="absolute inset-0 bg-gradient-to-br from-[#FFCC00]/0 to-[#FFCC00]/0 group-hover:from-[#FFCC00]/5 group-hover:to-transparent rounded-xl transition-all duration-300"></div>
@@ -241,19 +227,6 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
                       </div>
                       <p className="text-2xl font-bold text-white">{group.memberCount || 0}</p>
                       <p className="text-sm text-gray-400">Active participants</p>
-                    </div>
-                  </div>
-
-                  {/* Privacy */}
-                  <div className="group relative bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl p-5 border border-gray-700/50 hover:border-[#FFCC00]/30 transition-all duration-300">
-                    <div className="absolute inset-0 bg-gradient-to-br from-[#FFCC00]/0 to-[#FFCC00]/0 group-hover:from-[#FFCC00]/5 group-hover:to-transparent rounded-xl transition-all duration-300"></div>
-                    <div className="relative">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Sparkles className="w-4 h-4 text-[#FFCC00]" />
-                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Access</p>
-                      </div>
-                      <p className="text-2xl font-bold text-white">{group.isPrivate ? "Private" : "Public"}</p>
-                      <p className="text-sm text-gray-400">{group.isPrivate ? "Invite only" : "Open to join"}</p>
                     </div>
                   </div>
 
@@ -351,9 +324,7 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
                         <p className="text-gray-300 mb-4">
                           {group.membershipStatus === 'pending'
                             ? 'Your membership request is pending admin approval. Once approved, you will gain access to:'
-                            : group.isPrivate
-                              ? 'This private group\'s detailed information is only visible to members. Join the group using an invite code to access:'
-                              : 'Join this public group to unlock access to:'}
+                            : 'This group\'s detailed information is only visible to members. Join the group to access:'}
                         </p>
                         <ul className="list-disc list-inside space-y-2 text-gray-300 mb-4">
                           <li>Custom token details and operations</li>
