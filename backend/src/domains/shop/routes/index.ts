@@ -264,6 +264,8 @@ router.get('/wallet/:address',
           operational_status: shop.operational_status,
           rcg_tier: shop.rcg_tier,
           rcg_balance: shop.rcg_balance,
+          // Include subscription status
+          subscriptionActive: shop.subscriptionActive,
           // Include social media fields
           facebook: shop.facebook,
           twitter: shop.twitter,
