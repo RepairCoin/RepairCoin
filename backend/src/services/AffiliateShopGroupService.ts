@@ -138,10 +138,18 @@ export class AffiliateShopGroupService {
    */
   async getShopMembershipStatus(groupId: string, shopId: string): Promise<AffiliateShopGroupMember | null> {
     try {
+      console.log('🔍 [getShopMembershipStatus] Checking membership:', { groupId, shopId });
       const members = await this.repository.getGroupMembers(groupId);
-      return members.find(m => m.shopId === shopId) || null;
+      console.log('✅ [getShopMembershipStatus] All members:', {
+        memberCount: members.length,
+        members: members.map(m => ({ shopId: m.shopId, status: m.status, role: m.role }))
+      });
+      const membership = members.find(m => m.shopId === shopId) || null;
+      console.log('🎯 [getShopMembershipStatus] Found membership:', membership);
+      return membership;
     } catch (error) {
       logger.error('Error getting shop membership status:', error);
+      console.error('❌ [getShopMembershipStatus] Error:', error);
       return null;
     }
   }
