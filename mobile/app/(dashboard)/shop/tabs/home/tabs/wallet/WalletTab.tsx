@@ -170,7 +170,7 @@ export default function WalletTab({
           >
             <MaterialIcons name="summarize" color="#fff" size={24} />
           </Pressable>
-          <Text className="text-white text-lg font-semibold mt-2">Buy</Text>
+          <Text className="text-white text-base font-semibold mt-2">Buy</Text>
         </View>
         <View className="items-center">
           <Pressable
@@ -179,7 +179,7 @@ export default function WalletTab({
           >
             <MaterialIcons name="info" color="#fff" size={24} />
           </Pressable>
-          <Text className="text-white text-lg font-semibold mt-2">Reward</Text>
+          <Text className="text-white text-base font-semibold mt-2">Reward</Text>
         </View>
         <View className="items-center">
           <Pressable
@@ -188,7 +188,7 @@ export default function WalletTab({
           >
             <Octicons name="history" color="#fff" size={24} />
           </Pressable>
-          <Text className="text-white text-lg font-semibold mt-2">Redeem</Text>
+          <Text className="text-white text-base font-semibold mt-2">Redeem</Text>
         </View>
       </View>
 
