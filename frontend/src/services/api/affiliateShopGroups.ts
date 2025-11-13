@@ -102,9 +102,15 @@ export const createGroup = async (data: CreateGroupData): Promise<AffiliateShopG
  */
 export const getAllGroups = async (params?: { isPrivate?: boolean }): Promise<AffiliateShopGroup[]> => {
   try {
+    console.log('🌐 [API] Calling GET /affiliate-shop-groups');
     // For discover page, we want to show all groups (both public and private)
     // Private groups will just show as "invite only"
     const response = await apiClient.get<{ success: boolean; data: any[] }>(`/affiliate-shop-groups`);
+    console.log('✅ [API] getAllGroups response:', {
+      status: 'success',
+      dataLength: response.data?.data?.length || 0,
+      rawResponse: response.data
+    });
     const groups = response.data?.data || [];
 
     // Map backend groupType to frontend isPrivate
@@ -113,7 +119,12 @@ export const getAllGroups = async (params?: { isPrivate?: boolean }): Promise<Af
       isPrivate: group.groupType === 'private',
     }));
   } catch (error) {
-    console.error('Error getting shop groups:', error);
+    console.error('❌ [API] Error getting shop groups:', error);
+    console.error('Error details:', {
+      status: (error as any)?.response?.status,
+      data: (error as any)?.response?.data,
+      message: (error as any)?.message
+    });
     return [];
   }
 };
@@ -123,7 +134,13 @@ export const getAllGroups = async (params?: { isPrivate?: boolean }): Promise<Af
  */
 export const getMyGroups = async (): Promise<AffiliateShopGroup[]> => {
   try {
+    console.log('🌐 [API] Calling GET /affiliate-shop-groups/my-groups');
     const response = await apiClient.get<{ success: boolean; data: any[] }>('/affiliate-shop-groups/my-groups');
+    console.log('✅ [API] getMyGroups response:', {
+      status: 'success',
+      dataLength: response.data?.data?.length || 0,
+      rawResponse: response.data
+    });
     const groups = response.data?.data || [];
 
     // Map backend groupType to frontend isPrivate
@@ -132,7 +149,12 @@ export const getMyGroups = async (): Promise<AffiliateShopGroup[]> => {
       isPrivate: group.groupType === 'private',
     }));
   } catch (error) {
-    console.error('Error getting my groups:', error);
+    console.error('❌ [API] Error getting my groups:', error);
+    console.error('Error details:', {
+      status: (error as any)?.response?.status,
+      data: (error as any)?.response?.data,
+      message: (error as any)?.message
+    });
     return [];
   }
 };

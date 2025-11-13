@@ -30,16 +30,35 @@ export function GroupsTab({ shopId, subscriptionActive = false }: GroupsTabProps
   const loadData = async () => {
     try {
       setLoading(true);
+      console.log('🔍 [GroupsTab] Starting to load groups data...');
+
       const [myGroupsData, allGroupsData] = await Promise.all([
         shopGroupsAPI.getMyGroups(),
         shopGroupsAPI.getAllGroups(),
       ]);
 
+      console.log('✅ [GroupsTab] API responses received:', {
+        myGroupsData,
+        allGroupsData,
+        myGroupsIsArray: Array.isArray(myGroupsData),
+        allGroupsIsArray: Array.isArray(allGroupsData),
+        myGroupsLength: Array.isArray(myGroupsData) ? myGroupsData.length : 'not array',
+        allGroupsLength: Array.isArray(allGroupsData) ? allGroupsData.length : 'not array'
+      });
+
       // Ensure data is always an array
       setMyGroups(Array.isArray(myGroupsData) ? myGroupsData : []);
       setAllGroups(Array.isArray(allGroupsData) ? allGroupsData : []);
+
+      console.log('✅ [GroupsTab] Groups state updated successfully');
     } catch (error) {
-      console.error("Error loading groups:", error);
+      console.error("❌ [GroupsTab] Error loading groups:", error);
+      console.error("Error details:", {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        response: (error as any)?.response,
+        status: (error as any)?.response?.status,
+        data: (error as any)?.response?.data
+      });
       toast.error("Failed to load shop groups");
       setMyGroups([]);
       setAllGroups([]);
