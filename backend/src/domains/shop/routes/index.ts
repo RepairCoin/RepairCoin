@@ -1,6 +1,7 @@
 // backend/src/routes/shops.ts
 import { Router, Request, Response } from 'express';
 import { authMiddleware, requireRole, requireShopOrAdmin, requireShopOwnership } from '../../../middleware/auth';
+import { optionalAuthMiddleware } from '../../../middleware/optionalAuth';
 import { validateRequired, validateEthereumAddress, validateEmail, validateNumeric } from '../../../middleware/errorHandler';
 import { validateShopUniqueness } from '../../../middleware/validation';
 import { 
@@ -157,7 +158,7 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // Get shop by ID
-router.get('/:shopId', async (req: Request, res: Response) => {
+router.get('/:shopId', optionalAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { shopId } = req.params;
     

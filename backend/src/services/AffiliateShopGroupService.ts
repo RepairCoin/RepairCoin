@@ -135,31 +135,14 @@ export class AffiliateShopGroupService {
   /**
    * Get shop's membership status in a group
    * Returns the membership record with status (active, pending, rejected, removed) or null
-   * DEBUG: Updated 2025-11-13
    */
   async getShopMembershipStatus(groupId: string, shopId: string): Promise<AffiliateShopGroupMember | null> {
     try {
-      console.log('🔍 [getShopMembershipStatus] Checking membership:', { groupId, shopId });
       const members = await this.repository.getGroupMembers(groupId);
-      console.log('✅ [getShopMembershipStatus] All members:', {
-        memberCount: members.length,
-        members: members.map(m => ({ shopId: m.shopId, status: m.status, role: m.role }))
-      });
       const membership = members.find(m => m.shopId === shopId) || null;
-      console.log('🎯 [getShopMembershipStatus] Found membership:', membership);
-
-      // DEBUG: Log what we're returning
-      console.log('🚀 [DEBUG] Returning membership:', {
-        found: membership !== null,
-        shopId: membership?.shopId,
-        status: membership?.status,
-        role: membership?.role
-      });
-
       return membership;
     } catch (error) {
       logger.error('Error getting shop membership status:', error);
-      console.error('❌ [getShopMembershipStatus] Error:', error);
       return null;
     }
   }
@@ -344,29 +327,28 @@ export class AffiliateShopGroupService {
         throw new Error('Shop is not a member of this group');
       }
 
-      // Get shop and verify RCN backing (1:2 ratio)
-      const shop = await shopRepository.getShop(request.shopId);
-      if (!shop) {
-        throw new Error('Shop not found');
-      }
-
       // Calculate required RCN backing (1:2 ratio: 100 custom tokens need 50 RCN)
       const requiredRcn = request.amount / 2;
-      const shopRcnBalance = shop.purchasedRcnBalance || 0;
 
-      if (shopRcnBalance < requiredRcn) {
-        throw new Error(`Insufficient RCN balance. Issuing ${request.amount} custom tokens requires ${requiredRcn} RCN backing (1:2 ratio). You have ${shopRcnBalance} RCN available.`);
+      // Get shop's RCN allocation for this group
+      const allocation = await this.repository.getShopGroupRcnAllocation(request.shopId, request.groupId);
+
+      if (!allocation || allocation.availableRcn < requiredRcn) {
+        const available = allocation?.availableRcn || 0;
+        throw new Error(
+          `Insufficient RCN allocated to this group. Issuing ${request.amount} tokens requires ${requiredRcn} RCN backing (1:2 ratio). ` +
+          `You have ${available} RCN available in this group's pool. Please allocate more RCN to this group first.`
+        );
       }
 
-      // Deduct RCN from shop's purchased balance
-      await shopRepository.updateShop(request.shopId, {
-        purchasedRcnBalance: shopRcnBalance - requiredRcn
-      });
+      // Update used RCN (increase by requiredRcn as it's now backing tokens)
+      await this.repository.updateUsedRcn(request.shopId, request.groupId, requiredRcn);
 
-      logger.info('RCN backing deducted', {
+      logger.info('RCN backing allocated from group pool', {
         shopId: request.shopId,
-        deducted: requiredRcn,
-        newBalance: shopRcnBalance - requiredRcn
+        groupId: request.groupId,
+        usedRcn: requiredRcn,
+        remainingAvailable: allocation.availableRcn - requiredRcn
       });
 
       // Get current balance
@@ -434,23 +416,16 @@ export class AffiliateShopGroupService {
 
       const balanceBefore = currentBalance.balance;
 
-      // Return RCN backing to shop (1:2 ratio)
-      const shop = await shopRepository.getShop(request.shopId);
-      if (!shop) {
-        throw new Error('Shop not found');
-      }
-
+      // Return RCN backing to group pool (1:2 ratio)
       const returnedRcn = request.amount / 2;
-      const currentRcnBalance = shop.purchasedRcnBalance || 0;
 
-      await shopRepository.updateShop(request.shopId, {
-        purchasedRcnBalance: currentRcnBalance + returnedRcn
-      });
+      // Decrease used RCN (returning RCN to available pool)
+      await this.repository.updateUsedRcn(request.shopId, request.groupId, -returnedRcn);
 
-      logger.info('RCN backing returned', {
+      logger.info('RCN backing returned to group pool', {
         shopId: request.shopId,
-        returned: returnedRcn,
-        newBalance: currentRcnBalance + returnedRcn
+        groupId: request.groupId,
+        returnedRcn,
       });
 
       // Update balance
@@ -573,5 +548,160 @@ export class AffiliateShopGroupService {
   private generateInviteCode(): string {
     // Generate a random 8-character invite code
     return crypto.randomBytes(4).toString('hex').toUpperCase();
+  }
+
+  // ==================== RCN ALLOCATION METHODS ====================
+
+  /**
+   * Allocate RCN from shop's main balance to a specific group
+   * This creates a dedicated RCN pool for the group
+   */
+  async allocateRcnToGroup(shopId: string, groupId: string, amount: number): Promise<{
+    allocation: any;
+    shopRemainingBalance: number;
+  }> {
+    try {
+      // Validate amount
+      if (amount <= 0) {
+        throw new Error('Allocation amount must be positive');
+      }
+
+      // Verify shop is member of the group
+      const isMember = await this.repository.isShopMemberOfGroup(groupId, shopId);
+      if (!isMember) {
+        throw new Error('You must be a member of this group to allocate RCN');
+      }
+
+      // Get shop and verify main RCN balance
+      const shop = await shopRepository.getShop(shopId);
+      if (!shop) {
+        throw new Error('Shop not found');
+      }
+
+      const shopRcnBalance = shop.purchasedRcnBalance || 0;
+      if (shopRcnBalance < amount) {
+        throw new Error(`Insufficient RCN balance. You have ${shopRcnBalance} RCN available, but tried to allocate ${amount} RCN`);
+      }
+
+      // Deduct from shop's main balance
+      await shopRepository.updateShop(shopId, {
+        purchasedRcnBalance: shopRcnBalance - amount
+      });
+
+      // Allocate to group
+      const allocation = await this.repository.allocateRcnToGroup(shopId, groupId, amount);
+
+      logger.info('RCN allocated to group', {
+        shopId,
+        groupId,
+        amount,
+        newShopBalance: shopRcnBalance - amount,
+        groupAllocation: allocation.allocatedRcn
+      });
+
+      return {
+        allocation,
+        shopRemainingBalance: shopRcnBalance - amount
+      };
+    } catch (error) {
+      logger.error('Error allocating RCN to group:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Deallocate RCN from a group back to shop's main balance
+   * Only unallocated RCN can be returned (not RCN currently backing tokens)
+   */
+  async deallocateRcnFromGroup(shopId: string, groupId: string, amount: number): Promise<{
+    allocation: any;
+    shopNewBalance: number;
+  }> {
+    try {
+      // Validate amount
+      if (amount <= 0) {
+        throw new Error('Deallocation amount must be positive');
+      }
+
+      // Get current allocation
+      const currentAllocation = await this.repository.getShopGroupRcnAllocation(shopId, groupId);
+      if (!currentAllocation) {
+        throw new Error('No RCN allocation found for this group');
+      }
+
+      // Check if enough RCN is available (not backing tokens)
+      if (currentAllocation.availableRcn < amount) {
+        throw new Error(`Cannot deallocate ${amount} RCN. Only ${currentAllocation.availableRcn} RCN is available (${currentAllocation.usedRcn} RCN is currently backing issued tokens)`);
+      }
+
+      // Deallocate from group
+      const allocation = await this.repository.deallocateRcnFromGroup(shopId, groupId, amount);
+
+      // Return to shop's main balance
+      const shop = await shopRepository.getShop(shopId);
+      if (!shop) {
+        throw new Error('Shop not found');
+      }
+
+      const newShopBalance = (shop.purchasedRcnBalance || 0) + amount;
+      await shopRepository.updateShop(shopId, {
+        purchasedRcnBalance: newShopBalance
+      });
+
+      logger.info('RCN deallocated from group', {
+        shopId,
+        groupId,
+        amount,
+        newShopBalance,
+        remainingGroupAllocation: allocation.allocatedRcn
+      });
+
+      return {
+        allocation,
+        shopNewBalance: newShopBalance
+      };
+    } catch (error) {
+      logger.error('Error deallocating RCN from group:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get shop's RCN allocation for a specific group
+   */
+  async getShopGroupRcnAllocation(shopId: string, groupId: string) {
+    try {
+      const allocation = await this.repository.getShopGroupRcnAllocation(shopId, groupId);
+
+      // If no allocation exists yet, return zero balances
+      if (!allocation) {
+        return {
+          shopId,
+          groupId,
+          allocatedRcn: 0,
+          usedRcn: 0,
+          availableRcn: 0,
+          createdAt: null,
+          updatedAt: null
+        };
+      }
+
+      return allocation;
+    } catch (error) {
+      logger.error('Error getting shop group RCN allocation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all RCN allocations for a shop across all groups
+   */
+  async getShopRcnAllocations(shopId: string) {
+    try {
+      return await this.repository.getShopRcnAllocations(shopId);
+    } catch (error) {
+      logger.error('Error getting shop RCN allocations:', error);
+      throw error;
+    }
   }
 }

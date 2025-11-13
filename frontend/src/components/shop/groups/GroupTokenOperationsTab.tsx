@@ -9,12 +9,14 @@ interface GroupTokenOperationsTabProps {
   groupId: string;
   tokenSymbol: string;
   shopRcnBalance?: number;
+  onTransactionComplete?: () => void;
 }
 
 export default function GroupTokenOperationsTab({
   groupId,
   tokenSymbol,
   shopRcnBalance = 0,
+  onTransactionComplete,
 }: GroupTokenOperationsTabProps) {
   const [operationType, setOperationType] = useState<"earn" | "redeem">("earn");
   const [customerAddress, setCustomerAddress] = useState("");
@@ -99,6 +101,9 @@ export default function GroupTokenOperationsTab({
       // Reset form
       setAmount("");
       setReason("");
+
+      // Notify parent component to refresh data
+      onTransactionComplete?.();
     } catch (error: any) {
       console.error("Error processing transaction:", error);
       toast.error(error?.response?.data?.error || `Failed to ${operationType} tokens`);
