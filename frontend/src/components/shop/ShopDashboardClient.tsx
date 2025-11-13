@@ -293,21 +293,6 @@ export default function ShopDashboardClient() {
       const shopResult = await apiClient.get(`/shops/wallet/${account?.address}`);
 
       if (shopResult.success && shopResult.data) {
-        console.log("shopResultshopResultshopResult: ", shopResult)
-        console.log("=".repeat(60));
-        console.log("🏪 SHOP DATA (Shop POV):");
-        console.log("=".repeat(60));
-        console.log("Shop ID:", shopResult.data.shopId);
-        console.log("Shop Name:", shopResult.data.name);
-        console.log("Category:", shopResult.data.category || "Not set");
-        console.log("Verified:", shopResult.data.verified);
-        console.log("Active:", shopResult.data.active);
-        console.log("RCG Balance:", shopResult.data.rcg_balance);
-        console.log("RCG Tier:", shopResult.data.rcg_tier);
-        console.log("Operational Status:", shopResult.data.operational_status);
-        console.log("=".repeat(60));
-        console.log("Full Shop Object:", shopResult.data);
-        console.log("=".repeat(60));
         setShopData(shopResult.data);
 
         // Load purchase history
