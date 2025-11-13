@@ -108,10 +108,11 @@ export const getAllGroups = async (params?: { isPrivate?: boolean }): Promise<Af
     const response = await apiClient.get<{ success: boolean; data: any[] }>(`/affiliate-shop-groups`);
     console.log('✅ [API] getAllGroups response:', {
       status: 'success',
-      dataLength: response.data?.data?.length || 0,
-      rawResponse: response.data
+      dataLength: (response as any).data?.length || 0,
+      rawResponse: response
     });
-    const groups = response.data?.data || [];
+    // apiClient interceptor returns response.data directly, so response IS { success, data }
+    const groups = (response as any).data || [];
 
     // Map backend groupType to frontend isPrivate
     return groups.map((group: any) => ({
@@ -138,10 +139,11 @@ export const getMyGroups = async (): Promise<AffiliateShopGroup[]> => {
     const response = await apiClient.get<{ success: boolean; data: any[] }>('/affiliate-shop-groups/my-groups');
     console.log('✅ [API] getMyGroups response:', {
       status: 'success',
-      dataLength: response.data?.data?.length || 0,
-      rawResponse: response.data
+      dataLength: (response as any).data?.length || 0,
+      rawResponse: response
     });
-    const groups = response.data?.data || [];
+    // apiClient interceptor returns response.data directly, so response IS { success, data }
+    const groups = (response as any).data || [];
 
     // Map backend groupType to frontend isPrivate
     return groups.map((group: any) => ({
