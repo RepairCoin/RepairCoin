@@ -38,15 +38,18 @@ export default function AffiliateShopGroupsClient() {
   const checkSubscription = async () => {
     try {
       setCheckingSubscription(true);
+      console.log("🔍 Checking subscription status...");
+
       // Try to get shop profile from localStorage first
       const shopAuthToken = localStorage.getItem('shopAuthToken');
       if (!shopAuthToken) {
+        console.log("❌ No shop auth token found");
         setSubscriptionActive(false);
         return;
       }
 
-      // Fetch shop subscription status from profile endpoint
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/profile`, {
+      // Get shop ID from wallet address
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/wallet/${account?.address}`, {
         headers: {
           Authorization: `Bearer ${shopAuthToken}`,
         },
@@ -54,12 +57,16 @@ export default function AffiliateShopGroupsClient() {
 
       if (response.ok) {
         const result = await response.json();
-        setSubscriptionActive(result.data?.subscriptionActive || result.subscriptionActive || false);
+        console.log("📦 Shop data:", result);
+        const isActive = result.data?.subscriptionActive || result.subscriptionActive || false;
+        console.log(`✅ Subscription active: ${isActive}`);
+        setSubscriptionActive(isActive);
       } else {
+        console.log("❌ Failed to fetch shop data:", response.status);
         setSubscriptionActive(false);
       }
     } catch (error) {
-      console.error("Error checking subscription:", error);
+      console.error("❌ Error checking subscription:", error);
       setSubscriptionActive(false);
     } finally {
       setCheckingSubscription(false);
