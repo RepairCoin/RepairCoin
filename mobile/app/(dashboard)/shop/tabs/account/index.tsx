@@ -1,14 +1,19 @@
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View, Switch } from "react-native";
 import {
   AntDesign,
   Entypo,
   Feather,
   MaterialIcons,
+  Ionicons,
 } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import * as Clipboard from "expo-clipboard";
 import { router } from "expo-router";
 import { useAuthStore } from "@/store/authStore";
+import { useTheme } from "@/hooks/useTheme";
+import { useThemeColor } from "@/hooks/useThemeColor";
+import { ThemedView } from "@/components/ui/ThemedView";
+import { useShopByWalletAddress } from "@/hooks";
 
 type CopyableFieldProps = {
   value: string;
@@ -55,6 +60,11 @@ const CopyableField = ({
 export default function Account() {
   const { logout } = useAuthStore((state) => state);
   const { account } = useAuthStore();
+  const { data: shopData } = useShopByWalletAddress(account?.address || "");
+  const { isLightMode, toggleColorScheme } = useTheme();
+  
+  const theme = useThemeColor();
+  // Now you can access: theme.background, theme.text, theme.textInverted, etc.
 
   const [isCopied, setIsCopied] = useState<boolean>(false);
 
@@ -78,19 +88,19 @@ export default function Account() {
   }, [isCopied]);
 
   return (
-    <View className="w-full h-full bg-zinc-950 px-4 pt-24">
+    <ThemedView className="w-full h-full px-4 pt-24">
       <ScrollView>
         <View className="flex-row py-6 px-4 justify-between bg-[#212121] rounded-xl items-center">
           <View className="gap-2">
             <Text className="text-[#FFCC00] text-xl font-bold">
-              {"User"}
+             {shopData?.data?.name || "No name"}
             </Text>
             <Text className="text-white/50 text-base">
-              {"No email"}
+              {shopData?.data?.email || "No email"}
             </Text>
           </View>
           <Pressable
-            onPress={() => router.push("/customer/profile")}
+            onPress={() => router.push("/shop/profile")}
             className="bg-white p-2 max-h-12 w-24 rounded-lg flex-row justify-center items-center"
           >
             <Feather name="edit" color="#000" size={14} />
@@ -108,6 +118,34 @@ export default function Account() {
             }
             isCopied={isCopied}
           />
+        </View>
+        <View className="p-4 bg-[#212121] rounded-xl mt-4">
+          <View className="flex-row justify-between items-center pb-4 border-b border-zinc-700">
+            <View className="flex-row items-center">
+              <View className="rounded-full bg-[#2B2B2B] w-12 h-12 items-center justify-center">
+                <Ionicons 
+                  name={isLightMode ? "sunny" : "moon"} 
+                  color="#FFCC00" 
+                  size={20} 
+                />
+              </View>
+              <View className="px-4 gap-1">
+                <Text className="text-white text-xl font-semibold">
+                  Theme
+                </Text>
+                <Text className="text-white/50 text-sm">
+                  {isLightMode ? "Light Mode" : "Dark Mode"} 
+                </Text>
+              </View>
+            </View>
+            <Switch
+              trackColor={{ false: '#767577', true: '#FFCC00' }}
+              thumbColor={isLightMode ? '#fff' : '#f4f3f4'}
+              ios_backgroundColor="#767577"
+              onValueChange={toggleColorScheme}
+              value={isLightMode}
+            />
+          </View>
         </View>
         <View className="p-4 bg-[#212121] rounded-xl mt-4">
           <Pressable
@@ -131,6 +169,6 @@ export default function Account() {
           </Pressable>
         </View>
       </ScrollView>
-    </View>
+    </ThemedView>
   );
 }
