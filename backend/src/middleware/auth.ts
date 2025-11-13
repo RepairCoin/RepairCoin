@@ -61,7 +61,13 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
         userAgent: req.get('User-Agent'),
         path: req.path,
         hasCookie: !!req.cookies?.auth_token,
-        hasAuthHeader: !!req.headers.authorization
+        hasAuthHeader: !!req.headers.authorization,
+        // Additional debugging info for cookie issues
+        origin: req.get('origin'),
+        referer: req.get('referer'),
+        cookieHeader: req.get('cookie'),
+        allCookies: req.cookies,
+        hasRefreshToken: !!req.cookies?.refresh_token
       });
 
       return res.status(401).json({

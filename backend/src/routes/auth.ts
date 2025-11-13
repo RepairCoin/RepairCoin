@@ -119,9 +119,19 @@ const generateAndSetTokens = async (
   logger.info('Access and refresh tokens generated', {
     address: payload.address,
     role: payload.role,
+    shopId: payload.shopId,
     tokenId,
     accessTokenExpiry: '15m',
-    refreshTokenExpiry: '7d'
+    refreshTokenExpiry: '7d',
+    cookieSettings: {
+      httpOnly: baseCookieOptions.httpOnly,
+      secure: baseCookieOptions.secure,
+      sameSite: baseCookieOptions.sameSite,
+      path: baseCookieOptions.path
+    },
+    origin: req.get('origin'),
+    referer: req.get('referer'),
+    ip: req.ip
   });
 
   return { accessToken, refreshToken, tokenId };
@@ -194,15 +204,19 @@ router.post('/token', async (req, res) => {
       });
     }
 
-    // Generate JWT token
-    const token = generateToken(userData);
+    // Generate both access and refresh tokens
+    const { accessToken, refreshToken } = await generateAndSetTokens(res, req, userData);
 
-    // Set httpOnly cookie
-    setAuthCookie(res, token);
+    logger.info('User authenticated successfully', {
+      address: normalizedAddress,
+      role: userType,
+      shopId: userData.shopId,
+      ip: req.ip
+    });
 
     return res.json({
       success: true,
-      token, // Still send in response for backward compatibility
+      token: accessToken, // Send access token in response for backward compatibility
       userType,
       address: normalizedAddress
     });
