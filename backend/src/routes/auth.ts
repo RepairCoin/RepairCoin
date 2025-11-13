@@ -1118,12 +1118,24 @@ router.get('/test-cookie', (req, res) => {
   const isProduction = process.env.NODE_ENV === 'production';
 
   // Set a test cookie
-  res.cookie('test_cookie', 'test_value_' + Date.now(), {
+  const cookieOptions = {
     httpOnly: true,
     secure: isProduction || process.env.COOKIE_SECURE === 'true',
     sameSite: (isProduction ? 'none' : 'lax') as 'none' | 'lax',
     maxAge: 60 * 1000, // 1 minute
     path: '/'
+  };
+
+  res.cookie('test_cookie', 'test_value_' + Date.now(), cookieOptions);
+
+  // Log for debugging
+  logger.info('Test cookie endpoint called', {
+    protocol,
+    isHttps,
+    origin: req.get('origin'),
+    referer: req.get('referer'),
+    cookieOptions,
+    receivedCookies: Object.keys(cookies)
   });
 
   res.json({
@@ -1141,12 +1153,19 @@ router.get('/test-cookie', (req, res) => {
       hasRefreshToken: !!cookies.refresh_token,
       userAgent: req.get('User-Agent'),
       corsOrigin: req.get('origin'),
+      referer: req.get('referer'),
+      cookieSettings: {
+        httpOnly: cookieOptions.httpOnly,
+        secure: cookieOptions.secure,
+        sameSite: cookieOptions.sameSite,
+        maxAge: cookieOptions.maxAge
+      },
       environment: {
         nodeEnv: process.env.NODE_ENV,
         frontendUrl: process.env.FRONTEND_URL
       }
     },
-    instructions: 'Check the Set-Cookie header in the response and verify it appears in your browser cookies'
+    instructions: 'Check the Set-Cookie header in the response and verify it appears in your browser cookies. Open DevTools > Application > Cookies to see if test_cookie appears.'
   });
 });
 

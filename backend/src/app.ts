@@ -176,7 +176,12 @@ class RepairCoinApp {
     
     // Manual OPTIONS handler as fallback
     this.app.options('*', (req, res) => {
-      res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+      const origin = req.headers.origin;
+      // CRITICAL: When using credentials: true, we MUST use exact origin (not '*')
+      // Otherwise browsers will block cookies for security reasons
+      if (origin) {
+        res.header('Access-Control-Allow-Origin', origin);
+      }
       res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
       res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Request-ID');
       res.header('Access-Control-Allow-Credentials', 'true');
