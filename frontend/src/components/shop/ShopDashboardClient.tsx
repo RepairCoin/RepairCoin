@@ -718,7 +718,10 @@ export default function ShopDashboardClient() {
           )}
 
           {activeTab === "groups" && shopData && (
-            <GroupsTab shopId={shopData.shopId} />
+            <GroupsTab
+              shopId={shopData.shopId}
+              subscriptionActive={shopData.subscriptionActive || false}
+            />
           )}
 
           {/* Error Display */}
