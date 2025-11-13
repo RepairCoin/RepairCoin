@@ -104,6 +104,63 @@ export interface PurchaseHistoryResponse {
   message?: string;
 }
 
+// Customer and Rewards related interfaces and services
+export interface CustomerInfo {
+  tier: "BRONZE" | "SILVER" | "GOLD";
+  lifetimeEarnings: number;
+  isActive?: boolean;
+  name?: string;
+  email?: string;
+}
+
+export interface PromoCode {
+  id: string;
+  code: string;
+  name?: string;
+  bonus_type: "fixed" | "percentage";
+  bonus_value: number;
+  max_bonus?: number;
+  is_active: boolean;
+  total_usage_limit?: number;
+  times_used?: number;
+}
+
+export interface RewardRequest {
+  customerAddress: string;
+  repairAmount: number;
+  skipTierBonus?: boolean;
+  promoCode?: string;
+  customBaseReward?: number;
+}
+
+export interface RewardResponse {
+  data: {
+    totalReward: number;
+    baseReward: number;
+    tierBonus: number;
+    promoBonus: number;
+    transactionHash?: string;
+  };
+  success: boolean;
+  message?: string;
+}
+
+export interface PromoValidationRequest {
+  code: string;
+  customer_address: string;
+}
+
+export interface PromoValidationResponse {
+  data: {
+    is_valid: boolean;
+    bonus_type?: "fixed" | "percentage";
+    bonus_value?: string;
+    max_bonus?: string;
+    error_message?: string;
+  };
+  success: boolean;
+}
+
 export const listShops = async (): Promise<ShopResponse> => {
   try {
     return await apiClient.get<ShopResponse>("/shops");
@@ -151,6 +208,42 @@ export const createStripeCheckout = async (amount: number): Promise<PurchaseToke
       console.error("Response status:", error.response.status);
       console.error("Response data:", error.response.data);
     }
+    throw error;
+  }
+};
+
+export const getCustomerInfo = async (walletAddress: string): Promise<{ data: { customer: CustomerInfo } }> => {
+  try {
+    return await apiClient.get(`/customers/${walletAddress}`);
+  } catch (error: any) {
+    console.error("Failed to get customer info:", error.message);
+    throw error;
+  }
+};
+
+export const getShopPromoCodes = async (shopId: string): Promise<{ data: PromoCode[]; success: boolean }> => {
+  try {
+    return await apiClient.get(`/shops/${shopId}/promo-codes`);
+  } catch (error: any) {
+    console.error("Failed to get shop promo codes:", error.message);
+    throw error;
+  }
+};
+
+export const validatePromoCode = async (shopId: string, request: PromoValidationRequest): Promise<PromoValidationResponse> => {
+  try {
+    return await apiClient.post(`/shops/${shopId}/promo-codes/validate`, request);
+  } catch (error: any) {
+    console.error("Failed to validate promo code:", error.message);
+    throw error;
+  }
+};
+
+export const issueReward = async (shopId: string, request: RewardRequest): Promise<RewardResponse> => {
+  try {
+    return await apiClient.post(`/shops/${shopId}/issue-reward`, request);
+  } catch (error: any) {
+    console.error("Failed to issue reward:", error.message);
     throw error;
   }
 };
