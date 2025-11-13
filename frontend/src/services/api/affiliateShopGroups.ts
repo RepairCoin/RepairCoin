@@ -167,7 +167,8 @@ export const getMyGroups = async (): Promise<AffiliateShopGroup[]> => {
 export const getGroup = async (groupId: string): Promise<AffiliateShopGroup | null> => {
   try {
     const response = await apiClient.get<{ success: boolean; data: any }>(`/affiliate-shop-groups/${groupId}`);
-    const data = response.data?.data;
+    // apiClient interceptor returns response.data directly
+    const data = (response as any).data;
     if (!data) return null;
 
     // Map backend groupType to frontend isPrivate
@@ -252,7 +253,8 @@ export const getGroupMembers = async (
     const response = await apiClient.get<{ success: boolean; data: AffiliateShopGroupMember[] | { memberCount: number; _message: string } }>(
       `/affiliate-shop-groups/${groupId}/members${queryString}`
     );
-    const data = response.data?.data;
+    // apiClient interceptor returns response.data directly
+    const data = (response as any).data;
 
     // Backend returns an object with memberCount when user is not a member
     // Return empty array in that case instead of trying to map over object

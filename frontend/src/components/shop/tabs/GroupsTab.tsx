@@ -23,6 +23,13 @@ export function GroupsTab({ shopId, subscriptionActive = false }: GroupsTabProps
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
 
+  console.log('🔐 [GroupsTab] Subscription Status:', {
+    shopId,
+    subscriptionActive,
+    subscriptionActiveType: typeof subscriptionActive,
+    willShowWarning: !subscriptionActive
+  });
+
   useEffect(() => {
     loadData();
   }, []);

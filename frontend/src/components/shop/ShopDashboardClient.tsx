@@ -718,10 +718,18 @@ export default function ShopDashboardClient() {
           )}
 
           {activeTab === "groups" && shopData && (
-            <GroupsTab
-              shopId={shopData.shopId}
-              subscriptionActive={shopData.subscriptionActive || false}
-            />
+            <>
+              {console.log('🔐 [ShopDashboard] Passing to GroupsTab:', {
+                shopId: shopData.shopId,
+                subscriptionActive: shopData.subscriptionActive,
+                subscriptionActiveType: typeof shopData.subscriptionActive,
+                shopDataKeys: Object.keys(shopData)
+              })}
+              <GroupsTab
+                shopId={shopData.shopId}
+                subscriptionActive={shopData.subscriptionActive || false}
+              />
+            </>
           )}
 
           {/* Error Display */}
