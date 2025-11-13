@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 
 const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api",
@@ -27,11 +27,11 @@ apiClient.interceptors.request.use((config) => {
 // Track if we're currently refreshing to avoid multiple simultaneous refresh requests
 let isRefreshing = false;
 let failedQueue: Array<{
-  resolve: (value?: any) => void;
-  reject: (reason?: any) => void;
+  resolve: (value?: unknown) => void;
+  reject: (reason?: unknown) => void;
 }> = [];
 
-const processQueue = (error: any, token: string | null = null) => {
+const processQueue = (error: AxiosError | null, token: string | null = null) => {
   failedQueue.forEach((prom) => {
     if (error) {
       prom.reject(error);
@@ -91,13 +91,20 @@ apiClient.interceptors.response.use(
         // Retry the original request
         return apiClient(originalRequest);
       } catch (refreshError) {
-        // Refresh failed, clear queue and trigger logout
-        processQueue(refreshError, null);
+        // Refresh failed, clear queue
+        const axiosError = refreshError as AxiosError<{ code?: string; message?: string }>;
+        processQueue(axiosError, null);
         isRefreshing = false;
 
-        if (typeof window !== 'undefined') {
-          // Trigger wallet disconnect event to prevent auto-login after revocation
-          // AuthProvider will handle the wallet disconnect and redirect
+        // Only trigger session-revoked if we had a session before
+        // Check if the error is SESSION_REVOKED or if there was actually a refresh token
+        const isSessionRevoked = axiosError?.response?.data?.code === 'SESSION_REVOKED';
+        const hadSession = axiosError?.response?.status === 401 &&
+                          axiosError?.response?.data?.message?.includes('revoked');
+
+        if (typeof window !== 'undefined' && (isSessionRevoked || hadSession)) {
+          // Trigger wallet disconnect event only if session was actually revoked
+          // Don't trigger for "no session exists yet" scenarios (like incognito mode)
           window.dispatchEvent(new CustomEvent('auth:session-revoked'));
         }
 
@@ -126,9 +133,12 @@ apiClient.interceptors.response.use(
       'An unexpected error occurred';
 
     // Create a new error with the extracted message
-    const enhancedError = new Error(errorMessage);
-    (enhancedError as any).response = error.response;
-    (enhancedError as any).status = error.response?.status;
+    const enhancedError = new Error(errorMessage) as Error & {
+      response?: unknown;
+      status?: number
+    };
+    enhancedError.response = error.response;
+    enhancedError.status = error.response?.status;
 
     return Promise.reject(enhancedError);
   }
