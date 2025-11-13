@@ -129,14 +129,11 @@ export const useNotifications = () => {
       return;
     }
 
-    console.log('🔌 Connecting to WebSocket for wallet:', userProfile.address);
-
     try {
       const ws = new WebSocket(WS_URL);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('✅ WebSocket connected - waiting for auto-authentication from cookie');
         reconnectAttemptsRef.current = 0;
         manuallyClosedRef.current = false;
       };
@@ -147,11 +144,9 @@ export const useNotifications = () => {
 
           switch (message.type) {
             case 'connected':
-              console.log('🤝 WebSocket handshake complete');
               break;
 
             case 'authenticated':
-              console.log('🔐 WebSocket authenticated for:', message.payload.walletAddress, '(via', message.payload.source + ')');
               setConnected(true);
               break;
 
