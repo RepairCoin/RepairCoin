@@ -28,17 +28,38 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
   const [inviteCodeCopied, setInviteCodeCopied] = useState(false);
   const [joiningGroup, setJoiningGroup] = useState(false);
   const [currentShopId, setCurrentShopId] = useState<string | undefined>(undefined);
+  const [shopRcnBalance, setShopRcnBalance] = useState<number>(0);
 
   useEffect(() => {
     loadGroupData();
   }, [groupId]);
 
   useEffect(() => {
-    // Get current shop ID from user profile
+    // Get current shop ID from user profile and fetch shop data
     if (userProfile?.shopId) {
       setCurrentShopId(userProfile.shopId);
+      fetchShopData(userProfile.shopId);
     }
   }, [userProfile]);
+
+  const fetchShopData = async (shopId: string) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('shopAuthToken')}`,
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data) {
+          setShopRcnBalance(result.data.purchasedRcnBalance || 0);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching shop data:", error);
+    }
+  };
 
   const loadGroupData = async () => {
     try {
@@ -390,7 +411,7 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
           {!isRestrictedAccess && activeTab === "members" && <GroupMembersTab groupId={groupId} currentShopId={currentShopId} />}
 
           {!isRestrictedAccess && activeTab === "operations" && (
-            <GroupTokenOperationsTab groupId={groupId} tokenSymbol={group.customTokenSymbol} />
+            <GroupTokenOperationsTab groupId={groupId} tokenSymbol={group.customTokenSymbol} shopRcnBalance={shopRcnBalance} />
           )}
 
           {!isRestrictedAccess && activeTab === "transactions" && (

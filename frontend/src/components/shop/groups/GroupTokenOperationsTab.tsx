@@ -8,11 +8,13 @@ import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
 interface GroupTokenOperationsTabProps {
   groupId: string;
   tokenSymbol: string;
+  shopRcnBalance?: number;
 }
 
 export default function GroupTokenOperationsTab({
   groupId,
   tokenSymbol,
+  shopRcnBalance = 0,
 }: GroupTokenOperationsTabProps) {
   const [operationType, setOperationType] = useState<"earn" | "redeem">("earn");
   const [customerAddress, setCustomerAddress] = useState("");
@@ -137,6 +139,25 @@ export default function GroupTokenOperationsTab({
           Redeem Tokens
         </button>
       </div>
+
+      {/* RCN Balance & Requirement Display */}
+      {operationType === "earn" && (
+        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-semibold text-blue-300">Your RCN Balance</p>
+            <p className="text-xl font-bold text-[#FFCC00]">{shopRcnBalance.toFixed(2)} RCN</p>
+          </div>
+          <p className="text-xs text-blue-300 mb-2">
+            <strong>RCN Backing Requirement:</strong> 1:2 ratio (100 {tokenSymbol} requires 50 RCN)
+          </p>
+          {amount && parseFloat(amount) > 0 && (
+            <p className="text-xs text-blue-300">
+              Issuing <strong>{amount} {tokenSymbol}</strong> requires{" "}
+              <strong className="text-[#FFCC00]">{(parseFloat(amount) / 2).toFixed(2)} RCN</strong>
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Customer Lookup */}
       <div className="bg-gray-900 rounded-lg p-4 mb-6">

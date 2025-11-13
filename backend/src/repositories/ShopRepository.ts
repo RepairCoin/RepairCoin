@@ -41,6 +41,8 @@ interface ShopData {
   rcg_balance?: number;
   tier_updated_at?: string;
   operational_status?: 'pending' | 'rcg_qualified' | 'subscription_qualified' | 'not_qualified';
+  subscriptionActive?: boolean;
+  subscriptionId?: string;
   facebook?: string;
   twitter?: string;
   instagram?: string;
@@ -100,6 +102,8 @@ export class ShopRepository extends BaseRepository {
         rcg_tier: row.rcg_tier,
         tier_updated_at: row.tier_updated_at,
         operational_status: row.operational_status,
+        subscriptionActive: row.subscription_active,
+        subscriptionId: row.subscription_id,
         facebook: row.facebook,
         twitter: row.twitter,
         instagram: row.instagram,

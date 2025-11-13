@@ -132,9 +132,14 @@ export default function CreateGroupModal({ onClose, onSubmit }: CreateGroupModal
           {/* Info Box */}
           <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
             <p className="text-sm text-blue-300">
-              <strong>Note:</strong> You will automatically become the admin of this group.
-              Custom tokens can only be earned and redeemed within member shops.
+              <strong>Requirements:</strong>
             </p>
+            <ul className="text-sm text-blue-300 mt-2 space-y-1 list-disc list-inside">
+              <li>Active RepairCoin subscription ($500/month)</li>
+              <li>Custom tokens require RCN backing (1:2 ratio)</li>
+              <li>You will automatically become the admin of this group</li>
+              <li>Custom tokens can only be earned and redeemed within member shops</li>
+            </ul>
           </div>
 
           {/* Actions */}

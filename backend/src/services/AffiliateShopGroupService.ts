@@ -57,6 +57,11 @@ export class AffiliateShopGroupService {
         throw new Error('Shop must be active and verified to create a group');
       }
 
+      // Require active RCN subscription to create affiliate groups
+      if (!shop.subscriptionActive) {
+        throw new Error('Active RepairCoin subscription required to create affiliate groups. Subscribe at $500/month to unlock this feature.');
+      }
+
       // Generate unique group ID and invite code
       const groupId = `grp_${uuidv4()}`;
       const inviteCode = this.generateInviteCode();
@@ -170,6 +175,11 @@ export class AffiliateShopGroupService {
 
       if (!shop.active || !shop.verified) {
         throw new Error('Shop must be active and verified to join a group');
+      }
+
+      // Require active RCN subscription to join affiliate groups
+      if (!shop.subscriptionActive) {
+        throw new Error('Active RepairCoin subscription required to join affiliate groups. Subscribe at $500/month to unlock this feature.');
       }
 
       // Validate group exists
@@ -316,6 +326,31 @@ export class AffiliateShopGroupService {
         throw new Error('Shop is not a member of this group');
       }
 
+      // Get shop and verify RCN backing (1:2 ratio)
+      const shop = await shopRepository.getShop(request.shopId);
+      if (!shop) {
+        throw new Error('Shop not found');
+      }
+
+      // Calculate required RCN backing (1:2 ratio: 100 custom tokens need 50 RCN)
+      const requiredRcn = request.amount / 2;
+      const shopRcnBalance = shop.purchasedRcnBalance || 0;
+
+      if (shopRcnBalance < requiredRcn) {
+        throw new Error(`Insufficient RCN balance. Issuing ${request.amount} custom tokens requires ${requiredRcn} RCN backing (1:2 ratio). You have ${shopRcnBalance} RCN available.`);
+      }
+
+      // Deduct RCN from shop's purchased balance
+      await shopRepository.updateShop(request.shopId, {
+        purchasedRcnBalance: shopRcnBalance - requiredRcn
+      });
+
+      logger.info('RCN backing deducted', {
+        shopId: request.shopId,
+        deducted: requiredRcn,
+        newBalance: shopRcnBalance - requiredRcn
+      });
+
       // Get current balance
       const currentBalance = await this.repository.getCustomerBalance(request.customerAddress, request.groupId);
       const balanceBefore = currentBalance?.balance || 0;
@@ -380,6 +415,25 @@ export class AffiliateShopGroupService {
       }
 
       const balanceBefore = currentBalance.balance;
+
+      // Return RCN backing to shop (1:2 ratio)
+      const shop = await shopRepository.getShop(request.shopId);
+      if (!shop) {
+        throw new Error('Shop not found');
+      }
+
+      const returnedRcn = request.amount / 2;
+      const currentRcnBalance = shop.purchasedRcnBalance || 0;
+
+      await shopRepository.updateShop(request.shopId, {
+        purchasedRcnBalance: currentRcnBalance + returnedRcn
+      });
+
+      logger.info('RCN backing returned', {
+        shopId: request.shopId,
+        returned: returnedRcn,
+        newBalance: currentRcnBalance + returnedRcn
+      });
 
       // Update balance
       const newBalance = await this.repository.updateCustomerBalance(
