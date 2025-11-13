@@ -83,10 +83,12 @@ export default function ApprovalTab() {
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
-  const sessions = data?.data?.sessions || [];
+  const sessions = data?.sessions || [];
   const pendingSessions = sessions.filter(
     (session: RedemptionSession) => session.status === "pending"
   );
+
+  console.log("sessionssessions: ", sessions)
 
   // Pull-to-refresh handler
   const onRefresh = useCallback(async () => {
