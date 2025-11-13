@@ -118,8 +118,6 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
                               Array.isArray(purchases.data) ? purchases.data :
                               Array.isArray(purchases) ? purchases : [];
 
-        console.log('Processed transactions array:', transactionsArray);
-        console.log('Processed purchases array:', purchasesArray);
 
         // Cache the raw data
         dataCache.current.set(cacheKey, {
@@ -169,8 +167,6 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
     const safeTransactions = Array.isArray(transactions) ? transactions : [];
     const safePurchases = Array.isArray(purchases) ? purchases : [];
 
-    console.log('Processing data - transactions count:', safeTransactions.length);
-    console.log('Processing data - purchases count:', safePurchases.length);
 
     // Process purchases (costs)
     safePurchases.forEach((purchase: any) => {
@@ -182,7 +178,6 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
         const purchaseCost = parseFloat(purchase.total_cost || purchase.totalCost || 0);
         const purchaseAmount = parseFloat(purchase.amount || 0);
         
-        console.log(`Processing purchase: Date=${date}, Cost=$${purchaseCost}, Amount=${purchaseAmount} RCN`);
         
         dataMap.set(date, {
           ...existing,
@@ -210,7 +205,6 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
           repairRevenue = rcnAmount * 10; // Conservative estimate: $10 repair per 1 RCN
         }
         
-        console.log(`Processing transaction: Date=${date}, Revenue=$${repairRevenue}, RCN=${transaction.amount}`);
         
         dataMap.set(date, {
           ...existing,
@@ -233,9 +227,6 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
       }))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     
-    console.log('Final profit data calculated:', result);
-    console.log('Total costs from all purchases:', result.reduce((sum, item) => sum + item.costs, 0));
-    console.log('Total revenue from all repairs:', result.reduce((sum, item) => sum + item.revenue, 0));
 
     return result;
   }, [formatDateByRange]);

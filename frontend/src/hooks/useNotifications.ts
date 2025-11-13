@@ -265,29 +265,17 @@ export const useNotifications = () => {
 
   // Initialize: fetch notifications and connect WebSocket
   useEffect(() => {
-    console.log('🔔 useNotifications effect triggered', {
-      isAuthenticated,
-      hasUserProfile: !!userProfile,
-      walletAddress: userProfile?.address,
-      userType: userProfile?.type,
-      currentConnectionState: wsRef.current?.readyState,
-    });
-
     if (isAuthenticated && userProfile?.address) {
       // Only connect if we don't already have an open or connecting WebSocket
       const currentState = wsRef.current?.readyState;
       const isConnectedOrConnecting = currentState === WebSocket.OPEN || currentState === WebSocket.CONNECTING;
 
       if (!isConnectedOrConnecting) {
-        console.log('✅ Authenticated user detected - Fetching notifications and connecting WebSocket...');
         fetchNotifications();
         fetchUnreadCount();
         connectWebSocket();
-      } else {
-        console.log('ℹ️ WebSocket already connected/connecting');
       }
     } else {
-      console.log('❌ NOT CONNECTING - User not authenticated or profile missing');
       // Disconnect if user logged out
       if (!isAuthenticated) {
         disconnectWebSocket();
