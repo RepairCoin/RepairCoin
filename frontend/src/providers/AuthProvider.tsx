@@ -25,49 +25,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // If revoked, user is logged out - this is the industry-standard approach
   useTokenRefresh();
 
-  // Check for and display auth error messages from localStorage (after redirects)
-  useEffect(() => {
-    // Small delay to ensure toast container is mounted
-    const timer = setTimeout(() => {
-      const authError = localStorage.getItem('auth_error');
-      const authErrorType = localStorage.getItem('auth_error_type');
-
-      if (authError) {
-        console.log('[AuthProvider] 🔔 Displaying stored auth error:', authError);
-        console.log('[AuthProvider] Error type:', authErrorType);
-
-        // Show the error toast with longer durations
-        if (authErrorType === 'revoked') {
-          toast.error(authError, {
-            duration: 10000, // 10 seconds for revocation messages
-            icon: '🚫',
-            style: {
-              background: '#991b1b',
-              color: '#fff',
-              fontWeight: 'bold'
-            }
-          });
-        } else {
-          toast.error(authError, {
-            duration: 8000,
-            style: {
-              background: '#dc2626',
-              color: '#fff'
-            }
-          });
-        }
-
-        // Clear the stored error after a delay to ensure it's shown
-        setTimeout(() => {
-          localStorage.removeItem('auth_error');
-          localStorage.removeItem('auth_error_type');
-          console.log('[AuthProvider] ✅ Cleared stored auth error');
-        }, 1000);
-      }
-    }, 100); // 100ms delay to ensure toast container is ready
-
-    return () => clearTimeout(timer);
-  }, []); // Run once on mount
+  // No longer using localStorage for auth errors - errors are handled in-memory via authStore
 
   // Handle unauthorized errors globally
   const handleUnauthorized = useCallback((event: CustomEvent) => {
@@ -131,11 +89,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Handle login failures - disconnect wallet on auth failures
   useEffect(() => {
     const handleLoginFailed = async (event: CustomEvent) => {
-      const { isRevoked, error } = event.detail || {};
+      const authError = event.detail; // Now receives structured AuthError
+      const { message, type, timestamp } = authError || {};
 
       console.log('[AuthProvider] Login failed - handling WITHOUT wallet disconnect to avoid page refresh', {
-        isRevoked,
-        error
+        type,
+        message,
+        timestamp
       });
 
       // DON'T disconnect wallet here - that triggers useAuthInitializer logout → page refresh
@@ -157,9 +117,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.error('[AuthProvider] Error clearing Thirdweb storage:', error);
       }
 
-      // Show error toast - NO page refresh, so user will see it!
-      if (isRevoked) {
-        toast.error('Your account access has been revoked. Please try again later or contact support.', {
+      // Show error toast based on error type - NO page refresh, so user will see it!
+      if (type === 'revoked') {
+        toast.error(message, {
           duration: 10000,
           icon: '🚫',
           style: {
@@ -169,8 +129,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             fontSize: '15px'
           }
         });
+      } else if (type === 'unverified' || type === 'inactive') {
+        // Don't show error for unverified/inactive - handled by dashboard UI
+        console.log('[AuthProvider] Skipping toast for unverified/inactive shop - handled in UI');
+        return; // Don't reload page for these cases
       } else {
-        toast.error(error || 'Authentication failed. Please try again or contact support.', {
+        toast.error(message || 'Authentication failed. Please try again or contact support.', {
           duration: 8000,
           style: {
             background: '#dc2626',
@@ -180,7 +144,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         });
       }
 
-      // Force a page reload after user has seen the toast
+      // Force a page reload after user has seen the toast (except for unverified/inactive)
       setTimeout(() => {
         console.log('[AuthProvider] Reloading page after login failure');
         window.location.reload();
@@ -237,13 +201,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.error('[AuthProvider] Error clearing Thirdweb storage:', error);
       }
 
-      // Store error message for display after redirect
-      localStorage.setItem('auth_error', 'Your session has been revoked by an administrator.');
-      localStorage.setItem('auth_error_type', 'revoked');
-
       // Show a toast message immediately (visible before redirect)
+      // No longer using localStorage - errors are in-memory
       toast.error('Your session has been revoked by an administrator.', {
-        duration: 3000
+        duration: 3000,
+        icon: '🚫',
+        style: {
+          background: '#991b1b',
+          color: '#fff',
+          fontWeight: 'bold'
+        }
       });
 
       // Redirect to home with session expired message (only if on authenticated pages)

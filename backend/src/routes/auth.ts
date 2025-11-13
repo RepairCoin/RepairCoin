@@ -870,12 +870,6 @@ router.post('/shop', authLimiter, async (req, res) => {
         });
       }
 
-      if (!shop.active || !shop.verified) {
-        return res.status(403).json({
-          error: 'Shop must be active and verified to authenticate'
-        });
-      }
-
       // Check if user has had tokens revoked recently (prevents immediate re-auth after revocation)
       const recentRevocation = await refreshTokenRepository.hasRecentRevocation(normalizedAddress, 1); // 1 hour cooldown
       if (recentRevocation) {
@@ -894,7 +888,7 @@ router.post('/shop', authLimiter, async (req, res) => {
         });
       }
 
-      // Generate access and refresh tokens
+      // Generate access and refresh tokens (allow unverified shops with limited access)
       const { accessToken } = await generateAndSetTokens(res, req, {
         address: normalizedAddress,
         role: 'shop',
@@ -914,7 +908,12 @@ router.post('/shop', authLimiter, async (req, res) => {
           active: shop.active,
           verified: shop.verified,
           createdAt: shop.joinDate
-        }
+        },
+        // Include warning if shop is not verified/active
+        ...((!shop.active || !shop.verified) && {
+          warning: 'Shop is pending verification. Some features may be limited.',
+          limitedAccess: true
+        })
       });
 
     } catch (error) {

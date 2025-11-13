@@ -316,16 +316,10 @@ async function validateUserInDatabase(tokenPayload: JWTPayload): Promise<boolean
           logger.warn('Shop not found', { shopId: tokenPayload.shopId });
           return false;
         }
-        if (!shop.active) {
-          logger.warn('Shop not active', { shopId: tokenPayload.shopId });
-          return false;
-        }
-        if (!shop.verified) {
-          logger.warn('Shop not verified', { shopId: tokenPayload.shopId });
-          return false;
-        }
+        // Allow unverified/inactive shops to access dashboard with limited features
+        // Individual endpoints can enforce stricter checks if needed
         if (shop.walletAddress.toLowerCase() !== tokenPayload.address.toLowerCase()) {
-          logger.warn('Shop wallet address mismatch', { 
+          logger.warn('Shop wallet address mismatch', {
             shopId: tokenPayload.shopId,
             shopWallet: shop.walletAddress.toLowerCase(),
             tokenWallet: tokenPayload.address.toLowerCase()
