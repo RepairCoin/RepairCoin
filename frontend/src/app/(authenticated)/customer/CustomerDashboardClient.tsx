@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { createThirdwebClient } from "thirdweb";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useAuthStore } from "@/stores/authStore";
 import { ReferralDashboard } from "@/components/customer/ReferralDashboard";
 import { RedemptionApprovals } from "@/components/customer/RedemptionApprovals";
 import { OverviewTab } from "@/components/customer/OverviewTab";
@@ -20,11 +21,28 @@ const client = createThirdwebClient({
 });
 
 export default function CustomerDashboardClient() {
+  const router = useRouter();
   const account = useActiveAccount();
   const searchParams = useSearchParams();
+  const { isAuthenticated, userType } = useAuthStore();
   const [activeTab, setActiveTab] = useState<
     "overview" | "referrals" | "approvals" | "findshop" | "gifting" | "settings"
   >("overview");
+
+  // Client-side auth protection (since middleware is disabled for cross-domain)
+  useEffect(() => {
+    // Wait for auth to initialize before checking
+    // Don't redirect if we're still loading (isAuthenticated is false but may become true)
+    if (isAuthenticated === false && userType) {
+      // Auth has loaded and user is not authenticated
+      console.log('[CustomerDashboard] Not authenticated, redirecting to home');
+      router.push('/');
+    } else if (isAuthenticated && userType && userType !== 'customer') {
+      // User is authenticated but wrong role
+      console.log('[CustomerDashboard] Wrong role, redirecting to home');
+      router.push('/');
+    }
+  }, [isAuthenticated, userType, router]);
 
   // Initialize tab from URL query parameter
   useEffect(() => {

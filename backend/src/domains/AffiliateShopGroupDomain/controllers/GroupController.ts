@@ -86,54 +86,42 @@ export class GroupController {
         });
       }
 
-      // If group is private, check if requesting shop is a member
-      if (group.groupType === 'private') {
-        // If not authenticated or not a member, return limited info
-        if (!requestingShopId) {
-          return res.json({
-            success: true,
-            data: {
-              groupId: group.groupId,
-              groupName: group.groupName,
-              groupType: group.groupType,
-              description: group.description,
-              logoUrl: group.logoUrl,
-              // Hide sensitive fields
-              inviteCode: null,
-              customTokenName: null,
-              customTokenSymbol: null,
-              _message: 'This is a private group. Join to see full details.'
-            }
-          });
-        }
-
-        // Check if shop is a member
-        const isMember = await this.service.isShopMember(groupId, requestingShopId);
-
-        if (!isMember) {
-          // Not a member - return limited info
-          return res.json({
-            success: true,
-            data: {
-              groupId: group.groupId,
-              groupName: group.groupName,
-              groupType: group.groupType,
-              description: group.description,
-              logoUrl: group.logoUrl,
-              // Hide sensitive fields
-              inviteCode: null,
-              customTokenName: null,
-              customTokenSymbol: null,
-              _message: 'This is a private group. Join to see full details.'
-            }
-          });
-        }
+      // Check membership status for all groups
+      let membershipStatus = null;
+      if (requestingShopId) {
+        const membership = await this.service.getShopMembershipStatus(groupId, requestingShopId);
+        membershipStatus = membership ? membership.status : null;
       }
 
-      // Public group OR authenticated member of private group - return full details
+      // All groups now work the same: hide sensitive info from non-members
+      // If not authenticated or not an active member, return limited info
+      if (!requestingShopId || !membershipStatus || membershipStatus !== 'active') {
+        return res.json({
+          success: true,
+          data: {
+            groupId: group.groupId,
+            groupName: group.groupName,
+            groupType: group.groupType,
+            description: group.description,
+            logoUrl: group.logoUrl,
+            memberCount: group.memberCount,
+            // Hide sensitive fields from non-members
+            inviteCode: null,
+            customTokenName: null,
+            customTokenSymbol: null,
+            membershipStatus: membershipStatus,
+            _message: 'Join this group to see full details.'
+          }
+        });
+      }
+
+      // Active member - return full details with membership status
       res.json({
         success: true,
-        data: group
+        data: {
+          ...group,
+          membershipStatus
+        }
       });
     } catch (error: unknown) {
       logger.error('Error in getGroup controller:', error);
@@ -161,35 +149,33 @@ export class GroupController {
 
       const result = await this.service.getAllGroups(filters);
 
-      // Sanitize private group data for non-members
+      // Add membership status and sanitize group data for non-members
       const sanitizedItems = await Promise.all(
         result.items.map(async (group) => {
-          // For private groups, hide sensitive info from non-members
-          if (group.groupType === 'private') {
-            // If authenticated, check membership
-            if (requestingShopId) {
-              const isMember = await this.service.isShopMember(group.groupId, requestingShopId);
-              if (!isMember) {
-                // Not a member - hide sensitive fields
-                return {
-                  ...group,
-                  inviteCode: null,
-                  customTokenName: null,
-                  customTokenSymbol: null,
-                };
-              }
-            } else {
-              // Not authenticated - hide sensitive fields
-              return {
-                ...group,
-                inviteCode: null,
-                customTokenName: null,
-                customTokenSymbol: null,
-              };
-            }
+          // Check membership status for all groups
+          let membershipStatus = null;
+          if (requestingShopId) {
+            const membership = await this.service.getShopMembershipStatus(group.groupId, requestingShopId);
+            membershipStatus = membership ? membership.status : null;
           }
-          // Public group or member of private group - return full data
-          return group;
+
+          // All groups now work the same: hide sensitive info from non-members
+          // If not authenticated or not an active member, hide sensitive fields
+          if (!requestingShopId || !membershipStatus || membershipStatus !== 'active') {
+            return {
+              ...group,
+              inviteCode: null,
+              customTokenName: null,
+              customTokenSymbol: null,
+              membershipStatus
+            };
+          }
+
+          // Active member - return full data with membership status
+          return {
+            ...group,
+            membershipStatus
+          };
         })
       );
 

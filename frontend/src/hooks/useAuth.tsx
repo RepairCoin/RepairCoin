@@ -7,7 +7,7 @@ import { authApi } from '@/services/api/auth';
 
 /**
  * Hook that integrates Thirdweb account with Zustand auth store
- * Contains all business logic for authentication
+ * Authentication logic is centralized in the store to prevent duplicate calls
  */
 export const useAuth = () => {
   const account = useActiveAccount();
@@ -24,7 +24,7 @@ export const useAuth = () => {
     setUserProfile,
     setLoading,
     setError,
-    resetAuth
+    resetAuth,
   } = useAuthStore();
 
   const checkUserExists = useCallback(async (address: string) => {
@@ -82,56 +82,9 @@ export const useAuth = () => {
     }
   }, [checkUserExists]);
 
-  const login = useCallback(async () => {
-    if (!account?.address) return;
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const profile = await fetchUserProfile(account.address);
-      
-      if (profile) {
-        try {
-          // Use role-specific authentication endpoint based on user type
-          let tokenData = null;
-          switch (profile.type) {
-            case 'admin':
-              tokenData = await authApi.authenticateAdmin(account.address);
-              break;
-            case 'shop':
-              tokenData = await authApi.authenticateShop(account.address);
-              break;
-            case 'customer':
-              tokenData = await authApi.authenticateCustomer(account.address);
-              break;
-            default:
-              console.warn('Unknown user type for authentication:', profile.type);
-          }
-          
-          if (tokenData && tokenData.token) {
-            profile.token = tokenData.token;
-            console.log('✅ Authentication token obtained successfully');
-          } else {
-            console.log('ℹ️ Token generation skipped - user not registered');
-          }
-        } catch (tokenError) {
-          console.error('❌ Network error fetching token:', tokenError);
-        }
-      }
-      
-      setUserProfile(profile);
-    } catch (error) {
-      console.error('Login error:', error);
-      setError('Failed to authenticate user');
-    } finally {
-      setLoading(false);
-    }
-  }, [account?.address, setLoading, setError, setUserProfile, fetchUserProfile]);
-
-  const logout = useCallback(() => {
-    resetAuth();
-  }, [resetAuth]);
+  // NOTE: login/logout removed - authentication is handled by useAuthInitializer
+  // If you need to manually trigger logout, use: authManager.clearAllTokens() + router.push('/')
+  // Manual login is not supported - user must connect wallet via Thirdweb UI
 
   const refreshProfile = useCallback(async () => {
     if (!account?.address) return;
@@ -150,26 +103,13 @@ export const useAuth = () => {
     }
   }, [account?.address, setLoading, setError, setUserProfile, fetchUserProfile]);
 
-  useEffect(() => {
-    if (account?.address) {
-      console.log("LOGIN ATTEMPT")
-
-      setAccount(account);
-      login();
-    } else {
-      logout();
-      setAccount(null);
-      
-      if (typeof window !== 'undefined') {
-        sessionStorage.clear();
-      }
-    }
-  }, [account?.address]);
+  // NOTE: Account change detection moved to useAuthInitializer (in AuthProvider)
+  // This prevents duplicate login calls from multiple hooks
 
   return {
     account,
     userProfile,
-    user: userProfile, 
+    user: userProfile,
     isAuthenticated,
     isLoading,
     error,
@@ -177,8 +117,6 @@ export const useAuth = () => {
     isAdmin,
     isShop,
     isCustomer,
-    login,
-    logout,
     refreshProfile,
     checkUserExists,
     fetchUserProfile

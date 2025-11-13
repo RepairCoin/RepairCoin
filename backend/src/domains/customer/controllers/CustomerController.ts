@@ -46,10 +46,7 @@ export class CustomerController {
       
       ResponseHelper.created(res, result, 'Customer registered successfully');
     } catch (error: any) {
-      if (error.message === 'Customer already registered') {
-        ResponseHelper.conflict(res, error.message);
-      } else if (error.message.includes('already registered as')) {
-        // Role conflict errors
+      if (error.message.includes('already registered') || error.message.includes('already in use')) {
         ResponseHelper.conflict(res, error.message);
       } else {
         ResponseHelper.error(res, error.message, 500);

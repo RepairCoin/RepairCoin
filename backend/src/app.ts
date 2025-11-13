@@ -10,6 +10,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import cookieParser from 'cookie-parser';
 import { Config } from './config';
 import { logger } from './utils/logger';
 import { setupSwagger } from './docs/swagger';
@@ -85,6 +86,10 @@ class RepairCoinApp {
   }
 
   private setupMiddleware(): void {
+    // Trust proxy - CRITICAL for Digital Ocean App Platform
+    // This must come BEFORE any middleware that uses req.ip or req.protocol
+    this.app.set('trust proxy', true);
+
     // CORS must come before helmet to handle preflight requests properly
     this.app.use(cors({
       origin: function(origin, callback) {
@@ -144,7 +149,10 @@ class RepairCoinApp {
     // JSON parsing for all other routes
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true }));
-    
+
+    // Cookie parser middleware
+    this.app.use(cookieParser());
+
     // Add request ID middleware
     this.app.use(requestIdMiddleware);
     
@@ -425,7 +433,7 @@ class RepairCoinApp {
       console.log('🔥 Skipping database pool warmup (connection tests disabled)');
     } else {
       console.log('🔥 Warming up database connection pool...');
-      const { warmUpPool } = await import('./utils/database-pool');
+      const { warmUpPool, startPoolMonitoring } = await import('./utils/database-pool');
       try {
         await Promise.race([
           warmUpPool(),
@@ -433,6 +441,10 @@ class RepairCoinApp {
             setTimeout(() => reject(new Error('Pool warmup timeout after 3s')), 3000)
           )
         ]);
+
+        // Start pool monitoring to track connection usage
+        startPoolMonitoring(60000); // Log stats every minute
+        console.log('✅ Database pool monitoring started');
       } catch (error) {
         console.log('⚠️ Database pool warmup failed, continuing startup:', error.message);
       }
@@ -526,8 +538,11 @@ class RepairCoinApp {
         logger.info(`🔍 Monitoring service started`);
 
         // Start cleanup service - runs daily at 2 AM UTC
-        cleanupService.scheduleCleanup(24); // Run every 24 hours
-        logger.info('🧹 Cleanup service scheduled (daily)');
+        // Disable transaction archiving (function doesn't exist yet)
+        cleanupService.scheduleCleanup(24, {
+          enableTransactionArchiving: false
+        });
+        logger.info('🧹 Cleanup service scheduled (daily, webhook cleanup only)');
 
         // Schedule platform statistics refresh every 5 minutes
         setInterval(async () => {

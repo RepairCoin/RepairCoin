@@ -31,20 +31,42 @@ export class WalletDetectionService {
     }
 
     try {
-      // Check if admin
+      // Check if admin (first check environment variable, then API)
       const adminAddresses = process.env.NEXT_PUBLIC_ADMIN_ADDRESSES?.split(',') || [];
       if (adminAddresses.some(admin => admin.toLowerCase() === address.toLowerCase())) {
+        console.log(`✅ Wallet ${address} detected as admin (from environment)`);
         return { type: 'admin', isRegistered: true, route: '/admin' };
       }
 
+      // Also check backend API for admin status using check-user endpoint
+      try {
+        const adminCheckResponse = await fetch(`${this.apiUrl}/auth/check-user`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ address })
+        });
+        if (adminCheckResponse.ok) {
+          const userData = await adminCheckResponse.json();
+          if (userData.type === 'admin') {
+            console.log(`✅ Wallet ${address} detected as admin (from backend)`);
+            return { type: 'admin', isRegistered: true, route: '/admin', data: userData.user };
+          }
+        }
+      } catch (adminError) {
+        console.log(`ℹ️ Could not check admin status from backend for ${address}`);
+      }
+
       // Check if customer
-      const customerResponse = await fetch(`${this.apiUrl}/customers/${address}`);
+      const customerResponse = await fetch(`${this.apiUrl}/customers/${address}`, {
+        credentials: 'include' // Send cookies with request
+      });
       if (customerResponse.ok) {
         const customerData = await customerResponse.json();
         console.log(`✅ Wallet ${address} detected as registered customer`);
-        return { 
-          type: 'customer', 
-          isRegistered: true, 
+        return {
+          type: 'customer',
+          isRegistered: true,
           route: '/customer',
           data: customerData.data
         };
@@ -53,13 +75,15 @@ export class WalletDetectionService {
       }
 
       // Check if shop
-      const shopResponse = await fetch(`${this.apiUrl}/shops/wallet/${address}`);
+      const shopResponse = await fetch(`${this.apiUrl}/shops/wallet/${address}`, {
+        credentials: 'include' // Send cookies with request
+      });
       if (shopResponse.ok) {
         const shopData = await shopResponse.json();
         console.log(`✅ Wallet ${address} detected as registered shop`);
-        return { 
-          type: 'shop', 
-          isRegistered: true, 
+        return {
+          type: 'shop',
+          isRegistered: true,
           route: '/shop',
           data: shopData.data
         };

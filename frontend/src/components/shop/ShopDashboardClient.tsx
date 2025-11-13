@@ -4,11 +4,13 @@ import { useState, useEffect } from "react";
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { createThirdwebClient, getContract, readContract } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useAuthStore } from "@/stores/authStore";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 import ThirdwebPayment from "../ThirdwebPayment";
 import "@/styles/animations.css";
 import { toast } from "react-hot-toast";
+import apiClient from "@/services/api/client";
 
 // Import our new components
 import { OverviewTab } from "@/components/shop/tabs/OverviewTab";
@@ -89,8 +91,10 @@ interface TierBonusStats {
 }
 
 export default function ShopDashboardClient() {
+  const router = useRouter();
   const account = useActiveAccount();
   const searchParams = useSearchParams();
+  const { isAuthenticated, userType } = useAuthStore();
   const { existingApplication } = useShopRegistration();
   const [shopData, setShopData] = useState<ShopData | null>(null);
   const [purchases, setPurchases] = useState<PurchaseHistory[]>([]);
@@ -121,11 +125,27 @@ export default function ShopDashboardClient() {
     subtitle?: string;
   }>({});
 
-  // Initialize auth token
+  // Auth token managed via httpOnly cookies - no longer needed in state
+  // Keeping state for backward compatibility during migration
   useEffect(() => {
-    const token = localStorage.getItem("shopAuthToken") || sessionStorage.getItem("shopAuthToken");
-    setAuthToken(token);
+    // Token now managed by cookies - this is deprecated
+    setAuthToken(null);
   }, []);
+
+  // Client-side auth protection (since middleware is disabled for cross-domain)
+  useEffect(() => {
+    // Wait for auth to initialize before checking
+    // Don't redirect if we're still loading (isAuthenticated is false but may become true)
+    if (isAuthenticated === false && userType) {
+      // Auth has loaded and user is not authenticated
+      console.log('[ShopDashboard] Not authenticated, redirecting to home');
+      router.push('/');
+    } else if (isAuthenticated && userType && userType !== 'shop') {
+      // User is authenticated but wrong role
+      console.log('[ShopDashboard] Wrong role, redirecting to home');
+      router.push('/');
+    }
+  }, [isAuthenticated, userType, router]);
 
   useEffect(() => {
     // Set active tab from URL query param
@@ -212,20 +232,10 @@ export default function ShopDashboardClient() {
       if (!shopData || !account?.address) return;
 
       try {
-        const authToken =
-          localStorage.getItem("shopAuthToken") ||
-          sessionStorage.getItem("shopAuthToken");
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/shops/purchase-sync/pending`,
-          {
-            headers: {
-              Authorization: authToken ? `Bearer ${authToken}` : "",
-            },
-          }
-        );
+        const response = await apiClient.get('/shops/purchase-sync/pending');
 
-        if (response.ok) {
-          const result = await response.json();
+        if (response.success) {
+          const result = response;
           if (result.data && result.data.length > 0) {
             // Silently check each pending purchase
             for (const purchase of result.data) {
@@ -276,122 +286,45 @@ export default function ShopDashboardClient() {
     setError(null);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      // NOTE: Authentication is now handled globally by useAuthInitializer
+      // No need to call /auth/shop here - cookies are already set
 
-      // First, authenticate and get JWT token
-      const authResponse = await fetch(`${apiUrl}/auth/shop`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ address: account?.address }),
-      });
+      // Load shop data with authentication (cookies sent automatically)
+      const shopResult = await apiClient.get(`/shops/wallet/${account?.address}`);
 
-      if (authResponse.ok) {
-        const authResult = await authResponse.json();
-        // Store token for future requests
-        localStorage.setItem("shopAuthToken", authResult.token);
-        sessionStorage.setItem("shopAuthToken", authResult.token);
-        console.log("Shop authenticated successfully");
-      } else if (authResponse.status === 403) {
-        const errorData = await authResponse.json();
-        setError(errorData.error || "Shop authentication failed");
-        setLoading(false);
-        return;
-      } else {
-        console.error("Shop auth failed:", authResponse.status);
-        setError("Authentication failed. Please try again.");
-        setLoading(false);
-        return;
-      }
-
-      // Get auth token for authenticated requests
-      const authToken =
-        localStorage.getItem("shopAuthToken") ||
-        sessionStorage.getItem("shopAuthToken");
-
-      // Load shop data with authentication
-      const shopResponse = await fetch(
-        `${apiUrl}/shops/wallet/${account?.address}`,
-        {
-          cache: "no-store",
-          headers: {
-            Authorization: authToken ? `Bearer ${authToken}` : "",
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (shopResponse.ok) {
-        const shopResult = await shopResponse.json();
+      if (shopResult.success && shopResult.data) {
         console.log("shopResultshopResultshopResult: ", shopResult)
-        if (shopResult.success && shopResult.data) {
-          console.log("=".repeat(60));
-          console.log("🏪 SHOP DATA (Shop POV):");
-          console.log("=".repeat(60));
-          console.log("Shop ID:", shopResult.data.shopId);
-          console.log("Shop Name:", shopResult.data.name);
-          console.log("Category:", shopResult.data.category || "Not set");
-          console.log("Verified:", shopResult.data.verified);
-          console.log("Active:", shopResult.data.active);
-          console.log("RCG Balance:", shopResult.data.rcg_balance);
-          console.log("RCG Tier:", shopResult.data.rcg_tier);
-          console.log("Operational Status:", shopResult.data.operational_status);
-          console.log("=".repeat(60));
-          console.log("Full Shop Object:", shopResult.data);
-          console.log("=".repeat(60));
-          setShopData(shopResult.data);
+        console.log("=".repeat(60));
+        console.log("🏪 SHOP DATA (Shop POV):");
+        console.log("=".repeat(60));
+        console.log("Shop ID:", shopResult.data.shopId);
+        console.log("Shop Name:", shopResult.data.name);
+        console.log("Category:", shopResult.data.category || "Not set");
+        console.log("Verified:", shopResult.data.verified);
+        console.log("Active:", shopResult.data.active);
+        console.log("RCG Balance:", shopResult.data.rcg_balance);
+        console.log("RCG Tier:", shopResult.data.rcg_tier);
+        console.log("Operational Status:", shopResult.data.operational_status);
+        console.log("=".repeat(60));
+        console.log("Full Shop Object:", shopResult.data);
+        console.log("=".repeat(60));
+        setShopData(shopResult.data);
 
-          // Load purchase history
-          if (shopResult.data.shopId) {
-            const purchaseResponse = await fetch(
-              `${apiUrl}/shops/purchase/history/${shopResult.data.shopId}`,
-              {
-                headers: {
-                  Authorization: `Bearer ${authToken}`,
-                },
-              }
-            );
-            if (purchaseResponse.ok) {
-              const purchaseResult = await purchaseResponse.json();
-              setPurchases(purchaseResult.data.purchases || []);
-            }
-
-            // Load tier bonus stats
-            const tierResponse = await fetch(
-              `${apiUrl}/shops/tier-bonus/stats/${shopResult.data.shopId}`,
-              {
-                headers: {
-                  Authorization: `Bearer ${authToken}`,
-                },
-              }
-            );
-            if (tierResponse.ok) {
-              const tierResult = await tierResponse.json();
-              setTierStats(tierResult.data);
-            }
+        // Load purchase history
+        if (shopResult.data.shopId) {
+          const purchaseResult = await apiClient.get(`/shops/purchase/history/${shopResult.data.shopId}`);
+          if (purchaseResult.success) {
+            setPurchases(purchaseResult.data.purchases || []);
           }
-        } else {
-          setError("Invalid shop data received");
+
+          // Load tier bonus stats
+          const tierResult = await apiClient.get(`/shops/tier-bonus/stats/${shopResult.data.shopId}`);
+          if (tierResult.success) {
+            setTierStats(tierResult.data);
+          }
         }
       } else {
-        const errorText = await shopResponse.text();
-        console.error("Shop API error:", shopResponse.status, errorText);
-
-        if (shopResponse.status === 404) {
-          setError(
-            `Shop not found for wallet ${account?.address}. ` +
-              "Please check if your wallet is registered as a shop."
-          );
-        } else if (shopResponse.status === 401) {
-          setError("Authentication failed. Please try refreshing the page.");
-        } else {
-          setError(
-            `API Error (${shopResponse.status}): ${
-              errorText || "Failed to load shop data"
-            }`
-          );
-        }
+        setError("Invalid shop data received");
       }
     } catch (err) {
       console.error("Error loading shop data:", err);
@@ -420,39 +353,19 @@ export default function ShopDashboardClient() {
           shopData: shopData,
         });
 
-        const authToken =
-          localStorage.getItem("shopAuthToken") ||
-          sessionStorage.getItem("shopAuthToken");
-        console.log("Auth token found:", !!authToken);
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/shops/purchase/stripe-checkout`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: authToken ? `Bearer ${authToken}` : "",
-            },
-            body: JSON.stringify({
-              amount: purchaseAmount,
-            }),
-          }
-        );
+        const response = await apiClient.post('/shops/purchase/stripe-checkout', {
+          amount: purchaseAmount,
+        }) as any;
 
-        const responseData = await response.json();
-        console.log("Stripe checkout response:", {
-          status: response.status,
-          data: responseData,
-        });
+        console.log("Stripe checkout response:", response);
 
-        if (!response.ok) {
-          const errorMessage =
-            responseData.error ||
-            `HTTP ${response.status}: ${response.statusText}`;
+        if (!response.success) {
+          const errorMessage = response.error || "Stripe checkout creation failed";
           console.error("Stripe checkout creation failed:", errorMessage);
           throw new Error(errorMessage);
         }
 
-        const checkoutUrl = responseData.data?.checkoutUrl;
+        const checkoutUrl = response.data?.checkoutUrl;
         if (!checkoutUrl) {
           throw new Error("No checkout URL received from server");
         }
@@ -499,21 +412,7 @@ export default function ShopDashboardClient() {
 
   const checkPurchaseStatus = async (purchaseId: string) => {
     try {
-      const authToken =
-        localStorage.getItem("shopAuthToken") ||
-        sessionStorage.getItem("shopAuthToken");
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/shops/purchase-sync/check-payment/${purchaseId}`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: authToken ? `Bearer ${authToken}` : "",
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      const result = await response.json();
+      const result = await apiClient.post(`/shops/purchase-sync/check-payment/${purchaseId}`) as any;
 
       if (result.success && result.data.status === "completed") {
         toast.success(
@@ -558,7 +457,7 @@ export default function ShopDashboardClient() {
             </h3>
             <p className="text-gray-600 mb-6">{error}</p>
             <a
-              href="/shop/register"
+              href="/register/shop"
               className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-3 px-4 rounded-xl transition duration-200 transform hover:scale-105 inline-block"
             >
               Register Shop
@@ -756,7 +655,7 @@ export default function ShopDashboardClient() {
               shopData={shopData}
               purchases={purchases}
               onRefreshData={loadShopData}
-              authToken={authToken}
+              authToken={authToken ?? undefined}
             />
           )}
 

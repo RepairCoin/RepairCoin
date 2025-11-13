@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { Poppins } from 'next/font/google'
 import { Toaster } from 'react-hot-toast'
 import { Providers } from './providers'
-import AuthRedirect from '@/components/AuthRedirect'
+// AuthRedirect removed - redirect logic now handled in individual pages
 import '@/styles/globals.css'
 
 const poppins = Poppins({ 
@@ -80,7 +80,6 @@ export default function RootLayout({
               },
             }}
           />
-          <AuthRedirect />
           {children}
         </Providers>
       </body>

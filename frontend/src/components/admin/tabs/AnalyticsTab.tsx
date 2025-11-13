@@ -64,7 +64,7 @@ interface Alert {
 }
 
 export function AnalyticsTab() {
-  const { generateAdminToken, setError: onError } = useAdminDashboard();
+  const {  setError: onError } = useAdminDashboard();
   const [tokenMetrics, setTokenMetrics] = useState<TokenCirculationMetrics | null>(null);
   const [shopRankings, setShopRankings] = useState<ShopPerformanceRanking[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);

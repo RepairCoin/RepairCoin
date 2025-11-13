@@ -1,12 +1,14 @@
 // backend/src/services/CleanupService.ts
 import { logger } from '../utils/logger';
 import { WebhookLogRepository } from '../repositories/WebhookLogRepository';
+import { RefreshTokenRepository } from '../repositories/RefreshTokenRepository';
 import { getSharedPool } from '../utils/database-pool';
 
 export interface CleanupReport {
   timestamp: Date;
   webhookLogsDeleted: number;
   transactionsArchived: number;
+  refreshTokensDeleted: number;
   errors: string[];
   totalDurationMs: number;
 }
@@ -16,10 +18,12 @@ export interface CleanupConfig {
   transactionArchiveDays: number;
   enableWebhookCleanup: boolean;
   enableTransactionArchiving: boolean;
+  enableRefreshTokenCleanup: boolean;
 }
 
 export class CleanupService {
   private webhookLogRepository: WebhookLogRepository;
+  private refreshTokenRepository: RefreshTokenRepository;
   private isRunning: boolean = false;
   private scheduledIntervalId: NodeJS.Timeout | null = null;
 
@@ -27,11 +31,13 @@ export class CleanupService {
     webhookRetentionDays: 90,
     transactionArchiveDays: 365,
     enableWebhookCleanup: true,
-    enableTransactionArchiving: true
+    enableTransactionArchiving: true,
+    enableRefreshTokenCleanup: true
   };
 
   constructor() {
     this.webhookLogRepository = new WebhookLogRepository();
+    this.refreshTokenRepository = new RefreshTokenRepository();
   }
 
   /**
@@ -47,6 +53,7 @@ export class CleanupService {
     const errors: string[] = [];
     let webhookLogsDeleted = 0;
     let transactionsArchived = 0;
+    let refreshTokensDeleted = 0;
 
     const finalConfig = { ...this.defaultConfig, ...config };
 
@@ -81,12 +88,24 @@ export class CleanupService {
         }
       }
 
+      // Clean up expired refresh tokens
+      if (finalConfig.enableRefreshTokenCleanup) {
+        try {
+          refreshTokensDeleted = await this.cleanupRefreshTokens();
+        } catch (error) {
+          const errorMsg = `Refresh token cleanup failed: ${error.message}`;
+          logger.error(errorMsg, error);
+          errors.push(errorMsg);
+        }
+      }
+
       const totalDurationMs = Date.now() - startTime;
 
       const report: CleanupReport = {
         timestamp: new Date(),
         webhookLogsDeleted,
         transactionsArchived,
+        refreshTokensDeleted,
         errors,
         totalDurationMs
       };
@@ -141,6 +160,26 @@ export class CleanupService {
     } catch (error) {
       logger.error('Error archiving transactions:', error);
       throw new Error('Failed to archive transactions');
+    }
+  }
+
+  /**
+   * Clean up expired and revoked refresh tokens
+   */
+  async cleanupRefreshTokens(): Promise<number> {
+    try {
+      logger.info('Cleaning up expired refresh tokens');
+
+      const deletedCount = await this.refreshTokenRepository.cleanupExpiredTokens();
+
+      logger.info('Refresh tokens cleanup completed', {
+        deletedCount
+      });
+
+      return deletedCount;
+    } catch (error) {
+      logger.error('Error cleaning up refresh tokens:', error);
+      throw new Error('Failed to cleanup refresh tokens');
     }
   }
 
@@ -355,7 +394,8 @@ export class CleanupService {
       webhookRetentionDays: 30, // More aggressive
       transactionArchiveDays: 180, // More aggressive
       enableWebhookCleanup: true,
-      enableTransactionArchiving: true
+      enableTransactionArchiving: true,
+      enableRefreshTokenCleanup: true
     };
 
     return await this.runCleanup(aggressiveConfig);

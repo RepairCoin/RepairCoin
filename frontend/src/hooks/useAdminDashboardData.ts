@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "react-hot-toast";
-import { authManager } from "@/utils/auth";
 import { adminApi } from "@/services/api/admin";
 
 export interface PlatformStats {
@@ -44,7 +43,6 @@ export function useAdminDashboardData(
   isSuperAdmin: boolean,
   adminRole: string,
   adminPermissions: string[],
-  generateAdminToken: (forceRefresh?: boolean) => Promise<string | null>,
   hasPermission: (permission: string) => boolean
 ) {
   const [loading, setLoading] = useState(true);
@@ -62,32 +60,13 @@ export function useAdminDashboardData(
     setError(null);
 
     try {
-      const adminToken = await generateAdminToken();
-      if (!adminToken) {
-        setError("Failed to authenticate as admin");
-        return;
-      }
-
+      // Cookies sent automatically with apiClient
       // Fetch platform statistics using API service
       const statsData: any = await adminApi.getStats();
       if (statsData) {
         setStats(statsData);
       } else {
-        // If failed, try refreshing the token
-        authManager.clearToken("admin");
-        const newToken = await generateAdminToken(true);
-        if (newToken) {
-          const retryStats: any = await adminApi.getStats();
-          if (retryStats) {
-            setStats(retryStats);
-          }
-        } else {
-          setError(
-            "Failed to authenticate as admin. Please check your wallet address."
-          );
-          setLoading(false);
-          return;
-        }
+        setError("Failed to load platform statistics");
       }
 
       // Only fetch shops if user is super admin or admin (not moderator)
@@ -125,7 +104,7 @@ export function useAdminDashboardData(
     } finally {
       setLoading(false);
     }
-  }, [isAdmin, generateAdminToken, hasPermission, isSuperAdmin, adminRole]);
+  }, [isAdmin, hasPermission, isSuperAdmin, adminRole]);
 
   useEffect(() => {
     // Load dashboard data when admin is confirmed and either:

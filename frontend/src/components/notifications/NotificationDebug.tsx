@@ -8,9 +8,10 @@ export const NotificationDebug = () => {
   const { userProfile } = useAuthStore();
   const { notifications, unreadCount, isConnected } = useNotificationStore();
   const [localStorageTokens, setLocalStorageTokens] = useState<any>({});
+  const [cookieToken, setCookieToken] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check localStorage tokens
+    // Check localStorage tokens (these should NOT exist - we use httpOnly cookies now)
     const tokens = {
       customerToken: localStorage.getItem('customerAuthToken'),
       shopToken: localStorage.getItem('shopAuthToken'),
@@ -19,12 +20,17 @@ export const NotificationDebug = () => {
     };
     setLocalStorageTokens(tokens);
 
+    // NOTE: We CANNOT read httpOnly cookies from JavaScript - that's the security feature!
+    // Instead, check if user is authenticated via the auth store
+    const hasValidSession = !!userProfile && !!userProfile.address;
+    setCookieToken(hasValidSession ? 'present-but-hidden' : null);
+
     console.log('🔍 Notification Debug Info:', {
       hasUserProfile: !!userProfile,
       userAddress: userProfile?.address,
       userType: userProfile?.type,
-      hasTokenInProfile: !!userProfile?.token,
-      tokenInProfile: userProfile?.token?.substring(0, 20) + '...',
+      hasValidAuthSession: hasValidSession,
+      note: 'HttpOnly cookies cannot be read by JS - this is intentional for security',
       localStorageTokens: tokens,
       notificationsCount: notifications.length,
       unreadCount,
@@ -39,7 +45,7 @@ export const NotificationDebug = () => {
     localStorageTokens.shopToken ||
     localStorageTokens.adminToken ||
     localStorageTokens.genericToken ||
-    userProfile?.token
+    cookieToken
   );
 
   // Try to extract wallet from token
@@ -66,7 +72,8 @@ export const NotificationDebug = () => {
         <div>Address in Profile: {userProfile?.address ? `${userProfile.address.substring(0, 10)}...` : '❌ Missing'}</div>
         <div>Address in Token: {walletFromToken ? `${walletFromToken.substring(0, 10)}...` : '❌ Missing'}</div>
         <div>Type: {userProfile?.type || 'Unknown'}</div>
-        <div>Token in Profile: {userProfile?.token ? '✅ Set' : '❌ Missing'}</div>
+        <div>Auth Session: {cookieToken ? '✅ Valid (HttpOnly cookie)' : '❌ No session'}</div>
+        <div className="text-yellow-400 text-xs">ℹ️ HttpOnly cookies hidden from JS (security)</div>
         <div className="border-t border-gray-600 pt-1 mt-1">
           <div className="font-semibold">localStorage Tokens:</div>
           <div className="ml-2">

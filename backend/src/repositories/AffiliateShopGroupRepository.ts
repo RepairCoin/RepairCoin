@@ -17,6 +17,7 @@ export interface AffiliateShopGroup {
   active: boolean;
   createdAt: Date;
   updatedAt: Date;
+  memberCount?: number;
 }
 
 export interface AffiliateShopGroupMember {
@@ -137,7 +138,16 @@ export class AffiliateShopGroupRepository extends BaseRepository {
 
   async getGroupById(groupId: string): Promise<AffiliateShopGroup | null> {
     try {
-      const query = 'SELECT * FROM affiliate_shop_groups WHERE group_id = $1';
+      const query = `
+        SELECT g.*,
+          COUNT(DISTINCT CASE WHEN m.status = 'active' THEN m.shop_id END) as member_count
+        FROM affiliate_shop_groups g
+        LEFT JOIN affiliate_shop_group_members m ON g.group_id = m.group_id
+        WHERE g.group_id = $1
+        GROUP BY g.group_id, g.group_name, g.description, g.custom_token_name, g.custom_token_symbol,
+                 g.token_value_usd, g.created_by_shop_id, g.group_type, g.logo_url, g.invite_code,
+                 g.auto_approve_requests, g.active, g.created_at, g.updated_at
+      `;
       const result = await this.pool.query(query, [groupId]);
 
       if (result.rows.length === 0) {
@@ -259,9 +269,15 @@ export class AffiliateShopGroupRepository extends BaseRepository {
       params.push(offset);
 
       const query = `
-        SELECT * FROM affiliate_shop_groups
-        ${whereClause}
-        ORDER BY created_at DESC
+        SELECT g.*,
+          COUNT(DISTINCT CASE WHEN m.status = 'active' THEN m.shop_id END) as member_count
+        FROM affiliate_shop_groups g
+        LEFT JOIN affiliate_shop_group_members m ON g.group_id = m.group_id
+        ${whereClause.replace('WHERE 1=1', 'WHERE 1=1')}
+        GROUP BY g.group_id, g.group_name, g.description, g.custom_token_name, g.custom_token_symbol,
+                 g.token_value_usd, g.created_by_shop_id, g.group_type, g.logo_url, g.invite_code,
+                 g.auto_approve_requests, g.active, g.created_at, g.updated_at
+        ORDER BY g.created_at DESC
         LIMIT $${paramCount - 1} OFFSET $${paramCount}
       `;
 
@@ -415,9 +431,15 @@ export class AffiliateShopGroupRepository extends BaseRepository {
   async getShopGroups(shopId: string): Promise<AffiliateShopGroup[]> {
     try {
       const query = `
-        SELECT g.* FROM affiliate_shop_groups g
+        SELECT g.*,
+          COUNT(DISTINCT CASE WHEN m2.status = 'active' THEN m2.shop_id END) as member_count
+        FROM affiliate_shop_groups g
         INNER JOIN affiliate_shop_group_members m ON g.group_id = m.group_id
+        LEFT JOIN affiliate_shop_group_members m2 ON g.group_id = m2.group_id
         WHERE m.shop_id = $1 AND m.status = 'active' AND g.active = true
+        GROUP BY g.group_id, g.group_name, g.description, g.custom_token_name, g.custom_token_symbol,
+                 g.token_value_usd, g.created_by_shop_id, g.group_type, g.logo_url, g.invite_code,
+                 g.auto_approve_requests, g.active, g.created_at, g.updated_at, m.joined_at
         ORDER BY m.joined_at DESC
       `;
 
@@ -683,7 +705,7 @@ export class AffiliateShopGroupRepository extends BaseRepository {
 
   // ==================== HELPER METHODS ====================
 
-  private mapGroupRow(row: any): AffiliateShopGroup {
+  private mapGroupRow(row: any): AffiliateShopGroup & { memberCount?: number } {
     return {
       groupId: row.group_id,
       groupName: row.group_name,
@@ -698,7 +720,8 @@ export class AffiliateShopGroupRepository extends BaseRepository {
       autoApproveRequests: row.auto_approve_requests,
       active: row.active,
       createdAt: row.created_at,
-      updatedAt: row.updated_at
+      updatedAt: row.updated_at,
+      memberCount: row.member_count ? parseInt(row.member_count) : undefined
     };
   }
 
@@ -824,7 +847,7 @@ export class AffiliateShopGroupRepository extends BaseRepository {
       const query = `
         SELECT
           sgm.shop_id,
-          s.company_name as shop_name,
+          s.name as shop_name,
           sgm.joined_at,
           COALESCE(SUM(CASE WHEN gtt.type = 'earn' THEN gtt.amount ELSE 0 END), 0) as tokens_issued,
           COALESCE(SUM(CASE WHEN gtt.type = 'redeem' THEN gtt.amount ELSE 0 END), 0) as tokens_redeemed,
@@ -835,7 +858,7 @@ export class AffiliateShopGroupRepository extends BaseRepository {
         JOIN shops s ON sgm.shop_id = s.shop_id
         LEFT JOIN affiliate_group_token_transactions gtt ON sgm.shop_id = gtt.shop_id AND sgm.group_id = gtt.group_id
         WHERE sgm.group_id = $1 AND sgm.status = 'active'
-        GROUP BY sgm.shop_id, s.company_name, sgm.joined_at
+        GROUP BY sgm.shop_id, s.name, sgm.joined_at
         ORDER BY tokens_issued DESC
       `;
 
