@@ -77,6 +77,8 @@ export class GroupController {
       const { groupId } = req.params;
       const requestingShopId = req.user?.shopId; // May be undefined if not authenticated
 
+      console.log('🔍 [getGroup] Request received:', { groupId, requestingShopId });
+
       const group = await this.service.getGroup(groupId);
 
       if (!group) {

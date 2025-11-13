@@ -135,6 +135,7 @@ export class AffiliateShopGroupService {
   /**
    * Get shop's membership status in a group
    * Returns the membership record with status (active, pending, rejected, removed) or null
+   * DEBUG: Updated 2025-11-13
    */
   async getShopMembershipStatus(groupId: string, shopId: string): Promise<AffiliateShopGroupMember | null> {
     try {
@@ -146,6 +147,15 @@ export class AffiliateShopGroupService {
       });
       const membership = members.find(m => m.shopId === shopId) || null;
       console.log('🎯 [getShopMembershipStatus] Found membership:', membership);
+
+      // DEBUG: Log what we're returning
+      console.log('🚀 [DEBUG] Returning membership:', {
+        found: membership !== null,
+        shopId: membership?.shopId,
+        status: membership?.status,
+        role: membership?.role
+      });
+
       return membership;
     } catch (error) {
       logger.error('Error getting shop membership status:', error);
