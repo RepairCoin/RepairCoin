@@ -545,6 +545,8 @@ export class ShopRepository extends BaseRepository {
         rcg_tier: row.rcg_tier,
         tier_updated_at: row.tier_updated_at,
         operational_status: row.operational_status,
+        subscriptionActive: row.subscription_active === true || row.subscription_active === 't',
+        subscriptionId: row.subscription_id,
         facebook: row.facebook,
         twitter: row.twitter,
         instagram: row.instagram,
