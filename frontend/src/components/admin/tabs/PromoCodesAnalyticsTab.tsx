@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import apiClient from '@/services/api/client';
 // Icon components
 const TagIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -71,20 +72,10 @@ export default function PromoCodesAnalyticsTab() {
 
   const fetchAnalytics = async () => {
     try {
-      const token = localStorage.getItem('adminAuthToken');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/promo-codes/analytics`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch analytics');
-      }
-
-      const data = await response.json();
-      setSummary(data.data.summary);
-      setTopCodes(data.data.topCodes || []);
+      const data = await apiClient.get('/admin/promo-codes/analytics');
+      // apiClient already returns response.data
+      setSummary(data.summary);
+      setTopCodes(data.topCodes || []);
     } catch (err) {
       console.error('Error fetching promo code analytics:', err);
       setError('Failed to load analytics');
@@ -94,24 +85,12 @@ export default function PromoCodesAnalyticsTab() {
   const fetchAllCodes = async (page = 1) => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('adminAuthToken');
       const offset = (page - 1) * itemsPerPage;
-      
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/promo-codes?limit=${itemsPerPage}&offset=${offset}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch promo codes');
-      }
+      const data = await apiClient.get('/admin/promo-codes', {
+        params: { limit: itemsPerPage, offset }
+      });
 
-      const data = await response.json();
-      
       if (page === 1) {
         setAllCodes(data.data || []);
       } else {

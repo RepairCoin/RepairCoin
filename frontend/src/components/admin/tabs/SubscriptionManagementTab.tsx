@@ -16,6 +16,7 @@ import {
   RefreshCw,
   X
 } from 'lucide-react';
+import apiClient from '@/services/api/client';
 
 interface Subscription {
   id: number;
@@ -91,23 +92,14 @@ export default function SubscriptionManagementTab() {
       } else {
         setLoading(true);
       }
-      const token = localStorage.getItem('adminAuthToken');
 
       // Add sync parameter to fetch latest status from Stripe (disabled by default for performance)
-      const syncParam = syncFromStripe ? '?sync=true' : '';
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/subscription/subscriptions${syncParam}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      const response = await apiClient.get('/admin/subscription/subscriptions', {
+        params: syncFromStripe ? { sync: 'true' } : {}
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to load subscriptions');
-      }
-
-      const result = await response.json();
-      if (result.success) {
-        const subs = result.data || [];
+      if (response.success) {
+        const subs = response.data || [];
         setSubscriptions(subs);
         calculateStats(subs);
       }
@@ -159,28 +151,16 @@ export default function SubscriptionManagementTab() {
 
   const handleApprove = async () => {
     if (!selectedSubscription) return;
-    
+
     try {
       setActionLoading(true);
-      const token = localStorage.getItem('adminAuthToken');
-      
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/subscription/subscriptions/${selectedSubscription.id}/approve`,
+
+      await apiClient.post(
+        `/admin/subscription/subscriptions/${selectedSubscription.id}/approve`,
         {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            nextPaymentDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days from now
-          })
+          nextPaymentDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days from now
         }
       );
-
-      if (!response.ok) {
-        throw new Error('Failed to approve subscription');
-      }
 
       setShowApproveModal(false);
       await loadSubscriptions();
@@ -194,28 +174,16 @@ export default function SubscriptionManagementTab() {
 
   const handleCancel = async () => {
     if (!selectedSubscription) return;
-    
+
     try {
       setActionLoading(true);
-      const token = localStorage.getItem('adminAuthToken');
-      
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/subscription/subscriptions/${selectedSubscription.id}/cancel`,
+
+      await apiClient.post(
+        `/admin/subscription/subscriptions/${selectedSubscription.id}/cancel`,
         {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            reason: cancellationReason || 'Cancelled by administrator'
-          })
+          reason: cancellationReason || 'Cancelled by administrator'
         }
       );
-
-      if (!response.ok) {
-        throw new Error('Failed to cancel subscription');
-      }
 
       setShowCancelModal(false);
       setCancellationReason('');
@@ -234,21 +202,10 @@ export default function SubscriptionManagementTab() {
 
     try {
       setActionLoading(true);
-      const token = localStorage.getItem('adminAuthToken');
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/subscription/subscriptions/${selectedSubscription.id}/pause`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
+      await apiClient.post(
+        `/admin/subscription/subscriptions/${selectedSubscription.id}/pause`
       );
-
-      if (!response.ok) {
-        throw new Error('Failed to pause subscription');
-      }
 
       setShowPauseModal(false);
       setSelectedSubscription(null);
@@ -267,22 +224,14 @@ export default function SubscriptionManagementTab() {
 
     try {
       setActionLoading(true);
-      const token = localStorage.getItem('adminAuthToken');
 
       // First, try to sync from Stripe to ensure we have the latest status
       console.log('Syncing subscription from Stripe before resume...');
-      const syncResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/subscription/subscriptions/${selectedSubscription.id}/sync`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
+      try {
+        const syncData = await apiClient.post(
+          `/admin/subscription/subscriptions/${selectedSubscription.id}/sync`
+        );
 
-      if (syncResponse.ok) {
-        const syncData = await syncResponse.json();
         console.log('Sync result:', syncData);
 
         // If sync shows it's already active, just reload and show success
@@ -293,23 +242,14 @@ export default function SubscriptionManagementTab() {
           alert('Subscription was already active in Stripe. Status updated successfully.');
           return;
         }
+      } catch (syncError) {
+        console.warn('Sync failed, continuing with resume:', syncError);
       }
 
       // Now attempt to resume
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/subscription/subscriptions/${selectedSubscription.id}/resume`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
+      await apiClient.post(
+        `/admin/subscription/subscriptions/${selectedSubscription.id}/resume`
       );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to resume subscription');
-      }
 
       setShowResumeModal(false);
       setSelectedSubscription(null);

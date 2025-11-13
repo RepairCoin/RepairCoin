@@ -79,14 +79,18 @@ const StatusPage: React.FC = () => {
 
   const fetchHealthData = async () => {
     try {
+      // Use environment variable for API URL, fallback to localhost for development
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'
+      const BASE_URL = API_URL.replace('/api', '')
+
       // Fetch health data
-      const healthResponse = await fetch('http://localhost:4000/api/health')
+      const healthResponse = await fetch(`${API_URL}/health`)
       const healthData = await healthResponse.json()
       const processedHealthData = healthData.success ? healthData.data : healthData
       setHealthData(processedHealthData)
 
       // Fetch system features and security info
-      const featuresResponse = await fetch('http://localhost:4000/')
+      const featuresResponse = await fetch(`${BASE_URL}/`)
       const featuresData = await featuresResponse.json()
       setSystemFeatures(featuresData)
       

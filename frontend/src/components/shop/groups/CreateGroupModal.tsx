@@ -16,7 +16,6 @@ export default function CreateGroupModal({ onClose, onSubmit }: CreateGroupModal
     customTokenSymbol: "",
     description: "",
     logoUrl: "",
-    isPrivate: false,
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -130,30 +129,17 @@ export default function CreateGroupModal({ onClose, onSubmit }: CreateGroupModal
             />
           </div>
 
-          {/* Privacy Setting */}
-          <div className="flex items-start gap-3">
-            <input
-              type="checkbox"
-              id="isPrivate"
-              checked={formData.isPrivate}
-              onChange={(e) => setFormData({ ...formData, isPrivate: e.target.checked })}
-              className="mt-1 w-4 h-4 rounded border-gray-700 bg-gray-800 text-[#FFCC00] focus:ring-[#FFCC00]"
-            />
-            <label htmlFor="isPrivate" className="text-sm text-gray-300">
-              <span className="font-medium text-white">Private Group</span>
-              <br />
-              <span className="text-gray-400">
-                Require approval for shops to join this group
-              </span>
-            </label>
-          </div>
-
           {/* Info Box */}
           <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
             <p className="text-sm text-blue-300">
-              <strong>Note:</strong> You will automatically become the admin of this group.
-              Custom tokens can only be earned and redeemed within member shops.
+              <strong>Requirements:</strong>
             </p>
+            <ul className="text-sm text-blue-300 mt-2 space-y-1 list-disc list-inside">
+              <li>Active RepairCoin subscription ($500/month)</li>
+              <li>Custom tokens require RCN backing (1:2 ratio)</li>
+              <li>You will automatically become the admin of this group</li>
+              <li>Custom tokens can only be earned and redeemed within member shops</li>
+            </ul>
           </div>
 
           {/* Actions */}

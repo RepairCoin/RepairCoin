@@ -10,6 +10,7 @@ export { RedemptionSessionRepository } from './RedemptionSessionRepository';
 export { ShopSubscriptionRepository } from './ShopSubscriptionRepository';
 export { HealthRepository } from './HealthRepository';
 export { PromoCodeRepository } from './PromoCodeRepository';
+export { RefreshTokenRepository } from './RefreshTokenRepository';
 
 // Create singleton instances
 import { CustomerRepository } from './CustomerRepository';
@@ -22,6 +23,7 @@ import { RedemptionSessionRepository } from './RedemptionSessionRepository';
 import { ShopSubscriptionRepository } from './ShopSubscriptionRepository';
 import { HealthRepository } from './HealthRepository';
 import { PromoCodeRepository } from './PromoCodeRepository';
+import { RefreshTokenRepository } from './RefreshTokenRepository';
 
 export const customerRepository = new CustomerRepository();
 export const shopRepository = new ShopRepository();
@@ -33,3 +35,4 @@ export const redemptionSessionRepository = new RedemptionSessionRepository();
 export const shopSubscriptionRepository = new ShopSubscriptionRepository();
 export const healthRepository = new HealthRepository();
 export const promoCodeRepository = new PromoCodeRepository();
+export const refreshTokenRepository = new RefreshTokenRepository();

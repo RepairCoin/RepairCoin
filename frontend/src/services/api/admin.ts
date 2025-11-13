@@ -873,4 +873,31 @@ export const adminApi = {
   // Unsuspend Requests
   getUnsuspendRequests,
   processUnsuspendRequest,
+
+  // Session Management
+  getSessions: async (params: {
+    page?: number;
+    limit?: number;
+    role?: 'admin' | 'shop' | 'customer';
+    status?: 'active' | 'expired' | 'revoked' | 'all';
+  }) => {
+    const queryString = buildQueryString(params);
+    return apiClient.get(`/admin/sessions${queryString}`);
+  },
+
+  revokeSession: async (tokenId: string, reason?: string) => {
+    return apiClient.delete(`/admin/sessions/${tokenId}`, {
+      data: { reason }
+    });
+  },
+
+  revokeAllUserSessions: async (userAddress: string, reason?: string) => {
+    return apiClient.delete(`/admin/sessions/user/${userAddress}`, {
+      data: { reason }
+    });
+  },
+
+  getSessionStats: async () => {
+    return apiClient.get('/admin/sessions/stats');
+  },
 } as const;

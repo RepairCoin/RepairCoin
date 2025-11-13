@@ -41,6 +41,8 @@ interface ShopData {
   rcg_balance?: number;
   tier_updated_at?: string;
   operational_status?: 'pending' | 'rcg_qualified' | 'subscription_qualified' | 'not_qualified';
+  subscriptionActive?: boolean;
+  subscriptionId?: string;
   facebook?: string;
   twitter?: string;
   instagram?: string;
@@ -52,6 +54,7 @@ interface ShopData {
   referral?: string;
   acceptTerms?: boolean;
   country?: string;
+  category?: string;
 }
 
 export interface ShopFilters {
@@ -99,6 +102,8 @@ export class ShopRepository extends BaseRepository {
         rcg_tier: row.rcg_tier,
         tier_updated_at: row.tier_updated_at,
         operational_status: row.operational_status,
+        subscriptionActive: row.subscription_active === true || row.subscription_active === 't',
+        subscriptionId: row.subscription_id,
         facebook: row.facebook,
         twitter: row.twitter,
         instagram: row.instagram,
@@ -109,7 +114,8 @@ export class ShopRepository extends BaseRepository {
         monthlyRevenue: row.monthly_revenue,
         referral: row.referral,
         acceptTerms: row.accept_terms,
-        country: row.country
+        country: row.country,
+        category: row.category
       };
     } catch (error) {
       logger.error('Error fetching shop:', error);
@@ -124,11 +130,11 @@ export class ShopRepository extends BaseRepository {
           shop_id, name, address, phone, email, wallet_address,
           reimbursement_address, verified, active, cross_shop_enabled,
           total_tokens_issued, total_redemptions, total_reimbursements,
-          join_date, last_activity, fixflow_shop_id, 
+          join_date, last_activity, fixflow_shop_id,
           location_city, location_state, location_zip_code, location_lat, location_lng,
           facebook, twitter, instagram,
-          first_name, last_name, company_size, monthly_revenue, website, referral, accept_terms, country
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32)
+          first_name, last_name, company_size, monthly_revenue, website, referral, accept_terms, country, category
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33)
         RETURNING shop_id
       `;
       
@@ -164,7 +170,8 @@ export class ShopRepository extends BaseRepository {
         shop.website,
         shop.referral,
         shop.acceptTerms,
-        shop.country
+        shop.country,
+        shop.category
       ];
       
       const result = await this.pool.query(query, values);
@@ -224,6 +231,7 @@ export class ShopRepository extends BaseRepository {
         locationZipCode: 'location_zip_code',
         firstName: 'first_name',
         lastName: 'last_name',
+        category: 'category',
       };
 
       for (const [key, value] of Object.entries(updates)) {
@@ -537,6 +545,8 @@ export class ShopRepository extends BaseRepository {
         rcg_tier: row.rcg_tier,
         tier_updated_at: row.tier_updated_at,
         operational_status: row.operational_status,
+        subscriptionActive: row.subscription_active === true || row.subscription_active === 't',
+        subscriptionId: row.subscription_id,
         facebook: row.facebook,
         twitter: row.twitter,
         instagram: row.instagram,
@@ -658,30 +668,30 @@ export class ShopRepository extends BaseRepository {
       // Get purchase details
       const purchaseQuery = 'SELECT * FROM shop_rcn_purchases WHERE id = $1 AND status = $2';
       const purchaseResult = await client.query(purchaseQuery, [purchaseId, 'pending']);
-      
+
       if (purchaseResult.rows.length === 0) {
         // Check if purchase exists at all
         const checkQuery = 'SELECT id, status FROM shop_rcn_purchases WHERE id = $1';
         const checkResult = await client.query(checkQuery, [purchaseId]);
-        
+
         if (checkResult.rows.length === 0) {
           throw new Error(`Purchase not found: ${purchaseId}`);
         } else {
           throw new Error(`Purchase already completed or in status: ${checkResult.rows[0].status}`);
         }
       }
-      
+
       const purchase = purchaseResult.rows[0];
-      logger.info('Found purchase to complete:', { 
-        shopId: purchase.shop_id, 
+      logger.info('Found purchase to complete:', {
+        shopId: purchase.shop_id,
         amount: purchase.amount,
-        totalCost: purchase.total_cost 
+        totalCost: purchase.total_cost
       });
 
       // Update purchase status
       const updatePurchaseQuery = `
-        UPDATE shop_rcn_purchases 
-        SET status = 'completed', 
+        UPDATE shop_rcn_purchases
+        SET status = 'completed',
             payment_reference = COALESCE($2, payment_reference),
             completed_at = CURRENT_TIMESTAMP
         WHERE id = $1
@@ -690,15 +700,15 @@ export class ShopRepository extends BaseRepository {
 
       // Update shop balance
       const updateShopQuery = `
-        UPDATE shops 
+        UPDATE shops
         SET purchased_rcn_balance = purchased_rcn_balance + $1,
             total_rcn_purchased = total_rcn_purchased + $1,
             last_purchase_date = CURRENT_TIMESTAMP
         WHERE shop_id = $2
       `;
       await client.query(updateShopQuery, [purchase.amount, purchase.shop_id]);
-      
-      logger.info('Shop purchase completed successfully:', { 
+
+      logger.info('Shop purchase completed successfully:', {
         purchaseId,
         shopId: purchase.shop_id,
         amountAdded: purchase.amount
@@ -711,6 +721,65 @@ export class ShopRepository extends BaseRepository {
       throw error;
     } finally {
       client.release();
+    }
+  }
+
+  async cancelShopPurchase(purchaseId: string): Promise<void> {
+    try {
+      logger.info('Attempting to cancel shop purchase:', { purchaseId });
+
+      // Update purchase status to cancelled/failed
+      const updatePurchaseQuery = `
+        UPDATE shop_rcn_purchases
+        SET status = 'cancelled'
+        WHERE id = $1 AND status = 'pending'
+        RETURNING id, shop_id, amount
+      `;
+      const result = await this.pool.query(updatePurchaseQuery, [purchaseId]);
+
+      if (result.rowCount === 0) {
+        throw new Error('Purchase not found or cannot be cancelled');
+      }
+
+      logger.info('Shop purchase cancelled successfully:', {
+        purchaseId,
+        shopId: result.rows[0].shop_id,
+        amount: result.rows[0].amount
+      });
+    } catch (error) {
+      logger.error('Error cancelling shop purchase:', error);
+      throw error;
+    }
+  }
+
+  async failShopPurchase(purchaseId: string, reason?: string): Promise<void> {
+    try {
+      logger.info('Marking shop purchase as failed:', { purchaseId, reason });
+
+      // Update purchase status to failed
+      const updatePurchaseQuery = `
+        UPDATE shop_rcn_purchases
+        SET status = 'failed'
+        WHERE id = $1 AND status = 'pending'
+        RETURNING id, shop_id, amount
+      `;
+      const result = await this.pool.query(updatePurchaseQuery, [purchaseId]);
+
+      if (result.rowCount === 0) {
+        // Purchase might already be processed, just log it
+        logger.warn('Purchase not found or already processed:', { purchaseId });
+        return;
+      }
+
+      logger.info('Shop purchase marked as failed:', {
+        purchaseId,
+        shopId: result.rows[0].shop_id,
+        amount: result.rows[0].amount,
+        reason
+      });
+    } catch (error) {
+      logger.error('Error marking shop purchase as failed:', error);
+      throw error;
     }
   }
 

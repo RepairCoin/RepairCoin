@@ -9,11 +9,12 @@ import { DashboardHeader } from "../ui/DashboardHeader";
 import { useCustomer } from "@/hooks/useCustomer";
 import QRCode from "qrcode";
 import Tooltip from "../ui/tooltip";
+import apiClient from '@/services/api/client';
 
 interface RedemptionSession {
   sessionId: string;
   shopId: string;
-  amount: number;
+  maxAmount: number;
   customerAddress?: string;
   status: string;
   createdAt: string;
@@ -85,10 +86,10 @@ export function RedemptionApprovals() {
 Session ID: ${session.sessionId}
 Customer: ${session.customerAddress || account?.address}
 Shop: ${session.shopId}
-Amount: ${session.amount} RCN
+Amount: ${session.maxAmount} RCN
 Expires: ${new Date(session.expiresAt).toISOString()}
 
-By signing this message, I approve the redemption of ${session.amount} RCN tokens at the specified shop.`;
+By signing this message, I approve the redemption of ${session.maxAmount} RCN tokens at the specified shop.`;
   };
 
   useEffect(() => {
@@ -122,31 +123,15 @@ By signing this message, I approve the redemption of ${session.amount} RCN token
     if (!account?.address) return;
 
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/tokens/redemption-session/my-sessions`,
-        {
-          headers: {
-            Authorization: `Bearer ${
-              localStorage.getItem("customerAuthToken") || ""
-            }`,
-          },
-        }
-      );
-
-      if (response.ok) {
-        const result = await response.json();
-        setSessions(result.data.sessions);
-        setPendingCount(result.data.pendingCount);
-      } else {
-        console.error("Failed to load sessions:", response.status);
-        if (response.status === 401) {
-          console.error(
-            "Customer not authenticated - token may be missing or invalid"
-          );
-        }
-      }
+      const result = await apiClient.get('/tokens/redemption-session/my-sessions');
+      console.log('Sessions loaded:', result); // Debug log
+      // apiClient already returns response.data
+      setSessions(result.sessions || []);
+      setPendingCount(result.pendingCount || 0);
     } catch (error) {
       console.error("Error loading sessions:", error);
+      setSessions([]);
+      setPendingCount(0);
     } finally {
       setLoading(false);
     }
@@ -192,37 +177,19 @@ By signing this message, I approve the redemption of ${session.amount} RCN token
 
       toast.loading("Processing redemption approval...", { id: "approval-process" });
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/tokens/redemption-session/approve`,
+      await apiClient.post(
+        '/tokens/redemption-session/approve',
         {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${
-              localStorage.getItem("customerAuthToken") || ""
-            }`,
-          },
-          body: JSON.stringify({
-            sessionId,
-            signature,
-          }),
+          sessionId,
+          signature,
         }
       );
 
-      if (response.ok) {
-        toast.success("Redemption approved! Your balance has been updated.", { 
-          id: "approval-process",
-          duration: 4000 
-        });
-        await loadSessions();
-      } else {
-        const error = await response.json();
-        if (error.error?.includes("signature")) {
-          toast.error("Signature verification failed. Please try signing again.", { id: "approval-process" });
-        } else {
-          toast.error(error.error || "Failed to complete redemption", { id: "approval-process" });
-        }
-      }
+      toast.success("Redemption approved! Your balance has been updated.", {
+        id: "approval-process",
+        duration: 4000
+      });
+      await loadSessions();
     } catch (error) {
       console.error("Approval process error:", error);
       toast.error("Failed to complete redemption process", { id: "approval-process" });
@@ -235,27 +202,13 @@ By signing this message, I approve the redemption of ${session.amount} RCN token
     setProcessing(sessionId);
 
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/tokens/redemption-session/reject`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${
-              localStorage.getItem("customerAuthToken") || ""
-            }`,
-          },
-          body: JSON.stringify({ sessionId }),
-        }
+      await apiClient.post(
+        '/tokens/redemption-session/reject',
+        { sessionId }
       );
 
-      if (response.ok) {
-        toast.success("Redemption rejected");
-        await loadSessions();
-      } else {
-        const error = await response.json();
-        toast.error(error.error || "Failed to reject redemption");
-      }
+      toast.success("Redemption rejected");
+      await loadSessions();
     } catch (error) {
       toast.error("Failed to reject redemption");
     } finally {
@@ -283,7 +236,7 @@ By signing this message, I approve the redemption of ${session.amount} RCN token
       key: "amount",
       header: "Amount",
       accessor: (item) => (
-        <span className="text-[#FFCC00] font-semibold">{item.amount} RCN</span>
+        <span className="text-[#FFCC00] font-semibold">{item.maxAmount} RCN</span>
       ),
       sortable: true,
     },

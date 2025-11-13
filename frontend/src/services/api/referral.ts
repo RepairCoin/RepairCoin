@@ -42,7 +42,7 @@ export const generateReferralCode = async (): Promise<{
       const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
       return {
         code: response.data.code,
-        shareUrl: `${baseUrl}/customer/register?ref=${response.data.code}`,
+        shareUrl: `${baseUrl}/register/customer?ref=${response.data.code}`,
       };
     }
     return null;
@@ -74,8 +74,8 @@ export const getReferralStats = async (): Promise<ReferralStats | null> => {
       const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
       return {
         ...response.data,
-        shareUrl: response.data.referralCode 
-          ? `${baseUrl}/customer/register?ref=${response.data.referralCode}`
+        shareUrl: response.data.referralCode
+          ? `${baseUrl}/register/customer?ref=${response.data.referralCode}`
           : undefined,
       };
     }

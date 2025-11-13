@@ -13,10 +13,11 @@ function LoadingFallback() {
   );
 }
 
-export default function AffiliateGroupDetailsPage({ params }: { params: { groupId: string } }) {
+export default async function AffiliateGroupDetailsPage({ params }: { params: Promise<{ groupId: string }> }) {
+  const { groupId } = await params;
   return (
     <Suspense fallback={<LoadingFallback />}>
-      <GroupDetailsClient groupId={params.groupId} />
+      <GroupDetailsClient groupId={groupId} />
     </Suspense>
   );
 }

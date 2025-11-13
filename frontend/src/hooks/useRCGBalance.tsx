@@ -37,8 +37,9 @@ export function useRCGBalance(shopId: string | undefined) {
       try {
         setLoading(true);
         const response = await apiClient.get(`/shops/${shopId}/rcg-info`);
-        if (response.data.success) {
-          setRcgInfo(response.data.data);
+        // apiClient already returns response.data
+        if (response.success) {
+          setRcgInfo(response.data);
         }
       } catch (err) {
         console.error('Error fetching RCG info:', err);

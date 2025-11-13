@@ -90,7 +90,7 @@ interface RCGMetrics {
 }
 
 export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
-  const { generateAdminToken, setError: onError } = useAdminDashboard();
+  const {  setError: onError } = useAdminDashboard();
   const [treasuryData, setTreasuryData] = useState<TreasuryData | null>(null);
   const [rcgMetrics, setRcgMetrics] = useState<RCGMetrics | null>(null);
   const [loading, setLoading] = useState(true);
@@ -111,7 +111,7 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
     }
     
     try {
-      const adminToken = await generateAdminToken();
+      // Cookies sent automatically with apiClient
       if (!adminToken) {
         setError('Failed to authenticate as admin');
         onError('Failed to authenticate as admin');
@@ -183,7 +183,7 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
 
   const loadRCGMetrics = async () => {
     try {
-      const adminToken = await generateAdminToken();
+      // Cookies sent automatically with apiClient
       if (!adminToken) {
         onError('Failed to authenticate as admin');
         return;
@@ -217,7 +217,7 @@ export const TreasuryTab: React.FC<TreasuryTabProps> = () => {
   const updateTreasuryData = async () => {
     setUpdating(true);
     try {
-      const adminToken = await generateAdminToken();
+      // Cookies sent automatically with apiClient
       if (!adminToken) {
         onError('Failed to authenticate as admin');
         return;

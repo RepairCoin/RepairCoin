@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import apiClient from '@/services/api/client';
 
 interface RedeemTabProps {
   shopId: string;
@@ -77,34 +78,11 @@ export const RedeemTab: React.FC<RedeemTabProps> = ({ shopId, onRedemptionComple
     setSuccess(null);
 
     try {
-      // Get auth token
-      const authToken = localStorage.getItem('shopAuthToken') || sessionStorage.getItem('shopAuthToken');
-      
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      
-      if (authToken) {
-        headers['Authorization'] = `Bearer ${authToken}`;
-      } else {
-        throw new Error('No authentication token found. Please refresh the page and try again.');
-      }
-      
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/redeem`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          customerAddress,
-          amount: redeemAmount
-        }),
+      const result = await apiClient.post(`/shops/${shopId}/redeem`, {
+        customerAddress,
+        amount: redeemAmount
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Redemption failed');
-      }
-
-      const result = await response.json();
       setSuccess(`Successfully redeemed ${redeemAmount} RCN for customer`);
       
       // Reset form

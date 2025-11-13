@@ -7,6 +7,7 @@ import { Notification } from '../repositories/NotificationRepository';
 type WebSocketClient = WebSocket & {
   walletAddress?: string;
   isAlive?: boolean;
+  authTimeout?: NodeJS.Timeout;
 }
 
 interface AuthenticatedMessage {
@@ -41,10 +42,22 @@ export class WebSocketManager {
     logger.info('WebSocket manager initialized');
   }
 
-  private handleConnection(ws: WebSocketClient, _request: IncomingMessage): void {
+  private handleConnection(ws: WebSocketClient, request: IncomingMessage): void {
     ws.isAlive = true;
 
     logger.info('New WebSocket connection established');
+
+    // Set a timeout for authentication - if not authenticated within 5 seconds, close connection
+    ws.authTimeout = setTimeout(() => {
+      if (!ws.walletAddress) {
+        logger.debug('WebSocket authentication timeout - closing unauthenticated connection');
+        this.sendError(ws, 'Authentication required');
+        ws.close();
+      }
+    }, 5000);
+
+    // Try to authenticate from cookie on connection
+    this.tryAuthenticateFromCookie(ws, request);
 
     // Ping/pong for connection health
     ws.on('pong', () => {
@@ -62,6 +75,10 @@ export class WebSocketManager {
     });
 
     ws.on('close', () => {
+      // Clear auth timeout if exists
+      if (ws.authTimeout) {
+        clearTimeout(ws.authTimeout);
+      }
       this.handleDisconnection(ws);
     });
 
@@ -89,6 +106,84 @@ export class WebSocketManager {
       default:
         logger.warn(`Unknown message type: ${message.type}`);
         this.sendError(ws, 'Unknown message type');
+    }
+  }
+
+  private async tryAuthenticateFromCookie(ws: WebSocketClient, request: IncomingMessage): Promise<void> {
+    try {
+      // Parse cookies from request headers
+      const cookieHeader = request.headers.cookie;
+      if (!cookieHeader) {
+        logger.debug('No cookies found in WebSocket connection request');
+        return;
+      }
+
+      // Extract auth_token from cookies
+      const cookies = cookieHeader.split(';').map(c => c.trim());
+      const authCookie = cookies.find(c => c.startsWith('auth_token='));
+
+      if (!authCookie) {
+        logger.debug('No auth_token cookie found in WebSocket connection');
+        return;
+      }
+
+      const token = authCookie.split('=')[1];
+      if (!token) {
+        logger.debug('Empty auth_token cookie in WebSocket connection');
+        return;
+      }
+
+      // Verify JWT token
+      const jwtSecret = process.env.JWT_SECRET;
+      if (!jwtSecret) {
+        logger.error('JWT_SECRET not configured');
+        return;
+      }
+
+      const decoded = jwt.verify(token, jwtSecret) as { address?: string; walletAddress?: string };
+      const walletAddress = (decoded.address || decoded.walletAddress)?.toLowerCase();
+
+      if (!walletAddress) {
+        logger.debug('Invalid token in cookie: wallet address not found');
+        return;
+      }
+
+      // Associate wallet address with this connection
+      ws.walletAddress = walletAddress;
+
+      // Clear authentication timeout since we successfully authenticated
+      if (ws.authTimeout) {
+        clearTimeout(ws.authTimeout);
+        ws.authTimeout = undefined;
+      }
+
+      // Add to clients map
+      if (!this.clients.has(walletAddress)) {
+        this.clients.set(walletAddress, new Set());
+      }
+      this.clients.get(walletAddress)!.add(ws);
+
+      logger.info(`WebSocket auto-authenticated from cookie for wallet: ${walletAddress}`);
+
+      // Send authentication success
+      this.send(ws, {
+        type: 'authenticated',
+        payload: { walletAddress, source: 'cookie' }
+      });
+    } catch (error: any) {
+      if (error.name === 'TokenExpiredError') {
+        // This is expected when user has an expired session - log as debug, not error
+        logger.debug('Expired token in cookie for WebSocket connection - user needs to refresh session');
+        // Send error message to client so it knows not to reconnect
+        this.sendError(ws, 'Authentication failed: token expired');
+        // Close after a brief delay to ensure error message is sent
+        setImmediate(() => {
+          ws.close();
+        });
+      } else {
+        logger.error('Error authenticating WebSocket from cookie:', error);
+      }
+      // Don't allow manual authentication attempts with expired tokens
     }
   }
 
@@ -121,6 +216,12 @@ export class WebSocketManager {
       // Associate wallet address with this connection
       ws.walletAddress = walletAddress;
 
+      // Clear authentication timeout since we successfully authenticated
+      if (ws.authTimeout) {
+        clearTimeout(ws.authTimeout);
+        ws.authTimeout = undefined;
+      }
+
       // Add to clients map
       if (!this.clients.has(walletAddress)) {
         this.clients.set(walletAddress, new Set());
@@ -132,12 +233,21 @@ export class WebSocketManager {
       // Send authentication success
       this.send(ws, {
         type: 'authenticated',
-        payload: { walletAddress }
+        payload: { walletAddress, source: 'manual' }
       });
     } catch (error: any) {
-      logger.error('WebSocket authentication error:', error);
-      this.sendError(ws, 'Authentication failed');
-      ws.close();
+      // Expired tokens are expected behavior - log as debug, not error
+      if (error.name === 'TokenExpiredError') {
+        logger.debug('WebSocket authentication failed: token expired - user needs to refresh session');
+        this.sendError(ws, 'Authentication failed: token expired');
+      } else {
+        logger.error('WebSocket authentication error:', error);
+        this.sendError(ws, 'Authentication failed');
+      }
+      // Close after a brief delay to ensure error message is sent
+      setImmediate(() => {
+        ws.close();
+      });
     }
   }
 

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { CheckCircle, AlertTriangle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import apiClient from '@/services/api/client';
 
 interface ManualCompleteButtonProps {
   purchaseId: string;
@@ -28,24 +29,13 @@ export const ManualCompleteButton: React.FC<ManualCompleteButtonProps> = ({
     }
 
     setCompleting(true);
-    
+
     try {
-      const token = localStorage.getItem('shopAuthToken') || sessionStorage.getItem('shopAuthToken');
-      
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/shops/purchase-sync/manual-complete/${purchaseId}`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ confirmationCode: confirmCode })
-        }
+      const result = await apiClient.post(
+        `/shops/purchase-sync/manual-complete/${purchaseId}`,
+        { confirmationCode: confirmCode }
       );
-      
-      const result = await response.json();
-      
+
       if (result.success) {
         toast.success(
           <div>

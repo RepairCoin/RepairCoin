@@ -44,13 +44,13 @@ export class RoleValidator {
       if (email) {
         const uniquenessService = new UniquenessService();
         const emailCheck = await uniquenessService.checkEmailUniqueness(email);
-        
+
         if (!emailCheck.isUnique) {
           const conflictType = emailCheck.conflictType === 'shop' ? 'shop' : 'customer';
           return {
             isValid: false,
             conflictingRole: conflictType,
-            message: `Email address is already registered to a ${conflictType} account`
+            message: `This email address is already in use. Please use a different email or sign in to your existing ${conflictType} account.`
           };
         }
       }
@@ -93,13 +93,13 @@ export class RoleValidator {
       if (email) {
         const uniquenessService = new UniquenessService();
         const emailCheck = await uniquenessService.checkEmailUniqueness(email);
-        
+
         if (!emailCheck.isUnique) {
           const conflictType = emailCheck.conflictType === 'customer' ? 'customer' : 'shop';
           return {
             isValid: false,
             conflictingRole: conflictType,
-            message: `Email address is already registered to a ${conflictType} account`
+            message: `This email address is already in use. Please use a different email or sign in to your existing ${conflictType} account.`
           };
         }
       }

@@ -19,6 +19,29 @@ export default function LandingPage() {
   const { isAuthenticated } = useAuthStore();
   const { walletType, isRegistered, isDetecting } = useWalletDetection();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const redirectAttemptedRef = React.useRef(false);
+
+  // Auto-redirect registered users to their dashboard
+  // Middleware protection is disabled for cross-domain setup, so client-side handles it
+  React.useEffect(() => {
+    // Prevent multiple redirect attempts
+    if (redirectAttemptedRef.current) {
+      return;
+    }
+
+    // Only redirect authenticated users with complete wallet detection
+    if (account && isRegistered && isAuthenticated && !isDetecting && walletType !== 'unknown') {
+      console.log('🔄 [LandingPage] Auto-redirecting authenticated user to:', walletType);
+      redirectAttemptedRef.current = true;
+
+      const targetPath = walletType === "admin" ? "/admin" :
+                        walletType === "shop" ? "/shop" :
+                        "/customer";
+
+      // Use Next.js router for client-side navigation
+      router.push(targetPath);
+    }
+  }, [account, isRegistered, isAuthenticated, isDetecting, walletType, router]);
 
   const handleGetStarted = () => {
     if (!account) {

@@ -48,9 +48,7 @@ interface ActivityItem {
   status?: "success" | "pending" | "failed";
 }
 
-interface RecentActivityTimelineProps {
-  generateAdminToken?: () => Promise<string | null>;
-}
+interface RecentActivityTimelineProps {}
 
 const getRelativeTime = (timestamp: string): string => {
   const now = new Date();
@@ -114,26 +112,16 @@ const getActivityColor = (type: ActivityItem["type"]) => {
   }
 };
 
-export const RecentActivityTimeline: React.FC<RecentActivityTimelineProps> = ({
-  generateAdminToken,
-}) => {
+export const RecentActivityTimeline: React.FC<RecentActivityTimelineProps> = () => {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
 
   useEffect(() => {
     const fetchActivities = async () => {
-      if (!generateAdminToken) return;
-
       try {
         setLoading(true);
-        const token = await generateAdminToken();
-        if (!token) return;
-
-        const headers = {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        };
+        // Cookies sent automatically with apiClient
 
         const activities: ActivityItem[] = [];
 
@@ -142,11 +130,11 @@ export const RecentActivityTimeline: React.FC<RecentActivityTimelineProps> = ({
           const [activeShops, pendingShops] = await Promise.all([
             fetch(
               `${process.env.NEXT_PUBLIC_API_URL}/admin/shops?limit=5&orderBy=join_date&order=DESC`,
-              { headers }
+              { credentials: 'include' }
             ),
             fetch(
               `${process.env.NEXT_PUBLIC_API_URL}/admin/shops?verified=false&limit=5`,
-              { headers }
+              { credentials: 'include' }
             ),
           ]);
 
@@ -224,7 +212,7 @@ export const RecentActivityTimeline: React.FC<RecentActivityTimelineProps> = ({
     };
 
     fetchActivities();
-  }, [generateAdminToken]);
+  }, []);
 
   const filteredActivities =
     filter === "all" ? activities : activities.filter((a) => a.type === filter);

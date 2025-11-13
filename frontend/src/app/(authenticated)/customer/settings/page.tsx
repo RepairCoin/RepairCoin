@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast, Toaster } from 'react-hot-toast';
 import Link from 'next/link';
 import { useAuthStore } from "@/stores/authStore";
+import apiClient from '@/services/api/client';
 
 interface CustomerData {
   address: string;
@@ -58,27 +59,14 @@ export default function CustomerSettingsPage() {
     if (!userProfile?.address) return;
 
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/customers/${userProfile.address}`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            ...(userProfile.token && { Authorization: `Bearer ${userProfile.token}` }),
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch customer data: ${response.status}`);
-      }
-
-      const data = await response.json();
+      // apiClient uses cookies automatically and returns unwrapped data
+      const data = await apiClient.get(`/customers/${userProfile.address}`);
       const customerData = data.data?.customer || data.data;
-      
+
       if (!customerData) {
         throw new Error('No customer data found');
       }
-      
+
       setCustomer(customerData);
       setName(customerData.name || '');
       setEmail(customerData.email || '');
@@ -119,32 +107,17 @@ export default function CustomerSettingsPage() {
 
     setSaving(true);
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/customers/${userProfile.address}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(userProfile.token && { Authorization: `Bearer ${userProfile.token}` }),
-          },
-          body: JSON.stringify({
-            name,
-            email,
-            phone,
-          }),
-        }
-      );
+      // apiClient uses cookies automatically and returns unwrapped data
+      const data = await apiClient.put(`/customers/${userProfile.address}`, {
+        name,
+        email,
+        phone,
+      });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to update profile');
-      }
-
-      const data = await response.json();
       if (data.data?.customer) {
         setCustomer(data.data.customer);
       }
-      
+
       toast.success('Profile updated successfully!');
       setHasChanges(false);
     } catch (error: any) {
@@ -160,26 +133,20 @@ export default function CustomerSettingsPage() {
 
     setExportLoading(true);
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/customers/${userProfile.address}/export?format=${format}`,
+      // For file downloads, we need to use axios with responseType: 'blob'
+      const response = await apiClient.get(
+        `/customers/${userProfile.address}/export`,
         {
-          headers: {
-            ...(userProfile.token && { Authorization: `Bearer ${userProfile.token}` }),
-          },
+          params: { format },
+          responseType: 'blob',
         }
       );
 
-      if (!response.ok) {
-        throw new Error('Failed to export data');
-      }
-
       // Get filename from Content-Disposition header or use default
-      const contentDisposition = response.headers.get('Content-Disposition');
-      const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
-      const filename = filenameMatch ? filenameMatch[1] : `repaircoin-data-${userProfile.address}.${format}`;
+      const filename = `repaircoin-data-${userProfile.address}.${format}`;
 
-      // Create blob and download
-      const blob = await response.blob();
+      // Response is the blob data (apiClient unwraps it)
+      const blob = response as Blob;
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;

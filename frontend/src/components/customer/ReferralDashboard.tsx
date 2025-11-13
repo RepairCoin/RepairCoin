@@ -130,7 +130,7 @@ export function ReferralDashboard() {
 
   const referralCode = customerData?.referralCode || "Generating...";
   const referralLink = customerData?.referralCode
-    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/customer/register?ref=${customerData.referralCode}`
+    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/register/customer?ref=${customerData.referralCode}`
     : "";
 
   const copyReferralLink = async () => {

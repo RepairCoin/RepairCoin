@@ -16,6 +16,7 @@ import {
   ReferenceLine
 } from 'recharts';
 import { Calendar, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+import apiClient from '@/services/api/client';
 
 interface ProfitData {
   date: string;
@@ -39,7 +40,6 @@ interface ProfitMetrics {
 
 interface ProfitChartProps {
   shopId: string;
-  authToken?: string;
 }
 
 interface CachedData {
@@ -65,7 +65,7 @@ const CACHE_DURATION = 2 * 60 * 1000;
  *
  * This approach eliminates redundant API calls and provides instant switching between time ranges.
  */
-export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) => {
+export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
   const [profitData, setProfitData] = useState<ProfitData[]>([]);
   const [metrics, setMetrics] = useState<ProfitMetrics | null>(null);
   const [timeRange, setTimeRange] = useState<'day' | 'month' | 'year'>('month');
@@ -85,7 +85,7 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
       setError(null);
 
       // Check cache first
-      const cacheKey = `${shopId}-${authToken || 'no-auth'}`;
+      const cacheKey = shopId;
       const cached = dataCache.current.get(cacheKey);
       const now = Date.now();
 
@@ -102,34 +102,11 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
         const startDate = new Date();
         startDate.setFullYear(endDate.getFullYear() - 5); // Last 5 years
 
-        // Prepare headers for authenticated requests
-        const headers: HeadersInit = {
-          'Content-Type': 'application/json',
-        };
-
-        if (authToken) {
-          headers['Authorization'] = `Bearer ${authToken}`;
-        }
-
-        // Get API base URL from environment
-        const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-
-        // Fetch shop transactions and purchases data
-        const [transactionsRes, purchasesRes] = await Promise.all([
-          fetch(`${apiBaseUrl}/shops/${shopId}/transactions?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`, {
-            headers
-          }).catch(() => {
-            return { ok: false, status: 0, json: () => Promise.resolve({ data: [] }) };
-          }),
-          fetch(`${apiBaseUrl}/shops/${shopId}/purchases?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`, {
-            headers
-          }).catch(() => {
-            return { ok: false, status: 0, json: () => Promise.resolve({ data: { items: [] } }) };
-          })
+        // Fetch shop transactions and purchases data (cookies sent automatically)
+        const [transactions, purchases] = await Promise.all([
+          apiClient.get(`/shops/${shopId}/transactions?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`).catch(() => ({ data: [] })),
+          apiClient.get(`/shops/${shopId}/purchases?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`).catch(() => ({ data: { items: [] } }))
         ]);
-
-        const transactions = await transactionsRes.json();
-        const purchases = await purchasesRes.json();
 
         // Process data into profit metrics
         transactionsArray = Array.isArray(transactions.data) ? transactions.data :
@@ -141,8 +118,6 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
                               Array.isArray(purchases.data) ? purchases.data :
                               Array.isArray(purchases) ? purchases : [];
 
-        console.log('Processed transactions array:', transactionsArray);
-        console.log('Processed purchases array:', purchasesArray);
 
         // Cache the raw data
         dataCache.current.set(cacheKey, {
@@ -162,7 +137,7 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
     } finally {
       setLoading(false);
     }
-  }, [shopId, authToken]);
+  }, [shopId]);
 
   // Memoized helper functions
   const formatDateByRange = useCallback((date: Date, range: 'day' | 'month' | 'year'): string => {
@@ -192,8 +167,6 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
     const safeTransactions = Array.isArray(transactions) ? transactions : [];
     const safePurchases = Array.isArray(purchases) ? purchases : [];
 
-    console.log('Processing data - transactions count:', safeTransactions.length);
-    console.log('Processing data - purchases count:', safePurchases.length);
 
     // Process purchases (costs)
     safePurchases.forEach((purchase: any) => {
@@ -205,7 +178,6 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
         const purchaseCost = parseFloat(purchase.total_cost || purchase.totalCost || 0);
         const purchaseAmount = parseFloat(purchase.amount || 0);
         
-        console.log(`Processing purchase: Date=${date}, Cost=$${purchaseCost}, Amount=${purchaseAmount} RCN`);
         
         dataMap.set(date, {
           ...existing,
@@ -233,7 +205,6 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
           repairRevenue = rcnAmount * 10; // Conservative estimate: $10 repair per 1 RCN
         }
         
-        console.log(`Processing transaction: Date=${date}, Revenue=$${repairRevenue}, RCN=${transaction.amount}`);
         
         dataMap.set(date, {
           ...existing,
@@ -256,9 +227,6 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
       }))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     
-    console.log('Final profit data calculated:', result);
-    console.log('Total costs from all purchases:', result.reduce((sum, item) => sum + item.costs, 0));
-    console.log('Total revenue from all repairs:', result.reduce((sum, item) => sum + item.revenue, 0));
 
     return result;
   }, [formatDateByRange]);
@@ -367,17 +335,12 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId, authToken }) =
     };
   }, []);
 
-  // Fetch data on mount or when shopId/authToken changes
+  // Fetch data on mount or when shopId changes
   useEffect(() => {
-    if (shopId && authToken) {
+    if (shopId) {
       fetchProfitData();
-    } else if (shopId && !authToken) {
-      console.log('No auth token available, showing empty state');
-      setProfitData([]);
-      setMetrics(null);
-      setLoading(false);
     }
-  }, [shopId, authToken, fetchProfitData]);
+  }, [shopId, fetchProfitData]);
 
   // Filter and process data when timeRange or raw data changes
   const filteredProfitData = useMemo(() => {

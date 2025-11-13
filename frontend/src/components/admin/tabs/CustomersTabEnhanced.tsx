@@ -75,7 +75,7 @@ interface CustomersTabEnhancedProps {
 export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
   initialView = "grouped",
 }) => {
-  const { generateAdminToken, customerActions, loadDashboardData } =
+  const {  customerActions, loadDashboardData } =
     useAdminDashboard();
 
   const onMintTokens = customerActions.mintTokens;
@@ -380,18 +380,12 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
   const fetchUnsuspendRequests = async () => {
     setUnsuspendRequestsLoading(true);
     try {
-      const adminToken = await generateAdminToken();
-      if (!adminToken) {
-        toast.error("Failed to authenticate as admin");
-        return;
-      }
+      // Cookies sent automatically with apiClient
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/admin/unsuspend-requests?status=pending&entityType=customer`,
         {
-          headers: {
-            Authorization: `Bearer ${adminToken}`,
-          },
+          credentials: 'include'
         }
       );
 
@@ -421,11 +415,7 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
     notes: string = ""
   ) => {
     try {
-      const adminToken = await generateAdminToken();
-      if (!adminToken) {
-        toast.error("Failed to authenticate as admin");
-        return;
-      }
+      // Cookies sent automatically with apiClient
 
       const endpoint =
         action === "approve"
@@ -436,9 +426,9 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
         `${process.env.NEXT_PUBLIC_API_URL}${endpoint}`,
         {
           method: "POST",
+          credentials: 'include',
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${adminToken}`,
           },
           body: JSON.stringify({ notes }),
         }
@@ -461,20 +451,15 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
     setLoading(true);
 
     try {
-      const adminToken = await generateAdminToken();
-      if (!adminToken) {
-        toast.error("Failed to authenticate as admin");
-        setLoading(false);
-        return;
-      }
+      // Cookies sent automatically with apiClient
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/admin/customers/grouped-by-shop`,
         {
+          credentials: 'include',
           headers: {
-            Authorization: `Bearer ${adminToken}`,
             "Content-Type": "application/json",
-          },
+          }
         }
       );
 

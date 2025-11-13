@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { RefreshCw, AlertCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { ManualCompleteButton } from './ManualCompleteButton';
+import apiClient from '@/services/api/client';
 
 interface PurchaseSyncButtonProps {
   purchaseId: string;
@@ -21,23 +22,12 @@ export const PurchaseSyncButton: React.FC<PurchaseSyncButtonProps> = ({
 
   const syncPayment = async () => {
     setSyncing(true);
-    
+
     try {
-      const token = localStorage.getItem('shopAuthToken') || sessionStorage.getItem('shopAuthToken');
-      
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/shops/purchase-sync/check-payment/${purchaseId}`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
+      const result = await apiClient.post(
+        `/shops/purchase-sync/check-payment/${purchaseId}`
       );
-      
-      const result = await response.json();
-      
+
       if (result.success) {
         toast.success(
           <div>

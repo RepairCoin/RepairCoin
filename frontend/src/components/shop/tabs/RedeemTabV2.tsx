@@ -22,6 +22,7 @@ import { showToast } from "@/utils/toast";
 import QrScanner from "qr-scanner";
 import toast from "react-hot-toast";
 import Tooltip from "../../ui/tooltip";
+import apiClient from "@/services/api/client";
 
 interface ShopData {
   walletAddress?: string;
@@ -133,21 +134,10 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   const loadShopCustomers = async () => {
     setLoadingCustomers(true);
     try {
-      const authToken =
-        localStorage.getItem("shopAuthToken") ||
-        sessionStorage.getItem("shopAuthToken");
+      const response = await apiClient.get(`/shops/${shopId}/customers?limit=100`);
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/customers?limit=100`,
-        {
-          headers: {
-            Authorization: authToken ? `Bearer ${authToken}` : "",
-          },
-        }
-      );
-
-      if (response.ok) {
-        const result = await response.json();
+      if (response.success) {
+        const result = response;
         const shopCustomers = result.data.customers || [];
 
         if (shopCustomers.length === 0) {
@@ -220,21 +210,10 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   const loadRedemptionHistory = async () => {
     setLoadingTransactions(true);
     try {
-      const authToken =
-        localStorage.getItem("shopAuthToken") ||
-        sessionStorage.getItem("shopAuthToken");
+      const response = await apiClient.get(`/shops/${shopId}/transactions?type=redeem&limit=20`);
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/transactions?type=redeem&limit=20`,
-        {
-          headers: {
-            Authorization: authToken ? `Bearer ${authToken}` : "",
-          },
-        }
-      );
-
-      if (response.ok) {
-        const result = await response.json();
+      if (response.success) {
+        const result = response;
         const redemptions = result.data?.transactions || [];
 
         const transformedTransactions = redemptions.map((tx: any) => ({
@@ -258,22 +237,10 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
 
   const checkForPendingSessions = async () => {
     try {
-      const authToken =
-        localStorage.getItem("shopAuthToken") ||
-        sessionStorage.getItem("shopAuthToken");
-      if (!authToken) return;
+      const response = await apiClient.get(`/shops/${shopId}/pending-sessions`);
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/pending-sessions`,
-        {
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
-        }
-      );
-
-      if (response.ok) {
-        const result = await response.json();
+      if (response.success) {
+        const result = response;
         const sessions = result.data?.sessions || [];
 
         // Filter out expired sessions
@@ -326,21 +293,10 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   const fetchCustomerBalance = async (address: string) => {
     setLoadingBalance(true);
     try {
-      const authToken =
-        localStorage.getItem("shopAuthToken") ||
-        sessionStorage.getItem("shopAuthToken");
+      const response = await apiClient.get(`/customers/balance/${address}`);
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/customers/balance/${address}`,
-        {
-          headers: {
-            Authorization: authToken ? `Bearer ${authToken}` : "",
-          },
-        }
-      );
-
-      if (response.ok) {
-        const result = await response.json();
+      if (response.success) {
+        const result = response;
         const balance = result.data?.totalBalance || 0;
         setCustomerBalance(balance);
       } else {
@@ -409,20 +365,9 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
 
       setCheckingCustomerExists(true);
       try {
-        const authToken =
-          localStorage.getItem("shopAuthToken") ||
-          sessionStorage.getItem("shopAuthToken");
+        const response = await apiClient.get(`/customers/${customerSearch}`);
 
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/customers/${customerSearch}`,
-          {
-            headers: {
-              Authorization: authToken ? `Bearer ${authToken}` : "",
-            },
-          }
-        );
-
-        if (response.ok) {
+        if (response.success) {
           setCustomerExistsResult({ exists: true, checked: true });
         } else {
           setCustomerExistsResult({ exists: false, checked: true });
@@ -456,20 +401,10 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
         }
 
         try {
-          const authToken =
-            localStorage.getItem("shopAuthToken") ||
-            sessionStorage.getItem("shopAuthToken");
-          const response = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/tokens/redemption-session/status/${currentSession.sessionId}`,
-            {
-              headers: {
-                Authorization: authToken ? `Bearer ${authToken}` : "",
-              },
-            }
-          );
+          const response = await apiClient.get(`/tokens/redemption-session/status/${currentSession.sessionId}`);
 
-          if (response.ok) {
-            const result = await response.json();
+          if (response.success) {
+            const result = response;
             const sessionData = result.data;
 
             // Update session expiry time
@@ -550,34 +485,19 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
       setSuccess(null);
 
       try {
-        const authToken =
-          localStorage.getItem("shopAuthToken") ||
-          sessionStorage.getItem("shopAuthToken");
+        const response = await apiClient.post('/tokens/redemption-session/create', {
+          customerAddress: finalAddress,
+          shopId,
+          amount: redeemAmount,
+        });
 
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/tokens/redemption-session/create`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: authToken ? `Bearer ${authToken}` : "",
-            },
-            body: JSON.stringify({
-              customerAddress: finalAddress,
-              shopId,
-              amount: redeemAmount,
-            }),
-          }
-        );
-
-        if (!response.ok) {
-          const errorData = await response.json();
+        if (!response.success) {
           throw new Error(
-            errorData.error || "Failed to create redemption session"
+            response.error || "Failed to create redemption session"
           );
         }
 
-        const result = await response.json();
+        const result = response;
         const newSession = {
           sessionId: result.data.sessionId,
           customerAddress: finalAddress,
@@ -601,29 +521,14 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
     if (!currentSession) return;
 
     try {
-      const authToken =
-        localStorage.getItem("shopAuthToken") ||
-        sessionStorage.getItem("shopAuthToken");
+      const response = await apiClient.post(`/shops/${shopId}/redeem`, {
+        customerAddress: currentSession.customerAddress,
+        amount: currentSession.amount,
+        sessionId: currentSession.sessionId,
+      });
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}/redeem`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: authToken ? `Bearer ${authToken}` : "",
-          },
-          body: JSON.stringify({
-            customerAddress: currentSession.customerAddress,
-            amount: currentSession.amount,
-            sessionId: currentSession.sessionId,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Redemption failed");
+      if (!response.success) {
+        throw new Error(response.error || "Redemption failed");
       }
 
       setSuccess(
@@ -1265,27 +1170,13 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                   <button
                     onClick={async () => {
                       if (!currentSession) return;
-                      
-                      try {
-                        const authToken =
-                          localStorage.getItem("shopAuthToken") ||
-                          sessionStorage.getItem("shopAuthToken");
-                        
-                        const response = await fetch(
-                          `${process.env.NEXT_PUBLIC_API_URL}/tokens/redemption-session/cancel`,
-                          {
-                            method: 'POST',
-                            headers: {
-                              'Authorization': `Bearer ${authToken}`,
-                              'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                              sessionId: currentSession.sessionId
-                            })
-                          }
-                        );
 
-                        if (response.ok) {
+                      try {
+                        const response = await apiClient.post('/tokens/redemption-session/cancel', {
+                          sessionId: currentSession.sessionId
+                        });
+
+                        if (response.success) {
                           setSessionStatus("idle");
                           setCurrentSession(null);
                           setError(null);
@@ -1311,21 +1202,10 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                   <button
                     onClick={async () => {
                       try {
-                        const authToken =
-                          localStorage.getItem("shopAuthToken") ||
-                          sessionStorage.getItem("shopAuthToken");
-                        const response = await fetch(
-                          `${process.env.NEXT_PUBLIC_API_URL}/tokens/redemption-session/status/${currentSession.sessionId}`,
-                          {
-                            headers: {
-                              Authorization: authToken
-                                ? `Bearer ${authToken}`
-                                : "",
-                            },
-                          }
-                        );
-                        if (response.ok) {
-                          const result = await response.json();
+                        const response = await apiClient.get(`/tokens/redemption-session/status/${currentSession.sessionId}`);
+
+                        if (response.success) {
+                          const result = response;
                           if (result.data.status === "approved") {
                             setSessionStatus("processing");
                             await processRedemption();

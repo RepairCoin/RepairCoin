@@ -6,6 +6,7 @@ interface Shop {
   shopId: string;
   shop_id?: string;
   name: string;
+  category?: string;
   active?: boolean;
   verified?: boolean;
   email?: string;
@@ -123,6 +124,9 @@ export const ShopApplicationsTab: React.FC<ShopApplicationsTabProps> = ({
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
                       <div className="text-sm font-medium text-gray-900">{shop.name}</div>
+                      {shop.category && (
+                        <div className="text-xs text-gray-500">{shop.category}</div>
+                      )}
                       <div className="text-sm text-gray-500">{shop.shopId || shop.shop_id}</div>
                     </div>
                   </td>

@@ -372,7 +372,7 @@ export default function ChoosePage() {
                     </div>
                     <div className="mt-8">
                       <button
-                        onClick={() => router.push("/customer/register")}
+                        onClick={() => router.push("/register/customer")}
                         className="w-full bg-[#FFCC00] text-black font-semibold py-4 px-6 rounded-xl transition duration-200 transform hover:scale-105 cursor-pointer"
                       >
                         Register as Customer
@@ -576,7 +576,7 @@ export default function ChoosePage() {
                       </div>
                       <div className="mt-8">
                         <button
-                          onClick={() => router.push("/shop/register")}
+                          onClick={() => router.push("/register/shop")}
                           className="w-full bg-[#FFCC00] text-black font-semibold py-4 px-6 rounded-xl transition duration-200 transform hover:scale-105 cursor-pointer"
                         >
                           Register as Shop

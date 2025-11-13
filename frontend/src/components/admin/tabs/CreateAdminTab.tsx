@@ -4,7 +4,7 @@ import { useAdminDashboard } from '@/hooks/useAdminDashboard';
 interface CreateAdminTabProps {}
 
 export function CreateAdminTab({}: CreateAdminTabProps) {
-  const { account, generateAdminToken, setError: onError, loadDashboardData: onSuccess } = useAdminDashboard();
+  const { account,  setError: onError, loadDashboardData: onSuccess } = useAdminDashboard();
   const [formData, setFormData] = useState({
     walletAddress: '',
     name: '',
@@ -20,7 +20,7 @@ export function CreateAdminTab({}: CreateAdminTabProps) {
     setSuccess(null);
 
     try {
-      const adminToken = await generateAdminToken();
+      // Cookies sent automatically with apiClient
       if (!adminToken) {
         onError('Failed to authenticate as admin');
         return;
