@@ -15,6 +15,12 @@ export interface UserProfile {
   // Note: token is stored in httpOnly cookie, not in profile
 }
 
+export interface AuthError {
+  message: string;
+  type: 'revoked' | 'unauthorized' | 'inactive' | 'unverified' | 'general';
+  timestamp: number;
+}
+
 export interface AuthState {
   // State
   account: { address: string } | null;
@@ -23,6 +29,7 @@ export interface AuthState {
   isLoading: boolean;
   error: string | null;
   loginInProgress: boolean; // Global flag to prevent duplicate logins
+  authError: AuthError | null; // Structured error for better handling
 
   // Computed values
   userType: 'customer' | 'shop' | 'admin' | null;
@@ -35,6 +42,7 @@ export interface AuthState {
   setUserProfile: (profile: UserProfile | null) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+  setAuthError: (error: AuthError | null) => void;
   setLoginInProgress: (inProgress: boolean) => void;
   resetAuth: () => void;
 
@@ -53,6 +61,7 @@ export const useAuthStore = create<AuthState>()(
       isLoading: false,
       error: null,
       loginInProgress: false,
+      authError: null,
 
       // Computed values (derived from userProfile)
       userType: null,
@@ -88,6 +97,11 @@ export const useAuthStore = create<AuthState>()(
         set({ error }, false, 'setError');
       },
 
+      // Set structured auth error
+      setAuthError: (authError) => {
+        set({ authError }, false, 'setAuthError');
+      },
+
       // Set login in progress
       setLoginInProgress: (inProgress) => {
         set({ loginInProgress: inProgress }, false, 'setLoginInProgress');
@@ -104,6 +118,7 @@ export const useAuthStore = create<AuthState>()(
           isShop: false,
           isCustomer: false,
           error: null,
+          authError: null,
           loginInProgress: false
         }, false, 'resetAuth');
 
@@ -115,6 +130,7 @@ export const useAuthStore = create<AuthState>()(
 
       // Centralized login function - SINGLE SOURCE OF TRUTH
       login: async (address: string) => {
+        console.log('[authStore] 🎯 Login function called with address:', address);
         const state = get();
 
         // Prevent duplicate login attempts - GLOBAL LOCK
@@ -123,6 +139,7 @@ export const useAuthStore = create<AuthState>()(
           return;
         }
 
+        console.log('[authStore] Starting login process...');
         set({ loginInProgress: true, isLoading: true, error: null }, false, 'login:start');
 
         try {
@@ -139,27 +156,58 @@ export const useAuthStore = create<AuthState>()(
 
           // Authenticate based on user type
           let authResult = null;
-          switch (userCheck.type) {
-            case 'admin':
-              authResult = await authApi.authenticateAdmin(address);
-              break;
-            case 'shop':
-              authResult = await authApi.authenticateShop(address);
-              break;
-            case 'customer':
-              authResult = await authApi.authenticateCustomer(address);
-              break;
+          let isUnverifiedShop = false;
+
+          try {
+            switch (userCheck.type) {
+              case 'admin':
+                authResult = await authApi.authenticateAdmin(address);
+                break;
+              case 'shop':
+                authResult = await authApi.authenticateShop(address);
+                break;
+              case 'customer':
+                authResult = await authApi.authenticateCustomer(address);
+                break;
+            }
+          } catch (authError: any) {
+            // Special handling for unverified shops - allow them to "log in" without authentication
+            const errorMessage = authError?.response?.data?.error || '';
+            const errorStatus = authError?.response?.status;
+            console.log('[authStore] Authentication error:', {
+              type: userCheck.type,
+              status: errorStatus,
+              message: errorMessage,
+              fullError: authError?.response?.data
+            });
+
+            if (userCheck.type === 'shop' &&
+                errorStatus === 403 &&
+                (errorMessage.includes('verified') || errorMessage.includes('active'))) {
+              console.log('[authStore] ✅ Unverified/inactive shop - allowing limited access');
+              isUnverifiedShop = true;
+              // Continue with profile setup but no authenticated session
+            } else {
+              console.log('[authStore] ❌ Re-throwing auth error (not an unverified shop case)');
+              // Re-throw other auth errors to be handled by outer catch
+              throw authError;
+            }
           }
 
-          if (!authResult) {
+          if (!authResult && !isUnverifiedShop) {
             console.error('[authStore] Authentication failed');
             const errorMessage = 'Authentication failed. Please try again or contact support.';
             set({ error: errorMessage, userProfile: null, isAuthenticated: false }, false, 'login:failed');
 
             // Trigger wallet disconnect on auth failure
             if (typeof window !== 'undefined') {
+              const failureError: AuthError = {
+                message: errorMessage,
+                type: 'general',
+                timestamp: Date.now()
+              };
               window.dispatchEvent(new CustomEvent('auth:login-failed', {
-                detail: { isRevoked: false, error: errorMessage }
+                detail: failureError
               }));
             }
             return;
@@ -181,45 +229,72 @@ export const useAuthStore = create<AuthState>()(
           };
 
           // Update state with profile
+          // For unverified shops, set profile but not authenticated status
           set({
             userProfile: profile,
-            isAuthenticated: true,
+            isAuthenticated: !isUnverifiedShop, // Only authenticate if not an unverified shop
             userType: profile.type,
             isAdmin: profile.type === 'admin',
             isShop: profile.type === 'shop',
             isCustomer: profile.type === 'customer',
-          }, false, 'login:success');
+          }, false, isUnverifiedShop ? 'login:unverified-shop' : 'login:success');
 
-          console.log('[authStore] Login successful:', profile.type);
+          if (isUnverifiedShop) {
+            console.log('[authStore] Login successful (unverified shop - limited access):', profile.type);
+          } else {
+            console.log('[authStore] Login successful:', profile.type);
+          }
         } catch (error: any) {
           console.error('[authStore] Login error:', error);
 
-          // Check if it's a revocation error
+          // Determine error type and message
           const isRevoked = error?.response?.data?.code === 'RECENT_REVOCATION';
+          const backendError = error?.response?.data?.error || '';
 
-          // Get more specific error message from backend if available
           let errorMessage: string;
+          let errorType: AuthError['type'];
+
           if (isRevoked) {
             errorMessage = 'Your account access has been revoked. Please try again later or contact support.';
-          } else if (error?.response?.data?.error) {
-            // Use backend error message if available
-            errorMessage = error.response.data.error;
+            errorType = 'revoked';
+          } else if (backendError.includes('inactive') || backendError.includes('not active')) {
+            errorMessage = backendError;
+            errorType = 'inactive';
+          } else if (backendError.includes('verified')) {
+            errorMessage = backendError;
+            errorType = 'unverified';
           } else if (error?.response?.status === 403) {
-            errorMessage = 'Access denied. Your account may be suspended or inactive.';
+            errorMessage = backendError || 'Access denied. Your account may be suspended or inactive.';
+            errorType = 'unauthorized';
           } else if (error?.response?.status === 401) {
             errorMessage = 'Authentication failed. Please try reconnecting your wallet.';
+            errorType = 'unauthorized';
           } else if (error?.message) {
             errorMessage = `Authentication error: ${error.message}`;
+            errorType = 'general';
           } else {
             errorMessage = 'Failed to authenticate. Please check your connection and try again.';
+            errorType = 'general';
           }
 
-          set({ error: errorMessage, userProfile: null }, false, 'login:error');
+          // Store structured error in state instead of localStorage
+          const authError: AuthError = {
+            message: errorMessage,
+            type: errorType,
+            timestamp: Date.now()
+          };
+
+          set({
+            error: errorMessage,
+            authError,
+            userProfile: null
+          }, false, 'login:error');
 
           // Trigger wallet disconnect on auth failure (especially for revocation)
+          // Pass structured error instead of plain object
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('auth:login-failed', {
-              detail: { isRevoked, error: errorMessage }
+              detail: authError
             }));
           }
         } finally {

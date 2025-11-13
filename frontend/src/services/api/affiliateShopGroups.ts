@@ -40,12 +40,16 @@ export interface CustomerAffiliateGroupBalance {
 }
 
 export interface AffiliateGroupTokenTransaction {
-  transactionId: string;
+  id: string; // Backend returns 'id', not 'transactionId'
+  transactionId?: string; // Keep for backward compatibility
   groupId: string;
   customerAddress: string;
   shopId: string;
   type: 'earn' | 'redeem';
   amount: number;
+  balanceBefore?: number;
+  balanceAfter?: number;
+  timestamp?: string; // Alternative field name
   reason?: string;
   metadata?: Record<string, any>;
   createdAt: string;
@@ -102,10 +106,17 @@ export const createGroup = async (data: CreateGroupData): Promise<AffiliateShopG
  */
 export const getAllGroups = async (params?: { isPrivate?: boolean }): Promise<AffiliateShopGroup[]> => {
   try {
+    console.log('🌐 [API] Calling GET /affiliate-shop-groups');
     // For discover page, we want to show all groups (both public and private)
     // Private groups will just show as "invite only"
     const response = await apiClient.get<{ success: boolean; data: any[] }>(`/affiliate-shop-groups`);
-    const groups = response.data?.data || [];
+    console.log('✅ [API] getAllGroups response:', {
+      status: 'success',
+      dataLength: (response as any).data?.length || 0,
+      rawResponse: response
+    });
+    // apiClient interceptor returns response.data directly, so response IS { success, data }
+    const groups = (response as any).data || [];
 
     // Map backend groupType to frontend isPrivate
     return groups.map((group: any) => ({
@@ -113,7 +124,12 @@ export const getAllGroups = async (params?: { isPrivate?: boolean }): Promise<Af
       isPrivate: group.groupType === 'private',
     }));
   } catch (error) {
-    console.error('Error getting shop groups:', error);
+    console.error('❌ [API] Error getting shop groups:', error);
+    console.error('Error details:', {
+      status: (error as any)?.response?.status,
+      data: (error as any)?.response?.data,
+      message: (error as any)?.message
+    });
     return [];
   }
 };
@@ -123,8 +139,15 @@ export const getAllGroups = async (params?: { isPrivate?: boolean }): Promise<Af
  */
 export const getMyGroups = async (): Promise<AffiliateShopGroup[]> => {
   try {
+    console.log('🌐 [API] Calling GET /affiliate-shop-groups/my-groups');
     const response = await apiClient.get<{ success: boolean; data: any[] }>('/affiliate-shop-groups/my-groups');
-    const groups = response.data?.data || [];
+    console.log('✅ [API] getMyGroups response:', {
+      status: 'success',
+      dataLength: (response as any).data?.length || 0,
+      rawResponse: response
+    });
+    // apiClient interceptor returns response.data directly, so response IS { success, data }
+    const groups = (response as any).data || [];
 
     // Map backend groupType to frontend isPrivate
     return groups.map((group: any) => ({
@@ -132,7 +155,12 @@ export const getMyGroups = async (): Promise<AffiliateShopGroup[]> => {
       isPrivate: group.groupType === 'private',
     }));
   } catch (error) {
-    console.error('Error getting my groups:', error);
+    console.error('❌ [API] Error getting my groups:', error);
+    console.error('Error details:', {
+      status: (error as any)?.response?.status,
+      data: (error as any)?.response?.data,
+      message: (error as any)?.message
+    });
     return [];
   }
 };
@@ -143,7 +171,8 @@ export const getMyGroups = async (): Promise<AffiliateShopGroup[]> => {
 export const getGroup = async (groupId: string): Promise<AffiliateShopGroup | null> => {
   try {
     const response = await apiClient.get<{ success: boolean; data: any }>(`/affiliate-shop-groups/${groupId}`);
-    const data = response.data?.data;
+    // apiClient interceptor returns response.data directly
+    const data = (response as any).data;
     if (!data) return null;
 
     // Map backend groupType to frontend isPrivate
@@ -228,7 +257,8 @@ export const getGroupMembers = async (
     const response = await apiClient.get<{ success: boolean; data: AffiliateShopGroupMember[] | { memberCount: number; _message: string } }>(
       `/affiliate-shop-groups/${groupId}/members${queryString}`
     );
-    const data = response.data?.data;
+    // apiClient interceptor returns response.data directly
+    const data = (response as any).data;
 
     // Backend returns an object with memberCount when user is not a member
     // Return empty array in that case instead of trying to map over object
@@ -397,24 +427,29 @@ export const getGroupTransactions = async (
     if (params?.type) queryParams.append('type', params.type);
 
     const queryString = queryParams.toString();
-    const response = await apiClient.get<{
-      success: boolean;
-      data: {
-        items: GroupTokenTransaction[];
-        pagination: {
-          page: number;
-          limit: number;
-          total: number;
-          totalPages: number;
-        };
+    const response = await apiClient.get<any>(
+      `/affiliate-shop-groups/${groupId}/transactions${queryString ? `?${queryString}` : ''}`
+    );
+
+    // Handle both response formats:
+    // 1. Backend returns { data: [...], pagination: {...} }
+    // 2. Backend returns array directly [...]
+    if (Array.isArray(response)) {
+      // Direct array response
+      return {
+        items: response,
+        pagination: { page: 1, limit: response.length, total: response.length, totalPages: 1 },
       };
-    }>(`/affiliate-shop-groups/${groupId}/transactions${queryString ? `?${queryString}` : ''}`);
-    return (
-      response.data || {
+    } else if (response?.data) {
+      // Wrapped response with pagination
+      return response.data;
+    } else {
+      // Fallback
+      return {
         items: [],
         pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
-      }
-    );
+      };
+    }
   } catch (error) {
     console.error('Error getting group transactions:', error);
     return {
@@ -552,6 +587,88 @@ export const getTransactionTrends = async (
     return response.data || [];
   } catch (error) {
     console.error('Error getting transaction trends:', error);
+    return [];
+  }
+};
+
+// ============= RCN ALLOCATION =============
+
+export interface ShopGroupRcnAllocation {
+  shopId: string;
+  groupId: string;
+  allocatedRcn: number;
+  usedRcn: number;
+  availableRcn: number;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+/**
+ * Allocate RCN from shop's main balance to a group
+ */
+export const allocateRcnToGroup = async (
+  groupId: string,
+  amount: number
+): Promise<{ allocation: ShopGroupRcnAllocation; shopRemainingBalance: number } | null> => {
+  try {
+    const response = await apiClient.post<{
+      allocation: ShopGroupRcnAllocation;
+      shopRemainingBalance: number;
+      message: string;
+    }>(`/affiliate-shop-groups/${groupId}/rcn/allocate`, { amount });
+    return response || null;
+  } catch (error) {
+    console.error('Error allocating RCN:', error);
+    throw error;
+  }
+};
+
+/**
+ * Deallocate RCN from group back to shop's main balance
+ */
+export const deallocateRcnFromGroup = async (
+  groupId: string,
+  amount: number
+): Promise<{ allocation: ShopGroupRcnAllocation; shopNewBalance: number } | null> => {
+  try {
+    const response = await apiClient.post<{
+      allocation: ShopGroupRcnAllocation;
+      shopNewBalance: number;
+      message: string;
+    }>(`/affiliate-shop-groups/${groupId}/rcn/deallocate`, { amount });
+    return response || null;
+  } catch (error) {
+    console.error('Error deallocating RCN:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get shop's RCN allocation for a specific group
+ */
+export const getGroupRcnAllocation = async (groupId: string): Promise<ShopGroupRcnAllocation | null> => {
+  try {
+    const response = await apiClient.get<{ success: boolean; data: ShopGroupRcnAllocation }>(
+      `/affiliate-shop-groups/${groupId}/rcn/allocation`
+    );
+    return (response as any).data || null;
+  } catch (error) {
+    console.error('Error getting group RCN allocation:', error);
+    return null;
+  }
+};
+
+/**
+ * Get all RCN allocations for authenticated shop
+ */
+export const getAllRcnAllocations = async (): Promise<ShopGroupRcnAllocation[]> => {
+  try {
+    const response = await apiClient.get<{ success: boolean; data: ShopGroupRcnAllocation[] }>(
+      '/affiliate-shop-groups/rcn/allocations'
+    );
+    return (response as any).data || [];
+  } catch (error) {
+    console.error('Error getting all RCN allocations:', error);
     return [];
   }
 };

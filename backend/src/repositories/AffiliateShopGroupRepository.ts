@@ -99,6 +99,16 @@ export interface UpdateGroupParams {
   active?: boolean;
 }
 
+export interface ShopGroupRcnAllocation {
+  shopId: string;
+  groupId: string;
+  allocatedRcn: number;
+  usedRcn: number;
+  availableRcn: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export class AffiliateShopGroupRepository extends BaseRepository {
   // ==================== SHOP GROUPS ====================
 
@@ -910,6 +920,157 @@ export class AffiliateShopGroupRepository extends BaseRepository {
       }));
     } catch (error) {
       logger.error('Error fetching transaction trends:', error);
+      throw error;
+    }
+  }
+
+  // ==================== RCN ALLOCATION ====================
+
+  /**
+   * Get shop's RCN allocation for a specific group
+   */
+  async getShopGroupRcnAllocation(shopId: string, groupId: string): Promise<ShopGroupRcnAllocation | null> {
+    try {
+      const query = `
+        SELECT * FROM shop_group_rcn_allocations
+        WHERE shop_id = $1 AND group_id = $2
+      `;
+
+      const result = await this.pool.query(query, [shopId, groupId]);
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const row = result.rows[0];
+      return {
+        shopId: row.shop_id,
+        groupId: row.group_id,
+        allocatedRcn: parseFloat(row.allocated_rcn),
+        usedRcn: parseFloat(row.used_rcn),
+        availableRcn: parseFloat(row.available_rcn),
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      };
+    } catch (error) {
+      logger.error('Error getting shop group RCN allocation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Allocate RCN from shop's main balance to a group
+   */
+  async allocateRcnToGroup(shopId: string, groupId: string, amount: number): Promise<ShopGroupRcnAllocation> {
+    try {
+      const query = `
+        INSERT INTO shop_group_rcn_allocations (shop_id, group_id, allocated_rcn, used_rcn)
+        VALUES ($1, $2, $3, 0)
+        ON CONFLICT (shop_id, group_id)
+        DO UPDATE SET
+          allocated_rcn = shop_group_rcn_allocations.allocated_rcn + EXCLUDED.allocated_rcn,
+          updated_at = CURRENT_TIMESTAMP
+        RETURNING *
+      `;
+
+      const result = await this.pool.query(query, [shopId, groupId, amount]);
+      const row = result.rows[0];
+
+      return {
+        shopId: row.shop_id,
+        groupId: row.group_id,
+        allocatedRcn: parseFloat(row.allocated_rcn),
+        usedRcn: parseFloat(row.used_rcn),
+        availableRcn: parseFloat(row.available_rcn),
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      };
+    } catch (error) {
+      logger.error('Error allocating RCN to group:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Deallocate RCN from a group back to shop's main balance
+   */
+  async deallocateRcnFromGroup(shopId: string, groupId: string, amount: number): Promise<ShopGroupRcnAllocation> {
+    try {
+      const query = `
+        UPDATE shop_group_rcn_allocations
+        SET
+          allocated_rcn = allocated_rcn - $3,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE shop_id = $1 AND group_id = $2
+        RETURNING *
+      `;
+
+      const result = await this.pool.query(query, [shopId, groupId, amount]);
+
+      if (result.rows.length === 0) {
+        throw new Error('No allocation found for this shop and group');
+      }
+
+      const row = result.rows[0];
+      return {
+        shopId: row.shop_id,
+        groupId: row.group_id,
+        allocatedRcn: parseFloat(row.allocated_rcn),
+        usedRcn: parseFloat(row.used_rcn),
+        availableRcn: parseFloat(row.available_rcn),
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      };
+    } catch (error) {
+      logger.error('Error deallocating RCN from group:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update used RCN when issuing/redeeming group tokens
+   */
+  async updateUsedRcn(shopId: string, groupId: string, delta: number): Promise<void> {
+    try {
+      const query = `
+        UPDATE shop_group_rcn_allocations
+        SET
+          used_rcn = used_rcn + $3,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE shop_id = $1 AND group_id = $2
+      `;
+
+      await this.pool.query(query, [shopId, groupId, delta]);
+    } catch (error) {
+      logger.error('Error updating used RCN:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all RCN allocations for a shop
+   */
+  async getShopRcnAllocations(shopId: string): Promise<ShopGroupRcnAllocation[]> {
+    try {
+      const query = `
+        SELECT * FROM shop_group_rcn_allocations
+        WHERE shop_id = $1
+        ORDER BY updated_at DESC
+      `;
+
+      const result = await this.pool.query(query, [shopId]);
+
+      return result.rows.map(row => ({
+        shopId: row.shop_id,
+        groupId: row.group_id,
+        allocatedRcn: parseFloat(row.allocated_rcn),
+        usedRcn: parseFloat(row.used_rcn),
+        availableRcn: parseFloat(row.available_rcn),
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }));
+    } catch (error) {
+      logger.error('Error getting shop RCN allocations:', error);
       throw error;
     }
   }

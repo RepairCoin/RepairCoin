@@ -129,14 +129,11 @@ export const useNotifications = () => {
       return;
     }
 
-    console.log('🔌 Connecting to WebSocket for wallet:', userProfile.address);
-
     try {
       const ws = new WebSocket(WS_URL);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('✅ WebSocket connected - waiting for auto-authentication from cookie');
         reconnectAttemptsRef.current = 0;
         manuallyClosedRef.current = false;
       };
@@ -147,11 +144,9 @@ export const useNotifications = () => {
 
           switch (message.type) {
             case 'connected':
-              console.log('🤝 WebSocket handshake complete');
               break;
 
             case 'authenticated':
-              console.log('🔐 WebSocket authenticated for:', message.payload.walletAddress, '(via', message.payload.source + ')');
               setConnected(true);
               break;
 
@@ -270,29 +265,17 @@ export const useNotifications = () => {
 
   // Initialize: fetch notifications and connect WebSocket
   useEffect(() => {
-    console.log('🔔 useNotifications effect triggered', {
-      isAuthenticated,
-      hasUserProfile: !!userProfile,
-      walletAddress: userProfile?.address,
-      userType: userProfile?.type,
-      currentConnectionState: wsRef.current?.readyState,
-    });
-
     if (isAuthenticated && userProfile?.address) {
       // Only connect if we don't already have an open or connecting WebSocket
       const currentState = wsRef.current?.readyState;
       const isConnectedOrConnecting = currentState === WebSocket.OPEN || currentState === WebSocket.CONNECTING;
 
       if (!isConnectedOrConnecting) {
-        console.log('✅ Authenticated user detected - Fetching notifications and connecting WebSocket...');
         fetchNotifications();
         fetchUnreadCount();
         connectWebSocket();
-      } else {
-        console.log('ℹ️ WebSocket already connected/connecting');
       }
     } else {
-      console.log('❌ NOT CONNECTING - User not authenticated or profile missing');
       // Disconnect if user logged out
       if (!isAuthenticated) {
         disconnectWebSocket();

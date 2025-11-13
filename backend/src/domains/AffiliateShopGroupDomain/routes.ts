@@ -4,7 +4,9 @@ import { GroupController } from './controllers/GroupController';
 import { MembershipController } from './controllers/MembershipController';
 import { GroupTokenController } from './controllers/GroupTokenController';
 import { AnalyticsController } from './controllers/AnalyticsController';
+import { RcnAllocationController } from './controllers/RcnAllocationController';
 import { authMiddleware, requireRole } from '../../middleware/auth';
+import { optionalAuthMiddleware } from '../../middleware/optionalAuth';
 
 const router = Router();
 
@@ -13,6 +15,7 @@ const groupController = new GroupController();
 const membershipController = new MembershipController();
 const tokenController = new GroupTokenController();
 const analyticsController = new AnalyticsController();
+const rcnAllocationController = new RcnAllocationController();
 
 // ==================== GROUP MANAGEMENT ROUTES ====================
 
@@ -131,14 +134,7 @@ router.post(
  */
 router.get(
   '/',
-  (req, res, next) => {
-    // Optional authentication - try to authenticate if token present
-    if (req.headers.authorization) {
-      authMiddleware(req, res, next);
-    } else {
-      next();
-    }
-  },
+  optionalAuthMiddleware,
   groupController.getAllGroups
 );
 
@@ -162,14 +158,7 @@ router.get(
  */
 router.get(
   '/:groupId',
-  (req, res, next) => {
-    // Try to authenticate but don't fail if not authenticated
-    if (req.headers.authorization) {
-      authMiddleware(req, res, next);
-    } else {
-      next();
-    }
-  },
+  optionalAuthMiddleware,
   groupController.getGroup
 );
 
@@ -218,14 +207,7 @@ router.post(
  */
 router.get(
   '/:groupId/members',
-  (req, res, next) => {
-    // Optional authentication - try to authenticate if token present
-    if (req.headers.authorization) {
-      authMiddleware(req, res, next);
-    } else {
-      next();
-    }
-  },
+  optionalAuthMiddleware,
   membershipController.getGroupMembers
 );
 
@@ -582,6 +564,56 @@ router.get(
   authMiddleware,
   requireRole(['shop']),
   analyticsController.getTransactionTrends
+);
+
+// ==================== RCN ALLOCATION ROUTES ====================
+
+/**
+ * @route   POST /api/affiliate-shop-groups/:groupId/rcn/allocate
+ * @desc    Allocate RCN from shop's main balance to this group
+ * @access  Shop (member of group)
+ */
+router.post(
+  '/:groupId/rcn/allocate',
+  authMiddleware,
+  requireRole(['shop']),
+  rcnAllocationController.allocateRcn
+);
+
+/**
+ * @route   POST /api/affiliate-shop-groups/:groupId/rcn/deallocate
+ * @desc    Return RCN from group back to shop's main balance
+ * @access  Shop (member of group)
+ */
+router.post(
+  '/:groupId/rcn/deallocate',
+  authMiddleware,
+  requireRole(['shop']),
+  rcnAllocationController.deallocateRcn
+);
+
+/**
+ * @route   GET /api/affiliate-shop-groups/:groupId/rcn/allocation
+ * @desc    Get shop's RCN allocation for this group
+ * @access  Shop only
+ */
+router.get(
+  '/:groupId/rcn/allocation',
+  authMiddleware,
+  requireRole(['shop']),
+  rcnAllocationController.getGroupAllocation
+);
+
+/**
+ * @route   GET /api/affiliate-shop-groups/rcn/allocations
+ * @desc    Get all RCN allocations for authenticated shop
+ * @access  Shop only
+ */
+router.get(
+  '/rcn/allocations',
+  authMiddleware,
+  requireRole(['shop']),
+  rcnAllocationController.getAllAllocations
 );
 
 export default router;

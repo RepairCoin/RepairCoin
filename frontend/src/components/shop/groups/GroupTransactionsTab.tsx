@@ -8,11 +8,13 @@ import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
 interface GroupTransactionsTabProps {
   groupId: string;
   tokenSymbol: string;
+  refreshKey?: number;
 }
 
 export default function GroupTransactionsTab({
   groupId,
   tokenSymbol,
+  refreshKey = 0,
 }: GroupTransactionsTabProps) {
   const [transactions, setTransactions] = useState<shopGroupsAPI.AffiliateGroupTokenTransaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,7 +24,7 @@ export default function GroupTransactionsTab({
 
   useEffect(() => {
     loadTransactions();
-  }, [groupId, page, filterType]);
+  }, [groupId, page, filterType, refreshKey]);
 
   const loadTransactions = async () => {
     try {
@@ -34,9 +36,19 @@ export default function GroupTransactionsTab({
       });
 
       console.log("📦 Transactions result:", result);
+      console.log("📦 Transactions items:", result?.items);
+      console.log("📦 Is array?:", Array.isArray(result));
 
-      setTransactions(result?.items || []);
-      setTotalPages(result?.pagination?.totalPages || 1);
+      // Handle both response formats
+      if (Array.isArray(result)) {
+        // Backend returned array directly
+        setTransactions(result);
+        setTotalPages(1);
+      } else {
+        // Backend returned { items: [], pagination: {} }
+        setTransactions(result?.items || []);
+        setTotalPages(result?.pagination?.totalPages || 1);
+      }
     } catch (error) {
       console.error("Error loading transactions:", error);
       toast.error("Failed to load transactions");
@@ -124,7 +136,7 @@ export default function GroupTransactionsTab({
           <div className="space-y-3">
             {transactions.map((tx) => (
               <div
-                key={tx.transactionId}
+                key={tx.id}
                 className="bg-gray-900 rounded-lg p-4 hover:bg-gray-850 transition-colors"
               >
                 <div className="flex items-start justify-between">
@@ -172,7 +184,7 @@ export default function GroupTransactionsTab({
                   {/* Transaction ID */}
                   <div className="text-right">
                     <p className="text-xs text-gray-500 font-mono">
-                      {tx.transactionId.slice(0, 12)}...
+                      {tx.id.slice(0, 12)}...
                     </p>
                   </div>
                 </div>

@@ -135,10 +135,14 @@ export default function ShopDashboardClient() {
   // Client-side auth protection (since middleware is disabled for cross-domain)
   useEffect(() => {
     // Wait for auth to initialize before checking
-    // Don't redirect if we're still loading (isAuthenticated is false but may become true)
-    if (isAuthenticated === false && userType) {
-      // Auth has loaded and user is not authenticated
-      console.log('[ShopDashboard] Not authenticated, redirecting to home');
+    // Allow unverified shops to view dashboard (isAuthenticated=false but userType='shop')
+    if (isAuthenticated === false && userType && userType !== 'shop') {
+      // Auth has loaded, user has a profile but wrong role (not a shop)
+      console.log('[ShopDashboard] Not a shop user, redirecting to home');
+      router.push('/');
+    } else if (isAuthenticated === false && !userType) {
+      // No user profile at all (completely logged out)
+      console.log('[ShopDashboard] No user profile, redirecting to home');
       router.push('/');
     } else if (isAuthenticated && userType && userType !== 'shop') {
       // User is authenticated but wrong role
@@ -718,7 +722,18 @@ export default function ShopDashboardClient() {
           )}
 
           {activeTab === "groups" && shopData && (
-            <GroupsTab shopId={shopData.shopId} />
+            <>
+              {console.log('🔐 [ShopDashboard] Passing to GroupsTab:', {
+                shopId: shopData.shopId,
+                subscriptionActive: shopData.subscriptionActive,
+                subscriptionActiveType: typeof shopData.subscriptionActive,
+                shopDataKeys: Object.keys(shopData)
+              })}
+              <GroupsTab
+                shopId={shopData.shopId}
+                subscriptionActive={shopData.subscriptionActive || false}
+              />
+            </>
           )}
 
           {/* Error Display */}

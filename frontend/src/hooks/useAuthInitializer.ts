@@ -39,7 +39,9 @@ export function useAuthInitializer() {
 
         // First check if we have a valid existing session (uses refresh token)
         try {
+          console.log('[AuthInitializer] 🔍 Checking for existing session...');
           const session = await authApi.getSession();
+          console.log('[AuthInitializer] Session check result:', session);
 
           if (session.isValid && session.user) {
             console.log('[AuthInitializer] Valid session found, restoring state without new login');
@@ -63,13 +65,17 @@ export function useAuthInitializer() {
             isInitializedRef.current = true;
             return; // Don't call login() - we already have a valid session
           }
+
+          console.log('[AuthInitializer] Session is not valid, will proceed with login');
         } catch (error) {
+          console.log('[AuthInitializer] ❌ Session check failed, error:', error);
           console.log('[AuthInitializer] No valid session found, proceeding with login');
         }
 
         // No valid session - perform actual login (creates new refresh token)
-        console.log('[AuthInitializer] Creating new session');
+        console.log('[AuthInitializer] 🚀 Creating new session via login()');
         await login(currentAddress);
+        console.log('[AuthInitializer] ✅ Login completed');
         isInitializedRef.current = true;
       } else if (previousAddress) {
         // User disconnected wallet (only logout if we were previously connected)

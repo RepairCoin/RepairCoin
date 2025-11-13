@@ -11,6 +11,7 @@ import GroupTokenOperationsTab from "./GroupTokenOperationsTab";
 import GroupTransactionsTab from "./GroupTransactionsTab";
 import AnalyticsDashboard from "./AnalyticsDashboard";
 import MemberActivityStats from "./MemberActivityStats";
+import RcnAllocationCard from "./RcnAllocationCard";
 import { useAuthStore } from "../../../stores/authStore";
 
 interface GroupDetailsClientProps {
@@ -29,6 +30,7 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
   const [joiningGroup, setJoiningGroup] = useState(false);
   const [currentShopId, setCurrentShopId] = useState<string | undefined>(undefined);
   const [shopRcnBalance, setShopRcnBalance] = useState<number>(0);
+  const [transactionsRefreshKey, setTransactionsRefreshKey] = useState(0);
 
   useEffect(() => {
     loadGroupData();
@@ -45,9 +47,7 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
   const fetchShopData = async (shopId: string) => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/${shopId}`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('shopAuthToken')}`,
-        },
+        credentials: 'include', // Include cookies for authentication
       });
 
       if (response.ok) {
@@ -83,20 +83,6 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
   // Check if user has restricted access (non-member viewing any group)
   // Backend returns membershipStatus: 'active' for members, null for non-members
   const isRestrictedAccess = group && group.membershipStatus !== 'active';
-
-  // Debug logging
-  if (group) {
-    console.log('🔍 Group Access Check:', {
-      groupId: group.groupId,
-      groupName: group.groupName,
-      isPrivate: group.isPrivate,
-      membershipStatus: group.membershipStatus,
-      inviteCode: group.inviteCode,
-      customTokenName: group.customTokenName,
-      customTokenSymbol: group.customTokenSymbol,
-      isRestrictedAccess
-    });
-  }
 
   const copyInviteCode = async () => {
     if (!group) return;
@@ -411,11 +397,35 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
           {!isRestrictedAccess && activeTab === "members" && <GroupMembersTab groupId={groupId} currentShopId={currentShopId} />}
 
           {!isRestrictedAccess && activeTab === "operations" && (
-            <GroupTokenOperationsTab groupId={groupId} tokenSymbol={group.customTokenSymbol} shopRcnBalance={shopRcnBalance} />
+            <div className="space-y-6">
+              {/* RCN Allocation Card */}
+              <RcnAllocationCard
+                groupId={groupId}
+                shopRcnBalance={shopRcnBalance}
+                onAllocationChange={() => {
+                  fetchShopData(currentShopId!); // Refresh shop RCN balance
+                }}
+              />
+
+              {/* Token Operations */}
+              <GroupTokenOperationsTab
+                groupId={groupId}
+                tokenSymbol={group.customTokenSymbol}
+                shopRcnBalance={shopRcnBalance}
+                onTransactionComplete={() => {
+                  setTransactionsRefreshKey(prev => prev + 1);
+                  fetchShopData(currentShopId!); // Refresh RCN balance after transaction
+                }}
+              />
+            </div>
           )}
 
           {!isRestrictedAccess && activeTab === "transactions" && (
-            <GroupTransactionsTab groupId={groupId} tokenSymbol={group.customTokenSymbol} />
+            <GroupTransactionsTab
+              groupId={groupId}
+              tokenSymbol={group.customTokenSymbol}
+              refreshKey={transactionsRefreshKey}
+            />
           )}
 
           {!isRestrictedAccess && activeTab === "analytics" && (

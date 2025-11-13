@@ -11,9 +11,10 @@ import { useRouter } from "next/navigation";
 
 interface GroupsTabProps {
   shopId: string;
+  subscriptionActive?: boolean;
 }
 
-export function GroupsTab({ shopId }: GroupsTabProps) {
+export function GroupsTab({ shopId, subscriptionActive = false }: GroupsTabProps) {
   const router = useRouter();
   const [myGroups, setMyGroups] = useState<shopGroupsAPI.ShopGroup[]>([]);
   const [allGroups, setAllGroups] = useState<shopGroupsAPI.ShopGroup[]>([]);
@@ -22,27 +23,49 @@ export function GroupsTab({ shopId }: GroupsTabProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
 
+  console.log('🔐 [GroupsTab] Subscription Status:', {
+    shopId,
+    subscriptionActive,
+    subscriptionActiveType: typeof subscriptionActive,
+    willShowWarning: !subscriptionActive
+  });
+
   useEffect(() => {
-    console.log("🏪 GroupsTab mounted with shopId:", shopId);
     loadData();
   }, []);
 
   const loadData = async () => {
     try {
       setLoading(true);
+      console.log('🔍 [GroupsTab] Starting to load groups data...');
+
       const [myGroupsData, allGroupsData] = await Promise.all([
         shopGroupsAPI.getMyGroups(),
         shopGroupsAPI.getAllGroups(),
       ]);
 
-      console.log("📦 My Groups Data:", myGroupsData);
-      console.log("📦 All Groups Data:", allGroupsData);
+      console.log('✅ [GroupsTab] API responses received:', {
+        myGroupsData,
+        allGroupsData,
+        myGroupsIsArray: Array.isArray(myGroupsData),
+        allGroupsIsArray: Array.isArray(allGroupsData),
+        myGroupsLength: Array.isArray(myGroupsData) ? myGroupsData.length : 'not array',
+        allGroupsLength: Array.isArray(allGroupsData) ? allGroupsData.length : 'not array'
+      });
 
       // Ensure data is always an array
       setMyGroups(Array.isArray(myGroupsData) ? myGroupsData : []);
       setAllGroups(Array.isArray(allGroupsData) ? allGroupsData : []);
+
+      console.log('✅ [GroupsTab] Groups state updated successfully');
     } catch (error) {
-      console.error("Error loading groups:", error);
+      console.error("❌ [GroupsTab] Error loading groups:", error);
+      console.error("Error details:", {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        response: (error as any)?.response,
+        status: (error as any)?.response?.status,
+        data: (error as any)?.response?.data
+      });
       toast.error("Failed to load shop groups");
       setMyGroups([]);
       setAllGroups([]);
@@ -84,6 +107,31 @@ export function GroupsTab({ shopId }: GroupsTabProps) {
   return (
     <>
       <div className="space-y-6">
+        {/* Subscription Warning */}
+        {!subscriptionActive && (
+          <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0">
+                <svg className="w-6 h-6 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-orange-400 font-semibold mb-1">Active Subscription Required</h3>
+                <p className="text-orange-300 text-sm mb-3">
+                  You need an active RepairCoin subscription ($500/month) to create or join affiliate shop groups.
+                </p>
+                <button
+                  onClick={() => router.push('/shop/subscription-form')}
+                  className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm font-medium"
+                >
+                  Subscribe Now
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Header with Actions */}
         <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
           {/* Sub-Tabs */}
@@ -113,15 +161,27 @@ export function GroupsTab({ shopId }: GroupsTabProps) {
           {/* Action Buttons */}
           <div className="flex gap-2">
             <button
-              onClick={() => setShowJoinModal(true)}
-              className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
+              onClick={() => subscriptionActive && setShowJoinModal(true)}
+              disabled={!subscriptionActive}
+              className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+                subscriptionActive
+                  ? "bg-gray-800 text-white hover:bg-gray-700"
+                  : "bg-gray-700 text-gray-500 cursor-not-allowed opacity-50"
+              }`}
+              title={!subscriptionActive ? "Active subscription required" : ""}
             >
               <Users className="w-4 h-4" />
               Join Group
             </button>
             <button
-              onClick={() => setShowCreateModal(true)}
-              className="px-4 py-2 bg-[#FFCC00] text-black rounded-lg hover:bg-[#FFD700] transition-colors flex items-center gap-2 font-medium border-4 border-red-500"
+              onClick={() => subscriptionActive && setShowCreateModal(true)}
+              disabled={!subscriptionActive}
+              className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 font-medium ${
+                subscriptionActive
+                  ? "bg-[#FFCC00] text-black hover:bg-[#FFD700]"
+                  : "bg-gray-700 text-gray-500 cursor-not-allowed opacity-50"
+              }`}
+              title={!subscriptionActive ? "Active subscription required" : ""}
             >
               <Plus className="w-4 h-4" />
               Create Group
@@ -147,14 +207,26 @@ export function GroupsTab({ shopId }: GroupsTabProps) {
                   </p>
                   <div className="flex gap-4 justify-center">
                     <button
-                      onClick={() => setShowCreateModal(true)}
-                      className="px-6 py-3 bg-[#FFCC00] text-black rounded-lg hover:bg-[#FFD700] transition-colors font-medium"
+                      onClick={() => subscriptionActive && setShowCreateModal(true)}
+                      disabled={!subscriptionActive}
+                      className={`px-6 py-3 rounded-lg transition-colors font-medium ${
+                        subscriptionActive
+                          ? "bg-[#FFCC00] text-black hover:bg-[#FFD700]"
+                          : "bg-gray-700 text-gray-500 cursor-not-allowed opacity-50"
+                      }`}
+                      title={!subscriptionActive ? "Active subscription required" : ""}
                     >
                       Create Group
                     </button>
                     <button
-                      onClick={() => setShowJoinModal(true)}
-                      className="px-6 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                      onClick={() => subscriptionActive && setShowJoinModal(true)}
+                      disabled={!subscriptionActive}
+                      className={`px-6 py-3 rounded-lg transition-colors ${
+                        subscriptionActive
+                          ? "bg-gray-700 text-white hover:bg-gray-600"
+                          : "bg-gray-700 text-gray-500 cursor-not-allowed opacity-50"
+                      }`}
+                      title={!subscriptionActive ? "Active subscription required" : ""}
                     >
                       Join Group
                     </button>
