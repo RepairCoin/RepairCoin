@@ -64,11 +64,8 @@ export const getSession = async (): Promise<{
     const response = await apiClient.get<any>('/auth/session');
     // apiClient already returns response.data
     return response || { isValid: false };
-  } catch (error: any) {
-    // Don't log 401 errors - they're expected when not authenticated
-    if (error?.response?.status !== 401) {
-      console.error('Error getting session:', error);
-    }
+  } catch (error) {
+    console.error('Error getting session:', error);
     return { isValid: false };
   }
 };

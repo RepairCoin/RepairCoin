@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { useActiveAccount } from 'thirdweb/react';
+import { useAuthStore } from '@/stores/authStore';
 import { authApi } from '@/services/api/auth';
 
 /**
@@ -19,6 +20,7 @@ import { authApi } from '@/services/api/auth';
  */
 export function useTokenRefresh() {
   const account = useActiveAccount();
+  const { isAuthenticated } = useAuthStore();
   const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
   const isRefreshingRef = useRef<boolean>(false);
@@ -31,6 +33,12 @@ export function useTokenRefresh() {
       // Skip if no wallet is connected - prevents 401 errors when not authenticated
       if (!account?.address) {
         console.log('[useTokenRefresh] No wallet connected, skipping session check');
+        return;
+      }
+
+      // Skip if user is not authenticated yet - prevents 401 during initial login
+      if (!isAuthenticated) {
+        console.log('[useTokenRefresh] User not authenticated yet, skipping session check');
         return;
       }
 
@@ -97,7 +105,7 @@ export function useTokenRefresh() {
       console.error('[useTokenRefresh] Error scheduling refresh:', error);
       isRefreshingRef.current = false;
     }
-  }, [account?.address]);
+  }, [account?.address, isAuthenticated]);
 
   /**
    * Handle page visibility changes - refresh when user returns
