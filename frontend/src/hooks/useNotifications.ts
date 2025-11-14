@@ -3,10 +3,10 @@ import { useNotificationStore } from '../stores/notificationStore';
 import { useAuthStore } from '../stores/authStore';
 import apiClient from '@/services/api/client';
 
-// Use NEXT_PUBLIC_API_URL and extract base URL by removing /api suffix
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-const BACKEND_URL = API_URL.replace(/\/api$/, ''); // Remove /api suffix to get base URL
-const WS_URL = BACKEND_URL.replace(/^http/, 'ws');
+// WebSocket URL - explicitly use api.repaircoin.ai subdomain in production
+const WS_URL = typeof window !== 'undefined' && window.location.hostname.includes('repaircoin.ai')
+  ? 'wss://api.repaircoin.ai'
+  : 'ws://localhost:3002';
 
 export const useNotifications = () => {
   const wsRef = useRef<WebSocket | null>(null);
