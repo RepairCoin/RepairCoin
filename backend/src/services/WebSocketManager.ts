@@ -45,7 +45,7 @@ export class WebSocketManager {
   private handleConnection(ws: WebSocketClient, request: IncomingMessage): void {
     ws.isAlive = true;
 
-    logger.info('New WebSocket connection established');
+    logger.debug('New WebSocket connection established'); // Changed to debug to reduce noise
 
     // Set a timeout for authentication - if not authenticated within 5 seconds, close connection
     ws.authTimeout = setTimeout(() => {
@@ -262,7 +262,7 @@ export class WebSocketManager {
       }
       logger.info(`WebSocket disconnected for wallet: ${ws.walletAddress}`);
     } else {
-      logger.info('Unauthenticated WebSocket disconnected');
+      logger.debug('Unauthenticated WebSocket disconnected'); // Changed to debug to reduce log noise
     }
   }
 
