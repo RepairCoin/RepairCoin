@@ -8,7 +8,12 @@ const WS_URL = typeof window !== 'undefined' && window.location.hostname.include
   ? 'wss://api.repaircoin.ai'
   : 'ws://localhost:3002';
 
-export const useNotifications = () => {
+interface UseNotificationsOptions {
+  enabled?: boolean;
+}
+
+export const useNotifications = (options: UseNotificationsOptions = {}) => {
+  const { enabled = true } = options;
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
@@ -119,6 +124,11 @@ export const useNotifications = () => {
 
   // Connect to WebSocket
   const connectWebSocket = useCallback(() => {
+    // Don't connect if notifications are disabled (e.g., for admin users)
+    if (!enabled) {
+      return;
+    }
+
     // CRITICAL: Only connect if user is fully authenticated
     // userProfile is only set after successful backend authentication
     // This ensures cookies are present (we can't check them directly due to httpOnly)
@@ -242,7 +252,7 @@ export const useNotifications = () => {
       console.error('❌ Failed to create WebSocket connection:', error);
       setError('Failed to create WebSocket connection');
     }
-  }, [userProfile, isAuthenticated, addNotification, setConnected, setError]);
+  }, [enabled, userProfile, isAuthenticated, addNotification, setConnected, setError]);
 
   // Disconnect WebSocket
   const disconnectWebSocket = useCallback(() => {
@@ -269,6 +279,11 @@ export const useNotifications = () => {
 
   // Initialize: fetch notifications and connect WebSocket
   useEffect(() => {
+    // Don't initialize if notifications are disabled
+    if (!enabled) {
+      return;
+    }
+
     if (isAuthenticated && userProfile?.address) {
       // Only connect if we don't already have an open or connecting WebSocket
       const currentState = wsRef.current?.readyState;
@@ -293,7 +308,7 @@ export const useNotifications = () => {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, userProfile?.address]);
+  }, [enabled, isAuthenticated, userProfile?.address]);
 
   return {
     fetchNotifications,

@@ -27,8 +27,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  // Initialize notification system
-  useNotifications();
+  // Initialize notification system (only for customers and shops, not admins)
+  useNotifications({ enabled: userRole !== "admin" });
 
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
@@ -52,12 +52,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         adminRole={adminRole}
       />
 
-      {/* Notification Bell - Absolute Position */}
-      <div className={`fixed top-4 right-4 z-50 transition-all duration-300 ease-in-out ${
-        isSidebarCollapsed ? "lg:right-4" : "lg:right-4"
-      }`}>
-        <NotificationBell />
-      </div>
+      {/* Notification Bell - Absolute Position (only for customers and shops) */}
+      {userRole !== "admin" && (
+        <div className={`fixed top-4 right-4 z-50 transition-all duration-300 ease-in-out ${
+          isSidebarCollapsed ? "lg:right-4" : "lg:right-4"
+        }`}>
+          <NotificationBell />
+        </div>
+      )}
 
       {/* Main Content Area */}
       <div className={`
