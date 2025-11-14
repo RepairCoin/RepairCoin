@@ -91,31 +91,35 @@ class RepairCoinApp {
     this.app.set('trust proxy', true);
 
     // CORS must come before helmet to handle preflight requests properly
+    // SUBDOMAIN SETUP: Backend at api.repaircoin.ai, Frontend at repaircoin.ai/www.repaircoin.ai
     this.app.use(cors({
       origin: function(origin, callback) {
         const allowedOrigins = [
+          // Local development
           'http://localhost:3000',
-          'http://localhost:3001', 
+          'http://localhost:3001',
           'http://localhost:3002',
           'http://localhost:3003',
+          // Production domains
           'https://repaircoin.ai',
           'https://www.repaircoin.ai',
+          'https://api.repaircoin.ai', // Backend subdomain (for internal API calls)
           process.env.FRONTEND_URL
         ].filter(Boolean);
-        
+
         // Allow requests with no origin (like mobile apps or Postman)
         if (!origin) return callback(null, true);
-        
-        // Allow any Digital Ocean App Platform URL
+
+        // Allow any Digital Ocean App Platform URL (for staging/development)
         if (origin && origin.includes('.ondigitalocean.app')) {
           return callback(null, true);
         }
-        
-        // Allow any Vercel deployment URL
+
+        // Allow any Vercel deployment URL (for preview deployments)
         if (origin && origin.includes('.vercel.app')) {
           return callback(null, true);
         }
-        
+
         if (allowedOrigins.includes(origin)) {
           callback(null, true);
         } else {
@@ -176,7 +180,12 @@ class RepairCoinApp {
     
     // Manual OPTIONS handler as fallback
     this.app.options('*', (req, res) => {
-      res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+      const origin = req.headers.origin;
+      // CRITICAL: When using credentials: true, we MUST use exact origin (not '*')
+      // Otherwise browsers will block cookies for security reasons
+      if (origin) {
+        res.header('Access-Control-Allow-Origin', origin);
+      }
       res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
       res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Request-ID');
       res.header('Access-Control-Allow-Credentials', 'true');
@@ -332,7 +341,24 @@ class RepairCoinApp {
     if (metricsRoutes) {
       this.app.use('/api/metrics', metricsRoutes);
     }
-    
+
+    // API Status endpoint
+    this.app.get('/api', (req, res) => {
+      res.json({
+        success: true,
+        status: 'running',
+        message: 'RepairCoin API is operational',
+        version: process.env.npm_package_version || '1.0.0',
+        environment: process.env.NODE_ENV || 'development',
+        timestamp: new Date().toISOString(),
+        endpoints: {
+          health: '/api/health',
+          docs: '/api-docs',
+          systemInfo: '/api/system/info'
+        }
+      });
+    });
+
     // 404 handler
     this.app.use('*', (req, res) => {
       res.status(404).json({

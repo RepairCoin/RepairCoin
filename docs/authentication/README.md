@@ -38,9 +38,11 @@ Complete documentation for RepairCoin's authentication system, including the acc
 
 | Document | Description |
 |----------|-------------|
+| **SUBDOMAIN_COOKIE_SETUP.md** | ⭐ **Current Setup** - Subdomain cookie configuration (api.repaircoin.ai) |
+| **SUBDOMAIN_MIGRATION_SUMMARY.md** | Summary of subdomain migration changes |
 | **COOKIE_AUTH_PRODUCTION_ISSUES.md** | Analysis of cookie auth issues in production |
 | **COOKIE_AUTH_FIXES_APPLIED.md** | Fixes for cross-origin cookie problems |
-| **PRODUCTION_COOKIE_AUTH_CONFIG.md** | Production cookie configuration guide |
+| **PRODUCTION_COOKIE_AUTH_CONFIG.md** | Legacy cross-origin cookie configuration guide |
 
 ### Migration Documentation
 

@@ -33,11 +33,13 @@ export interface RedemptionSession {
 
 export interface RedemptionData {
   pendingCount: number;
-  sessions: RedemptionSession[]
+  sessions: RedemptionSession[];
+  success: boolean;
 }
 
 export interface RedemptionSessionsResponse {
-  data: RedemptionData;
+  pendingCount: number;
+  sessions: RedemptionSession[];
   success: boolean;
 }
 

@@ -209,9 +209,6 @@ export const useAuthStore = create<AuthState>()(
                     profile.token = tokenData.token;
                     // Set token in axios client for future API calls
                     await apiClient.setAuthToken(tokenData.token);
-                    console.log(
-                      "✅ Authentication token obtained and set in API client"
-                    );
                   }
                 } else if (tokenResponse.status === 404) {
                   console.log(
