@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { logger } from '../utils/logger';
 import { customerRepository, shopRepository, adminRepository } from '../repositories';
 import { AdminService } from '../domains/admin/services/AdminService';
+import { RefreshTokenRepository } from '../repositories/RefreshTokenRepository';
 
 interface BaseJWTPayload {
   address: string;
@@ -97,20 +98,97 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
         error: jwtError.message,
         tokenLength: token.length
       });
-      
+
+      // If access token is expired, attempt to refresh it automatically
       if (jwtError.name === 'TokenExpiredError') {
+        logger.info('Access token expired, attempting automatic refresh...');
+
+        // Check if refresh token exists
+        const refreshToken = req.cookies?.refresh_token;
+
+        if (!refreshToken) {
+          logger.info('No refresh token found, cannot auto-refresh');
+          return res.status(401).json({
+            success: false,
+            error: 'Token expired',
+            code: 'TOKEN_EXPIRED'
+          });
+        }
+
+        try {
+          // Decode refresh token (without verification to get tokenId)
+          const refreshDecoded = jwt.decode(refreshToken) as RefreshTokenPayload;
+
+          if (!refreshDecoded || !refreshDecoded.tokenId || refreshDecoded.type !== 'refresh') {
+            logger.warn('Invalid refresh token format');
+            return res.status(401).json({
+              success: false,
+              error: 'Token expired',
+              code: 'TOKEN_EXPIRED'
+            });
+          }
+
+          // Verify refresh token signature
+          jwt.verify(refreshToken, jwtSecret);
+
+          // Validate refresh token in database
+          const refreshTokenRepo = new RefreshTokenRepository();
+          const validRefreshToken = await refreshTokenRepo.validateRefreshToken(
+            refreshDecoded.tokenId,
+            refreshToken
+          );
+
+          if (!validRefreshToken) {
+            logger.warn('Refresh token not found or revoked', { tokenId: refreshDecoded.tokenId });
+            return res.status(401).json({
+              success: false,
+              error: 'Session expired. Please login again.',
+              code: 'REFRESH_TOKEN_INVALID'
+            });
+          }
+
+          // Generate new access token
+          const newAccessToken = generateAccessToken({
+            address: refreshDecoded.address,
+            role: refreshDecoded.role,
+            shopId: refreshDecoded.shopId
+          });
+
+          // Set new access token in cookie
+          res.cookie('auth_token', newAccessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            maxAge: 15 * 60 * 1000, // 15 minutes
+            path: '/'
+          });
+
+          // Update last used timestamp
+          await refreshTokenRepo.updateLastUsed(refreshDecoded.tokenId);
+
+          logger.info('Access token auto-refreshed successfully', {
+            address: refreshDecoded.address,
+            role: refreshDecoded.role
+          });
+
+          // Decode the new token and set user in request
+          decoded = jwt.verify(newAccessToken, jwtSecret) as JWTPayload;
+        } catch (refreshError: any) {
+          logger.error('Auto-refresh failed:', refreshError);
+          return res.status(401).json({
+            success: false,
+            error: 'Token expired',
+            code: 'TOKEN_EXPIRED'
+          });
+        }
+      } else {
+        // Other JWT errors (invalid signature, malformed, etc.)
         return res.status(401).json({
           success: false,
-          error: 'Token expired',
-          code: 'TOKEN_EXPIRED'
+          error: 'Invalid token',
+          code: 'INVALID_TOKEN'
         });
       }
-      
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid token',
-        code: 'INVALID_TOKEN'
-      });
     }
     
     // Validate token payload
