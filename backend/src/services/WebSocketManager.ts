@@ -23,12 +23,17 @@ export class WebSocketManager {
   private wss: WebSocketServer;
   private clients: Map<string, Set<WebSocketClient>>;
   private heartbeatInterval: NodeJS.Timeout | null;
+  private connectionAttempts: Map<string, { count: number; resetAt: number }>;
+  private readonly MAX_ATTEMPTS_PER_MINUTE = 10;
+  private readonly ATTEMPT_WINDOW_MS = 60000; // 1 minute
 
   constructor(wss: WebSocketServer) {
     this.wss = wss;
     this.clients = new Map();
     this.heartbeatInterval = null;
+    this.connectionAttempts = new Map();
     this.initialize();
+    this.startAttemptCleanup();
   }
 
   private initialize(): void {
@@ -45,7 +50,21 @@ export class WebSocketManager {
   private handleConnection(ws: WebSocketClient, request: IncomingMessage): void {
     ws.isAlive = true;
 
-    logger.debug('New WebSocket connection established'); // Changed to debug to reduce noise
+    // Get client IP for rate limiting
+    const clientIP = this.getClientIP(request);
+
+    // Check rate limit
+    if (!this.checkRateLimit(clientIP)) {
+      logger.warn('WebSocket connection rate limit exceeded', {
+        ip: clientIP,
+        maxAttempts: this.MAX_ATTEMPTS_PER_MINUTE
+      });
+      this.sendError(ws, 'Too many connection attempts. Please try again later.');
+      ws.close();
+      return;
+    }
+
+    logger.debug('New WebSocket connection established', { ip: clientIP });
 
     // Set a timeout for authentication - if not authenticated within 5 seconds, close connection
     ws.authTimeout = setTimeout(() => {
@@ -370,5 +389,60 @@ export class WebSocketManager {
 
     this.wss.close();
     logger.info('WebSocket manager closed');
+  }
+
+  /**
+   * Get client IP address from request
+   */
+  private getClientIP(request: IncomingMessage): string {
+    // Check x-forwarded-for header first (for proxies/load balancers)
+    const forwardedFor = request.headers['x-forwarded-for'];
+    if (forwardedFor) {
+      const ips = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
+      return ips.split(',')[0].trim();
+    }
+
+    // Fallback to socket remote address
+    return request.socket.remoteAddress || 'unknown';
+  }
+
+  /**
+   * Check if client is within rate limit
+   */
+  private checkRateLimit(clientIP: string): boolean {
+    const now = Date.now();
+    const attempt = this.connectionAttempts.get(clientIP);
+
+    if (!attempt || now > attempt.resetAt) {
+      // First attempt or window expired - create new tracking
+      this.connectionAttempts.set(clientIP, {
+        count: 1,
+        resetAt: now + this.ATTEMPT_WINDOW_MS
+      });
+      return true;
+    }
+
+    // Within window - check count
+    if (attempt.count >= this.MAX_ATTEMPTS_PER_MINUTE) {
+      return false; // Rate limit exceeded
+    }
+
+    // Increment count
+    attempt.count++;
+    return true;
+  }
+
+  /**
+   * Periodically clean up expired attempt tracking
+   */
+  private startAttemptCleanup(): void {
+    setInterval(() => {
+      const now = Date.now();
+      for (const [ip, attempt] of this.connectionAttempts.entries()) {
+        if (now > attempt.resetAt) {
+          this.connectionAttempts.delete(ip);
+        }
+      }
+    }, 60000); // Clean up every minute
   }
 }

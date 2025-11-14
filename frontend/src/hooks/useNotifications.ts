@@ -124,12 +124,25 @@ export const useNotifications = () => {
       return;
     }
 
+    // CRITICAL: Check if auth cookies exist before attempting WebSocket connection
+    // This prevents unauthenticated connection attempts that will fail and spam logs
+    const hasAuthCookie = typeof document !== 'undefined' &&
+      document.cookie.split(';').some(cookie =>
+        cookie.trim().startsWith('auth_token=') || cookie.trim().startsWith('ws_auth_token=')
+      );
+
+    if (!hasAuthCookie) {
+      console.log('Cannot connect to WebSocket: no auth cookies found');
+      return;
+    }
+
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       console.log('WebSocket already connected');
       return;
     }
 
     try {
+      console.log('🔌 Connecting to WebSocket with authentication cookies...');
       const ws = new WebSocket(WS_URL);
       wsRef.current = ws;
 
