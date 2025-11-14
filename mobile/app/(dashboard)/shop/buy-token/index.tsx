@@ -57,7 +57,8 @@ export default function BuyToken() {
       const result = await createCheckoutAsync(purchaseAmount);
       if (result && result.data?.checkoutUrl) {
         // Open Stripe checkout in browser
-        Linking.openURL(result.data.checkoutUrl);
+        // The deep link will automatically redirect back to the app
+        await Linking.openURL(result.data.checkoutUrl);
       }
     } catch (error) {
       // Error handling is done in the mutation hook
