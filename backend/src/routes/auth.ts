@@ -33,24 +33,38 @@ const authLimiter = rateLimit({
 
 /**
  * Helper function to set httpOnly cookie with JWT token
- * For cross-origin deployments (frontend: www.repaircoin.ai on Vercel,
- * backend: *.ondigitalocean.app), we need sameSite: 'none' with secure: true.
  *
- * IMPORTANT: Do NOT set domain attribute for cross-origin cookies - let browser handle it
+ * SUBDOMAIN SETUP (Production):
+ * - Frontend: https://repaircoin.ai or https://www.repaircoin.ai
+ * - Backend: https://api.repaircoin.ai
+ *
+ * With subdomain setup, we can use:
+ * - domain: '.repaircoin.ai' to share cookies across subdomains
+ * - sameSite: 'lax' for better security (instead of 'none')
+ * - secure: true for HTTPS only
  */
 const setAuthCookie = (res: Response, token: string) => {
   const isProduction = process.env.NODE_ENV === 'production';
+  const cookieDomain = process.env.COOKIE_DOMAIN; // e.g., '.repaircoin.ai' for subdomain setup
 
-  // In production with separate domains, we MUST use secure: true and sameSite: 'none'
-  // In development (localhost), we can be more flexible
-  const cookieOptions = {
+  // In production with subdomain setup (api.repaircoin.ai), we use:
+  // - domain: '.repaircoin.ai' to allow cookies across subdomains
+  // - sameSite: 'lax' for better CSRF protection
+  // - secure: true for HTTPS only
+  //
+  // In development (localhost), we don't set domain and use 'lax'
+  const cookieOptions: any = {
     httpOnly: true,
-    secure: isProduction || process.env.COOKIE_SECURE === 'true', // Can override via env var
-    sameSite: (isProduction ? 'none' : 'lax') as 'none' | 'lax', // 'none' for prod cross-domain, 'lax' for dev
+    secure: isProduction || process.env.COOKIE_SECURE === 'true',
+    sameSite: 'lax' as 'lax', // 'lax' works for subdomain setup and is more secure than 'none'
     maxAge: 2 * 60 * 60 * 1000, // 2 hours (changed from 24h for better security)
     path: '/',
-    // Do NOT set domain for cross-origin cookies - it will prevent them from working
   };
+
+  // Set domain for subdomain cookie sharing in production
+  if (isProduction && cookieDomain) {
+    cookieOptions.domain = cookieDomain; // e.g., '.repaircoin.ai'
+  }
 
   res.cookie('auth_token', token, cookieOptions);
 
@@ -59,6 +73,7 @@ const setAuthCookie = (res: Response, token: string) => {
     sameSite: cookieOptions.sameSite,
     httpOnly: cookieOptions.httpOnly,
     maxAge: cookieOptions.maxAge,
+    domain: cookieOptions.domain || 'not set (browser default)',
     environment: process.env.NODE_ENV
   });
 };
@@ -95,14 +110,21 @@ const generateAndSetTokens = async (
   });
 
   const isProduction = process.env.NODE_ENV === 'production';
+  const cookieDomain = process.env.COOKIE_DOMAIN; // e.g., '.repaircoin.ai' for subdomain setup
 
-  // Cookie options for cross-domain authentication
-  const baseCookieOptions = {
+  // Cookie options for subdomain authentication
+  // With subdomain setup (api.repaircoin.ai), we can use sameSite: 'lax' for better security
+  const baseCookieOptions: any = {
     httpOnly: true,
     secure: isProduction || process.env.COOKIE_SECURE === 'true',
-    sameSite: (isProduction ? 'none' : 'lax') as 'none' | 'lax',
+    sameSite: 'lax' as 'lax', // 'lax' works for subdomain setup and is more secure than 'none'
     path: '/'
   };
+
+  // Set domain for subdomain cookie sharing in production
+  if (isProduction && cookieDomain) {
+    baseCookieOptions.domain = cookieDomain; // e.g., '.repaircoin.ai'
+  }
 
   // Set access token as httpOnly cookie (15 minutes)
   res.cookie('auth_token', accessToken, {
@@ -127,7 +149,8 @@ const generateAndSetTokens = async (
       httpOnly: baseCookieOptions.httpOnly,
       secure: baseCookieOptions.secure,
       sameSite: baseCookieOptions.sameSite,
-      path: baseCookieOptions.path
+      path: baseCookieOptions.path,
+      domain: baseCookieOptions.domain || 'not set (browser default)'
     },
     origin: req.get('origin'),
     referer: req.get('referer'),
@@ -973,15 +996,20 @@ router.post('/logout', async (req, res) => {
     }
 
     const isProduction = process.env.NODE_ENV === 'production';
+    const cookieDomain = process.env.COOKIE_DOMAIN;
 
     // Cookie clear options must match the options used when setting the cookie
-    const clearOptions = {
+    const clearOptions: any = {
       httpOnly: true,
       secure: isProduction || process.env.COOKIE_SECURE === 'true',
-      sameSite: (isProduction ? 'none' : 'lax') as 'none' | 'lax',
+      sameSite: 'lax' as 'lax',
       path: '/'
-      // Do NOT set domain for cross-origin cookies
     };
+
+    // Set domain if configured (for subdomain setup)
+    if (isProduction && cookieDomain) {
+      clearOptions.domain = cookieDomain;
+    }
 
     // Clear both auth cookies
     res.clearCookie('auth_token', clearOptions);
@@ -1079,15 +1107,24 @@ router.post('/refresh', async (req, res) => {
     });
 
     const isProduction = process.env.NODE_ENV === 'production';
+    const cookieDomain = process.env.COOKIE_DOMAIN;
 
-    // Set new access token cookie
-    res.cookie('auth_token', newAccessToken, {
+    // Cookie options for subdomain setup
+    const cookieOptions: any = {
       httpOnly: true,
       secure: isProduction || process.env.COOKIE_SECURE === 'true',
-      sameSite: (isProduction ? 'none' : 'lax') as 'none' | 'lax',
+      sameSite: 'lax' as 'lax',
       maxAge: 15 * 60 * 1000, // 15 minutes
       path: '/'
-    });
+    };
+
+    // Set domain if configured (for subdomain setup)
+    if (isProduction && cookieDomain) {
+      cookieOptions.domain = cookieDomain;
+    }
+
+    // Set new access token cookie
+    res.cookie('auth_token', newAccessToken, cookieOptions);
 
     logger.info('Access token refreshed', {
       address: decoded.address,
@@ -1130,15 +1167,21 @@ router.get('/test-cookie', (req, res) => {
   const cookies = req.cookies || {};
 
   const isProduction = process.env.NODE_ENV === 'production';
+  const cookieDomain = process.env.COOKIE_DOMAIN;
 
-  // Set a test cookie
-  const cookieOptions = {
+  // Set a test cookie with subdomain configuration
+  const cookieOptions: any = {
     httpOnly: true,
     secure: isProduction || process.env.COOKIE_SECURE === 'true',
-    sameSite: (isProduction ? 'none' : 'lax') as 'none' | 'lax',
+    sameSite: 'lax' as 'lax',
     maxAge: 60 * 1000, // 1 minute
     path: '/'
   };
+
+  // Set domain if configured (for subdomain setup)
+  if (isProduction && cookieDomain) {
+    cookieOptions.domain = cookieDomain;
+  }
 
   res.cookie('test_cookie', 'test_value_' + Date.now(), cookieOptions);
 

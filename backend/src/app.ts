@@ -91,31 +91,35 @@ class RepairCoinApp {
     this.app.set('trust proxy', true);
 
     // CORS must come before helmet to handle preflight requests properly
+    // SUBDOMAIN SETUP: Backend at api.repaircoin.ai, Frontend at repaircoin.ai/www.repaircoin.ai
     this.app.use(cors({
       origin: function(origin, callback) {
         const allowedOrigins = [
+          // Local development
           'http://localhost:3000',
-          'http://localhost:3001', 
+          'http://localhost:3001',
           'http://localhost:3002',
           'http://localhost:3003',
+          // Production domains
           'https://repaircoin.ai',
           'https://www.repaircoin.ai',
+          'https://api.repaircoin.ai', // Backend subdomain (for internal API calls)
           process.env.FRONTEND_URL
         ].filter(Boolean);
-        
+
         // Allow requests with no origin (like mobile apps or Postman)
         if (!origin) return callback(null, true);
-        
-        // Allow any Digital Ocean App Platform URL
+
+        // Allow any Digital Ocean App Platform URL (for staging/development)
         if (origin && origin.includes('.ondigitalocean.app')) {
           return callback(null, true);
         }
-        
-        // Allow any Vercel deployment URL
+
+        // Allow any Vercel deployment URL (for preview deployments)
         if (origin && origin.includes('.vercel.app')) {
           return callback(null, true);
         }
-        
+
         if (allowedOrigins.includes(origin)) {
           callback(null, true);
         } else {

@@ -22,7 +22,7 @@ export default function LandingPage() {
   const redirectAttemptedRef = React.useRef(false);
 
   // Auto-redirect registered users to their dashboard
-  // Middleware protection is disabled for cross-domain setup, so client-side handles it
+  // Works alongside middleware protection for seamless authentication
   React.useEffect(() => {
     // Prevent multiple redirect attempts
     if (redirectAttemptedRef.current) {
