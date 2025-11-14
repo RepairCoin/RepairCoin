@@ -119,20 +119,11 @@ export const useNotifications = () => {
 
   // Connect to WebSocket
   const connectWebSocket = useCallback(() => {
+    // CRITICAL: Only connect if user is fully authenticated
+    // userProfile is only set after successful backend authentication
+    // This ensures cookies are present (we can't check them directly due to httpOnly)
     if (!userProfile?.address || !isAuthenticated) {
       console.log('Cannot connect to WebSocket: user not authenticated');
-      return;
-    }
-
-    // CRITICAL: Check if auth cookies exist before attempting WebSocket connection
-    // This prevents unauthenticated connection attempts that will fail and spam logs
-    const hasAuthCookie = typeof document !== 'undefined' &&
-      document.cookie.split(';').some(cookie =>
-        cookie.trim().startsWith('auth_token=') || cookie.trim().startsWith('ws_auth_token=')
-      );
-
-    if (!hasAuthCookie) {
-      console.log('Cannot connect to WebSocket: no auth cookies found');
       return;
     }
 
