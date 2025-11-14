@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useCallback } from 'react';
+import { useActiveAccount } from 'thirdweb/react';
 import { authApi } from '@/services/api/auth';
 
 /**
@@ -17,6 +18,7 @@ import { authApi } from '@/services/api/auth';
  * IMPORTANT: This hook should be used ONCE at the app root (in AuthProvider).
  */
 export function useTokenRefresh() {
+  const account = useActiveAccount();
   const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
   const isRefreshingRef = useRef<boolean>(false);
@@ -26,6 +28,12 @@ export function useTokenRefresh() {
    */
   const scheduleRefresh = useCallback(async () => {
     try {
+      // Skip if no wallet is connected - prevents 401 errors when not authenticated
+      if (!account?.address) {
+        console.log('[useTokenRefresh] No wallet connected, skipping session check');
+        return;
+      }
+
       // Prevent multiple simultaneous refresh attempts
       if (isRefreshingRef.current) {
         console.log('[useTokenRefresh] Refresh already in progress, skipping');
@@ -89,7 +97,7 @@ export function useTokenRefresh() {
       console.error('[useTokenRefresh] Error scheduling refresh:', error);
       isRefreshingRef.current = false;
     }
-  }, []);
+  }, [account?.address]);
 
   /**
    * Handle page visibility changes - refresh when user returns
