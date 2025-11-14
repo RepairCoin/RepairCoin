@@ -1,68 +1,142 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { toast } from 'react-hot-toast';
+import { useEffect, useRef, useCallback } from 'react';
 import { authApi } from '@/services/api/auth';
 
 /**
- * Automatic Token Refresh Hook
+ * Smart Token Refresh Hook
  *
- * NOTE: This hook is now mostly handled by the API client's interceptor,
- * which automatically refreshes tokens on 401 errors. This hook serves as
- * a backup to check session validity periodically.
+ * Instead of polling every N minutes, this hook:
+ * 1. Gets the exact token expiry time from the backend
+ * 2. Schedules a proactive refresh 1 minute before expiration
+ * 3. Refreshes when user returns to the tab after being away
+ * 4. Refreshes on user activity if the token is about to expire
  *
- * IMPORTANT: We cannot read httpOnly cookies from JavaScript - that's the
- * security feature! Instead, we check session validity via API call.
+ * This is much more efficient than polling and prevents idle logout.
  *
- * This hook should be used ONCE at the app root (in AuthProvider).
+ * IMPORTANT: This hook should be used ONCE at the app root (in AuthProvider).
  */
 export function useTokenRefresh() {
-  const toastIdRef = useRef<string | null>(null);
-  const lastCheckRef = useRef<number>(0);
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastActivityRef = useRef<number>(Date.now());
+  const isRefreshingRef = useRef<boolean>(false);
+
+  /**
+   * Schedule a token refresh at a specific time
+   */
+  const scheduleRefresh = useCallback(async () => {
+    try {
+      // Prevent multiple simultaneous refresh attempts
+      if (isRefreshingRef.current) {
+        console.log('[useTokenRefresh] Refresh already in progress, skipping');
+        return;
+      }
+
+      console.log('[useTokenRefresh] Checking session to schedule refresh...');
+      isRefreshingRef.current = true;
+
+      // Get session info including expiry time
+      const sessionData = await authApi.getSession();
+
+      if (!sessionData.isValid || !sessionData.expiresAt) {
+        console.log('[useTokenRefresh] No valid session or expiry time');
+        isRefreshingRef.current = false;
+        return;
+      }
+
+      const expiresAt = new Date(sessionData.expiresAt).getTime();
+      const now = Date.now();
+      const timeUntilExpiry = expiresAt - now;
+
+      // Refresh 1 minute (60 seconds) before expiry
+      const REFRESH_BUFFER = 60 * 1000;
+      const timeUntilRefresh = timeUntilExpiry - REFRESH_BUFFER;
+
+      console.log('[useTokenRefresh] Token expires in', Math.floor(timeUntilExpiry / 1000), 'seconds');
+      console.log('[useTokenRefresh] Will refresh in', Math.floor(timeUntilRefresh / 1000), 'seconds');
+
+      // Clear any existing timeout
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+
+      // If token is already expired or about to expire very soon, refresh immediately
+      if (timeUntilRefresh <= 0) {
+        console.log('[useTokenRefresh] Token expiring soon, refreshing immediately');
+        await authApi.refreshToken();
+        // Schedule the next refresh
+        isRefreshingRef.current = false;
+        scheduleRefresh();
+        return;
+      }
+
+      // Schedule refresh before expiry
+      refreshTimeoutRef.current = setTimeout(async () => {
+        console.log('[useTokenRefresh] Proactively refreshing token before expiry');
+        try {
+          await authApi.refreshToken();
+          // Schedule the next refresh after successful refresh
+          isRefreshingRef.current = false;
+          scheduleRefresh();
+        } catch (error) {
+          console.error('[useTokenRefresh] Failed to refresh token:', error);
+          isRefreshingRef.current = false;
+        }
+      }, timeUntilRefresh);
+
+      isRefreshingRef.current = false;
+    } catch (error) {
+      console.error('[useTokenRefresh] Error scheduling refresh:', error);
+      isRefreshingRef.current = false;
+    }
+  }, []);
+
+  /**
+   * Handle page visibility changes - refresh when user returns
+   */
+  const handleVisibilityChange = useCallback(() => {
+    if (document.visibilityState === 'visible') {
+      const timeSinceLastActivity = Date.now() - lastActivityRef.current;
+
+      // If user was away for more than 5 minutes, proactively refresh
+      if (timeSinceLastActivity > 5 * 60 * 1000) {
+        console.log('[useTokenRefresh] User returned after', Math.floor(timeSinceLastActivity / 1000), 'seconds away - refreshing');
+        scheduleRefresh();
+      }
+    }
+  }, [scheduleRefresh]);
+
+  /**
+   * Track user activity to update last activity time
+   */
+  const handleUserActivity = useCallback(() => {
+    lastActivityRef.current = Date.now();
+  }, []);
 
   useEffect(() => {
-    const checkSessionValidity = async () => {
-      try {
-        // Check if we've checked recently (avoid hammering the API)
-        const now = Date.now();
-        if (now - lastCheckRef.current < 60000) {
-          // Skip if we checked less than 1 minute ago
-          return;
-        }
-        lastCheckRef.current = now;
+    // Initial schedule on mount
+    scheduleRefresh();
 
-        // Verify session is still valid by making an API call
-        // The interceptor in client.ts will automatically refresh if needed
-        const sessionData = await authApi.getSession();
+    // Listen for visibility changes (user switching tabs)
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
-        if (!sessionData.isValid) {
-          console.log('[useTokenRefresh] Session is no longer valid');
-          // Session expired and refresh failed - handled by interceptor
-          return;
-        }
-
-        console.log('[useTokenRefresh] Session is valid');
-      } catch (error) {
-        // Error is already handled by the API interceptor
-        // Only log for debugging
-        console.error('[useTokenRefresh] Session check failed:', error);
-      }
-    };
-
-    // Check immediately on mount
-    checkSessionValidity();
-
-    // Then check every 5 minutes (less aggressive since interceptor handles it)
-    const interval = setInterval(checkSessionValidity, 5 * 60000);
+    // Track user activity (mouse, keyboard)
+    // This helps us know when the user is active
+    window.addEventListener('mousemove', handleUserActivity);
+    window.addEventListener('keydown', handleUserActivity);
+    window.addEventListener('click', handleUserActivity);
 
     return () => {
-      clearInterval(interval);
-      // Clean up toast on unmount
-      if (toastIdRef.current) {
-        toast.dismiss(toastIdRef.current);
+      // Cleanup
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
       }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('mousemove', handleUserActivity);
+      window.removeEventListener('keydown', handleUserActivity);
+      window.removeEventListener('click', handleUserActivity);
     };
-  }, []);
+  }, [scheduleRefresh, handleVisibilityChange, handleUserActivity]);
 
   return null;
 }

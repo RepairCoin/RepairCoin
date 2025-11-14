@@ -1,22 +1,19 @@
-import axios, { AxiosError } from "axios";
+import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 
 const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api",
   headers: {
     "Content-Type": "application/json",
   },
-  withCredentials: true, // Send cookies with requests
+  withCredentials: true, // Send cookies with requests (critical for httpOnly cookies)
 });
 
-// Request interceptor
-// NOTE: We do NOT try to read httpOnly cookies here - that's impossible and by design!
-// The auth_token cookie is httpOnly and automatically sent by the browser with withCredentials: true
-// If you need to debug, check the Network tab in DevTools to see if cookies are being sent
+// Request interceptor - Add request metadata
 apiClient.interceptors.request.use((config) => {
   // Cookies are automatically sent via withCredentials: true
   // No need to manually add Authorization header - the backend reads from cookies
 
-  // Optional: Add request ID for tracking
+  // Add request ID for tracking
   if (typeof window !== 'undefined') {
     config.headers['X-Request-ID'] = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
   }
@@ -43,14 +40,35 @@ const processQueue = (error: AxiosError | null, token: string | null = null) => 
   failedQueue = [];
 };
 
-// Response interceptor - Handle token refresh on 401 errors
+/**
+ * Enhanced Response Interceptor with Smart Token Refresh
+ *
+ * This interceptor implements a robust token refresh mechanism:
+ * 1. Detects 401 (Unauthorized) and TOKEN_EXPIRED errors
+ * 2. Automatically attempts to refresh the access token using the refresh token
+ * 3. Queues failed requests while refreshing (prevents duplicate refresh calls)
+ * 4. Retries all queued requests after successful refresh
+ * 5. Triggers logout on session revocation or refresh failure
+ *
+ * The refresh token is stored in an httpOnly cookie and sent automatically.
+ */
 apiClient.interceptors.response.use(
   (response) => response.data, // Return just the data, not the full axios response
-  async (error) => {
-    const originalRequest = error.config;
+  async (error: AxiosError<{ code?: string; message?: string; error?: string }>) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
-    // If error is 401 and we haven't tried to refresh yet
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Extract error details
+    const errorCode = error.response?.data?.code;
+    const errorMessage = error.response?.data?.error || error.response?.data?.message;
+    const status = error.response?.status;
+
+    // Check if this is a token expiration error
+    const isTokenExpired =
+      status === 401 &&
+      (errorCode === 'TOKEN_EXPIRED' || errorMessage?.includes('expired'));
+
+    // If error is 401/token expired and we haven't tried to refresh yet
+    if ((status === 401 || isTokenExpired) && !originalRequest._retry) {
       // Don't retry certain endpoints - they're expected to fail when not authenticated
       if (originalRequest.url?.includes('/auth/refresh') ||
           originalRequest.url?.includes('/auth/session') ||
@@ -60,15 +78,20 @@ apiClient.interceptors.response.use(
         return Promise.reject(error);
       }
 
+      console.log('[API Client] 401 or token expired detected, initiating refresh...');
+
       if (isRefreshing) {
         // If already refreshing, queue this request
+        console.log('[API Client] Refresh in progress, queuing request');
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
           .then(() => {
+            console.log('[API Client] Retrying queued request after refresh');
             return apiClient(originalRequest);
           })
           .catch((err) => {
+            console.error('[API Client] Queued request failed:', err);
             return Promise.reject(err);
           });
       }
@@ -77,68 +100,89 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
+        console.log('[API Client] Attempting to refresh token...');
+
         // Try to refresh the token
+        // The refresh token is in httpOnly cookie and sent automatically
         await axios.post(
           `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"}/auth/refresh`,
           {},
           { withCredentials: true }
         );
 
+        console.log('[API Client] Token refresh successful');
+
         // Refresh successful, process queued requests
         processQueue(null);
         isRefreshing = false;
 
-        // Retry the original request
+        // Retry the original request with the new access token (now in cookie)
         return apiClient(originalRequest);
       } catch (refreshError) {
-        // Refresh failed, clear queue
+        // Refresh failed
         const axiosError = refreshError as AxiosError<{ code?: string; message?: string }>;
+        console.error('[API Client] Token refresh failed:', axiosError.response?.data);
+
+        // Clear the failed queue
         processQueue(axiosError, null);
         isRefreshing = false;
 
-        // Only trigger session-revoked if we had a session before
-        // Check if the error is SESSION_REVOKED or if there was actually a refresh token
+        // Check if session was revoked or refresh token is invalid
         const isSessionRevoked = axiosError?.response?.data?.code === 'SESSION_REVOKED';
-        const hadSession = axiosError?.response?.status === 401 &&
-                          axiosError?.response?.data?.message?.includes('revoked');
+        const isRefreshExpired =
+          axiosError?.response?.status === 401 ||
+          axiosError?.response?.data?.code === 'REFRESH_TOKEN_EXPIRED' ||
+          axiosError?.response?.data?.code === 'REFRESH_TOKEN_REVOKED';
 
-        if (typeof window !== 'undefined' && (isSessionRevoked || hadSession)) {
-          // Trigger wallet disconnect event only if session was actually revoked
-          // Don't trigger for "no session exists yet" scenarios (like incognito mode)
-          window.dispatchEvent(new CustomEvent('auth:session-revoked'));
+        if (typeof window !== 'undefined' && (isSessionRevoked || isRefreshExpired)) {
+          console.log('[API Client] Session revoked or refresh token expired - triggering logout');
+          // Trigger wallet disconnect event to logout user
+          window.dispatchEvent(new CustomEvent('auth:session-revoked', {
+            detail: {
+              reason: isSessionRevoked ? 'session_revoked' : 'refresh_token_expired',
+              message: axiosError?.response?.data?.message
+            }
+          }));
         }
 
         return Promise.reject(refreshError);
       }
     }
 
-    // Check if session was revoked
-    if (error.response?.data?.code === 'SESSION_REVOKED') {
+    // Check if session was revoked (can happen on any request)
+    if (errorCode === 'SESSION_REVOKED') {
       console.log('[API Client] Session revoked - triggering logout');
 
       // Trigger wallet disconnect event to prevent auto-login
       if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('auth:session-revoked'));
+        window.dispatchEvent(new CustomEvent('auth:session-revoked', {
+          detail: {
+            reason: 'session_revoked',
+            message: errorMessage
+          }
+        }));
       }
 
-      // Don't redirect here - let the event handler in AuthProvider handle it
+      // Return a user-friendly error
       return Promise.reject(new Error('Your session has been revoked. Please login again.'));
     }
 
     // Extract user-friendly error message from backend response
-    const errorMessage =
+    const friendlyMessage =
       error.response?.data?.error ||
       error.response?.data?.message ||
       error.message ||
       'An unexpected error occurred';
 
-    // Create a new error with the extracted message
-    const enhancedError = new Error(errorMessage) as Error & {
+    // Create an enhanced error with the extracted message
+    const enhancedError = new Error(friendlyMessage) as Error & {
       response?: unknown;
-      status?: number
+      status?: number;
+      code?: string;
     };
     enhancedError.response = error.response;
     enhancedError.status = error.response?.status;
+    enhancedError.code = errorCode;
 
     return Promise.reject(enhancedError);
   }
