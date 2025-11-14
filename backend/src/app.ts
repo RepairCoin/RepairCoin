@@ -337,7 +337,24 @@ class RepairCoinApp {
     if (metricsRoutes) {
       this.app.use('/api/metrics', metricsRoutes);
     }
-    
+
+    // API Status endpoint
+    this.app.get('/api', (req, res) => {
+      res.json({
+        success: true,
+        status: 'running',
+        message: 'RepairCoin API is operational',
+        version: process.env.npm_package_version || '1.0.0',
+        environment: process.env.NODE_ENV || 'development',
+        timestamp: new Date().toISOString(),
+        endpoints: {
+          health: '/api/health',
+          docs: '/api-docs',
+          systemInfo: '/api/system/info'
+        }
+      });
+    });
+
     // 404 handler
     this.app.use('*', (req, res) => {
       res.status(404).json({
