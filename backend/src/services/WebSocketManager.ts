@@ -113,8 +113,23 @@ export class WebSocketManager {
     try {
       // Parse cookies from request headers
       const cookieHeader = request.headers.cookie;
+
+      // Enhanced logging to debug cookie issues
+      logger.info('WebSocket connection attempt', {
+        hasCookieHeader: !!cookieHeader,
+        cookieHeaderLength: cookieHeader?.length || 0,
+        origin: request.headers.origin,
+        host: request.headers.host,
+        url: request.url,
+        allCookies: cookieHeader ? cookieHeader.split(';').map(c => c.split('=')[0].trim()) : []
+      });
+
       if (!cookieHeader) {
-        logger.debug('No cookies found in WebSocket connection request');
+        logger.warn('No cookies found in WebSocket connection request', {
+          origin: request.headers.origin,
+          host: request.headers.host,
+          headers: Object.keys(request.headers)
+        });
         return;
       }
 
@@ -123,7 +138,10 @@ export class WebSocketManager {
       const authCookie = cookies.find(c => c.startsWith('auth_token='));
 
       if (!authCookie) {
-        logger.debug('No auth_token cookie found in WebSocket connection');
+        logger.warn('No auth_token cookie found in WebSocket connection', {
+          availableCookies: cookies.map(c => c.split('=')[0]),
+          origin: request.headers.origin
+        });
         return;
       }
 
