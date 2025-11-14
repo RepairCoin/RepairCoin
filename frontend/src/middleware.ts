@@ -67,18 +67,23 @@ export function middleware(request: NextRequest) {
   const isProtectedRoute = isAdminRoute || isShopRoute || isCustomerRoute || isDashboardRoute;
 
   // If it's a protected route and no auth token, redirect to home page
-  // DISABLED: In production with cross-domain setup, middleware can't read cookies
-  // from the backend domain. The backend already protects all API routes.
-  // We'll let the page load and let the client-side auth handle redirects.
-  /* if (isProtectedRoute && !authToken) {
+  // ENABLED: With subdomain setup (api.repaircoin.ai + repaircoin.ai),
+  // middleware CAN read cookies because they share the same domain (.repaircoin.ai)
+  // This provides server-side protection before the page even loads
+  if (isProtectedRoute && !authToken) {
+    console.log('[Middleware] No auth token - redirecting to home:', {
+      pathname,
+      hasToken: !!authToken
+    });
+
     const homeUrl = new URL('/', request.url);
     homeUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(homeUrl);
-  } */
+  }
 
   // Role-based access control
-  // NOTE: This only runs if authToken exists (works in localhost, may not work in production cross-domain)
-  // Client-side protection in dashboard components provides additional security layer
+  // With subdomain setup, this works in both development and production
+  // Provides server-side role validation before page render
   if (authToken && isProtectedRoute) {
     const decoded = decodeJWT(authToken);
     const userRole = decoded?.role?.toLowerCase();
