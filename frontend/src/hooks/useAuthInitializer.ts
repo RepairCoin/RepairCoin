@@ -6,6 +6,14 @@ import { useAuthStore } from '@/stores/authStore';
 import { authApi } from '@/services/api/auth';
 
 /**
+ * Check if auth cookie exists (avoids unnecessary API calls)
+ */
+function hasAuthCookie(): boolean {
+  if (typeof document === 'undefined') return false;
+  return document.cookie.split(';').some(cookie => cookie.trim().startsWith('auth_token='));
+}
+
+/**
  * SINGLE GLOBAL AUTHENTICATION INITIALIZER
  *
  * This hook should ONLY be used ONCE in the app (in the root provider).
@@ -18,7 +26,7 @@ import { authApi } from '@/services/api/auth';
  */
 export function useAuthInitializer() {
   const account = useActiveAccount();
-  const { login, logout, setAccount, setUserProfile, isAuthenticated } = useAuthStore();
+  const { login, logout, setAccount, setUserProfile } = useAuthStore();
   const previousAddressRef = useRef<string | null>(null);
   const isInitializedRef = useRef(false);
 
@@ -38,38 +46,43 @@ export function useAuthInitializer() {
         setAccount(account);
 
         // First check if we have a valid existing session (uses refresh token)
-        try {
-          console.log('[AuthInitializer] 🔍 Checking for existing session...');
-          const session = await authApi.getSession();
-          console.log('[AuthInitializer] Session check result:', session);
+        // Only check if auth cookie exists to avoid unnecessary 401 errors
+        if (hasAuthCookie()) {
+          try {
+            console.log('[AuthInitializer] 🔍 Auth cookie detected, checking session...');
+            const session = await authApi.getSession();
+            console.log('[AuthInitializer] Session check result:', session);
 
-          if (session.isValid && session.user) {
-            console.log('[AuthInitializer] Valid session found, restoring state without new login');
+            if (session.isValid && session.user) {
+              console.log('[AuthInitializer] ✅ Valid session found, restoring state without new login');
 
-            // Restore user profile from existing session
-            // Session user has extended properties beyond the basic User type
-            const userData = session.user as any;
-            const profile = {
-              id: userData.id,
-              address: userData.address || userData.walletAddress || currentAddress,
-              type: userData.type || userData.role as 'customer' | 'shop' | 'admin',
-              name: userData.name || userData.shopName,
-              email: userData.email,
-              isActive: userData.active !== false,
-              tier: userData.tier,
-              shopId: userData.shopId,
-              registrationDate: userData.createdAt || userData.created_at,
-            };
+              // Restore user profile from existing session
+              // Session user has extended properties beyond the basic User type
+              const userData = session.user as any;
+              const profile = {
+                id: userData.id,
+                address: userData.address || userData.walletAddress || currentAddress,
+                type: userData.type || userData.role as 'customer' | 'shop' | 'admin',
+                name: userData.name || userData.shopName,
+                email: userData.email,
+                isActive: userData.active !== false,
+                tier: userData.tier,
+                shopId: userData.shopId,
+                registrationDate: userData.createdAt || userData.created_at,
+              };
 
-            setUserProfile(profile);
-            isInitializedRef.current = true;
-            return; // Don't call login() - we already have a valid session
+              setUserProfile(profile);
+              isInitializedRef.current = true;
+              return; // Don't call login() - we already have a valid session
+            }
+
+            console.log('[AuthInitializer] Session is not valid, will proceed with login');
+          } catch (error) {
+            console.log('[AuthInitializer] ❌ Session check failed, error:', error);
+            console.log('[AuthInitializer] No valid session found, proceeding with login');
           }
-
-          console.log('[AuthInitializer] Session is not valid, will proceed with login');
-        } catch (error) {
-          console.log('[AuthInitializer] ❌ Session check failed, error:', error);
-          console.log('[AuthInitializer] No valid session found, proceeding with login');
+        } else {
+          console.log('[AuthInitializer] No auth cookie found, skipping session check');
         }
 
         // No valid session - perform actual login (creates new refresh token)

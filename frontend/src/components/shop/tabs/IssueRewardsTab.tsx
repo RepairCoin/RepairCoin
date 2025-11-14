@@ -495,21 +495,21 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
   const repairOptions: RepairOption[] = [
     {
       type: "minor",
-      label: "XS Repair",
+      label: "Small Reward",
       rcn: MINOR_REPAIR_RCN,
-      description: "$30 - $50 repair value",
+      description: "$30 - $50 purchase value",
     },
     {
       type: "small",
-      label: "Small Repair",
+      label: "Medium Reward",
       rcn: SMALL_REPAIR_RCN,
-      description: "$50 - $99 repair value",
+      description: "$50 - $99 purchase value",
     },
     {
       type: "large",
-      label: "Large Repair",
+      label: "Large Reward",
       rcn: LARGE_REPAIR_RCN,
-      description: "$100+ repair value",
+      description: "$100+ purchase value",
     },
   ];
 
@@ -1020,7 +1020,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                         Custom Amount
                       </span>
                       <p className="text-gray-400 text-sm mt-1">
-                        Enter specific RCN reward and repair value
+                        Enter specific RCN reward and purchase value
                       </p>
                     </div>
                   </label>
@@ -1029,7 +1029,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                     <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-400 mb-2">
-                          Repair Amount ($)
+                          Purchase Amount ($)
                         </label>
                         <input
                           type="number"

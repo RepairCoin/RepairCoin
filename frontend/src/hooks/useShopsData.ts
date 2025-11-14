@@ -136,10 +136,10 @@ export function useShopsData() {
         throw new Error("Failed to approve shop");
       }
       await refreshData();
-      toast.success(`Shop ${shopId} approved successfully!`);
+      // Toast removed - let the component handle notifications
     } catch (error: any) {
       console.error("Error approving shop:", error);
-      toast.error(error.message || "Failed to approve shop");
+      throw error; // Re-throw to let component handle the error
     }
   };
 
@@ -157,10 +157,10 @@ export function useShopsData() {
         }
       }
       await refreshData();
-      toast.success(`Shop ${shopId} rejected successfully!`);
+      // Toast removed - let the component handle notifications
     } catch (error: any) {
       console.error("Error rejecting shop:", error);
-      toast.error(error.message || "Failed to reject shop");
+      throw error; // Re-throw to let component handle the error
     }
   };
 

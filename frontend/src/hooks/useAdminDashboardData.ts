@@ -153,10 +153,10 @@ export function useAdminDashboardData(
 
       // Refresh the data after approval
       await loadDashboardData();
-      toast.success(`Shop ${shopId} approved successfully!`);
+      // Toast removed - let the component handle notifications
     } catch (error: any) {
       console.error("Error approving shop:", error);
-      toast.error(error.message || "Failed to approve shop");
+      throw error; // Re-throw to let component handle the error
     }
   };
 
@@ -178,10 +178,9 @@ export function useAdminDashboardData(
 
       // Refresh the data after rejection
       await loadDashboardData();
-      toast.success(`Shop application rejected successfully!`);
+      // Toast removed - let the component handle notifications
     } catch (error: any) {
       console.error("Error rejecting shop:", error);
-      toast.error(error.message || "Failed to reject shop");
       throw error; // Re-throw to handle in the UI
     }
   };
