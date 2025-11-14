@@ -60,25 +60,25 @@ Added connection rate limiting per IP address:
 - Allows legitimate reconnection attempts
 - Auto-cleans tracking data to prevent memory leaks
 
-#### 2. Frontend: Cookie Check (`useNotifications.ts`)
+#### 2. Frontend: Authentication State Check (`useNotifications.ts`)
 
 Added authentication check before connecting:
 
 ```typescript
-// Check if auth cookies exist before attempting connection
-const hasAuthCookie = document.cookie
-  .split(';')
-  .some(cookie => cookie.trim().startsWith('auth_token='));
-
-if (!hasAuthCookie) {
-  console.log('Cannot connect to WebSocket: no auth cookies found');
+// CRITICAL: Only connect if user is fully authenticated
+// userProfile is only set after successful backend authentication
+// This ensures cookies are present (we can't check them directly due to httpOnly)
+if (!userProfile?.address || !isAuthenticated) {
+  console.log('Cannot connect to WebSocket: user not authenticated');
   return;
 }
 ```
 
 **Why This Works:**
 - Only authenticated users attempt connection
-- Prevents connection attempts without cookies
+- `userProfile` and `isAuthenticated` are only set after successful backend auth
+- Guarantees httpOnly cookies exist without needing to check them directly
+- Cannot read httpOnly cookies with JavaScript (security feature)
 - Reduces unnecessary connection attempts
 - Better user experience (no failed connections)
 
@@ -133,20 +133,27 @@ connectionAttempts: Map<string, { count: number; resetAt: number }>
 - Window resets after 60 seconds
 - Applies to all clients (authenticated or not)
 
-### Frontend Cookie Check
+### Frontend Authentication Check
 
 **Logic:**
 1. Check if `isAuthenticated` flag is true
-2. Check if `userProfile` exists
-3. **NEW:** Check if `auth_token` cookie exists
-4. Only connect if all three conditions are met
+2. Check if `userProfile` exists (with wallet address)
+3. Only connect if both conditions are met
+4. Cannot check httpOnly cookies directly (they're httpOnly for security)
 
-**Cookie Check:**
+**Authentication Check:**
 ```typescript
-document.cookie.split(';').some(cookie =>
-  cookie.trim().startsWith('auth_token=')
-)
+if (!userProfile?.address || !isAuthenticated) {
+  console.log('Cannot connect to WebSocket: user not authenticated');
+  return;
+}
 ```
+
+**Why Not Check Cookies Directly:**
+- httpOnly cookies cannot be read by JavaScript (by design)
+- Checking `userProfile` and `isAuthenticated` is sufficient
+- These values are only set after successful backend authentication
+- This guarantees cookies exist without needing direct access
 
 ---
 
@@ -192,7 +199,7 @@ document.cookie.split(';').some(cookie =>
 
 - [ ] Unauthenticated users don't attempt connection
 - [ ] Authenticated users connect successfully
-- [ ] Cookie check works in all browsers
+- [ ] Authentication state check works correctly
 - [ ] No connection attempts on landing page
 - [ ] Reconnection works after auth
 
@@ -213,10 +220,11 @@ document.cookie.split(';').some(cookie =>
    - Mitigates DoS attempts
    - Protects backend resources
 
-2. **Frontend Cookie Check**
+2. **Frontend Authentication Check**
    - Only authenticated users connect
    - Reduces attack surface
    - Prevents information leakage
+   - Respects httpOnly cookie security
 
 3. **IP Tracking**
    - Can identify problematic IPs
@@ -233,8 +241,8 @@ document.cookie.split(';').some(cookie =>
 - **Cleanup:** Runs every 60 seconds (minimal impact)
 
 ### Frontend
-- **Cookie Check:** ~1ms (string parsing)
-- **No Additional Requests:** Uses existing cookies
+- **Authentication Check:** <1ms (simple state check)
+- **No Additional Requests:** Uses existing auth state
 - **Prevents Failed Connections:** Saves bandwidth
 
 ### Overall
