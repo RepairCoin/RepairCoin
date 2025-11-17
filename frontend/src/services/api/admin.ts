@@ -476,10 +476,18 @@ export const getFreezeAuditHistory = async (limit: number = 50): Promise<any> =>
 
 export const getCurrentPricing = async (): Promise<any> => {
   try {
+    console.log('[API] Fetching current pricing from /admin/treasury/pricing');
     const response = await apiClient.get('/admin/treasury/pricing');
+    console.log('[API] Current pricing response:', response);
     return response.data;
-  } catch (error) {
-    console.error('Error getting current pricing:', error);
+  } catch (error: any) {
+    console.error('[API] Error getting current pricing:', {
+      error,
+      message: error?.message,
+      response: error?.response,
+      status: error?.status,
+      code: error?.code
+    });
     throw error;
   }
 };
@@ -489,14 +497,22 @@ export const getPricingHistory = async (tier?: 'standard' | 'premium' | 'elite',
     const params = new URLSearchParams();
     if (tier) params.append('tier', tier);
     if (limit) params.append('limit', limit.toString());
-    
+
     const queryString = params.toString();
     const url = `/admin/treasury/pricing/history${queryString ? `?${queryString}` : ''}`;
-    
+
+    console.log('[API] Fetching pricing history from', url);
     const response = await apiClient.get(url);
+    console.log('[API] Pricing history response:', response);
     return response.data;
-  } catch (error) {
-    console.error('Error getting pricing history:', error);
+  } catch (error: any) {
+    console.error('[API] Error getting pricing history:', {
+      error,
+      message: error?.message,
+      response: error?.response,
+      status: error?.status,
+      code: error?.code
+    });
     throw error;
   }
 };
