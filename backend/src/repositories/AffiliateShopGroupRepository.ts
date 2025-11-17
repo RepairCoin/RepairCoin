@@ -12,6 +12,7 @@ export interface AffiliateShopGroup {
   createdByShopId: string;
   groupType: 'public' | 'private';
   logoUrl?: string;
+  icon?: string;
   inviteCode: string;
   autoApproveRequests: boolean;
   active: boolean;
@@ -87,6 +88,7 @@ export interface CreateGroupParams {
   createdByShopId: string;
   groupType: 'public' | 'private';
   logoUrl?: string;
+  icon?: string;
   inviteCode: string;
   autoApproveRequests?: boolean;
 }
@@ -121,9 +123,9 @@ export class AffiliateShopGroupRepository extends BaseRepository {
       const query = `
         INSERT INTO affiliate_shop_groups (
           group_id, group_name, description, custom_token_name, custom_token_symbol,
-          token_value_usd, created_by_shop_id, group_type, logo_url, invite_code,
+          token_value_usd, created_by_shop_id, group_type, logo_url, icon, invite_code,
           auto_approve_requests
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING *
       `;
 
@@ -137,6 +139,7 @@ export class AffiliateShopGroupRepository extends BaseRepository {
         params.createdByShopId,
         params.groupType,
         params.logoUrl || null,
+        params.icon || '🏪',
         params.inviteCode,
         params.autoApproveRequests || false
       ];
@@ -159,7 +162,7 @@ export class AffiliateShopGroupRepository extends BaseRepository {
         LEFT JOIN affiliate_shop_group_members m ON g.group_id = m.group_id
         WHERE g.group_id = $1
         GROUP BY g.group_id, g.group_name, g.description, g.custom_token_name, g.custom_token_symbol,
-                 g.token_value_usd, g.created_by_shop_id, g.group_type, g.logo_url, g.invite_code,
+                 g.token_value_usd, g.created_by_shop_id, g.group_type, g.logo_url, g.icon, g.invite_code,
                  g.auto_approve_requests, g.active, g.created_at, g.updated_at
       `;
       const result = await this.pool.query(query, [groupId]);
@@ -747,6 +750,7 @@ export class AffiliateShopGroupRepository extends BaseRepository {
       createdByShopId: row.created_by_shop_id,
       groupType: row.group_type,
       logoUrl: row.logo_url,
+      icon: row.icon,
       inviteCode: row.invite_code,
       autoApproveRequests: row.auto_approve_requests,
       active: row.active,

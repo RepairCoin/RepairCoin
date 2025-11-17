@@ -147,13 +147,20 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
           <div className="absolute inset-0 bg-gradient-to-r from-[#FFCC00]/10 via-transparent to-transparent rounded-2xl blur-3xl"></div>
           <div className="relative bg-gradient-to-br from-gray-900/90 to-gray-800/90 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-8 shadow-2xl">
             <div className="flex items-start justify-between mb-6">
-              <div>
-                <h1 className="text-4xl font-bold text-white mb-2 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                  {group.groupName}
-                </h1>
-                {group.description && (
-                  <p className="text-gray-400 text-lg">{group.description}</p>
-                )}
+              <div className="flex items-start gap-4">
+                {/* Group Icon */}
+                <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-[#FFCC00]/20 to-[#FFCC00]/10 rounded-2xl flex items-center justify-center border border-[#FFCC00]/30">
+                  <span className="text-4xl">{group.icon || "🏪"}</span>
+                </div>
+
+                <div>
+                  <h1 className="text-4xl font-bold text-white mb-2 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                    {group.groupName}
+                  </h1>
+                  {group.description && (
+                    <p className="text-gray-400 text-lg">{group.description}</p>
+                  )}
+                </div>
               </div>
             </div>
 

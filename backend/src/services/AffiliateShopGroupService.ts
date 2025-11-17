@@ -14,6 +14,7 @@ export interface CreateGroupRequest {
   createdByShopId: string;
   groupType: 'public' | 'private';
   logoUrl?: string;
+  icon?: string;
   autoApproveRequests?: boolean;
 }
 
@@ -76,6 +77,7 @@ export class AffiliateShopGroupService {
         createdByShopId: request.createdByShopId,
         groupType: request.groupType,
         logoUrl: request.logoUrl,
+        icon: request.icon,
         inviteCode,
         autoApproveRequests: request.autoApproveRequests
       };

@@ -14,6 +14,7 @@ import { Coins, X, Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "react-hot-toast";
 import Tooltip from "../ui/tooltip";
 import apiClient from '@/services/api/client';
+import GroupBalancesCard from "./GroupBalancesCard";
 
 const client = createThirdwebClient({
   clientId:
@@ -339,6 +340,9 @@ export const OverviewTab: React.FC = () => {
           subtitleClassName="text-gray-400 text-xs sm:text-sm"
         />
       </div>
+
+      {/* Shop Group Tokens Card */}
+      <GroupBalancesCard />
 
       {/* Mint to Wallet Section */}
       {balanceData && balanceData.availableBalance > 0 && (

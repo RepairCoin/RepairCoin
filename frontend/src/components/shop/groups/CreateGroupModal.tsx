@@ -9,6 +9,13 @@ interface CreateGroupModalProps {
   onSubmit: (data: shopGroupsAPI.CreateGroupData) => Promise<void>;
 }
 
+// Popular emojis for shop groups
+const POPULAR_ICONS = [
+  "🏪", "🔧", "🚗", "🏍️", "🚲", "⚙️", "🛠️", "🔩",
+  "💎", "⭐", "🌟", "✨", "🎯", "🎨", "🏆", "👥",
+  "🤝", "💼", "🏢", "🏭", "🌍", "🌎", "🌏", "🔰"
+];
+
 export default function CreateGroupModal({ onClose, onSubmit }: CreateGroupModalProps) {
   const [formData, setFormData] = useState<shopGroupsAPI.CreateGroupData>({
     groupName: "",
@@ -16,8 +23,10 @@ export default function CreateGroupModal({ onClose, onSubmit }: CreateGroupModal
     customTokenSymbol: "",
     description: "",
     logoUrl: "",
+    icon: "🏪", // Default icon
   });
   const [submitting, setSubmitting] = useState(false);
+  const [showIconPicker, setShowIconPicker] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,6 +69,49 @@ export default function CreateGroupModal({ onClose, onSubmit }: CreateGroupModal
               placeholder="e.g., Downtown Auto Repair Coalition"
               className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-[#FFCC00]"
             />
+          </div>
+
+          {/* Icon Picker */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Group Icon *
+            </label>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowIconPicker(!showIconPicker)}
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white hover:border-[#FFCC00] transition-colors flex items-center justify-between"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl">{formData.icon}</span>
+                  <span className="text-gray-400">Click to change icon</span>
+                </div>
+                <span className="text-xs text-gray-500">{showIconPicker ? "▲" : "▼"}</span>
+              </button>
+
+              {showIconPicker && (
+                <div className="absolute z-10 w-full mt-2 p-4 bg-gray-800 border border-gray-700 rounded-lg shadow-xl">
+                  <p className="text-xs text-gray-400 mb-3">Select an icon for your group:</p>
+                  <div className="grid grid-cols-8 gap-2">
+                    {POPULAR_ICONS.map((icon) => (
+                      <button
+                        key={icon}
+                        type="button"
+                        onClick={() => {
+                          setFormData({ ...formData, icon });
+                          setShowIconPicker(false);
+                        }}
+                        className={`text-3xl p-2 rounded-lg hover:bg-gray-700 transition-colors ${
+                          formData.icon === icon ? "bg-[#FFCC00]/20 ring-2 ring-[#FFCC00]" : ""
+                        }`}
+                      >
+                        {icon}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Token Details */}

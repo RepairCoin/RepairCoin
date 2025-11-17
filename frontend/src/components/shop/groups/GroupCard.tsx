@@ -17,18 +17,25 @@ export default function GroupCard({ group, onClick, showMemberBadge }: GroupCard
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
-        <div className="flex-1">
-          <h3 className="text-xl font-bold text-white mb-1">{group.groupName}</h3>
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-[#FFCC00] font-medium">
-              {group.customTokenSymbol}
-            </span>
-            <span className="text-gray-500">•</span>
-            <span className="text-gray-400">{group.customTokenName}</span>
+        <div className="flex items-start gap-3 flex-1">
+          {/* Icon */}
+          <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-[#FFCC00]/20 to-[#FFCC00]/10 rounded-xl flex items-center justify-center border border-[#FFCC00]/30">
+            <span className="text-2xl">{group.icon || "🏪"}</span>
+          </div>
+
+          <div className="flex-1">
+            <h3 className="text-xl font-bold text-white mb-1">{group.groupName}</h3>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-[#FFCC00] font-medium">
+                {group.customTokenSymbol}
+              </span>
+              <span className="text-gray-500">•</span>
+              <span className="text-gray-400">{group.customTokenName}</span>
+            </div>
           </div>
         </div>
         {showMemberBadge && (
-          <span className="px-2 py-1 bg-[#FFCC00]/20 text-[#FFCC00] text-xs rounded-full font-medium">
+          <span className="px-2 py-1 bg-[#FFCC00]/20 text-[#FFCC00] text-xs rounded-full font-medium flex-shrink-0">
             Member
           </span>
         )}

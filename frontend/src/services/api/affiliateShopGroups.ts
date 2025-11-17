@@ -9,6 +9,7 @@ export interface AffiliateShopGroup {
   customTokenSymbol: string | null;
   description?: string;
   logoUrl?: string;
+  icon?: string;
   inviteCode: string | null;
   isPrivate: boolean;
   groupType?: 'public' | 'private'; // Backend uses groupType
@@ -65,6 +66,7 @@ export interface CreateGroupData {
   customTokenSymbol: string;
   description?: string;
   logoUrl?: string;
+  icon?: string;
   isPrivate?: boolean;
 }
 
