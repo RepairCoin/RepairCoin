@@ -77,12 +77,16 @@ export interface UpdateShopData {
 }
 
 export interface PurchaseHistory {
-  id: string;
-  amount: number;
-  totalCost?: number;
-  status: string;
-  createdAt: string;
-  transactionHash?: string;
+  amount: number,
+  completedAt: string,
+  createdAt: string,
+  id: number,
+  paymentMethod: string,
+  paymentReference: string,
+  pricePerRcn: null,
+  shopId: string,
+  status: string,
+  totalCost: number
 }
 
 export interface PurchaseTokenResponse {
@@ -98,7 +102,8 @@ export interface PurchaseTokenResponse {
 export interface PurchaseHistoryResponse {
   data: {
     purchases: PurchaseHistory[];
-    count: number;
+    total: number;
+    totalPages: number;
   };
   success: boolean;
   message?: string;
@@ -174,34 +179,44 @@ export const getShopByWalletAddress = async (
   walletAddress: string
 ): Promise<ShopByWalletAddressResponse> => {
   try {
-    return await apiClient.get<ShopByWalletAddressResponse>(`/shops/wallet/${walletAddress}`);
+    return await apiClient.get<ShopByWalletAddressResponse>(
+      `/shops/wallet/${walletAddress}`
+    );
   } catch (error: any) {
     console.error("Failed to get shop by wallet address:", error.message);
     throw error;
   }
 };
 
-export const updateShopDetails = async (shopId: string, shopData: ShopData): Promise<UpdateShopData> => {
+export const updateShopDetails = async (
+  shopId: string,
+  shopData: ShopData
+): Promise<UpdateShopData> => {
   try {
-    return await apiClient.put<UpdateShopData>(`/shops/${shopId}/details`, shopData);
+    return await apiClient.put<UpdateShopData>(
+      `/shops/${shopId}/details`,
+      shopData
+    );
   } catch (error: any) {
     console.error("Failed to update shop details:", error.message);
     throw error;
   }
 };
 
-export const createStripeCheckout = async (amount: number): Promise<PurchaseTokenResponse> => {
+export const createStripeCheckout = async (
+  amount: number
+): Promise<PurchaseTokenResponse> => {
   try {
     // Debug: Check if we have a token
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-    const token = await AsyncStorage.getItem('auth_token');
-    console.log('[createStripeCheckout] Token exists:', !!token);
-    if (token) {
-      console.log('[createStripeCheckout] Token preview:', token.substring(0, 20) + '...');
-    }
-    
+    const AsyncStorage =
+      require("@react-native-async-storage/async-storage").default;
+    const token = await AsyncStorage.getItem("auth_token");
+
     // Include platform parameter to indicate this is from mobile
-    const response = await apiClient.post<PurchaseTokenResponse>("/shops/purchase/stripe-checkout?platform=mobile", { amount });
+    const response = await apiClient.post<PurchaseTokenResponse>(
+      "/shops/purchase/stripe-checkout?platform=mobile",
+      { amount }
+    );
     return response;
   } catch (error: any) {
     console.error("Failed to create Stripe checkout:", error.message);
@@ -213,7 +228,9 @@ export const createStripeCheckout = async (amount: number): Promise<PurchaseToke
   }
 };
 
-export const getCustomerInfo = async (walletAddress: string): Promise<{ data: { customer: CustomerInfo } }> => {
+export const getCustomerInfo = async (
+  walletAddress: string
+): Promise<{ data: { customer: CustomerInfo } }> => {
   try {
     return await apiClient.get(`/customers/${walletAddress}`);
   } catch (error: any) {
@@ -222,7 +239,9 @@ export const getCustomerInfo = async (walletAddress: string): Promise<{ data: { 
   }
 };
 
-export const getShopPromoCodes = async (shopId: string): Promise<{ data: PromoCode[]; success: boolean }> => {
+export const getShopPromoCodes = async (
+  shopId: string
+): Promise<{ data: PromoCode[]; success: boolean }> => {
   try {
     return await apiClient.get(`/shops/${shopId}/promo-codes`);
   } catch (error: any) {
@@ -231,20 +250,40 @@ export const getShopPromoCodes = async (shopId: string): Promise<{ data: PromoCo
   }
 };
 
-export const validatePromoCode = async (shopId: string, request: PromoValidationRequest): Promise<PromoValidationResponse> => {
+export const validatePromoCode = async (
+  shopId: string,
+  request: PromoValidationRequest
+): Promise<PromoValidationResponse> => {
   try {
-    return await apiClient.post(`/shops/${shopId}/promo-codes/validate`, request);
+    return await apiClient.post(
+      `/shops/${shopId}/promo-codes/validate`,
+      request
+    );
   } catch (error: any) {
     console.error("Failed to validate promo code:", error.message);
     throw error;
   }
 };
 
-export const issueReward = async (shopId: string, request: RewardRequest): Promise<RewardResponse> => {
+export const issueReward = async (
+  shopId: string,
+  request: RewardRequest
+): Promise<RewardResponse> => {
   try {
     return await apiClient.post(`/shops/${shopId}/issue-reward`, request);
   } catch (error: any) {
     console.error("Failed to issue reward:", error.message);
+    throw error;
+  }
+};
+
+export const getShopTransactions = async (
+  shopId: string
+): Promise<PurchaseHistoryResponse> => {
+  try {
+    return await apiClient.get(`/shops/purchase/history/${shopId}`);
+  } catch (error: any) {
+    console.error("Failed to get shop transactions:", error.message);
     throw error;
   }
 };
