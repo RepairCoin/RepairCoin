@@ -449,9 +449,9 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
           <p className="text-yellow-400 font-semibold">
             {(shop.totalTokensIssued || 0).toLocaleString()} RCN
           </p>
-          {shop.purchasedRcnBalance && shop.purchasedRcnBalance > 0 && (
-            <p className="text-gray-400">Balance: {shop.purchasedRcnBalance}</p>
-          )}
+          
+            <p className="text-gray-400">Balance: {(shop.purchasedRcnBalance || 0).toLocaleString()}</p>
+        
         </div>
       ),
     },
