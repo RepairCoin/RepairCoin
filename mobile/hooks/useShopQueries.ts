@@ -8,7 +8,10 @@ import {
   updateShopDetails,
   UpdateShopData,
   ShopData,
+  getShopTransactions,
+  PurchaseHistoryResponse,
 } from "@/services/ShopServices";
+import { useAuthStore } from "@/store/authStore";
 
 export const useShops = () => {
   return useQuery({
@@ -44,5 +47,16 @@ export const useUpdateShopDetails = (address: string) => {
         queryKey: queryKeys.shopByWalletAddress(address),
       });
     },
+  });
+};
+
+export const useShopTransactions = (shopId: string) => {
+  return useQuery({
+    queryKey: queryKeys.shopTransactions(shopId),
+    queryFn: async () => {
+      const response: PurchaseHistoryResponse = await getShopTransactions(shopId);
+      return response.data;
+    },
+    staleTime: 10 * 60 * 1000, // 10 minutes
   });
 };
