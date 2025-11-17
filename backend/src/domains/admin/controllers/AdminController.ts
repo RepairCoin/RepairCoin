@@ -379,17 +379,33 @@ export class AdminController {
     }
   }
 
+  async getShopPendingMintAmount(req: Request, res: Response) {
+    try {
+      const { shopId } = req.params;
+
+      const pendingAmount = await this.adminService.getShopPendingMintAmount(shopId);
+
+      ResponseHelper.success(res, {
+        shopId,
+        pendingMintAmount: pendingAmount,
+        hasPendingMints: pendingAmount > 0
+      }, 'Pending mint amount retrieved successfully');
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message, 500);
+    }
+  }
+
   async mintShopBalance(req: Request, res: Response) {
     try {
       const { shopId } = req.params;
-      
+
       const result = await this.adminService.mintShopBalance(shopId);
-      
+
       ResponseHelper.success(res, result, 'Shop balance minted successfully');
     } catch (error: any) {
       if (error.message === 'Shop not found') {
         ResponseHelper.error(res, error.message, 404);
-      } else if (error.message === 'No balance to mint') {
+      } else if (error.message?.includes('No unminted purchases')) {
         ResponseHelper.error(res, error.message, 400);
       } else {
         ResponseHelper.error(res, error.message, 500);

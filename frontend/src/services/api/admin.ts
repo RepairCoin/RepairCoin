@@ -765,6 +765,25 @@ export const verifyShop = async (shopId: string): Promise<boolean> => {
   }
 };
 
+export const getShopPendingMintAmount = async (shopId: string): Promise<{
+  pendingMintAmount: number;
+  hasPendingMints: boolean;
+} | null> => {
+  try {
+    const response = await apiClient.get<{
+      data: {
+        shopId: string;
+        pendingMintAmount: number;
+        hasPendingMints: boolean;
+      };
+    }>(`/admin/shops/${shopId}/pending-mint-amount`);
+    return response.data?.data || null;
+  } catch (error) {
+    console.error('Error getting shop pending mint amount:', error);
+    return null;
+  }
+};
+
 export const mintShopBalance = async (shopId: string): Promise<{
   success: boolean;
   message?: string;
@@ -838,6 +857,7 @@ export const adminApi = {
   suspendShop,
   unsuspendShop,
   verifyShop,
+  getShopPendingMintAmount,
   mintShopBalance,
   
   // Tokens

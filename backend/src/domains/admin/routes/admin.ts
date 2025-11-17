@@ -307,6 +307,11 @@ router.get('/debug/all-shops-purchases',
   })
 );
 
+// Get shop's pending mint amount (unminted completed purchases)
+router.get('/shops/:shopId/pending-mint-amount',
+  asyncHandler(adminController.getShopPendingMintAmount.bind(adminController))
+);
+
 // Mint shop's purchased RCN balance to blockchain
 router.post('/shops/:shopId/mint-balance',
   asyncHandler(adminController.mintShopBalance.bind(adminController))

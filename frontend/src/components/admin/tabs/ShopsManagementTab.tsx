@@ -43,6 +43,7 @@ interface Shop {
   crossShopEnabled?: boolean;
   cross_shop_enabled?: boolean;
   purchasedRcnBalance?: number;
+  pendingMintAmount?: number;
   walletAddress?: string;
   wallet_address?: string;
   walletBalance?: number;
@@ -779,10 +780,9 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
           )}
 
         {/* Additional Actions */}
-        <div className={`flex flex-wrap gap-2 ${shop.purchasedRcnBalance && shop.purchasedRcnBalance > 0 ? "" : "hidden"}`}>
+        <div className={`flex flex-wrap gap-2 ${shop.status === "active" && shop.pendingMintAmount && shop.pendingMintAmount > 0 && onMintBalance ? "" : "hidden"}`}>
           {shop.status === "active" &&
-            shop.purchasedRcnBalance &&
-            shop.purchasedRcnBalance > 0 &&
+            shop.pendingMintAmount && shop.pendingMintAmount > 0 &&
             onMintBalance && (
               <button
                 onClick={(e) => {
@@ -796,7 +796,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                 className="px-3 py-1.5 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 text-yellow-400 border border-yellow-500/30 rounded-lg hover:from-yellow-500/30 hover:to-orange-500/30 transition-all text-sm font-medium disabled:opacity-50 flex items-center gap-2"
               >
                 <Send className="w-4 h-4" />
-                Mint {shop.purchasedRcnBalance} RCN to Blockchain
+                Mint {shop.pendingMintAmount.toFixed(2)} RCN to Blockchain
               </button>
             )}
         </div>
