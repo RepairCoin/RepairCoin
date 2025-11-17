@@ -716,6 +716,14 @@ export class AdminService {
   }
 
   /**
+   * Get pending mint amount for a specific shop
+   * @delegatesTo TokenOperationsService.getShopPendingMintAmount
+   */
+  async getShopPendingMintAmount(shopId: string) {
+    return tokenOperationsService.getShopPendingMintAmount(shopId);
+  }
+
+  /**
    * Mint shop balance
    * @delegatesTo TokenOperationsService.mintShopBalance
    */
