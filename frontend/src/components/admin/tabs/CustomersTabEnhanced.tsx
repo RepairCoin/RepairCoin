@@ -156,7 +156,7 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
       sortable: true,
       accessor: (customer) => (
         <span
-          className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${getTierColor(
+          className={`inline-flex items-center justify-center gap-1 px-3 py-1 rounded-full text-xs font-medium border w-24 ${getTierColor(
             customer.tier
           )}`}
         >
