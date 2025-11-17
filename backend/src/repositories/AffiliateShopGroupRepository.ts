@@ -33,6 +33,10 @@ export interface AffiliateShopGroupMember {
   approvedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
+  shopName?: string;
+  allocatedRcn?: number;
+  usedRcn?: number;
+  availableRcn?: number;
 }
 
 export interface CustomerAffiliateGroupBalance {
@@ -405,18 +409,35 @@ export class AffiliateShopGroupRepository extends BaseRepository {
     status?: 'active' | 'pending' | 'rejected' | 'removed'
   ): Promise<AffiliateShopGroupMember[]> {
     try {
-      let query = 'SELECT * FROM affiliate_shop_group_members WHERE group_id = $1';
+      let query = `
+        SELECT
+          m.*,
+          s.name as shop_name,
+          COALESCE(r.allocated_rcn, 0) as allocated_rcn,
+          COALESCE(r.used_rcn, 0) as used_rcn,
+          COALESCE(r.available_rcn, 0) as available_rcn
+        FROM affiliate_shop_group_members m
+        LEFT JOIN shops s ON m.shop_id = s.shop_id
+        LEFT JOIN shop_group_rcn_allocations r ON m.shop_id = r.shop_id AND m.group_id = r.group_id
+        WHERE m.group_id = $1
+      `;
       const params: unknown[] = [groupId];
 
       if (status) {
-        query += ' AND status = $2';
+        query += ' AND m.status = $2';
         params.push(status);
       }
 
-      query += ' ORDER BY joined_at DESC, requested_at DESC';
+      query += ' ORDER BY m.joined_at DESC, m.requested_at DESC';
 
       const result = await this.pool.query(query, params);
-      return result.rows.map(row => this.mapMemberRow(row));
+      return result.rows.map(row => ({
+        ...this.mapMemberRow(row),
+        shopName: row.shop_name,
+        allocatedRcn: parseFloat(row.allocated_rcn),
+        usedRcn: parseFloat(row.used_rcn),
+        availableRcn: parseFloat(row.available_rcn)
+      }));
     } catch (error) {
       logger.error('Error getting group members:', error);
       throw error;
@@ -1071,6 +1092,91 @@ export class AffiliateShopGroupRepository extends BaseRepository {
       }));
     } catch (error) {
       logger.error('Error getting shop RCN allocations:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get customers who have interacted with a group (earned or redeemed tokens)
+   */
+  async getGroupCustomers(
+    groupId: string,
+    options: {
+      page?: number;
+      limit?: number;
+      search?: string;
+    } = {}
+  ): Promise<PaginatedResult<CustomerAffiliateGroupBalance & { customerName?: string }>> {
+    try {
+      const page = options.page || 1;
+      const limit = options.limit || 20;
+      const offset = (page - 1) * limit;
+
+      let whereClause = 'WHERE cagb.group_id = $1';
+      const params: any[] = [groupId];
+
+      if (options.search) {
+        whereClause += ' AND (cagb.customer_address ILIKE $' + (params.length + 1) + ' OR c.name ILIKE $' + (params.length + 1) + ')';
+        params.push(`%${options.search}%`);
+      }
+
+      // Get total count
+      const countQuery = `
+        SELECT COUNT(*) as total
+        FROM customer_affiliate_group_balances cagb
+        ${whereClause}
+      `;
+      const countResult = await this.pool.query(countQuery, params);
+      const total = parseInt(countResult.rows[0].total);
+
+      // Get paginated results with customer info
+      const query = `
+        SELECT
+          cagb.id,
+          cagb.customer_address,
+          cagb.group_id,
+          cagb.balance,
+          cagb.lifetime_earned,
+          cagb.lifetime_redeemed,
+          cagb.last_transaction_at,
+          cagb.created_at,
+          cagb.updated_at,
+          c.name as customer_name
+        FROM customer_affiliate_group_balances cagb
+        LEFT JOIN customers c ON c.address = cagb.customer_address
+        ${whereClause}
+        ORDER BY cagb.lifetime_earned DESC
+        LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+      `;
+      params.push(limit, offset);
+
+      const result = await this.pool.query(query, params);
+
+      const items = result.rows.map(row => ({
+        id: row.id,
+        customerAddress: row.customer_address,
+        groupId: row.group_id,
+        balance: parseFloat(row.balance),
+        lifetimeEarned: parseFloat(row.lifetime_earned),
+        lifetimeRedeemed: parseFloat(row.lifetime_redeemed),
+        lastTransactionAt: row.last_transaction_at,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        customerName: row.customer_name
+      }));
+
+      return {
+        items,
+        pagination: {
+          page,
+          limit,
+          totalItems: total,
+          totalPages: Math.ceil(total / limit),
+          hasMore: page * limit < total
+        }
+      };
+    } catch (error) {
+      logger.error('Error getting group customers:', error);
       throw error;
     }
   }

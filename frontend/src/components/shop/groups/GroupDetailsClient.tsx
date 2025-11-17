@@ -9,9 +9,10 @@ import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
 import GroupMembersTab from "./GroupMembersTab";
 import GroupTokenOperationsTab from "./GroupTokenOperationsTab";
 import GroupTransactionsTab from "./GroupTransactionsTab";
+import GroupCustomersTab from "./GroupCustomersTab";
 import AnalyticsDashboard from "./AnalyticsDashboard";
 import MemberActivityStats from "./MemberActivityStats";
-import RcnAllocationCard from "./RcnAllocationCard";
+import ImprovedRcnAllocationCard from "./ImprovedRcnAllocationCard";
 import { useAuthStore } from "../../../stores/authStore";
 
 interface GroupDetailsClientProps {
@@ -23,7 +24,7 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
   const { userProfile } = useAuthStore();
   const [group, setGroup] = useState<shopGroupsAPI.AffiliateShopGroup | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"overview" | "members" | "operations" | "transactions" | "analytics">(
+  const [activeTab, setActiveTab] = useState<"overview" | "members" | "customers" | "operations" | "transactions" | "analytics">(
     "overview"
   );
   const [inviteCodeCopied, setInviteCodeCopied] = useState(false);
@@ -283,6 +284,7 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
               { key: "overview", label: "Overview", icon: TrendingUp },
               ...(isRestrictedAccess ? [] : [
                 { key: "members", label: "Members", icon: Users },
+                { key: "customers", label: "Customers", icon: Users },
                 { key: "operations", label: "Token Operations", icon: Coins },
                 { key: "transactions", label: "Transactions", icon: TrendingUp },
                 { key: "analytics", label: "Analytics", icon: BarChart3 },
@@ -396,12 +398,15 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
 
           {!isRestrictedAccess && activeTab === "members" && <GroupMembersTab groupId={groupId} currentShopId={currentShopId} />}
 
+          {!isRestrictedAccess && activeTab === "customers" && <GroupCustomersTab groupId={groupId} />}
+
           {!isRestrictedAccess && activeTab === "operations" && (
             <div className="space-y-6">
               {/* RCN Allocation Card */}
-              <RcnAllocationCard
+              <ImprovedRcnAllocationCard
                 groupId={groupId}
                 shopRcnBalance={shopRcnBalance}
+                currentShopId={currentShopId}
                 onAllocationChange={() => {
                   fetchShopData(currentShopId!); // Refresh shop RCN balance
                 }}

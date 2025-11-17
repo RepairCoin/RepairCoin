@@ -217,4 +217,40 @@ export class GroupController {
       });
     }
   };
+
+  /**
+   * Get customers who have earned/redeemed tokens in a group
+   */
+  getGroupCustomers = async (req: Request, res: Response) => {
+    try {
+      const { groupId } = req.params;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const search = req.query.search as string || '';
+
+      const result = await this.service.getGroupCustomers(groupId, {
+        page,
+        limit,
+        search
+      });
+
+      res.json({
+        success: true,
+        data: result.items,
+        pagination: {
+          page: result.pagination.page,
+          limit: result.pagination.limit,
+          total: result.pagination.totalItems,
+          totalPages: result.pagination.totalPages,
+          hasMore: result.pagination.hasMore
+        }
+      });
+    } catch (error: unknown) {
+      logger.error('Error in getGroupCustomers controller:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get group customers'
+      });
+    }
+  };
 }
