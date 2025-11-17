@@ -174,6 +174,16 @@ router.put(
   groupController.updateGroup
 );
 
+/**
+ * @route   GET /api/affiliate-shop-groups/:groupId/customers
+ * @desc    Get customers who have earned/redeemed tokens in group
+ * @access  Public (shows all customers with balances in group)
+ */
+router.get(
+  '/:groupId/customers',
+  groupController.getGroupCustomers
+);
+
 // ==================== MEMBERSHIP ROUTES ====================
 
 /**

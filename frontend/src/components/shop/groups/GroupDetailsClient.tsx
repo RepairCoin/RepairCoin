@@ -9,9 +9,10 @@ import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
 import GroupMembersTab from "./GroupMembersTab";
 import GroupTokenOperationsTab from "./GroupTokenOperationsTab";
 import GroupTransactionsTab from "./GroupTransactionsTab";
+import GroupCustomersTab from "./GroupCustomersTab";
 import AnalyticsDashboard from "./AnalyticsDashboard";
 import MemberActivityStats from "./MemberActivityStats";
-import RcnAllocationCard from "./RcnAllocationCard";
+import ImprovedRcnAllocationCard from "./ImprovedRcnAllocationCard";
 import { useAuthStore } from "../../../stores/authStore";
 
 interface GroupDetailsClientProps {
@@ -23,7 +24,7 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
   const { userProfile } = useAuthStore();
   const [group, setGroup] = useState<shopGroupsAPI.AffiliateShopGroup | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"overview" | "members" | "operations" | "transactions" | "analytics">(
+  const [activeTab, setActiveTab] = useState<"overview" | "members" | "customers" | "operations" | "transactions" | "analytics">(
     "overview"
   );
   const [inviteCodeCopied, setInviteCodeCopied] = useState(false);
@@ -146,13 +147,20 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
           <div className="absolute inset-0 bg-gradient-to-r from-[#FFCC00]/10 via-transparent to-transparent rounded-2xl blur-3xl"></div>
           <div className="relative bg-gradient-to-br from-gray-900/90 to-gray-800/90 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-8 shadow-2xl">
             <div className="flex items-start justify-between mb-6">
-              <div>
-                <h1 className="text-4xl font-bold text-white mb-2 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                  {group.groupName}
-                </h1>
-                {group.description && (
-                  <p className="text-gray-400 text-lg">{group.description}</p>
-                )}
+              <div className="flex items-start gap-4">
+                {/* Group Icon */}
+                <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-[#FFCC00]/20 to-[#FFCC00]/10 rounded-2xl flex items-center justify-center border border-[#FFCC00]/30">
+                  <span className="text-4xl">{group.icon || "🏪"}</span>
+                </div>
+
+                <div>
+                  <h1 className="text-4xl font-bold text-white mb-2 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                    {group.groupName}
+                  </h1>
+                  {group.description && (
+                    <p className="text-gray-400 text-lg">{group.description}</p>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -283,6 +291,7 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
               { key: "overview", label: "Overview", icon: TrendingUp },
               ...(isRestrictedAccess ? [] : [
                 { key: "members", label: "Members", icon: Users },
+                { key: "customers", label: "Customers", icon: Users },
                 { key: "operations", label: "Token Operations", icon: Coins },
                 { key: "transactions", label: "Transactions", icon: TrendingUp },
                 { key: "analytics", label: "Analytics", icon: BarChart3 },
@@ -396,12 +405,15 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
 
           {!isRestrictedAccess && activeTab === "members" && <GroupMembersTab groupId={groupId} currentShopId={currentShopId} />}
 
+          {!isRestrictedAccess && activeTab === "customers" && <GroupCustomersTab groupId={groupId} />}
+
           {!isRestrictedAccess && activeTab === "operations" && (
             <div className="space-y-6">
               {/* RCN Allocation Card */}
-              <RcnAllocationCard
+              <ImprovedRcnAllocationCard
                 groupId={groupId}
                 shopRcnBalance={shopRcnBalance}
+                currentShopId={currentShopId}
                 onAllocationChange={() => {
                   fetchShopData(currentShopId!); // Refresh shop RCN balance
                 }}

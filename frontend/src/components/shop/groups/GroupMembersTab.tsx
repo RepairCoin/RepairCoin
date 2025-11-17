@@ -101,6 +101,20 @@ export default function GroupMembersTab({ groupId, currentShopId }: GroupMembers
 
   const displayMembers = activeFilter === "all" ? members : pendingMembers;
 
+  // Sort to show current user's shop first, then admins
+  const sortedMembers = [...displayMembers].sort((a, b) => {
+    // 1. Current user's shop always first
+    if (currentShopId) {
+      if (a.shopId === currentShopId) return -1;
+      if (b.shopId === currentShopId) return 1;
+    }
+    // 2. Then admins before regular members
+    if (a.role === 'admin' && b.role !== 'admin') return -1;
+    if (a.role !== 'admin' && b.role === 'admin') return 1;
+    // 3. Then maintain original order
+    return 0;
+  });
+
   return (
     <div className="bg-gradient-to-br from-gray-900/90 to-gray-800/90 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-8">
       {/* Header */}
@@ -149,7 +163,7 @@ export default function GroupMembersTab({ groupId, currentShopId }: GroupMembers
       </div>
 
       {/* Members List */}
-      {!Array.isArray(displayMembers) || displayMembers.length === 0 ? (
+      {!Array.isArray(sortedMembers) || sortedMembers.length === 0 ? (
         <div className="text-center py-16">
           <div className="inline-flex p-4 bg-gray-800/50 rounded-full mb-4">
             <Users className="w-12 h-12 text-gray-600" />
@@ -165,12 +179,22 @@ export default function GroupMembersTab({ groupId, currentShopId }: GroupMembers
         </div>
       ) : (
         <div className="grid gap-3">
-          {displayMembers.map((member) => (
+          {sortedMembers.map((member) => {
+            const isCurrentUser = member.shopId === currentShopId;
+            return (
             <div
               key={member.shopId}
-              className="group relative bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm rounded-xl p-5 border border-gray-700/50 hover:border-[#FFCC00]/30 transition-all duration-300"
+              className={`group relative bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm rounded-xl p-5 border transition-all duration-300 ${
+                isCurrentUser
+                  ? "border-[#FFCC00]/50 shadow-lg shadow-[#FFCC00]/10"
+                  : "border-gray-700/50 hover:border-[#FFCC00]/30"
+              }`}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-[#FFCC00]/0 to-[#FFCC00]/0 group-hover:from-[#FFCC00]/5 group-hover:to-transparent rounded-xl transition-all duration-300"></div>
+              <div className={`absolute inset-0 bg-gradient-to-br rounded-xl transition-all duration-300 ${
+                isCurrentUser
+                  ? "from-[#FFCC00]/10 to-[#FFCC00]/5"
+                  : "from-[#FFCC00]/0 to-[#FFCC00]/0 group-hover:from-[#FFCC00]/5 group-hover:to-transparent"
+              }`}></div>
 
               <div className="relative flex items-center justify-between gap-4">
                 {/* Member Info */}
@@ -200,6 +224,11 @@ export default function GroupMembersTab({ groupId, currentShopId }: GroupMembers
                           Admin
                         </span>
                       )}
+                      {isCurrentUser && (
+                        <span className="flex-shrink-0 px-2.5 py-0.5 bg-gradient-to-r from-blue-500/20 to-blue-600/20 border border-blue-400/30 text-blue-300 text-xs font-bold rounded-full uppercase tracking-wide">
+                          You
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm text-gray-400">
                       {member.status === "pending" ? (
@@ -215,10 +244,34 @@ export default function GroupMembersTab({ groupId, currentShopId }: GroupMembers
                         })}</>
                       )}
                     </p>
-                    {member.requestMessage && (
+                    {member.status === "pending" && member.requestMessage && (
                       <p className="text-sm text-gray-500 mt-2 italic line-clamp-2 bg-gray-900/50 px-3 py-1.5 rounded-lg">
                         "{member.requestMessage}"
                       </p>
+                    )}
+
+                    {/* RCN Allocation - Only show for active members */}
+                    {member.status === "active" && (
+                      <div className="mt-3 flex items-center gap-4 text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-gray-500">RCN Allocated:</span>
+                          <span className="font-semibold text-[#FFCC00]">
+                            {member.allocatedRcn?.toLocaleString() || 0}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-gray-500">Used:</span>
+                          <span className="font-semibold text-blue-400">
+                            {member.usedRcn?.toLocaleString() || 0}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-gray-500">Available:</span>
+                          <span className="font-semibold text-green-400">
+                            {member.availableRcn?.toLocaleString() || 0}
+                          </span>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -258,7 +311,8 @@ export default function GroupMembersTab({ groupId, currentShopId }: GroupMembers
                 )}
               </div>
             </div>
-          ))}
+          );
+          })}
         </div>
       )}
 

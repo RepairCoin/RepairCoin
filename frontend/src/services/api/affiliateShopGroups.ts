@@ -9,6 +9,7 @@ export interface AffiliateShopGroup {
   customTokenSymbol: string | null;
   description?: string;
   logoUrl?: string;
+  icon?: string;
   inviteCode: string | null;
   isPrivate: boolean;
   groupType?: 'public' | 'private'; // Backend uses groupType
@@ -27,6 +28,9 @@ export interface AffiliateShopGroupMember {
   joinedAt: string;
   requestMessage?: string;
   shopName?: string;
+  allocatedRcn?: number;
+  usedRcn?: number;
+  availableRcn?: number;
 }
 
 export interface CustomerAffiliateGroupBalance {
@@ -37,6 +41,7 @@ export interface CustomerAffiliateGroupBalance {
   lifetimeRedeemed: number;
   lastEarnedAt?: string;
   lastRedeemedAt?: string;
+  customerName?: string;
 }
 
 export interface AffiliateGroupTokenTransaction {
@@ -61,6 +66,7 @@ export interface CreateGroupData {
   customTokenSymbol: string;
   description?: string;
   logoUrl?: string;
+  icon?: string;
   isPrivate?: boolean;
 }
 
@@ -398,6 +404,66 @@ export const getAllCustomerBalances = async (
   } catch (error) {
     console.error('Error getting all customer balances:', error);
     return [];
+  }
+};
+
+/**
+ * Get customers who have earned or redeemed tokens in a group
+ */
+export const getGroupCustomers = async (
+  groupId: string,
+  params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }
+): Promise<{
+  items: CustomerAffiliateGroupBalance[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
+}> => {
+  try {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.search) queryParams.append('search', params.search);
+
+    const queryString = queryParams.toString();
+    const response = await apiClient.get<{
+      success: boolean;
+      data: CustomerAffiliateGroupBalance[];
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+        hasMore: boolean;
+      };
+    }>(
+      `/affiliate-shop-groups/${groupId}/customers${queryString ? `?${queryString}` : ''}`
+    );
+
+    return {
+      items: (response as any).data || [],
+      pagination: (response as any).pagination || {
+        page: 1,
+        limit: 20,
+        total: 0,
+        totalPages: 0,
+        hasMore: false,
+      },
+    };
+  } catch (error) {
+    console.error('Error getting group customers:', error);
+    return {
+      items: [],
+      pagination: { page: 1, limit: 20, total: 0, totalPages: 0, hasMore: false },
+    };
   }
 };
 
