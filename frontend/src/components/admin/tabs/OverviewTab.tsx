@@ -307,7 +307,7 @@ const TransactionsTable: React.FC<{
       header: "AMOUNT",
       accessor: (tx) => (
         <span className="text-sm font-semibold text-yellow-400">
-          {tx.amount} RCN
+          {parseFloat(tx.amount).toFixed(2)} RCN
         </span>
       ),
       sortable: true,
