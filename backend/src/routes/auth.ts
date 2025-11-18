@@ -11,11 +11,16 @@ const router = Router();
 /**
  * Rate limiting for authentication endpoints
  * Prevents brute force attacks and account enumeration
+ *
+ * Updated to be more permissive for legitimate usage while still preventing abuse:
+ * - Allows 20 requests per 5 minutes (increased from 5 per 15 minutes)
+ * - Better balance between security and user experience
+ * - Supports multiple wallet connections/tab refreshes during development
  */
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 requests per windowMs
-  message: 'Too many authentication attempts from this IP, please try again after 15 minutes',
+  windowMs: 5 * 60 * 1000, // 5 minutes (reduced from 15)
+  max: 20, // Limit each IP to 20 requests per windowMs (increased from 5)
+  message: 'Too many authentication attempts from this IP, please try again in a few minutes',
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   handler: (req, res) => {
@@ -26,7 +31,7 @@ const authLimiter = rateLimit({
     });
     res.status(429).json({
       success: false,
-      error: 'Too many authentication attempts from this IP, please try again after 15 minutes'
+      error: 'Too many authentication attempts from this IP, please try again in a few minutes'
     });
   }
 });
