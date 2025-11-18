@@ -27,6 +27,7 @@ import { ShopLocationTab } from "@/components/shop/tabs/ShopLocationTab";
 import { GroupsTab } from "@/components/shop/tabs/GroupsTab";
 import { useShopRegistration } from "@/hooks/useShopRegistration";
 import { OnboardingModal } from "@/components/shop/OnboardingModal";
+import { SuspendedShopModal } from "@/components/shop/SuspendedShopModal";
 import { OperationalRequiredTab } from "@/components/shop/OperationalRequiredTab";
 import { SubscriptionManagement } from "@/components/shop/SubscriptionManagement";
 import { CoinsIcon } from 'lucide-react';
@@ -66,6 +67,10 @@ interface ShopData {
   twitter?: string;
   instagram?: string;
   website?: string;
+  suspended_at?: string;
+  suspendedAt?: string;
+  suspension_reason?: string;
+  suspensionReason?: string;
   location?: {
     city?: string;
     state?: string;
@@ -117,7 +122,10 @@ export default function ShopDashboardClient() {
 
   // Onboarding modal state
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
-  
+
+  // Suspended/Rejected modal state
+  const [showSuspendedModal, setShowSuspendedModal] = useState(true);
+
   // Success modal state
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successModalData, setSuccessModalData] = useState<{
@@ -221,6 +229,14 @@ export default function ShopDashboardClient() {
     }
   }, [account?.address]);
 
+  // Check if shop is suspended or rejected
+  const isSuspended = shopData && (shopData.suspended_at || shopData.suspendedAt);
+  // Rejected means application was denied - shop is inactive but NOT suspended
+  // This is different from pending (not yet verified) or suspended (verified but deactivated)
+  const isRejected = shopData && !shopData.active && !isSuspended;
+  // Check if shop is pending (not yet verified)
+  const isPending = shopData && !shopData.verified && !isSuspended && !isRejected;
+
   // Check if shop is operational
   // If operational_status is not available (legacy), assume operational if shop is active and verified
   const isOperational =
@@ -230,15 +246,35 @@ export default function ShopDashboardClient() {
       // Fallback: If operational_status is missing but shop is active and verified, assume operational
       (!shopData.operational_status && shopData.active && shopData.verified));
 
+  // Shop should be blocked if: suspended, rejected, pending, or not operational (unsubscribed/expired)
+  const isBlocked = !!(isSuspended || isRejected || isPending || !isOperational);
+
+  // Get the block reason
+  const getBlockReason = () => {
+    if (isSuspended) return "Shop is suspended";
+    if (isRejected) return "Shop application was rejected";
+    if (isPending) return "Shop application is pending approval";
+    if (!isOperational) return "Shop subscription is required or expired";
+    return "Shop is not operational";
+  };
+
+  // Show suspended modal if shop is suspended or rejected
   // Show onboarding modal when shop data loads and shop is not operational
   // Don't show if we're on the settings tab
   useEffect(() => {
-    if (shopData && !isOperational && activeTab !== "settings") {
-      setShowOnboardingModal(true);
+    if (shopData && activeTab !== "settings") {
+      if (isSuspended || isRejected) {
+        // Don't show onboarding modal for suspended/rejected shops
+        setShowOnboardingModal(false);
+      } else if (!isOperational) {
+        setShowOnboardingModal(true);
+      } else {
+        setShowOnboardingModal(false);
+      }
     } else {
       setShowOnboardingModal(false);
     }
-  }, [shopData, isOperational]);
+  }, [shopData, isOperational, isSuspended, isRejected, activeTab]);
 
   // Check pending purchases on shop data load
   useEffect(() => {
@@ -665,7 +701,36 @@ export default function ShopDashboardClient() {
         }}
       >
         <div className="max-w-screen-2xl w-[96%] mx-auto">
-          {/* Onboarding Modal is rendered at the bottom of the component */}
+          {/* Warning Banner for Non-Operational Shops */}
+          {isBlocked && !showSuspendedModal && !showOnboardingModal && (
+            <div className="mb-6 bg-red-900/20 border-2 border-red-500/50 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <div className="text-red-400 text-2xl">⚠️</div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-red-400 mb-1">
+                    {isSuspended && "Shop Suspended"}
+                    {isRejected && "Shop Application Rejected"}
+                    {isPending && "Shop Application Pending"}
+                    {!isSuspended && !isRejected && !isPending && !isOperational && "Subscription Required"}
+                  </h3>
+                  <p className="text-gray-300 text-sm">
+                    {isSuspended && "Your shop has been suspended. You cannot perform operational actions (issue rewards, process redemptions, purchase credits)."}
+                    {isRejected && "Your shop application was rejected. You cannot perform operational actions until your application is approved."}
+                    {isPending && "Your shop application is pending approval. You cannot perform operational actions until approved."}
+                    {!isSuspended && !isRejected && !isPending && !isOperational && "Your shop requires an active subscription. You cannot perform operational actions until subscribed."}
+                  </p>
+                </div>
+                {(isSuspended || isRejected) && (
+                  <button
+                    onClick={() => setShowSuspendedModal(true)}
+                    className="text-gray-400 hover:text-white text-sm px-3 py-1 border border-gray-600 rounded-lg hover:border-gray-500 transition-colors"
+                  >
+                    Details
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Tab Content */}
           {activeTab === "overview" && (
@@ -685,6 +750,8 @@ export default function ShopDashboardClient() {
               purchases={purchases}
               onInitiatePurchase={initiatePurchase}
               onCheckPurchaseStatus={checkPurchaseStatus}
+              isBlocked={isBlocked}
+              blockReason={getBlockReason()}
             />
           )}
 
@@ -707,6 +774,8 @@ export default function ShopDashboardClient() {
               onRedemptionComplete={loadShopData}
               setShowOnboardingModal={setShowOnboardingModal}
               shopData={shopData}
+              isBlocked={isBlocked}
+              blockReason={getBlockReason()}
             />
           )}
 
@@ -715,6 +784,8 @@ export default function ShopDashboardClient() {
               shopId={shopData.shopId}
               shopData={shopData}
               onRewardIssued={loadShopData}
+              isBlocked={isBlocked}
+              blockReason={getBlockReason()}
             />
           )}
 
@@ -824,11 +895,27 @@ export default function ShopDashboardClient() {
 
           {/* Onboarding Modal */}
           {shopData && (
-            <OnboardingModal
-              shopData={shopData}
-              open={showOnboardingModal}
-              onClose={() => setShowOnboardingModal(false)}
-            />
+            <>
+              <OnboardingModal
+                shopData={shopData}
+                open={showOnboardingModal}
+                onClose={() => setShowOnboardingModal(false)}
+              />
+
+              {/* Suspended/Rejected Shop Modal */}
+              <SuspendedShopModal
+                isOpen={!!(isSuspended || isRejected) && showSuspendedModal}
+                onClose={() => {
+                  // Allow user to dismiss the modal
+                  // They can navigate the dashboard but operational features will be blocked
+                  setShowSuspendedModal(false);
+                }}
+                shopName={shopData?.name || ""}
+                suspensionReason={shopData?.suspension_reason || shopData?.suspensionReason}
+                suspendedAt={shopData?.suspended_at || shopData?.suspendedAt}
+                isSuspended={!!isSuspended}
+              />
+            </>
           )}
         </div>
       </div>

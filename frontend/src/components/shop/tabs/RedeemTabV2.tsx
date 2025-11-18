@@ -34,6 +34,8 @@ interface RedeemTabProps {
   onRedemptionComplete: () => void;
   setShowOnboardingModal: (show: boolean) => void;
   shopData?: ShopData | null;
+  isBlocked?: boolean;
+  blockReason?: string;
 }
 
 interface RedemptionTransaction {
@@ -74,6 +76,8 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   onRedemptionComplete,
   setShowOnboardingModal,
   shopData,
+  isBlocked = false,
+  blockReason = "This action is currently blocked",
 }) => {
   const [flow, setFlow] = useState<RedemptionFlow>("approval");
 
@@ -480,6 +484,22 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   // All redemptions now require customer approval for security
 
   const createRedemptionSession = async () => {
+    // Check if shop is blocked first
+    if (isBlocked) {
+      setError(blockReason);
+      toast.error(blockReason, {
+        duration: 5000,
+        position: 'top-right',
+        style: {
+          background: '#EF4444',
+          color: 'white',
+          fontWeight: 'bold',
+        },
+        icon: '🚫',
+      });
+      return;
+    }
+
     if (!isOperational) {
       setShowOnboardingModal(true);
     } else {

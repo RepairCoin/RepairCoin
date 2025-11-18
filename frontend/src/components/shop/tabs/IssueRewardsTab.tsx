@@ -16,6 +16,8 @@ interface IssueRewardsTabProps {
   shopId: string;
   shopData: ShopData | null;
   onRewardIssued: () => void;
+  isBlocked?: boolean;
+  blockReason?: string;
 }
 
 type RepairType = "minor" | "small" | "large" | "custom";
@@ -60,6 +62,8 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
   shopId,
   shopData,
   onRewardIssued,
+  isBlocked = false,
+  blockReason = "This action is currently blocked",
 }) => {
   const [customerAddress, setCustomerAddress] = useState("");
   const [promoCode, setPromoCode] = useState("");
@@ -269,6 +273,22 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
   };
 
   const issueReward = async () => {
+    // Check if shop is blocked first
+    if (isBlocked) {
+      setError(blockReason);
+      toast.error(blockReason, {
+        duration: 5000,
+        position: 'top-right',
+        style: {
+          background: '#EF4444',
+          color: 'white',
+          fontWeight: 'bold',
+        },
+        icon: '🚫',
+      });
+      return;
+    }
+
     if (!customerAddress) {
       setError("Please enter a valid customer address");
       return;

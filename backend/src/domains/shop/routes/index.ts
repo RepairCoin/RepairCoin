@@ -267,6 +267,9 @@ router.get('/wallet/:address',
           rcg_balance: shop.rcg_balance,
           // Include subscription status
           subscriptionActive: shop.subscriptionActive,
+          // Include suspension information (needed for frontend modal)
+          suspendedAt: shop.suspendedAt,
+          suspensionReason: shop.suspensionReason,
           // Include social media fields
           facebook: shop.facebook,
           twitter: shop.twitter,
