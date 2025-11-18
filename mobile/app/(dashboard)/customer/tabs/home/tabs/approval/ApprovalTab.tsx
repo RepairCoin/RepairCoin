@@ -88,8 +88,6 @@ export default function ApprovalTab() {
     (session: RedemptionSession) => session.status === "pending"
   );
 
-  console.log("sessionssessions: ", sessions)
-
   // Pull-to-refresh handler
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

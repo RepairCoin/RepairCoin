@@ -1,11 +1,12 @@
 import React, { useCallback } from "react";
 import { Image, Pressable, Text, View, RefreshControl, ScrollView } from "react-native";
-import { Feather, MaterialIcons, Octicons } from "@expo/vector-icons";
+import { Feather} from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useShopByWalletAddress } from "@/hooks";
 import { useAuthStore } from "@/store/authStore";
-import WalletTab from "./tabs/wallet/WalletTab";
 import { ThemedView } from "@/components/ui/ThemedView";
+import WalletTab from "./tabs/WalletTab";
+import PromoCodeTab from "./tabs/PromoCodeTab"
 
 type ShopTabs = "Wallet" | "Analysis" | "Promo Code";
 
@@ -91,6 +92,7 @@ export default function Home() {
             ))}
           </View>
           {activeTab === "Wallet" && shopData?.data && <WalletTab shopData={shopData.data}/>}
+          {activeTab === "Promo Code" && shopData?.data && <PromoCodeTab />}
         </View>
       </ScrollView>
     </ThemedView>
