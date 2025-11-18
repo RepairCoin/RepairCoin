@@ -258,20 +258,20 @@ export default function ShopDashboardClient() {
     return "Shop is not operational";
   };
 
-  // Show suspended modal if shop is suspended or rejected
-  // Show onboarding modal when shop data loads and shop is not operational
+  // Show appropriate modal based on shop status
   // Don't show if we're on the settings tab
   useEffect(() => {
     if (shopData && activeTab !== "settings") {
-      if (isSuspended || isRejected) {
-        // Don't show onboarding modal for suspended/rejected shops
+      if (isSuspended || isRejected || !isOperational) {
+        // Show suspended modal for suspended/rejected/unsubscribed shops
+        setShowSuspendedModal(true);
         setShowOnboardingModal(false);
-      } else if (!isOperational) {
-        setShowOnboardingModal(true);
       } else {
+        setShowSuspendedModal(false);
         setShowOnboardingModal(false);
       }
     } else {
+      setShowSuspendedModal(false);
       setShowOnboardingModal(false);
     }
   }, [shopData, isOperational, isSuspended, isRejected, activeTab]);
@@ -720,7 +720,7 @@ export default function ShopDashboardClient() {
                     {!isSuspended && !isRejected && !isPending && !isOperational && "Your shop requires an active subscription. You cannot perform operational actions until subscribed."}
                   </p>
                 </div>
-                {(isSuspended || isRejected) && (
+                {isBlocked && (
                   <button
                     onClick={() => setShowSuspendedModal(true)}
                     className="text-gray-400 hover:text-white text-sm px-3 py-1 border border-gray-600 rounded-lg hover:border-gray-500 transition-colors"
@@ -902,9 +902,9 @@ export default function ShopDashboardClient() {
                 onClose={() => setShowOnboardingModal(false)}
               />
 
-              {/* Suspended/Rejected Shop Modal */}
+              {/* Suspended/Rejected/Unsubscribed Shop Modal */}
               <SuspendedShopModal
-                isOpen={!!(isSuspended || isRejected) && showSuspendedModal}
+                isOpen={isBlocked && showSuspendedModal}
                 onClose={() => {
                   // Allow user to dismiss the modal
                   // They can navigate the dashboard but operational features will be blocked
@@ -913,7 +913,12 @@ export default function ShopDashboardClient() {
                 shopName={shopData?.name || ""}
                 suspensionReason={shopData?.suspension_reason || shopData?.suspensionReason}
                 suspendedAt={shopData?.suspended_at || shopData?.suspendedAt}
-                isSuspended={!!isSuspended}
+                modalType={
+                  isSuspended ? 'suspended' :
+                  isRejected ? 'rejected' :
+                  !isOperational ? 'unsubscribed' :
+                  'suspended' // fallback
+                }
               />
             </>
           )}

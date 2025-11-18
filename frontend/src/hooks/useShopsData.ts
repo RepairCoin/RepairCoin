@@ -24,7 +24,9 @@ export interface Shop {
   joinDate?: string;
   join_date?: string;
   suspended_at?: string;
+  suspendedAt?: string;
   suspension_reason?: string;
+  suspensionReason?: string;
   unsuspendRequest?: {
     id: string;
     requestReason: string;
@@ -72,14 +74,15 @@ export function useShopsData() {
       const shopsArray = Array.isArray(allShops) ? allShops : [];
 
       // Separate shops based on their status
+      // Check both snake_case and camelCase for suspension fields
       const activeVerifiedShops = shopsArray.filter(
-        (shop: any) => shop.active && shop.verified && !shop.suspended_at
+        (shop: any) => shop.active && shop.verified && !shop.suspended_at && !shop.suspendedAt
       );
       const pendingShopsList = shopsArray.filter(
-        (shop: any) => !shop.verified && !shop.suspended_at
+        (shop: any) => !shop.verified && !shop.suspended_at && !shop.suspendedAt
       );
       const rejectedShopsList = shopsArray.filter(
-        (shop: any) => shop.suspended_at || (!shop.active && shop.verified)
+        (shop: any) => shop.suspended_at || shop.suspendedAt || (!shop.active && shop.verified)
       );
 
       setShops(activeVerifiedShops);
