@@ -30,6 +30,7 @@ export interface AuthState {
   error: string | null;
   loginInProgress: boolean; // Global flag to prevent duplicate logins
   authError: AuthError | null; // Structured error for better handling
+  authInitialized: boolean; // Flag to track if initial auth check is complete
 
   // Computed values
   userType: 'customer' | 'shop' | 'admin' | null;
@@ -44,6 +45,7 @@ export interface AuthState {
   setError: (error: string | null) => void;
   setAuthError: (error: AuthError | null) => void;
   setLoginInProgress: (inProgress: boolean) => void;
+  setAuthInitialized: (initialized: boolean) => void;
   resetAuth: () => void;
 
   // Centralized authentication actions
@@ -62,6 +64,7 @@ export const useAuthStore = create<AuthState>()(
       error: null,
       loginInProgress: false,
       authError: null,
+      authInitialized: false, // Initially false, set to true after first auth check
 
       // Computed values (derived from userProfile)
       userType: null,
@@ -107,6 +110,11 @@ export const useAuthStore = create<AuthState>()(
         set({ loginInProgress: inProgress }, false, 'setLoginInProgress');
       },
 
+      // Set auth initialized
+      setAuthInitialized: (initialized) => {
+        set({ authInitialized: initialized }, false, 'setAuthInitialized');
+      },
+
       // Reset all auth state
       resetAuth: () => {
         set({
@@ -119,6 +127,7 @@ export const useAuthStore = create<AuthState>()(
           isCustomer: false,
           error: null,
           authError: null,
+          authInitialized: false,
           loginInProgress: false
         }, false, 'resetAuth');
 

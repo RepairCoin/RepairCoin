@@ -321,3 +321,65 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
     disconnectWebSocket,
   };
 };
+
+/**
+ * Hook that only provides notification action methods without initializing WebSocket
+ * Use this in components that need to interact with notifications but don't need to manage the connection
+ */
+export const useNotificationActions = () => {
+  const {
+    markAsRead: markAsReadInStore,
+    markAllAsRead: markAllAsReadInStore,
+    removeNotification: removeNotificationFromStore,
+  } = useNotificationStore();
+
+  const { userProfile } = useAuthStore();
+
+  // Mark notification as read (uses cookies automatically)
+  const markAsRead = useCallback(
+    async (notificationId: string) => {
+      if (!userProfile?.address) return;
+
+      try {
+        await apiClient.patch(`/notifications/${notificationId}/read`);
+        markAsReadInStore(notificationId);
+      } catch (error) {
+        console.error('Failed to mark notification as read:', error);
+      }
+    },
+    [userProfile?.address, markAsReadInStore]
+  );
+
+  // Mark all notifications as read (uses cookies automatically)
+  const markAllAsRead = useCallback(async () => {
+    if (!userProfile?.address) return;
+
+    try {
+      await apiClient.patch('/notifications/read-all');
+      markAllAsReadInStore();
+    } catch (error) {
+      console.error('Failed to mark all notifications as read:', error);
+    }
+  }, [userProfile?.address, markAllAsReadInStore]);
+
+  // Delete notification (uses cookies automatically)
+  const deleteNotification = useCallback(
+    async (notificationId: string) => {
+      if (!userProfile?.address) return;
+
+      try {
+        await apiClient.delete(`/notifications/${notificationId}`);
+        removeNotificationFromStore(notificationId);
+      } catch (error) {
+        console.error('Failed to delete notification:', error);
+      }
+    },
+    [userProfile?.address, removeNotificationFromStore]
+  );
+
+  return {
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+  };
+};
