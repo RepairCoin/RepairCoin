@@ -148,6 +148,42 @@ export class AdminService {
   }
 
   /**
+   * Get customer balance information including blockchain balance
+   */
+  async getCustomerBalanceInfo(address: string) {
+    try {
+      // Get customer data
+      const customer = await customerRepository.getCustomer(address);
+      if (!customer) {
+        throw new Error('Customer not found');
+      }
+
+      // Get blockchain balance
+      const tokenService = new TokenService();
+      const blockchainBalance = await tokenService.getBalance(address);
+
+      // Calculate remaining mintable amount
+      // Customer can only have up to their lifetime earnings on blockchain
+      const remainingMintable = Math.max(0, customer.lifetimeEarnings - blockchainBalance);
+
+      return {
+        customer: {
+          address: customer.address,
+          name: customer.name,
+          lifetimeEarnings: customer.lifetimeEarnings,
+          tier: customer.tier
+        },
+        blockchainBalance,
+        remainingMintable,
+        totalPossible: customer.lifetimeEarnings
+      };
+    } catch (error) {
+      logger.error('Error getting customer balance info:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Manually mint tokens to a customer
    * @delegatesTo TokenOperationsService.manualMint
    */

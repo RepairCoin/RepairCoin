@@ -59,11 +59,26 @@ export class TokenOperationsService {
         throw new Error('Customer not found');
       }
 
+      // Get blockchain balance to check remaining mintable amount
+      const tokenService = new TokenService();
+      const blockchainBalance = await tokenService.getBalance(params.customerAddress);
+      const remainingMintable = Math.max(0, customer.lifetimeEarnings - blockchainBalance);
+
+      // Validate mint amount doesn't exceed remaining mintable
+      if (params.amount > remainingMintable) {
+        throw new Error(
+          `Cannot mint ${params.amount} RCN. Customer has ${customer.lifetimeEarnings} lifetime earnings ` +
+          `and ${blockchainBalance} already minted on blockchain. Maximum mintable: ${remainingMintable} RCN`
+        );
+      }
+
       logger.info('Admin manual token mint', {
         adminAddress: params.adminAddress,
         customerAddress: params.customerAddress,
         amount: params.amount,
-        reason: params.reason
+        reason: params.reason,
+        remainingMintable,
+        blockchainBalance
       });
 
       // Mint tokens using TokenMinter

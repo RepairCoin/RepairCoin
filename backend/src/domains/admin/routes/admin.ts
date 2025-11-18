@@ -36,9 +36,16 @@ router.get('/stats',
 );
 
 // Customer management
-router.get('/customers', 
+router.get('/customers',
   requirePermission('manage_customers'),
   asyncHandler(adminController.getCustomers.bind(adminController))
+);
+
+// Get customer balance info
+router.get('/customers/:address/balance',
+  requirePermission('manage_customers'),
+  validateEthereumAddress('address'),
+  asyncHandler(adminController.getCustomerBalance.bind(adminController))
 );
 
 // Shop management
