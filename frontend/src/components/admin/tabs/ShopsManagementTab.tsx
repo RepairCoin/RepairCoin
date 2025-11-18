@@ -624,10 +624,11 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleAction(
-                        () => onUnsuspendShop(shopId),
-                        "Shop unsuspended"
-                      );
+                      setConfirmationModal({
+                        isOpen: true,
+                        type: "unsuspend",
+                        shop: shop,
+                      });
                     }}
                     disabled={isProcessing}
                     className="p-1 md:p-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors disabled:opacity-50"
@@ -689,10 +690,11 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleAction(
-                        () => onUnsuspendShop(shopId),
-                        "Shop unsuspended"
-                      );
+                      setConfirmationModal({
+                        isOpen: true,
+                        type: "unsuspend",
+                        shop: shop,
+                      });
                     }}
                     disabled={isProcessing}
                     className="p-1 md:p-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors disabled:opacity-50"
@@ -1430,6 +1432,8 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
               >
                 {confirmationModal.type === "suspend" ? (
                   <ShieldOff className="w-6 h-6 text-red-400" />
+                ) : confirmationModal.type === "unsuspend" ? (
+                  <Power className="w-6 h-6 text-green-400" />
                 ) : (
                   <RefreshCw className="w-6 h-6 text-green-400" />
                 )}
@@ -1438,12 +1442,22 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                 <h3 className="text-xl font-bold text-white mb-2">
                   {confirmationModal.type === "suspend"
                     ? "Suspend Shop"
+                    : confirmationModal.type === "unsuspend"
+                    ? "Unsuspend Shop"
                     : "Reconsider & Approve Shop"}
                 </h3>
                 <p className="text-gray-300">
                   {confirmationModal.type === "suspend" ? (
                     <>
                       Are you sure you want to suspend{" "}
+                      <span className="font-semibold text-white">
+                        {confirmationModal.shop.name}
+                      </span>
+                      ?
+                    </>
+                  ) : confirmationModal.type === "unsuspend" ? (
+                    <>
+                      Are you sure you want to unsuspend{" "}
                       <span className="font-semibold text-white">
                         {confirmationModal.shop.name}
                       </span>
@@ -1468,6 +1482,12 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                   <>
                     This will <strong className="text-red-400">deactivate</strong> the
                     shop and prevent them from operating on the platform.
+                  </>
+                ) : confirmationModal.type === "unsuspend" ? (
+                  <>
+                    This will <strong className="text-green-400">reactivate</strong> the
+                    shop and clear the suspension status, allowing them to operate
+                    normally again.
                   </>
                 ) : (
                   <>
@@ -1500,6 +1520,11 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                       () => onSuspendShop(shopId),
                       "Shop suspended"
                     );
+                  } else if (confirmationModal.type === "unsuspend") {
+                    await handleAction(
+                      () => onUnsuspendShop(shopId),
+                      "Shop unsuspended"
+                    );
                   } else {
                     await handleAction(
                       () => onApproveShop(shopId),
@@ -1516,7 +1541,11 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                     : "bg-green-600 text-white hover:bg-green-700"
                 }`}
               >
-                {confirmationModal.type === "suspend" ? "Suspend" : "Approve"}
+                {confirmationModal.type === "suspend"
+                  ? "Suspend"
+                  : confirmationModal.type === "unsuspend"
+                  ? "Unsuspend"
+                  : "Approve"}
               </button>
             </div>
           </div>
