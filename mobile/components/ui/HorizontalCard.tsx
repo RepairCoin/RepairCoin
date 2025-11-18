@@ -11,7 +11,7 @@ export default function HorizontalCard({
   number: number;
 }) {
   return (
-    <View className="flex-1 h-28 rounded-2xl overflow-hidden m-2">
+    <View className="flex h-28 rounded-2xl overflow-hidden mx-4 my-2">
       <LinearGradient
         colors={["#373737", "#121212"]}
         start={{ x: 1, y: 0 }}

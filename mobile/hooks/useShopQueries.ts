@@ -10,8 +10,11 @@ import {
   ShopData,
   getShopTransactions,
   PurchaseHistoryResponse,
+  getShopCustomerGrowth,
+  CustomerGrowthResponse,
+  getShopCustomers,
+  ShopCustomersResponse,
 } from "@/services/ShopServices";
-import { useAuthStore } from "@/store/authStore";
 
 export const useShops = () => {
   return useQuery({
@@ -56,6 +59,28 @@ export const useShopTransactions = (shopId: string) => {
     queryFn: async () => {
       const response: PurchaseHistoryResponse = await getShopTransactions(shopId);
       return response.data;
+    },
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  });
+};
+
+export const useShopCustomerGrowth = (shopId: string) => {
+  return useQuery({
+    queryKey: queryKeys.shopCustomerGrowth(shopId),
+    queryFn: async () => {
+      const response: CustomerGrowthResponse = await getShopCustomerGrowth(shopId);
+      return response?.data;
+    },
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  });
+};
+
+export const useGetShopCustomers = (shopId: string) => {
+  return useQuery({
+    queryKey: queryKeys.shopCustomers(shopId),
+    queryFn: async () => {
+      const response: ShopCustomersResponse = await getShopCustomers(shopId);
+      return response?.data;
     },
     staleTime: 10 * 60 * 1000, // 10 minutes
   });
