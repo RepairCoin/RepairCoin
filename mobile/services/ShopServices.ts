@@ -111,11 +111,12 @@ export interface PurchaseHistoryResponse {
 
 // Customer and Rewards related interfaces and services
 export interface CustomerInfo {
+  address: string;
+  last_transaction_date: string;
+  lifetime_earnings: number;
+  name: string;
   tier: "BRONZE" | "SILVER" | "GOLD";
-  lifetimeEarnings: number;
-  isActive?: boolean;
-  name?: string;
-  email?: string;
+  total_transactions: number;
 }
 
 export interface PromoCode {
@@ -163,6 +164,36 @@ export interface PromoValidationResponse {
     max_bonus?: string;
     error_message?: string;
   };
+  success: boolean;
+}
+
+export interface CustomerGrowthData {
+  activeCustomers: number;
+  activeGrowthPercentage: number;
+  averageEarningsPerCustomer: number;
+  avgEarningsGrowthPercentage: number;
+  growthPercentage: number;
+  newCustomers: number;
+  periodLabel: string;
+  regularCustomers: number;
+  regularGrowthPercentage: number;
+  totalCustomers: number;
+}
+
+export interface CustomerGrowthResponse {
+  data: CustomerGrowthData;
+  success: boolean;
+}
+
+export interface ShopCustomerData {
+  currentPage: number;
+  customers: CustomerInfo[];
+  totalItems: number;
+  totalPages: number;
+}
+
+export interface ShopCustomersResponse {
+  data: ShopCustomerData;
   success: boolean;
 }
 
@@ -284,6 +315,24 @@ export const getShopTransactions = async (
     return await apiClient.get(`/shops/purchase/history/${shopId}`);
   } catch (error: any) {
     console.error("Failed to get shop transactions:", error.message);
+    throw error;
+  }
+};
+
+export const getShopCustomerGrowth = async (shopId: string): Promise<CustomerGrowthResponse> => {
+  try {
+    return await apiClient.get<CustomerGrowthResponse>(`/shops/${shopId}/customer-growth?period=7d`);
+  } catch (error: any) {
+    console.error("Failed to get shop customer growth:", error.message);
+    throw error;
+  }
+};
+
+export const getShopCustomers = async (shopId: string): Promise<ShopCustomersResponse> => {
+  try {
+    return await apiClient.get<ShopCustomersResponse>(`/shops/${shopId}/customers?limit=100`);
+  } catch (error: any) {
+    console.error("Failed to get shop customers:", error.message);
     throw error;
   }
 };
