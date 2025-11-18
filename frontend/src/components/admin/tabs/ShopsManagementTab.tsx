@@ -52,7 +52,9 @@ interface Shop {
   joinDate?: string;
   join_date?: string;
   suspended_at?: string;
+  suspendedAt?: string;
   suspension_reason?: string;
+  suspensionReason?: string;
   // Unsuspend request fields
   unsuspendRequest?: {
     id: string;
@@ -237,7 +239,10 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
   const allShops = [
     ...activeShops.map((s) => ({ ...s, status: "active" as const })),
     ...pendingShops.map((s) => ({ ...s, status: "pending" as const })),
-    ...rejectedShops.map((s) => ({ ...s, status: "rejected" as const })),
+    ...rejectedShops.map((s) => ({
+      ...s,
+      status: ((s.suspended_at || s.suspendedAt) ? "suspended" : "rejected") as const
+    })),
   ];
 
   // Filter shops based on view mode, filter status, and search
@@ -266,6 +271,16 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
   });
 
   const getStatusBadge = (shop: Shop & { status: string }) => {
+    if (shop.status === "suspended") {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+          <XCircle className="w-3 h-3 flex-shrink-0" />
+          <span className="hidden sm:inline">Suspended</span>
+          <span className="sm:hidden">Suspended</span>
+        </span>
+      );
+    }
+
     if (shop.status === "rejected") {
       return (
         <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
@@ -572,6 +587,71 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                     <ShieldOff className="w-3.5 h-3.5 md:w-4 md:h-4" />
                   </button>
                 ) : shop.unsuspendRequest &&
+                  shop.unsuspendRequest.status === "pending" ? (
+                  // Show review buttons for pending unsuspend requests
+                  <>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setUnsuspendReviewModal({
+                          isOpen: true,
+                          shop,
+                          action: "approve",
+                        });
+                      }}
+                      className="p-1 md:p-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors animate-pulse"
+                      title="Approve Unsuspend Request"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setUnsuspendReviewModal({
+                          isOpen: true,
+                          shop,
+                          action: "reject",
+                        });
+                      }}
+                      className="p-1 md:p-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors"
+                      title="Reject Unsuspend Request"
+                    >
+                      <XCircle className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                    </button>
+                  </>
+                ) : (
+                  // Direct unsuspend button if no pending request
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAction(
+                        () => onUnsuspendShop(shopId),
+                        "Shop unsuspended"
+                      );
+                    }}
+                    disabled={isProcessing}
+                    className="p-1 md:p-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors disabled:opacity-50"
+                    title="Unsuspend"
+                  >
+                    <Power className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                  </button>
+                )}
+              </>
+            )}
+
+            {shop.status === "suspended" && (
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditModal({ isOpen: true, shop });
+                  }}
+                  className="p-1 md:p-1.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-lg hover:bg-indigo-500/20 transition-colors"
+                  title="Edit"
+                >
+                  <Edit className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                </button>
+                {shop.unsuspendRequest &&
                   shop.unsuspendRequest.status === "pending" ? (
                   // Show review buttons for pending unsuspend requests
                   <>
@@ -944,7 +1024,8 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     total: allShops.length,
     active: activeShops.filter((s) => s.active && s.verified).length,
     pending: pendingShops.length,
-    rejected: rejectedShops.length,
+    suspended: rejectedShops.filter((s) => s.suspended_at || s.suspendedAt).length,
+    rejected: rejectedShops.filter((s) => !s.suspended_at && !s.suspendedAt).length,
     verified: activeShops.filter((s) => s.verified).length,
     totalTokensIssued: activeShops.reduce(
       (sum, s) => sum + (s.totalTokensIssued || 0),
@@ -1003,6 +1084,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                   <option value="all">All Shops</option>
                   <option value="active">Active</option>
                   <option value="pending">Pending</option>
+                  <option value="suspended">Suspended</option>
                   <option value="rejected">Rejected</option>
                 </select>
 
