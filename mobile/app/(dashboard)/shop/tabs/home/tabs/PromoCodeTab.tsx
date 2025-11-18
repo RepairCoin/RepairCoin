@@ -32,7 +32,7 @@ export default function PromoCodeTab() {
               Code to redeem an offer
             </Text>
             <Pressable
-              onPress={() => {}}
+              onPress={() => router.push("/shop/promo-code")}
               className="bg-black w-40 rounded-xl py-2 mt-4 justify-center items-center"
             >
               <Text className="text-[#FFCC00] font-bold text-sm">
