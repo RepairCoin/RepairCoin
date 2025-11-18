@@ -63,6 +63,9 @@ export function useAuthInitializer() {
                 tier: userData.tier,
                 shopId: userData.shopId,
                 registrationDate: userData.createdAt || userData.created_at,
+                suspended: userData.suspended || false,
+                suspendedAt: userData.suspendedAt,
+                suspensionReason: userData.suspensionReason
               };
 
               setUserProfile(profile);
@@ -118,6 +121,9 @@ export function useAuthInitializer() {
                 tier: userData.tier,
                 shopId: userData.shopId,
                 registrationDate: userData.createdAt || userData.created_at,
+                suspended: userData.suspended || false,
+                suspendedAt: userData.suspendedAt,
+                suspensionReason: userData.suspensionReason
               };
 
               setUserProfile(profile);

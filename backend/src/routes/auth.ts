@@ -11,11 +11,16 @@ const router = Router();
 /**
  * Rate limiting for authentication endpoints
  * Prevents brute force attacks and account enumeration
+ *
+ * Updated to be more permissive for legitimate usage while still preventing abuse:
+ * - Allows 20 requests per 5 minutes (increased from 5 per 15 minutes)
+ * - Better balance between security and user experience
+ * - Supports multiple wallet connections/tab refreshes during development
  */
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 requests per windowMs
-  message: 'Too many authentication attempts from this IP, please try again after 15 minutes',
+  windowMs: 5 * 60 * 1000, // 5 minutes (reduced from 15)
+  max: 20, // Limit each IP to 20 requests per windowMs (increased from 5)
+  message: 'Too many authentication attempts from this IP, please try again in a few minutes',
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   handler: (req, res) => {
@@ -26,7 +31,7 @@ const authLimiter = rateLimit({
     });
     res.status(429).json({
       success: false,
-      error: 'Too many authentication attempts from this IP, please try again after 15 minutes'
+      error: 'Too many authentication attempts from this IP, please try again in a few minutes'
     });
   }
 });
@@ -624,7 +629,13 @@ router.get('/session', authMiddleware, async (req, res) => {
           active: customer.isActive,
           tier: customer.tier,
           createdAt: customer.joinDate,
-          created_at: customer.joinDate
+          created_at: customer.joinDate,
+          // Include suspension information if account is suspended
+          ...(customer.isActive === false && {
+            suspended: true,
+            suspendedAt: customer.suspendedAt,
+            suspensionReason: customer.suspensionReason
+          })
         };
       }
     }
@@ -826,11 +837,8 @@ router.post('/customer', authLimiter, async (req, res) => {
         });
       }
 
-      if (!customer.isActive) {
-        return res.status(403).json({
-          error: 'Customer account is not active'
-        });
-      }
+      // Allow suspended customers to login - they can see their suspension status
+      // but will be restricted from certain actions via middleware
 
       // Check if user has had tokens revoked recently (prevents immediate re-auth after revocation)
       const recentRevocation = await refreshTokenRepository.hasRecentRevocation(normalizedAddress, 1); // 1 hour cooldown
@@ -867,7 +875,13 @@ router.post('/customer', authLimiter, async (req, res) => {
           role: 'customer',
           tier: customer.tier,
           active: customer.isActive,
-          createdAt: customer.joinDate
+          createdAt: customer.joinDate,
+          // Include suspension information if account is suspended
+          ...(customer.isActive === false && {
+            suspended: true,
+            suspendedAt: customer.suspendedAt,
+            suspensionReason: customer.suspensionReason
+          })
         }
       });
 
@@ -951,7 +965,13 @@ router.post('/shop', authLimiter, async (req, res) => {
           role: 'shop',
           active: shop.active,
           verified: shop.verified,
-          createdAt: shop.joinDate
+          createdAt: shop.joinDate,
+          // Include suspension information if shop is suspended
+          ...(shop.suspendedAt && {
+            suspended: true,
+            suspendedAt: shop.suspendedAt,
+            suspensionReason: shop.suspensionReason
+          })
         },
         // Include warning if shop is not verified/active
         ...((!shop.active || !shop.verified) && {

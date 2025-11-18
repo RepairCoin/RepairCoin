@@ -27,6 +27,8 @@ interface PurchaseTabProps {
   onCheckPurchaseStatus?: (purchaseId: string) => void;
   shopBalance?: number;
   shopName?: string;
+  isBlocked?: boolean;
+  blockReason?: string;
 }
 
 export const PurchaseTab: React.FC<PurchaseTabProps> = ({
@@ -36,6 +38,8 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
   purchases,
   onInitiatePurchase,
   onCheckPurchaseStatus,
+  isBlocked = false,
+  blockReason = "This action is currently blocked",
 }) => {
 
   // Quick purchase amounts (minimum 5 due to Stripe requirements)
@@ -277,15 +281,21 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
               <button
                 type="button"
                 onClick={onInitiatePurchase}
-                disabled={purchasing || purchaseAmount < 5}
+                disabled={purchasing || purchaseAmount < 5 || isBlocked}
                 className={`w-full py-4 px-6 rounded-xl font-semibold transition-all ${
-                  purchasing || purchaseAmount < 5
+                  purchasing || purchaseAmount < 5 || isBlocked
                     ? "bg-gray-700 text-gray-400 cursor-not-allowed"
                     : "bg-[#FFCC00] text-[#1A1A1A] hover:bg-[#FFCC00]/90"
                 }`}
+                title={isBlocked ? blockReason : undefined}
               >
-                {purchasing ? "Processing..." : "Complete Purchase"}
+                {purchasing ? "Processing..." : isBlocked ? "Purchase Blocked" : "Complete Purchase"}
               </button>
+              {isBlocked && (
+                <div className="mt-2 text-center">
+                  <p className="text-sm text-red-400">{blockReason}</p>
+                </div>
+              )}
             </div>
           </div>
 

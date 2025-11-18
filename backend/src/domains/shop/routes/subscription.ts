@@ -61,9 +61,57 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
 
     // Check for Stripe subscription only (commitment enrollment system removed)
     const subscriptionService = getSubscriptionService();
-    const stripeSubscription = await subscriptionService.getActiveSubscription(shopId);
-    
+    let stripeSubscription = await subscriptionService.getActiveSubscription(shopId);
+
     if (stripeSubscription) {
+      // Sync with Stripe to ensure database is up-to-date
+      try {
+        logger.info('🔄 Syncing subscription status with Stripe', {
+          shopId,
+          subscriptionId: stripeSubscription.stripeSubscriptionId,
+          currentStatus: stripeSubscription.status
+        });
+
+        const syncedSubscription = await subscriptionService.syncSubscriptionFromStripe(
+          stripeSubscription.stripeSubscriptionId
+        );
+
+        logger.info('✅ Subscription synced with Stripe', {
+          shopId,
+          subscriptionId: syncedSubscription.stripeSubscriptionId,
+          syncedStatus: syncedSubscription.status
+        });
+
+        // Check if subscription is still active after sync
+        // Active statuses: 'active', 'past_due', 'unpaid'
+        const activeStatuses = ['active', 'past_due', 'unpaid'];
+        if (!activeStatuses.includes(syncedSubscription.status)) {
+          logger.warn('⚠️ Subscription is no longer active after sync', {
+            shopId,
+            subscriptionId: syncedSubscription.stripeSubscriptionId,
+            status: syncedSubscription.status
+          });
+
+          // Return no active subscription
+          return res.json({
+            success: true,
+            data: {
+              currentSubscription: null,
+              hasActiveSubscription: false
+            }
+          });
+        }
+
+        stripeSubscription = syncedSubscription;
+      } catch (syncError) {
+        // Log sync error but continue with cached data
+        logger.error('⚠️ Failed to sync subscription with Stripe, using cached data', {
+          shopId,
+          subscriptionId: stripeSubscription.stripeSubscriptionId,
+          error: syncError instanceof Error ? syncError.message : 'Unknown error'
+        });
+      }
+
       // Log subscription found
       logger.info('✅ BACKEND - SUBSCRIPTION STATUS: TRUE - Active subscription found for shop:', {
         shopId,
@@ -204,72 +252,87 @@ router.post('/subscription/sync', async (req: Request, res: Response) => {
       throw new Error('Failed to fetch subscriptions from Stripe: ' + (stripeError instanceof Error ? stripeError.message : 'Unknown error'));
     }
 
-    // Filter for active subscriptions
-    const activeSubscriptions = subscriptions.data.filter(sub => sub.status === 'active');
-    
-    if (activeSubscriptions.length === 0) {
-      logger.info('No active subscriptions found in Stripe', {
-        customerId: customer.stripeCustomerId,
-        allSubscriptionStatuses: subscriptions.data.map(s => s.status)
+    // Get the most recent subscription (regardless of status)
+    if (subscriptions.data.length === 0) {
+      logger.info('No subscriptions found in Stripe', {
+        customerId: customer.stripeCustomerId
       });
       return res.json({
         success: true,
-        message: `No active subscriptions found in Stripe. Found ${subscriptions.data.length} subscription(s) with statuses: ${subscriptions.data.map(s => s.status).join(', ')}`,
+        message: 'No subscriptions found in Stripe for this customer',
         data: { synced: false }
       });
     }
 
-    // Take the first active subscription
-    const activeSubscription = activeSubscriptions[0];
-    
+    // Take the most recent subscription (sorted by creation date, newest first)
+    const latestSubscription = subscriptions.data[0];
+
+    logger.info('Found latest subscription in Stripe', {
+      subscriptionId: latestSubscription.id,
+      status: latestSubscription.status,
+      customerId: customer.stripeCustomerId
+    });
+
     // Check if we have this subscription in our database
     const db = DatabaseService.getInstance();
-    const existingQuery = `SELECT id FROM stripe_subscriptions WHERE stripe_subscription_id = $1`;
-    const existingResult = await db.query(existingQuery, [activeSubscription.id]);
-    
+    const existingQuery = `SELECT id, status FROM stripe_subscriptions WHERE stripe_subscription_id = $1`;
+    const existingResult = await db.query(existingQuery, [latestSubscription.id]);
+
     if (existingResult.rows.length === 0) {
       // Create the subscription record
-      const currentPeriodStart = activeSubscription.current_period_start 
-        ? new Date(activeSubscription.current_period_start * 1000) 
+      const currentPeriodStart = latestSubscription.current_period_start
+        ? new Date(latestSubscription.current_period_start * 1000)
         : new Date();
-      const currentPeriodEnd = activeSubscription.current_period_end 
-        ? new Date(activeSubscription.current_period_end * 1000) 
+      const currentPeriodEnd = latestSubscription.current_period_end
+        ? new Date(latestSubscription.current_period_end * 1000)
         : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
-      
+
       await subscriptionService.createSubscriptionRecord({
         shopId: shopId,
         stripeCustomerId: customer.stripeCustomerId,
-        stripeSubscriptionId: activeSubscription.id,
-        stripePriceId: activeSubscription.items.data[0]?.price.id || '',
-        status: activeSubscription.status as any,
+        stripeSubscriptionId: latestSubscription.id,
+        stripePriceId: latestSubscription.items.data[0]?.price.id || '',
+        status: latestSubscription.status as any,
         currentPeriodStart: currentPeriodStart,
         currentPeriodEnd: currentPeriodEnd,
         metadata: { syncedManually: true }
       });
 
-      logger.info('Manually synced subscription from Stripe', {
+      logger.info('Manually synced subscription from Stripe (created new record)', {
         shopId,
-        subscriptionId: activeSubscription.id,
-        status: activeSubscription.status
+        subscriptionId: latestSubscription.id,
+        status: latestSubscription.status
       });
 
       res.json({
         success: true,
         message: 'Subscription synced successfully',
-        data: { 
+        data: {
           synced: true,
-          subscriptionId: activeSubscription.id,
-          status: activeSubscription.status
+          subscriptionId: latestSubscription.id,
+          status: latestSubscription.status
         }
       });
     } else {
+      // Subscription exists - sync its status using the service method
+      const oldStatus = existingResult.rows[0].status;
+      const syncedSubscription = await subscriptionService.syncSubscriptionFromStripe(latestSubscription.id);
+
+      logger.info('Manually synced subscription from Stripe (updated existing record)', {
+        shopId,
+        subscriptionId: latestSubscription.id,
+        oldStatus,
+        newStatus: syncedSubscription.status
+      });
+
       res.json({
         success: true,
-        message: 'Subscription already exists in database',
-        data: { 
-          synced: false,
-          subscriptionId: activeSubscription.id,
-          status: activeSubscription.status
+        message: `Subscription synced successfully${oldStatus !== syncedSubscription.status ? ` (status updated: ${oldStatus} → ${syncedSubscription.status})` : ''}`,
+        data: {
+          synced: true,
+          subscriptionId: latestSubscription.id,
+          status: syncedSubscription.status,
+          statusChanged: oldStatus !== syncedSubscription.status
         }
       });
     }

@@ -12,6 +12,9 @@ export interface UserProfile {
   tier?: 'bronze' | 'silver' | 'gold';
   shopId?: string;
   registrationDate?: string;
+  suspended?: boolean;
+  suspendedAt?: string;
+  suspensionReason?: string;
   // Note: token is stored in httpOnly cookie, not in profile
 }
 
@@ -224,7 +227,9 @@ export const useAuthStore = create<AuthState>()(
 
           // Build user profile
           // Note: token is stored in httpOnly cookie by backend, not in profile
-          const userData = userCheck.user;
+          // Prefer authResult.user (from authentication) over userCheck.user (from check-user)
+          // because authResult has more up-to-date data including suspension info
+          const userData = authResult?.user || userCheck.user;
           const profile: UserProfile = {
             id: userData.id,
             address: userData.walletAddress || userData.address || address,
@@ -234,7 +239,10 @@ export const useAuthStore = create<AuthState>()(
             isActive: userData.active !== false,
             tier: userData.tier,
             shopId: userData.shopId,
-            registrationDate: userData.createdAt || userData.created_at
+            registrationDate: userData.createdAt || userData.created_at,
+            suspended: userData.suspended || false,
+            suspendedAt: userData.suspendedAt,
+            suspensionReason: userData.suspensionReason
           };
 
           // Update state with profile

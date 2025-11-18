@@ -47,17 +47,33 @@ export class AdminController {
     }
   }
 
+  async getCustomerBalance(req: Request, res: Response) {
+    try {
+      const { address } = req.params;
+
+      const result = await this.adminService.getCustomerBalanceInfo(address);
+
+      ResponseHelper.success(res, result);
+    } catch (error: any) {
+      if (error.message === 'Customer not found') {
+        ResponseHelper.error(res, error.message, 404);
+      } else {
+        ResponseHelper.error(res, error.message, 500);
+      }
+    }
+  }
+
   async manualMint(req: Request, res: Response) {
     try {
       const { customerAddress, amount, reason } = req.body;
-      
+
       const result = await this.adminService.manualMint({
         customerAddress,
         amount,
         reason,
         adminAddress: req.user?.address
       });
-      
+
       ResponseHelper.success(res, result);
     } catch (error: any) {
       if (error.message === 'Customer not found') {

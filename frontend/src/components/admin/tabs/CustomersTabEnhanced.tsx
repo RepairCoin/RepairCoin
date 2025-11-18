@@ -106,6 +106,12 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
   );
   const [mintAmount, setMintAmount] = useState(100);
   const [mintReason, setMintReason] = useState("Admin bonus");
+  const [customerBalance, setCustomerBalance] = useState<{
+    blockchainBalance: number;
+    remainingMintable: number;
+    totalPossible: number;
+  } | null>(null);
+  const [balanceLoading, setBalanceLoading] = useState(false);
   const [unsuspendReviewModal, setUnsuspendReviewModal] = useState<{
     isOpen: boolean;
     customer: Customer | null;
@@ -251,9 +257,10 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                 isOpen: true,
                 customer,
               });
+              fetchCustomerBalance(customer.address);
             }}
             className="p-1.5 bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 rounded-lg hover:bg-yellow-500/20 transition-colors"
-            title="Mint 100 RCN"
+            title="Mint RCN Tokens"
           >
             <Coins className="w-4 h-4" />
           </button>
@@ -328,17 +335,52 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
-  const handleQuickMint = async (address: string) => {
+  const fetchCustomerBalance = async (address: string) => {
+    setBalanceLoading(true);
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/customers/${address}/balance`,
+        {
+          credentials: 'include',
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        setCustomerBalance({
+          blockchainBalance: result.data.blockchainBalance,
+          remainingMintable: result.data.remainingMintable,
+          totalPossible: result.data.totalPossible,
+        });
+        // Set initial mint amount to remaining mintable (capped at 1000)
+        setMintAmount(Math.min(result.data.remainingMintable, 1000));
+      } else {
+        toast.error("Failed to load customer balance");
+        setCustomerBalance(null);
+      }
+    } catch (error) {
+      console.error("Error fetching customer balance:", error);
+      toast.error("Failed to load customer balance");
+      setCustomerBalance(null);
+    } finally {
+      setBalanceLoading(false);
+    }
+  };
+
+  const handleQuickMint = async (address: string, amount: number, reason: string) => {
     setMintLoading(true);
     try {
-      await onMintTokens(address, 100, "Quick admin bonus");
-      toast.success(`Minted 100 RCN to ${formatAddress(address)}`);
+      await onMintTokens(address, amount, reason);
+      toast.success(`Minted ${amount} RCN to ${formatAddress(address)}`);
       // Reload the customer data
       await loadCustomersData();
       setMintConfirmModal({
         isOpen: false,
         customer: null,
       });
+      setCustomerBalance(null);
+      setMintAmount(100);
+      setMintReason("Admin bonus");
     } catch (error: any) {
       console.error("Failed to mint tokens - Full error:", error);
       console.error("Error response data:", error?.response?.data);
@@ -1469,10 +1511,7 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
               </h3>
             </div>
 
-            <div className="mb-6">
-              <p className="text-gray-300 mb-4">
-                Are you sure you want to mint tokens to this customer?
-              </p>
+            <div className="mb-6 space-y-4">
               <div className="bg-gray-700/50 rounded-lg p-4 space-y-2">
                 <p className="text-sm text-gray-300">
                   <span className="font-medium text-white">Customer:</span>{" "}
@@ -1482,20 +1521,74 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                   <span className="font-medium text-white">Address:</span>{" "}
                   <span className="font-mono">{formatAddress(mintConfirmModal.customer.address)}</span>
                 </p>
-                <p className="text-sm text-gray-300">
-                  <span className="font-medium text-white">Amount:</span>{" "}
-                  <span className="text-yellow-400 font-semibold">100 RCN</span>
-                </p>
-                <p className="text-sm text-gray-300">
-                  <span className="font-medium text-white">Reason:</span>{" "}
-                  Quick admin bonus
-                </p>
               </div>
-              <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                <p className="text-sm text-blue-400">
-                  ℹ️ This will add 100 RCN tokens to the customer's balance.
-                </p>
+
+              {balanceLoading ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-4 border-yellow-400 border-t-transparent mx-auto"></div>
+                  <p className="text-gray-400 text-sm mt-2">Loading balance...</p>
+                </div>
+              ) : customerBalance ? (
+                <div className="bg-gray-700/50 rounded-lg p-4 space-y-2">
+                  <p className="text-sm text-gray-300">
+                    <span className="font-medium text-white">Lifetime Earnings:</span>{" "}
+                    <span className="text-yellow-400">{customerBalance.totalPossible} RCN</span>
+                  </p>
+                  <p className="text-sm text-gray-300">
+                    <span className="font-medium text-white">Blockchain Balance:</span>{" "}
+                    <span className="text-green-400">{customerBalance.blockchainBalance} RCN</span>
+                  </p>
+                  <p className="text-sm text-gray-300">
+                    <span className="font-medium text-white">Remaining Mintable:</span>{" "}
+                    <span className="text-blue-400 font-semibold">{customerBalance.remainingMintable} RCN</span>
+                  </p>
+                </div>
+              ) : null}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Amount (RCN) {customerBalance && <span className="text-gray-500">- Max: {customerBalance.remainingMintable}</span>}
+                </label>
+                <input
+                  type="number"
+                  value={mintAmount}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value) || 0;
+                    setMintAmount(value);
+                  }}
+                  min={0.1}
+                  max={customerBalance?.remainingMintable || 1000}
+                  step={0.1}
+                  disabled={balanceLoading || !customerBalance}
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-yellow-400 disabled:opacity-50"
+                />
+                {customerBalance && mintAmount > customerBalance.remainingMintable && (
+                  <p className="text-red-400 text-xs mt-1">
+                    Amount exceeds remaining mintable balance
+                  </p>
+                )}
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Reason
+                </label>
+                <input
+                  type="text"
+                  value={mintReason}
+                  onChange={(e) => setMintReason(e.target.value)}
+                  disabled={balanceLoading}
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-yellow-400 disabled:opacity-50"
+                />
+              </div>
+
+              {customerBalance && customerBalance.remainingMintable === 0 && (
+                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                  <p className="text-sm text-red-400">
+                    ⚠️ This customer has already minted all their lifetime earnings.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3">
@@ -1505,6 +1598,9 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                     isOpen: false,
                     customer: null,
                   });
+                  setCustomerBalance(null);
+                  setMintAmount(100);
+                  setMintReason("Admin bonus");
                 }}
                 disabled={mintLoading}
                 className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1514,9 +1610,16 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
               <button
                 onClick={async () => {
                   const customer = mintConfirmModal.customer;
-                  await handleQuickMint(customer!.address);
+                  await handleQuickMint(customer!.address, mintAmount, mintReason);
                 }}
-                disabled={mintLoading}
+                disabled={
+                  mintLoading ||
+                  balanceLoading ||
+                  !customerBalance ||
+                  mintAmount <= 0 ||
+                  mintAmount > (customerBalance?.remainingMintable || 0) ||
+                  !mintReason.trim()
+                }
                 className="flex-1 px-4 py-2 bg-yellow-500 text-black rounded-lg hover:bg-yellow-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {mintLoading ? (
@@ -1525,7 +1628,7 @@ export const CustomersTabEnhanced: React.FC<CustomersTabEnhancedProps> = ({
                     <span>Minting...</span>
                   </>
                 ) : (
-                  "Mint 100 RCN"
+                  `Mint ${mintAmount} RCN`
                 )}
               </button>
             </div>

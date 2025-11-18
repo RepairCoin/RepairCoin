@@ -475,9 +475,11 @@ async function logWebhookEvent(event: Stripe.Event) {
 async function updateSubscriptionInDatabase(subscription: Stripe.Subscription) {
   try {
     const db = DatabaseService.getInstance();
+
+    // Update stripe_subscriptions table
     const query = `
-      UPDATE stripe_subscriptions 
-      SET 
+      UPDATE stripe_subscriptions
+      SET
         status = $1,
         current_period_start = $2,
         current_period_end = $3,
@@ -486,8 +488,9 @@ async function updateSubscriptionInDatabase(subscription: Stripe.Subscription) {
         ended_at = $6,
         updated_at = CURRENT_TIMESTAMP
       WHERE stripe_subscription_id = $7
+      RETURNING shop_id
     `;
-    
+
     const values = [
       subscription.status,
       new Date((subscription as any).current_period_start * 1000),
@@ -497,9 +500,50 @@ async function updateSubscriptionInDatabase(subscription: Stripe.Subscription) {
       subscription.ended_at ? new Date(subscription.ended_at * 1000) : null,
       subscription.id
     ];
-    
-    await db.query(query, values);
-    
+
+    const result = await db.query(query, values);
+
+    // Update shop operational_status based on subscription status
+    if (result.rows.length > 0) {
+      const shopId = result.rows[0].shop_id;
+      const activeStatuses = ['active', 'past_due', 'unpaid'];
+      const isActive = activeStatuses.includes(subscription.status);
+
+      // Get shop's RCG balance to determine operational status
+      const shopQuery = `SELECT rcg_balance FROM shops WHERE shop_id = $1`;
+      const shopResult = await db.query(shopQuery, [shopId]);
+
+      if (shopResult.rows.length > 0) {
+        const rcgBalance = shopResult.rows[0].rcg_balance || 0;
+        let operationalStatus: string;
+
+        if (isActive) {
+          operationalStatus = 'subscription_qualified';
+        } else if (rcgBalance >= 10000) {
+          operationalStatus = 'rcg_qualified';
+        } else {
+          operationalStatus = 'not_qualified';
+        }
+
+        // Update shop operational status
+        const updateShopQuery = `
+          UPDATE shops
+          SET operational_status = $1,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE shop_id = $2
+        `;
+        await db.query(updateShopQuery, [operationalStatus, shopId]);
+
+        logger.info('Shop operational status updated based on subscription change', {
+          shopId,
+          subscriptionId: subscription.id,
+          subscriptionStatus: subscription.status,
+          operationalStatus,
+          rcgBalance
+        });
+      }
+    }
+
     logger.info('Subscription updated in database', {
       subscriptionId: subscription.id,
       status: subscription.status

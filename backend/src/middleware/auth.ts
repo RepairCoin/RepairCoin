@@ -426,7 +426,9 @@ async function validateUserInDatabase(tokenPayload: JWTPayload): Promise<boolean
         
       case 'customer':
         const customer = await customerRepository.getCustomer(tokenPayload.address);
-        return customer !== null && customer.isActive;
+        // Allow suspended customers to login and view their account
+        // Individual endpoints will enforce restrictions on actions
+        return customer !== null;
         
       default:
         return false;

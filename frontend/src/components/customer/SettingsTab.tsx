@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { useActiveAccount } from "thirdweb/react";
 import QRCode from "qrcode";
+import { useAuthStore } from "@/stores/authStore";
+import { SuspendedActionModal } from "./SuspendedActionModal";
 
 interface CustomerData {
   address: string;
@@ -33,16 +35,21 @@ interface CustomerData {
 
 export function SettingsTab() {
   const account = useActiveAccount();
-  const { 
-    customerData, 
+  const { userProfile } = useAuthStore();
+  const {
+    customerData,
     isLoading,
     fetchCustomerData,
   } = useCustomer();
-  
+
   const [isEditing, setIsEditing] = useState(false);
   const [showPrivateKey, setShowPrivateKey] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [qrCodeData, setQrCodeData] = useState("");
+  const [showSuspendedModal, setShowSuspendedModal] = useState(false);
+
+  // Check if user is suspended
+  const isSuspended = userProfile?.suspended || false;
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -119,12 +126,18 @@ export function SettingsTab() {
   };
 
   const generateQRCode = async () => {
+    // Check if suspended
+    if (isSuspended) {
+      setShowSuspendedModal(true);
+      return;
+    }
+
     if (!account?.address) {
       toast.error("No wallet address found");
       return;
     }
 
-    try {
+    try{
       const qrData = await QRCode.toDataURL(account.address, {
         width: 256,
         margin: 2,
@@ -488,6 +501,14 @@ export function SettingsTab() {
           </div>
         </div>
       )}
+
+      {/* Suspended Action Modal */}
+      <SuspendedActionModal
+        isOpen={showSuspendedModal}
+        onClose={() => setShowSuspendedModal(false)}
+        action="generate QR code"
+        reason={userProfile?.suspensionReason}
+      />
     </div>
   );
 }
