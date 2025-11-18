@@ -1,6 +1,6 @@
 # RepairCoin Documentation
 
-**Last Updated**: November 10, 2025
+**Last Updated**: November 18, 2025
 
 Welcome to the RepairCoin documentation! This directory contains all technical documentation organized by category.
 
@@ -42,9 +42,21 @@ Complete documentation for the authentication system, including the new access/r
 
 | Document | Description |
 |----------|-------------|
+| [Admin Access Fix](./authentication/ADMIN_ACCESS_FIX.md) | Admin role conflict resolution |
+| [Cookie Auth Guide](./authentication/COOKIE_AUTH_GUIDE.md) | Cookie-based authentication guide |
+| [Cookie Fix Deployed](./authentication/COOKIE_FIX_DEPLOYED.md) | Cookie fix deployment documentation |
+| [Cookie Fix Summary](./authentication/COOKIE_FIX_SUMMARY.md) | Summary of cookie fixes |
+| [Cross-Domain Auth Fix](./authentication/CROSS_DOMAIN_AUTH_FIX.md) | Cross-domain authentication fixes |
 | [Cookie Auth Production Issues](./authentication/COOKIE_AUTH_PRODUCTION_ISSUES.md) | Analysis of production cookie issues |
 | [Cookie Auth Fixes Applied](./authentication/COOKIE_AUTH_FIXES_APPLIED.md) | Fixes for cross-origin cookies |
 | [Production Cookie Config](./authentication/PRODUCTION_COOKIE_AUTH_CONFIG.md) | Production configuration guide |
+| [Production Cookie Debug](./authentication/PRODUCTION_COOKIE_DEBUG.md) | Production cookie debugging guide |
+| [Production Cookie Fix](./authentication/PRODUCTION_COOKIE_FIX.md) | Production cookie fixes |
+| [Redirect Loop Fix](./authentication/REDIRECT_LOOP_FIX.md) | Redirect loop issue resolution |
+| [Redirect Loop Fix V2](./authentication/REDIRECT_LOOP_FIX_V2.md) | Updated redirect loop fixes |
+| [Role Based Access Control](./authentication/ROLE_BASED_ACCESS_CONTROL.md) | RBAC implementation guide |
+| [WebSocket Cookie Investigation](./authentication/WEBSOCKET_COOKIE_INVESTIGATION.md) | WebSocket cookie issue investigation |
+| [WebSocket Fix Summary](./authentication/WEBSOCKET_FIX_SUMMARY.md) | WebSocket authentication fixes |
 | [Authentication Migration Status](./authentication/AUTHENTICATION_MIGRATION_STATUS.md) | Cookie migration status |
 | [Auth Migration Summary](./authentication/AUTH_MIGRATION_SUMMARY.md) | Summary of auth migrations |
 | [Migration Complete](./authentication/MIGRATION_COMPLETE.md) | Migration completion report |
@@ -105,6 +117,9 @@ Deployment guides, checklists, and production plans.
 | [**Deployment Guide**](./deployment/DEPLOYMENT.md) | General deployment procedures |
 | [**Mainnet Deployment Plan**](./deployment/MAINNET_DEPLOYMENT_PLAN.md) | Mainnet launch strategy |
 | [**Production Checklist**](./deployment/PRODUCTION_CHECKLIST.md) | Pre-deployment checklist |
+| [**Production Deployment**](./deployment/PRODUCTION_DEPLOYMENT.md) | Production deployment guide |
+| [**Environment Changes Required**](./deployment/ENV_CHANGES_REQUIRED.md) | Required environment variable changes |
+| [**Subdomain Environment Variables**](./deployment/SUBDOMAIN_ENV_VARS.md) | Subdomain-specific environment configuration |
 
 ### Deployment Environments
 
@@ -127,6 +142,7 @@ Feature specifications and implementation details.
 | [**RCN Token**](./features/RCN-SPECIFICATIONS-V3.md) | Utility token specifications v3 | ✅ Implemented |
 | [**Notification System**](./features/NOTIFICATION_SYSTEM.md) | Real-time notifications | ✅ Implemented |
 | [**Shop Onboarding**](./features/SHOP-ONBOARDING-FLOW.md) | Shop registration flow | ✅ Implemented |
+| [**Service Marketplace**](./features/SERVICE_MARKETPLACE_IMPLEMENTATION.md) | Service marketplace implementation plan | ⏳ Planned |
 
 ### Feature Highlights
 
@@ -214,7 +230,11 @@ docs/
 │   ├── ACCESS_REFRESH_TOKEN_IMPLEMENTATION.md
 │   ├── FRONTEND_TOKEN_REFRESH_IMPLEMENTATION.md
 │   ├── AUTH_SECURITY_AUDIT.md
-│   └── ... (migration and fix docs)
+│   ├── ADMIN_ACCESS_FIX.md
+│   ├── COOKIE_AUTH_GUIDE.md
+│   ├── CROSS_DOMAIN_AUTH_FIX.md
+│   ├── ROLE_BASED_ACCESS_CONTROL.md
+│   └── ... (and more migration/fix docs)
 │
 ├── database/               # Database docs
 │   ├── DATABASE_SCHEMA.md
@@ -224,13 +244,17 @@ docs/
 ├── deployment/             # Deployment docs
 │   ├── DEPLOYMENT.md
 │   ├── MAINNET_DEPLOYMENT_PLAN.md
-│   └── PRODUCTION_CHECKLIST.md
+│   ├── PRODUCTION_CHECKLIST.md
+│   ├── PRODUCTION_DEPLOYMENT.md
+│   ├── ENV_CHANGES_REQUIRED.md
+│   └── SUBDOMAIN_ENV_VARS.md
 │
 ├── features/               # Feature specs
 │   ├── RCG.md
 │   ├── RCN-SPECIFICATIONS-V3.md
 │   ├── NOTIFICATION_SYSTEM.md
-│   └── SHOP-ONBOARDING-FLOW.md
+│   ├── SHOP-ONBOARDING-FLOW.md
+│   └── SERVICE_MARKETPLACE_IMPLEMENTATION.md
 │
 ├── api/                    # API docs
 │   └── SWAGGER_AUDIT_REPORT.md

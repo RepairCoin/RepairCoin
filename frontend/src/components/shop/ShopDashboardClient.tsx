@@ -48,6 +48,7 @@ interface ShopData {
   verified: boolean;
   active: boolean;
   crossShopEnabled: boolean;
+  subscriptionActive?: boolean;
   category?: string;
   totalTokensIssued: number;
   totalRedemptions: number;
@@ -94,7 +95,7 @@ export default function ShopDashboardClient() {
   const router = useRouter();
   const account = useActiveAccount();
   const searchParams = useSearchParams();
-  const { isAuthenticated, userType } = useAuthStore();
+  const { isAuthenticated, userType, isLoading: authLoading, authInitialized } = useAuthStore();
   const { existingApplication } = useShopRegistration();
   const [shopData, setShopData] = useState<ShopData | null>(null);
   const [purchases, setPurchases] = useState<PurchaseHistory[]>([]);
@@ -132,9 +133,18 @@ export default function ShopDashboardClient() {
     setAuthToken(null);
   }, []);
 
+  // Note: authInitialized is now managed by useAuthInitializer hook in the auth store
+  // No need for local state or useEffect - it's set when session check completes
+
   // Client-side auth protection (since middleware is disabled for cross-domain)
   useEffect(() => {
-    // Wait for auth to initialize before checking
+    // CRITICAL: Wait for auth to initialize before redirecting
+    // This prevents redirect on page refresh while session is being restored
+    if (!authInitialized) {
+      console.log('[ShopDashboard] Auth not initialized yet, waiting...');
+      return;
+    }
+
     // Allow unverified shops to view dashboard (isAuthenticated=false but userType='shop')
     if (isAuthenticated === false && userType && userType !== 'shop') {
       // Auth has loaded, user has a profile but wrong role (not a shop)
@@ -149,7 +159,7 @@ export default function ShopDashboardClient() {
       console.log('[ShopDashboard] Wrong role, redirecting to home');
       router.push('/');
     }
-  }, [isAuthenticated, userType, router]);
+  }, [isAuthenticated, userType, router, authInitialized]);
 
   useEffect(() => {
     // Set active tab from URL query param
@@ -458,6 +468,25 @@ export default function ShopDashboardClient() {
                 connectModal={{ size: "compact" }}
               />
             </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Loading state - while auth is initializing
+  if (!authInitialized || authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] py-32">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFCC00] mx-auto mb-4"></div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">
+              Initializing...
+            </h3>
+            <p className="text-gray-600">
+              Checking your authentication status
+            </p>
           </div>
         </div>
       </div>

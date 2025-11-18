@@ -71,10 +71,12 @@ apiClient.interceptors.response.use(
     if ((status === 401 || isTokenExpired) && !originalRequest._retry) {
       // Don't retry certain endpoints - they're expected to fail when not authenticated
       if (originalRequest.url?.includes('/auth/refresh') ||
-          originalRequest.url?.includes('/auth/session') ||
-          originalRequest.url?.includes('/auth/check-user')) {
-        // These endpoints failing is normal when not authenticated
+          originalRequest.url?.includes('/auth/check-user') ||
+          originalRequest.url?.includes('/auth/session')) {
+        // These endpoints failing is normal when not authenticated or when checking for existing sessions
         // Don't trigger logout/refresh for these
+        // /auth/session is in this list because it's used to CHECK if a session exists
+        // If it returns 401, that just means no session - don't try to refresh or logout
         return Promise.reject(error);
       }
 

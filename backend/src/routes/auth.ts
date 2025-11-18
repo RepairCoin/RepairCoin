@@ -61,9 +61,13 @@ const setAuthCookie = (res: Response, token: string) => {
     path: '/',
   };
 
-  // Set domain for subdomain cookie sharing in production
+  // Set domain for cookie sharing
   if (isProduction && cookieDomain) {
     cookieOptions.domain = cookieDomain; // e.g., '.repaircoin.ai'
+  } else if (!isProduction) {
+    // In development, set domain to 'localhost' (without port) so cookies work across different ports
+    // This allows frontend (localhost:3001) to send cookies set by backend (localhost:3002)
+    cookieOptions.domain = 'localhost';
   }
 
   res.cookie('auth_token', token, cookieOptions);
@@ -121,9 +125,12 @@ const generateAndSetTokens = async (
     path: '/'
   };
 
-  // Set domain for subdomain cookie sharing in production
+  // Set domain for cookie sharing
   if (isProduction && cookieDomain) {
     baseCookieOptions.domain = cookieDomain; // e.g., '.repaircoin.ai'
+  } else if (!isProduction) {
+    // In development, set domain to 'localhost' (without port) so cookies work across different ports
+    baseCookieOptions.domain = 'localhost';
   }
 
   // Set access token as httpOnly cookie (15 minutes)
@@ -1118,9 +1125,12 @@ router.post('/refresh', async (req, res) => {
       path: '/'
     };
 
-    // Set domain if configured (for subdomain setup)
+    // Set domain for cookie sharing
     if (isProduction && cookieDomain) {
       cookieOptions.domain = cookieDomain;
+    } else if (!isProduction) {
+      // In development, set domain to 'localhost' (without port) so cookies work across different ports
+      cookieOptions.domain = 'localhost';
     }
 
     // Set new access token cookie
@@ -1178,9 +1188,12 @@ router.get('/test-cookie', (req, res) => {
     path: '/'
   };
 
-  // Set domain if configured (for subdomain setup)
+  // Set domain for cookie sharing
   if (isProduction && cookieDomain) {
     cookieOptions.domain = cookieDomain;
+  } else if (!isProduction) {
+    // In development, set domain to 'localhost' (without port) so cookies work across different ports
+    cookieOptions.domain = 'localhost';
   }
 
   res.cookie('test_cookie', 'test_value_' + Date.now(), cookieOptions);
