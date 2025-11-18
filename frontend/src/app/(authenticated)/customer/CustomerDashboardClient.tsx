@@ -11,6 +11,7 @@ import { OverviewTab } from "@/components/customer/OverviewTab";
 import { SettingsTab } from "@/components/customer/SettingsTab";
 import { FindShop } from "@/components/customer/FindShop";
 import { TokenGiftingTab } from "@/components/customer/TokenGiftingTab";
+import { SuspensionBanner } from "@/components/customer/SuspensionBanner";
 import { Toaster } from "react-hot-toast";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 
@@ -24,7 +25,7 @@ export default function CustomerDashboardClient() {
   const router = useRouter();
   const account = useActiveAccount();
   const searchParams = useSearchParams();
-  const { isAuthenticated, userType, isLoading: authLoading } = useAuthStore();
+  const { isAuthenticated, userType, isLoading: authLoading, userProfile } = useAuthStore();
   const [authInitialized, setAuthInitialized] = useState(false);
   const [activeTab, setActiveTab] = useState<
     "overview" | "referrals" | "approvals" | "findshop" | "gifting" | "settings"
@@ -151,6 +152,14 @@ export default function CustomerDashboardClient() {
         }}
       >
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Suspension Banner - Show if account is suspended */}
+          {userProfile?.suspended && (
+            <SuspensionBanner
+              reason={userProfile.suspensionReason}
+              suspendedAt={userProfile.suspendedAt}
+            />
+          )}
+
           {/* Tab Content */}
           {activeTab === "overview" && <OverviewTab />}
 

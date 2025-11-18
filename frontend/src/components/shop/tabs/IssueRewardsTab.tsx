@@ -23,6 +23,9 @@ type RepairType = "minor" | "small" | "large" | "custom";
 interface CustomerInfo {
   tier: "BRONZE" | "SILVER" | "GOLD";
   lifetimeEarnings: number;
+  isActive?: boolean;
+  suspended?: boolean;
+  suspensionReason?: string;
   // dailyEarnings and monthlyEarnings removed - no limits
 }
 
@@ -243,7 +246,15 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
         setCustomerInfo({
           tier: customerData.tier || "BRONZE",
           lifetimeEarnings: customerData.lifetimeEarnings || 0,
+          isActive: customerData.isActive !== false,
+          suspended: customerData.suspended || customerData.isActive === false,
+          suspensionReason: customerData.suspensionReason
         });
+
+        // Show error if customer is suspended
+        if (customerData.isActive === false || customerData.suspended) {
+          setError(`Cannot issue rewards to suspended customer${customerData.suspensionReason ? ': ' + customerData.suspensionReason : ''}`);
+        }
       } else {
         // Customer not found - set to null instead of default values
         setCustomerInfo(null);
@@ -272,6 +283,12 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
 
     if (!customerInfo) {
       setError("Customer not found. Customer must be registered before receiving rewards.");
+      return;
+    }
+
+    // Check if customer is suspended
+    if (customerInfo.isActive === false || customerInfo.suspended) {
+      setError(`Cannot issue rewards to suspended customer${customerInfo.suspensionReason ? ': ' + customerInfo.suspensionReason : ''}`);
       return;
     }
 
@@ -912,6 +929,36 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* Show message if customer is suspended */}
+              {customerInfo &&
+               (customerInfo.isActive === false || customerInfo.suspended) && (
+                <div className="bg-red-500/10 rounded-xl p-4 border border-red-500/30">
+                  <div className="flex items-center gap-3">
+                    <svg
+                      className="w-5 h-5 text-red-400 flex-shrink-0"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <div>
+                      <p className="text-red-400 font-semibold text-sm">
+                        Customer Account Suspended
+                      </p>
+                      <p className="text-red-300/70 text-xs mt-1">
+                        {customerInfo.suspensionReason
+                          ? `This customer's account has been suspended: ${customerInfo.suspensionReason}`
+                          : 'This customer\'s account has been suspended. Cannot issue rewards to suspended customers.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1243,9 +1290,11 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                     !customerAddress ||
                     !customerInfo ||
                     !canIssueReward ||
-                    !hasSufficientBalance
+                    !hasSufficientBalance ||
+                    customerInfo?.isActive === false ||
+                    customerInfo?.suspended
                   }
-                  className="w-full bg-[#FFCC00] text-black font-bold py-4 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow-lg hover:shadow-yellow-500/25 transform hover:scale-105"
+                  className="w-full bg-[#FFCC00] text-black font-bold py-4 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow-lg hover:shadow-yellow-500/25 transform hover:scale-105 disabled:transform-none"
                 >
                   {processing ? (
                     <div className="flex items-center justify-center">

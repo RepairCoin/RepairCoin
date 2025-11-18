@@ -4,12 +4,32 @@ export interface User {
   role: 'admin' | 'shop' | 'customer';
   isActive?: boolean;
   createdAt?: string;
+  suspended?: boolean;
+  suspendedAt?: string;
+  suspensionReason?: string;
 }
 
 export interface AuthToken {
   token: string;
   expiresIn?: number;
   refreshToken?: string;
+  user?: {
+    id: string;
+    address: string;
+    walletAddress?: string;
+    name?: string;
+    role: string;
+    tier?: string;
+    active?: boolean;
+    suspended?: boolean;
+    suspendedAt?: string;
+    suspensionReason?: string;
+    createdAt?: string;
+    shopId?: string;
+    shopName?: string;
+    email?: string;
+    verified?: boolean;
+  };
 }
 
 // Customer Types

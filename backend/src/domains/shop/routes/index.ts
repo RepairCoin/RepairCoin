@@ -1036,6 +1036,13 @@ router.post('/:shopId/redeem',
         });
       }
 
+      if (!customer.isActive) {
+        return res.status(400).json({
+          success: false,
+          error: 'Cannot process redemption for suspended customers'
+        });
+      }
+
       // Validate and consume redemption session (required for all redemptions)
       const { redemptionSessionService } = await import('../../token/services/RedemptionSessionService');
       let consumedSession;

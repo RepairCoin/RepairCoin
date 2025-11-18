@@ -624,7 +624,13 @@ router.get('/session', authMiddleware, async (req, res) => {
           active: customer.isActive,
           tier: customer.tier,
           createdAt: customer.joinDate,
-          created_at: customer.joinDate
+          created_at: customer.joinDate,
+          // Include suspension information if account is suspended
+          ...(customer.isActive === false && {
+            suspended: true,
+            suspendedAt: customer.suspendedAt,
+            suspensionReason: customer.suspensionReason
+          })
         };
       }
     }
@@ -826,11 +832,8 @@ router.post('/customer', authLimiter, async (req, res) => {
         });
       }
 
-      if (!customer.isActive) {
-        return res.status(403).json({
-          error: 'Customer account is not active'
-        });
-      }
+      // Allow suspended customers to login - they can see their suspension status
+      // but will be restricted from certain actions via middleware
 
       // Check if user has had tokens revoked recently (prevents immediate re-auth after revocation)
       const recentRevocation = await refreshTokenRepository.hasRecentRevocation(normalizedAddress, 1); // 1 hour cooldown
@@ -867,7 +870,13 @@ router.post('/customer', authLimiter, async (req, res) => {
           role: 'customer',
           tier: customer.tier,
           active: customer.isActive,
-          createdAt: customer.joinDate
+          createdAt: customer.joinDate,
+          // Include suspension information if account is suspended
+          ...(customer.isActive === false && {
+            suspended: true,
+            suspendedAt: customer.suspendedAt,
+            suspensionReason: customer.suspensionReason
+          })
         }
       });
 
@@ -951,7 +960,13 @@ router.post('/shop', authLimiter, async (req, res) => {
           role: 'shop',
           active: shop.active,
           verified: shop.verified,
-          createdAt: shop.joinDate
+          createdAt: shop.joinDate,
+          // Include suspension information if shop is suspended
+          ...(shop.suspendedAt && {
+            suspended: true,
+            suspendedAt: shop.suspendedAt,
+            suspensionReason: shop.suspensionReason
+          })
         },
         // Include warning if shop is not verified/active
         ...((!shop.active || !shop.verified) && {

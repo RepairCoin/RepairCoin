@@ -61,6 +61,9 @@ interface ShopCustomer {
   lifetime_earnings: number;
   last_transaction_date?: string;
   total_transactions: number;
+  isActive?: boolean;
+  suspended?: boolean;
+  suspensionReason?: string;
 }
 
 type RedemptionFlow = "approval";
@@ -95,6 +98,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   const [customerExistsResult, setCustomerExistsResult] = useState<{
     exists: boolean;
     checked: boolean;
+    customerData?: any;
   }>({ exists: false, checked: false });
 
   // Common states
@@ -141,18 +145,44 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
         const shopCustomers = result.data.customers || [];
 
         if (shopCustomers.length === 0) {
-          const allCustomersResponse = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/customers?limit=100`,
-            {
-              headers: {
-                Authorization: authToken ? `Bearer ${authToken}` : "",
-              },
-            }
-          );
+          try {
+            const allCustomersResponse = await apiClient.get('/customers?limit=100');
 
-          if (allCustomersResponse.ok) {
-            const allCustomersResult = await allCustomersResponse.json();
-            const allCustomers = allCustomersResult.data?.customers || [];
+            if (allCustomersResponse.success) {
+              const allCustomers = allCustomersResponse.data?.customers || [];
+
+              const transformedCustomers = allCustomers.map((customer: any) => ({
+                address: customer.address,
+                name: customer.name || customer.email || "Unnamed Customer",
+                tier: customer.tier || "BRONZE",
+                lifetime_earnings: customer.lifetimeEarnings || 0,
+                last_transaction_date: customer.lastEarnedDate,
+                total_transactions: 0,
+                isActive: customer.active !== false,
+                suspended: customer.active === false,
+                suspendedAt: customer.suspendedAt,
+                suspensionReason: customer.suspensionReason,
+              }));
+
+              setShopCustomers(transformedCustomers);
+              setShowingAllCustomers(true);
+            } else {
+              setShopCustomers([]);
+            }
+          } catch (error) {
+            console.error('Error loading all customers:', error);
+            setShopCustomers([]);
+          }
+        } else {
+          setShopCustomers(shopCustomers);
+          setShowingAllCustomers(false);
+        }
+      } else {
+        try {
+          const allCustomersResponse = await apiClient.get('/customers?limit=100');
+
+          if (allCustomersResponse.success) {
+            const allCustomers = allCustomersResponse.data?.customers || [];
 
             const transformedCustomers = allCustomers.map((customer: any) => ({
               address: customer.address,
@@ -161,42 +191,17 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
               lifetime_earnings: customer.lifetimeEarnings || 0,
               last_transaction_date: customer.lastEarnedDate,
               total_transactions: 0,
+              isActive: customer.active !== false,
+              suspended: customer.active === false,
+              suspendedAt: customer.suspendedAt,
+              suspensionReason: customer.suspensionReason,
             }));
 
             setShopCustomers(transformedCustomers);
             setShowingAllCustomers(true);
-          } else {
-            setShopCustomers([]);
           }
-        } else {
-          setShopCustomers(shopCustomers);
-          setShowingAllCustomers(false);
-        }
-      } else {
-        const allCustomersResponse = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/customers?limit=100`,
-          {
-            headers: {
-              Authorization: authToken ? `Bearer ${authToken}` : "",
-            },
-          }
-        );
-
-        if (allCustomersResponse.ok) {
-          const allCustomersResult = await allCustomersResponse.json();
-          const allCustomers = allCustomersResult.data?.customers || [];
-
-          const transformedCustomers = allCustomers.map((customer: any) => ({
-            address: customer.address,
-            name: customer.name || customer.email || "Unnamed Customer",
-            tier: customer.tier || "BRONZE",
-            lifetime_earnings: customer.lifetimeEarnings || 0,
-            last_transaction_date: customer.lastEarnedDate,
-            total_transactions: 0,
-          }));
-
-          setShopCustomers(transformedCustomers);
-          setShowingAllCustomers(true);
+        } catch (error) {
+          console.error('Error loading all customers:', error);
         }
       }
     } catch (err) {
@@ -322,6 +327,14 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
       return;
     }
 
+    // Check if customer is suspended
+    if (customer.isActive === false || customer.suspended) {
+      const errorMsg = `Cannot process redemption for suspended customer${customer.suspensionReason ? ': ' + customer.suspensionReason : ''}`;
+      setError(errorMsg);
+      toast.error(errorMsg);
+      return;
+    }
+
     setSelectedCustomer(customer);
     setCustomerAddress(customer.address);
     console.log("Customer selected:", { customer, address: customer.address });
@@ -368,7 +381,11 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
         const response = await apiClient.get(`/customers/${customerSearch}`);
 
         if (response.success) {
-          setCustomerExistsResult({ exists: true, checked: true });
+          setCustomerExistsResult({
+            exists: true,
+            checked: true,
+            customerData: response.data.customer
+          });
         } else {
           setCustomerExistsResult({ exists: false, checked: true });
         }
@@ -477,6 +494,14 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
       if (shopData?.walletAddress &&
           finalAddress.toLowerCase() === shopData.walletAddress.toLowerCase()) {
         setError("Cannot process redemption from your own wallet address");
+        return;
+      }
+
+      // Check if customer is suspended
+      if (selectedCustomer && (selectedCustomer.isActive === false || selectedCustomer.suspended)) {
+        const errorMsg = `Cannot process redemption for suspended customer${selectedCustomer.suspensionReason ? ': ' + selectedCustomer.suspensionReason : ''}`;
+        setError(errorMsg);
+        toast.error(errorMsg);
         return;
       }
 
@@ -986,15 +1011,42 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                         ) : (
                           <button
                             onClick={() => {
-                              setCustomerAddress(customerSearch);
-                              setSelectedCustomer({
-                                address: customerSearch,
-                                name: "External Customer",
-                                tier: "UNKNOWN",
-                                lifetime_earnings: 0,
-                                total_transactions: 0,
-                              });
-                              setCustomerSearch("");
+                              // Use the customer data already fetched by checkCustomerExists
+                              const customerData = customerExistsResult.customerData;
+
+                              if (customerData) {
+                                setSelectedCustomer({
+                                  address: customerSearch,
+                                  name: customerData.name || "External Customer",
+                                  tier: customerData.tier || "UNKNOWN",
+                                  lifetime_earnings: 0,
+                                  total_transactions: 0,
+                                  isActive: customerData.active !== false,
+                                  suspended: customerData.active === false,
+                                  suspendedAt: customerData.suspendedAt,
+                                  suspensionReason: customerData.suspensionReason,
+                                });
+                                setCustomerAddress(customerSearch);
+                                setCustomerSearch("");
+
+                                // Check if customer is suspended and show error
+                                if (customerData.active === false) {
+                                  const errorMsg = `Cannot process redemption for suspended customer${customerData.suspensionReason ? ': ' + customerData.suspensionReason : ''}`;
+                                  setError(errorMsg);
+                                  toast.error(errorMsg);
+                                }
+                              } else {
+                                // Fallback if data not available
+                                setCustomerAddress(customerSearch);
+                                setSelectedCustomer({
+                                  address: customerSearch,
+                                  name: "External Customer",
+                                  tier: "UNKNOWN",
+                                  lifetime_earnings: 0,
+                                  total_transactions: 0,
+                                });
+                                setCustomerSearch("");
+                              }
                             }}
                             className="w-full p-4 hover:bg-gray-800 transition-colors"
                           >
@@ -1062,6 +1114,35 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                           Change
                         </button>
                       </div>
+
+                      {/* Show suspension warning if customer is suspended */}
+                      {(selectedCustomer.isActive === false || selectedCustomer.suspended) && (
+                        <div className="mt-4 bg-red-500/10 rounded-xl p-4 border border-red-500/30">
+                          <div className="flex items-center gap-3">
+                            <svg
+                              className="w-5 h-5 text-red-400 flex-shrink-0"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                            <div>
+                              <p className="text-red-400 font-semibold text-sm">
+                                Customer Account Suspended
+                              </p>
+                              <p className="text-red-300/70 text-xs mt-1">
+                                {selectedCustomer.suspensionReason
+                                  ? `This customer's account has been suspended: ${selectedCustomer.suspensionReason}`
+                                  : 'This customer\'s account has been suspended. Cannot process redemption for suspended customers.'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1382,13 +1463,15 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                 {/* Process Button */}
                 {(() => {
                   const insufficientBalance = selectedCustomer && redeemAmount > 0 && customerBalance !== null && customerBalance < redeemAmount;
+                  const isSuspended = selectedCustomer && (selectedCustomer.isActive === false || selectedCustomer.suspended);
                   const isDisabled =
                     sessionStatus !== "idle" ||
                     !selectedCustomer ||
                     !redeemAmount ||
                     redeemAmount <= 0 ||
                     insufficientBalance ||
-                    loadingBalance;
+                    loadingBalance ||
+                    isSuspended;
 
                   return (
                     <button
@@ -1400,6 +1483,8 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                           ? `Session in progress (${sessionStatus})`
                           : !selectedCustomer
                           ? "Please select a customer"
+                          : isSuspended
+                          ? "Cannot process redemption for suspended customers"
                           : !redeemAmount || redeemAmount <= 0
                           ? `Please enter redemption amount (current: ${redeemAmount})`
                           : loadingBalance

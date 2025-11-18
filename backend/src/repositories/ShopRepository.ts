@@ -1005,6 +1005,10 @@ export class ShopRepository extends BaseRepository {
       lifetime_earnings: number;
       last_transaction_date?: string;
       total_transactions: number;
+      isActive?: boolean;
+      suspended?: boolean;
+      suspendedAt?: string;
+      suspensionReason?: string;
     }>;
     totalItems: number;
     totalPages: number;
@@ -1042,30 +1046,37 @@ export class ShopRepository extends BaseRepository {
       params.push(offset);
 
       const query = `
-        SELECT 
+        SELECT
           t.customer_address as address,
-          c.name,
-          COALESCE(c.tier, 'BRONZE') as tier,
+          MAX(c.name) as name,
+          COALESCE(MAX(c.tier), 'BRONZE') as tier,
           SUM(t.amount) as lifetime_earnings,
           MAX(t.timestamp) as last_transaction_date,
-          COUNT(t.id) as total_transactions
+          COUNT(t.id) as total_transactions,
+          MAX(c.active) as is_active,
+          MAX(c.suspended_at) as suspended_at,
+          MAX(c.suspension_reason) as suspension_reason
         FROM transactions t
         LEFT JOIN customers c ON c.wallet_address = t.customer_address
         ${whereClause} AND t.type = 'mint'
-        GROUP BY t.customer_address, c.name, c.tier
+        GROUP BY t.customer_address
         ORDER BY SUM(t.amount) DESC
         LIMIT $${paramCount - 1} OFFSET $${paramCount}
       `;
 
       const result = await this.pool.query(query, params);
-      
+
       const customers = result.rows.map(row => ({
         address: row.address,
         name: row.name,
         tier: row.tier,
         lifetime_earnings: parseFloat(row.lifetime_earnings || 0),
         last_transaction_date: row.last_transaction_date,
-        total_transactions: parseInt(row.total_transactions || 0)
+        total_transactions: parseInt(row.total_transactions || 0),
+        isActive: row.is_active !== false, // Default to true if null
+        suspended: row.is_active === false,
+        suspendedAt: row.suspended_at,
+        suspensionReason: row.suspension_reason
       }));
 
       const totalPages = Math.ceil(totalItems / limit);

@@ -10,6 +10,8 @@ import { useCustomer } from "@/hooks/useCustomer";
 import QRCode from "qrcode";
 import Tooltip from "../ui/tooltip";
 import apiClient from '@/services/api/client';
+import { useAuthStore } from "@/stores/authStore";
+import { SuspendedActionModal } from "./SuspendedActionModal";
 
 interface RedemptionSession {
   sessionId: string;
@@ -24,6 +26,7 @@ interface RedemptionSession {
 export function RedemptionApprovals() {
   const account = useActiveAccount();
   const wallet = useActiveWallet();
+  const { userProfile } = useAuthStore();
   const { balanceData } = useCustomer();
   const [sessions, setSessions] = useState<RedemptionSession[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
@@ -31,8 +34,12 @@ export function RedemptionApprovals() {
   const [processing, setProcessing] = useState<string | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
   const [qrCodeData, setQrCodeData] = useState("");
+  const [showSuspendedModal, setShowSuspendedModal] = useState(false);
 
   const [sessionId, setSessionId] = useState<string | null>(null);
+
+  // Check if user is suspended
+  const isSuspended = userProfile?.suspended || false;
   
   // Shop list for dropdown
   const [shops, setShops] = useState<Array<{shopId: string; name: string; verified: boolean}>>([]);
@@ -42,6 +49,12 @@ export function RedemptionApprovals() {
   const [selectedApprovedSession, setSelectedApprovedSession] = useState<RedemptionSession | null>(null);
 
   const generateQRCode = async () => {
+    // Check if suspended
+    if (isSuspended) {
+      setShowSuspendedModal(true);
+      return;
+    }
+
     if (!account?.address) {
       toast.error("No wallet address found");
       return;
@@ -563,6 +576,13 @@ By signing this message, I approve the redemption of ${session.maxAmount} RCN to
         </div>
       )}
 
+      {/* Suspended Action Modal */}
+      <SuspendedActionModal
+        isOpen={showSuspendedModal}
+        onClose={() => setShowSuspendedModal(false)}
+        action="generate redemption QR code"
+        reason={userProfile?.suspensionReason}
+      />
     </div>
   );
 }

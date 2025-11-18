@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { QRScanner } from "@/components/ui/QRScanner";
 import Tooltip from "../ui/tooltip";
+import { useAuthStore } from "@/stores/authStore";
+import { SuspendedActionModal } from "./SuspendedActionModal";
 
 interface TransferForm {
   recipientAddress: string;
@@ -34,12 +36,17 @@ interface TransferHistory {
 
 export function TokenGiftingTab() {
   const account = useActiveAccount();
+  const { userProfile } = useAuthStore();
   const [activeView, setActiveView] = useState<"send" | "history">("send");
   const [isLoading, setIsLoading] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showSuspendedModal, setShowSuspendedModal] = useState(false);
   const [transferHistory, setTransferHistory] = useState<TransferHistory[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+
+  // Check if user is suspended
+  const isSuspended = userProfile?.suspended || false;
   
   const [formData, setFormData] = useState<TransferForm>({
     recipientAddress: "",
@@ -97,6 +104,12 @@ export function TokenGiftingTab() {
 
   // Show confirmation modal
   const handleSendTokens = () => {
+    // Check if suspended
+    if (isSuspended) {
+      setShowSuspendedModal(true);
+      return;
+    }
+
     if (!account?.address || !formData.recipientAddress || !formData.amount) {
       toast.error("Please fill in all required fields");
       return;
@@ -560,6 +573,14 @@ export function TokenGiftingTab() {
           </div>
         </div>
       )}
+
+      {/* Suspended Action Modal */}
+      <SuspendedActionModal
+        isOpen={showSuspendedModal}
+        onClose={() => setShowSuspendedModal(false)}
+        action="send token gifts"
+        reason={userProfile?.suspensionReason}
+      />
     </div>
   );
 }
