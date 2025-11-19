@@ -270,32 +270,6 @@ export const getCustomerInfo = async (
   }
 };
 
-export const getShopPromoCodes = async (
-  shopId: string
-): Promise<{ data: PromoCode[]; success: boolean }> => {
-  try {
-    return await apiClient.get(`/shops/${shopId}/promo-codes`);
-  } catch (error: any) {
-    console.error("Failed to get shop promo codes:", error.message);
-    throw error;
-  }
-};
-
-export const validatePromoCode = async (
-  shopId: string,
-  request: PromoValidationRequest
-): Promise<PromoValidationResponse> => {
-  try {
-    return await apiClient.post(
-      `/shops/${shopId}/promo-codes/validate`,
-      request
-    );
-  } catch (error: any) {
-    console.error("Failed to validate promo code:", error.message);
-    throw error;
-  }
-};
-
 export const issueReward = async (
   shopId: string,
   request: RewardRequest
@@ -333,6 +307,32 @@ export const getShopCustomers = async (shopId: string): Promise<ShopCustomersRes
     return await apiClient.get<ShopCustomersResponse>(`/shops/${shopId}/customers?limit=100`);
   } catch (error: any) {
     console.error("Failed to get shop customers:", error.message);
+    throw error;
+  }
+};
+
+export const getShopPromoCodes = async (
+  shopId: string
+): Promise<{ data: PromoCode[]; success: boolean }> => {
+  try {
+    return await apiClient.get(`/shops/${shopId}/promo-codes`);
+  } catch (error: any) {
+    console.error("Failed to get shop promo codes:", error.message);
+    throw error;
+  }
+};
+
+export const validatePromoCode = async (
+  shopId: string,
+  request: PromoValidationRequest
+): Promise<PromoValidationResponse> => {
+  try {
+    return await apiClient.post(
+      `/shops/${shopId}/promo-codes/validate`,
+      request
+    );
+  } catch (error: any) {
+    console.error("Failed to validate promo code:", error.message);
     throw error;
   }
 };
