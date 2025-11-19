@@ -55,6 +55,10 @@ export class RedemptionSessionService {
       throw new Error('Customer not found');
     }
 
+    if (!customer.isActive) {
+      throw new Error('Cannot create redemption session for suspended customers');
+    }
+
     // Validate customer has sufficient RCN balance
     const customerBalance = await customerRepository.getCustomerBalance(customerAddress);
     if (!customerBalance || customerBalance.totalBalance < amount) {

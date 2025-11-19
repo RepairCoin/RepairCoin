@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useNotificationStore } from '@/stores/notificationStore';
-import { useNotifications } from '@/hooks/useNotifications';
+import { useNotificationActions } from '@/hooks/useNotifications';
 import { formatDistanceToNow } from 'date-fns';
 
 interface NotificationModalProps {
@@ -160,7 +160,7 @@ export const NotificationBell: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<any>(null);
   const { notifications, unreadCount, isConnected } = useNotificationStore();
-  const { markAsRead, markAllAsRead, deleteNotification } = useNotifications();
+  const { markAsRead, markAllAsRead, deleteNotification } = useNotificationActions();
 
   const getNotificationIcon = (type: string) => {
     switch (type) {

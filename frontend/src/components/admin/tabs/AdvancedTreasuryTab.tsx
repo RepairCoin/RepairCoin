@@ -87,6 +87,7 @@ export const AdvancedTreasuryTab: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [pricingLoading, setPricingLoading] = useState(false);
   const [analyticsPeriod, setAnalyticsPeriod] = useState<'7d' | '30d' | '60d' | '90d'>('30d');
   
   // Modal state
@@ -97,6 +98,13 @@ export const AdvancedTreasuryTab: React.FC = () => {
   const [showEmergencyUnfreeze, setShowEmergencyUnfreeze] = useState(false);
   const [freezeStatus, setFreezeStatus] = useState<any>(null);
   const [auditHistory, setAuditHistory] = useState<any[]>([]);
+
+  // Loading states for modal actions
+  const [isSubmittingTransfer, setIsSubmittingTransfer] = useState(false);
+  const [isSubmittingBulkMint, setIsSubmittingBulkMint] = useState(false);
+  const [isSubmittingPricing, setIsSubmittingPricing] = useState(false);
+  const [isSubmittingFreeze, setIsSubmittingFreeze] = useState(false);
+  const [isSubmittingUnfreeze, setIsSubmittingUnfreeze] = useState(false);
   
   // Form state
   const [manualTransferForm, setManualTransferForm] = useState({
@@ -214,17 +222,46 @@ export const AdvancedTreasuryTab: React.FC = () => {
   };
 
   const loadPricing = async () => {
+    setPricingLoading(true);
     try {
+      console.log('[Treasury] Loading pricing data...');
       const [pricingResult, historyResult] = await Promise.all([
         getCurrentPricing(),
         getPricingHistory(undefined, 20)
       ]);
-      setPricingData(pricingResult.data);
-      setPricingHistory(historyResult.data || []);
-    } catch (error) {
-      console.error('Error loading pricing data:', error);
-      toast.error('Failed to load pricing data');
+
+      console.log('[Treasury] Pricing result:', pricingResult);
+      console.log('[Treasury] History result:', historyResult);
+
+      // The API already returns the data directly, no need to access .data again
+      setPricingData(pricingResult);
+      setPricingHistory(historyResult || []);
+
+      console.log('[Treasury] Pricing data loaded successfully');
+    } catch (error: any) {
+      console.error('[Treasury] Error loading pricing data:', {
+        error,
+        message: error?.message,
+        response: error?.response,
+        status: error?.status,
+        code: error?.code
+      });
+
+      // Show more specific error message based on error type
+      if (error?.status === 401 || error?.code === 'MISSING_AUTH_TOKEN') {
+        toast.error('Authentication required. Please reconnect your wallet.');
+      } else if (error?.status === 403) {
+        toast.error('Access denied. Admin privileges required.');
+      } else if (error?.message) {
+        toast.error(`Failed to load pricing data: ${error.message}`);
+      } else {
+        toast.error('Failed to load pricing data');
+      }
+
+      setPricingData(null);
       setPricingHistory([]);
+    } finally {
+      setPricingLoading(false);
     }
   };
 
@@ -238,13 +275,16 @@ export const AdvancedTreasuryTab: React.FC = () => {
   };
 
   const handleManualTransfer = async () => {
+    if (isSubmittingTransfer) return; // Prevent multiple submissions
+
+    setIsSubmittingTransfer(true);
     try {
-      const result = await manualTokenTransfer({
+      await manualTokenTransfer({
         customerAddress: manualTransferForm.customerAddress,
         amount: parseFloat(manualTransferForm.amount),
         reason: manualTransferForm.reason
       });
-      
+
       toast.success(`Successfully transferred ${manualTransferForm.amount} RCN to ${manualTransferForm.customerAddress}`);
       setShowManualTransfer(false);
       setManualTransferForm({ customerAddress: '', amount: '', reason: '' });
@@ -252,19 +292,24 @@ export const AdvancedTreasuryTab: React.FC = () => {
     } catch (error) {
       console.error('Error processing manual transfer:', error);
       toast.error('Failed to process manual transfer');
+    } finally {
+      setIsSubmittingTransfer(false);
     }
   };
 
   const handleBulkMint = async () => {
+    if (isSubmittingBulkMint) return; // Prevent multiple submissions
+
+    setIsSubmittingBulkMint(true);
     try {
       const recipients = bulkMintForm.recipients.split('\n').map(addr => addr.trim()).filter(addr => addr);
-      
+
       const result = await bulkMintTokens({
         recipients,
         amount: parseFloat(bulkMintForm.amount),
         reason: bulkMintForm.reason
       });
-      
+
       toast.success(`Bulk mint completed: ${result.data.successCount}/${result.data.totalRecipients} successful`);
       setShowBulkMint(false);
       setBulkMintForm({ recipients: '', amount: '', reason: '' });
@@ -272,17 +317,22 @@ export const AdvancedTreasuryTab: React.FC = () => {
     } catch (error) {
       console.error('Error processing bulk mint:', error);
       toast.error('Failed to process bulk mint');
+    } finally {
+      setIsSubmittingBulkMint(false);
     }
   };
 
   const handlePricingAdjust = async () => {
+    if (isSubmittingPricing) return; // Prevent multiple submissions
+
+    setIsSubmittingPricing(true);
     try {
-      const result = await adjustTokenPricing({
+      await adjustTokenPricing({
         tier: pricingForm.tier,
         newPrice: parseFloat(pricingForm.newPrice),
         reason: pricingForm.reason
       });
-      
+
       toast.success(`Successfully updated ${pricingForm.tier} tier pricing to $${pricingForm.newPrice}`);
       setShowPricingAdjust(false);
       setPricingForm({ tier: 'standard', newPrice: '', reason: '' });
@@ -290,6 +340,8 @@ export const AdvancedTreasuryTab: React.FC = () => {
     } catch (error) {
       console.error('Error adjusting pricing:', error);
       toast.error('Failed to adjust pricing');
+    } finally {
+      setIsSubmittingPricing(false);
     }
   };
 
@@ -313,40 +365,50 @@ export const AdvancedTreasuryTab: React.FC = () => {
   };
 
   const handleEmergencyFreeze = async () => {
+    if (isSubmittingFreeze) return; // Prevent multiple submissions
+
+    setIsSubmittingFreeze(true);
     try {
       const response = await emergencyFreeze(freezeReason);
-      
+
       if (response.success) {
         toast.error('🚨 Emergency freeze executed successfully');
         await loadFreezeStatus(); // Refresh freeze status
       } else {
         toast.error('❌ Emergency freeze partially failed');
       }
-      
+
       setShowEmergencyFreeze(false);
       setFreezeReason('');
     } catch (error) {
       console.error('Error processing emergency freeze:', error);
       toast.error('Failed to process emergency freeze');
+    } finally {
+      setIsSubmittingFreeze(false);
     }
   };
 
   const handleEmergencyUnfreeze = async () => {
+    if (isSubmittingUnfreeze) return; // Prevent multiple submissions
+
+    setIsSubmittingUnfreeze(true);
     try {
       const response = await emergencyUnfreeze(freezeReason);
-      
+
       if (response.success) {
         toast.success('✅ Emergency freeze lifted successfully');
         await loadFreezeStatus(); // Refresh freeze status
       } else {
         toast.error('❌ Emergency unfreeze partially failed');
       }
-      
+
       setShowEmergencyUnfreeze(false);
       setFreezeReason('');
     } catch (error) {
       console.error('Error processing emergency unfreeze:', error);
       toast.error('Failed to process emergency unfreeze');
+    } finally {
+      setIsSubmittingUnfreeze(false);
     }
   };
 
@@ -379,34 +441,37 @@ export const AdvancedTreasuryTab: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-white">Advanced Treasury Management</h1>
-        <div className="flex gap-3">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">Advanced Treasury Management</h1>
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+            className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 text-sm sm:text-base"
           >
             {refreshing && <RefreshCw className="w-4 h-4 animate-spin" />}
-            Refresh Data
+            <span className="hidden sm:inline">Refresh Data</span>
+            <span className="sm:hidden">Refresh</span>
           </button>
           {freezeStatus?.isFrozen ? (
             <button
               onClick={() => setShowEmergencyUnfreeze(true)}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+              className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
             >
               <Shield className="w-4 h-4" />
-              Lift Emergency Freeze
+              <span className="hidden sm:inline">Lift Emergency Freeze</span>
+              <span className="sm:hidden">Lift Freeze</span>
             </button>
           ) : (
             <button
               onClick={() => setShowEmergencyFreeze(true)}
-              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+              className="bg-red-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
             >
               <Shield className="w-4 h-4" />
-              Emergency Freeze
+              <span className="hidden sm:inline">Emergency Freeze</span>
+              <span className="sm:hidden">Freeze</span>
             </button>
           )}
         </div>
@@ -458,164 +523,166 @@ export const AdvancedTreasuryTab: React.FC = () => {
       )}
 
       {/* Navigation Tabs */}
-      <div className="flex space-x-1 bg-gray-800 rounded-xl p-1">
-        {[
-          { id: 'overview', label: 'Overview', icon: DollarSign },
-          { id: 'rcg', label: 'RCG Metrics', icon: PieChart },
-          { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-          { id: 'operations', label: 'Operations', icon: Settings },
-          { id: 'pricing', label: 'Pricing', icon: TrendingUp }
-        ].map((tab) => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-                activeTab === tab.id
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-700'
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              {tab.label}
-            </button>
-          );
-        })}
+      <div className="bg-gray-800 rounded-xl p-1">
+        <div className="flex overflow-x-auto scrollbar-hide space-x-1">
+          {[
+            { id: 'overview', label: 'Overview', icon: DollarSign },
+            { id: 'rcg', label: 'RCG Metrics', icon: PieChart },
+            { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+            { id: 'operations', label: 'Operations', icon: Settings },
+            { id: 'pricing', label: 'Pricing', icon: TrendingUp }
+          ].map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex-shrink-0 py-2 sm:py-3 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-medium transition-colors flex items-center justify-center gap-1 sm:gap-2 ${
+                  activeTab === tab.id
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                }`}
+              >
+                <Icon className="w-4 h-4 flex-shrink-0" />
+                <span className="whitespace-nowrap">{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Tab Content */}
       {activeTab === 'overview' && treasuryStats && (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Treasury Overview Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-xl p-6 border border-blue-700">
-              <div className="text-3xl mb-2">💎</div>
-              <p className="text-sm text-gray-400 mb-1">Total Revenue</p>
-              <p className="text-2xl font-bold text-white">{formatCurrency(treasuryStats.totalRevenue)}</p>
-              <p className="text-sm text-blue-400 mt-1">From shop purchases</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+            <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-xl p-4 sm:p-6 border border-blue-700">
+              <div className="text-2xl sm:text-3xl mb-2">💎</div>
+              <p className="text-xs sm:text-sm text-gray-400 mb-1">Total Revenue</p>
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-white break-words">{formatCurrency(treasuryStats.totalRevenue)}</p>
+              <p className="text-xs sm:text-sm text-blue-400 mt-1">From shop purchases</p>
             </div>
 
-            <div className="bg-gradient-to-br from-green-900 to-green-800 rounded-xl p-6 border border-green-700">
-              <div className="text-3xl mb-2">🏪</div>
-              <p className="text-sm text-gray-400 mb-1">RCN Sold to Shops</p>
-              <p className="text-2xl font-bold text-white">{formatNumber(treasuryStats.totalSold)} RCN</p>
-              <p className="text-sm text-green-400 mt-1">Available for rewards</p>
+            <div className="bg-gradient-to-br from-green-900 to-green-800 rounded-xl p-4 sm:p-6 border border-green-700">
+              <div className="text-2xl sm:text-3xl mb-2">🏪</div>
+              <p className="text-xs sm:text-sm text-gray-400 mb-1">RCN Sold to Shops</p>
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-white break-words">{formatNumber(treasuryStats.totalSold)} RCN</p>
+              <p className="text-xs sm:text-sm text-green-400 mt-1">Available for rewards</p>
             </div>
 
-            <div className="bg-gradient-to-br from-purple-900 to-purple-800 rounded-xl p-6 border border-purple-700">
-              <div className="text-3xl mb-2">🎁</div>
-              <p className="text-sm text-gray-400 mb-1">Circulating Supply</p>
-              <p className="text-2xl font-bold text-white">{formatNumber(treasuryStats.circulatingSupply || 0)} RCN</p>
-              <p className="text-sm text-purple-400 mt-1">In customer wallets</p>
+            <div className="bg-gradient-to-br from-purple-900 to-purple-800 rounded-xl p-4 sm:p-6 border border-purple-700">
+              <div className="text-2xl sm:text-3xl mb-2">🎁</div>
+              <p className="text-xs sm:text-sm text-gray-400 mb-1">Circulating Supply</p>
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-white break-words">{formatNumber(treasuryStats.circulatingSupply || 0)} RCN</p>
+              <p className="text-xs sm:text-sm text-purple-400 mt-1">In customer wallets</p>
             </div>
 
-            <div className="bg-gradient-to-br from-orange-900 to-orange-800 rounded-xl p-6 border border-orange-700">
-              <div className="text-3xl mb-2">⚠️</div>
-              <p className="text-sm text-gray-400 mb-1">Discrepancies</p>
-              <p className="text-2xl font-bold text-white">{treasuryStats.warnings?.customersWithMissingTokens || 0}</p>
-              <p className="text-sm text-orange-400 mt-1">Customers affected</p>
+            <div className="bg-gradient-to-br from-orange-900 to-orange-800 rounded-xl p-4 sm:p-6 border border-orange-700">
+              <div className="text-2xl sm:text-3xl mb-2">⚠️</div>
+              <p className="text-xs sm:text-sm text-gray-400 mb-1">Discrepancies</p>
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-white break-words">{treasuryStats.warnings?.customersWithMissingTokens || 0}</p>
+              <p className="text-xs sm:text-sm text-orange-400 mt-1">Customers affected</p>
             </div>
           </div>
         </div>
       )}
 
       {activeTab === 'rcg' && rcgMetrics && (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* RCG Token Overview */}
-          <div className="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700">
-            <h2 className="text-2xl font-bold text-white mb-6">RCG Token Distribution</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-gradient-to-br from-purple-900 to-purple-800 rounded-xl p-6 border border-purple-700">
-                <div className="text-3xl mb-2">💜</div>
-                <p className="text-sm text-gray-400 mb-1">Total Supply</p>
-                <p className="text-2xl font-bold text-white">{formatNumber(parseInt(rcgMetrics.totalSupply))} RCG</p>
+          <div className="bg-gray-800 rounded-xl sm:rounded-2xl shadow-xl p-4 sm:p-6 lg:p-8 border border-gray-700">
+            <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-white mb-4 sm:mb-6">RCG Token Distribution</h2>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
+              <div className="bg-gradient-to-br from-purple-900 to-purple-800 rounded-xl p-4 sm:p-6 border border-purple-700">
+                <div className="text-2xl sm:text-3xl mb-2">💜</div>
+                <p className="text-xs sm:text-sm text-gray-400 mb-1">Total Supply</p>
+                <p className="text-lg sm:text-xl lg:text-2xl font-bold text-white break-words">{formatNumber(parseInt(rcgMetrics.totalSupply))} RCG</p>
                 <p className="text-xs text-purple-400 mt-1">Fixed supply</p>
               </div>
-              
-              <div className="bg-gradient-to-br from-indigo-900 to-indigo-800 rounded-xl p-6 border border-indigo-700">
-                <div className="text-3xl mb-2">🔄</div>
-                <p className="text-sm text-gray-400 mb-1">Circulating Supply</p>
-                <p className="text-2xl font-bold text-white">{formatNumber(parseInt(rcgMetrics.circulatingSupply))} RCG</p>
+
+              <div className="bg-gradient-to-br from-indigo-900 to-indigo-800 rounded-xl p-4 sm:p-6 border border-indigo-700">
+                <div className="text-2xl sm:text-3xl mb-2">🔄</div>
+                <p className="text-xs sm:text-sm text-gray-400 mb-1">Circulating Supply</p>
+                <p className="text-lg sm:text-xl lg:text-2xl font-bold text-white break-words">{formatNumber(parseInt(rcgMetrics.circulatingSupply))} RCG</p>
                 <p className="text-xs text-indigo-400 mt-1">Available for trading</p>
               </div>
-              
-              <div className="bg-gradient-to-br from-pink-900 to-pink-800 rounded-xl p-6 border border-pink-700">
-                <div className="text-3xl mb-2">🏪</div>
-                <p className="text-sm text-gray-400 mb-1">Total Shops</p>
-                <p className="text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.total}</p>
+
+              <div className="bg-gradient-to-br from-pink-900 to-pink-800 rounded-xl p-4 sm:p-6 border border-pink-700 sm:col-span-2 lg:col-span-1">
+                <div className="text-2xl sm:text-3xl mb-2">🏪</div>
+                <p className="text-xs sm:text-sm text-gray-400 mb-1">Total Shops</p>
+                <p className="text-lg sm:text-xl lg:text-2xl font-bold text-white break-words">{rcgMetrics.shopTierDistribution.total}</p>
                 <p className="text-xs text-pink-400 mt-1">Active partners</p>
               </div>
             </div>
           </div>
 
           {/* Shop Tier Distribution */}
-          <div className="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700">
-            <h3 className="text-xl font-bold text-white mb-4">Shop Tier Distribution</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-gradient-to-br from-green-900 to-green-800 rounded-xl p-6 border border-green-700">
-                <div className="text-2xl mb-2">🥉</div>
-                <p className="text-sm text-gray-400 mb-1">Standard Tier</p>
-                <p className="text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.standard}</p>
+          <div className="bg-gray-800 rounded-xl sm:rounded-2xl shadow-xl p-4 sm:p-6 lg:p-8 border border-gray-700">
+            <h3 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">Shop Tier Distribution</h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="bg-gradient-to-br from-green-900 to-green-800 rounded-xl p-4 sm:p-6 border border-green-700">
+                <div className="text-xl sm:text-2xl mb-2">🥉</div>
+                <p className="text-xs sm:text-sm text-gray-400 mb-1">Standard Tier</p>
+                <p className="text-lg sm:text-xl lg:text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.standard}</p>
                 <p className="text-xs text-gray-500">10K-49K RCG</p>
               </div>
-              
-              <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-xl p-6 border border-blue-700">
-                <div className="text-2xl mb-2">🥈</div>
-                <p className="text-sm text-gray-400 mb-1">Premium Tier</p>
-                <p className="text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.premium}</p>
+
+              <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-xl p-4 sm:p-6 border border-blue-700">
+                <div className="text-xl sm:text-2xl mb-2">🥈</div>
+                <p className="text-xs sm:text-sm text-gray-400 mb-1">Premium Tier</p>
+                <p className="text-lg sm:text-xl lg:text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.premium}</p>
                 <p className="text-xs text-blue-400">50K-199K RCG</p>
               </div>
-              
-              <div className="bg-gradient-to-br from-yellow-900 to-yellow-800 rounded-xl p-6 border border-yellow-700">
-                <div className="text-2xl mb-2">🥇</div>
-                <p className="text-sm text-gray-400 mb-1">Elite Tier</p>
-                <p className="text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.elite}</p>
+
+              <div className="bg-gradient-to-br from-yellow-900 to-yellow-800 rounded-xl p-4 sm:p-6 border border-yellow-700">
+                <div className="text-xl sm:text-2xl mb-2">🥇</div>
+                <p className="text-xs sm:text-sm text-gray-400 mb-1">Elite Tier</p>
+                <p className="text-lg sm:text-xl lg:text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.elite}</p>
                 <p className="text-xs text-yellow-400">200K+ RCG</p>
               </div>
-              
-              <div className="bg-gradient-to-br from-red-900 to-red-800 rounded-xl p-6 border border-red-700">
-                <div className="text-2xl mb-2">❌</div>
-                <p className="text-sm text-gray-400 mb-1">No Tier</p>
-                <p className="text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.none}</p>
+
+              <div className="bg-gradient-to-br from-red-900 to-red-800 rounded-xl p-4 sm:p-6 border border-red-700">
+                <div className="text-xl sm:text-2xl mb-2">❌</div>
+                <p className="text-xs sm:text-sm text-gray-400 mb-1">No Tier</p>
+                <p className="text-lg sm:text-xl lg:text-2xl font-bold text-white">{rcgMetrics.shopTierDistribution.none}</p>
                 <p className="text-xs text-red-400">&lt;10K RCG</p>
               </div>
             </div>
           </div>
 
           {/* Revenue Impact */}
-          <div className="bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700">
-            <h3 className="text-xl font-bold text-white mb-4">Revenue Impact by Tier (30 days)</h3>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
-                  <p className="text-sm text-gray-400">Standard Tier Revenue</p>
-                  <p className="text-lg font-bold text-white">{formatCurrency(rcgMetrics.revenueImpact.standardRevenue)}</p>
+          <div className="bg-gray-800 rounded-xl sm:rounded-2xl shadow-xl p-4 sm:p-6 lg:p-8 border border-gray-700">
+            <h3 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">Revenue Impact by Tier (30 days)</h3>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
+              <div className="space-y-3 sm:space-y-4">
+                <div className="bg-gray-900 rounded-lg p-3 sm:p-4 border border-gray-700">
+                  <p className="text-xs sm:text-sm text-gray-400">Standard Tier Revenue</p>
+                  <p className="text-base sm:text-lg font-bold text-white break-words">{formatCurrency(rcgMetrics.revenueImpact.standardRevenue)}</p>
                 </div>
-                
-                <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
-                  <p className="text-sm text-gray-400">Premium Tier Revenue</p>
-                  <p className="text-lg font-bold text-white">{formatCurrency(rcgMetrics.revenueImpact.premiumRevenue)}</p>
+
+                <div className="bg-gray-900 rounded-lg p-3 sm:p-4 border border-gray-700">
+                  <p className="text-xs sm:text-sm text-gray-400">Premium Tier Revenue</p>
+                  <p className="text-base sm:text-lg font-bold text-white break-words">{formatCurrency(rcgMetrics.revenueImpact.premiumRevenue)}</p>
                 </div>
-                
-                <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
-                  <p className="text-sm text-gray-400">Elite Tier Revenue</p>
-                  <p className="text-lg font-bold text-white">{formatCurrency(rcgMetrics.revenueImpact.eliteRevenue)}</p>
+
+                <div className="bg-gray-900 rounded-lg p-3 sm:p-4 border border-gray-700">
+                  <p className="text-xs sm:text-sm text-gray-400">Elite Tier Revenue</p>
+                  <p className="text-base sm:text-lg font-bold text-white break-words">{formatCurrency(rcgMetrics.revenueImpact.eliteRevenue)}</p>
                 </div>
               </div>
-              
-              <div className="bg-gradient-to-br from-green-900 to-green-800 rounded-xl p-6 border border-green-700">
-                <div className="flex justify-between items-center">
+
+              <div className="bg-gradient-to-br from-green-900 to-green-800 rounded-xl p-4 sm:p-6 border border-green-700">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4">
                   <div>
-                    <p className="text-sm text-gray-400">Total Revenue</p>
-                    <p className="text-2xl font-bold text-white">{formatCurrency(rcgMetrics.revenueImpact.totalRevenue)}</p>
+                    <p className="text-xs sm:text-sm text-gray-400">Total Revenue</p>
+                    <p className="text-lg sm:text-xl lg:text-2xl font-bold text-white break-words">{formatCurrency(rcgMetrics.revenueImpact.totalRevenue)}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm text-gray-400">Discounts Given</p>
-                    <p className="text-xl font-bold text-red-400">-{formatCurrency(rcgMetrics.revenueImpact.discountsGiven)}</p>
+                  <div className="sm:text-right">
+                    <p className="text-xs sm:text-sm text-gray-400">Discounts Given</p>
+                    <p className="text-base sm:text-lg lg:text-xl font-bold text-red-400 break-words">-{formatCurrency(rcgMetrics.revenueImpact.discountsGiven)}</p>
                   </div>
                 </div>
               </div>
@@ -625,17 +692,17 @@ export const AdvancedTreasuryTab: React.FC = () => {
       )}
 
       {activeTab === 'analytics' && (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Analytics Controls */}
-          <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-white">Treasury Analytics</h2>
-              <div className="flex items-center gap-4">
-                <label className="text-sm text-gray-400">Period:</label>
+          <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+              <h2 className="text-lg sm:text-xl font-bold text-white">Treasury Analytics</h2>
+              <div className="flex items-center gap-2 sm:gap-4">
+                <label className="text-xs sm:text-sm text-gray-400">Period:</label>
                 <select
                   value={analyticsPeriod}
                   onChange={(e) => setAnalyticsPeriod(e.target.value as any)}
-                  className="bg-gray-700 text-white rounded-lg px-3 py-2 border border-gray-600"
+                  className="bg-gray-700 text-white rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-600 text-sm"
                 >
                   <option value="7d">Last 7 days</option>
                   <option value="30d">Last 30 days</option>
@@ -799,55 +866,55 @@ export const AdvancedTreasuryTab: React.FC = () => {
       )}
 
       {activeTab === 'operations' && (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Operations Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
             {/* Manual Token Transfer */}
-            <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-              <div className="flex items-center gap-3 mb-4">
-                <Send className="w-6 h-6 text-blue-500" />
-                <h3 className="text-lg font-bold text-white">Manual Transfer</h3>
+            <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
+              <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                <Send className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 flex-shrink-0" />
+                <h3 className="text-base sm:text-lg font-bold text-white">Manual Transfer</h3>
               </div>
-              <p className="text-gray-400 text-sm mb-4">
+              <p className="text-gray-400 text-xs sm:text-sm mb-3 sm:mb-4">
                 Send tokens directly to a customer address for discrepancy resolution.
               </p>
               <button
                 onClick={() => setShowManualTransfer(true)}
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base"
               >
                 Transfer Tokens
               </button>
             </div>
 
             {/* Bulk Token Minting */}
-            <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-              <div className="flex items-center gap-3 mb-4">
-                <Users className="w-6 h-6 text-green-500" />
-                <h3 className="text-lg font-bold text-white">Bulk Mint</h3>
+            <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
+              <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                <Users className="w-5 h-5 sm:w-6 sm:h-6 text-green-500 flex-shrink-0" />
+                <h3 className="text-base sm:text-lg font-bold text-white">Bulk Mint</h3>
               </div>
-              <p className="text-gray-400 text-sm mb-4">
+              <p className="text-gray-400 text-xs sm:text-sm mb-3 sm:mb-4">
                 Mass mint tokens for campaigns, airdrops, or promotional activities.
               </p>
               <button
                 onClick={() => setShowBulkMint(true)}
-                className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
+                className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors text-sm sm:text-base"
               >
                 Bulk Mint
               </button>
             </div>
 
             {/* Price Adjustment */}
-            <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-              <div className="flex items-center gap-3 mb-4">
-                <TrendingUp className="w-6 h-6 text-purple-500" />
-                <h3 className="text-lg font-bold text-white">Adjust Pricing</h3>
+            <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700 sm:col-span-2 lg:col-span-1">
+              <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-purple-500 flex-shrink-0" />
+                <h3 className="text-base sm:text-lg font-bold text-white">Adjust Pricing</h3>
               </div>
-              <p className="text-gray-400 text-sm mb-4">
+              <p className="text-gray-400 text-xs sm:text-sm mb-3 sm:mb-4">
                 Update RCN pricing for different shop tiers with full audit trail.
               </p>
               <button
                 onClick={() => setShowPricingAdjust(true)}
-                className="w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors"
+                className="w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors text-sm sm:text-base"
               >
                 Adjust Pricing
               </button>
@@ -857,79 +924,117 @@ export const AdvancedTreasuryTab: React.FC = () => {
       )}
 
       {activeTab === 'pricing' && (
-        <div className="space-y-6">
-          {/* Current Pricing Display */}
-          {pricingData && (
-            <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-              <h3 className="text-xl font-bold text-white mb-6">Current Tier Pricing</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {Object.entries(pricingData).map(([tier, data]) => (
-                  <div key={tier} className="bg-gray-900 rounded-lg p-6 border border-gray-700">
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="text-lg font-bold text-white capitalize">{tier} Tier</h4>
-                      <button
-                        onClick={() => {
-                          setPricingForm({ tier: tier as any, newPrice: data.pricePerRcn.toString(), reason: '' });
-                          setShowPricingAdjust(true);
-                        }}
-                        className="text-blue-400 hover:text-blue-300"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div>
-                        <p className="text-sm text-gray-400">Price per RCN</p>
-                        <p className="text-xl font-bold text-white">{formatCurrency(data.pricePerRcn)}</p>
-                      </div>
-                      
-                      <div>
-                        <p className="text-sm text-gray-400">Discount</p>
-                        <p className="text-lg font-semibold text-green-400">{data.discountPercentage}%</p>
-                      </div>
-                      
-                      <div className="pt-2 border-t border-gray-700">
-                        <p className="text-xs text-gray-500">Last updated: {new Date(data.updatedAt).toLocaleDateString()}</p>
-                        <p className="text-xs text-gray-500">By: {data.updatedBy}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+        <div className="space-y-4 sm:space-y-6">
+          {pricingLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <RefreshCw className="w-8 h-8 text-blue-500 animate-spin" />
+              <span className="ml-3 text-gray-400">Loading pricing data...</span>
             </div>
-          )}
+          ) : (
+            <>
+              {/* Current Pricing Display */}
+              {pricingData ? (
+                <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
+                  <h3 className="text-lg sm:text-xl font-bold text-white mb-4 sm:mb-6">Current Tier Pricing</h3>
 
-          {/* Pricing History */}
-          {pricingHistory && pricingHistory.length > 0 && (
-            <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-              <h3 className="text-xl font-bold text-white mb-6">Pricing History</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
+                    {Object.entries(pricingData).map(([tier, data]) => (
+                      <div key={tier} className="bg-gray-900 rounded-lg p-4 sm:p-6 border border-gray-700">
+                        <div className="flex items-center justify-between mb-3 sm:mb-4">
+                          <h4 className="text-base sm:text-lg font-bold text-white capitalize">{tier} Tier</h4>
+                          <button
+                            onClick={() => {
+                              setPricingForm({ tier: tier as any, newPrice: data.pricePerRcn.toString(), reason: '' });
+                              setShowPricingAdjust(true);
+                            }}
+                            className="text-blue-400 hover:text-blue-300 flex-shrink-0"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                        </div>
 
-              <div className="space-y-3">
-                {pricingHistory.slice(0, 10).map((entry) => (
-                  <div key={entry.id} className="bg-gray-900 rounded-lg p-4 border border-gray-700">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <span className="text-sm font-semibold text-white capitalize">{entry.tier}</span>
-                        <div className="flex items-center gap-2 text-sm">
-                          <span className="text-red-400">{formatCurrency(entry.oldPrice)}</span>
-                          <ArrowUpRight className="w-4 h-4 text-gray-500" />
-                          <span className="text-green-400">{formatCurrency(entry.newPrice)}</span>
+                        <div className="space-y-2">
+                          <div>
+                            <p className="text-xs sm:text-sm text-gray-400">Price per RCN</p>
+                            <p className="text-lg sm:text-xl font-bold text-white break-words">{formatCurrency(data.pricePerRcn)}</p>
+                          </div>
+
+                          <div>
+                            <p className="text-xs sm:text-sm text-gray-400">Discount</p>
+                            <p className="text-base sm:text-lg font-semibold text-green-400">{data.discountPercentage}%</p>
+                          </div>
+
+                          <div className="pt-2 border-t border-gray-700">
+                            <p className="text-xs text-gray-500">Last updated: {new Date(data.updatedAt).toLocaleDateString()}</p>
+                            <p className="text-xs text-gray-500 truncate" title={data.updatedBy}>By: {data.updatedBy}</p>
+                          </div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-xs text-gray-400">{new Date(entry.updatedAt).toLocaleString()}</p>
-                        <p className="text-xs text-gray-500">By {entry.updatedBy}</p>
-                      </div>
-                    </div>
-                    {entry.reason && (
-                      <p className="text-sm text-gray-400 mt-2">{entry.reason}</p>
-                    )}
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
+              ) : (
+                <div className="bg-gray-800 rounded-xl p-8 border border-gray-700">
+                  <div className="text-center">
+                    <div className="text-6xl mb-4">💰</div>
+                    <h3 className="text-xl font-bold text-white mb-2">No Pricing Data Available</h3>
+                    <p className="text-gray-400 mb-4">
+                      Unable to load pricing information. This could be due to:
+                    </p>
+                    <ul className="text-gray-500 text-sm space-y-1 mb-6">
+                      <li>• Pricing tables not initialized</li>
+                      <li>• Database connectivity issues</li>
+                      <li>• Missing required data</li>
+                      <li>• Authentication problems</li>
+                    </ul>
+                    <button
+                      onClick={loadPricing}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Try Again
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Pricing History */}
+              {pricingHistory && pricingHistory.length > 0 ? (
+                <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
+                  <h3 className="text-lg sm:text-xl font-bold text-white mb-4 sm:mb-6">Pricing History</h3>
+
+                  <div className="space-y-3">
+                    {pricingHistory.slice(0, 10).map((entry) => (
+                      <div key={entry.id} className="bg-gray-900 rounded-lg p-3 sm:p-4 border border-gray-700">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                            <span className="text-xs sm:text-sm font-semibold text-white capitalize">{entry.tier}</span>
+                            <div className="flex items-center gap-2 text-xs sm:text-sm">
+                              <span className="text-red-400">{formatCurrency(entry.oldPrice)}</span>
+                              <ArrowUpRight className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" />
+                              <span className="text-green-400">{formatCurrency(entry.newPrice)}</span>
+                            </div>
+                          </div>
+                          <div className="sm:text-right">
+                            <p className="text-xs text-gray-400">{new Date(entry.updatedAt).toLocaleString()}</p>
+                            <p className="text-xs text-gray-500 truncate" title={entry.updatedBy}>By {entry.updatedBy}</p>
+                          </div>
+                        </div>
+                        {entry.reason && (
+                          <p className="text-xs sm:text-sm text-gray-400 mt-2">{entry.reason}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : pricingData && (
+                <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
+                  <h3 className="text-lg sm:text-xl font-bold text-white mb-4">Pricing History</h3>
+                  <div className="text-center py-8 text-gray-500">
+                    No pricing history available yet. Price changes will appear here.
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -980,16 +1085,18 @@ export const AdvancedTreasuryTab: React.FC = () => {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowManualTransfer(false)}
-                className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
+                disabled={isSubmittingTransfer}
+                className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleManualTransfer}
-                disabled={!manualTransferForm.customerAddress || !manualTransferForm.amount || !manualTransferForm.reason}
-                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                disabled={!manualTransferForm.customerAddress || !manualTransferForm.amount || !manualTransferForm.reason || isSubmittingTransfer}
+                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                Transfer
+                {isSubmittingTransfer && <RefreshCw className="w-4 h-4 animate-spin" />}
+                {isSubmittingTransfer ? 'Transferring...' : 'Transfer'}
               </button>
             </div>
           </div>
@@ -1042,16 +1149,18 @@ export const AdvancedTreasuryTab: React.FC = () => {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowBulkMint(false)}
-                className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
+                disabled={isSubmittingBulkMint}
+                className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleBulkMint}
-                disabled={!bulkMintForm.recipients || !bulkMintForm.amount || !bulkMintForm.reason}
-                className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                disabled={!bulkMintForm.recipients || !bulkMintForm.amount || !bulkMintForm.reason || isSubmittingBulkMint}
+                className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                Mint Tokens
+                {isSubmittingBulkMint && <RefreshCw className="w-4 h-4 animate-spin" />}
+                {isSubmittingBulkMint ? 'Minting...' : 'Mint Tokens'}
               </button>
             </div>
           </div>
@@ -1105,16 +1214,18 @@ export const AdvancedTreasuryTab: React.FC = () => {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowPricingAdjust(false)}
-                className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
+                disabled={isSubmittingPricing}
+                className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handlePricingAdjust}
-                disabled={!pricingForm.newPrice || !pricingForm.reason}
-                className="flex-1 bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                disabled={!pricingForm.newPrice || !pricingForm.reason || isSubmittingPricing}
+                className="flex-1 bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                Update Pricing
+                {isSubmittingPricing && <RefreshCw className="w-4 h-4 animate-spin" />}
+                {isSubmittingPricing ? 'Updating...' : 'Update Pricing'}
               </button>
             </div>
           </div>
@@ -1148,16 +1259,18 @@ export const AdvancedTreasuryTab: React.FC = () => {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowEmergencyFreeze(false)}
-                className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
+                disabled={isSubmittingFreeze}
+                className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleEmergencyFreeze}
-                disabled={!freezeReason}
-                className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                disabled={!freezeReason || isSubmittingFreeze}
+                className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                🚨 Emergency Freeze
+                {isSubmittingFreeze && <RefreshCw className="w-4 h-4 animate-spin" />}
+                {isSubmittingFreeze ? 'Freezing...' : '🚨 Emergency Freeze'}
               </button>
             </div>
           </div>
@@ -1189,16 +1302,18 @@ export const AdvancedTreasuryTab: React.FC = () => {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowEmergencyUnfreeze(false)}
-                className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
+                disabled={isSubmittingUnfreeze}
+                className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleEmergencyUnfreeze}
-                disabled={!freezeReason}
-                className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                disabled={!freezeReason || isSubmittingUnfreeze}
+                className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                ✅ Lift Emergency Freeze
+                {isSubmittingUnfreeze && <RefreshCw className="w-4 h-4 animate-spin" />}
+                {isSubmittingUnfreeze ? 'Unfreezing...' : '✅ Lift Emergency Freeze'}
               </button>
             </div>
           </div>

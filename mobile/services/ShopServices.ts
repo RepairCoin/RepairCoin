@@ -200,7 +200,8 @@ export const createStripeCheckout = async (amount: number): Promise<PurchaseToke
       console.log('[createStripeCheckout] Token preview:', token.substring(0, 20) + '...');
     }
     
-    const response = await apiClient.post<PurchaseTokenResponse>("/shops/purchase/stripe-checkout", { amount });
+    // Include platform parameter to indicate this is from mobile
+    const response = await apiClient.post<PurchaseTokenResponse>("/shops/purchase/stripe-checkout?platform=mobile", { amount });
     return response;
   } catch (error: any) {
     console.error("Failed to create Stripe checkout:", error.message);

@@ -30,7 +30,8 @@ const client = createThirdwebClient({
 export default function AdminDashboardClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isAuthenticated, userType } = useAuthStore();
+  const { isAuthenticated, userType, isLoading: authLoading } = useAuthStore();
+  const [authInitialized, setAuthInitialized] = useState(false);
 
   // Connect to Thirdweb and populate auth store
   useAuth();
@@ -43,9 +44,38 @@ export default function AdminDashboardClient() {
     adminRole,
   } = useAdminAuth();
 
+  // Mark auth as initialized once authentication has been attempted
+  useEffect(() => {
+    // Auth is initialized when we have a definitive state:
+    // 1. We have a userProfile (successfully authenticated), OR
+    // 2. We have an account but no userProfile and auth is not loading (auth failed/not an admin), OR
+    // 3. We don't have an account and auth is not loading (no wallet connected)
+
+    if (userType !== null) {
+      // We have a user profile - auth is complete
+      setAuthInitialized(true);
+    } else if (account && !authLoading) {
+      // We have a wallet but no profile and not loading - give it a moment for auth to start
+      // This prevents premature redirect during the brief moment between wallet connection and auth start
+      const timer = setTimeout(() => {
+        setAuthInitialized(true);
+      }, 500); // 500ms delay to allow auth initialization to begin
+      return () => clearTimeout(timer);
+    } else if (!account && !authLoading) {
+      // No wallet and not loading - definitely not authenticated
+      setAuthInitialized(true);
+    }
+  }, [account, authLoading, userType]);
+
   // Client-side auth protection (since middleware is disabled for cross-domain)
   useEffect(() => {
-    // Wait for auth to initialize before checking
+    // CRITICAL: Wait for auth to initialize before redirecting
+    // This prevents redirect on page refresh while session is being restored
+    if (!authInitialized) {
+      console.log('[AdminDashboard] Auth not initialized yet, waiting...');
+      return;
+    }
+
     // Don't redirect if we're still loading (isAuthenticated is false but may become true)
     if (isAuthenticated === false && userType) {
       // Auth has loaded and user is not authenticated
@@ -56,7 +86,7 @@ export default function AdminDashboardClient() {
       console.log('[AdminDashboard] Wrong role, redirecting to home');
       router.push('/');
     }
-  }, [isAuthenticated, userType, router]);
+  }, [isAuthenticated, userType, router, authInitialized]);
 
   // UI state
   const [activeTab, setActiveTab] = useState("overview");
@@ -199,6 +229,33 @@ export default function AdminDashboardClient() {
     // Update the URL without reloading the page
     window.history.pushState({}, "", url);
   };
+
+  // Loading state - while auth is initializing
+  if (!authInitialized || authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div
+          className="min-h-screen py-8 bg-[#0D0D0D] flex items-center justify-center"
+          style={{
+            backgroundImage: `url('/img/dashboard-bg.png')`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+          }}
+        >
+          <div className="text-center rounded-lg p-8 border-gray-800 border-2 bg-[#212121]">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFCC00] mx-auto mb-4"></div>
+            <h3 className="text-xl font-semibold text-[#FFCC00] mb-4">
+              Initializing...
+            </h3>
+            <p className="text-gray-300">
+              Checking your authentication status
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!account) {
     return (

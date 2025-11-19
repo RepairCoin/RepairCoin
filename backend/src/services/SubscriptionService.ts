@@ -231,26 +231,60 @@ export class SubscriptionService extends BaseRepository {
     currentPeriodStart?: Date;
     currentPeriodEnd?: Date;
   }): Promise<SubscriptionData> {
-    const query = `
-      INSERT INTO stripe_subscriptions (
-        shop_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, 
-        status, metadata, current_period_start, current_period_end, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      RETURNING *
-    `;
-    
-    const result = await this.pool.query(query, [
-      params.shopId,
-      params.stripeCustomerId,
-      params.stripeSubscriptionId,
-      params.stripePriceId,
-      params.status,
-      JSON.stringify(params.metadata || {}),
-      params.currentPeriodStart || new Date(),
-      params.currentPeriodEnd || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
-    ]);
-    
-    return this.mapSubscriptionRow(result.rows[0]);
+    const client = await this.pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const query = `
+        INSERT INTO stripe_subscriptions (
+          shop_id, stripe_customer_id, stripe_subscription_id, stripe_price_id,
+          status, metadata, current_period_start, current_period_end, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        RETURNING *
+      `;
+
+      const result = await client.query(query, [
+        params.shopId,
+        params.stripeCustomerId,
+        params.stripeSubscriptionId,
+        params.stripePriceId,
+        params.status,
+        JSON.stringify(params.metadata || {}),
+        params.currentPeriodStart || new Date(),
+        params.currentPeriodEnd || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
+      ]);
+
+      // Update shop operational_status if subscription is active
+      const activeStatuses = ['active', 'past_due', 'unpaid'];
+      if (activeStatuses.includes(params.status)) {
+        const updateShopQuery = `
+          UPDATE shops
+          SET operational_status = 'subscription_qualified',
+              updated_at = CURRENT_TIMESTAMP
+          WHERE shop_id = $1
+        `;
+        await client.query(updateShopQuery, [params.shopId]);
+
+        logger.info('Shop operational status set to subscription_qualified', {
+          shopId: params.shopId,
+          subscriptionId: params.stripeSubscriptionId,
+          subscriptionStatus: params.status
+        });
+      }
+
+      await client.query('COMMIT');
+
+      return this.mapSubscriptionRow(result.rows[0]);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      logger.error('Failed to create subscription record', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   /**
@@ -443,10 +477,25 @@ export class SubscriptionService extends BaseRepository {
       const currentPeriodEnd = (stripeSubscription as any).current_period_end;
       const canceledAt = stripeSubscription.canceled_at;
 
-      // Validate timestamps before converting
-      if (!currentPeriodStart || !currentPeriodEnd) {
-        throw new Error('Missing required period dates from Stripe subscription');
-      }
+      // Log the subscription data for debugging
+      logger.info('Stripe subscription data received', {
+        subscriptionId: stripeSubscriptionId,
+        status: stripeSubscription.status,
+        hasPeriodStart: !!currentPeriodStart,
+        hasPeriodEnd: !!currentPeriodEnd,
+        periodStart: currentPeriodStart,
+        periodEnd: currentPeriodEnd,
+        canceledAt: canceledAt
+      });
+
+      // For canceled subscriptions, use fallback dates if period dates are missing
+      const periodStart = currentPeriodStart
+        ? new Date(currentPeriodStart * 1000)
+        : new Date(); // Fallback to current date
+
+      const periodEnd = currentPeriodEnd
+        ? new Date(currentPeriodEnd * 1000)
+        : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // Fallback to 30 days from now
 
       // Update database with latest Stripe data
       const updateQuery = `
@@ -464,12 +513,51 @@ export class SubscriptionService extends BaseRepository {
 
       const updateResult = await client.query(updateQuery, [
         actualStatus,
-        new Date(currentPeriodStart * 1000),
-        new Date(currentPeriodEnd * 1000),
+        periodStart,
+        periodEnd,
         stripeSubscription.cancel_at_period_end || false,
         canceledAt ? new Date(canceledAt * 1000) : null,
         stripeSubscriptionId
       ]);
+
+      // Update shop operational_status based on subscription status
+      const shopId = updateResult.rows[0].shop_id;
+      const activeStatuses = ['active', 'past_due', 'unpaid'];
+      const isActive = activeStatuses.includes(actualStatus);
+
+      // Get shop's RCG balance to determine operational status
+      const shopQuery = `SELECT rcg_balance FROM shops WHERE shop_id = $1`;
+      const shopResult = await client.query(shopQuery, [shopId]);
+
+      if (shopResult.rows.length > 0) {
+        const rcgBalance = shopResult.rows[0].rcg_balance || 0;
+        let operationalStatus: string;
+
+        if (isActive) {
+          operationalStatus = 'subscription_qualified';
+        } else if (rcgBalance >= 10000) {
+          operationalStatus = 'rcg_qualified';
+        } else {
+          operationalStatus = 'not_qualified';
+        }
+
+        // Update shop operational status
+        const updateShopQuery = `
+          UPDATE shops
+          SET operational_status = $1,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE shop_id = $2
+        `;
+        await client.query(updateShopQuery, [operationalStatus, shopId]);
+
+        logger.info('Shop operational status updated during subscription sync', {
+          shopId,
+          subscriptionId: stripeSubscriptionId,
+          subscriptionStatus: actualStatus,
+          operationalStatus,
+          rcgBalance
+        });
+      }
 
       await client.query('COMMIT');
 

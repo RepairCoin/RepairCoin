@@ -44,9 +44,11 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showReactivateModal, setShowReactivateModal] = useState(false);
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
+  const [reactivating, setReactivating] = useState(false);
   const [cancellationReason, setCancellationReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -214,24 +216,17 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
         throw new Error(result.error || 'Failed to cancel subscription');
       }
 
-      // Update subscription state
-      if (result.data.subscription) {
-        setSubscription({
-          ...result.data.subscription,
-          subscriptionType: 'stripe_subscription'
-        });
-      } else {
-        // Reload to get updated status
-        await loadSubscriptionStatus();
-      }
       setShowCancelModal(false);
       setCancellationReason('');
-      
+
       // Show success message
       setSuccessMessage(result.data.message || 'Subscription cancelled successfully. You can resubscribe at any time.');
-      
+
       // Clear success message after 10 seconds
       setTimeout(() => setSuccessMessage(null), 10000);
+
+      // Reload to ensure we have the latest status with properly formatted data
+      await loadSubscriptionStatus();
     } catch (error) {
       console.error('Error cancelling subscription:', error);
       setError(error instanceof Error ? error.message : 'Failed to cancel subscription');
@@ -242,7 +237,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
 
   const handleReactivate = async () => {
     try {
-      setSubscribing(true);
+      setReactivating(true);
       setError(null);
 
       const result = await apiClient.post('/shops/subscription/reactivate');
@@ -251,27 +246,21 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
         throw new Error(result.error || 'Failed to reactivate subscription');
       }
 
-      // Update subscription state
-      if (result.data.subscription) {
-        setSubscription({
-          ...result.data.subscription,
-          subscriptionType: 'stripe_subscription'
-        });
-      }
-      
+      setShowReactivateModal(false);
+
       // Show success message
       setSuccessMessage(result.data.message || 'Subscription reactivated successfully! Your subscription will continue as normal.');
-      
+
       // Clear success message after 10 seconds
       setTimeout(() => setSuccessMessage(null), 10000);
-      
-      // Reload to ensure we have the latest status
+
+      // Reload to ensure we have the latest status with properly formatted data
       await loadSubscriptionStatus();
     } catch (error) {
       console.error('Error reactivating subscription:', error);
       setError(error instanceof Error ? error.message : 'Failed to reactivate subscription');
     } finally {
-      setSubscribing(false);
+      setReactivating(false);
     }
   };
 
@@ -377,12 +366,19 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
             <div className="bg-gray-800 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Calendar className="w-4 h-4 text-gray-400" />
-                <span className="text-sm text-gray-400">Next Payment</span>
+                <span className="text-sm text-gray-400">
+                  {subscription.cancelAtPeriodEnd ? 'Subscription Ends' : 'Next Payment'}
+                </span>
               </div>
               <p className="text-xl font-bold text-white">
-                {subscription.nextPaymentDate 
-                  ? new Date(subscription.nextPaymentDate).toLocaleDateString()
-                  : 'Not scheduled'}
+                {subscription.cancelAtPeriodEnd
+                  ? (subscription.currentPeriodEnd
+                      ? new Date(subscription.currentPeriodEnd).toLocaleDateString()
+                      : new Date(subscription.nextPaymentDate || '').toLocaleDateString())
+                  : (subscription.nextPaymentDate
+                      ? new Date(subscription.nextPaymentDate).toLocaleDateString()
+                      : 'Not scheduled')
+                }
               </p>
             </div>
           </div>
@@ -392,7 +388,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
             {subscription.cancelAtPeriodEnd ? (
               <div>
                 <Button
-                  onClick={handleReactivate}
+                  onClick={() => setShowReactivateModal(true)}
                   className="bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold"
                 >
                   Reactivate Subscription
@@ -646,6 +642,66 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
               className="bg-[#FFCC00] hover:bg-[#FFD700] text-black"
             >
               {subscribing ? 'Creating...' : 'Create Subscription'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reactivate Modal */}
+      <Dialog open={showReactivateModal} onOpenChange={setShowReactivateModal}>
+        <DialogContent className="sm:max-w-md bg-[#1A1A1A] border-gray-800 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-white">Reactivate Subscription</DialogTitle>
+            <DialogDescription className="pt-2 text-gray-400">
+              Confirm that you want to reactivate your subscription and continue with automatic billing.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
+              <h4 className="font-semibold text-green-400 mb-3">After reactivation:</h4>
+              <ul className="space-y-2 text-sm text-green-300">
+                <li className="flex items-start gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-400 mt-0.5" />
+                  <span>Your subscription will continue automatically</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-400 mt-0.5" />
+                  <span>You'll be charged $500 on your next billing date</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-400 mt-0.5" />
+                  <span>Full operational status will be maintained</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-400 mt-0.5" />
+                  <span>Continue issuing rewards and processing redemptions</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-3">
+              <p className="text-sm text-yellow-300">
+                Your subscription will no longer end on {subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString() : 'the scheduled date'} and will renew automatically.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-3 sm:gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setShowReactivateModal(false)}
+              disabled={reactivating}
+              className="flex-1 bg-transparent border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleReactivate}
+              disabled={reactivating}
+              className="flex-1 bg-[#FFCC00] hover:bg-[#FFD700] text-black font-semibold disabled:opacity-50"
+            >
+              {reactivating ? 'Reactivating...' : 'Confirm Reactivation'}
             </Button>
           </DialogFooter>
         </DialogContent>

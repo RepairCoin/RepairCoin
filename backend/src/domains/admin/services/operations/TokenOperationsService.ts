@@ -59,11 +59,26 @@ export class TokenOperationsService {
         throw new Error('Customer not found');
       }
 
+      // Get blockchain balance to check remaining mintable amount
+      const tokenService = new TokenService();
+      const blockchainBalance = await tokenService.getBalance(params.customerAddress);
+      const remainingMintable = Math.max(0, customer.lifetimeEarnings - blockchainBalance);
+
+      // Validate mint amount doesn't exceed remaining mintable
+      if (params.amount > remainingMintable) {
+        throw new Error(
+          `Cannot mint ${params.amount} RCN. Customer has ${customer.lifetimeEarnings} lifetime earnings ` +
+          `and ${blockchainBalance} already minted on blockchain. Maximum mintable: ${remainingMintable} RCN`
+        );
+      }
+
       logger.info('Admin manual token mint', {
         adminAddress: params.adminAddress,
         customerAddress: params.customerAddress,
         amount: params.amount,
-        reason: params.reason
+        reason: params.reason,
+        remainingMintable,
+        blockchainBalance
       });
 
       // Mint tokens using TokenMinter
@@ -303,6 +318,41 @@ export class TokenOperationsService {
     }
   }
 
+  async getShopPendingMintAmount(shopId: string): Promise<number> {
+    try {
+      const db = treasuryRepository;
+
+      // Try with minted_at column first
+      let unmintedQuery;
+      try {
+        unmintedQuery = await db.query(`
+          SELECT COALESCE(SUM(amount), 0) as pending_mint_amount
+          FROM shop_rcn_purchases
+          WHERE shop_id = $1
+            AND status = 'completed'
+            AND minted_at IS NULL
+        `, [shopId]);
+      } catch (error: any) {
+        // Fallback if minted_at column doesn't exist
+        if (error.message?.includes('minted_at') || error.message?.includes('column')) {
+          unmintedQuery = await db.query(`
+            SELECT COALESCE(SUM(amount), 0) as pending_mint_amount
+            FROM shop_rcn_purchases
+            WHERE shop_id = $1
+              AND status = 'completed'
+          `, [shopId]);
+        } else {
+          throw error;
+        }
+      }
+
+      return parseFloat(unmintedQuery.rows[0]?.pending_mint_amount || '0');
+    } catch (error) {
+      logger.error('Failed to get shop pending mint amount', { shopId, error: error.message });
+      return 0;
+    }
+  }
+
   async getShopsWithPendingMints() {
     try {
       logger.debug('Starting optimized getShopsWithPendingMints operation');
@@ -455,7 +505,7 @@ export class TokenOperationsService {
       }
 
       if (purchasesToMint.rowCount === 0) {
-        throw new Error('No balance to mint');
+        throw new Error('No unminted purchases found. All completed RCN purchases have already been minted to the blockchain.');
       }
 
       const totalToMint = purchasesToMint.rows.reduce((sum, p) => sum + parseFloat(p.amount), 0);

@@ -24,9 +24,29 @@ export class ShopManagementService {
         verified: filters.verified
       });
 
+      // Add pending mint amount to each shop
+      const { tokenOperationsService } = await import('../operations/TokenOperationsService');
+      const shopsWithPendingMints = await Promise.all(
+        result.items.map(async (shop) => {
+          try {
+            const pendingMintAmount = await tokenOperationsService.getShopPendingMintAmount(shop.shopId);
+            return {
+              ...shop,
+              pendingMintAmount
+            };
+          } catch (error) {
+            logger.error(`Error getting pending mint amount for shop ${shop.shopId}:`, error);
+            return {
+              ...shop,
+              pendingMintAmount: 0
+            };
+          }
+        })
+      );
+
       return {
-        shops: result.items,
-        count: result.items.length
+        shops: shopsWithPendingMints,
+        count: shopsWithPendingMints.length
       };
     } catch (error) {
       logger.error('Error getting shops:', error);

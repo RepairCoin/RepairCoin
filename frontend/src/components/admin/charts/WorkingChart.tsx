@@ -177,13 +177,13 @@ export const WorkingChart: React.FC<WorkingChartProps> = ({
       </div>
       
       <div className="relative" style={{ height: `${height + 60}px` }}>
-        <div className="absolute left-0 top-0 flex flex-col justify-between text-sm font-medium text-[#FFCC00]/70 w-16" style={{ height: `${height}px` }}>
-          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30">{formatValue(maxValue)}</span>
-          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30">{formatValue((maxValue + minValue) / 2)}</span>
-          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30">{formatValue(minValue)}</span>
+        <div className="absolute left-0 top-0 flex flex-col justify-between text-xs font-medium text-[#FFCC00]/70 w-auto min-w-16 max-w-32" style={{ height: `${height}px` }}>
+          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30 whitespace-nowrap">{formatValue(maxValue)}</span>
+          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30 whitespace-nowrap">{formatValue((maxValue + minValue) / 2)}</span>
+          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30 whitespace-nowrap">{formatValue(minValue)}</span>
         </div>
-        
-        <div className="ml-20 relative bg-gradient-to-br from-[#0D0D0D] to-[#212121] rounded-xl border border-[#FFCC00]/30 shadow-inner" style={{ height: `${height}px` }}>
+
+        <div className="ml-36 relative bg-gradient-to-br from-[#0D0D0D] to-[#212121] rounded-xl border border-[#FFCC00]/30 shadow-inner" style={{ height: `${height}px` }}>
           <div className="absolute inset-0 p-2">
             {[0, 0.25, 0.5, 0.75, 1].map((percent) => (
               <div
@@ -207,14 +207,14 @@ export const WorkingChart: React.FC<WorkingChartProps> = ({
         
         {/* X-axis labels */}
         {type === 'bar' ? (
-          <div className="absolute bottom-0 left-20 right-0 flex gap-1 mt-4">
+          <div className="absolute bottom-0 left-36 right-0 flex gap-1 mt-4">
             {data.map((point, index) => (
-              <div 
+              <div
                 key={index}
                 className="flex-1 text-center"
                 style={{ maxWidth: `${100 / data.length}%` }}
               >
-                <span 
+                <span
                   className="bg-gray-700 px-1 py-1 rounded shadow-sm text-white text-xs block truncate"
                   title={point.date}
                   style={{ fontSize: '10px' }}
@@ -225,7 +225,7 @@ export const WorkingChart: React.FC<WorkingChartProps> = ({
             ))}
           </div>
         ) : (
-          <div className="absolute bottom-0 left-20 right-0 flex justify-between text-sm font-medium text-gray-300 mt-4">
+          <div className="absolute bottom-0 left-36 right-0 flex justify-between text-sm font-medium text-gray-300 mt-4">
             {data.length > 0 && (
               <>
                 <span className="bg-gray-700 px-2 py-1 rounded shadow-sm text-white">{data[0].date.length > 10 ? new Date(data[0].date).toLocaleDateString() : data[0].date}</span>
@@ -319,13 +319,13 @@ export const WorkingLineChart: React.FC<WorkingLineChartProps> = ({
       </div>
       
       <div className="relative" style={{ height: `${height + 40}px` }}>
-        <div className="absolute left-0 top-0 flex flex-col justify-between text-xs text-[#FFCC00]/70 w-16" style={{ height: `${height}px` }}>
-          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30">{formatValue(maxValue)}</span>
-          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30">{formatValue((maxValue + minValue) / 2)}</span>
-          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30">{formatValue(minValue)}</span>
+        <div className="absolute left-0 top-0 flex flex-col justify-between text-xs text-[#FFCC00]/70 w-auto min-w-16 max-w-32" style={{ height: `${height}px` }}>
+          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30 whitespace-nowrap">{formatValue(maxValue)}</span>
+          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30 whitespace-nowrap">{formatValue((maxValue + minValue) / 2)}</span>
+          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30 whitespace-nowrap">{formatValue(minValue)}</span>
         </div>
-        
-        <div className="ml-20 relative bg-gradient-to-br from-[#0D0D0D] to-[#212121] rounded-xl border border-[#FFCC00]/30 shadow-inner" style={{ height: `${height}px` }}>
+
+        <div className="ml-36 relative bg-gradient-to-br from-[#0D0D0D] to-[#212121] rounded-xl border border-[#FFCC00]/30 shadow-inner" style={{ height: `${height}px` }}>
           <div className="absolute inset-0">
             {[0, 0.25, 0.5, 0.75, 1].map((percent) => (
               <div
@@ -431,7 +431,7 @@ export const WorkingLineChart: React.FC<WorkingLineChartProps> = ({
           </div>
         </div>
         
-        <div className="absolute bottom-0 left-20 right-0 flex justify-between text-xs text-[#FFCC00]/70 mt-2">
+        <div className="absolute bottom-0 left-36 right-0 flex justify-between text-xs text-[#FFCC00]/70 mt-2">
           {data.length > 0 && (
             <>
               <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30">{new Date(data[0].date).toLocaleDateString()}</span>

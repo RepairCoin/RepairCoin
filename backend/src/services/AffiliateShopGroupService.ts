@@ -14,6 +14,7 @@ export interface CreateGroupRequest {
   createdByShopId: string;
   groupType: 'public' | 'private';
   logoUrl?: string;
+  icon?: string;
   autoApproveRequests?: boolean;
 }
 
@@ -76,6 +77,7 @@ export class AffiliateShopGroupService {
         createdByShopId: request.createdByShopId,
         groupType: request.groupType,
         logoUrl: request.logoUrl,
+        icon: request.icon,
         inviteCode,
         autoApproveRequests: request.autoApproveRequests
       };
@@ -701,6 +703,31 @@ export class AffiliateShopGroupService {
       return await this.repository.getShopRcnAllocations(shopId);
     } catch (error) {
       logger.error('Error getting shop RCN allocations:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get customers who have earned or redeemed tokens in a group
+   */
+  async getGroupCustomers(
+    groupId: string,
+    options: {
+      page?: number;
+      limit?: number;
+      search?: string;
+    } = {}
+  ) {
+    try {
+      // Verify group exists
+      const group = await this.repository.getGroupById(groupId);
+      if (!group) {
+        throw new Error('Group not found');
+      }
+
+      return await this.repository.getGroupCustomers(groupId, options);
+    } catch (error) {
+      logger.error('Error getting group customers:', error);
       throw error;
     }
   }

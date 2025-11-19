@@ -24,7 +24,9 @@ export interface Shop {
   joinDate?: string;
   join_date?: string;
   suspended_at?: string;
+  suspendedAt?: string;
   suspension_reason?: string;
+  suspensionReason?: string;
   unsuspendRequest?: {
     id: string;
     requestReason: string;
@@ -72,14 +74,15 @@ export function useShopsData() {
       const shopsArray = Array.isArray(allShops) ? allShops : [];
 
       // Separate shops based on their status
+      // Check both snake_case and camelCase for suspension fields
       const activeVerifiedShops = shopsArray.filter(
-        (shop: any) => shop.active && shop.verified && !shop.suspended_at
+        (shop: any) => shop.active && shop.verified && !shop.suspended_at && !shop.suspendedAt
       );
       const pendingShopsList = shopsArray.filter(
-        (shop: any) => !shop.verified && !shop.suspended_at
+        (shop: any) => !shop.verified && !shop.suspended_at && !shop.suspendedAt
       );
       const rejectedShopsList = shopsArray.filter(
-        (shop: any) => shop.suspended_at || (!shop.active && shop.verified)
+        (shop: any) => shop.suspended_at || shop.suspendedAt || (!shop.active && shop.verified)
       );
 
       setShops(activeVerifiedShops);
@@ -136,10 +139,10 @@ export function useShopsData() {
         throw new Error("Failed to approve shop");
       }
       await refreshData();
-      toast.success(`Shop ${shopId} approved successfully!`);
+      // Toast removed - let the component handle notifications
     } catch (error: any) {
       console.error("Error approving shop:", error);
-      toast.error(error.message || "Failed to approve shop");
+      throw error; // Re-throw to let component handle the error
     }
   };
 
@@ -157,10 +160,10 @@ export function useShopsData() {
         }
       }
       await refreshData();
-      toast.success(`Shop ${shopId} rejected successfully!`);
+      // Toast removed - let the component handle notifications
     } catch (error: any) {
       console.error("Error rejecting shop:", error);
-      toast.error(error.message || "Failed to reject shop");
+      throw error; // Re-throw to let component handle the error
     }
   };
 

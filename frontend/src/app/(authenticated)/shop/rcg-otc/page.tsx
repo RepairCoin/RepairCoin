@@ -109,7 +109,10 @@ Please process this OTC purchase request.
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-4xl">
+    <div className="w-full h-full p-6 bg-black">
+      <div className='container mx-auto max-w-4xl'>
+
+      
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-[#FFCC00] mb-2">RCG Bulk Purchase</h1>
         <p className="text-gray-400">Purchase RCG tokens in bulk at current market price + 5% convenience fee</p>
@@ -273,6 +276,7 @@ Please process this OTC purchase request.
             {isProcessing ? 'Processing...' : 'Submit Purchase Request'}
           </Button>
         </div>
+      </div>
       </div>
     </div>
   );

@@ -43,6 +43,7 @@ interface Shop {
   crossShopEnabled?: boolean;
   cross_shop_enabled?: boolean;
   purchasedRcnBalance?: number;
+  pendingMintAmount?: number;
   walletAddress?: string;
   wallet_address?: string;
   walletBalance?: number;
@@ -51,7 +52,9 @@ interface Shop {
   joinDate?: string;
   join_date?: string;
   suspended_at?: string;
+  suspendedAt?: string;
   suspension_reason?: string;
+  suspensionReason?: string;
   // Unsuspend request fields
   unsuspendRequest?: {
     id: string;
@@ -236,7 +239,10 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
   const allShops = [
     ...activeShops.map((s) => ({ ...s, status: "active" as const })),
     ...pendingShops.map((s) => ({ ...s, status: "pending" as const })),
-    ...rejectedShops.map((s) => ({ ...s, status: "rejected" as const })),
+    ...rejectedShops.map((s) => ({
+      ...s,
+      status: ((s.suspended_at || s.suspendedAt) ? "suspended" : "rejected") as const
+    })),
   ];
 
   // Filter shops based on view mode, filter status, and search
@@ -265,6 +271,16 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
   });
 
   const getStatusBadge = (shop: Shop & { status: string }) => {
+    if (shop.status === "suspended") {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+          <XCircle className="w-3 h-3 flex-shrink-0" />
+          <span className="hidden sm:inline">Suspended</span>
+          <span className="sm:hidden">Suspended</span>
+        </span>
+      );
+    }
+
     if (shop.status === "rejected") {
       return (
         <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
@@ -449,9 +465,9 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
           <p className="text-yellow-400 font-semibold">
             {(shop.totalTokensIssued || 0).toLocaleString()} RCN
           </p>
-          {shop.purchasedRcnBalance && shop.purchasedRcnBalance > 0 && (
-            <p className="text-gray-400">Balance: {shop.purchasedRcnBalance}</p>
-          )}
+          
+            <p className="text-gray-400">Balance: {(shop.purchasedRcnBalance || 0).toLocaleString()}</p>
+        
         </div>
       ),
     },
@@ -608,10 +624,77 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleAction(
-                        () => onUnsuspendShop(shopId),
-                        "Shop unsuspended"
-                      );
+                      setConfirmationModal({
+                        isOpen: true,
+                        type: "unsuspend",
+                        shop: shop,
+                      });
+                    }}
+                    disabled={isProcessing}
+                    className="p-1 md:p-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors disabled:opacity-50"
+                    title="Unsuspend"
+                  >
+                    <Power className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                  </button>
+                )}
+              </>
+            )}
+
+            {shop.status === "suspended" && (
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditModal({ isOpen: true, shop });
+                  }}
+                  className="p-1 md:p-1.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-lg hover:bg-indigo-500/20 transition-colors"
+                  title="Edit"
+                >
+                  <Edit className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                </button>
+                {shop.unsuspendRequest &&
+                  shop.unsuspendRequest.status === "pending" ? (
+                  // Show review buttons for pending unsuspend requests
+                  <>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setUnsuspendReviewModal({
+                          isOpen: true,
+                          shop,
+                          action: "approve",
+                        });
+                      }}
+                      className="p-1 md:p-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors animate-pulse"
+                      title="Approve Unsuspend Request"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setUnsuspendReviewModal({
+                          isOpen: true,
+                          shop,
+                          action: "reject",
+                        });
+                      }}
+                      className="p-1 md:p-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors"
+                      title="Reject Unsuspend Request"
+                    >
+                      <XCircle className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                    </button>
+                  </>
+                ) : (
+                  // Direct unsuspend button if no pending request
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfirmationModal({
+                        isOpen: true,
+                        type: "unsuspend",
+                        shop: shop,
+                      });
                     }}
                     disabled={isProcessing}
                     className="p-1 md:p-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors disabled:opacity-50"
@@ -779,10 +862,9 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
           )}
 
         {/* Additional Actions */}
-        <div className={`flex flex-wrap gap-2 ${shop.purchasedRcnBalance && shop.purchasedRcnBalance > 0 ? "" : "hidden"}`}>
+        <div className={`flex flex-wrap gap-2 ${shop.status === "active" && shop.pendingMintAmount && shop.pendingMintAmount > 0 && onMintBalance ? "" : "hidden"}`}>
           {shop.status === "active" &&
-            shop.purchasedRcnBalance &&
-            shop.purchasedRcnBalance > 0 &&
+            shop.pendingMintAmount && shop.pendingMintAmount > 0 &&
             onMintBalance && (
               <button
                 onClick={(e) => {
@@ -796,7 +878,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                 className="px-3 py-1.5 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 text-yellow-400 border border-yellow-500/30 rounded-lg hover:from-yellow-500/30 hover:to-orange-500/30 transition-all text-sm font-medium disabled:opacity-50 flex items-center gap-2"
               >
                 <Send className="w-4 h-4" />
-                Mint {shop.purchasedRcnBalance} RCN to Blockchain
+                Mint {shop.pendingMintAmount.toFixed(2)} RCN to Blockchain
               </button>
             )}
         </div>
@@ -944,7 +1026,8 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
     total: allShops.length,
     active: activeShops.filter((s) => s.active && s.verified).length,
     pending: pendingShops.length,
-    rejected: rejectedShops.length,
+    suspended: rejectedShops.filter((s) => s.suspended_at || s.suspendedAt).length,
+    rejected: rejectedShops.filter((s) => !s.suspended_at && !s.suspendedAt).length,
     verified: activeShops.filter((s) => s.verified).length,
     totalTokensIssued: activeShops.reduce(
       (sum, s) => sum + (s.totalTokensIssued || 0),
@@ -1003,6 +1086,7 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                   <option value="all">All Shops</option>
                   <option value="active">Active</option>
                   <option value="pending">Pending</option>
+                  <option value="suspended">Suspended</option>
                   <option value="rejected">Rejected</option>
                 </select>
 
@@ -1348,6 +1432,8 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
               >
                 {confirmationModal.type === "suspend" ? (
                   <ShieldOff className="w-6 h-6 text-red-400" />
+                ) : confirmationModal.type === "unsuspend" ? (
+                  <Power className="w-6 h-6 text-green-400" />
                 ) : (
                   <RefreshCw className="w-6 h-6 text-green-400" />
                 )}
@@ -1356,12 +1442,22 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                 <h3 className="text-xl font-bold text-white mb-2">
                   {confirmationModal.type === "suspend"
                     ? "Suspend Shop"
+                    : confirmationModal.type === "unsuspend"
+                    ? "Unsuspend Shop"
                     : "Reconsider & Approve Shop"}
                 </h3>
                 <p className="text-gray-300">
                   {confirmationModal.type === "suspend" ? (
                     <>
                       Are you sure you want to suspend{" "}
+                      <span className="font-semibold text-white">
+                        {confirmationModal.shop.name}
+                      </span>
+                      ?
+                    </>
+                  ) : confirmationModal.type === "unsuspend" ? (
+                    <>
+                      Are you sure you want to unsuspend{" "}
                       <span className="font-semibold text-white">
                         {confirmationModal.shop.name}
                       </span>
@@ -1386,6 +1482,12 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                   <>
                     This will <strong className="text-red-400">deactivate</strong> the
                     shop and prevent them from operating on the platform.
+                  </>
+                ) : confirmationModal.type === "unsuspend" ? (
+                  <>
+                    This will <strong className="text-green-400">reactivate</strong> the
+                    shop and clear the suspension status, allowing them to operate
+                    normally again.
                   </>
                 ) : (
                   <>
@@ -1418,6 +1520,11 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                       () => onSuspendShop(shopId),
                       "Shop suspended"
                     );
+                  } else if (confirmationModal.type === "unsuspend") {
+                    await handleAction(
+                      () => onUnsuspendShop(shopId),
+                      "Shop unsuspended"
+                    );
                   } else {
                     await handleAction(
                       () => onApproveShop(shopId),
@@ -1434,7 +1541,11 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
                     : "bg-green-600 text-white hover:bg-green-700"
                 }`}
               >
-                {confirmationModal.type === "suspend" ? "Suspend" : "Approve"}
+                {confirmationModal.type === "suspend"
+                  ? "Suspend"
+                  : confirmationModal.type === "unsuspend"
+                  ? "Unsuspend"
+                  : "Approve"}
               </button>
             </div>
           </div>

@@ -155,13 +155,25 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
           });
 
           // Set new access token in cookie
-          res.cookie('auth_token', newAccessToken, {
+          const cookieOptions: any = {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
             maxAge: 15 * 60 * 1000, // 15 minutes
             path: '/'
-          });
+          };
+
+          // Set domain for cookie sharing
+          const isProduction = process.env.NODE_ENV === 'production';
+          const cookieDomain = process.env.COOKIE_DOMAIN;
+          if (isProduction && cookieDomain) {
+            cookieOptions.domain = cookieDomain;
+          } else if (!isProduction) {
+            // In development, set domain to 'localhost' (without port) so cookies work across different ports
+            cookieOptions.domain = 'localhost';
+          }
+
+          res.cookie('auth_token', newAccessToken, cookieOptions);
 
           // Update last used timestamp
           await refreshTokenRepo.updateLastUsed(refreshDecoded.tokenId);
@@ -414,7 +426,9 @@ async function validateUserInDatabase(tokenPayload: JWTPayload): Promise<boolean
         
       case 'customer':
         const customer = await customerRepository.getCustomer(tokenPayload.address);
-        return customer !== null && customer.isActive;
+        // Allow suspended customers to login and view their account
+        // Individual endpoints will enforce restrictions on actions
+        return customer !== null;
         
       default:
         return false;

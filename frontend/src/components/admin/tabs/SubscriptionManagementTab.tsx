@@ -520,7 +520,7 @@ export default function SubscriptionManagementTab() {
                 <TabsList className="inline-flex justify-start rounded-none h-auto p-0 bg-transparent border-none w-full sm:w-auto min-w-max">
                   <TabsTrigger
                     value="all"
-                    className="rounded-none px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold transition-all whitespace-nowrap"
+                    className="rounded-none px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold data-[state=active]:rounded-tl-lg transition-all whitespace-nowrap"
                   >
                     All
                   </TabsTrigger>
@@ -550,7 +550,7 @@ export default function SubscriptionManagementTab() {
                   </TabsTrigger>
                   <TabsTrigger
                     value="cancelled"
-                    className="rounded-none px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold transition-all whitespace-nowrap"
+                    className="rounded-none px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold data-[state=active]:rounded-tr-lg transition-all whitespace-nowrap"
                   >
                     Cancelled
                   </TabsTrigger>
@@ -562,7 +562,7 @@ export default function SubscriptionManagementTab() {
                 disabled={syncing || loading}
                 variant="outline"
                 size="sm"
-                className="mx-2 my-2 sm:my-0 sm:mr-4 border-[#FFCC00] text-[#FFCC00] hover:bg-[#FFCC00] hover:text-black transition-colors text-xs sm:text-sm whitespace-nowrap flex-shrink-0"
+                className="mx-2 my-2 sm:my-0 sm:mr-4 bg-[#FFCC00] text-black border-[#FFCC00] hover:bg-[#FFD700] hover:border-[#FFD700] transition-colors text-xs sm:text-sm font-semibold whitespace-nowrap flex-shrink-0"
               >
                 <RefreshCw className={`w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 ${syncing ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">{syncing ? 'Syncing...' : 'Sync from Stripe'}</span>

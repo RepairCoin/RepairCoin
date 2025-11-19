@@ -7,6 +7,7 @@ import { baseSepolia } from "thirdweb/chains";
 import { WalletIcon, TrophyIcon, RepairsIcon, CheckShieldIcon } from "../icon";
 import { useCustomer } from "@/hooks/useCustomer";
 import { useCustomerStore } from "@/stores/customerStore";
+import { useAuthStore } from "@/stores/authStore";
 import { StatCard } from "../ui/StatCard";
 import { DataTable, type Column } from "../ui/DataTable";
 import { DashboardHeader } from "../ui/DashboardHeader";
@@ -14,6 +15,8 @@ import { Coins, X, Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "react-hot-toast";
 import Tooltip from "../ui/tooltip";
 import apiClient from '@/services/api/client';
+import GroupBalancesCard from "./GroupBalancesCard";
+import { SuspendedActionModal } from "./SuspendedActionModal";
 
 const client = createThirdwebClient({
   clientId:
@@ -43,6 +46,7 @@ const getNextTier = (currentTier: string) => {
 
 export const OverviewTab: React.FC = () => {
   const account = useActiveAccount();
+  const { userProfile } = useAuthStore();
   const {
     customerData,
     balanceData,
@@ -57,6 +61,10 @@ export const OverviewTab: React.FC = () => {
   const [showMintModal, setShowMintModal] = useState(false);
   const [mintAmount, setMintAmount] = useState("");
   const [isMinting, setIsMinting] = useState(false);
+  const [showSuspendedModal, setShowSuspendedModal] = useState(false);
+
+  // Check if user is suspended
+  const isSuspended = userProfile?.suspended || false;
 
   // Use dummy data if no real transactions
   const displayTransactions = transactions.length > 0 ? transactions : [];
@@ -340,6 +348,9 @@ export const OverviewTab: React.FC = () => {
         />
       </div>
 
+      {/* Shop Group Tokens Card */}
+      <GroupBalancesCard />
+
       {/* Mint to Wallet Section */}
       {balanceData && balanceData.availableBalance > 0 && (
         <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl mb-6 sm:mb-8">
@@ -407,8 +418,19 @@ export const OverviewTab: React.FC = () => {
                 </div>
               </div>
               <button
-                onClick={() => setShowMintModal(true)}
-                className="px-4 py-2 bg-[#FFCC00] text-black rounded-lg font-medium hover:bg-yellow-500 transition-colors flex items-center gap-2 text-sm sm:text-base"
+                onClick={() => {
+                  if (isSuspended) {
+                    setShowSuspendedModal(true);
+                  } else {
+                    setShowMintModal(true);
+                  }
+                }}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 text-sm sm:text-base ${
+                  isSuspended
+                    ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
+                    : 'bg-[#FFCC00] text-black hover:bg-yellow-500'
+                }`}
+                disabled={isSuspended}
               >
                 <Coins className="w-4 h-4" />
                 Mint to Wallet
@@ -554,6 +576,14 @@ export const OverviewTab: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Suspended Action Modal */}
+      <SuspendedActionModal
+        isOpen={showSuspendedModal}
+        onClose={() => setShowSuspendedModal(false)}
+        action="mint tokens to your wallet"
+        reason={userProfile?.suspensionReason}
+      />
     </>
   );
 };
