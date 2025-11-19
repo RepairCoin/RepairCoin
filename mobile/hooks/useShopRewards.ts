@@ -49,45 +49,6 @@ export function useCustomerInfo(walletAddress: string) {
   });
 }
 
-// Hook for fetching shop promo codes
-export function useShopPromoCodes() {
-  const shopId = useAuthStore((state) => state.userProfile?.shopId);
-  
-  return useQuery({
-    queryKey: QUERY_KEYS.shopPromoCodes(shopId || ''),
-    queryFn: () => {
-      if (!shopId) {
-        throw new Error('No shop ID found');
-      }
-      return getShopPromoCodes(shopId);
-    },
-    enabled: !!shopId,
-    select: (data) => data.data || [],
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
-  });
-}
-
-// Hook for validating promo codes
-export function useValidatePromoCode() {
-  const shopId = useAuthStore((state) => state.userProfile?.shopId);
-  
-  return useMutation({
-    mutationFn: async ({ code, customerAddress }: { code: string; customerAddress: string }) => {
-      if (!shopId) {
-        throw new Error('Shop ID not found');
-      }
-      return validatePromoCode(shopId, {
-        code: code.trim(),
-        customer_address: customerAddress,
-      });
-    },
-    onError: (error: any) => {
-      console.error('Failed to validate promo code:', error);
-    },
-  });
-}
-
 // Hook for issuing rewards
 export function useIssueReward(resetInputs?: () => void) {
   const queryClient = useQueryClient();
@@ -333,4 +294,43 @@ export function useShopRewards() {
     rewardError: issueRewardMutation.error,
     resetAllInputs,
   };
+}
+
+// Hook for fetching shop promo codes
+export function useShopPromoCodes() {
+  const shopId = useAuthStore((state) => state.userProfile?.shopId);
+  
+  return useQuery({
+    queryKey: QUERY_KEYS.shopPromoCodes(shopId || ''),
+    queryFn: () => {
+      if (!shopId) {
+        throw new Error('No shop ID found');
+      }
+      return getShopPromoCodes(shopId);
+    },
+    enabled: !!shopId,
+    select: (data) => data.data || [],
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+  });
+}
+
+// Hook for validating promo codes
+export function useValidatePromoCode() {
+  const shopId = useAuthStore((state) => state.userProfile?.shopId);
+  
+  return useMutation({
+    mutationFn: async ({ code, customerAddress }: { code: string; customerAddress: string }) => {
+      if (!shopId) {
+        throw new Error('Shop ID not found');
+      }
+      return validatePromoCode(shopId, {
+        code: code.trim(),
+        customer_address: customerAddress,
+      });
+    },
+    onError: (error: any) => {
+      console.error('Failed to validate promo code:', error);
+    },
+  });
 }

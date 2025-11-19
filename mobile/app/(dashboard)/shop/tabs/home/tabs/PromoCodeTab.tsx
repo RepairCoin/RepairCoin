@@ -4,8 +4,6 @@ import {
   Pressable,
   Image,
   ScrollView,
-  ActivityIndicator,
-  RefreshControl,
 } from "react-native";
 import { router } from "expo-router";
 
