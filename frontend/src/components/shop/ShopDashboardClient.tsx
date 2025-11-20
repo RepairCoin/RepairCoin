@@ -231,11 +231,11 @@ export default function ShopDashboardClient() {
 
   // Check if shop is suspended or rejected
   const isSuspended = shopData && (shopData.suspended_at || shopData.suspendedAt);
-  // Rejected means application was denied - shop is inactive but NOT suspended
-  // This is different from pending (not yet verified) or suspended (verified but deactivated)
-  const isRejected = shopData && !shopData.active && !isSuspended;
-  // Check if shop is pending (not yet verified)
-  const isPending = shopData && !shopData.verified && !isSuspended && !isRejected;
+  // Check if shop is pending (not yet verified) - must check this BEFORE rejected
+  const isPending = shopData && !shopData.verified && !isSuspended;
+  // Rejected means application was denied - shop is verified but inactive and NOT suspended
+  // Only verified shops can be "rejected" - unverified shops are "pending"
+  const isRejected = shopData && shopData.verified && !shopData.active && !isSuspended;
 
   // Check if shop is operational
   // If operational_status is not available (legacy), assume operational if shop is active and verified
@@ -703,20 +703,20 @@ export default function ShopDashboardClient() {
         <div className="max-w-screen-2xl w-[96%] mx-auto">
           {/* Warning Banner for Non-Operational Shops */}
           {isBlocked && !showSuspendedModal && !showOnboardingModal && (
-            <div className="mb-6 bg-red-900/20 border-2 border-red-500/50 rounded-xl p-4">
+            <div className={`mb-6 rounded-xl p-4 ${isPending ? 'bg-yellow-900/20 border-2 border-yellow-500/50' : 'bg-red-900/20 border-2 border-red-500/50'}`}>
               <div className="flex items-start gap-3">
-                <div className="text-red-400 text-2xl">⚠️</div>
+                <div className={`text-2xl ${isPending ? 'text-yellow-400' : 'text-red-400'}`}>⚠️</div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-bold text-red-400 mb-1">
+                  <h3 className={`text-lg font-bold mb-1 ${isPending ? 'text-yellow-400' : 'text-red-400'}`}>
                     {isSuspended && "Shop Suspended"}
                     {isRejected && "Shop Application Rejected"}
-                    {isPending && "Shop Application Pending"}
+                    {isPending && "Application Pending Approval"}
                     {!isSuspended && !isRejected && !isPending && !isOperational && "Subscription Required"}
                   </h3>
                   <p className="text-gray-300 text-sm">
                     {isSuspended && "Your shop has been suspended. You cannot perform operational actions (issue rewards, process redemptions, purchase credits)."}
                     {isRejected && "Your shop application was rejected. You cannot perform operational actions until your application is approved."}
-                    {isPending && "Your shop application is pending approval. You cannot perform operational actions until approved."}
+                    {isPending && "Your shop application is awaiting admin approval. You cannot perform operational actions until approved."}
                     {!isSuspended && !isRejected && !isPending && !isOperational && "Your shop requires an active subscription. You cannot perform operational actions until subscribed."}
                   </p>
                 </div>
@@ -902,7 +902,7 @@ export default function ShopDashboardClient() {
                 onClose={() => setShowOnboardingModal(false)}
               />
 
-              {/* Suspended/Rejected/Unsubscribed Shop Modal */}
+              {/* Suspended/Rejected/Unsubscribed/Pending Shop Modal */}
               <SuspendedShopModal
                 isOpen={isBlocked && showSuspendedModal}
                 onClose={() => {
@@ -916,6 +916,7 @@ export default function ShopDashboardClient() {
                 modalType={
                   isSuspended ? 'suspended' :
                   isRejected ? 'rejected' :
+                  isPending ? 'pending' :
                   !isOperational ? 'unsubscribed' :
                   'suspended' // fallback
                 }

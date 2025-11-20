@@ -9,7 +9,7 @@ interface SuspendedShopModalProps {
   shopName: string;
   suspensionReason?: string;
   suspendedAt?: string;
-  modalType: 'suspended' | 'rejected' | 'unsubscribed'; // Type of modal to show
+  modalType: 'suspended' | 'rejected' | 'unsubscribed' | 'pending'; // Type of modal to show
 }
 
 export const SuspendedShopModal: React.FC<SuspendedShopModalProps> = ({
@@ -40,6 +40,12 @@ export const SuspendedShopModal: React.FC<SuspendedShopModalProps> = ({
         return {
           title: "Subscription Required",
           icon: CreditCard,
+          color: "yellow",
+        };
+      case 'pending':
+        return {
+          title: "Application Pending Approval",
+          icon: AlertCircle,
           color: "yellow",
         };
     }
@@ -235,6 +241,64 @@ export const SuspendedShopModal: React.FC<SuspendedShopModalProps> = ({
                   <li className="flex items-start gap-2">
                     <span className="text-[#FFCC00] mt-1">✓</span>
                     <span>Access analytics and customer insights</span>
+                  </li>
+                </ul>
+              </div>
+            </>
+          )}
+
+          {modalType === 'pending' && (
+            <>
+              <div className={`${colors.contentBg} border ${colors.border} rounded-xl p-4`}>
+                <h3 className={`font-semibold ${colors.text} mb-2 flex items-center gap-2`}>
+                  <AlertCircle className="w-5 h-5" />
+                  Your application is awaiting admin approval
+                </h3>
+                <p className="text-gray-300 text-sm">
+                  Your shop registration has been submitted successfully. Our team is reviewing your application and will notify you once it's approved.
+                </p>
+              </div>
+
+              <div className="bg-blue-900/10 border border-blue-500/30 rounded-xl p-4">
+                <h4 className="font-semibold text-blue-400 mb-2">What happens next:</h4>
+                <ul className="space-y-2 text-sm text-gray-300">
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-400 mt-1">•</span>
+                    <span>Admin reviews your shop application</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-400 mt-1">•</span>
+                    <span>Shop verification process is completed</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-400 mt-1">•</span>
+                    <span>You'll receive notification once approved</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-400 mt-1">•</span>
+                    <span>Full dashboard access will be granted after approval</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="bg-[#2F2F2F] rounded-xl p-4 border border-gray-700">
+                <h4 className="font-semibold text-white mb-2">After Approval:</h4>
+                <ul className="space-y-2 text-sm text-gray-300">
+                  <li className="flex items-start gap-2">
+                    <span className="text-[#FFCC00] mt-1">✓</span>
+                    <span>Subscribe to activate your shop ($500/month)</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-[#FFCC00] mt-1">✓</span>
+                    <span>Issue RCN rewards to customers</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-[#FFCC00] mt-1">✓</span>
+                    <span>Purchase RCN credits at tiered pricing</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-[#FFCC00] mt-1">✓</span>
+                    <span>Process customer redemptions</span>
                   </li>
                 </ul>
               </div>

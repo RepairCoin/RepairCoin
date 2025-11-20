@@ -6,6 +6,7 @@ import { logger } from '../../../utils/logger';
 import { eventBus } from '../../../events/EventBus';
 import { DatabaseService } from '../../../services/DatabaseService';
 import { shopPurchaseService } from '../services/ShopPurchaseService';
+import { ShopSubscriptionRepository } from '../../../repositories/ShopSubscriptionRepository';
 import Stripe from 'stripe';
 
 const router = Router();
@@ -711,9 +712,9 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event, subscriptionS
           status: subscription.status as any,
           currentPeriodStart: new Date((subscription as any).current_period_start * 1000),
           currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
-          metadata: { 
+          metadata: {
             checkoutSessionId: session.id,
-            webhookCreated: true 
+            webhookCreated: true
           }
         });
         logger.info('Stripe webhook - subscription created and saved', {
@@ -722,6 +723,42 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event, subscriptionS
           status: subscription.status,
           stripeCustomerId: stripeCustomerId
         });
+
+        // Also create shop_subscriptions record for admin panel visibility
+        try {
+          const shopSubRepo = new ShopSubscriptionRepository();
+          const currentPeriodEnd = new Date((subscription as any).current_period_end * 1000);
+
+          await shopSubRepo.createSubscription({
+            shopId: shopId,
+            status: 'active',
+            monthlyAmount: 500,
+            subscriptionType: 'standard',
+            billingMethod: 'credit_card',
+            billingReference: subscription.id,
+            paymentsMade: 1,
+            totalPaid: 500,
+            nextPaymentDate: currentPeriodEnd,
+            lastPaymentDate: new Date(),
+            activatedAt: new Date(),
+            createdBy: `Stripe Webhook - ${session.id}`,
+            notes: `Created via Stripe webhook on checkout.session.completed | Stripe Sub ID: ${subscription.id} | Customer ID: ${stripeCustomerId}`
+          });
+
+          logger.info('Shop subscription record created from webhook', {
+            shopId,
+            subscriptionId: subscription.id,
+            billingReference: subscription.id
+          });
+        } catch (shopSubError) {
+          logger.error('Failed to create shop_subscriptions record', {
+            shopId,
+            subscriptionId: subscription.id,
+            error: shopSubError instanceof Error ? shopSubError.message : 'Unknown error'
+          });
+          // Don't throw - stripe_subscriptions was created successfully
+        }
+
         logger.info('Created new subscription record from webhook', {
           subscriptionId: subscription.id,
           shopId
