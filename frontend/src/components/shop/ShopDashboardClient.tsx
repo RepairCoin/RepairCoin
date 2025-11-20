@@ -220,6 +220,11 @@ export default function ShopDashboardClient() {
         duration: 4000,
         position: 'top-right',
       });
+      // Clear the payment params from URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete("payment");
+      url.searchParams.delete("purchase_id");
+      window.history.replaceState({}, "", url);
     }
   }, [searchParams, account?.address]);
 
@@ -262,7 +267,11 @@ export default function ShopDashboardClient() {
   // Don't show if we're on the settings tab
   useEffect(() => {
     if (shopData && activeTab !== "settings") {
-      if (isSuspended || isRejected || !isOperational) {
+      // For pending shops without subscription, show onboarding modal
+      if (isPending && !shopData.subscriptionActive) {
+        setShowOnboardingModal(true);
+        setShowSuspendedModal(false);
+      } else if (isSuspended || isRejected || !isOperational) {
         // Show suspended modal for suspended/rejected/unsubscribed shops
         setShowSuspendedModal(true);
         setShowOnboardingModal(false);
@@ -274,7 +283,7 @@ export default function ShopDashboardClient() {
       setShowSuspendedModal(false);
       setShowOnboardingModal(false);
     }
-  }, [shopData, isOperational, isSuspended, isRejected, activeTab]);
+  }, [shopData, isOperational, isSuspended, isRejected, isPending, activeTab]);
 
   // Check pending purchases on shop data load
   useEffect(() => {
@@ -466,6 +475,25 @@ export default function ShopDashboardClient() {
           }
         );
         // Reload data to show updated balance
+        await loadShopData();
+      } else if (result.success === false && result.data?.status === "failed") {
+        // Payment session has expired
+        toast.error(
+          result.message || "Payment session has expired. Please create a new purchase.",
+          {
+            duration: 5000,
+            position: 'top-center',
+            style: {
+              background: '#EF4444',
+              color: 'white',
+              fontWeight: 'bold',
+              fontSize: '16px',
+              padding: '16px',
+            },
+            icon: '⏰',
+          }
+        );
+        // Reload data to reflect the failed status
         await loadShopData();
       } else if (result.success === false && result.data?.stripeStatus) {
         setError(
@@ -916,7 +944,9 @@ export default function ShopDashboardClient() {
                 modalType={
                   isSuspended ? 'suspended' :
                   isRejected ? 'rejected' :
-                  isPending ? 'pending' :
+                  // For pending shops, check if they have a subscription
+                  // If no subscription, show requirements modal instead of pending
+                  isPending ? (shopData?.subscriptionActive ? 'pending' : 'unsubscribed') :
                   !isOperational ? 'unsubscribed' :
                   'suspended' // fallback
                 }
