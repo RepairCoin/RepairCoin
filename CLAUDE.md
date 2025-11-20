@@ -208,3 +208,5 @@ stripe listen --forward-to localhost:4000/api/shops/webhooks/stripe
 - Backend: Jest tests in `__tests__/` or `*.test.ts` files
 - Run domain-specific tests: `npm run test:admin`, `npm run test:shop`, etc.
 - Use `test:watch` for TDD workflow
+- remember to only commit if i say so
+- to check database check the env database is directly connected to digital ocean
