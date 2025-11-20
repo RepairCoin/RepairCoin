@@ -122,12 +122,19 @@ export const useCustomer = (): UseCustomerReturn => {
       const customer = await customerApi.register(registrationData);
 
       if (customer) {
-        setSuccess('Registration successful! Welcome to RepairCoin!');
-        showToast.success('Registration successful! Welcome to RepairCoin!');
+        setSuccess('Registration successful! Authenticating...');
+        showToast.success('Registration successful! Authenticating...');
         console.log('Customer registered:', customer);
-        
-        // Redirect to customer dashboard after successful registration
-        setTimeout(() => router.push('/customer'), 2000);
+
+        // Authenticate the customer to set cookies and create session
+        console.log('Authenticating customer after registration...');
+        await refreshProfile();
+
+        // Show redirect message
+        showToast.success('Redirecting to your dashboard...');
+
+        // Redirect to customer dashboard after authentication
+        setTimeout(() => router.push('/customer'), 1500);
       } else {
         // Registration failed but no specific error from API
         throw new Error('Registration failed. Please try again.');
