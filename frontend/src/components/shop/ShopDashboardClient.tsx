@@ -220,6 +220,11 @@ export default function ShopDashboardClient() {
         duration: 4000,
         position: 'top-right',
       });
+      // Clear the payment params from URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete("payment");
+      url.searchParams.delete("purchase_id");
+      window.history.replaceState({}, "", url);
     }
   }, [searchParams, account?.address]);
 
@@ -466,6 +471,25 @@ export default function ShopDashboardClient() {
           }
         );
         // Reload data to show updated balance
+        await loadShopData();
+      } else if (result.success === false && result.data?.status === "failed") {
+        // Payment session has expired
+        toast.error(
+          result.message || "Payment session has expired. Please create a new purchase.",
+          {
+            duration: 5000,
+            position: 'top-center',
+            style: {
+              background: '#EF4444',
+              color: 'white',
+              fontWeight: 'bold',
+              fontSize: '16px',
+              padding: '16px',
+            },
+            icon: '⏰',
+          }
+        );
+        // Reload data to reflect the failed status
         await loadShopData();
       } else if (result.success === false && result.data?.stripeStatus) {
         setError(

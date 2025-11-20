@@ -4,6 +4,7 @@ import { logger } from '../../../utils/logger';
 import { revenueDistributionService } from '../../../services/RevenueDistributionService';
 import { RCGTokenReader } from '../../../contracts/RCGTokenReader';
 import { getBlockchainService } from './BlockchainService';
+import { getStripeService } from '../../../services/StripeService';
 
 interface ShopRcnPurchase {
   id: string;
@@ -246,6 +247,67 @@ export class ShopPurchaseService {
         startDate,
         endDate
       });
+
+      // Check and update status of pending purchases with Stripe sessions
+      // Simple logic: If it's not completed, it's cancelled (Stripe auto-cancels when user navigates away)
+      const stripeService = getStripeService();
+
+      for (const purchase of result.items) {
+        // Only check pending purchases - they should either complete or be cancelled
+        if (purchase.status === 'pending') {
+          // Give very recent purchases (< 2 minutes) a chance to complete
+          const purchaseAge = new Date(purchase.created_at);
+          const ageMinutes = Math.floor((Date.now() - purchaseAge.getTime()) / 60000);
+
+          // Don't check purchases that are less than 2 minutes old - give user time to complete
+          if (ageMinutes < 2) {
+            continue;
+          }
+
+          // For older pending purchases, check if they completed or should be cancelled
+          if (purchase.payment_reference && purchase.payment_reference.startsWith('cs_')) {
+            try {
+              const session = await stripeService.getCheckoutSession(purchase.payment_reference);
+
+              // If session is complete and paid, mark purchase as completed
+              if (session.payment_status === 'paid' && session.status === 'complete') {
+                await shopRepository.completeShopPurchase(purchase.id, session.id);
+                purchase.status = 'completed';
+                logger.info('Auto-completed purchase with paid session', {
+                  purchaseId: purchase.id,
+                  shopId: purchase.shop_id
+                });
+              }
+              // Any other status (open, expired) means user didn't complete - mark as cancelled
+              else {
+                await shopRepository.cancelShopPurchase(purchase.id);
+                purchase.status = 'cancelled';
+                logger.info('Auto-cancelled purchase - payment not completed', {
+                  purchaseId: purchase.id,
+                  shopId: purchase.shop_id,
+                  sessionStatus: session.status
+                });
+              }
+            } catch (stripeError: any) {
+              // If session doesn't exist in Stripe, it was cancelled/deleted
+              await shopRepository.cancelShopPurchase(purchase.id);
+              purchase.status = 'cancelled';
+              logger.info('Auto-cancelled purchase - Stripe session not found', {
+                purchaseId: purchase.id,
+                shopId: purchase.shop_id
+              });
+            }
+          } else {
+            // No payment reference means incomplete purchase - mark as cancelled
+            await shopRepository.cancelShopPurchase(purchase.id);
+            purchase.status = 'cancelled';
+            logger.info('Auto-cancelled purchase - no payment session', {
+              purchaseId: purchase.id,
+              shopId: purchase.shop_id
+            });
+          }
+        }
+      }
 
       // Map snake_case database fields to camelCase for frontend
       const mappedPurchases = result.items.map((purchase: any) => ({

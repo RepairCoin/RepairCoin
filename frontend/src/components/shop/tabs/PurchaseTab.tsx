@@ -55,7 +55,19 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
       ? Math.floor(purchaseAmount * 0.02)
       : 0;
 
-  const getStatusDetails = (status: string) => {
+  const getStatusDetails = (status: string, createdAt: string) => {
+    // Check if purchase is very recent (< 2 minutes) and still pending
+    const purchaseTime = new Date(createdAt).getTime();
+    const ageMinutes = Math.floor((Date.now() - purchaseTime) / 60000);
+
+    if (status === "pending" && ageMinutes < 2) {
+      return {
+        color: "text-blue-400 bg-blue-400/10 border-blue-400/20",
+        icon: <Clock className="w-3 h-3 animate-pulse" />,
+        label: "In Progress",
+      };
+    }
+
     switch (status) {
       case "completed":
         return {
@@ -65,15 +77,21 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
         };
       case "pending":
         return {
-          color: "text-yellow-400 bg-yellow-400/10 border-yellow-400/20",
-          icon: <Clock className="w-3 h-3" />,
-          label: "Pending",
+          color: "text-gray-400 bg-gray-400/10 border-gray-400/20",
+          icon: <AlertCircle className="w-3 h-3" />,
+          label: "Cancelled",
         };
       case "failed":
         return {
           color: "text-red-400 bg-red-400/10 border-red-400/20",
           icon: <AlertCircle className="w-3 h-3" />,
-          label: "Failed",
+          label: "Expired",
+        };
+      case "cancelled":
+        return {
+          color: "text-gray-400 bg-gray-400/10 border-gray-400/20",
+          icon: <AlertCircle className="w-3 h-3" />,
+          label: "Cancelled",
         };
       default:
         return {
@@ -145,7 +163,7 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
                         </span>
                       </div>
                       <span className="text-gray-300">
-                        Tokens are instantly added to your shop's balance
+                        Tokens are instantly added to your shop&apos;s balance
                       </span>
                     </li>
                     <li className="flex items-start gap-3">
@@ -311,7 +329,7 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
             ) : (
               <div className="space-y-3 overflow-y-auto flex-1 pr-2">
                 {purchases.map((purchase) => {
-                  const statusInfo = getStatusDetails(purchase.status);
+                  const statusInfo = getStatusDetails(purchase.status, purchase.createdAt);
                   return (
                     <div
                       key={purchase.id}
@@ -343,23 +361,28 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
                           </div>
                         </div>
                       </div>
-                      {purchase.status === "pending" && (
-                        <div className="mt-3 pt-3 border-t border-gray-700">
-                          <button
-                            onClick={() =>
-                              onCheckPurchaseStatus
-                                ? onCheckPurchaseStatus(purchase.id)
-                                : window.location.reload()
-                            }
-                            className="text-sm bg-[#FFCC00] text-[#1A1A1A] hover:bg-[#FFCC00]/90 px-3 py-1 rounded font-medium"
-                          >
-                            Check Payment Status
-                          </button>
-                          <p className="text-xs text-gray-500 mt-1">
-                            Payment may take a moment to process
-                          </p>
-                        </div>
-                      )}
+                      {purchase.status === "pending" && (() => {
+                        // Check if purchase is very recent (< 2 minutes)
+                        const purchaseTime = new Date(purchase.createdAt).getTime();
+                        const now = Date.now();
+                        const ageMinutes = Math.floor((now - purchaseTime) / 60000);
+                        const isVeryRecent = ageMinutes < 2;
+
+                        if (isVeryRecent) {
+                          return (
+                            <div className="mt-3 pt-3 border-t border-gray-700">
+                              <div className="flex items-center gap-2">
+                                <div className="animate-pulse w-2 h-2 bg-blue-400 rounded-full"></div>
+                                <p className="text-xs text-gray-400">
+                                  Payment in progress... Complete your purchase in the Stripe window
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        return null; // Older pending purchases will be auto-cancelled on refresh
+                      })()}
                     </div>
                   );
                 })}
