@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { WalletIcon } from "../../icon/index";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatCard } from "@/components/ui/StatCard";
-import { ChevronDown, MoreHorizontal } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useRCGBalance } from "@/hooks/useRCGBalance";
 import { formatRCGBalance } from "@/lib/utils";
 import { ProfitChart } from "@/components/shop/ProfitChart";
@@ -106,6 +106,36 @@ const purchaseColumns: Column<PurchaseHistory>[] = [
         minted: "bg-blue-500/10 text-blue-400",
       };
 
+      const statusLabels = {
+        completed: "completed",
+        pending: "pending",
+        failed: "expired",
+        cancelled: "cancelled",
+        minted: "minted",
+      };
+
+      // Check if pending purchase is very recent (< 2 minutes) - show as "in progress"
+      if (purchase.status === 'pending') {
+        const purchaseTime = new Date(purchase.createdAt).getTime();
+        const ageMinutes = Math.floor((Date.now() - purchaseTime) / 60000);
+
+        if (ageMinutes < 2) {
+          return (
+            <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 flex items-center gap-1">
+              <span className="animate-pulse w-1.5 h-1.5 bg-blue-400 rounded-full"></span>
+              in progress
+            </span>
+          );
+        }
+
+        // Older pending purchases are treated as cancelled (Stripe auto-cancels)
+        return (
+          <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-500/10 text-gray-400">
+            cancelled
+          </span>
+        );
+      }
+
       return (
         <span
           className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -113,7 +143,7 @@ const purchaseColumns: Column<PurchaseHistory>[] = [
             statusColors.pending
           }`}
         >
-          {purchase.status}
+          {statusLabels[purchase.status as keyof typeof statusLabels] || purchase.status}
         </span>
       );
     },
@@ -140,35 +170,23 @@ const purchaseColumns: Column<PurchaseHistory>[] = [
       showMenu?: string | null;
     }) => {
       if (purchase.status === 'pending') {
-        return (
-          <div className="relative actions-menu-container">
-            <button
-              onClick={() => purchase.onToggleMenu?.(purchase.id)}
-              className="p-2 hover:bg-gray-700 rounded-full transition-colors"
-              title="More actions"
-            >
-              <MoreHorizontal className="w-5 h-5 text-gray-300" />
-            </button>
+        // Check if purchase is very recent (< 2 minutes) - show processing
+        const purchaseTime = new Date(purchase.createdAt).getTime();
+        const ageMinutes = Math.floor((Date.now() - purchaseTime) / 60000);
 
-            {purchase.showMenu === purchase.id && (
-              <div className="absolute right-0 mt-1 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50">
-                <button
-                  onClick={() => purchase.onContinuePayment?.(purchase.id)}
-                  disabled={purchase.continuingPayment === purchase.id}
-                  className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded-t-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {purchase.continuingPayment === purchase.id ? 'Loading...' : 'Continue Payment'}
-                </button>
-                <button
-                  onClick={() => purchase.onCancelPayment?.(purchase.id)}
-                  disabled={purchase.cancellingPayment === purchase.id}
-                  className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-700 rounded-b-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {purchase.cancellingPayment === purchase.id ? 'Cancelling...' : 'Cancel Payment'}
-                </button>
-              </div>
-            )}
-          </div>
+        if (ageMinutes < 2) {
+          return (
+            <span className="text-xs text-gray-500 italic">
+              Processing...
+            </span>
+          );
+        }
+
+        // Older pending purchases will be auto-cancelled, no actions needed
+        return (
+          <span className="text-xs text-gray-500 italic">
+            Auto-cancelled
+          </span>
         );
       }
       return null;

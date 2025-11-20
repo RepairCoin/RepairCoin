@@ -262,4 +262,46 @@ router.post('/manual-complete/:purchaseId', asyncHandler(async (req: Authenticat
   }
 }));
 
+/**
+ * Admin endpoint: Cleanup old pending purchases
+ * Marks all pending purchases older than 48 hours as failed
+ */
+router.post('/admin/cleanup-old-purchases', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const db = require('../../../services/DatabaseService').DatabaseService.getInstance();
+
+    // Find pending purchases older than 48 hours
+    const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
+
+    const result = await db.query(`
+      UPDATE shop_rcn_purchases
+      SET status = 'failed'
+      WHERE status = 'pending'
+        AND created_at < $1
+      RETURNING id, shop_id, amount, created_at
+    `, [twoDaysAgo]);
+
+    logger.info('Cleaned up old pending purchases', {
+      count: result.rowCount,
+      purchases: result.rows
+    });
+
+    res.json({
+      success: true,
+      message: `Marked ${result.rowCount} old pending purchases as failed`,
+      data: {
+        count: result.rowCount,
+        purchases: result.rows
+      }
+    });
+
+  } catch (error) {
+    logger.error('Error cleaning up old purchases:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to cleanup old purchases'
+    });
+  }
+}));
+
 export default router;
