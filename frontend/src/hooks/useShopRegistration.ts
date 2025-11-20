@@ -4,18 +4,20 @@ import { useActiveAccount } from 'thirdweb/react';
 import toast from 'react-hot-toast';
 import { ShopRegistrationFormData, ExistingApplication, initialShopFormData } from '@/types/shop';
 import { ShopService } from '@/services/shopService';
+import { useAuthStore } from '@/stores/authStore';
 
 export const useShopRegistration = () => {
   const account = useActiveAccount();
   const router = useRouter();
-  
+  const { login } = useAuthStore();
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [checkingApplication, setCheckingApplication] = useState(false);
-  const [existingApplication, setExistingApplication] = useState<ExistingApplication>({ 
-    hasApplication: false, 
-    status: null 
+  const [existingApplication, setExistingApplication] = useState<ExistingApplication>({
+    hasApplication: false,
+    status: null
   });
   const [formData, setFormData] = useState<ShopRegistrationFormData>(initialShopFormData);
 
@@ -164,15 +166,24 @@ export const useShopRegistration = () => {
       );
 
       // Show success message with next steps
-      toast.success("Your application is pending admin approval. You'll be redirected to your dashboard.", {
-        duration: 4000,
+      toast.success("Your application is pending admin approval. Authenticating...", {
+        duration: 3000,
         icon: "✅",
       });
 
-      // Redirect after 2.5 seconds
+      // Authenticate the shop to set cookies and create session
+      console.log("Authenticating shop after registration...");
+      await login(account.address);
+
+      // Redirect after authentication
+      toast.success("Redirecting to your dashboard...", {
+        duration: 2000,
+        icon: "🚀",
+      });
+
       setTimeout(() => {
         router.push("/shop");
-      }, 2500);
+      }, 1500);
     } catch (err) {
       // Error is already handled by toast.promise
       console.error("Registration error caught:", err);
@@ -187,7 +198,7 @@ export const useShopRegistration = () => {
     } finally {
       setLoading(false);
     }
-  }, [account?.address, formData, validateForm, router]);
+  }, [account?.address, formData, validateForm, router, login]);
 
   const handleLocationSelect = useCallback((location: { latitude: number; longitude: number; address?: string }) => {
     setFormData(prev => ({
