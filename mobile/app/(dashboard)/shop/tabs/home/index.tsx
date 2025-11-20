@@ -14,6 +14,7 @@ import { useAuthStore } from "@/store/authStore";
 import { ThemedView } from "@/components/ui/ThemedView";
 import WalletTab from "./tabs/WalletTab";
 import PromoCodeTab from "./tabs/PromoCodeTab";
+import AnalyticsTab from "./tabs/AnalyticsTab";
 
 type ShopTabs = "Wallet" | "Analysis" | "Promo Code";
 
@@ -87,6 +88,7 @@ export default function Home() {
           <WalletTab shopData={shopData.data} />
         )}
         {activeTab === "Promo Code" && shopData?.data && <PromoCodeTab />}
+        {activeTab === "Analysis" && shopData?.data && <AnalyticsTab />}
       </View>
     </ThemedView>
   );
