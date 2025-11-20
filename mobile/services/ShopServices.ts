@@ -336,3 +336,24 @@ export const validatePromoCode = async (
     throw error;
   }
 };
+
+export const updatePromoCodeStatus = async (
+  shopId: string,
+  promoCodeId: string,
+  isActive: boolean
+): Promise<{ success: boolean; message?: string; data?: any }> => {
+  try {
+    if (!isActive) {
+      // Use DELETE endpoint to deactivate
+      return await apiClient.delete(`/shops/${shopId}/promo-codes/${promoCodeId}`);
+    } else {
+      // Use PUT endpoint to reactivate by updating is_active flag
+      return await apiClient.put(`/shops/${shopId}/promo-codes/${promoCodeId}`, {
+        is_active: true
+      });
+    }
+  } catch (error: any) {
+    console.error("Failed to update promo code status:", error.message);
+    throw error;
+  }
+};
