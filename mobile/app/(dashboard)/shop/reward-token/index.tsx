@@ -20,6 +20,7 @@ import { goBack } from "expo-router/build/global-state/routing";
 import { ThemedView } from "@/components/ui/ThemedView";
 import { useShopRewards, RepairType } from "@/hooks/useShopRewards";
 import { useAuthStore } from "@/store/authStore";
+import { QRScanner } from "@/components/shop/QRScanner";
 
 // Tier styles
 const TIER_STYLES = {
@@ -32,6 +33,7 @@ export default function RewardToken() {
   const shopData = useAuthStore((state) => state.userProfile);
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
 
   const {
     // Customer management
@@ -177,9 +179,17 @@ export default function RewardToken() {
         {/* Customer Details Section */}
         <View className="px-5 mb-6">
           <View className="bg-[#1A1A1A] rounded-2xl p-5">
-            <Text className="text-white text-lg font-bold mb-4">
-              Customer Details
-            </Text>
+            <View className="flex-row justify-between items-center mb-4">
+              <Text className="text-white text-lg font-bold">
+                Customer Details
+              </Text>
+              <Pressable 
+                onPress={() => setShowQRScanner(true)}
+                className="p-2"
+              >
+                <MaterialIcons name="qr-code-scanner" size={24} color="#FFCC00" />
+              </Pressable>
+            </View>
 
             {/* Wallet Address Input */}
             <View className="mb-4">
@@ -308,7 +318,7 @@ export default function RewardToken() {
                     <View>
                       <Text className="text-gray-400 text-xs">Lifetime Earnings</Text>
                       <Text className="text-white font-semibold">
-                        {customerInfo.lifetimeEarnings} RCN
+                        {customerInfo.lifetime_earnings} RCN
                       </Text>
                     </View>
                   </View>
@@ -656,6 +666,16 @@ export default function RewardToken() {
           </View>
         </View>
       </Modal>
+
+      {/* QR Scanner Modal */}
+      <QRScanner
+        visible={showQRScanner}
+        onClose={() => setShowQRScanner(false)}
+        onScan={(address) => {
+          setCustomerAddress(address);
+          setShowQRScanner(false);
+        }}
+      />
     </ThemedView>
   );
 }
