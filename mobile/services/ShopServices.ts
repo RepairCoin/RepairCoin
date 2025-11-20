@@ -197,6 +197,20 @@ export interface ShopCustomersResponse {
   success: boolean;
 }
 
+export interface CreatePromoCodeRequest {
+  code: string;
+  name: string;
+  description?: string;
+  bonus_type: "fixed" | "percentage";
+  bonus_value: number;
+  start_date: string;
+  end_date: string;
+  total_usage_limit?: number;
+  per_customer_limit?: number;
+  max_bonus?: number;
+  is_active: boolean;
+}
+
 export const listShops = async (): Promise<ShopResponse> => {
   try {
     return await apiClient.get<ShopResponse>("/shops");
@@ -354,6 +368,18 @@ export const updatePromoCodeStatus = async (
     }
   } catch (error: any) {
     console.error("Failed to update promo code status:", error.message);
+    throw error;
+  }
+};
+
+export const createPromoCode = async (
+  shopId: string,
+  promoCodeData: CreatePromoCodeRequest
+): Promise<{ success: boolean; data: PromoCode }> => {
+  try {
+    return await apiClient.post(`/shops/${shopId}/promo-codes`, promoCodeData);
+  } catch (error: any) {
+    console.error("Failed to create promo code:", error.message);
     throw error;
   }
 };

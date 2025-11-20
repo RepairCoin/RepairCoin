@@ -6,13 +6,16 @@ import {
   validatePromoCode,
   issueReward,
   updatePromoCodeStatus,
+  createPromoCode,
   CustomerInfo,
   PromoCode,
   RewardRequest,
+  CreatePromoCodeRequest,
 } from "@/services/ShopServices";
 import { useAuthStore } from "@/store/authStore";
 import { queryKeys } from "@/config/queryClient";
 import { Alert } from "react-native";
+import { router } from "expo-router";
 
 // Query keys
 const QUERY_KEYS = {
@@ -381,6 +384,12 @@ export function useUpdatePromoCodeStatus() {
         queryClient.invalidateQueries({
           queryKey: QUERY_KEYS.shopPromoCodes(shopId),
         });
+
+        Alert.alert(
+          "Success",
+          variables.isActive ? "Promo code activated successfully!" : "Promo code deactivated successfully!",
+          [{ text: "OK" }]
+        );
       }
     },
     onError: (error: any, variables) => {
@@ -389,6 +398,48 @@ export function useUpdatePromoCodeStatus() {
       Alert.alert(
         "Error",
         error.response?.data?.message || `Failed to ${statusText} promo code`,
+        [{ text: "OK" }]
+      );
+    },
+  });
+}
+
+// Hook for creating promo codes
+export function useCreatePromoCode() {
+  const queryClient = useQueryClient();
+  const shopId = useAuthStore((state) => state.userProfile?.shopId);
+
+  return useMutation({
+    mutationFn: async (promoCodeData: CreatePromoCodeRequest) => {
+      if (!shopId) {
+        throw new Error("Shop ID not found");
+      }
+      return createPromoCode(shopId, promoCodeData);
+    },
+    onSuccess: () => {
+      Alert.alert(
+        "Success",
+        "Promo code created successfully!",
+        [
+          {
+            text: "OK",
+            onPress: () => router.back()
+          }
+        ]
+      );
+
+      // Invalidate promo codes list to refresh
+      if (shopId) {
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.shopPromoCodes(shopId),
+        });
+      }
+    },
+    onError: (error: any) => {
+      console.error("Failed to create promo code:", error);
+      Alert.alert(
+        "Error",
+        error.response?.data?.error || "Failed to create promo code",
         [{ text: "OK" }]
       );
     },

@@ -10,12 +10,14 @@ interface PromoCodeCardProps {
     end_date?: string;
   };
   onToggleStatus?: (id: string, isActive: boolean) => void;
+  isUpdating?: boolean;
 }
 
-export function PromoCodeCard({ promoCode, onToggleStatus }: PromoCodeCardProps) {
+export function PromoCodeCard({ promoCode, onToggleStatus, isUpdating = false }: PromoCodeCardProps) {
   const [isActive, setIsActive] = useState(promoCode.is_active);
 
   const handleToggle = (value: boolean) => {
+    if (isUpdating) return; // Prevent toggle when updating
     setIsActive(value);
     onToggleStatus?.(promoCode.id, value);
   };
@@ -66,6 +68,8 @@ export function PromoCodeCard({ promoCode, onToggleStatus }: PromoCodeCardProps)
             trackColor={{ false: '#D1D5DB', true: '#FFCC00' }}
             thumbColor={isActive ? '#FFF' : '#FFF'}
             ios_backgroundColor="#D1D5DB"
+            disabled={isUpdating}
+            style={{ opacity: isUpdating ? 0.5 : 1 }}
           />
         </View>
       </View>
