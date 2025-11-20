@@ -267,7 +267,11 @@ export default function ShopDashboardClient() {
   // Don't show if we're on the settings tab
   useEffect(() => {
     if (shopData && activeTab !== "settings") {
-      if (isSuspended || isRejected || !isOperational) {
+      // For pending shops without subscription, show onboarding modal
+      if (isPending && !shopData.subscriptionActive) {
+        setShowOnboardingModal(true);
+        setShowSuspendedModal(false);
+      } else if (isSuspended || isRejected || !isOperational) {
         // Show suspended modal for suspended/rejected/unsubscribed shops
         setShowSuspendedModal(true);
         setShowOnboardingModal(false);
@@ -279,7 +283,7 @@ export default function ShopDashboardClient() {
       setShowSuspendedModal(false);
       setShowOnboardingModal(false);
     }
-  }, [shopData, isOperational, isSuspended, isRejected, activeTab]);
+  }, [shopData, isOperational, isSuspended, isRejected, isPending, activeTab]);
 
   // Check pending purchases on shop data load
   useEffect(() => {
@@ -940,7 +944,9 @@ export default function ShopDashboardClient() {
                 modalType={
                   isSuspended ? 'suspended' :
                   isRejected ? 'rejected' :
-                  isPending ? 'pending' :
+                  // For pending shops, check if they have a subscription
+                  // If no subscription, show requirements modal instead of pending
+                  isPending ? (shopData?.subscriptionActive ? 'pending' : 'unsubscribed') :
                   !isOperational ? 'unsubscribed' :
                   'suspended' // fallback
                 }
