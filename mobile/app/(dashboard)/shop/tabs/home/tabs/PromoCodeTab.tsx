@@ -10,6 +10,7 @@ import { router } from "expo-router";
 import { useShopPromoCodes, useUpdatePromoCodeStatus } from "@/hooks/useShopRewards";
 import { ThemedView } from "@/components/ui/ThemedView";
 import { PromoCodeCard } from "@/components/shop/PromoCodeCard";
+import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 
 export default function PromoCodeTab() {
   const { data: promoCodesData, isLoading } = useShopPromoCodes();
@@ -23,6 +24,12 @@ export default function PromoCodeTab() {
 
   return (
     <ThemedView className="w-full h-full">
+      {/* Loading Overlay */}
+      <LoadingOverlay 
+        visible={updatePromoCodeStatusMutation.isPending}
+        message="Updating promo code..."
+      />
+
       <View className="h-52 my-4">
         <View className="w-full h-full bg-[#FFCC00] rounded-3xl flex-row overflow-hidden relative">
           <View
@@ -67,6 +74,7 @@ export default function PromoCodeTab() {
               <PromoCodeCard 
                 promoCode={item} 
                 onToggleStatus={handleTogglePromoCode}
+                isUpdating={updatePromoCodeStatusMutation.isPending}
               />
             )}
             contentContainerStyle={{ paddingBottom: 20 }}
