@@ -12,6 +12,8 @@ import { SettingsTab } from "@/components/customer/SettingsTab";
 import { FindShop } from "@/components/customer/FindShop";
 import { TokenGiftingTab } from "@/components/customer/TokenGiftingTab";
 import { SuspensionBanner } from "@/components/customer/SuspensionBanner";
+import { ServiceMarketplaceClient } from "@/components/customer/ServiceMarketplaceClient";
+import { ServiceOrdersTab } from "@/components/customer/ServiceOrdersTab";
 import { Toaster } from "react-hot-toast";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 
@@ -28,7 +30,7 @@ export default function CustomerDashboardClient() {
   const { isAuthenticated, userType, isLoading: authLoading, userProfile } = useAuthStore();
   const [authInitialized, setAuthInitialized] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    "overview" | "referrals" | "approvals" | "findshop" | "gifting" | "settings"
+    "overview" | "marketplace" | "orders" | "referrals" | "approvals" | "findshop" | "gifting" | "settings"
   >("overview");
 
   // Mark auth as initialized once authentication has been attempted
@@ -162,6 +164,12 @@ export default function CustomerDashboardClient() {
 
           {/* Tab Content */}
           {activeTab === "overview" && <OverviewTab />}
+
+          {/* Marketplace Tab */}
+          {activeTab === "marketplace" && <ServiceMarketplaceClient />}
+
+          {/* Orders Tab */}
+          {activeTab === "orders" && <ServiceOrdersTab />}
 
           {/* Referrals Tab */}
           {activeTab === "referrals" && <ReferralDashboard />}

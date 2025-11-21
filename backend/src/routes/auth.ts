@@ -18,9 +18,9 @@ const router = Router();
  * - Supports multiple wallet connections/tab refreshes during development
  */
 const authLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000, // 5 minutes (reduced from 15)
-  max: 20, // Limit each IP to 20 requests per windowMs (increased from 5)
-  message: 'Too many authentication attempts from this IP, please try again in a few minutes',
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: process.env.NODE_ENV === 'production' ? 5 : 100, // 5 in production, 100 in development
+  message: 'Too many authentication attempts from this IP, please try again after 15 minutes',
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   handler: (req, res) => {

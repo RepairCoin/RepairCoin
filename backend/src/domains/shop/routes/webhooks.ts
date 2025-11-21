@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { getStripeService } from '../../../services/StripeService';
 import { getSubscriptionService } from '../../../services/SubscriptionService';
 import { getPaymentRetryService } from '../../../services/PaymentRetryService';
+import { PaymentService } from '../../ServiceDomain/services/PaymentService';
 import { logger } from '../../../utils/logger';
 import { eventBus } from '../../../events/EventBus';
 import { DatabaseService } from '../../../services/DatabaseService';
@@ -10,6 +11,103 @@ import { ShopSubscriptionRepository } from '../../../repositories/ShopSubscripti
 import Stripe from 'stripe';
 
 const router = Router();
+
+/**
+ * Handle successful service payment
+ */
+async function handleServicePaymentSuccess(event: Stripe.Event, paymentService: PaymentService) {
+  const paymentIntent = event.data.object as Stripe.PaymentIntent;
+
+  logger.info('Processing service payment success webhook', {
+    paymentIntentId: paymentIntent.id,
+    amount: paymentIntent.amount,
+    status: paymentIntent.status
+  });
+
+  try {
+    // Check if this is a service booking payment by looking at metadata
+    if (paymentIntent.metadata?.type === 'service_booking') {
+      await paymentService.handlePaymentSuccess(paymentIntent.id);
+
+      logger.info('Service payment processed successfully', {
+        paymentIntentId: paymentIntent.id,
+        orderId: paymentIntent.metadata?.orderId
+      });
+    } else {
+      logger.info('Payment intent is not for service booking, skipping', {
+        paymentIntentId: paymentIntent.id,
+        type: paymentIntent.metadata?.type
+      });
+    }
+  } catch (error) {
+    logger.error('Failed to process service payment success', {
+      paymentIntentId: paymentIntent.id,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
+
+/**
+ * Handle failed service payment
+ */
+async function handleServicePaymentFailed(event: Stripe.Event, paymentService: PaymentService) {
+  const paymentIntent = event.data.object as Stripe.PaymentIntent;
+
+  logger.warn('Processing service payment failed webhook', {
+    paymentIntentId: paymentIntent.id,
+    amount: paymentIntent.amount,
+    status: paymentIntent.status
+  });
+
+  try {
+    // Check if this is a service booking payment
+    if (paymentIntent.metadata?.type === 'service_booking') {
+      const failureMessage = paymentIntent.last_payment_error?.message || 'Payment failed';
+      await paymentService.handlePaymentFailure(paymentIntent.id, failureMessage);
+
+      logger.info('Service payment failure processed', {
+        paymentIntentId: paymentIntent.id,
+        orderId: paymentIntent.metadata?.orderId,
+        reason: failureMessage
+      });
+    }
+  } catch (error) {
+    logger.error('Failed to process service payment failure', {
+      paymentIntentId: paymentIntent.id,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
+
+/**
+ * Handle canceled service payment
+ */
+async function handleServicePaymentCanceled(event: Stripe.Event, paymentService: PaymentService) {
+  const paymentIntent = event.data.object as Stripe.PaymentIntent;
+
+  logger.info('Processing service payment canceled webhook', {
+    paymentIntentId: paymentIntent.id,
+    amount: paymentIntent.amount,
+    status: paymentIntent.status
+  });
+
+  try {
+    // Check if this is a service booking payment
+    if (paymentIntent.metadata?.type === 'service_booking') {
+      await paymentService.handlePaymentFailure(paymentIntent.id, 'Payment canceled by user or system');
+
+      logger.info('Service payment cancellation processed', {
+        paymentIntentId: paymentIntent.id,
+        orderId: paymentIntent.metadata?.orderId
+      });
+    }
+  } catch (error) {
+    logger.error('Failed to process service payment cancellation', {
+      paymentIntentId: paymentIntent.id,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
 
 /**
  * @swagger
@@ -57,7 +155,8 @@ router.post('/stripe', async (req: Request, res: Response) => {
     const stripeService = getStripeService();
     const subscriptionService = getSubscriptionService();
     const paymentRetryService = getPaymentRetryService();
-    
+    const paymentService = new PaymentService(stripeService);
+
     // Verify webhook signature and construct event
     const event = await stripeService.handleWebhook(req.body, signature);
     
@@ -97,11 +196,23 @@ router.post('/stripe', async (req: Request, res: Response) => {
       case 'checkout.session.completed':
         await handleCheckoutSessionCompleted(event, subscriptionService);
         break;
-        
+
+      case 'payment_intent.succeeded':
+        await handleServicePaymentSuccess(event, paymentService);
+        break;
+
+      case 'payment_intent.payment_failed':
+        await handleServicePaymentFailed(event, paymentService);
+        break;
+
+      case 'payment_intent.canceled':
+        await handleServicePaymentCanceled(event, paymentService);
+        break;
+
       default:
-        logger.info('Unhandled webhook event type', { 
+        logger.info('Unhandled webhook event type', {
           eventType: event.type,
-          eventId: event.id 
+          eventId: event.id
         });
     }
 

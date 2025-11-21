@@ -330,9 +330,7 @@ export class StripeService {
       const paymentIntentData: Stripe.PaymentIntentCreateParams = {
         amount: data.amount,
         currency: data.currency,
-        automatic_payment_methods: {
-          enabled: true,
-        },
+        payment_method_types: ['card'], // Only allow card payments
         metadata: {
           environment: this.config.isTestMode ? 'test' : 'production',
           ...data.metadata
