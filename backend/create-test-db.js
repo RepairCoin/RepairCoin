@@ -13,7 +13,7 @@ async function createTestDatabase() {
     host: "localhost",
     port: 5432,
     user: "doadmin", // ← Change if different
-    password: "AVNS_lW7Pis3I_phB6sDplys", // ← IMPORTANT: Change this!
+    password: process.env.DB_TEST_PASSWORD, // ← IMPORTANT: Change this!
     database: "postgres", // Connect to default DB first
   };
 
