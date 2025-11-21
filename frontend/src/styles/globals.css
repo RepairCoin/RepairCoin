@@ -9,6 +9,7 @@
 
   html {
     scroll-behavior: smooth;
+    overflow-x: clip;
   }
 
   body {
@@ -16,6 +17,7 @@
     background-color: #ffffff;
     color: #1f2937;
     line-height: 1.6;
+    overflow-x: clip;
   }
 
   /* Custom Scrollbar Styles - Applied to all scrollable elements */

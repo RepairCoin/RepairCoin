@@ -210,3 +210,4 @@ stripe listen --forward-to localhost:4000/api/shops/webhooks/stripe
 - Use `test:watch` for TDD workflow
 - remember to only commit if i say so
 - to check database check the env database is directly connected to digital ocean
+- when creating a ui in frontend check shadcn components and use it
