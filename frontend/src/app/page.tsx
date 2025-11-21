@@ -28,6 +28,7 @@ export default function LandingPageNew() {
   const { isAuthenticated } = useAuthStore();
   const { walletType, isRegistered, isDetecting } = useWalletDetection();
   const redirectAttemptedRef = React.useRef(false);
+  const [isRedirecting, setIsRedirecting] = React.useState(false);
 
   // Auto-redirect registered users to their dashboard
   React.useEffect(() => {
@@ -38,6 +39,7 @@ export default function LandingPageNew() {
     if (account && isRegistered && isAuthenticated && !isDetecting && walletType !== 'unknown') {
       console.log('🔄 [LandingPage] Auto-redirecting authenticated user to:', walletType);
       redirectAttemptedRef.current = true;
+      setIsRedirecting(true);
 
       const targetPath = walletType === "admin" ? "/admin" :
                         walletType === "shop" ? "/shop" :
@@ -51,6 +53,8 @@ export default function LandingPageNew() {
     if (!account) {
       return;
     }
+
+    setIsRedirecting(true);
 
     if (isRegistered) {
       switch (walletType) {
@@ -79,6 +83,7 @@ export default function LandingPageNew() {
         isDetecting={isDetecting}
         isRegistered={isRegistered}
         isAuthenticated={isAuthenticated}
+        isRedirecting={isRedirecting}
         onGetStartedClick={handleGetStarted}
       />
 

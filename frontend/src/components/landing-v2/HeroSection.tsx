@@ -1,12 +1,14 @@
 'use client';
 
 import React from 'react';
+import { Loader2 } from 'lucide-react';
 
 interface HeroSectionProps {
   hasWallet: boolean;
   isDetecting: boolean;
   isRegistered: boolean;
   isAuthenticated: boolean;
+  isRedirecting?: boolean;
   onGetStartedClick: () => void;
 }
 
@@ -15,8 +17,10 @@ export default function HeroSection({
   isDetecting,
   isRegistered,
   isAuthenticated,
+  isRedirecting = false,
   onGetStartedClick
 }: HeroSectionProps) {
+  const isLoading = isDetecting || isRedirecting;
   return (
     <section className="relative bg-[#101010] w-full h-screen overflow-hidden flex items-center">
       {/* Background Gradients */}
@@ -71,9 +75,17 @@ export default function HeroSection({
             <div className="pt-4">
               <button
                 onClick={onGetStartedClick}
-                className="bg-[#ffcc00] hover:bg-[#e6b800] text-black font-medium px-8 py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+                disabled={isLoading}
+                className="bg-[#ffcc00] hover:bg-[#e6b800] text-black font-medium px-8 py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                Get Started →
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    {isRedirecting ? 'Redirecting...' : 'Loading...'}
+                  </>
+                ) : (
+                  <>Get Started →</>
+                )}
               </button>
             </div>
           </div>
