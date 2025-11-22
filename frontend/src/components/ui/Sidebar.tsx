@@ -83,7 +83,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [expandedSections, setExpandedSections] = useState<string[]>(["dashboard", "rewards", "customers", "shop-tools", "settings"]);
+  const [expandedSections, setExpandedSections] = useState<string[]>(["dashboard", "service", "rewards", "customers", "shop-tools", "settings"]);
 
   // Auto-collapse subtabs when switching to a different main tab
   React.useEffect(() => {
@@ -405,6 +405,24 @@ const Sidebar: React.FC<SidebarProps> = ({
             href: "/shop?tab=overview",
             icon: <OverviewIcon width={24} height={24} isActive={activeTab === "overview"} />,
             tabId: "overview",
+          },
+        ],
+      },
+      {
+        id: "service",
+        title: "SERVICE",
+        items: [
+          {
+            title: "Services",
+            href: "/shop?tab=services",
+            icon: <ShoppingBag className="w-5 h-5" />,
+            tabId: "services",
+          },
+          {
+            title: "Bookings",
+            href: "/shop?tab=bookings",
+            icon: <Receipt className="w-5 h-5" />,
+            tabId: "bookings",
           },
         ],
       },
