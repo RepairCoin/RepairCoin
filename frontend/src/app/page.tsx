@@ -1,6 +1,7 @@
 'use client';
 
 import React from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useActiveAccount } from "thirdweb/react";
 import { useWalletDetection } from "@/hooks/useWalletDetection";
@@ -8,19 +9,21 @@ import { useAuthStore } from "@/stores/authStore";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
-// New landing page sections
+// Critical above-the-fold sections - load immediately
 import NewHeroSection from "@/components/landing-v2/HeroSection";
 import WhatIsRepairCoin from "@/components/landing-v2/WhatIsRepairCoin";
-import HowItWorks from "@/components/landing-v2/HowItWorks";
-import ShareRewards from "@/components/landing-v2/ShareRewards";
-import LoyaltyTiers from "@/components/landing-v2/LoyaltyTiers";
-import FindAndRedeem from "@/components/landing-v2/FindAndRedeem";
-import RedemptionControl from "@/components/landing-v2/RedemptionControl";
-import ShopTiers from "@/components/landing-v2/ShopTiers";
-import UseRewardsAnywhere from "@/components/landing-v2/UseRewardsAnywhere";
-import WalletControl from "@/components/landing-v2/WalletControl";
-import CommunityDriven from "@/components/landing-v2/CommunityDriven";
-import FAQ from "@/components/landing-v2/FAQ";
+
+// Below-the-fold sections - lazy load with dynamic imports
+const HowItWorks = dynamic(() => import("@/components/landing-v2/HowItWorks"), { ssr: true });
+const ShareRewards = dynamic(() => import("@/components/landing-v2/ShareRewards"), { ssr: true });
+const LoyaltyTiers = dynamic(() => import("@/components/landing-v2/LoyaltyTiers"), { ssr: true });
+const FindAndRedeem = dynamic(() => import("@/components/landing-v2/FindAndRedeem"), { ssr: true });
+const RedemptionControl = dynamic(() => import("@/components/landing-v2/RedemptionControl"), { ssr: true });
+const ShopTiers = dynamic(() => import("@/components/landing-v2/ShopTiers"), { ssr: true });
+const UseRewardsAnywhere = dynamic(() => import("@/components/landing-v2/UseRewardsAnywhere"), { ssr: true });
+const WalletControl = dynamic(() => import("@/components/landing-v2/WalletControl"), { ssr: true });
+const CommunityDriven = dynamic(() => import("@/components/landing-v2/CommunityDriven"), { ssr: true });
+const FAQ = dynamic(() => import("@/components/landing-v2/FAQ"), { ssr: true });
 
 export default function LandingPageNew() {
   const router = useRouter();

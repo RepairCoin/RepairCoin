@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 
 const features = [
   {
@@ -45,19 +46,14 @@ export default function HowItWorks() {
               className="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-shadow duration-300"
             >
               {/* Card Image */}
-              <div className="h-48 lg:h-56 bg-gray-100 flex items-center justify-center overflow-hidden">
-                <img
+              <div className="h-48 lg:h-56 bg-gray-100 flex items-center justify-center overflow-hidden relative">
+                <Image
                   src={feature.image}
                   alt={feature.title}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    // Fallback to emoji if image not found
-                    e.currentTarget.style.display = 'none';
-                    const fallback = document.createElement('span');
-                    fallback.className = 'text-6xl';
-                    fallback.textContent = feature.fallback;
-                    e.currentTarget.parentElement?.appendChild(fallback);
-                  }}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  loading="lazy"
                 />
               </div>
 

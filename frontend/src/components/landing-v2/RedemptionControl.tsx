@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 
 const steps = [
   {
@@ -55,19 +56,14 @@ export default function RedemptionControl() {
               className="bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-shadow duration-300"
             >
               {/* Image */}
-              <div className="w-full h-56 bg-[#E8E8E8] flex items-center justify-center overflow-hidden">
-                <img
+              <div className="w-full h-56 bg-[#E8E8E8] flex items-center justify-center overflow-hidden relative">
+                <Image
                   src={step.image}
                   alt={step.title}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    // Fallback to emoji if image not found
-                    e.currentTarget.style.display = 'none';
-                    const fallback = document.createElement('span');
-                    fallback.className = 'text-6xl';
-                    fallback.textContent = step.fallback;
-                    e.currentTarget.parentElement?.appendChild(fallback);
-                  }}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                  loading="lazy"
                 />
               </div>
 

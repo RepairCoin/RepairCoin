@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { Check } from 'lucide-react';
 
 const tiers = [
@@ -75,18 +76,14 @@ export default function LoyaltyTiers() {
                 </div>
 
                 {/* Coin Image */}
-                <div className="absolute w-16 h-16 lg:w-20 lg:h-20 flex-shrink-0 right-4">
-                  <img
+                <div className="absolute w-16 h-16 lg:w-20 lg:h-20 flex-shrink-0 right-4 relative">
+                  <Image
                     src={tier.image}
                     alt={`${tier.name} Medal`}
-                    className="w-full h-full object-contain"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                      const fallback = document.createElement('span');
-                      fallback.className = 'text-5xl';
-                      fallback.textContent = tier.fallback;
-                      e.currentTarget.parentElement?.appendChild(fallback);
-                    }}
+                    fill
+                    className="object-contain"
+                    sizes="80px"
+                    loading="lazy"
                   />
                 </div>
               </div>

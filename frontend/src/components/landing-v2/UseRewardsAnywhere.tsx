@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { Check } from 'lucide-react';
 
 const customerFeatures = [
@@ -34,18 +35,15 @@ export default function UseRewardsAnywhere() {
         {/* Customer Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16">
           {/* Image */}
-          <div className="relative h-[400px] rounded-xl overflow-hidden order-2 lg:order-1">
-            <div className="absolute inset-0 bg-gray-800 rounded-xl flex items-center justify-center">
-              <img
-                src="/img/landing/Photo (13).png"
-                alt="Customer Rewards"
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  // Fallback to existing image if landing image not found
-                  e.currentTarget.src = '/img/redeem.png';
-                }}
-              />
-            </div>
+          <div className="relative h-[400px] rounded-xl overflow-hidden order-2 lg:order-1 bg-gray-800">
+            <Image
+              src="/img/landing/Photo (12).png"
+              alt="Customer Rewards"
+              fill
+              className="object-cover"
+              sizes="(max-width: 1024px) 100vw, 50vw"
+              loading="lazy"
+            />
           </div>
 
           {/* Content */}
@@ -100,18 +98,15 @@ export default function UseRewardsAnywhere() {
           </div>
 
           {/* Image */}
-          <div className="relative h-[400px] rounded-xl overflow-hidden">
-            <div className="absolute inset-0 bg-gray-800 rounded-xl flex items-center justify-center">
-              <img
-                src="/img/landing/Photo (14).png"
-                alt="Shop Rewards"
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  // Fallback to existing image if landing image not found
-                  e.currentTarget.src = '/img/shop-issue-rewards-1.png';
-                }}
-              />
-            </div>
+          <div className="relative h-[400px] rounded-xl overflow-hidden bg-gray-800">
+            <Image
+              src="/img/landing/Photo (13).png"
+              alt="Shop Rewards"
+              fill
+              className="object-cover"
+              sizes="(max-width: 1024px) 100vw, 50vw"
+              loading="lazy"
+            />
           </div>
         </div>
       </div>

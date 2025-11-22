@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { Check } from 'lucide-react';
 
 const features = [
@@ -51,18 +52,15 @@ export default function FindAndRedeem() {
           </div>
 
           {/* Right Content - Map/Image */}
-          <div className="relative h-[400px] rounded-xl overflow-hidden">
-            <div className="absolute inset-0 bg-gray-800 rounded-xl flex items-center justify-center">
-              <img
-                src="/img/landing/Photo (12).png"
-                alt="Find Partner Shops"
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  // Fallback to existing image if landing image not found
-                  e.currentTarget.src = '/img/gps.png';
-                }}
-              />
-            </div>
+          <div className="relative h-[400px] rounded-xl overflow-hidden bg-gray-800">
+            <Image
+              src="/img/landing/Photo (4).png"
+              alt="Find Partner Shops"
+              fill
+              className="object-cover"
+              sizes="(max-width: 1024px) 100vw, 50vw"
+              loading="lazy"
+            />
           </div>
         </div>
       </div>

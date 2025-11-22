@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { Check } from 'lucide-react';
 
 const features = [
@@ -50,18 +51,15 @@ export default function WalletControl() {
           </div>
 
           {/* Right Content - Mobile/Wallet Image */}
-          <div className="relative h-[400px] rounded-xl overflow-hidden">
-            <div className="absolute inset-0 bg-gray-800 rounded-xl flex items-center justify-center">
-              <img
-                src="/img/landing/Photo (4).png"
-                alt="Wallet Control"
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  // Fallback to existing image if landing image not found
-                  e.currentTarget.src = '/img/cust-ref-widget3.png';
-                }}
-              />
-            </div>
+          <div className="relative h-[400px] rounded-xl overflow-hidden bg-gray-800">
+            <Image
+              src="/img/landing/Photo (14).png"
+              alt="Wallet Control"
+              fill
+              className="object-cover"
+              sizes="(max-width: 1024px) 100vw, 50vw"
+              loading="lazy"
+            />
           </div>
         </div>
       </div>
