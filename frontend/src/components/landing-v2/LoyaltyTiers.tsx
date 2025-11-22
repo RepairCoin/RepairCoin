@@ -8,7 +8,7 @@ const tiers = [
     name: 'Bronze',
     range: '0 - 199 RCN Lifetime Earned',
     headerBg: 'bg-gradient-to-r from-[#CD7F32] to-[#B87333]',
-    image: '/img/landing/copper-coin.gif',
+    image: '/img/landing/pexels-godisable-jacob-871495-removebg-preview 2.png',
     fallback: '🥉',
     description: 'Your starting point for earning rewards',
     benefits: [
@@ -20,7 +20,7 @@ const tiers = [
     name: 'Silver',
     range: '200 - 999 RCN Lifetime Earned',
     headerBg: 'bg-gradient-to-r from-[#878686] to-[#A8A8A8]',
-    image: '/img/landing/silver-coin..gif',
+    image: '/img/landing/pexels-godisable-jacob-871495-removebg-preview 2 (1).png',
     fallback: '🥈',
     description: 'Earn and unlock your first loyalty boost',
     benefits: [
@@ -32,7 +32,7 @@ const tiers = [
     name: 'Gold',
     range: '1,000+ RCN lifetime earned',
     headerBg: 'bg-gradient-to-r from-[#ad9307] to-[#FFC700]',
-    image: '/img/landing/gold-coin.gif',
+    image: '/img/landing/pexels-godisable-jacob-871495-removebg-preview 2 (2).png',
     fallback: '🥇',
     description: 'Maximum rewards for loyal customers',
     benefits: [

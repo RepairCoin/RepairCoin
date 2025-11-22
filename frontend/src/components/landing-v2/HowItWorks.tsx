@@ -6,19 +6,19 @@ const features = [
   {
     title: 'Repair or Refer',
     description: 'Qualifying repairs and successful referrals automatically earn RCN rewards.',
-    image: '/img/landing/howitworks-card-1.gif',
+    image: '/img/landing/Photo.png',
     fallback: '🔧'
   },
   {
     title: 'Track & Approve',
     description: 'See your balance, then approve shop redemption requests with one tap.',
-    image: '/img/landing/howitworks-card-2.gif',
+    image: '/img/landing/Photo (1).png',
     fallback: '✅'
   },
   {
     title: 'Redeem Anywhere',
     description: 'Use RCN at verified partner shops nationwide at a fixed $0.10 per token.',
-    image: '/img/landing/howitworks-card-3.gif',
+    image: '/img/landing/Photo (2).png',
     fallback: '🏪'
   }
 ];
