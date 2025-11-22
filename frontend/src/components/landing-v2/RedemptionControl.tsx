@@ -7,28 +7,28 @@ const steps = [
     title: 'Shop Sends Request',
     description1: 'When you choose to redeem tokens at a partner shop.',
     description2: 'The system instantly sends a secure request to your account for approval.',
-    image: '/img/landing/controlRedepmtionCard1.gif',
+    image: '/img/landing/Photo (5).png',
     fallback: '📧'
   },
   {
     title: 'Review the Details',
     description1: 'View the shop name, token amount, and service details.',
     description2: 'Approve only if everything looks correct — your tokens stay safe until you confirm.',
-    image: '/img/landing/controlRedepmtionCard2.gif',
+    image: '/img/landing/Photo (6).png',
     fallback: '📋'
   },
   {
     title: 'Approve Securely',
     description1: 'Once you\'re ready, simply tap Approve to authorize the transaction.',
     description2: 'The shop will be notified instantly to process your service.',
-    image: '/img/landing/controlRedepmtionCard3.gif',
+    image: '/img/landing/Photo (7).png',
     fallback: '✅'
   },
   {
     title: 'Redemption Complete',
     description1: 'Once approved, your tokens are verified and deducted.',
     description2: 'The shop can now process your service — fast, secure, and fully transparent.',
-    image: '/img/landing/controlRedepmtionCard4.gif',
+    image: '/img/landing/Photo (8).png',
     fallback: '🛡️'
   }
 ];

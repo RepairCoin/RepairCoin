@@ -10,7 +10,7 @@ const tiers = [
     headerBg: "bg-gray-300",
     textColor: "text-black",
     checkmarkColor: "bg-yellow-400",
-    image: "/img/landing/buildForGrowthCard1.gif",
+    image: "/img/landing/Photo (9).png",
     fallback: "🏪",
     description:
       "Start your journey with RepairCoin — Earn loyalty rewards and get listed nationwide.",
@@ -28,7 +28,7 @@ const tiers = [
     headerBg: "bg-white",
     textColor: "text-black",
     checkmarkColor: "bg-yellow-400",
-    image: "/img/landing/buildForGrowthCard2.gif",
+    image: "/img/landing/Photo (10).png",
     fallback: "⭐",
     description:
       "Scale your shop's loyalty program — Unlock higher rewards and advanced CRM insights.",
@@ -46,7 +46,7 @@ const tiers = [
     headerBg: "bg-[#FFD700]",
     textColor: "text-black",
     checkmarkColor: "bg-yellow-400",
-    image: "/img/landing/buildForGrowthCard3.gif",
+    image: "/img/landing/Photo (11).png",
     fallback: "💎",
     description:
       "From earning to influencing — Govern the RepairCoin ecosystem with exclusive perks.",

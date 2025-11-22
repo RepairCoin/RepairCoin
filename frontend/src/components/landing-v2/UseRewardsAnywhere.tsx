@@ -37,7 +37,7 @@ export default function UseRewardsAnywhere() {
           <div className="relative h-[400px] rounded-xl overflow-hidden order-2 lg:order-1">
             <div className="absolute inset-0 bg-gray-800 rounded-xl flex items-center justify-center">
               <img
-                src="/img/landing/userewardsanywherecard1.gif"
+                src="/img/landing/Photo (13).png"
                 alt="Customer Rewards"
                 className="w-full h-full object-cover"
                 onError={(e) => {
@@ -103,7 +103,7 @@ export default function UseRewardsAnywhere() {
           <div className="relative h-[400px] rounded-xl overflow-hidden">
             <div className="absolute inset-0 bg-gray-800 rounded-xl flex items-center justify-center">
               <img
-                src="/img/landing/userewardsanywherecard2.gif"
+                src="/img/landing/Photo (14).png"
                 alt="Shop Rewards"
                 className="w-full h-full object-cover"
                 onError={(e) => {

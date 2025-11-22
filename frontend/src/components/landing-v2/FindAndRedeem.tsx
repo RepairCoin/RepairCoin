@@ -54,7 +54,7 @@ export default function FindAndRedeem() {
           <div className="relative h-[400px] rounded-xl overflow-hidden">
             <div className="absolute inset-0 bg-gray-800 rounded-xl flex items-center justify-center">
               <img
-                src="/img/landing/partnerShopCard.gif"
+                src="/img/landing/Photo (12).png"
                 alt="Find Partner Shops"
                 className="w-full h-full object-cover"
                 onError={(e) => {

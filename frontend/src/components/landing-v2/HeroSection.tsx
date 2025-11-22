@@ -90,18 +90,27 @@ export default function HeroSection({
             </div>
           </div>
 
-          {/* Right Content - Hero Image */}
+          {/* Right Content - Hero Video */}
           <div className=" h-full flex items-end justify-center lg:justify-end pb-0">
              <div className="w-full">
-              <img
-                src="/img/landing/hero-person.gif"
-                alt="RepairCoin Hero - Person with devices"
+              <video
+                autoPlay
+                loop
+                muted
+                playsInline
                 className="absolute bottom-0 left-1/4 w-full h-[80vh] object-contain object-bottom"
                 onError={(e) => {
-                  // Fallback to existing image if landing image not found
-                  e.currentTarget.src = '/img/hero-bg.png';
+                  // Fallback to PNG if video fails to load
+                  const fallbackImg = document.createElement('img');
+                  fallbackImg.src = '/img/landing/landing-hero.png';
+                  fallbackImg.alt = 'RepairCoin Hero - Person with devices';
+                  fallbackImg.className = 'absolute bottom-0 left-1/4 w-full h-[80vh] object-contain object-bottom';
+                  e.currentTarget.replaceWith(fallbackImg);
                 }}
-              />
+              >
+                <source src="/img/landing/hero-person.webm" type="video/webm" />
+                Your browser does not support the video tag.
+              </video>
             </div>
           </div>
         </div>
