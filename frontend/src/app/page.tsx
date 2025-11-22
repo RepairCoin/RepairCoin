@@ -1,56 +1,65 @@
 'use client';
 
-import React, { useState } from "react";
+import React from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useActiveAccount } from "thirdweb/react";
 import { useWalletDetection } from "@/hooks/useWalletDetection";
-import HowAndWhy from "@/components/landing/HowAndWhy";
-import FindARepairCoin from "@/components/landing/FindARepairCoin";
-import SuccessStories from "@/components/landing/SuccessStories";
-import CommunityBanner from "@/components/CommunityBanner";
-import LandingHero from "@/components/landing/LandingHero";
 import { useAuthStore } from "@/stores/authStore";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
-export default function LandingPage() {
+// Critical above-the-fold sections - load immediately
+import NewHeroSection from "@/components/landing-v2/HeroSection";
+import WhatIsRepairCoin from "@/components/landing-v2/WhatIsRepairCoin";
+
+// Below-the-fold sections - lazy load with dynamic imports
+const HowItWorks = dynamic(() => import("@/components/landing-v2/HowItWorks"), { ssr: true });
+const ShareRewards = dynamic(() => import("@/components/landing-v2/ShareRewards"), { ssr: true });
+const LoyaltyTiers = dynamic(() => import("@/components/landing-v2/LoyaltyTiers"), { ssr: true });
+const FindAndRedeem = dynamic(() => import("@/components/landing-v2/FindAndRedeem"), { ssr: true });
+const RedemptionControl = dynamic(() => import("@/components/landing-v2/RedemptionControl"), { ssr: true });
+const ShopTiers = dynamic(() => import("@/components/landing-v2/ShopTiers"), { ssr: true });
+const UseRewardsAnywhere = dynamic(() => import("@/components/landing-v2/UseRewardsAnywhere"), { ssr: true });
+const WalletControl = dynamic(() => import("@/components/landing-v2/WalletControl"), { ssr: true });
+const CommunityDriven = dynamic(() => import("@/components/landing-v2/CommunityDriven"), { ssr: true });
+const FAQ = dynamic(() => import("@/components/landing-v2/FAQ"), { ssr: true });
+
+export default function LandingPageNew() {
   const router = useRouter();
   const account = useActiveAccount();
   const { isAuthenticated } = useAuthStore();
   const { walletType, isRegistered, isDetecting } = useWalletDetection();
-  const [showAuthModal, setShowAuthModal] = useState(false);
   const redirectAttemptedRef = React.useRef(false);
+  const [isRedirecting, setIsRedirecting] = React.useState(false);
 
   // Auto-redirect registered users to their dashboard
-  // Works alongside middleware protection for seamless authentication
   React.useEffect(() => {
-    // Prevent multiple redirect attempts
     if (redirectAttemptedRef.current) {
       return;
     }
 
-    // Only redirect authenticated users with complete wallet detection
     if (account && isRegistered && isAuthenticated && !isDetecting && walletType !== 'unknown') {
       console.log('🔄 [LandingPage] Auto-redirecting authenticated user to:', walletType);
       redirectAttemptedRef.current = true;
+      setIsRedirecting(true);
 
       const targetPath = walletType === "admin" ? "/admin" :
                         walletType === "shop" ? "/shop" :
                         "/customer";
 
-      // Use Next.js router for client-side navigation
       router.push(targetPath);
     }
   }, [account, isRegistered, isAuthenticated, isDetecting, walletType, router]);
 
   const handleGetStarted = () => {
     if (!account) {
-      // If no wallet connected, the ConnectButton will handle it
       return;
     }
 
+    setIsRedirecting(true);
+
     if (isRegistered) {
-      // Already registered, route to appropriate dashboard
       switch (walletType) {
         case "admin":
           router.push("/admin");
@@ -63,65 +72,57 @@ export default function LandingPage() {
           break;
       }
     } else {
-      // New wallet, go to choose page
       router.push("/choose");
     }
   };
 
-  const handleAuthConnect = () => {
-    setShowAuthModal(false);
-    // Redirect logic is now handled inside DualAuthConnect component
-  };
-
-  const handleAuthError = (error: any) => {
-    console.log("Connection error:", error);
-  };
-
-  const getStatusMessage = () => {
-    if (account && !isDetecting && !isRegistered) {
-      return (
-        <p className="text-blue-200 text-sm">
-          <span className="font-semibold">New wallet detected!</span>{" "}
-          Click "Get Started" to choose how you want to participate in
-          RepairCoin.
-        </p>
-      );
-    }
-    return null;
-  };
-
   return (
-    <main>
+    <main className="bg-[#191919] min-h-screen overflow-x-clip">
       <Header />
-      <LandingHero
-        backgroundImage="/img/hero-bg.png"  
-        techBgImage="/img/tech-bg.png"
-        hero1BgImage="/img/hero1-bg.png"
+
+      {/* Hero Section */}
+      <NewHeroSection
         hasWallet={!!account}
         isDetecting={isDetecting}
         isRegistered={isRegistered}
         isAuthenticated={isAuthenticated}
-        showAuthModal={showAuthModal}
+        isRedirecting={isRedirecting}
         onGetStartedClick={handleGetStarted}
-        onAuthModalOpen={() => setShowAuthModal(true)}
-        onAuthModalClose={() => setShowAuthModal(false)}
-        onAuthConnect={handleAuthConnect}
-        onAuthError={handleAuthError}
-        statusMessage={getStatusMessage()}
       />
-      <HowAndWhy 
-        techBgImage="/img/tech-bg.png"
-      />
-      <FindARepairCoin 
-        chainBgImage="/img/chain.png"
-      />
-      <SuccessStories 
-        successStoriesBgImage="/img/success-stories-bg.png"
-      />
-      <CommunityBanner 
-        communityBannerBgImage="/img/community-chain.png"
-        bannerChainImage="/img/banner-chain.png"
-      />
+
+      {/* What is RepairCoin */}
+      <WhatIsRepairCoin />
+
+      {/* How It Works */}
+      <HowItWorks />
+
+      {/* Share the Rewards */}
+      <ShareRewards />
+
+      {/* Loyalty Tiers */}
+      <LoyaltyTiers />
+
+      {/* Find and Redeem at Partner Shops */}
+      <FindAndRedeem />
+
+      {/* You Control Every Redemption */}
+      <RedemptionControl />
+
+      {/* Verified by Governance - Shop Tiers */}
+      <ShopTiers />
+
+      {/* Use Your Rewards Anywhere */}
+      <UseRewardsAnywhere />
+
+      {/* Your Wallet. Your Control */}
+      <WalletControl />
+
+      {/* Community Driven */}
+      <CommunityDriven />
+
+      {/* FAQ */}
+      <FAQ />
+
       <Footer />
     </main>
   );
