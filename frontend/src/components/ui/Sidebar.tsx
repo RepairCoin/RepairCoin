@@ -95,6 +95,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     if (activeTab && activeTab !== "shops-management") {
       setExpandedItems(prev => prev.filter(id => id !== "shops-management"));
     }
+    // If activeTab changes and it's not "services" or "bookings", collapse the service subtab
+    if (activeTab && activeTab !== "services" && activeTab !== "bookings") {
+      setExpandedItems(prev => prev.filter(id => id !== "service"));
+    }
     // Auto-expand customers when it becomes active
     if (activeTab === "customers" && !expandedItems.includes("customers")) {
       setExpandedItems(prev => [...prev, "customers"]);
@@ -102,6 +106,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     // Auto-expand shops when it becomes active
     if (activeTab === "shops-management" && !expandedItems.includes("shops-management")) {
       setExpandedItems(prev => [...prev, "shops-management"]);
+    }
+    // Auto-expand service when services or bookings becomes active
+    if ((activeTab === "services" || activeTab === "bookings") && !expandedItems.includes("service")) {
+      setExpandedItems(prev => [...prev, "service"]);
     }
   }, [activeTab]);
 
@@ -190,16 +198,24 @@ const Sidebar: React.FC<SidebarProps> = ({
           tabId: "overview",
         },
         {
-          title: "Services",
+          title: "Service",
           href: "/shop?tab=services",
           icon: <ShoppingBag className="w-5 h-5" />,
-          tabId: "services",
-        },
-        {
-          title: "Bookings",
-          href: "/shop?tab=bookings",
-          icon: <Receipt className="w-5 h-5" />,
-          tabId: "bookings",
+          tabId: "service",
+          subItems: [
+            {
+              title: "Services",
+              href: "/shop?tab=services",
+              icon: <ShoppingBag className="w-4 h-4" />,
+              tabId: "services",
+            },
+            {
+              title: "Bookings",
+              href: "/shop?tab=bookings",
+              icon: <Receipt className="w-4 h-4" />,
+              tabId: "bookings",
+            },
+          ],
         },
         {
           title: "Issue Rewards",
