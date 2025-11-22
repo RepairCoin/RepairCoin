@@ -23,7 +23,7 @@ export default function CustomerList() {
     userProfile?.shopId || ""
   );
 
-  console.log("shopCustomerData:", shopCustomerData);
+  console.log("userProfile?.shopId:", userProfile?.shopId);
   
   const filteredCustomers = shopCustomerData?.customers?.filter((customer: any) =>
     customer?.name?.toLowerCase().includes(searchText.toLowerCase())
