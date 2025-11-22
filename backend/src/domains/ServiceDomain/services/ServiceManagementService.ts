@@ -1,0 +1,234 @@
+// backend/src/domains/ServiceDomain/services/ServiceManagementService.ts
+import { ServiceRepository, ShopService, CreateServiceParams, UpdateServiceParams, ServiceFilters, ShopServiceWithShopInfo } from '../../../repositories/ServiceRepository';
+import { shopRepository } from '../../../repositories';
+import { logger } from '../../../utils/logger';
+import { v4 as uuidv4 } from 'uuid';
+import { PaginatedResult } from '../../../repositories/BaseRepository';
+
+export interface CreateServiceRequest {
+  shopId: string;
+  serviceName: string;
+  description?: string;
+  priceUsd: number;
+  durationMinutes?: number;
+  category?: string;
+  imageUrl?: string;
+}
+
+export interface UpdateServiceRequest {
+  serviceName?: string;
+  description?: string;
+  priceUsd?: number;
+  durationMinutes?: number;
+  category?: string;
+  imageUrl?: string;
+  active?: boolean;
+}
+
+export class ServiceManagementService {
+  private repository: ServiceRepository;
+
+  constructor() {
+    this.repository = new ServiceRepository();
+  }
+
+  /**
+   * Create a new service
+   */
+  async createService(request: CreateServiceRequest): Promise<ShopService> {
+    try {
+      // Validate shop exists and is active
+      const shop = await shopRepository.getShop(request.shopId);
+      if (!shop) {
+        throw new Error('Shop not found');
+      }
+
+      if (!shop.active || !shop.verified) {
+        throw new Error('Shop must be active and verified to create services');
+      }
+
+      // Require active subscription
+      if (!shop.subscriptionActive) {
+        throw new Error('Active RepairCoin subscription required to create services. Subscribe at $500/month to unlock this feature.');
+      }
+
+      // Validate price
+      if (request.priceUsd <= 0) {
+        throw new Error('Service price must be greater than 0');
+      }
+
+      // Validate duration if provided
+      if (request.durationMinutes !== undefined && request.durationMinutes <= 0) {
+        throw new Error('Service duration must be greater than 0');
+      }
+
+      // Generate unique service ID
+      const serviceId = `srv_${uuidv4()}`;
+
+      const params: CreateServiceParams = {
+        serviceId,
+        shopId: request.shopId,
+        serviceName: request.serviceName,
+        description: request.description,
+        priceUsd: request.priceUsd,
+        durationMinutes: request.durationMinutes,
+        category: request.category,
+        imageUrl: request.imageUrl
+      };
+
+      const service = await this.repository.createService(params);
+
+      logger.info('Service created successfully', { serviceId, shopId: request.shopId });
+      return service;
+    } catch (error) {
+      logger.error('Error in createService:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get service by ID
+   */
+  async getServiceById(serviceId: string): Promise<ShopService | null> {
+    try {
+      return await this.repository.getServiceById(serviceId);
+    } catch (error) {
+      logger.error('Error in getServiceById:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get service with shop information
+   */
+  async getServiceWithShopInfo(serviceId: string): Promise<ShopServiceWithShopInfo | null> {
+    try {
+      return await this.repository.getServiceWithShopInfo(serviceId);
+    } catch (error) {
+      logger.error('Error in getServiceWithShopInfo:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all services for a shop
+   */
+  async getShopServices(
+    shopId: string,
+    options: {
+      page?: number;
+      limit?: number;
+      activeOnly?: boolean;
+    } = {}
+  ): Promise<PaginatedResult<ShopService>> {
+    try {
+      return await this.repository.getServicesByShop(shopId, options);
+    } catch (error) {
+      logger.error('Error in getShopServices:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all services in marketplace with filters
+   */
+  async getMarketplaceServices(
+    filters: ServiceFilters = {},
+    options: {
+      page?: number;
+      limit?: number;
+    } = {}
+  ): Promise<PaginatedResult<ShopServiceWithShopInfo>> {
+    try {
+      return await this.repository.getAllActiveServices(filters, options);
+    } catch (error) {
+      logger.error('Error in getMarketplaceServices:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update a service
+   */
+  async updateService(
+    serviceId: string,
+    shopId: string,
+    updates: UpdateServiceRequest
+  ): Promise<ShopService> {
+    try {
+      // Verify service exists and belongs to the shop
+      const existingService = await this.repository.getServiceById(serviceId);
+      if (!existingService) {
+        throw new Error('Service not found');
+      }
+
+      if (existingService.shopId !== shopId) {
+        throw new Error('Unauthorized: Service does not belong to this shop');
+      }
+
+      // Validate updates
+      if (updates.priceUsd !== undefined && updates.priceUsd <= 0) {
+        throw new Error('Service price must be greater than 0');
+      }
+
+      if (updates.durationMinutes !== undefined && updates.durationMinutes <= 0) {
+        throw new Error('Service duration must be greater than 0');
+      }
+
+      const params: UpdateServiceParams = {
+        serviceName: updates.serviceName,
+        description: updates.description,
+        priceUsd: updates.priceUsd,
+        durationMinutes: updates.durationMinutes,
+        category: updates.category,
+        imageUrl: updates.imageUrl,
+        active: updates.active
+      };
+
+      const service = await this.repository.updateService(serviceId, params);
+
+      logger.info('Service updated successfully', { serviceId, shopId });
+      return service;
+    } catch (error) {
+      logger.error('Error in updateService:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete (deactivate) a service
+   */
+  async deleteService(serviceId: string, shopId: string): Promise<void> {
+    try {
+      // Verify service exists and belongs to the shop
+      const existingService = await this.repository.getServiceById(serviceId);
+      if (!existingService) {
+        throw new Error('Service not found');
+      }
+
+      if (existingService.shopId !== shopId) {
+        throw new Error('Unauthorized: Service does not belong to this shop');
+      }
+
+      await this.repository.deleteService(serviceId);
+
+      logger.info('Service deleted successfully', { serviceId, shopId });
+    } catch (error) {
+      logger.error('Error in deleteService:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Validate service ownership
+   */
+  async validateServiceOwnership(serviceId: string, shopId: string): Promise<boolean> {
+    try {
+      const service = await this.repository.getServiceById(serviceId);
+      return service !== null && service.shopId === shopId;
+    } catch (error) {
+      logger.error('Error validating service ownership:', error);
+      return false;
+    }
+  }
+}

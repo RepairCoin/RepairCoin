@@ -22,6 +22,8 @@ import {
   Phone,
   Mail,
   MessageCircle,
+  ShoppingBag,
+  Receipt,
 } from "lucide-react";
 import {
   IssueRewardsIcon,
@@ -141,6 +143,18 @@ const Sidebar: React.FC<SidebarProps> = ({
           tabId: "overview",
         },
         {
+          title: "Marketplace",
+          href: "/customer?tab=marketplace",
+          icon: <ShoppingBag className="w-5 h-5" />,
+          tabId: "marketplace",
+        },
+        {
+          title: "My Bookings",
+          href: "/customer?tab=orders",
+          icon: <Receipt className="w-5 h-5" />,
+          tabId: "orders",
+        },
+        {
           title: "Referrals",
           href: "/customer?tab=referrals",
           icon: <Users className="w-5 h-5" />,
@@ -174,6 +188,18 @@ const Sidebar: React.FC<SidebarProps> = ({
           href: "/shop?tab=overview",
           icon: <OverviewIcon width={24} height={24} isActive={activeTab === "overview"} />,
           tabId: "overview",
+        },
+        {
+          title: "Services",
+          href: "/shop?tab=services",
+          icon: <ShoppingBag className="w-5 h-5" />,
+          tabId: "services",
+        },
+        {
+          title: "Bookings",
+          href: "/shop?tab=bookings",
+          icon: <Receipt className="w-5 h-5" />,
+          tabId: "bookings",
         },
         {
           title: "Issue Rewards",

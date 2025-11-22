@@ -25,6 +25,8 @@ import { CustomersTab } from "@/components/shop/tabs/CustomersTab";
 import PromoCodesTab from "@/components/shop/tabs/PromoCodesTab";
 import { ShopLocationTab } from "@/components/shop/tabs/ShopLocationTab";
 import { GroupsTab } from "@/components/shop/tabs/GroupsTab";
+import { ServicesTab } from "@/components/shop/tabs/ServicesTab";
+import { ShopServiceOrdersTab } from "@/components/shop/tabs/ShopServiceOrdersTab";
 import { useShopRegistration } from "@/hooks/useShopRegistration";
 import { OnboardingModal } from "@/components/shop/OnboardingModal";
 import { SuspendedShopModal } from "@/components/shop/SuspendedShopModal";
@@ -768,6 +770,14 @@ export default function ShopDashboardClient() {
               onRefreshData={loadShopData}
               authToken={authToken ?? undefined}
             />
+          )}
+
+          {activeTab === "services" && shopData && (
+            <ServicesTab shopId={shopData.shopId} />
+          )}
+
+          {activeTab === "bookings" && shopData && (
+            <ShopServiceOrdersTab shopId={shopData.shopId} />
           )}
 
           {activeTab === "purchase" && (

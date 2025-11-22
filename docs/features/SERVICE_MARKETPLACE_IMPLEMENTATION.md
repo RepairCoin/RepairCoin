@@ -25,9 +25,10 @@ Building a unified service marketplace where customers can browse and book servi
   - Indexes on: service_id, customer_address, shop_id, status, stripe_payment_intent_id
   - Foreign keys to shop_services and shops tables
 
-- [x] Migration files created in `backend/src/migrations/`
-  - `20251117_create_shop_services.sql`
-  - `20251117_create_service_orders.sql`
+- [x] Migration files created in `backend/migrations/`
+  - `035_add_icon_to_affiliate_shop_groups.sql`
+  - `036_create_shop_services.sql`
+  - `037_create_service_orders.sql`
 
 - [x] Migrations applied to database
 - [x] Changes committed and pushed to repository
