@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 import { Check } from "lucide-react";
 
 const tiers = [
@@ -91,19 +92,14 @@ export default function ShopTiers() {
               </div>
 
               {/* Shop Image */}
-              <div className="h-80 bg-gray-200 flex items-center justify-center overflow-hidden">
-                <img
+              <div className="h-80 bg-gray-200 flex items-center justify-center overflow-hidden relative">
+                <Image
                   src={tier.image}
                   alt={`${tier.name} Shop`}
-                  className="w-full h-full object-cover object-center"
-                  onError={(e) => {
-                    // Fallback to emoji if image not found
-                    e.currentTarget.style.display = "none";
-                    const fallback = document.createElement("span");
-                    fallback.className = "text-6xl";
-                    fallback.textContent = tier.fallback;
-                    e.currentTarget.parentElement?.appendChild(fallback);
-                  }}
+                  fill
+                  className="object-cover object-center"
+                  sizes="(max-width: 1024px) 100vw, 33vw"
+                  loading="lazy"
                 />
               </div>
 
