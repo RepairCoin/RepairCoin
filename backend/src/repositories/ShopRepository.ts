@@ -1025,7 +1025,7 @@ export class ShopRepository extends BaseRepository {
 
       if (search) {
         paramCount++;
-        whereClause += ` AND (LOWER(c.wallet_address) LIKE LOWER($${paramCount}) OR LOWER(c.name) LIKE LOWER($${paramCount}))`;
+        whereClause += ` AND (LOWER(c.address) LIKE LOWER($${paramCount}) OR LOWER(c.name) LIKE LOWER($${paramCount}))`;
         params.push(`%${search}%`);
       }
 
@@ -1033,7 +1033,7 @@ export class ShopRepository extends BaseRepository {
       const countQuery = `
         SELECT COUNT(DISTINCT t.customer_address) as count
         FROM transactions t
-        LEFT JOIN customers c ON c.wallet_address = t.customer_address
+        LEFT JOIN customers c ON c.address = t.customer_address
         ${whereClause} AND t.type = 'mint'
       `;
       const countResult = await this.pool.query(countQuery, params);
@@ -1053,11 +1053,11 @@ export class ShopRepository extends BaseRepository {
           SUM(t.amount) as lifetime_earnings,
           MAX(t.timestamp) as last_transaction_date,
           COUNT(t.id) as total_transactions,
-          MAX(c.active) as is_active,
+          BOOL_OR(c.is_active) as is_active,
           MAX(c.suspended_at) as suspended_at,
           MAX(c.suspension_reason) as suspension_reason
         FROM transactions t
-        LEFT JOIN customers c ON c.wallet_address = t.customer_address
+        LEFT JOIN customers c ON c.address = t.customer_address
         ${whereClause} AND t.type = 'mint'
         GROUP BY t.customer_address
         ORDER BY SUM(t.amount) DESC
