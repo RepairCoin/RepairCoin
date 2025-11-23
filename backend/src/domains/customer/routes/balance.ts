@@ -295,8 +295,9 @@ router.post('/:address/sync', async (req, res) => {
  */
 router.get('/pending-mints', async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit as string) || 100;
-    
+    const rawLimit = req.query.limit;
+    const limit = rawLimit !== undefined ? parseInt(rawLimit as string) : 100;
+
     if (limit > 1000 || limit < 1) {
       return res.status(400).json({
         success: false,
