@@ -17,7 +17,6 @@ interface Shop {
   city?: string;
   country?: string;
   website?: string;
-  description?: string;
   verified?: boolean;
 }
 
@@ -25,7 +24,6 @@ interface EditShopModalProps {
   isOpen: boolean;
   onClose: () => void;
   shop: Shop | null;
-  generateAdminToken: () => Promise<string | null>;
   onRefresh: () => void;
 }
 
@@ -33,7 +31,6 @@ export const EditShopModal: React.FC<EditShopModalProps> = ({
   isOpen,
   onClose,
   shop,
-  generateAdminToken,
   onRefresh
 }) => {
   const [formData, setFormData] = useState({
@@ -44,13 +41,21 @@ export const EditShopModal: React.FC<EditShopModalProps> = ({
     city: '',
     country: '',
     website: '',
-    description: '',
     // crossShopEnabled removed - universal redemption is now always enabled
   });
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (shop) {
+      console.log('EditShopModal - Loading shop data:', {
+        shopId: shop.shopId || shop.shop_id,
+        name: shop.name,
+        city: shop.city,
+        country: shop.country,
+        website: shop.website,
+        fullShopObject: shop
+      });
+
       setFormData({
         name: shop.name || '',
         email: shop.email || '',
@@ -59,7 +64,6 @@ export const EditShopModal: React.FC<EditShopModalProps> = ({
         city: shop.city || '',
         country: shop.country || '',
         website: shop.website || '',
-        description: shop.description || '',
         // crossShopEnabled removed - universal redemption is now always enabled
       });
     }
@@ -71,36 +75,38 @@ export const EditShopModal: React.FC<EditShopModalProps> = ({
 
     setIsLoading(true);
     try {
-      // Cookies sent automatically with apiClient
-      if (!adminToken) {
-        toast.error('Failed to authenticate as admin');
-        return;
-      }
-
       const shopId = shop.shopId || shop.shop_id;
+      const updateData = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        address: formData.address,
+        city: formData.city,
+        country: formData.country,
+        website: formData.website,
+        // cross_shop_enabled removed - universal redemption is now always enabled
+      };
+
+      console.log('EditShopModal - Submitting update:', {
+        shopId,
+        updateData,
+        formData
+      });
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/shops/${shopId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${adminToken}`
         },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          address: formData.address,
-          city: formData.city,
-          country: formData.country,
-          website: formData.website,
-          description: formData.description,
-          // cross_shop_enabled removed - universal redemption is now always enabled
-        })
+        credentials: 'include', // Important: send cookies for authentication
+        body: JSON.stringify(updateData)
       });
 
       if (response.ok) {
         toast.success('Shop updated successfully');
-        onRefresh();
-        onClose();
+        // Refresh the shop list to get latest data
+        await onRefresh();
+        // Don't close modal - just keep it open with updated data
       } else {
         const errorData = await response.json();
         toast.error(errorData.error || 'Failed to update shop');
@@ -278,21 +284,6 @@ export const EditShopModal: React.FC<EditShopModalProps> = ({
                     onChange={handleChange}
                     placeholder="https://example.com"
                     className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    disabled={isLoading}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Description
-                  </label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleChange}
-                    rows={3}
-                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Brief description of the shop..."
                     disabled={isLoading}
                   />
                 </div>

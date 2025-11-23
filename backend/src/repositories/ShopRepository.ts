@@ -55,6 +55,7 @@ interface ShopData {
   acceptTerms?: boolean;
   country?: string;
   category?: string;
+  city?: string; // Maps to location_city in database
 }
 
 export interface ShopFilters {
@@ -115,7 +116,8 @@ export class ShopRepository extends BaseRepository {
         referral: row.referral,
         acceptTerms: row.accept_terms,
         country: row.country,
-        category: row.category
+        category: row.category,
+        city: row.location_city // Map location_city to city
       };
     } catch (error) {
       logger.error('Error fetching shop:', error);
@@ -229,9 +231,11 @@ export class ShopRepository extends BaseRepository {
         locationCity: 'location_city',
         locationState: 'location_state',
         locationZipCode: 'location_zip_code',
+        city: 'location_city', // Map city to location_city for convenience
         firstName: 'first_name',
         lastName: 'last_name',
         category: 'category',
+        country: 'country',
       };
 
       for (const [key, value] of Object.entries(updates)) {
@@ -388,7 +392,10 @@ export class ShopRepository extends BaseRepository {
         operational_status: row.operational_status || 'pending',
         rcg_tier: row.rcg_tier || 'standard',
         rcg_balance: parseFloat(row.rcg_balance || 0),
-        tier_updated_at: row.tier_updated_at
+        tier_updated_at: row.tier_updated_at,
+        city: row.location_city, // Map location_city to city
+        country: row.country,
+        website: row.website
       }));
 
       const totalPages = Math.ceil(totalItems / filters.limit);
@@ -457,7 +464,9 @@ export class ShopRepository extends BaseRepository {
         monthlyRevenue: row.monthly_revenue,
         referral: row.referral,
         acceptTerms: row.accept_terms,
-        country: row.country
+        country: row.country,
+        city: row.location_city, // Map location_city to city for convenience
+        category: row.category
       }));
     } catch (error) {
       logger.error('Error getting active shops:', error);

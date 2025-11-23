@@ -7,14 +7,12 @@ import { X } from "lucide-react";
 interface AddShopModalProps {
   isOpen: boolean;
   onClose: () => void;
-  generateAdminToken: () => Promise<string | null>;
   onSuccess: () => void;
 }
 
 export const AddShopModal: React.FC<AddShopModalProps> = ({
   isOpen,
   onClose,
-  generateAdminToken,
   onSuccess,
 }) => {
   const [loading, setLoading] = useState(false);
@@ -76,20 +74,14 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
 
     setLoading(true);
     try {
-      // Cookies sent automatically with apiClient
-      if (!adminToken) {
-        toast.error("Failed to authenticate as admin");
-        return;
-      }
-
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/admin/create-shop`,
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${adminToken}`,
             "Content-Type": "application/json",
           },
+          credentials: 'include', // Important: send cookies for authentication
           body: JSON.stringify({
             shop_id: formData.shop_id,
             name: formData.name,
