@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Loader2 } from 'lucide-react';
+import { useModalStore } from '@/stores/modalStore';
 
 interface HeroSectionProps {
   hasWallet: boolean;
@@ -21,6 +22,18 @@ export default function HeroSection({
   onGetStartedClick
 }: HeroSectionProps) {
   const isLoading = isDetecting || isRedirecting;
+  const { openWelcomeModal } = useModalStore();
+
+  const handleGetStartedClick = () => {
+    if (!hasWallet) {
+      // If no wallet connected, open the modal
+      openWelcomeModal();
+    } else {
+      // If wallet is connected, use the default handler
+      onGetStartedClick();
+    }
+  };
+
   return (
     <section className="relative bg-[#101010] w-full h-screen overflow-hidden flex items-center">
       {/* Background Gradients */}
@@ -74,7 +87,7 @@ export default function HeroSection({
 
             <div className="pt-4">
               <button
-                onClick={onGetStartedClick}
+                onClick={handleGetStartedClick}
                 disabled={isLoading}
                 className="bg-[#ffcc00] hover:bg-[#e6b800] text-black font-medium px-8 py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >

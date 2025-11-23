@@ -9,13 +9,14 @@ import Section from "./Section";
 import { useAuth } from "@/hooks/useAuth";
 import Spinner from "./Spinner";
 import { WalletDetectionService } from "@/services/walletDetectionService";
+import { useModalStore } from "@/stores/modalStore";
 
 const Header: React.FC = () => {
   const account = useActiveAccount();
   const { isAuthenticated, isLoading } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { isWelcomeModalOpen, openWelcomeModal, closeWelcomeModal } = useModalStore();
   const router = useRouter();
   const pathname = usePathname();
   const hasCheckedRef = useRef(false);
@@ -47,12 +48,12 @@ const Header: React.FC = () => {
   const signInInitiatedRef = useRef(false);
 
   useEffect(() => {
-    if (isModalOpen) {
+    if (isWelcomeModalOpen) {
       // User opened the modal - mark that a sign-in was initiated
       console.log('🟦 [Header] Modal opened - marking sign-in initiated');
       signInInitiatedRef.current = true;
     }
-  }, [isModalOpen]);
+  }, [isWelcomeModalOpen]);
 
   // Handle wallet connection after sign-in
   useEffect(() => {
@@ -92,13 +93,13 @@ const Header: React.FC = () => {
             
             if (!result.isRegistered) {
               console.log('🟦 [Header] 🔄 New user detected, redirecting to /choose...');
-              setIsModalOpen(false); // Close modal before redirect
+              closeWelcomeModal(); // Close modal before redirect
               setTimeout(() => {
                 router.push('/choose');
               }, 100);
             } else {
               console.log('🟦 [Header] ✅ Registered user, staying on current page');
-              setIsModalOpen(false); // Close modal anyway
+              closeWelcomeModal(); // Close modal anyway
             }
           } catch (error) {
             console.error('🟦 [Header] ❌ Error detecting wallet:', error);
@@ -120,11 +121,7 @@ const Header: React.FC = () => {
       hasCheckedRef.current = false;
       signInInitiatedRef.current = false;
     }
-  }, [account?.address, router, isModalOpen]);
-
-  const handleModalOpen = () => {
-    setIsModalOpen(true);
-  };
+  }, [account?.address, router, isWelcomeModalOpen, closeWelcomeModal]);
 
   return (
     <>
@@ -225,7 +222,7 @@ const Header: React.FC = () => {
                     </div>
                   ) : (
                     <button
-                      onClick={handleModalOpen}
+                      onClick={openWelcomeModal}
                       disabled={isLoading}
                       className="text-black bg-[#F7CC00] hover:bg-[#E5BB00] px-6 py-2 rounded-md text-sm font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[90px]"
                     >
@@ -274,7 +271,7 @@ const Header: React.FC = () => {
                       </div>
                     ) : (
                       <button
-                        onClick={() => setIsModalOpen(true)}
+                        onClick={openWelcomeModal}
                         disabled={isLoading}
                         className="w-full px-4 py-3 text-base font-semibold text-center text-black bg-[#F7CC00] hover:bg-[#E5BB00] rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                       >
@@ -290,19 +287,19 @@ const Header: React.FC = () => {
       </header>
 
       {/* Login Modal */}
-      {isModalOpen && (
+      {isWelcomeModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center">
           {/* Overlay */}
           <div
             className="fixed inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setIsModalOpen(false)}
+            onClick={closeWelcomeModal}
           />
 
           {/* Modal Content */}
           <div className="relative bg-gray-100 rounded-3xl p-8 max-w-2xl w-full mx-4 shadow-2xl overflow-hidden">
             {/* Close button */}
             <button
-              onClick={() => setIsModalOpen(false)}
+              onClick={closeWelcomeModal}
               className="absolute top-6 right-6 text-gray-500 hover:text-gray-700 transition-colors z-10"
             >
               <svg

@@ -3,6 +3,7 @@
 import React from "react";
 import Image from "next/image";
 import { Check } from "lucide-react";
+import { useModalStore } from "@/stores/modalStore";
 
 const tiers = [
   {
@@ -62,6 +63,8 @@ const tiers = [
 ];
 
 export default function ShopTiers() {
+  const { openWelcomeModal } = useModalStore();
+
   return (
     <section className="relative bg-[#191919] w-full py-20">
       <div className="max-w-7xl mx-auto px-4 lg:px-8">
@@ -124,14 +127,14 @@ export default function ShopTiers() {
                   ))}
                 </div>
 
-                {/* Learn More Link */}
+                {/* Get Started Button */}
                 <div className="pt-4 text-center mt-auto flex-grow flex items-end justify-center">
-                  <a
-                  href="#"
-                  className="text-sm text-gray-500 hover:text-gray-700 transition-colors "
+                  <button
+                    onClick={openWelcomeModal}
+                    className="text-sm text-gray-500 hover:text-gray-700 transition-colors "
                   >
-                  Learn More →
-                  </a>
+                    Get Started →
+                  </button>
                 </div>
               </div>
             </div>

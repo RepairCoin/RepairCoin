@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
+import { useModalStore } from '@/stores/modalStore';
 
 const features = [
   {
@@ -25,6 +26,8 @@ const features = [
 ];
 
 export default function HowItWorks() {
+  const { openWelcomeModal } = useModalStore();
+
   return (
     <section className="relative bg-[#191919] w-full py-16 lg:py-20">
       <div className="max-w-7xl mx-auto px-4 lg:px-8">
@@ -66,13 +69,13 @@ export default function HowItWorks() {
                   {feature.description}
                 </p>
 
-                {/* Learn More Link */}
-                <a
-                  href="#"
+                {/* Get Started Button */}
+                <button
+                  onClick={openWelcomeModal}
                   className="text-sm text-gray-500 hover:text-gray-700 transition-colors inline-block"
                 >
-                  Learn More →
-                </a>
+                  Get Started →
+                </button>
               </div>
             </div>
           ))}
