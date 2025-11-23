@@ -3,6 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import { Check } from 'lucide-react';
+import { useModalStore } from '@/stores/modalStore';
 
 const benefits = [
   {
@@ -36,6 +37,8 @@ const benefits = [
 ];
 
 export default function ShareRewards() {
+  const { openWelcomeModal } = useModalStore();
+
   return (
     <section className="relative bg-[#191919] w-full py-20">
       <div className="max-w-7xl mx-auto px-4 lg:px-8">
@@ -67,8 +70,11 @@ export default function ShareRewards() {
 
             {/* CTA Button */}
             <div className="pt-4">
-              <button className="bg-[#ffcc00] hover:bg-[#e6b800] text-black font-medium px-8 py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl">
-                Get Your Referral Link →
+              <button
+                onClick={openWelcomeModal}
+                className="bg-[#ffcc00] hover:bg-[#e6b800] text-black font-medium px-8 py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+              >
+                Get Started →
               </button>
             </div>
           </div>

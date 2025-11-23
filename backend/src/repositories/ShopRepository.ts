@@ -55,6 +55,7 @@ interface ShopData {
   acceptTerms?: boolean;
   country?: string;
   category?: string;
+  city?: string; // Maps to location_city in database
 }
 
 export interface ShopFilters {
@@ -115,7 +116,8 @@ export class ShopRepository extends BaseRepository {
         referral: row.referral,
         acceptTerms: row.accept_terms,
         country: row.country,
-        category: row.category
+        category: row.category,
+        city: row.location_city // Map location_city to city
       };
     } catch (error) {
       logger.error('Error fetching shop:', error);
@@ -229,9 +231,11 @@ export class ShopRepository extends BaseRepository {
         locationCity: 'location_city',
         locationState: 'location_state',
         locationZipCode: 'location_zip_code',
+        city: 'location_city', // Map city to location_city for convenience
         firstName: 'first_name',
         lastName: 'last_name',
         category: 'category',
+        country: 'country',
       };
 
       for (const [key, value] of Object.entries(updates)) {
@@ -388,7 +392,10 @@ export class ShopRepository extends BaseRepository {
         operational_status: row.operational_status || 'pending',
         rcg_tier: row.rcg_tier || 'standard',
         rcg_balance: parseFloat(row.rcg_balance || 0),
-        tier_updated_at: row.tier_updated_at
+        tier_updated_at: row.tier_updated_at,
+        city: row.location_city, // Map location_city to city
+        country: row.country,
+        website: row.website
       }));
 
       const totalPages = Math.ceil(totalItems / filters.limit);
@@ -457,7 +464,9 @@ export class ShopRepository extends BaseRepository {
         monthlyRevenue: row.monthly_revenue,
         referral: row.referral,
         acceptTerms: row.accept_terms,
-        country: row.country
+        country: row.country,
+        city: row.location_city, // Map location_city to city for convenience
+        category: row.category
       }));
     } catch (error) {
       logger.error('Error getting active shops:', error);
@@ -1025,7 +1034,7 @@ export class ShopRepository extends BaseRepository {
 
       if (search) {
         paramCount++;
-        whereClause += ` AND (LOWER(c.wallet_address) LIKE LOWER($${paramCount}) OR LOWER(c.name) LIKE LOWER($${paramCount}))`;
+        whereClause += ` AND (LOWER(c.address) LIKE LOWER($${paramCount}) OR LOWER(c.name) LIKE LOWER($${paramCount}))`;
         params.push(`%${search}%`);
       }
 
@@ -1033,7 +1042,7 @@ export class ShopRepository extends BaseRepository {
       const countQuery = `
         SELECT COUNT(DISTINCT t.customer_address) as count
         FROM transactions t
-        LEFT JOIN customers c ON c.wallet_address = t.customer_address
+        LEFT JOIN customers c ON c.address = t.customer_address
         ${whereClause} AND t.type = 'mint'
       `;
       const countResult = await this.pool.query(countQuery, params);
@@ -1053,11 +1062,11 @@ export class ShopRepository extends BaseRepository {
           SUM(t.amount) as lifetime_earnings,
           MAX(t.timestamp) as last_transaction_date,
           COUNT(t.id) as total_transactions,
-          MAX(c.active) as is_active,
+          BOOL_OR(c.is_active) as is_active,
           MAX(c.suspended_at) as suspended_at,
           MAX(c.suspension_reason) as suspension_reason
         FROM transactions t
-        LEFT JOIN customers c ON c.wallet_address = t.customer_address
+        LEFT JOIN customers c ON c.address = t.customer_address
         ${whereClause} AND t.type = 'mint'
         GROUP BY t.customer_address
         ORDER BY SUM(t.amount) DESC

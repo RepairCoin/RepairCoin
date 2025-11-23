@@ -1261,12 +1261,11 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
       </div>
 
       {/* Modals */}
-      {editModal.shop && generateAdminToken && (
+      {editModal.shop && (
         <EditShopModal
           isOpen={editModal.isOpen}
           onClose={() => setEditModal({ isOpen: false, shop: null })}
           shop={editModal.shop}
-          generateAdminToken={generateAdminToken}
           onRefresh={onRefresh}
         />
       )}
@@ -1296,17 +1295,14 @@ export const ShopsManagementTab: React.FC<ShopsManagementTabProps> = ({
       )}
 
       {/* Add Shop Modal */}
-      {generateAdminToken && (
-        <AddShopModal
-          isOpen={showAddShopModal}
-          onClose={() => setShowAddShopModal(false)}
-          generateAdminToken={generateAdminToken}
-          onSuccess={() => {
-            onRefresh();
-            setShowAddShopModal(false);
-          }}
-        />
-      )}
+      <AddShopModal
+        isOpen={showAddShopModal}
+        onClose={() => setShowAddShopModal(false)}
+        onSuccess={() => {
+          onRefresh();
+          setShowAddShopModal(false);
+        }}
+      />
 
       {/* Unsuspend Request Review Modal */}
       {unsuspendReviewModal.isOpen && unsuspendReviewModal.shop && (
