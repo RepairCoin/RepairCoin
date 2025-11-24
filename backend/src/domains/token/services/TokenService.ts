@@ -158,6 +158,108 @@
       }
     }
 
+    // Process service marketplace earning (when customer completes a service booking)
+    async processServiceMarketplaceEarning(
+      customerAddress: string,
+      serviceAmount: number,
+      shopId: string,
+      orderId: string
+    ): Promise<MintResult> {
+      try {
+        logger.transaction('Processing service marketplace earning', {
+          customerAddress,
+          serviceAmount,
+          shopId,
+          orderId
+        });
+
+        // Get or create customer
+        let customer = await customerRepository.getCustomer(customerAddress);
+        if (!customer) {
+          customer = TierManager.createNewCustomer(customerAddress);
+          await customerRepository.createCustomer(customer);
+          logger.info('New customer created during service marketplace earning', { customerAddress });
+        }
+
+        // Process the service earning (use same logic as repair earning)
+        const result = await this.getTokenMinter().mintRepairTokens(
+          customerAddress,
+          serviceAmount,
+          shopId,
+          customer
+        );
+
+        if (result.success && result.tokensToMint && result.newTier) {
+          // Update customer in database
+          await customerRepository.updateCustomerAfterEarning(
+            customerAddress,
+            result.tokensToMint,
+            result.newTier as any
+          );
+
+          // Update shop statistics
+          await this.updateShopStats(shopId, result.tokensToMint, 0);
+
+          // Record transaction
+          await transactionRepository.recordTransaction({
+            id: `service_${orderId}_${Date.now()}`,
+            type: 'mint',
+            customerAddress: customerAddress.toLowerCase(),
+            shopId,
+            amount: result.tokensToMint,
+            reason: `Service marketplace completion - $${serviceAmount}`,
+            transactionHash: result.transactionHash || '',
+            timestamp: new Date().toISOString(),
+            status: 'confirmed',
+            metadata: {
+              serviceAmount,
+              orderId,
+              oldTier: customer.tier,
+              newTier: result.newTier,
+              source: 'service_marketplace'
+            }
+          });
+
+          // Track RCN source
+          await this.referralRepository.recordRcnSource({
+            customerAddress: customerAddress.toLowerCase(),
+            sourceType: 'service_marketplace',
+            sourceShopId: shopId,
+            amount: result.tokensToMint,
+            transactionId: `service_${orderId}`,
+            transactionHash: result.transactionHash,
+            isRedeemable: true,
+            metadata: {
+              serviceAmount,
+              orderId,
+              oldTier: customer.tier,
+              newTier: result.newTier
+            }
+          });
+
+          // Update customer's home shop
+          await this.referralRepository.updateCustomerHomeShop(customerAddress.toLowerCase());
+
+          logger.transaction('Service marketplace earning processed successfully', {
+            customerAddress,
+            tokensEarned: result.tokensToMint,
+            newTier: result.newTier,
+            orderId,
+            transactionHash: result.transactionHash
+          });
+        }
+
+        return result;
+
+      } catch (error: any) {
+        logger.error('Error processing service marketplace earning:', error);
+        return {
+          success: false,
+          error: `Failed to process service marketplace earning: ${error.message}`
+        };
+      }
+    }
+
     // Process referral rewards
     async processReferralReward(
       referrerAddress: string,
