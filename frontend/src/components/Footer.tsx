@@ -1,8 +1,10 @@
 'use client'
 
+import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 
-const Footer = () => {
+const Footer = React.memo(() => {
   const socialLinks = [
     {
       name: "twitter",
@@ -30,11 +32,15 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
           {/* Logo and Description */}
           <div className="space-y-6">
-            <img
-              src="/img/nav-logo.png"
-              alt="RepairCoin Logo"
-              className="h-9 w-auto"
-            />
+            <div className="relative w-[180px] h-9">
+              <Image
+                src="/img/nav-logo.png"
+                alt="RepairCoin Logo"
+                fill
+                sizes="180px"
+                className="object-contain object-left"
+              />
+            </div>
             <p className="text-gray-300 text-base leading-relaxed">
               Connecting shops and customers through tokenized loyalty — one repair at a time.
             </p>
@@ -160,6 +166,8 @@ const Footer = () => {
       </div>
     </footer>
   );
-};
+});
+
+Footer.displayName = 'Footer';
 
 export default Footer;

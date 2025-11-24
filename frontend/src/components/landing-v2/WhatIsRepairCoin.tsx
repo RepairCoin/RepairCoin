@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 
 // Dynamically import the 3D model component with no SSR
@@ -9,7 +9,7 @@ const RepairCoin3DModel = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="relative h-[250px] lg:h-[300px] flex items-center justify-center">
+      <div className="relative h-[350px] lg:h-[500px] flex items-center justify-center">
         <div className="relative w-48 h-48 sm:w-56 sm:h-56 lg:w-64 lg:h-64">
           <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#ffcc00] to-[#ff9900] animate-pulse"></div>
           <div className="absolute inset-4 rounded-full bg-[#191919] flex items-center justify-center">
@@ -21,9 +21,32 @@ const RepairCoin3DModel = dynamic(
   }
 );
 
-export default function WhatIsRepairCoin() {
+const WhatIsRepairCoin = React.memo(function WhatIsRepairCoin() {
+  const [shouldLoad3D, setShouldLoad3D] = useState(false);
+  const sectionRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setShouldLoad3D(true);
+            observer.disconnect();
+          }
+        });
+      },
+      { rootMargin: '200px' }
+    );
+
+    if (sectionRef.current) {
+      observer.observe(sectionRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <section className="relative bg-[#191919] w-full my-32">
+    <section ref={sectionRef} className="relative bg-[#191919] w-full my-32">
       <div className="max-w-7xl mx-auto px-4 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
           {/* Left Content */}
@@ -39,10 +62,23 @@ export default function WhatIsRepairCoin() {
             </p>
           </div>
 
-          {/* Right Content - 3D Coin Model */}
-          <RepairCoin3DModel />
+          {/* Right Content - 3D Coin Model (lazy loaded when in viewport) */}
+          {shouldLoad3D ? (
+            <RepairCoin3DModel />
+          ) : (
+            <div className="relative h-[350px] lg:h-[500px] flex items-center justify-center">
+              <div className="relative w-48 h-48 sm:w-56 sm:h-56 lg:w-64 lg:h-64">
+                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#ffcc00]/30 to-[#ff9900]/30"></div>
+                <div className="absolute inset-4 rounded-full bg-[#191919] flex items-center justify-center">
+                  <span className="text-4xl sm:text-5xl font-bold text-[#ffcc00]/50">RCN</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </section>
   );
-}
+});
+
+export default WhatIsRepairCoin;

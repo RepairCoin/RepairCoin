@@ -40,7 +40,6 @@ export default function LandingPageNew() {
     }
 
     if (account && isRegistered && isAuthenticated && !isDetecting && walletType !== 'unknown') {
-      console.log('🔄 [LandingPage] Auto-redirecting authenticated user to:', walletType);
       redirectAttemptedRef.current = true;
       setIsRedirecting(true);
 
@@ -52,7 +51,7 @@ export default function LandingPageNew() {
     }
   }, [account, isRegistered, isAuthenticated, isDetecting, walletType, router]);
 
-  const handleGetStarted = () => {
+  const handleGetStarted = React.useCallback(() => {
     if (!account) {
       return;
     }
@@ -74,7 +73,7 @@ export default function LandingPageNew() {
     } else {
       router.push("/choose");
     }
-  };
+  }, [account, isRegistered, walletType, router]);
 
   return (
     <main className="bg-[#191919] min-h-screen overflow-x-clip">
