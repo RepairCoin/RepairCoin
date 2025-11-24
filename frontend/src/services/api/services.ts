@@ -69,6 +69,7 @@ export interface ServiceOrderWithDetails extends ServiceOrder {
   shopCity?: string;
   shopPhone?: string;
   shopEmail?: string;
+  rcnEarned?: number; // RCN tokens earned when order completed
 }
 
 export interface CreateServiceData {

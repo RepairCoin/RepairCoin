@@ -203,6 +203,26 @@ export const ServiceOrdersTab: React.FC = () => {
                       </div>
                     </div>
 
+                    {/* RCN Earned Badge - Show for completed orders */}
+                    {order.status === "completed" && order.rcnEarned && order.rcnEarned > 0 && (
+                      <div className="bg-gradient-to-r from-[#FFCC00]/20 to-[#FFD700]/20 border border-[#FFCC00]/30 rounded-lg p-3 mb-4">
+                        <div className="flex items-center gap-2">
+                          <div className="text-2xl">🪙</div>
+                          <div>
+                            <p className="text-sm font-semibold text-[#FFCC00]">
+                              RCN Reward Earned!
+                            </p>
+                            <p className="text-lg font-bold text-white">
+                              +{order.rcnEarned.toFixed(2)} RCN
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              Added to your wallet for completing this service
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {order.bookingDate && (
                       <div className="flex items-center gap-2 text-sm text-gray-400 mb-4">
                         <Clock className="w-4 h-4" />
