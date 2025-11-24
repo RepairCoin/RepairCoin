@@ -8,6 +8,7 @@ import {
   SERVICE_CATEGORIES,
   ShopService,
 } from "@/services/api/services";
+import { ImageUploader } from "../ImageUploader";
 
 interface CreateServiceModalProps {
   onClose: () => void;
@@ -245,25 +246,15 @@ export const CreateServiceModal: React.FC<CreateServiceModalProps> = ({
                   Visuals
                 </h3>
 
-                {/* Image URL */}
-                <div>
-                  <label className="block text-sm font-semibold text-white mb-2">
-                    Service Photo
-                  </label>
-                  <div className="relative">
-                    <ImageIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="url"
-                      value={formData.imageUrl}
-                      onChange={(e) => handleChange("imageUrl", e.target.value)}
-                      className="w-full bg-[#1A1A1A] border border-gray-700 rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[#FFCC00] transition-colors"
-                      placeholder="https://example.com/image.jpg"
-                    />
-                  </div>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Upload to Imgur, Cloudinary, or use a direct image URL
-                  </p>
-                </div>
+                {/* Image Upload */}
+                <ImageUploader
+                  currentImageUrl={formData.imageUrl}
+                  imageType="service"
+                  onUploadSuccess={(url, key) => handleChange("imageUrl", url)}
+                  onRemove={() => handleChange("imageUrl", "")}
+                  label="Service Photo"
+                  showPreview={true}
+                />
               </div>
 
               {/* 4. DISCOVERY */}
