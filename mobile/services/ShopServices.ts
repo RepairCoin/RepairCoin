@@ -383,3 +383,130 @@ export const createPromoCode = async (
     throw error;
   }
 };
+
+export interface RedemptionSession {
+  sessionId: string;
+  customerAddress: string;
+  shopId: string;
+  amount: number;
+  status: "pending" | "approved" | "rejected" | "processing" | "completed" | "expired" | "used";
+  qrCode?: string;
+  expiresAt: string;
+  createdAt: string;
+  updatedAt: string;
+  metadata?: {
+    cancelledByShop?: boolean;
+  };
+}
+
+export interface CreateRedemptionSessionRequest {
+  customerAddress: string;
+  shopId: string;
+  amount: number;
+}
+
+export interface CreateRedemptionSessionResponse {
+  data: {
+    sessionId: string;
+    expiresAt: string;
+    qrCode?: string;
+  };
+  success: boolean;
+  message?: string;
+}
+
+export interface RedemptionSessionStatusResponse {
+  data: RedemptionSession;
+  success: boolean;
+  message?: string;
+}
+
+export interface ProcessRedemptionRequest {
+  customerAddress: string;
+  amount: number;
+  sessionId: string;
+}
+
+export interface ProcessRedemptionResponse {
+  data: {
+    transactionHash?: string;
+    amount: number;
+    customerAddress: string;
+  };
+  success: boolean;
+  message?: string;
+}
+
+export interface CustomerBalanceData {
+  totalBalance: number;
+  availableBalance?: number;
+}
+
+export interface CustomerBalanceResponse {
+  data: CustomerBalanceData;
+  success: boolean;
+  message?: string;
+}
+
+export const createRedemptionSession = async (
+  request: CreateRedemptionSessionRequest
+): Promise<CreateRedemptionSessionResponse> => {
+  try {
+    return await apiClient.post(
+      "/tokens/redemption-session/create",
+      request
+    );
+  } catch (error: any) {
+    console.error("Failed to create redemption session:", error.message);
+    throw error;
+  }
+};
+
+export const checkRedemptionSessionStatus = async (
+  sessionId: string
+): Promise<RedemptionSessionStatusResponse> => {
+  try {
+    return await apiClient.get(
+      `/tokens/redemption-session/status/${sessionId}`
+    );
+  } catch (error: any) {
+    console.error("Failed to check redemption session status:", error.message);
+    throw error;
+  }
+};
+
+export const cancelRedemptionSession = async (
+  sessionId: string
+): Promise<{ success: boolean; message?: string }> => {
+  try {
+    return await apiClient.post("/tokens/redemption-session/cancel", {
+      sessionId,
+    });
+  } catch (error: any) {
+    console.error("Failed to cancel redemption session:", error.message);
+    throw error;
+  }
+};
+
+export const processRedemption = async (
+  shopId: string,
+  request: ProcessRedemptionRequest
+): Promise<ProcessRedemptionResponse> => {
+  try {
+    return await apiClient.post(`/shops/${shopId}/redeem`, request);
+  } catch (error: any) {
+    console.error("Failed to process redemption:", error.message);
+    throw error;
+  }
+};
+
+export const getCustomerBalance = async (
+  customerAddress: string
+): Promise<CustomerBalanceResponse> => {
+  try {
+    return await apiClient.get(`/customers/balance/${customerAddress}`);
+  } catch (error: any) {
+    console.error("Failed to get customer balance:", error.message);
+    throw error;
+  }
+};
