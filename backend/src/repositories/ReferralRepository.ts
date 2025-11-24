@@ -17,7 +17,7 @@ export interface Referral {
 export interface RcnSource {
   id: number;
   customerAddress: string;
-  sourceType: 'shop_repair' | 'referral_bonus' | 'tier_bonus' | 'promotion' | 'market_purchase';
+  sourceType: 'shop_repair' | 'referral_bonus' | 'tier_bonus' | 'promotion' | 'market_purchase' | 'service_marketplace';
   sourceShopId?: string;
   amount: number;
   transactionId?: string;
