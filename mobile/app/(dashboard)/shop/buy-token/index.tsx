@@ -18,10 +18,17 @@ import {
   FontAwesome5,
 } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
+import { router } from "expo-router";
 import { ThemedView } from "@/components/ui/ThemedView";
 import { useShopPurchase } from "@/hooks/useShopPurchase";
+import { useShopByWalletAddress } from "@/hooks/useShopQueries";
+import { useAuthStore } from "@/store/authStore";
+import SubscriptionModal from "@/components/shop/SubscriptionModal";
 
 export default function BuyToken() {
+  const { account } = useAuthStore();
+  const { data: shopData } = useShopByWalletAddress(account?.address || "");
+
   const {
     // Amount management
     amount: purchaseAmount,
@@ -39,7 +46,14 @@ export default function BuyToken() {
 
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [inputValue, setInputValue] = useState(purchaseAmount.toString());
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
+  // Check if shop is qualified to buy RCN
+  const isQualified =
+    shopData?.data?.operational_status === "subscription_qualified" ||
+    shopData?.data?.operational_status === "rcg_qualified";
+
+  
   // Quick purchase amounts
   const quickAmounts = [10, 50, 100, 500, 1000, 5000];
 
@@ -48,6 +62,12 @@ export default function BuyToken() {
   }, [purchaseAmount]);
 
   const handlePurchase = async () => {
+    // Show subscription modal if not qualified
+    if (!isQualified) {
+      setShowSubscriptionModal(true);
+      return;
+    }
+
     if (!isValidAmount) {
       Alert.alert("Invalid Amount", "Minimum purchase amount is 5 RCN");
       return;
@@ -341,6 +361,16 @@ export default function BuyToken() {
           </View>
         </View>
       </Modal>
+
+      {/* Subscription Modal */}
+      <SubscriptionModal
+        visible={showSubscriptionModal}
+        onClose={() => setShowSubscriptionModal(false)}
+        onSubscribe={() => {
+          setShowSubscriptionModal(false);
+          router.push("/shop/subscription-form");
+        }}
+      />
     </ThemedView>
   );
 }
