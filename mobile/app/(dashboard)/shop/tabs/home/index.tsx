@@ -29,7 +29,9 @@ export default function Home() {
     error,
     refetch,
   } = useShopByWalletAddress(account?.address || "");
-  const isOperational = shopData?.data?.operational_status === "rcg_qualified" || shopData?.data?.operational_status === "subscription_qualified";
+  const isOperational =
+    shopData?.data?.operational_status === "rcg_qualified" ||
+    shopData?.data?.operational_status === "subscription_qualified";
 
   const [activeTab, setActiveTab] = useState<ShopTabs>("Wallet");
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
@@ -117,58 +119,6 @@ export default function Home() {
     }
   };
 
-  const handleSubscribe = async () => {
-    setSubscriptionLoading(true);
-    try {
-      // TODO: Implement subscription API call
-      // Example:
-      // await subscriptionAPI.createSubscription({
-      //   shopId: shopData?.data.id,
-      //   plan: "monthly",
-      //   amount: 500
-      // });
-
-      console.log("Processing subscription for shop:", shopData?.data.name);
-
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // Clear dismissed state since they subscribed
-      try {
-        await AsyncStorage.removeItem(
-          `subscription_modal_dismissed_${account?.address}`
-        );
-      } catch (error) {
-        console.error("Error clearing dismissed state:", error);
-      }
-
-      // Show success message
-      Alert.alert(
-        "Success!",
-        "Your subscription has been activated. Welcome!",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              setShowSubscriptionModal(false);
-              setHasUserDismissedModal(false);
-              refetch(); // Refresh shop data to update operational status
-            },
-          },
-        ]
-      );
-    } catch (error) {
-      console.error("Subscription error:", error);
-      Alert.alert(
-        "Error",
-        "Failed to process subscription. Please try again.",
-        [{ text: "OK" }]
-      );
-    } finally {
-      setSubscriptionLoading(false);
-    }
-  };
-
   return (
     <ThemedView className="h-full w-full">
       <View className="h-full w-full pt-14 px-4">
@@ -225,7 +175,20 @@ export default function Home() {
       <SubscriptionModal
         visible={showSubscriptionModal}
         onClose={handleCloseModal}
-        onSubscribe={handleSubscribe}
+        onSubscribe={async () => {
+          setShowSubscriptionModal(false);
+          setHasUserDismissedModal(true);
+          // Persist dismissal to AsyncStorage
+          try {
+            await AsyncStorage.setItem(
+              `subscription_modal_dismissed_${account?.address}`,
+              "true"
+            );
+          } catch (error) {
+            console.error("Error saving dismissed state:", error);
+          }
+          router.push("/shop/subscription-form");
+        }}
         loading={subscriptionLoading}
       />
     </ThemedView>
