@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import {
   Image,
   Pressable,
@@ -6,7 +6,9 @@ import {
   View,
   RefreshControl,
   ScrollView,
+  Alert,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Feather } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useShopByWalletAddress } from "@/hooks";
@@ -15,6 +17,7 @@ import { ThemedView } from "@/components/ui/ThemedView";
 import WalletTab from "./tabs/WalletTab";
 import PromoCodeTab from "./tabs/PromoCodeTab";
 import AnalyticsTab from "./tabs/AnalyticsTab";
+import SubscriptionModal from "@/components/shop/SubscriptionModal";
 
 type ShopTabs = "Wallet" | "Analysis" | "Promo Code";
 
@@ -26,9 +29,32 @@ export default function Home() {
     error,
     refetch,
   } = useShopByWalletAddress(account?.address || "");
+  const isOperational = shopData?.data?.operational_status === "rcg_qualified" || shopData?.data?.operational_status === "subscription_qualified";
 
-  const [activeTab, setActiveTab] = React.useState<ShopTabs>("Wallet");
+  const [activeTab, setActiveTab] = useState<ShopTabs>("Wallet");
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const [hasUserDismissedModal, setHasUserDismissedModal] = useState(false);
   const shopTabs: ShopTabs[] = ["Wallet", "Analysis", "Promo Code"];
+
+  // Load dismissed state from AsyncStorage on mount
+  useEffect(() => {
+    const loadDismissedState = async () => {
+      try {
+        const dismissed = await AsyncStorage.getItem(
+          `subscription_modal_dismissed_${account?.address}`
+        );
+        if (dismissed === "true") {
+          setHasUserDismissedModal(true);
+        }
+      } catch (error) {
+        console.error("Error loading dismissed state:", error);
+      }
+    };
+    if (account?.address) {
+      loadDismissedState();
+    }
+  }, [account?.address]);
 
   // Refetch data when screen comes into focus
   useFocusEffect(
@@ -36,6 +62,112 @@ export default function Home() {
       refetch();
     }, [])
   );
+
+  // Show modal when shop is not operational (only if user hasn't dismissed it)
+  useEffect(() => {
+    if (shopData?.data && !isOperational && !hasUserDismissedModal) {
+      setShowSubscriptionModal(true);
+    }
+  }, [shopData, isOperational, hasUserDismissedModal]);
+
+  const handleCloseModal = async () => {
+    // Only allow closing if shop is operational or user confirms
+    if (isOperational) {
+      setShowSubscriptionModal(false);
+      setHasUserDismissedModal(true);
+      // Persist dismissal to AsyncStorage
+      try {
+        await AsyncStorage.setItem(
+          `subscription_modal_dismissed_${account?.address}`,
+          "true"
+        );
+      } catch (error) {
+        console.error("Error saving dismissed state:", error);
+      }
+    } else {
+      Alert.alert(
+        "Subscription Required",
+        "You need an active subscription to access the dashboard. Would you like to subscribe now?",
+        [
+          {
+            text: "Later",
+            onPress: async () => {
+              setShowSubscriptionModal(false);
+              setHasUserDismissedModal(true);
+              // Persist dismissal to AsyncStorage
+              try {
+                await AsyncStorage.setItem(
+                  `subscription_modal_dismissed_${account?.address}`,
+                  "true"
+                );
+              } catch (error) {
+                console.error("Error saving dismissed state:", error);
+              }
+            },
+            style: "cancel",
+          },
+          {
+            text: "Subscribe",
+            onPress: () => {
+              // Keep modal open
+            },
+          },
+        ]
+      );
+    }
+  };
+
+  const handleSubscribe = async () => {
+    setSubscriptionLoading(true);
+    try {
+      // TODO: Implement subscription API call
+      // Example:
+      // await subscriptionAPI.createSubscription({
+      //   shopId: shopData?.data.id,
+      //   plan: "monthly",
+      //   amount: 500
+      // });
+
+      console.log("Processing subscription for shop:", shopData?.data.name);
+
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Clear dismissed state since they subscribed
+      try {
+        await AsyncStorage.removeItem(
+          `subscription_modal_dismissed_${account?.address}`
+        );
+      } catch (error) {
+        console.error("Error clearing dismissed state:", error);
+      }
+
+      // Show success message
+      Alert.alert(
+        "Success!",
+        "Your subscription has been activated. Welcome!",
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              setShowSubscriptionModal(false);
+              setHasUserDismissedModal(false);
+              refetch(); // Refresh shop data to update operational status
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error("Subscription error:", error);
+      Alert.alert(
+        "Error",
+        "Failed to process subscription. Please try again.",
+        [{ text: "OK" }]
+      );
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  };
 
   return (
     <ThemedView className="h-full w-full">
@@ -90,6 +222,12 @@ export default function Home() {
         {activeTab === "Promo Code" && shopData?.data && <PromoCodeTab />}
         {activeTab === "Analysis" && shopData?.data && <AnalyticsTab />}
       </View>
+      <SubscriptionModal
+        visible={showSubscriptionModal}
+        onClose={handleCloseModal}
+        onSubscribe={handleSubscribe}
+        loading={subscriptionLoading}
+      />
     </ThemedView>
   );
 }
