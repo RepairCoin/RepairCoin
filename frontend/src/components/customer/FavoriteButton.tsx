@@ -1,0 +1,159 @@
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { Heart } from "lucide-react";
+import { toast } from "react-hot-toast";
+import { servicesApi } from "@/services/api/services";
+import { useAuthStore } from "@/stores/authStore";
+
+interface FavoriteButtonProps {
+  serviceId: string;
+  /**
+   * Initial favorited state (optional, will be fetched if not provided)
+   */
+  initialIsFavorited?: boolean;
+  /**
+   * Size variant
+   */
+  size?: "sm" | "md" | "lg";
+  /**
+   * Show text label
+   */
+  showLabel?: boolean;
+  /**
+   * Custom className
+   */
+  className?: string;
+  /**
+   * Callback when favorite status changes
+   */
+  onFavoriteChange?: (isFavorited: boolean) => void;
+}
+
+export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
+  serviceId,
+  initialIsFavorited,
+  size = "md",
+  showLabel = false,
+  className = "",
+  onFavoriteChange,
+}) => {
+  const [isFavorited, setIsFavorited] = useState(initialIsFavorited ?? false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isChecking, setIsChecking] = useState(initialIsFavorited === undefined);
+  const { user, isAuthenticated } = useAuthStore();
+
+  // Size classes
+  const sizeClasses = {
+    sm: "w-8 h-8",
+    md: "w-10 h-10",
+    lg: "w-12 h-12",
+  };
+
+  const iconSizes = {
+    sm: "w-4 h-4",
+    md: "w-5 h-5",
+    lg: "w-6 h-6",
+  };
+
+  // Check initial favorite status if not provided
+  useEffect(() => {
+    if (initialIsFavorited === undefined && isAuthenticated && user?.role === "customer") {
+      checkFavoriteStatus();
+    }
+  }, [serviceId, isAuthenticated, user?.role]);
+
+  const checkFavoriteStatus = async () => {
+    try {
+      setIsChecking(true);
+      const favorited = await servicesApi.checkFavorite(serviceId);
+      setIsFavorited(favorited);
+    } catch (error) {
+      console.error("Error checking favorite status:", error);
+    } finally {
+      setIsChecking(false);
+    }
+  };
+
+  const handleToggleFavorite = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Check authentication
+    if (!isAuthenticated) {
+      toast.error("Please connect your wallet to favorite services");
+      return;
+    }
+
+    // Check user role
+    if (user?.role !== "customer") {
+      toast.error("Only customers can favorite services");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      if (isFavorited) {
+        // Remove from favorites
+        await servicesApi.removeFavorite(serviceId);
+        setIsFavorited(false);
+        toast.success("Removed from favorites");
+        onFavoriteChange?.(false);
+      } else {
+        // Add to favorites
+        await servicesApi.addFavorite(serviceId);
+        setIsFavorited(true);
+        toast.success("Added to favorites!");
+        onFavoriteChange?.(true);
+      }
+    } catch (error) {
+      console.error("Error toggling favorite:", error);
+      toast.error(isFavorited ? "Failed to remove favorite" : "Failed to add favorite");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Don't show for non-customers
+  if (!isAuthenticated || user?.role !== "customer") {
+    return null;
+  }
+
+  return (
+    <button
+      onClick={handleToggleFavorite}
+      disabled={isLoading || isChecking}
+      className={`
+        ${sizeClasses[size]}
+        flex items-center justify-center gap-2
+        rounded-full
+        transition-all duration-200
+        ${
+          isFavorited
+            ? "bg-red-500 text-white hover:bg-red-600"
+            : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-red-500"
+        }
+        disabled:opacity-50 disabled:cursor-not-allowed
+        ${className}
+      `}
+      title={isFavorited ? "Remove from favorites" : "Add to favorites"}
+    >
+      {isChecking ? (
+        <div className={`${iconSizes[size]} animate-spin rounded-full border-2 border-gray-400 border-t-transparent`} />
+      ) : (
+        <>
+          <Heart
+            className={`${iconSizes[size]} ${isFavorited ? "fill-current" : ""}`}
+            strokeWidth={isFavorited ? 0 : 2}
+          />
+          {showLabel && (
+            <span className="text-sm font-medium">
+              {isFavorited ? "Favorited" : "Favorite"}
+            </span>
+          )}
+        </>
+      )}
+    </button>
+  );
+};

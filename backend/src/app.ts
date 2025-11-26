@@ -42,6 +42,7 @@ import metricsRoutes from './routes/metrics';
 import authRoutes from './routes/auth';
 import referralRoutes from './routes/referral';
 import setupRoutes from './routes/setup';
+import uploadRoutes from './routes/upload';
 
 // Middleware imports
 import { metricsMiddleware } from './utils/metrics';
@@ -286,7 +287,10 @@ class RepairCoinApp {
     
     // Referral routes
     this.app.use('/api/referrals', referralRoutes);
-    
+
+    // Upload routes
+    this.app.use('/api/upload', uploadRoutes);
+
     // Domain public routes (no auth) - MUST BE MOUNTED FIRST
     domainRegistry.getAllDomains().forEach(domain => {
       if (domain.publicRoutes) {
