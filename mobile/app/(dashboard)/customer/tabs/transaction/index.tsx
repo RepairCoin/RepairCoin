@@ -11,7 +11,7 @@ import { Feather } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/authStore";
 import { useEarningHistory } from "@/hooks";
 import { EarningHistory } from "@/services/CustomerServices";
-import TransactionHistoryCard from "@/components/customer/TransactionHistoryCard";
+import TransactionHistoryCard from "@/components/common/TransactionHistoryCard";
 import TransactionHistoryFilterModal from "@/components/customer/TransactionHistoryFilterModal";
 
 export default function TransactionHistory() {
@@ -84,6 +84,7 @@ export default function TransactionHistory() {
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
           <TransactionHistoryCard
+            variant="customer"
             type={item.type}
             amount={item.amount}
             shopName={item.shopName}

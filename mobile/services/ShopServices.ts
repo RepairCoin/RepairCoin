@@ -77,12 +77,16 @@ export interface UpdateShopData {
 }
 
 export interface PurchaseHistory {
-  id: string;
-  amount: number;
-  totalCost?: number;
-  status: string;
-  createdAt: string;
-  transactionHash?: string;
+  amount: number,
+  completedAt: string,
+  createdAt: string,
+  id: number,
+  paymentMethod: string,
+  paymentReference: string,
+  pricePerRcn: null,
+  shopId: string,
+  status: string,
+  totalCost: number
 }
 
 export interface PurchaseTokenResponse {
@@ -98,7 +102,8 @@ export interface PurchaseTokenResponse {
 export interface PurchaseHistoryResponse {
   data: {
     purchases: PurchaseHistory[];
-    count: number;
+    total: number;
+    totalPages: number;
   };
   success: boolean;
   message?: string;
@@ -106,11 +111,12 @@ export interface PurchaseHistoryResponse {
 
 // Customer and Rewards related interfaces and services
 export interface CustomerInfo {
+  address: string;
+  last_transaction_date: string;
+  lifetime_earnings: number;
+  name: string;
   tier: "BRONZE" | "SILVER" | "GOLD";
-  lifetimeEarnings: number;
-  isActive?: boolean;
-  name?: string;
-  email?: string;
+  total_transactions: number;
 }
 
 export interface PromoCode {
@@ -161,6 +167,50 @@ export interface PromoValidationResponse {
   success: boolean;
 }
 
+export interface CustomerGrowthData {
+  activeCustomers: number;
+  activeGrowthPercentage: number;
+  averageEarningsPerCustomer: number;
+  avgEarningsGrowthPercentage: number;
+  growthPercentage: number;
+  newCustomers: number;
+  periodLabel: string;
+  regularCustomers: number;
+  regularGrowthPercentage: number;
+  totalCustomers: number;
+}
+
+export interface CustomerGrowthResponse {
+  data: CustomerGrowthData;
+  success: boolean;
+}
+
+export interface ShopCustomerData {
+  currentPage: number;
+  customers: CustomerInfo[];
+  totalItems: number;
+  totalPages: number;
+}
+
+export interface ShopCustomersResponse {
+  data: ShopCustomerData;
+  success: boolean;
+}
+
+export interface CreatePromoCodeRequest {
+  code: string;
+  name: string;
+  description?: string;
+  bonus_type: "fixed" | "percentage";
+  bonus_value: number;
+  start_date: string;
+  end_date: string;
+  total_usage_limit?: number;
+  per_customer_limit?: number;
+  max_bonus?: number;
+  is_active: boolean;
+}
+
 export const listShops = async (): Promise<ShopResponse> => {
   try {
     return await apiClient.get<ShopResponse>("/shops");
@@ -174,34 +224,44 @@ export const getShopByWalletAddress = async (
   walletAddress: string
 ): Promise<ShopByWalletAddressResponse> => {
   try {
-    return await apiClient.get<ShopByWalletAddressResponse>(`/shops/wallet/${walletAddress}`);
+    return await apiClient.get<ShopByWalletAddressResponse>(
+      `/shops/wallet/${walletAddress}`
+    );
   } catch (error: any) {
     console.error("Failed to get shop by wallet address:", error.message);
     throw error;
   }
 };
 
-export const updateShopDetails = async (shopId: string, shopData: ShopData): Promise<UpdateShopData> => {
+export const updateShopDetails = async (
+  shopId: string,
+  shopData: ShopData
+): Promise<UpdateShopData> => {
   try {
-    return await apiClient.put<UpdateShopData>(`/shops/${shopId}/details`, shopData);
+    return await apiClient.put<UpdateShopData>(
+      `/shops/${shopId}/details`,
+      shopData
+    );
   } catch (error: any) {
     console.error("Failed to update shop details:", error.message);
     throw error;
   }
 };
 
-export const createStripeCheckout = async (amount: number): Promise<PurchaseTokenResponse> => {
+export const createStripeCheckout = async (
+  amount: number
+): Promise<PurchaseTokenResponse> => {
   try {
     // Debug: Check if we have a token
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-    const token = await AsyncStorage.getItem('auth_token');
-    console.log('[createStripeCheckout] Token exists:', !!token);
-    if (token) {
-      console.log('[createStripeCheckout] Token preview:', token.substring(0, 20) + '...');
-    }
-    
+    const AsyncStorage =
+      require("@react-native-async-storage/async-storage").default;
+    const token = await AsyncStorage.getItem("auth_token");
+
     // Include platform parameter to indicate this is from mobile
-    const response = await apiClient.post<PurchaseTokenResponse>("/shops/purchase/stripe-checkout?platform=mobile", { amount });
+    const response = await apiClient.post<PurchaseTokenResponse>(
+      "/shops/purchase/stripe-checkout?platform=mobile",
+      { amount }
+    );
     return response;
   } catch (error: any) {
     console.error("Failed to create Stripe checkout:", error.message);
@@ -213,7 +273,9 @@ export const createStripeCheckout = async (amount: number): Promise<PurchaseToke
   }
 };
 
-export const getCustomerInfo = async (walletAddress: string): Promise<{ data: { customer: CustomerInfo } }> => {
+export const getCustomerInfo = async (
+  walletAddress: string
+): Promise<{ data: { customer: CustomerInfo } }> => {
   try {
     return await apiClient.get(`/customers/${walletAddress}`);
   } catch (error: any) {
@@ -222,7 +284,50 @@ export const getCustomerInfo = async (walletAddress: string): Promise<{ data: { 
   }
 };
 
-export const getShopPromoCodes = async (shopId: string): Promise<{ data: PromoCode[]; success: boolean }> => {
+export const issueReward = async (
+  shopId: string,
+  request: RewardRequest
+): Promise<RewardResponse> => {
+  try {
+    return await apiClient.post(`/shops/${shopId}/issue-reward`, request);
+  } catch (error: any) {
+    console.error("Failed to issue reward:", error.message);
+    throw error;
+  }
+};
+
+export const getShopTransactions = async (
+  shopId: string
+): Promise<PurchaseHistoryResponse> => {
+  try {
+    return await apiClient.get(`/shops/purchase/history/${shopId}`);
+  } catch (error: any) {
+    console.error("Failed to get shop transactions:", error.message);
+    throw error;
+  }
+};
+
+export const getShopCustomerGrowth = async (shopId: string): Promise<CustomerGrowthResponse> => {
+  try {
+    return await apiClient.get<CustomerGrowthResponse>(`/shops/${shopId}/customer-growth?period=7d`);
+  } catch (error: any) {
+    console.error("Failed to get shop customer growth:", error.message);
+    throw error;
+  }
+};
+
+export const getShopCustomers = async (shopId: string): Promise<ShopCustomersResponse> => {
+  try {
+    return await apiClient.get<ShopCustomersResponse>(`/shops/${shopId}/customers?limit=100`);
+  } catch (error: any) {
+    console.error("Failed to get shop customers:", error.message);
+    throw error;
+  }
+};
+
+export const getShopPromoCodes = async (
+  shopId: string
+): Promise<{ data: PromoCode[]; success: boolean }> => {
   try {
     return await apiClient.get(`/shops/${shopId}/promo-codes`);
   } catch (error: any) {
@@ -231,20 +336,177 @@ export const getShopPromoCodes = async (shopId: string): Promise<{ data: PromoCo
   }
 };
 
-export const validatePromoCode = async (shopId: string, request: PromoValidationRequest): Promise<PromoValidationResponse> => {
+export const validatePromoCode = async (
+  shopId: string,
+  request: PromoValidationRequest
+): Promise<PromoValidationResponse> => {
   try {
-    return await apiClient.post(`/shops/${shopId}/promo-codes/validate`, request);
+    return await apiClient.post(
+      `/shops/${shopId}/promo-codes/validate`,
+      request
+    );
   } catch (error: any) {
     console.error("Failed to validate promo code:", error.message);
     throw error;
   }
 };
 
-export const issueReward = async (shopId: string, request: RewardRequest): Promise<RewardResponse> => {
+export const updatePromoCodeStatus = async (
+  shopId: string,
+  promoCodeId: string,
+  isActive: boolean
+): Promise<{ success: boolean; message?: string; data?: any }> => {
   try {
-    return await apiClient.post(`/shops/${shopId}/issue-reward`, request);
+    if (!isActive) {
+      // Use DELETE endpoint to deactivate
+      return await apiClient.delete(`/shops/${shopId}/promo-codes/${promoCodeId}`);
+    } else {
+      // Use PUT endpoint to reactivate by updating is_active flag
+      return await apiClient.put(`/shops/${shopId}/promo-codes/${promoCodeId}`, {
+        is_active: true
+      });
+    }
   } catch (error: any) {
-    console.error("Failed to issue reward:", error.message);
+    console.error("Failed to update promo code status:", error.message);
+    throw error;
+  }
+};
+
+export const createPromoCode = async (
+  shopId: string,
+  promoCodeData: CreatePromoCodeRequest
+): Promise<{ success: boolean; data: PromoCode }> => {
+  try {
+    return await apiClient.post(`/shops/${shopId}/promo-codes`, promoCodeData);
+  } catch (error: any) {
+    console.error("Failed to create promo code:", error.message);
+    throw error;
+  }
+};
+
+export interface RedemptionSession {
+  sessionId: string;
+  customerAddress: string;
+  shopId: string;
+  amount: number;
+  status: "pending" | "approved" | "rejected" | "processing" | "completed" | "expired" | "used";
+  qrCode?: string;
+  expiresAt: string;
+  createdAt: string;
+  updatedAt: string;
+  metadata?: {
+    cancelledByShop?: boolean;
+  };
+}
+
+export interface CreateRedemptionSessionRequest {
+  customerAddress: string;
+  shopId: string;
+  amount: number;
+}
+
+export interface CreateRedemptionSessionResponse {
+  data: {
+    sessionId: string;
+    expiresAt: string;
+    qrCode?: string;
+  };
+  success: boolean;
+  message?: string;
+}
+
+export interface RedemptionSessionStatusResponse {
+  data: RedemptionSession;
+  success: boolean;
+  message?: string;
+}
+
+export interface ProcessRedemptionRequest {
+  customerAddress: string;
+  amount: number;
+  sessionId: string;
+}
+
+export interface ProcessRedemptionResponse {
+  data: {
+    transactionHash?: string;
+    amount: number;
+    customerAddress: string;
+  };
+  success: boolean;
+  message?: string;
+}
+
+export interface CustomerBalanceData {
+  totalBalance: number;
+  availableBalance?: number;
+}
+
+export interface CustomerBalanceResponse {
+  data: CustomerBalanceData;
+  success: boolean;
+  message?: string;
+}
+
+export const createRedemptionSession = async (
+  request: CreateRedemptionSessionRequest
+): Promise<CreateRedemptionSessionResponse> => {
+  try {
+    return await apiClient.post(
+      "/tokens/redemption-session/create",
+      request
+    );
+  } catch (error: any) {
+    console.error("Failed to create redemption session:", error.message);
+    throw error;
+  }
+};
+
+export const checkRedemptionSessionStatus = async (
+  sessionId: string
+): Promise<RedemptionSessionStatusResponse> => {
+  try {
+    return await apiClient.get(
+      `/tokens/redemption-session/status/${sessionId}`
+    );
+  } catch (error: any) {
+    console.error("Failed to check redemption session status:", error.message);
+    throw error;
+  }
+};
+
+export const cancelRedemptionSession = async (
+  sessionId: string
+): Promise<{ success: boolean; message?: string }> => {
+  try {
+    return await apiClient.post("/tokens/redemption-session/cancel", {
+      sessionId,
+    });
+  } catch (error: any) {
+    console.error("Failed to cancel redemption session:", error.message);
+    throw error;
+  }
+};
+
+export const processRedemption = async (
+  shopId: string,
+  request: ProcessRedemptionRequest
+): Promise<ProcessRedemptionResponse> => {
+  try {
+    return await apiClient.post(`/shops/${shopId}/redeem`, request);
+  } catch (error: any) {
+    console.error("Failed to process redemption:", error.message);
+    throw error;
+  }
+};
+
+export const getCustomerBalance = async (
+  customerAddress: string
+): Promise<CustomerBalanceResponse> => {
+  try {
+    return await apiClient.get(`/customers/balance/${customerAddress}`);
+  } catch (error: any) {
+    console.error("Failed to get customer balance:", error.message);
     throw error;
   }
 };
