@@ -1312,7 +1312,9 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                     !canIssueReward ||
                     !hasSufficientBalance ||
                     customerInfo?.isActive === false ||
-                    customerInfo?.suspended
+                    customerInfo?.suspended ||
+                    totalReward === 0 ||
+                    (shopData?.purchasedRcnBalance || 0) === 0
                   }
                   className="w-full bg-[#FFCC00] text-black font-bold py-4 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow-lg hover:shadow-yellow-500/25 transform hover:scale-105 disabled:transform-none"
                 >
