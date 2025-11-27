@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { Loader2 } from 'lucide-react';
-import { useModalStore } from '@/stores/modalStore';
+import React from "react";
+import { Loader2 } from "lucide-react";
+import { useModalStore } from "@/stores/modalStore";
 
 interface HeroSectionProps {
   hasWallet: boolean;
@@ -19,7 +19,7 @@ export default function HeroSection({
   isRegistered,
   isAuthenticated,
   isRedirecting = false,
-  onGetStartedClick
+  onGetStartedClick,
 }: HeroSectionProps) {
   const isLoading = isDetecting || isRedirecting;
   const { openWelcomeModal } = useModalStore();
@@ -42,7 +42,8 @@ export default function HeroSection({
         <div
           className="absolute inset-0 opacity-20"
           style={{
-            background: 'radial-gradient(ellipse 80% 50% at 50% 50%, rgba(255, 204, 0, 0.15), transparent)'
+            background:
+              "radial-gradient(ellipse 80% 50% at 50% 50%, rgba(255, 204, 0, 0.15), transparent)",
           }}
         />
 
@@ -50,7 +51,8 @@ export default function HeroSection({
         <div
           className="absolute top-[-200px] right-[-200px] w-[800px] h-[800px] rounded-full"
           style={{
-            background: 'radial-gradient(circle, rgba(255, 204, 0, 0.1), transparent 70%)'
+            background:
+              "radial-gradient(circle, rgba(255, 204, 0, 0.1), transparent 70%)",
           }}
         />
 
@@ -58,7 +60,8 @@ export default function HeroSection({
         <div
           className="absolute bottom-[-300px] left-[-300px] w-[1000px] h-[1000px] rounded-full"
           style={{
-            background: 'radial-gradient(circle, rgba(255, 204, 0, 0.08), transparent 70%)'
+            background:
+              "radial-gradient(circle, rgba(255, 204, 0, 0.08), transparent 70%)",
           }}
         />
       </div>
@@ -73,15 +76,17 @@ export default function HeroSection({
               </p>
             </div>
 
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight">
+            <h1 className="text-3xl sm:text-5xl font-bold text-white leading-tight">
               The Future of
               <br />
-              Repair Rewards
+              Tokenized Rewards
             </h1>
 
             <p className="text-base sm:text-lg text-gray-300 leading-relaxed max-w-[18rem] md:max-w-md">
-              RepairCoin is a blockchain-based loyalty system that connects customers and shops under one transparent, stable-value network.
-              <br /><br />
+              RepairCoin is a blockchain-based loyalty system that connects
+              customers and shops under one transparent, stable-value network.
+              <br />
+              <br />
               Every repair earns RCN you can actually use.
             </p>
 
@@ -94,7 +99,7 @@ export default function HeroSection({
                 {isLoading ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    {isRedirecting ? 'Redirecting...' : 'Loading...'}
+                    {isRedirecting ? "Redirecting..." : "Loading..."}
                   </>
                 ) : (
                   <>Get Started →</>
@@ -105,7 +110,7 @@ export default function HeroSection({
 
           {/* Right Content - Hero Video */}
           <div className=" h-full flex items-end justify-center lg:justify-end pb-0">
-             <div className="w-full">
+            <div className="w-full">
               <video
                 autoPlay
                 loop
@@ -114,10 +119,11 @@ export default function HeroSection({
                 className="absolute bottom-0 left-1/4 w-full h-[80vh] object-contain object-bottom"
                 onError={(e) => {
                   // Fallback to PNG if video fails to load
-                  const fallbackImg = document.createElement('img');
-                  fallbackImg.src = '/img/landing/landing-hero.png';
-                  fallbackImg.alt = 'RepairCoin Hero - Person with devices';
-                  fallbackImg.className = 'absolute bottom-0 left-1/4 w-full h-[80vh] object-contain object-bottom';
+                  const fallbackImg = document.createElement("img");
+                  fallbackImg.src = "/img/landing/landing-hero.png";
+                  fallbackImg.alt = "RepairCoin Hero - Person with devices";
+                  fallbackImg.className =
+                    "absolute bottom-0 left-1/4 w-full h-[80vh] object-contain object-bottom";
                   e.currentTarget.replaceWith(fallbackImg);
                 }}
               >

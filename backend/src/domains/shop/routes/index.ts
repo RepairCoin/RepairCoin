@@ -246,6 +246,42 @@ router.get('/wallet/:address',
       );
       const subscriptionStatus = subQuery.rows.length > 0 ? subQuery.rows[0].status : null;
 
+      // Check Stripe subscription and ensure operational_status is correct
+      // This fixes cases where operational_status gets out of sync with actual subscription
+      const stripeSubQuery = await db.query(
+        `SELECT status FROM stripe_subscriptions
+         WHERE shop_id = $1 AND status IN ('active', 'past_due', 'unpaid')
+         ORDER BY created_at DESC LIMIT 1`,
+        [shop.shopId]
+      );
+
+      const hasActiveStripeSubscription = stripeSubQuery.rows.length > 0;
+      const rcgBalance = shop.rcg_balance || 0;
+      const expectedOperationalStatus = hasActiveStripeSubscription
+        ? 'subscription_qualified'
+        : (rcgBalance >= 10000 ? 'rcg_qualified' : 'not_qualified');
+
+      // If operational_status is out of sync, update it
+      // Don't override 'paused' status (admin manually paused)
+      const currentStatus = shop.operational_status as string;
+      if (currentStatus !== expectedOperationalStatus &&
+          currentStatus !== 'paused') {
+        const oldStatus = shop.operational_status;
+        await db.query(
+          `UPDATE shops SET operational_status = $1, updated_at = CURRENT_TIMESTAMP WHERE shop_id = $2`,
+          [expectedOperationalStatus, shop.shopId]
+        );
+        shop.operational_status = expectedOperationalStatus;
+
+        logger.info('Fixed operational_status mismatch on shop data fetch', {
+          shopId: shop.shopId,
+          oldStatus,
+          newStatus: expectedOperationalStatus,
+          hasActiveStripeSubscription,
+          rcgBalance
+        });
+      }
+
       // Different data based on user role
       let shopData;
       if (req.user?.role === 'admin' || (req.user?.role === 'shop' && req.user.shopId === shop.shopId)) {
