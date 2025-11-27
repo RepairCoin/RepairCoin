@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import { PaymentService } from '../services/PaymentService';
 import { OrderRepository } from '../../../repositories/OrderRepository';
 import { logger } from '../../../utils/logger';
+import { eventBus, createDomainEvent } from '../../../events/EventBus';
 
 export class OrderController {
   private paymentService: PaymentService;
@@ -231,6 +232,33 @@ export class OrderController {
       }
 
       const updatedOrder = await this.orderRepository.updateOrderStatus(id, status);
+
+      // Emit event when order is marked completed for RCN rewards
+      if (status === 'completed' && updatedOrder) {
+        try {
+          await eventBus.publish(createDomainEvent(
+            'service.order_completed',
+            updatedOrder.customerAddress,
+            {
+              orderId: updatedOrder.orderId,
+              customerAddress: updatedOrder.customerAddress,
+              shopId: updatedOrder.shopId,
+              serviceId: updatedOrder.serviceId,
+              totalAmount: updatedOrder.totalAmount,
+              completedAt: updatedOrder.completedAt
+            },
+            'ServiceDomain'
+          ));
+          logger.info('Service order completed event published', {
+            orderId: updatedOrder.orderId,
+            customerAddress: updatedOrder.customerAddress,
+            amount: updatedOrder.totalAmount
+          });
+        } catch (eventError) {
+          logger.error('Failed to publish order completed event:', eventError);
+          // Don't fail the request if event publishing fails
+        }
+      }
 
       res.json({
         success: true,

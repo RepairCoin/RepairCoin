@@ -69,6 +69,7 @@ export interface ServiceOrderWithDetails extends ServiceOrder {
   shopCity?: string;
   shopPhone?: string;
   shopEmail?: string;
+  rcnEarned?: number; // RCN tokens earned when order completed
 }
 
 export interface CreateServiceData {
@@ -351,6 +352,269 @@ export const cancelOrder = async (orderId: string): Promise<boolean> => {
   }
 };
 
+// ==================== FAVORITES ====================
+
+/**
+ * Add service to favorites
+ */
+export const addFavorite = async (serviceId: string): Promise<boolean> => {
+  try {
+    await apiClient.post('/services/favorites', { serviceId });
+    return true;
+  } catch (error) {
+    console.error('Error adding favorite:', error);
+    throw error;
+  }
+};
+
+/**
+ * Remove service from favorites
+ */
+export const removeFavorite = async (serviceId: string): Promise<boolean> => {
+  try {
+    await apiClient.delete(`/services/favorites/${serviceId}`);
+    return true;
+  } catch (error) {
+    console.error('Error removing favorite:', error);
+    throw error;
+  }
+};
+
+/**
+ * Check if service is favorited
+ */
+export const checkFavorite = async (serviceId: string): Promise<boolean> => {
+  try {
+    const response = await apiClient.get<{ isFavorited: boolean }>(
+      `/services/favorites/check/${serviceId}`
+    );
+    return response.data?.isFavorited || false;
+  } catch (error) {
+    console.error('Error checking favorite:', error);
+    return false;
+  }
+};
+
+/**
+ * Get customer's favorited services
+ */
+export const getCustomerFavorites = async (options: {
+  page?: number;
+  limit?: number;
+} = {}): Promise<PaginatedResponse<ShopServiceWithShopInfo> | null> => {
+  try {
+    const queryString = buildQueryString(options);
+    const response = await apiClient.get<PaginatedResponse<ShopServiceWithShopInfo>>(
+      `/services/favorites${queryString}`
+    );
+    return response || null;
+  } catch (error) {
+    console.error('Error getting favorites:', error);
+    return null;
+  }
+};
+
+/**
+ * Get favorite count for a service
+ */
+export const getServiceFavoriteCount = async (serviceId: string): Promise<number> => {
+  try {
+    const response = await apiClient.get<{ count: number }>(
+      `/services/${serviceId}/favorites/count`
+    );
+    return response.data?.count || 0;
+  } catch (error) {
+    console.error('Error getting favorite count:', error);
+    return 0;
+  }
+};
+
+// ==================== REVIEWS ====================
+
+export interface ServiceReview {
+  reviewId: string;
+  serviceId: string;
+  orderId: string;
+  customerAddress: string;
+  shopId: string;
+  rating: number;
+  comment?: string;
+  images?: string[];
+  helpfulCount: number;
+  shopResponse?: string;
+  shopResponseAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  // With details
+  customerName?: string;
+  serviceName?: string;
+  shopName?: string;
+}
+
+export interface CreateReviewData {
+  orderId: string;
+  rating: number;
+  comment?: string;
+  images?: string[];
+}
+
+/**
+ * Create a review
+ */
+export const createReview = async (data: CreateReviewData): Promise<ServiceReview | null> => {
+  try {
+    const response = await apiClient.post<ServiceReview>('/services/reviews', data);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error creating review:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get reviews for a service
+ */
+export const getServiceReviews = async (
+  serviceId: string,
+  options: {
+    page?: number;
+    limit?: number;
+    rating?: number;
+  } = {}
+): Promise<PaginatedResponse<ServiceReview> | null> => {
+  try {
+    const queryString = buildQueryString(options);
+    const response = await apiClient.get<PaginatedResponse<ServiceReview>>(
+      `/services/${serviceId}/reviews${queryString}`
+    );
+    return response || null;
+  } catch (error) {
+    console.error('Error getting service reviews:', error);
+    return null;
+  }
+};
+
+/**
+ * Get customer's reviews
+ */
+export const getCustomerReviews = async (options: {
+  page?: number;
+  limit?: number;
+} = {}): Promise<PaginatedResponse<ServiceReview> | null> => {
+  try {
+    const queryString = buildQueryString(options);
+    const response = await apiClient.get<PaginatedResponse<ServiceReview>>(
+      `/services/reviews/customer${queryString}`
+    );
+    return response || null;
+  } catch (error) {
+    console.error('Error getting customer reviews:', error);
+    return null;
+  }
+};
+
+/**
+ * Get shop's reviews
+ */
+export const getShopReviews = async (options: {
+  page?: number;
+  limit?: number;
+  rating?: number;
+} = {}): Promise<PaginatedResponse<ServiceReview> | null> => {
+  try {
+    const queryString = buildQueryString(options);
+    const response = await apiClient.get<PaginatedResponse<ServiceReview>>(
+      `/services/reviews/shop${queryString}`
+    );
+    return response || null;
+  } catch (error) {
+    console.error('Error getting shop reviews:', error);
+    return null;
+  }
+};
+
+/**
+ * Update a review
+ */
+export const updateReview = async (
+  reviewId: string,
+  updates: {
+    rating?: number;
+    comment?: string;
+    images?: string[];
+  }
+): Promise<ServiceReview | null> => {
+  try {
+    const response = await apiClient.put<ServiceReview>(`/services/reviews/${reviewId}`, updates);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error updating review:', error);
+    throw error;
+  }
+};
+
+/**
+ * Add shop response to review
+ */
+export const addShopResponse = async (reviewId: string, response: string): Promise<ServiceReview | null> => {
+  try {
+    const res = await apiClient.post<ServiceReview>(`/services/reviews/${reviewId}/respond`, {
+      response,
+    });
+    return res.data || null;
+  } catch (error) {
+    console.error('Error adding shop response:', error);
+    throw error;
+  }
+};
+
+/**
+ * Mark review as helpful
+ */
+export const markReviewHelpful = async (reviewId: string): Promise<boolean> => {
+  try {
+    await apiClient.post(`/services/reviews/${reviewId}/helpful`);
+    return true;
+  } catch (error) {
+    console.error('Error marking review helpful:', error);
+    return false;
+  }
+};
+
+/**
+ * Delete a review
+ */
+export const deleteReview = async (reviewId: string): Promise<boolean> => {
+  try {
+    await apiClient.delete(`/services/reviews/${reviewId}`);
+    return true;
+  } catch (error) {
+    console.error('Error deleting review:', error);
+    throw error;
+  }
+};
+
+/**
+ * Check if customer can review an order
+ */
+export const canReviewOrder = async (orderId: string): Promise<{
+  canReview: boolean;
+  reason?: string;
+  reviewId?: string;
+}> => {
+  try {
+    const response = await apiClient.get<{
+      canReview: boolean;
+      reason?: string;
+      reviewId?: string;
+    }>(`/services/reviews/can-review/${orderId}`);
+    return response.data || { canReview: false };
+  } catch (error) {
+    console.error('Error checking review eligibility:', error);
+    return { canReview: false };
+  }
+};
+
 // ==================== CONVENIENCE NAMESPACE EXPORT ====================
 
 export const servicesApi = {
@@ -370,6 +634,24 @@ export const servicesApi = {
   getOrderById,
   updateOrderStatus,
   cancelOrder,
+
+  // Favorites
+  addFavorite,
+  removeFavorite,
+  checkFavorite,
+  getCustomerFavorites,
+  getServiceFavoriteCount,
+
+  // Reviews
+  createReview,
+  getServiceReviews,
+  getCustomerReviews,
+  getShopReviews,
+  updateReview,
+  addShopResponse,
+  markReviewHelpful,
+  deleteReview,
+  canReviewOrder,
 } as const;
 
 // ==================== SERVICE CATEGORIES CONSTANT ====================

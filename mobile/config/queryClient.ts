@@ -1,5 +1,4 @@
 import { QueryClient } from '@tanstack/react-query';
-import { Platform } from 'react-native';
 
 export const createQueryClient = () => {
   return new QueryClient({
@@ -51,8 +50,16 @@ export const queryKeys = {
   shopByWalletAddress: (walletAddress: string) => [...queryKeys.shops(), walletAddress] as const,
   shop: (id: string) => [...queryKeys.shops(), id] as const,
   shopProfile: (id: string) => [...queryKeys.shop(id), 'profile'] as const,
-  nearbyShops: (coordinates: { lat: number; lng: number }) => 
+  shopTransactions: (id: string) => [...queryKeys.shop(id), 'transactions'] as const,
+  shopCustomerGrowth: (id: string) => [...queryKeys.shop(id), 'customerGrowth'] as const,
+  shopCustomers: (id: string) => [...queryKeys.shop(id), 'customers'] as const,
+  nearbyShops: (coordinates: { lat: number; lng: number }) =>
     [...queryKeys.shops(), 'nearby', coordinates] as const,
+
+  // Redemption related
+  redemptions: () => [...queryKeys.all, 'redemptions'] as const,
+  redemptionSession: (sessionId: string) => [...queryKeys.redemptions(), 'session', sessionId] as const,
+  redemptionSessions: (shopId: string) => [...queryKeys.redemptions(), 'sessions', shopId] as const,
   
   // Token related
   tokens: () => [...queryKeys.all, 'tokens'] as const,

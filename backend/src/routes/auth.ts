@@ -251,6 +251,14 @@ router.post('/token', async (req, res) => {
 
     return res.json({
       success: true,
+      data: {
+        accessToken,
+        refreshToken,
+        expiresIn: 15 * 60, // 15 minutes in seconds
+        address: normalizedAddress,
+        role: userType,
+        shopId: userData.shopId
+      },
       token: accessToken, // Send access token in response for backward compatibility
       userType,
       address: normalizedAddress
@@ -1066,8 +1074,8 @@ router.post('/refresh', async (req, res) => {
   try {
     const jwt = require('jsonwebtoken');
 
-    // Get refresh token from cookie
-    const refreshTokenCookie = req.cookies?.refresh_token;
+    // Get refresh token from cookie or body (for mobile apps)
+    const refreshTokenCookie = req.cookies?.refresh_token || req.body?.refreshToken;
 
     if (!refreshTokenCookie) {
       return res.status(401).json({
@@ -1162,8 +1170,23 @@ router.post('/refresh', async (req, res) => {
       tokenId: decoded.tokenId
     });
 
+    // Prepare response data
+    const responseData: any = {
+      accessToken: newAccessToken,
+      expiresIn: 15 * 60, // 15 minutes in seconds
+      address: decoded.address,
+      role: decoded.role,
+      shopId: decoded.shopId
+    };
+
+    // For mobile apps (when refresh token sent in body), return it back
+    if (req.body?.refreshToken) {
+      responseData.refreshToken = refreshTokenCookie;
+    }
+
     res.json({
       success: true,
+      data: responseData,
       token: newAccessToken, // Send for backward compatibility
       user: {
         address: decoded.address,

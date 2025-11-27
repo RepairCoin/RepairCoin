@@ -3,6 +3,9 @@
 import React from "react";
 import { DollarSign, Clock, MapPin, Image as ImageIcon } from "lucide-react";
 import { ShopServiceWithShopInfo, SERVICE_CATEGORIES } from "@/services/api/services";
+import { FavoriteButton } from "./FavoriteButton";
+import { ShareButton } from "./ShareButton";
+import { StarRating } from "./StarRating";
 
 interface ServiceCardProps {
   service: ShopServiceWithShopInfo;
@@ -24,19 +27,35 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
   return (
     <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl overflow-hidden hover:border-[#FFCC00]/50 transition-all duration-200 hover:shadow-lg hover:shadow-[#FFCC00]/10 group">
       {/* Service Image */}
-      {service.imageUrl ? (
-        <div className="w-full h-48 overflow-hidden bg-gray-800">
-          <img
-            src={service.imageUrl}
-            alt={service.serviceName}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+      <div className="relative">
+        {service.imageUrl ? (
+          <div className="w-full h-48 overflow-hidden bg-gray-800">
+            <img
+              src={service.imageUrl}
+              alt={service.serviceName}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+          </div>
+        ) : (
+          <div className="w-full h-48 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
+            <ImageIcon className="w-16 h-16 text-gray-600" />
+          </div>
+        )}
+
+        {/* Action Buttons Overlay */}
+        <div className="absolute top-3 right-3 flex gap-2">
+          <FavoriteButton
+            serviceId={service.serviceId}
+            size="sm"
+          />
+          <ShareButton
+            serviceId={service.serviceId}
+            serviceName={service.serviceName}
+            shopName={service.companyName}
+            size="sm"
           />
         </div>
-      ) : (
-        <div className="w-full h-48 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
-          <ImageIcon className="w-16 h-16 text-gray-600" />
-        </div>
-      )}
+      </div>
 
       <div className="p-5">
         {/* Header */}
@@ -65,6 +84,19 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
             </p>
           )}
         </div>
+
+        {/* Rating */}
+        {service.averageRating && service.averageRating > 0 && (
+          <div className="mb-3">
+            <StarRating
+              value={service.averageRating}
+              size="sm"
+              showNumber
+              showCount
+              totalCount={service.reviewCount}
+            />
+          </div>
+        )}
 
         {/* Description */}
         {service.description && (

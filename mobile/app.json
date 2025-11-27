@@ -12,7 +12,8 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.mobile",
-      "runtimeVersion": "1.0.0"
+      "runtimeVersion": "1.0.0",
+      "appleTeamId": "BAN25WZ5LK"
     },
     "android": {
       "adaptiveIcon": {

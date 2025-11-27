@@ -28,6 +28,7 @@ export interface ServiceOrderWithDetails extends ServiceOrder {
   shopAddress?: string;
   shopPhone?: string;
   customerName?: string;
+  rcnEarned?: number; // RCN tokens earned when order completed
 }
 
 export interface CreateOrderParams {
@@ -113,11 +114,13 @@ export class OrderRepository extends BaseRepository {
           sh.name as shop_name,
           sh.address as shop_address,
           sh.phone as shop_phone,
-          c.name as customer_name
+          c.name as customer_name,
+          COALESCE(t.amount, 0) as rcn_earned
         FROM service_orders o
         INNER JOIN shop_services s ON o.service_id = s.service_id
         INNER JOIN shops sh ON o.shop_id = sh.shop_id
         LEFT JOIN customers c ON o.customer_address = c.address
+        LEFT JOIN transactions t ON t.metadata->>'orderId' = o.order_id AND t.type = 'mint'
         WHERE o.order_id = $1
       `;
       const result = await this.pool.query(query, [orderId]);
@@ -211,10 +214,12 @@ export class OrderRepository extends BaseRepository {
           s.category as service_category,
           sh.name as shop_name,
           sh.address as shop_address,
-          sh.phone as shop_phone
+          sh.phone as shop_phone,
+          COALESCE(t.amount, 0) as rcn_earned
         FROM service_orders o
         INNER JOIN shop_services s ON o.service_id = s.service_id
         INNER JOIN shops sh ON o.shop_id = sh.shop_id
+        LEFT JOIN transactions t ON t.metadata->>'orderId' = o.order_id AND t.type = 'mint'
         ${whereClause}
         ORDER BY o.created_at DESC
         LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
@@ -452,7 +457,8 @@ export class OrderRepository extends BaseRepository {
       shopName: row.shop_name,
       shopAddress: row.shop_address,
       shopPhone: row.shop_phone,
-      customerName: row.customer_name
+      customerName: row.customer_name,
+      rcnEarned: row.rcn_earned ? parseFloat(row.rcn_earned) : 0
     };
   }
 }
