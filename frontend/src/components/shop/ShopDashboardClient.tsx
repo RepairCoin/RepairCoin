@@ -793,7 +793,8 @@ export default function ShopDashboardClient() {
       >
         <div className="max-w-screen-2xl w-[96%] mx-auto">
           {/* Warning Banner for Non-Operational Shops */}
-          {isBlocked && !showSuspendedModal && !showOnboardingModal && (
+          {/* Only show when shop data is loaded (not during loading state) */}
+          {shopData && isBlocked && !showSuspendedModal && !showOnboardingModal && (
             <div className={`mb-6 rounded-xl p-4 ${
               isPending ? 'bg-yellow-900/20 border-2 border-yellow-500/50' :
               isPaused ? 'bg-blue-900/20 border-2 border-blue-500/50' :

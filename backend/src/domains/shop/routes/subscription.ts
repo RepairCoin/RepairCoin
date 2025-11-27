@@ -780,6 +780,20 @@ router.post('/subscription/reactivate', async (req: Request, res: Response) => {
 
       await client.query(updateShopSubQuery, [shopId]);
 
+      // Update shop operational_status to subscription_qualified
+      const updateShopStatusQuery = `
+        UPDATE shops
+        SET operational_status = 'subscription_qualified',
+            updated_at = CURRENT_TIMESTAMP
+        WHERE shop_id = $1
+      `;
+      await client.query(updateShopStatusQuery, [shopId]);
+
+      logger.info('Shop operational status updated after subscription reactivation', {
+        shopId,
+        operationalStatus: 'subscription_qualified'
+      });
+
       await client.query('COMMIT');
 
       logger.info('Subscription reactivated in both tables', {

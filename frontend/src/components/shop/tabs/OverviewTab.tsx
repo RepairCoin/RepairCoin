@@ -374,7 +374,26 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   }, [showMenu]);
 
   if (!shopData) {
-    return <div>Loading shop data...</div>;
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="space-y-8">
+          {/* Loading skeleton for stats */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="bg-gray-800/50 rounded-xl p-6 animate-pulse">
+                <div className="h-4 bg-gray-700 rounded w-24 mb-3"></div>
+                <div className="h-8 bg-gray-700 rounded w-16"></div>
+              </div>
+            ))}
+          </div>
+          {/* Loading skeleton for chart */}
+          <div className="bg-gray-800/50 rounded-xl p-6 animate-pulse">
+            <div className="h-4 bg-gray-700 rounded w-32 mb-4"></div>
+            <div className="h-64 bg-gray-700 rounded"></div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

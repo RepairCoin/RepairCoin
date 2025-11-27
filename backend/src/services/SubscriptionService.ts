@@ -406,6 +406,21 @@ export class SubscriptionService extends BaseRepository {
         stripeSubscriptionId
       ]);
 
+      // Update shop operational_status to subscription_qualified
+      const updateShopQuery = `
+        UPDATE shops
+        SET operational_status = 'subscription_qualified',
+            updated_at = CURRENT_TIMESTAMP
+        WHERE shop_id = $1
+      `;
+      await client.query(updateShopQuery, [subscription.shopId]);
+
+      logger.info('Shop operational status updated after subscription resume', {
+        shopId: subscription.shopId,
+        subscriptionId: stripeSubscriptionId,
+        operationalStatus: 'subscription_qualified'
+      });
+
       await client.query('COMMIT');
 
       const updatedSubscription = this.mapSubscriptionRow(updateResult.rows[0]);
