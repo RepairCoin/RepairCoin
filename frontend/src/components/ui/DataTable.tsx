@@ -242,20 +242,20 @@ export function DataTable<T>({
     <div className={className}>
       <div className="overflow-x-auto">
         <table className="w-full">
-          <thead>
-            <tr className={`border-b border-gray-700/50 ${headerClassName}`}>
+          <thead className="bg-gradient-to-r from-[#FFCC00]/5 via-[#FFCC00]/10 to-[#FFCC00]/5 backdrop-blur-sm">
+            <tr className={`border-b-2 border-[#FFCC00]/30 ${headerClassName}`}>
               {columns.map((column) => (
                 <th
                   key={column.key}
-                  className={`text-left py-3 px-4 text-sm font-medium text-gray-400 ${
-                    column.sortable ? "cursor-pointer hover:text-gray-300" : ""
+                  className={`text-left py-4 px-5 text-sm font-bold text-white uppercase tracking-wider ${
+                    column.sortable ? "cursor-pointer hover:text-[#FFCC00] transition-colors" : ""
                   } ${column.headerClassName || ""}`}
                   onClick={() => handleSort(column)}
                 >
                   <div className="flex items-center gap-2">
                     {column.header}
                     {column.sortable && sortConfig?.key === column.key && (
-                      <span className="text-xs">
+                      <span className="text-sm text-[#FFCC00]">
                         {sortConfig.direction === "asc" ? "↑" : "↓"}
                       </span>
                     )}
@@ -266,7 +266,7 @@ export function DataTable<T>({
             </tr>
           </thead>
           <tbody>
-            {paginatedData.map((item) => {
+            {paginatedData.map((item, index) => {
             const key = keyExtractor(item);
             const isExpanded = expandedRows.has(key);
             const getRowClass = () => {
@@ -279,27 +279,27 @@ export function DataTable<T>({
             return (
               <React.Fragment key={key}>
                 <tr
-                  className={`border-b border-gray-700/30 hover:bg-gray-800/30 transition-colors ${
+                  className={`border-b border-white/5 hover:bg-gradient-to-r hover:from-[#FFCC00]/5 hover:via-transparent hover:to-[#FFCC00]/5 transition-all duration-200 ${
                     expandable ? "cursor-pointer" : ""
-                  } ${isExpanded ? "bg-gray-800/40" : ""} ${getRowClass()}`}
+                  } ${isExpanded ? "bg-white/5" : ""} ${index % 2 === 0 ? "bg-white/[0.02]" : ""} ${getRowClass()}`}
                   onClick={() => handleRowClick(item)}
                 >
                   {columns.map((column) => (
                     <td
                       key={column.key}
-                      className={`py-4 px-4 ${column.className || ""}`}
+                      className={`py-3 px-3 sm:py-5 sm:px-5 ${column.className || ""}`}
                     >
                       {column.accessor ? column.accessor(item) : null}
                     </td>
                   ))}
                   {expandable && (
-                    <td className="py-4 px-4">
+                    <td className="py-3 px-2 sm:py-5 sm:px-5">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleRowClick(item);
                         }}
-                        className="p-1.5 bg-gray-700/30 text-gray-400 border border-gray-600/30 rounded-lg hover:bg-gray-700/50 transition-colors"
+                        className="p-1.5 sm:p-2 bg-white/5 text-gray-400 border border-white/10 rounded-lg hover:bg-white/10 hover:border-[#FFCC00]/50 transition-all duration-200"
                       >
                         <ChevronDown
                           className={`w-4 h-4 transition-transform ${
@@ -313,7 +313,7 @@ export function DataTable<T>({
                 {expandable && isExpanded && renderExpandedContent && (
                   <tr>
                     <td colSpan={columns.length + 1} className="p-0">
-                      <div className="bg-gray-800/20 border-b border-gray-700/30">
+                      <div className="bg-gradient-to-r from-white/5 via-white/10 to-white/5 border-b border-white/10 backdrop-blur-sm">
                         {renderExpandedContent(item)}
                       </div>
                     </td>

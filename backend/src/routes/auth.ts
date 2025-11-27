@@ -310,7 +310,7 @@ router.post('/check-user', async (req, res) => {
           name: 'Super Administrator',
           permissions: ['all'],
           isSuperAdmin: true,
-          createdBy: 'system'
+          createdBy: 'SYSTEM'
         });
         adminData = await adminRepository.getAdminByWalletAddress(normalizedAddress);
         logger.info('Auto-created super admin from env:', normalizedAddress);
@@ -711,7 +711,7 @@ router.post('/admin', authLimiter, async (req, res) => {
           name: 'Super Administrator',
           permissions: ['all'],
           isSuperAdmin: true,
-          createdBy: 'system'
+          createdBy: 'SYSTEM'
         });
         adminData = await adminRepository.getAdminByWalletAddress(normalizedAddress);
         logger.info('Auto-created super admin from env:', normalizedAddress);

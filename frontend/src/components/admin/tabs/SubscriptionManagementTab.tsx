@@ -5,6 +5,7 @@ import { DataTable, Column } from '@/components/ui/DataTable';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import {
   CreditCard,
   DollarSign,
@@ -14,7 +15,9 @@ import {
   Clock,
   PauseCircle,
   RefreshCw,
-  X
+  X,
+  TrendingUp,
+  Store
 } from 'lucide-react';
 import apiClient from '@/services/api/client';
 
@@ -263,71 +266,105 @@ export default function SubscriptionManagementTab() {
     }
   };
 
-  // Table columns
+  // Table columns - Simplified for collapsible view
   const columns: Column<Subscription>[] = [
     {
       key: 'shopId',
       header: 'Shop',
       accessor: (sub) => (
-        <div>
-          <div className="font-medium">{sub.shopName || sub.shopId}</div>
-          <div className="text-sm text-gray-500">{sub.shopId}</div>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-gradient-to-br from-[#FFCC00] to-yellow-600 flex items-center justify-center flex-shrink-0">
+            <Store className="h-4 w-4 sm:h-5 sm:w-5 text-gray-900" />
+          </div>
+          <div className="min-w-0">
+            <div className="font-semibold text-white text-sm sm:text-base truncate">{sub.shopName || sub.shopId}</div>
+            <div className="text-xs text-gray-400 hidden sm:block truncate">{sub.shopId}</div>
+          </div>
         </div>
       ),
-      sortable: true
+      sortable: true,
+      sortValue: (sub) => sub.shopName || sub.shopId
     },
     {
       key: 'status',
       header: 'Status',
       accessor: (sub) => {
         const statusConfig = {
-          active: { color: 'bg-green-100 text-green-800', icon: CheckCircle },
-          pending: { color: 'bg-yellow-100 text-yellow-800', icon: Clock },
-          paused: { color: 'bg-blue-100 text-blue-800', icon: PauseCircle },
-          cancelled: { color: 'bg-red-100 text-red-800', icon: XCircle },
-          defaulted: { color: 'bg-red-100 text-red-800', icon: AlertCircle }
+          active: {
+            variant: 'default' as const,
+            color: 'bg-green-500/20 text-green-400 border-green-500/50 hover:bg-green-500/30',
+            icon: CheckCircle
+          },
+          pending: {
+            variant: 'default' as const,
+            color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50 hover:bg-yellow-500/30',
+            icon: Clock
+          },
+          paused: {
+            variant: 'default' as const,
+            color: 'bg-blue-500/20 text-blue-400 border-blue-500/50 hover:bg-blue-500/30',
+            icon: PauseCircle
+          },
+          cancelled: {
+            variant: 'default' as const,
+            color: 'bg-red-500/20 text-red-400 border-red-500/50 hover:bg-red-500/30',
+            icon: XCircle
+          },
+          defaulted: {
+            variant: 'default' as const,
+            color: 'bg-red-500/20 text-red-400 border-red-500/50 hover:bg-red-500/30',
+            icon: AlertCircle
+          }
         };
-        
+
         const config = statusConfig[sub.status];
         const Icon = config.icon;
-        
+
         return (
-          <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
-            <Icon className="w-3 h-3" />
-            {sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}
-          </div>
+          <Badge className={`inline-flex items-center gap-1.5 px-3 py-1.5 border ${config.color} transition-all duration-200`}>
+            <Icon className="w-3.5 h-3.5" />
+            <span className="font-medium">{sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}</span>
+          </Badge>
         );
       },
-      sortable: true
+      sortable: true,
+      sortValue: (sub) => sub.status
     },
     {
       key: 'monthlyAmount',
       header: 'Monthly',
-      accessor: (sub) => `$${sub.monthlyAmount}`,
-      sortable: true
+      accessor: (sub) => (
+        <div>
+          <div className="font-semibold text-emerald-400">${sub.monthlyAmount}</div>
+          <div className="text-xs text-gray-500">per month</div>
+        </div>
+      ),
+      sortable: true,
+      sortValue: (sub) => sub.monthlyAmount
     },
     {
       key: 'paymentsMade',
       header: 'Payments',
       accessor: (sub) => (
         <div>
-          <div>{sub.paymentsMade} payments</div>
-          <div className="text-sm text-gray-500">${sub.totalPaid} total</div>
+          <div className="font-medium text-white">{sub.paymentsMade} payments</div>
+          <div className="text-sm text-purple-400 font-medium">${sub.totalPaid.toLocaleString()} total</div>
         </div>
       ),
-      sortable: true
+      sortable: true,
+      sortValue: (sub) => sub.paymentsMade
     },
     {
       key: 'nextPaymentDate',
       header: 'Next Payment',
       accessor: (sub) => {
         if (!sub.nextPaymentDate || sub.status !== 'active') {
-          return <span className="text-gray-400">-</span>;
+          return <span className="text-gray-500">-</span>;
         }
 
         const date = new Date(sub.nextPaymentDate);
         if (isNaN(date.getTime())) {
-          return <span className="text-gray-400">-</span>;
+          return <span className="text-gray-500">-</span>;
         }
 
         const now = new Date();
@@ -335,85 +372,95 @@ export default function SubscriptionManagementTab() {
 
         return (
           <div>
-            <div>{date.toLocaleDateString()}</div>
+            <div className="text-white font-medium">{date.toLocaleDateString()}</div>
             {daysUntil < 0 && (
-              <div className="text-xs text-red-600 font-medium">
+              <Badge className="mt-1 bg-red-500/20 text-red-400 border-red-500/50 text-xs">
                 {Math.abs(daysUntil)} days overdue
-              </div>
+              </Badge>
             )}
             {daysUntil >= 0 && daysUntil <= 7 && (
-              <div className="text-xs text-yellow-600 font-medium">
+              <Badge className="mt-1 bg-yellow-500/20 text-yellow-400 border-yellow-500/50 text-xs">
                 Due in {daysUntil} days
-              </div>
+              </Badge>
             )}
           </div>
         );
       },
-      sortable: true
+      sortable: true,
+      sortValue: (sub) => {
+        if (!sub.nextPaymentDate) return '';
+        const date = new Date(sub.nextPaymentDate);
+        return isNaN(date.getTime()) ? '' : date.getTime();
+      }
     },
     {
       key: 'actions',
       header: 'Actions',
       accessor: (sub) => (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {sub.status === 'pending' && (
             <Button
               size="sm"
               variant="outline"
-              className="text-green-600 hover:text-green-700"
+              className="bg-green-500/10 border-green-500/50 text-green-400 hover:bg-green-500/20 hover:text-green-300 hover:border-green-400 font-medium transition-all"
               onClick={() => {
                 setSelectedSubscription(sub);
                 setShowApproveModal(true);
               }}
             >
+              <CheckCircle className="w-3.5 h-3.5 mr-1" />
               Approve
             </Button>
           )}
-          
+
           {sub.status === 'active' && (
             <>
               <Button
                 size="sm"
                 variant="outline"
-                className="text-blue-600 hover:text-blue-700"
+                className="bg-blue-500/10 border-blue-500/50 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300 hover:border-blue-400 font-medium transition-all"
                 onClick={() => {
                   setSelectedSubscription(sub);
                   setShowPauseModal(true);
                 }}
               >
+                <PauseCircle className="w-3.5 h-3.5 mr-1" />
                 Pause
               </Button>
               <Button
                 size="sm"
                 variant="outline"
-                className="text-red-600 hover:text-red-700"
+                className="bg-red-500/10 border-red-500/50 text-red-400 hover:bg-red-500/20 hover:text-red-300 hover:border-red-400 font-medium transition-all"
                 onClick={() => {
                   setSelectedSubscription(sub);
                   setShowCancelModal(true);
                 }}
               >
+                <XCircle className="w-3.5 h-3.5 mr-1" />
                 Cancel
               </Button>
             </>
           )}
-          
+
           {sub.status === 'paused' && (
             <Button
               size="sm"
               variant="outline"
-              className="text-green-600 hover:text-green-700"
+              className="bg-green-500/10 border-green-500/50 text-green-400 hover:bg-green-500/20 hover:text-green-300 hover:border-green-400 font-medium transition-all"
               onClick={() => {
                 setSelectedSubscription(sub);
                 setShowResumeModal(true);
               }}
             >
+              <CheckCircle className="w-3.5 h-3.5 mr-1" />
               Resume
             </Button>
           )}
-          
+
           <Button
             size="sm"
-            variant="ghost"
+            variant="outline"
+            className="bg-gray-500/10 border-gray-500/50 text-gray-300 hover:bg-gray-500/20 hover:text-white hover:border-gray-400 font-medium transition-all"
             onClick={() => {
               setSelectedSubscription(sub);
               setShowDetailsModal(true);
@@ -438,149 +485,333 @@ export default function SubscriptionManagementTab() {
     <div className="space-y-4 md:space-y-6">
       {/* Statistics Cards */}
       {stats && (
-        <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
-          <Card className="border-2 border-[#FFCC00]">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
-              <CardTitle className="text-xs sm:text-sm font-medium">Active</CardTitle>
-              <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600 flex-shrink-0" />
+        <div className="grid gap-2 sm:gap-3 md:gap-4 grid-cols-2 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+          <Card className="border-2 border-[#FFCC00]/50 bg-gradient-to-br from-green-500/10 via-black/40 to-green-600/5 backdrop-blur-md hover:shadow-xl hover:shadow-green-500/30 hover:border-green-500/70 hover:scale-105 transition-all duration-300">
+            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 gap-2 sm:gap-3">
+              <CardTitle className="text-[10px] sm:text-xs md:text-sm font-bold text-white uppercase tracking-wide flex-1">Active</CardTitle>
+              <div className="h-6 w-6 sm:h-7 sm:w-7 md:h-9 md:w-9 rounded-full bg-green-500/30 backdrop-blur-sm flex items-center justify-center ring-2 ring-green-500/50 flex-shrink-0">
+                <CheckCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-green-300" />
+              </div>
             </CardHeader>
-            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
-              <div className="text-xl sm:text-2xl font-bold">{stats.totalActive}</div>
+            <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
+              <div className="text-xl sm:text-2xl md:text-3xl font-bold text-white drop-shadow-lg">{stats.totalActive}</div>
+              <p className="text-[10px] sm:text-xs text-green-300 mt-0.5 sm:mt-1 font-medium">Currently active</p>
             </CardContent>
           </Card>
 
-          <Card className="border-2 border-[#FFCC00]">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
-              <CardTitle className="text-xs sm:text-sm font-medium">Pending</CardTitle>
-              <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-yellow-600 flex-shrink-0" />
+          <Card className="border-2 border-[#FFCC00]/50 bg-gradient-to-br from-yellow-500/10 via-black/40 to-yellow-600/5 backdrop-blur-md hover:shadow-xl hover:shadow-yellow-500/30 hover:border-yellow-500/70 hover:scale-105 transition-all duration-300">
+            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 gap-2 sm:gap-3">
+              <CardTitle className="text-[10px] sm:text-xs md:text-sm font-bold text-white uppercase tracking-wide flex-1">Pending</CardTitle>
+              <div className="h-6 w-6 sm:h-7 sm:w-7 md:h-9 md:w-9 rounded-full bg-yellow-500/30 backdrop-blur-sm flex items-center justify-center ring-2 ring-yellow-500/50 flex-shrink-0">
+                <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-yellow-300" />
+              </div>
             </CardHeader>
-            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
-              <div className="text-xl sm:text-2xl font-bold">{stats.totalPending}</div>
+            <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
+              <div className="text-xl sm:text-2xl md:text-3xl font-bold text-white drop-shadow-lg">{stats.totalPending}</div>
+              <p className="text-[10px] sm:text-xs text-yellow-300 mt-0.5 sm:mt-1 font-medium">Awaiting approval</p>
             </CardContent>
           </Card>
 
-          <Card className="border-2 border-[#FFCC00]">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
-              <CardTitle className="text-xs sm:text-sm font-medium">Paused</CardTitle>
-              <PauseCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 flex-shrink-0" />
+          <Card className="border-2 border-[#FFCC00]/50 bg-gradient-to-br from-blue-500/10 via-black/40 to-blue-600/5 backdrop-blur-md hover:shadow-xl hover:shadow-blue-500/30 hover:border-blue-500/70 hover:scale-105 transition-all duration-300">
+            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 gap-2 sm:gap-3">
+              <CardTitle className="text-[10px] sm:text-xs md:text-sm font-bold text-white uppercase tracking-wide flex-1">Paused</CardTitle>
+              <div className="h-6 w-6 sm:h-7 sm:w-7 md:h-9 md:w-9 rounded-full bg-blue-500/30 backdrop-blur-sm flex items-center justify-center ring-2 ring-blue-500/50 flex-shrink-0">
+                <PauseCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-blue-300" />
+              </div>
             </CardHeader>
-            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
-              <div className="text-xl sm:text-2xl font-bold">{stats.totalPaused}</div>
+            <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
+              <div className="text-xl sm:text-2xl md:text-3xl font-bold text-white drop-shadow-lg">{stats.totalPaused}</div>
+              <p className="text-[10px] sm:text-xs text-blue-300 mt-0.5 sm:mt-1 font-medium">Temporarily paused</p>
             </CardContent>
           </Card>
 
-          <Card className="border-2 border-[#FFCC00]">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
-              <CardTitle className="text-xs sm:text-sm font-medium">Overdue</CardTitle>
-              <AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-red-600 flex-shrink-0" />
+          <Card className="border-2 border-[#FFCC00]/50 bg-gradient-to-br from-red-500/10 via-black/40 to-red-600/5 backdrop-blur-md hover:shadow-xl hover:shadow-red-500/30 hover:border-red-500/70 hover:scale-105 transition-all duration-300">
+            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 gap-2 sm:gap-3">
+              <CardTitle className="text-[10px] sm:text-xs md:text-sm font-bold text-white uppercase tracking-wide flex-1">Overdue</CardTitle>
+              <div className="h-6 w-6 sm:h-7 sm:w-7 md:h-9 md:w-9 rounded-full bg-red-500/30 backdrop-blur-sm flex items-center justify-center ring-2 ring-red-500/50 flex-shrink-0">
+                <AlertCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-red-300" />
+              </div>
             </CardHeader>
-            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
-              <div className="text-xl sm:text-2xl font-bold">{stats.overdueCount}</div>
+            <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
+              <div className="text-xl sm:text-2xl md:text-3xl font-bold text-white drop-shadow-lg">{stats.overdueCount}</div>
+              <p className="text-[10px] sm:text-xs text-red-300 mt-0.5 sm:mt-1 font-medium">Payment overdue</p>
             </CardContent>
           </Card>
 
-          <Card className="border-2 border-[#FFCC00] col-span-2 sm:col-span-1">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
-              <CardTitle className="text-xs sm:text-sm font-medium">Monthly Recurring</CardTitle>
-              <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600 flex-shrink-0" />
+          <Card className="border-2 border-[#FFCC00]/50 bg-gradient-to-br from-emerald-500/10 via-black/40 to-emerald-600/5 backdrop-blur-md hover:shadow-xl hover:shadow-emerald-500/30 hover:border-emerald-500/70 hover:scale-105 transition-all duration-300">
+            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 gap-2 sm:gap-3">
+              <CardTitle className="text-[10px] sm:text-xs md:text-sm font-bold text-white uppercase tracking-wide flex-1">Monthly Recurring</CardTitle>
+              <div className="h-6 w-6 sm:h-7 sm:w-7 md:h-9 md:w-9 rounded-full bg-emerald-500/30 backdrop-blur-sm flex items-center justify-center ring-2 ring-emerald-500/50 flex-shrink-0">
+                <TrendingUp className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-emerald-300" />
+              </div>
             </CardHeader>
-            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
-              <div className="text-xl sm:text-2xl font-bold">${stats.monthlyRecurring}</div>
+            <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
+              <div className="text-xl sm:text-2xl md:text-3xl font-bold text-white drop-shadow-lg">${stats.monthlyRecurring.toLocaleString()}</div>
+              <p className="text-[10px] sm:text-xs text-emerald-300 mt-0.5 sm:mt-1 font-medium">MRR from active shops</p>
             </CardContent>
           </Card>
 
-          <Card className="border-2 border-[#FFCC00]">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
-              <CardTitle className="text-xs sm:text-sm font-medium">Total Revenue</CardTitle>
-              <CreditCard className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 flex-shrink-0" />
+          <Card className="border-2 border-[#FFCC00]/50 bg-gradient-to-br from-purple-500/10 via-black/40 to-purple-600/5 backdrop-blur-md hover:shadow-xl hover:shadow-purple-500/30 hover:border-purple-500/70 hover:scale-105 transition-all duration-300">
+            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 gap-2 sm:gap-3">
+              <CardTitle className="text-[10px] sm:text-xs md:text-sm font-bold text-white uppercase tracking-wide flex-1">Total Revenue</CardTitle>
+              <div className="h-6 w-6 sm:h-7 sm:w-7 md:h-9 md:w-9 rounded-full bg-purple-500/30 backdrop-blur-sm flex items-center justify-center ring-2 ring-purple-500/50 flex-shrink-0">
+                <DollarSign className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-purple-300" />
+              </div>
             </CardHeader>
-            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
-              <div className="text-xl sm:text-2xl font-bold">${stats.totalRevenue}</div>
+            <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
+              <div className="text-xl sm:text-2xl md:text-3xl font-bold text-white drop-shadow-lg">${stats.totalRevenue.toLocaleString()}</div>
+              <p className="text-[10px] sm:text-xs text-purple-300 mt-0.5 sm:mt-1 font-medium">All-time revenue</p>
             </CardContent>
           </Card>
 
-          <Card className="border-2 border-[#FFCC00]">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
-              <CardTitle className="text-xs sm:text-sm font-medium">Cancelled</CardTitle>
-              <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-600 flex-shrink-0" />
+          <Card className="border-2 border-[#FFCC00]/50 bg-gradient-to-br from-gray-500/10 via-black/40 to-gray-600/5 backdrop-blur-md hover:shadow-xl hover:shadow-gray-500/30 hover:border-gray-500/70 hover:scale-105 transition-all duration-300">
+            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 gap-2 sm:gap-3">
+              <CardTitle className="text-[10px] sm:text-xs md:text-sm font-bold text-white uppercase tracking-wide flex-1">Cancelled</CardTitle>
+              <div className="h-6 w-6 sm:h-7 sm:w-7 md:h-9 md:w-9 rounded-full bg-gray-500/30 backdrop-blur-sm flex items-center justify-center ring-2 ring-gray-500/50 flex-shrink-0">
+                <XCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-gray-300" />
+              </div>
             </CardHeader>
-            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
-              <div className="text-xl sm:text-2xl font-bold">{stats.totalCancelled}</div>
+            <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
+              <div className="text-xl sm:text-2xl md:text-3xl font-bold text-white drop-shadow-lg">{stats.totalCancelled}</div>
+              <p className="text-[10px] sm:text-xs text-gray-300 mt-0.5 sm:mt-1 font-medium">Inactive subscriptions</p>
             </CardContent>
           </Card>
         </div>
       )}
 
       {/* Subscription Tabs */}
-      <Card className="border-2 border-[#FFCC00]">
-        <CardContent className="p-0">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center border-b-2 border-[#FFCC00] bg-transparent">
-              <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
-                <TabsList className="inline-flex justify-start rounded-none h-auto p-0 bg-transparent border-none w-full sm:w-auto min-w-max">
+      <div className="border-2 border-[#FFCC00] bg-black/40 backdrop-blur-xl shadow-2xl rounded-lg overflow-hidden">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <div className="border-b-2 border-[#FFCC00]/50 bg-gradient-to-r from-black/60 via-black/40 to-black/60 backdrop-blur-md p-3 sm:p-4">
+            {/* Mobile: Grid layout for tabs, Desktop: Single row with sync button */}
+            <div className="flex flex-col md:flex-row md:items-center gap-3">
+              {/* Tabs - Grid on mobile, flex on desktop */}
+              <div className="flex-1">
+                <TabsList className="grid grid-cols-3 md:inline-flex md:flex-wrap gap-1 sm:gap-2 h-auto p-0 bg-transparent border-none w-full md:w-auto">
                   <TabsTrigger
                     value="all"
-                    className="rounded-none px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold data-[state=active]:rounded-tl-lg transition-all whitespace-nowrap"
+                    className="rounded-md px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-300 font-medium hover:text-white hover:bg-white/5 data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-bold data-[state=active]:shadow-lg transition-all"
                   >
                     All
                   </TabsTrigger>
                   <TabsTrigger
                     value="active"
-                    className="rounded-none px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold transition-all whitespace-nowrap"
+                    className="rounded-md px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-300 font-medium hover:text-white hover:bg-white/5 data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-bold data-[state=active]:shadow-lg transition-all"
                   >
                     Active
                   </TabsTrigger>
                   <TabsTrigger
                     value="pending"
-                    className="rounded-none px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold transition-all whitespace-nowrap"
+                    className="rounded-md px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-300 font-medium hover:text-white hover:bg-white/5 data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-bold data-[state=active]:shadow-lg transition-all"
                   >
                     Pending
                   </TabsTrigger>
                   <TabsTrigger
                     value="paused"
-                    className="rounded-none px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold transition-all whitespace-nowrap"
+                    className="rounded-md px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-300 font-medium hover:text-white hover:bg-white/5 data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-bold data-[state=active]:shadow-lg transition-all"
                   >
                     Paused
                   </TabsTrigger>
                   <TabsTrigger
                     value="overdue"
-                    className="rounded-none px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold transition-all whitespace-nowrap"
+                    className="rounded-md px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-300 font-medium hover:text-white hover:bg-white/5 data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-bold data-[state=active]:shadow-lg transition-all"
                   >
                     Overdue
                   </TabsTrigger>
                   <TabsTrigger
                     value="cancelled"
-                    className="rounded-none px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-semibold data-[state=active]:rounded-tr-lg transition-all whitespace-nowrap"
+                    className="rounded-md px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-300 font-medium hover:text-white hover:bg-white/5 data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-bold data-[state=active]:shadow-lg transition-all"
                   >
                     Cancelled
                   </TabsTrigger>
                 </TabsList>
               </div>
 
+              {/* Sync Button */}
               <Button
                 onClick={handleSync}
                 disabled={syncing || loading}
                 variant="outline"
                 size="sm"
-                className="mx-2 my-2 sm:my-0 sm:mr-4 bg-[#FFCC00] text-black border-[#FFCC00] hover:bg-[#FFD700] hover:border-[#FFD700] transition-colors text-xs sm:text-sm font-semibold whitespace-nowrap flex-shrink-0"
+                className="w-full md:w-auto md:flex-shrink-0 bg-[#FFCC00] text-black border-2 border-[#FFCC00] hover:bg-[#FFD700] hover:border-[#FFD700] hover:shadow-lg hover:shadow-yellow-500/50 transition-all text-xs sm:text-sm font-bold"
               >
-                <RefreshCw className={`w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 ${syncing ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">{syncing ? 'Syncing...' : 'Sync from Stripe'}</span>
-                <span className="sm:hidden">{syncing ? 'Sync...' : 'Sync'}</span>
+                <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                {syncing ? 'Syncing...' : 'Sync from Stripe'}
               </Button>
             </div>
+          </div>
 
-            <TabsContent value={activeTab} className="mt-0 p-3 sm:p-6">
+          <TabsContent value={activeTab} className="mt-0 p-0">
+            {/* Desktop: Full table, Mobile: Expandable rows */}
+            <div className="hidden md:block">
               <DataTable
                 data={filteredSubscriptions}
                 columns={columns}
                 keyExtractor={(sub) => sub.id.toString()}
                 emptyMessage={`No ${activeTab === 'all' ? '' : activeTab} subscriptions found`}
               />
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+            </div>
+            <div className="block md:hidden">
+              {/* Mobile: Only show shop and status columns, expand for details */}
+              <DataTable
+                data={filteredSubscriptions}
+                columns={[
+                  {
+                    key: 'shopId',
+                    header: 'Shop',
+                    accessor: (sub) => (
+                      <div className="flex items-center gap-2">
+                        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#FFCC00] to-yellow-600 flex items-center justify-center flex-shrink-0">
+                          <Store className="h-4 w-4 text-gray-900" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-semibold text-white text-sm truncate">{sub.shopName || sub.shopId}</div>
+                        </div>
+                      </div>
+                    ),
+                    sortable: true,
+                    sortValue: (sub) => sub.shopName || sub.shopId
+                  },
+                  {
+                    key: 'status',
+                    header: 'Status',
+                    accessor: (sub) => {
+                      const statusConfig = {
+                        active: {
+                          color: 'bg-green-500/20 text-green-400 border-green-500/50',
+                          icon: CheckCircle
+                        },
+                        pending: {
+                          color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50',
+                          icon: Clock
+                        },
+                        paused: {
+                          color: 'bg-blue-500/20 text-blue-400 border-blue-500/50',
+                          icon: PauseCircle
+                        },
+                        cancelled: {
+                          color: 'bg-red-500/20 text-red-400 border-red-500/50',
+                          icon: XCircle
+                        },
+                        defaulted: {
+                          color: 'bg-red-500/20 text-red-400 border-red-500/50',
+                          icon: AlertCircle
+                        }
+                      };
+                      const config = statusConfig[sub.status];
+                      const Icon = config.icon;
+                      return (
+                        <Badge className={`inline-flex items-center gap-1 px-2 py-1 border text-xs ${config.color}`}>
+                          <Icon className="w-3 h-3" />
+                          <span className="font-medium">{sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}</span>
+                        </Badge>
+                      );
+                    },
+                    sortable: true,
+                    sortValue: (sub) => sub.status
+                  }
+                ]}
+                keyExtractor={(sub) => sub.id.toString()}
+                emptyMessage={`No ${activeTab === 'all' ? '' : activeTab} subscriptions found`}
+                expandable={true}
+                renderExpandedContent={(sub) => (
+                <div className="p-4 bg-gradient-to-r from-white/5 via-white/10 to-white/5 space-y-3">
+                  {/* Details Grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-gray-400 uppercase tracking-wide">Monthly</label>
+                      <p className="text-emerald-400 font-semibold text-base mt-1">${sub.monthlyAmount}</p>
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400 uppercase tracking-wide">Payments</label>
+                      <p className="text-white font-medium mt-1">{sub.paymentsMade}</p>
+                      <p className="text-purple-400 text-xs">${sub.totalPaid.toLocaleString()}</p>
+                    </div>
+                    {sub.nextPaymentDate && sub.status === 'active' && (
+                      <div className="col-span-2">
+                        <label className="text-xs text-gray-400 uppercase tracking-wide">Next Payment</label>
+                        <p className="text-white font-medium mt-1">{new Date(sub.nextPaymentDate).toLocaleDateString()}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex flex-wrap gap-2 pt-4 border-t border-white/10">
+                    {sub.status === 'pending' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="bg-green-500/10 border-green-500/50 text-green-400 hover:bg-green-500/20 font-medium"
+                        onClick={() => {
+                          setSelectedSubscription(sub);
+                          setShowApproveModal(true);
+                        }}
+                      >
+                        <CheckCircle className="w-3.5 h-3.5 mr-1" />
+                        Approve
+                      </Button>
+                    )}
+                    {sub.status === 'active' && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="bg-blue-500/10 border-blue-500/50 text-blue-400 hover:bg-blue-500/20 font-medium"
+                          onClick={() => {
+                            setSelectedSubscription(sub);
+                            setShowPauseModal(true);
+                          }}
+                        >
+                          <PauseCircle className="w-3.5 h-3.5 mr-1" />
+                          Pause
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="bg-red-500/10 border-red-500/50 text-red-400 hover:bg-red-500/20 font-medium"
+                          onClick={() => {
+                            setSelectedSubscription(sub);
+                            setShowCancelModal(true);
+                          }}
+                        >
+                          <XCircle className="w-3.5 h-3.5 mr-1" />
+                          Cancel
+                        </Button>
+                      </>
+                    )}
+                    {sub.status === 'paused' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="bg-green-500/10 border-green-500/50 text-green-400 hover:bg-green-500/20 font-medium"
+                        onClick={() => {
+                          setSelectedSubscription(sub);
+                          setShowResumeModal(true);
+                        }}
+                      >
+                        <CheckCircle className="w-3.5 h-3.5 mr-1" />
+                        Resume
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="bg-gray-500/10 border-gray-500/50 text-gray-300 hover:bg-gray-500/20 font-medium"
+                      onClick={() => {
+                        setSelectedSubscription(sub);
+                        setShowDetailsModal(true);
+                      }}
+                    >
+                      Details
+                    </Button>
+                  </div>
+                </div>
+              )}
+              />
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
 
       {/* Approve Modal */}
       {showApproveModal && selectedSubscription && (
