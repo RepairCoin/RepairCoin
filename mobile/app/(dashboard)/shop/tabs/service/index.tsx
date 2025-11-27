@@ -13,6 +13,7 @@ import { useShopServices } from "@/hooks/useShopService";
 import { useState } from "react";
 import { ServiceData } from "@/services/ShopServices";
 import { SERVICE_CATEGORIES } from "@/constants/service-categories";
+import { router } from "expo-router";
 
 export default function Service() {
   const { data: servicesData, isLoading, error, refetch } = useShopServices();
@@ -24,10 +25,6 @@ export default function Service() {
     if (!category) return "Other";
     const cat = SERVICE_CATEGORIES.find((c) => c.value === category);
     return cat?.label || category;
-  };
-
-  const handleAddPress = () => {
-    console.log("Add button pressed");
   };
 
   const handleRefresh = async () => {
@@ -146,7 +143,7 @@ export default function Service() {
       </View>
 
       <TouchableOpacity
-        onPress={handleAddPress}
+        onPress={() => router.push("/shop/service-form")}
         className="absolute bottom-6 right-6 bg-[#FFCC00] w-14 h-14 rounded-full items-center justify-center"
         style={{
           shadowColor: "#000",
