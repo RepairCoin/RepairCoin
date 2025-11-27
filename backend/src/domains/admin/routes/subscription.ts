@@ -4,12 +4,14 @@ import { getStripeService } from '../../../services/StripeService';
 import { ShopRepository } from '../../../repositories/ShopRepository';
 import { DatabaseService } from '../../../services/DatabaseService';
 import { logger } from '../../../utils/logger';
+import { NotificationService } from '../../notification/services/NotificationService';
 
 const router = Router();
 const subscriptionService = new SubscriptionService();
 const stripeService = getStripeService();
 const shopRepository = new ShopRepository();
 const db = DatabaseService.getInstance();
+const notificationService = new NotificationService();
 
 // Get all subscriptions for admin view (now using shop_subscriptions)
 router.get('/subscriptions', async (req: Request, res: Response) => {
@@ -18,14 +20,23 @@ router.get('/subscriptions', async (req: Request, res: Response) => {
     const offset = (Number(page) - 1) * Number(limit);
 
     let query = `
+      WITH latest_stripe_subs AS (
+        SELECT DISTINCT ON (shop_id)
+          shop_id,
+          current_period_end
+        FROM stripe_subscriptions
+        ORDER BY shop_id, created_at DESC
+      )
       SELECT
         subs.*,
         s.name as shop_name,
         s.email as shop_email,
         s.wallet_address,
-        s.phone
+        s.phone,
+        ss.current_period_end as stripe_period_end
       FROM shop_subscriptions subs
       JOIN shops s ON s.shop_id = subs.shop_id
+      LEFT JOIN latest_stripe_subs ss ON s.shop_id = ss.shop_id
     `;
 
     const params: any[] = [];
@@ -54,6 +65,7 @@ router.get('/subscriptions', async (req: Request, res: Response) => {
       totalPaid: parseFloat(row.total_paid || 0),
       nextPaymentDate: row.next_payment_date,
       lastPaymentDate: row.last_payment_date,
+      stripePeriodEnd: row.stripe_period_end, // Stripe's current_period_end for accurate subscription end date
       isActive: row.is_active,
       enrolledAt: row.enrolled_at,
       activatedAt: row.activated_at,
@@ -245,6 +257,24 @@ router.post('/subscriptions/:subscriptionId/cancel', async (req: Request, res: R
       [reason || 'Cancelled by admin', subscriptionId]
     );
 
+    // Get shop wallet address for notification
+    const shopQuery = await db.query(
+      'SELECT wallet_address FROM shops WHERE shop_id = $1',
+      [shopId]
+    );
+
+    if (shopQuery.rows.length > 0 && shopQuery.rows[0].wallet_address) {
+      try {
+        await notificationService.createSubscriptionCancelledNotification(
+          shopQuery.rows[0].wallet_address,
+          reason || 'Cancelled by admin'
+        );
+        logger.info('Subscription cancellation notification sent', { shopId, subscriptionId });
+      } catch (notifError) {
+        logger.error('Failed to send cancellation notification:', notifError);
+      }
+    }
+
     res.json({
       success: true,
       message: immediately ? 'Subscription canceled immediately' : 'Subscription will be canceled at end of billing period'
@@ -297,6 +327,24 @@ router.post('/subscriptions/:subscriptionId/pause', async (req: Request, res: Re
        WHERE id = $1`,
       [subscriptionId]
     );
+
+    // Get shop wallet address for notification
+    const shopQuery = await db.query(
+      'SELECT wallet_address FROM shops WHERE shop_id = $1',
+      [shopId]
+    );
+
+    if (shopQuery.rows.length > 0 && shopQuery.rows[0].wallet_address) {
+      try {
+        await notificationService.createSubscriptionPausedNotification(
+          shopQuery.rows[0].wallet_address,
+          'Paused by admin'
+        );
+        logger.info('Subscription pause notification sent', { shopId, subscriptionId });
+      } catch (notifError) {
+        logger.error('Failed to send pause notification:', notifError);
+      }
+    }
 
     res.json({
       success: true,
@@ -365,6 +413,23 @@ router.post('/subscriptions/:subscriptionId/resume', async (req: Request, res: R
          WHERE id = $1`,
         [subscriptionId]
       );
+
+      // Get shop wallet address for notification
+      const shopQuery = await db.query(
+        'SELECT wallet_address FROM shops WHERE shop_id = $1',
+        [shopId]
+      );
+
+      if (shopQuery.rows.length > 0 && shopQuery.rows[0].wallet_address) {
+        try {
+          await notificationService.createSubscriptionResumedNotification(
+            shopQuery.rows[0].wallet_address
+          );
+          logger.info('Subscription resume notification sent', { shopId, subscriptionId });
+        } catch (notifError) {
+          logger.error('Failed to send resume notification:', notifError);
+        }
+      }
 
       logger.info('Subscription resumed successfully', {
         subscriptionId: stripeSubscriptionId,

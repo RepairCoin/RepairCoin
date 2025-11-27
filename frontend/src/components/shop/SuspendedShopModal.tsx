@@ -9,7 +9,7 @@ interface SuspendedShopModalProps {
   shopName: string;
   suspensionReason?: string;
   suspendedAt?: string;
-  modalType: 'suspended' | 'rejected' | 'unsubscribed' | 'pending'; // Type of modal to show
+  modalType: 'suspended' | 'rejected' | 'unsubscribed' | 'pending' | 'paused'; // Type of modal to show
 }
 
 export const SuspendedShopModal: React.FC<SuspendedShopModalProps> = ({
@@ -42,6 +42,12 @@ export const SuspendedShopModal: React.FC<SuspendedShopModalProps> = ({
           icon: CreditCard,
           color: "yellow",
         };
+      case 'paused':
+        return {
+          title: "Subscription Paused",
+          icon: AlertCircle,
+          color: "blue",
+        };
       case 'pending':
         return {
           title: "Application Pending Approval",
@@ -68,6 +74,13 @@ export const SuspendedShopModal: React.FC<SuspendedShopModalProps> = ({
       bg: "bg-yellow-500/10",
       text: "text-yellow-400",
       contentBg: "bg-yellow-900/10",
+    },
+    blue: {
+      gradient: "from-blue-900/20 to-blue-800/20",
+      border: "border-blue-500/30",
+      bg: "bg-blue-500/10",
+      text: "text-blue-400",
+      contentBg: "bg-blue-900/10",
     },
   };
 
@@ -243,6 +256,60 @@ export const SuspendedShopModal: React.FC<SuspendedShopModalProps> = ({
                     <span>Access analytics and customer insights</span>
                   </li>
                 </ul>
+              </div>
+            </>
+          )}
+
+          {modalType === 'paused' && (
+            <>
+              <div className={`${colors.contentBg} border ${colors.border} rounded-xl p-4`}>
+                <h3 className={`font-semibold ${colors.text} mb-2 flex items-center gap-2`}>
+                  <AlertCircle className="w-5 h-5" />
+                  Subscription paused by administrator
+                </h3>
+                <p className="text-gray-300 text-sm">
+                  Your shop subscription has been temporarily paused. You cannot operate on the platform until the subscription is resumed.
+                </p>
+              </div>
+
+              {suspensionReason && (
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-white">Reason:</h4>
+                  <div className="bg-[#2F2F2F] rounded-xl p-4 border border-gray-700">
+                    <p className="text-gray-300">{suspensionReason}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-[#2F2F2F] rounded-xl p-4 border border-gray-700">
+                <h4 className="font-semibold text-white mb-3">What This Means:</h4>
+                <ul className="space-y-2 text-sm text-gray-300">
+                  <li className="flex items-start gap-2">
+                    <XCircle className="w-4 h-4 text-red-400 mt-1 flex-shrink-0" />
+                    <span>Limited operations - cannot issue rewards or process redemptions</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-yellow-400 mt-1 flex-shrink-0" />
+                    <span>Billing paused - you will not be charged during this period</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CreditCard className="w-4 h-4 text-green-400 mt-1 flex-shrink-0" />
+                    <span>Subscription retained - your account and history are preserved</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="bg-yellow-900/10 border border-yellow-500/30 rounded-xl p-4">
+                <h4 className="font-semibold text-yellow-400 mb-2">Need Help?</h4>
+                <p className="text-sm text-gray-300 mb-3">
+                  Contact support to resolve any issues or have your subscription resumed.
+                </p>
+                <div className="flex items-center gap-2 text-sm">
+                  <Mail className="w-4 h-4 text-yellow-400" />
+                  <a href="mailto:support@repaircoin.com" className="text-yellow-400 hover:text-yellow-300 underline">
+                    support@repaircoin.com
+                  </a>
+                </div>
               </div>
             </>
           )}

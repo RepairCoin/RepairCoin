@@ -298,7 +298,7 @@ export class AdminManagementService {
               role: 'super_admin',
               permissions: ['*'], // All permissions
               isSuperAdmin: true,
-              createdBy: 'system'
+              createdBy: 'SYSTEM'
             });
 
             logger.info('✅ Super admin auto-created from environment', { walletAddress: normalizedAddress });

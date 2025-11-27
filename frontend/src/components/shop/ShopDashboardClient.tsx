@@ -30,6 +30,7 @@ import { ShopServiceOrdersTab } from "@/components/shop/tabs/ShopServiceOrdersTa
 import { useShopRegistration } from "@/hooks/useShopRegistration";
 import { OnboardingModal } from "@/components/shop/OnboardingModal";
 import { SuspendedShopModal } from "@/components/shop/SuspendedShopModal";
+import { CancelledSubscriptionModal } from "@/components/shop/CancelledSubscriptionModal";
 import { OperationalRequiredTab } from "@/components/shop/OperationalRequiredTab";
 import { SubscriptionManagement } from "@/components/shop/SubscriptionManagement";
 import { CoinsIcon } from 'lucide-react';
@@ -52,6 +53,9 @@ interface ShopData {
   active: boolean;
   crossShopEnabled: boolean;
   subscriptionActive?: boolean;
+  subscriptionStatus?: string | null;
+  subscriptionCancelledAt?: string | null;
+  subscriptionEndsAt?: string | null; // When subscription access ends (period end for cancelled subs)
   category?: string;
   totalTokensIssued: number;
   totalRedemptions: number;
@@ -62,7 +66,8 @@ interface ShopData {
     | "pending"
     | "rcg_qualified"
     | "subscription_qualified"
-    | "not_qualified";
+    | "not_qualified"
+    | "paused";
   rcg_tier?: string;
   rcg_balance?: number;
   facebook?: string;
@@ -127,6 +132,9 @@ export default function ShopDashboardClient() {
 
   // Suspended/Rejected modal state
   const [showSuspendedModal, setShowSuspendedModal] = useState(true);
+
+  // Cancelled subscription modal state
+  const [showCancelledModal, setShowCancelledModal] = useState(false);
 
   // Success modal state
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -253,13 +261,36 @@ export default function ShopDashboardClient() {
       // Fallback: If operational_status is missing but shop is active and verified, assume operational
       (!shopData.operational_status && shopData.active && shopData.verified));
 
-  // Shop should be blocked if: suspended, rejected, pending, or not operational (unsubscribed/expired)
-  const isBlocked = !!(isSuspended || isRejected || isPending || !isOperational);
+  // Check if subscription is paused
+  const isPaused = shopData?.operational_status === 'paused' || shopData?.subscriptionStatus === 'paused';
+
+  // Check if subscription is cancelled but still active (until period end)
+  const isCancelledButActive = shopData?.subscriptionStatus === 'cancelled' &&
+    shopData?.subscriptionCancelledAt &&
+    shopData?.subscriptionEndsAt &&
+    new Date(shopData.subscriptionEndsAt) > new Date();
+
+  // Debug logging for cancelled subscription detection
+  if (shopData?.subscriptionStatus) {
+    console.log('🔍 Cancelled subscription check:', {
+      subscriptionStatus: shopData.subscriptionStatus,
+      subscriptionCancelledAt: shopData.subscriptionCancelledAt,
+      subscriptionEndsAt: shopData.subscriptionEndsAt,
+      endsAtDate: shopData.subscriptionEndsAt ? new Date(shopData.subscriptionEndsAt) : null,
+      now: new Date(),
+      isInFuture: shopData.subscriptionEndsAt ? new Date(shopData.subscriptionEndsAt) > new Date() : false,
+      isCancelledButActive
+    });
+  }
+
+  // Shop should be blocked if: suspended, rejected, pending, paused, or not operational (unsubscribed/expired)
+  const isBlocked = !!(isSuspended || isRejected || isPending || isPaused || !isOperational);
 
   // Get the block reason
   const getBlockReason = () => {
     if (isSuspended) return "Shop is suspended";
     if (isRejected) return "Shop application was rejected";
+    if (isPaused) return "Shop subscription is paused";
     if (isPending) return "Shop application is pending approval";
     if (!isOperational) return "Shop subscription is required or expired";
     return "Shop is not operational";
@@ -273,8 +304,8 @@ export default function ShopDashboardClient() {
       if (isPending && !shopData.subscriptionActive) {
         setShowOnboardingModal(true);
         setShowSuspendedModal(false);
-      } else if (isSuspended || isRejected || !isOperational) {
-        // Show suspended modal for suspended/rejected/unsubscribed shops
+      } else if (isSuspended || isRejected || isPaused || !isOperational) {
+        // Show suspended modal for suspended/rejected/paused/unsubscribed shops
         setShowSuspendedModal(true);
         setShowOnboardingModal(false);
       } else {
@@ -285,7 +316,19 @@ export default function ShopDashboardClient() {
       setShowSuspendedModal(false);
       setShowOnboardingModal(false);
     }
-  }, [shopData, isOperational, isSuspended, isRejected, isPending, activeTab]);
+  }, [shopData, isOperational, isSuspended, isRejected, isPending, isPaused, activeTab]);
+
+  // Show cancelled subscription modal once when detected (unless on settings tab)
+  useEffect(() => {
+    if (shopData && activeTab !== "settings" && isCancelledButActive) {
+      // Check if we've already shown this modal for this session
+      const modalShownKey = `cancelledModalShown_${shopData.shopId}`;
+      if (!sessionStorage.getItem(modalShownKey)) {
+        setShowCancelledModal(true);
+        sessionStorage.setItem(modalShownKey, 'true');
+      }
+    }
+  }, [shopData, activeTab, isCancelledButActive]);
 
   // Check pending purchases on shop data load
   useEffect(() => {
@@ -354,10 +397,39 @@ export default function ShopDashboardClient() {
       const shopResult = await apiClient.get(`/shops/wallet/${account?.address}`);
 
       if (shopResult.success && shopResult.data) {
-        setShopData(shopResult.data);
+        let enhancedShopData = shopResult.data;
 
-        // Load purchase history
+        // Load additional data if we have a shopId
         if (shopResult.data.shopId) {
+          // Load subscription details to check for cancelled-but-active subscriptions
+          try {
+            const subResult = await apiClient.get(`/shops/subscription/status`);
+            if (subResult.success && subResult.data?.currentSubscription) {
+              const sub = subResult.data.currentSubscription;
+
+              // Determine actual status - if cancelAtPeriodEnd is true, treat as cancelled
+              const actualStatus = sub.cancelAtPeriodEnd ? 'cancelled' : sub.status;
+
+              enhancedShopData = {
+                ...enhancedShopData,
+                subscriptionStatus: actualStatus,
+                subscriptionCancelledAt: sub.cancelledAt || (sub.cancelAtPeriodEnd ? new Date().toISOString() : null),
+                subscriptionEndsAt: sub.currentPeriodEnd || sub.nextPaymentDate || sub.activatedAt, // Use Stripe's currentPeriodEnd
+              };
+
+              console.log('📋 Subscription details loaded:', {
+                status: actualStatus,
+                cancelAtPeriodEnd: sub.cancelAtPeriodEnd,
+                currentPeriodEnd: sub.currentPeriodEnd,
+                nextPaymentDate: sub.nextPaymentDate
+              });
+            }
+          } catch (subErr) {
+            console.error("Error loading subscription details:", subErr);
+            // Continue without subscription details
+          }
+
+          // Load purchase history
           const purchaseResult = await apiClient.get(`/shops/purchase/history/${shopResult.data.shopId}`);
           if (purchaseResult.success) {
             setPurchases(purchaseResult.data.purchases || []);
@@ -369,6 +441,8 @@ export default function ShopDashboardClient() {
             setTierStats(tierResult.data);
           }
         }
+
+        setShopData(enhancedShopData);
       } else {
         setError("Invalid shop data received");
       }
@@ -733,21 +807,35 @@ export default function ShopDashboardClient() {
         <div className="max-w-screen-2xl w-[96%] mx-auto">
           {/* Warning Banner for Non-Operational Shops */}
           {isBlocked && !showSuspendedModal && !showOnboardingModal && (
-            <div className={`mb-6 rounded-xl p-4 ${isPending ? 'bg-yellow-900/20 border-2 border-yellow-500/50' : 'bg-red-900/20 border-2 border-red-500/50'}`}>
+            <div className={`mb-6 rounded-xl p-4 ${
+              isPending ? 'bg-yellow-900/20 border-2 border-yellow-500/50' :
+              isPaused ? 'bg-blue-900/20 border-2 border-blue-500/50' :
+              'bg-red-900/20 border-2 border-red-500/50'
+            }`}>
               <div className="flex items-start gap-3">
-                <div className={`text-2xl ${isPending ? 'text-yellow-400' : 'text-red-400'}`}>⚠️</div>
+                <div className={`text-2xl ${
+                  isPending ? 'text-yellow-400' :
+                  isPaused ? 'text-blue-400' :
+                  'text-red-400'
+                }`}>⚠️</div>
                 <div className="flex-1">
-                  <h3 className={`text-lg font-bold mb-1 ${isPending ? 'text-yellow-400' : 'text-red-400'}`}>
+                  <h3 className={`text-lg font-bold mb-1 ${
+                    isPending ? 'text-yellow-400' :
+                    isPaused ? 'text-blue-400' :
+                    'text-red-400'
+                  }`}>
                     {isSuspended && "Shop Suspended"}
                     {isRejected && "Shop Application Rejected"}
                     {isPending && "Application Pending Approval"}
-                    {!isSuspended && !isRejected && !isPending && !isOperational && "Subscription Required"}
+                    {isPaused && "Subscription Paused"}
+                    {!isSuspended && !isRejected && !isPending && !isPaused && !isOperational && "Subscription Required"}
                   </h3>
                   <p className="text-gray-300 text-sm">
                     {isSuspended && "Your shop has been suspended. You cannot perform operational actions (issue rewards, process redemptions, purchase credits)."}
                     {isRejected && "Your shop application was rejected. You cannot perform operational actions until your application is approved."}
                     {isPending && "Your shop application is awaiting admin approval. You cannot perform operational actions until approved."}
-                    {!isSuspended && !isRejected && !isPending && !isOperational && "Your shop requires an active subscription. You cannot perform operational actions until subscribed."}
+                    {isPaused && "Your subscription has been temporarily paused by the administrator. You cannot perform operational actions until the subscription is resumed."}
+                    {!isSuspended && !isRejected && !isPending && !isPaused && !isOperational && "Your shop requires an active subscription. You cannot perform operational actions until subscribed."}
                   </p>
                 </div>
                 {isBlocked && (
@@ -758,6 +846,44 @@ export default function ShopDashboardClient() {
                     Details
                   </button>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Warning Banner for Cancelled but Active Subscriptions */}
+          {isCancelledButActive && !isBlocked && (
+            <div className="mb-6 rounded-xl p-4 bg-orange-900/20 border-2 border-orange-500/50">
+              <div className="flex items-start gap-3">
+                <div className="text-2xl text-orange-400">⚠️</div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold mb-1 text-orange-400">
+                    Subscription Cancellation Scheduled
+                  </h3>
+                  <p className="text-gray-300 text-sm">
+                    Your subscription has been cancelled and will end on{' '}
+                    <span className="font-semibold text-white">
+                      {new Date(shopData?.subscriptionEndsAt!).toLocaleDateString('en-US', {
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                    . You can continue using all shop features until then. After this date, you will need to resubscribe to continue operations.
+                  </p>
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      onClick={() => setActiveTab("settings")}
+                      className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium transition-colors"
+                    >
+                      Manage Subscription
+                    </button>
+                    <span className="text-xs text-gray-400">
+                      {Math.ceil((new Date(shopData?.subscriptionEndsAt!).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days remaining
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -954,6 +1080,8 @@ export default function ShopDashboardClient() {
                 modalType={
                   isSuspended ? 'suspended' :
                   isRejected ? 'rejected' :
+                  // Check if subscription is paused
+                  shopData?.operational_status === 'paused' || shopData?.subscriptionStatus === 'paused' ? 'paused' :
                   // For pending shops, check if they have a subscription
                   // If no subscription, show requirements modal instead of pending
                   isPending ? (shopData?.subscriptionActive ? 'pending' : 'unsubscribed') :
@@ -961,6 +1089,17 @@ export default function ShopDashboardClient() {
                   'suspended' // fallback
                 }
               />
+
+              {/* Cancelled Subscription Modal */}
+              {isCancelledButActive && shopData?.subscriptionEndsAt && (
+                <CancelledSubscriptionModal
+                  isOpen={showCancelledModal}
+                  onClose={() => setShowCancelledModal(false)}
+                  shopName={shopData?.name || ""}
+                  endsAt={shopData.subscriptionEndsAt}
+                  onManageSubscription={() => setActiveTab("settings")}
+                />
+              )}
             </>
           )}
         </div>
