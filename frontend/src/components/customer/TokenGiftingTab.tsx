@@ -9,7 +9,7 @@ import {
   History,
   CheckCircle,
   AlertCircle,
-  QrCode
+  Camera
 } from "lucide-react";
 import { QRScanner } from "@/components/ui/QRScanner";
 import Tooltip from "../ui/tooltip";
@@ -361,10 +361,11 @@ export function TokenGiftingTab() {
                     />
                     <button
                       onClick={() => setShowQRScanner(true)}
-                      className="px-4 py-3 bg-[#FFCC00] text-black rounded-xl hover:bg-yellow-500 transition-colors"
+                      className="px-4 py-3 bg-[#FFCC00] text-black rounded-xl hover:bg-yellow-500 transition-colors flex items-center justify-center gap-2"
                       title="Scan QR Code"
                     >
-                      <QrCode className="w-5 h-5" />
+                      <Camera className="w-5 h-5" />
+                      <span className="hidden sm:inline text-sm font-medium">Scan QR</span>
                     </button>
                   </div>
                 </div>
