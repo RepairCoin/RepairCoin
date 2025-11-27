@@ -28,6 +28,7 @@ export interface FavoriteWithServiceInfo {
   shopId: string;
   shopName?: string;
   shopAddress?: string;
+  shopIsVerified?: boolean;
 }
 
 export class FavoriteRepository extends BaseRepository {
@@ -165,7 +166,8 @@ export class FavoriteRepository extends BaseRepository {
           s.review_count,
           s.shop_id,
           sh.name as shop_name,
-          sh.address as shop_address
+          sh.address as shop_address,
+          sh.verified as shop_is_verified
         FROM service_favorites f
         INNER JOIN shop_services s ON f.service_id = s.service_id
         INNER JOIN shops sh ON s.shop_id = sh.shop_id
@@ -244,7 +246,8 @@ export class FavoriteRepository extends BaseRepository {
       reviewCount: row.review_count || 0,
       shopId: row.shop_id,
       shopName: row.shop_name,
-      shopAddress: row.shop_address
+      shopAddress: row.shop_address,
+      shopIsVerified: row.shop_is_verified || false
     };
   }
 }

@@ -108,8 +108,10 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
           ${sizeClasses[size]}
           flex items-center justify-center
           rounded-full
-          bg-gray-800 text-gray-400
-          hover:bg-gray-700 hover:text-[#FFCC00]
+          bg-black/60 text-gray-300
+          hover:bg-black/80 hover:text-[#FFCC00] hover:scale-110
+          backdrop-blur-sm
+          shadow-lg
           transition-all duration-200
           ${className}
         `}

@@ -28,19 +28,34 @@ const CheckoutForm: React.FC<{
   const elements = useElements();
   const [processing, setProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [hasSubmitted, setHasSubmitted] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+
+    // Prevent double submission
+    if (hasSubmitted || processing) {
+      return;
+    }
 
     if (!stripe || !elements) {
       return;
     }
 
+    // Validate that payment element is complete before submitting
+    const {error: submitError} = await elements.submit();
+    if (submitError) {
+      setErrorMessage(submitError.message || "Please complete all required fields");
+      return;
+    }
+
+    setHasSubmitted(true);
     setProcessing(true);
     setErrorMessage("");
 
     try {
-      const { error } = await stripe.confirmPayment({
+      const result = await stripe.confirmPayment({
         elements,
         confirmParams: {
           return_url: `${window.location.origin}/customer/orders?success=true&orderId=${orderId}`,
@@ -48,27 +63,59 @@ const CheckoutForm: React.FC<{
         redirect: "if_required",
       });
 
-      if (error) {
-        setErrorMessage(error.message || "Payment failed");
-        onError(error.message || "Payment failed");
+      if (result.error) {
+        setErrorMessage(result.error.message || "Payment failed");
+        onError(result.error.message || "Payment failed");
         setProcessing(false);
+        setHasSubmitted(false);
+      } else if (result.paymentIntent && result.paymentIntent.status === 'succeeded') {
+        // Payment succeeded - now confirm on backend to update order status
+        try {
+          const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+          const confirmResponse = await fetch(`${backendUrl}/services/orders/confirm`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+              paymentIntentId: result.paymentIntent.id
+            })
+          });
+
+          if (!confirmResponse.ok) {
+            throw new Error('Failed to confirm payment on server');
+          }
+
+          onSuccess();
+        } catch (confirmError) {
+          setErrorMessage("Payment succeeded but order update failed. Please contact support.");
+          setProcessing(false);
+          setHasSubmitted(false);
+        }
       } else {
-        // Payment succeeded
-        onSuccess();
+        setErrorMessage("Payment status unclear. Please contact support.");
+        setProcessing(false);
+        setHasSubmitted(false);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "An unexpected error occurred";
       setErrorMessage(message);
       onError(message);
       setProcessing(false);
+      setHasSubmitted(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
       {/* Payment Element */}
       <div className="bg-[#0D0D0D] border border-gray-700 rounded-xl p-4">
-        <PaymentElement />
+        <PaymentElement
+          options={{
+            layout: 'tabs'
+          }}
+        />
       </div>
 
       {/* Error Message */}
@@ -110,11 +157,16 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [paymentInitialized, setPaymentInitialized] = useState(false);
 
   useEffect(() => {
+    // Prevent duplicate payment intent creation
+    if (paymentInitialized) return;
+
     // Create payment intent when modal opens
     const initializePayment = async () => {
       try {
+        setPaymentInitialized(true);
         const response = await createPaymentIntent({
           serviceId: service.serviceId,
         });
@@ -124,17 +176,18 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
           setOrderId(response.orderId);
         } else {
           setError("Failed to initialize payment. Please try again.");
+          setPaymentInitialized(false); // Reset on error
         }
       } catch (err) {
         setError("Failed to initialize payment. Please try again.");
-        console.error("Error initializing payment:", err);
+        setPaymentInitialized(false); // Reset on error
       } finally {
         setLoading(false);
       }
     };
 
     initializePayment();
-  }, [service.serviceId]);
+  }, [service.serviceId, paymentInitialized]);
 
   const handlePaymentSuccess = () => {
     setPaymentSuccess(true);

@@ -14,6 +14,7 @@ import {
   Package,
 } from "lucide-react";
 import { getShopOrders, updateOrderStatus, ServiceOrderWithDetails } from "@/services/api/services";
+import { CompleteOrderModal } from "../modals/CompleteOrderModal";
 
 interface ShopServiceOrdersTabProps {
   shopId: string;
@@ -24,6 +25,7 @@ export const ShopServiceOrdersTab: React.FC<ShopServiceOrdersTabProps> = ({ shop
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("all");
   const [updatingOrder, setUpdatingOrder] = useState<string | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<ServiceOrderWithDetails | null>(null);
 
   useEffect(() => {
     loadOrders();
@@ -49,15 +51,14 @@ export const ShopServiceOrdersTab: React.FC<ShopServiceOrdersTabProps> = ({ shop
     }
   };
 
-  const handleMarkCompleted = async (orderId: string) => {
-    if (!confirm("Mark this order as completed? This action cannot be undone.")) {
-      return;
-    }
+  const handleMarkCompleted = async () => {
+    if (!selectedOrder) return;
 
-    setUpdatingOrder(orderId);
+    setUpdatingOrder(selectedOrder.orderId);
     try {
-      await updateOrderStatus(orderId, "completed");
-      toast.success("Order marked as completed!");
+      await updateOrderStatus(selectedOrder.orderId, "completed");
+      toast.success("Order marked as completed! Customer will receive their RCN rewards.");
+      setSelectedOrder(null);
       loadOrders();
     } catch (error) {
       console.error("Error updating order:", error);
@@ -249,123 +250,114 @@ export const ShopServiceOrdersTab: React.FC<ShopServiceOrdersTabProps> = ({ shop
                 key={order.orderId}
                 className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-6 hover:border-[#FFCC00]/30 transition-all duration-200"
               >
-                <div className="flex flex-col lg:flex-row gap-6">
-                  {/* Service Info */}
+                {/* Header with Service Name and Status */}
+                <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h3 className="text-xl font-bold text-white mb-1">
-                          {order.serviceName}
-                        </h3>
-                        {order.serviceDescription && (
-                          <p className="text-sm text-gray-400 mb-2">
-                            {order.serviceDescription}
-                          </p>
-                        )}
-                      </div>
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border whitespace-nowrap ${statusBadge.className}`}
-                      >
-                        {statusBadge.icon}
-                        {statusBadge.text}
-                      </span>
-                    </div>
-
-                    {/* Customer Info */}
-                    <div className="bg-[#0D0D0D] border border-gray-800 rounded-lg p-4 mb-4">
-                      <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                        <User className="w-4 h-4" />
-                        Customer Information
-                      </h4>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex items-center justify-between">
-                          <span className="text-gray-400">Wallet Address:</span>
-                          <code className="text-[#FFCC00] bg-[#FFCC00]/10 px-2 py-1 rounded">
-                            {truncateAddress(order.customerAddress)}
-                          </code>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-gray-400">Full Address:</span>
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(order.customerAddress);
-                              toast.success("Address copied!");
-                            }}
-                            className="text-xs text-blue-400 hover:text-blue-300 underline"
-                          >
-                            Copy Full Address
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Order Details */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                      <div className="flex items-center gap-2 text-sm text-gray-400">
-                        <DollarSign className="w-4 h-4" />
-                        <span className="font-semibold text-green-500">
-                          ${order.totalAmount.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-400">
-                        <Calendar className="w-4 h-4" />
-                        Booked {formatDate(order.createdAt)}
-                      </div>
-                    </div>
-
-                    {order.bookingDate && (
-                      <div className="flex items-center gap-2 text-sm text-gray-400 mb-4">
-                        <Clock className="w-4 h-4" />
-                        Scheduled for {formatDate(order.bookingDate)}
-                      </div>
+                    <h3 className="text-lg font-bold text-white mb-1">
+                      {order.serviceName}
+                    </h3>
+                    {order.serviceDescription && (
+                      <p className="text-sm text-gray-400 line-clamp-1">
+                        {order.serviceDescription}
+                      </p>
                     )}
+                  </div>
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border whitespace-nowrap ml-4 ${statusBadge.className}`}
+                  >
+                    {statusBadge.icon}
+                    {statusBadge.text}
+                  </span>
+                </div>
 
-                    {order.notes && (
-                      <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mb-4">
-                        <p className="text-sm text-blue-300">
-                          <span className="font-semibold text-blue-400">Customer Notes:</span>{" "}
-                          {order.notes}
-                        </p>
-                      </div>
-                    )}
-
-                    <div className="text-xs text-gray-500">Order ID: {order.orderId}</div>
+                {/* Order Details Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+                  {/* Amount */}
+                  <div className="bg-[#0D0D0D] border border-gray-800 rounded-lg p-3">
+                    <div className="flex items-center gap-2 text-sm text-gray-400 mb-1">
+                      <DollarSign className="w-4 h-4" />
+                      <span>Amount</span>
+                    </div>
+                    <span className="font-bold text-lg text-green-500">
+                      ${order.totalAmount.toFixed(2)}
+                    </span>
                   </div>
 
-                  {/* Actions */}
-                  {order.status === "paid" && (
-                    <div className="lg:w-48 flex flex-col gap-3">
-                      <button
-                        onClick={() => handleMarkCompleted(order.orderId)}
-                        disabled={updatingOrder === order.orderId}
-                        className="w-full bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black font-semibold px-4 py-3 rounded-xl hover:from-[#FFD700] hover:to-[#FFCC00] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                      >
-                        {updatingOrder === order.orderId ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Updating...
-                          </>
-                        ) : (
-                          <>
-                            <Package className="w-4 h-4" />
-                            Mark Completed
-                          </>
-                        )}
-                      </button>
-                      <p className="text-xs text-gray-500 text-center">
-                        Mark as completed after service is done
-                      </p>
+                  {/* Booked Date */}
+                  <div className="bg-[#0D0D0D] border border-gray-800 rounded-lg p-3">
+                    <div className="flex items-center gap-2 text-sm text-gray-400 mb-1">
+                      <Calendar className="w-4 h-4" />
+                      <span>Booked</span>
                     </div>
+                    <span className="font-semibold text-sm text-white">
+                      {formatDate(order.createdAt)}
+                    </span>
+                  </div>
+
+                  {/* Customer */}
+                  <div className="bg-[#0D0D0D] border border-gray-800 rounded-lg p-3">
+                    <div className="flex items-center gap-2 text-sm text-gray-400 mb-1">
+                      <User className="w-4 h-4" />
+                      <span>Customer</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(order.customerAddress);
+                        toast.success("Address copied!");
+                      }}
+                      className="text-[#FFCC00] hover:text-[#FFD700] font-mono text-sm underline"
+                    >
+                      {truncateAddress(order.customerAddress)}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Booking Date (if scheduled) */}
+                {order.bookingDate && (
+                  <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3 mb-4">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Clock className="w-4 h-4 text-purple-400" />
+                      <span className="text-purple-300">
+                        <span className="font-semibold text-purple-400">Scheduled for:</span>{" "}
+                        {formatDate(order.bookingDate)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Customer Notes */}
+                {order.notes && (
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mb-4">
+                    <p className="text-sm text-blue-300">
+                      <span className="font-semibold text-blue-400">Customer Notes:</span>{" "}
+                      {order.notes}
+                    </p>
+                  </div>
+                )}
+
+                {/* Action Button / Status */}
+                <div className="flex items-center justify-between pt-3 border-t border-gray-800">
+                  <div className="text-xs text-gray-500">Order ID: {order.orderId}</div>
+
+                  {order.status === "paid" && (
+                    <button
+                      onClick={() => setSelectedOrder(order)}
+                      disabled={updatingOrder === order.orderId}
+                      className="bg-gradient-to-r from-green-600 to-green-700 text-white font-semibold px-5 py-2 rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Mark Complete
+                    </button>
                   )}
 
                   {order.status === "completed" && order.completedAt && (
-                    <div className="lg:w-48">
-                      <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 text-center">
-                        <CheckCircle className="w-8 h-8 text-blue-400 mx-auto mb-2" />
-                        <p className="text-sm font-semibold text-blue-400">Completed</p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          {formatDate(order.completedAt)}
-                        </p>
+                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg px-4 py-2">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-blue-400" />
+                        <div className="text-left">
+                          <p className="text-sm font-semibold text-blue-400">Completed</p>
+                          <p className="text-xs text-gray-400">{formatDate(order.completedAt)}</p>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -381,6 +373,18 @@ export const ShopServiceOrdersTab: React.FC<ShopServiceOrdersTabProps> = ({ shop
         <p className="text-center text-gray-500 text-sm">
           Showing {orders.length} booking{orders.length !== 1 ? "s" : ""}
         </p>
+      )}
+
+      {/* Complete Order Modal */}
+      {selectedOrder && (
+        <CompleteOrderModal
+          orderAmount={selectedOrder.totalAmount}
+          serviceName={selectedOrder.serviceName}
+          customerAddress={selectedOrder.customerAddress}
+          onConfirm={handleMarkCompleted}
+          onClose={() => setSelectedOrder(null)}
+          isProcessing={updatingOrder === selectedOrder.orderId}
+        />
       )}
     </div>
   );

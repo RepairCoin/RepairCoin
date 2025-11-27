@@ -24,6 +24,7 @@ import {
   MessageCircle,
   ShoppingBag,
   Receipt,
+  Heart,
 } from "lucide-react";
 import {
   IssueRewardsIcon,

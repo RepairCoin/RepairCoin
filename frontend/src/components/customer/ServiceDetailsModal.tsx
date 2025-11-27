@@ -1,8 +1,12 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { X, DollarSign, Clock, MapPin, Phone, Mail, Image as ImageIcon, Tag } from "lucide-react";
 import { ShopServiceWithShopInfo, SERVICE_CATEGORIES } from "@/services/api/services";
+import { StarRating } from "./StarRating";
+import { FavoriteButton } from "./FavoriteButton";
+import { ShareButton } from "./ShareButton";
+import { ReviewList } from "./ReviewList";
 
 interface ServiceDetailsModalProps {
   service: ShopServiceWithShopInfo;
@@ -15,6 +19,8 @@ export const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({
   onClose,
   onBook,
 }) => {
+  const [activeTab, setActiveTab] = useState<"details" | "reviews">("details");
+
   const getCategoryLabel = (category?: string) => {
     if (!category) return "Other";
     const cat = SERVICE_CATEGORIES.find((c) => c.value === category);
@@ -25,20 +31,69 @@ export const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-800 sticky top-0 bg-[#1A1A1A] z-10">
-          <h2 className="text-2xl font-bold text-white">Service Details</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
+        <div className="sticky top-0 bg-[#1A1A1A] z-10 border-b border-gray-800">
+          <div className="flex items-center justify-between p-6">
+            <div className="flex-1">
+              <h2 className="text-2xl font-bold text-white mb-2">Service Details</h2>
+              {/* Average Rating */}
+              {service.averageRating && service.averageRating > 0 && (
+                <StarRating
+                  value={service.averageRating}
+                  size="sm"
+                  showNumber
+                  showCount
+                  totalCount={service.reviewCount}
+                />
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <FavoriteButton serviceId={service.serviceId} size="md" />
+              <ShareButton
+                serviceId={service.serviceId}
+                serviceName={service.serviceName}
+                shopName={service.companyName}
+                size="md"
+              />
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-white transition-colors ml-2"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex border-t border-gray-800">
+            <button
+              onClick={() => setActiveTab("details")}
+              className={`flex-1 px-6 py-3 text-sm font-semibold transition-colors ${
+                activeTab === "details"
+                  ? "text-[#FFCC00] border-b-2 border-[#FFCC00]"
+                  : "text-gray-400 hover:text-gray-300"
+              }`}
+            >
+              Details
+            </button>
+            <button
+              onClick={() => setActiveTab("reviews")}
+              className={`flex-1 px-6 py-3 text-sm font-semibold transition-colors ${
+                activeTab === "reviews"
+                  ? "text-[#FFCC00] border-b-2 border-[#FFCC00]"
+                  : "text-gray-400 hover:text-gray-300"
+              }`}
+            >
+              Reviews {service.reviewCount ? `(${service.reviewCount})` : ""}
+            </button>
+          </div>
         </div>
 
         <div className="p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Left Column - Image and Basic Info */}
-            <div>
+          {/* Details Tab */}
+          {activeTab === "details" && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left Column - Image and Basic Info */}
+              <div>
               {/* Service Image */}
               {service.imageUrl ? (
                 <div className="w-full aspect-video rounded-xl overflow-hidden bg-gray-800 mb-4">
@@ -207,8 +262,16 @@ export const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({
               >
                 Book This Service
               </button>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Reviews Tab */}
+          {activeTab === "reviews" && (
+            <div>
+              <ReviewList serviceId={service.serviceId} />
+            </div>
+          )}
         </div>
       </div>
     </div>

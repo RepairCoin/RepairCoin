@@ -220,11 +220,13 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
       };
 
       ws.onerror = (error) => {
-        console.error('❌ WebSocket error:', error);
-        setError('WebSocket connection error');
+        // Don't log error for connection refused (WebSocket server not running)
+        // This is expected in development when notification server isn't started
+        console.log('ℹ️ WebSocket connection unavailable (notification server not running)');
+        // Don't set error state for this - it's not critical
       };
 
-      ws.onclose = () => {
+      ws.onclose = (event) => {
         console.log('🔌 WebSocket disconnected');
         setConnected(false);
 
@@ -234,7 +236,15 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
           return;
         }
 
-        // Attempt to reconnect
+        // If connection was refused (code 1006), don't keep retrying
+        // This happens when the WebSocket server isn't running
+        if (event.code === 1006) {
+          console.log('ℹ️ WebSocket server not available - notifications will not work until server is started');
+          reconnectAttemptsRef.current = maxReconnectAttempts; // Prevent further attempts
+          return;
+        }
+
+        // Attempt to reconnect for other errors
         if (reconnectAttemptsRef.current < maxReconnectAttempts) {
           const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
           console.log(`🔄 Reconnecting in ${delay}ms...`);
@@ -244,8 +254,7 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
             connectWebSocket();
           }, delay);
         } else {
-          console.error('❌ Max reconnection attempts reached');
-          setError('Failed to connect to notification server');
+          console.log('ℹ️ Notification server unavailable - app will work without real-time notifications');
         }
       };
     } catch (error) {

@@ -10,14 +10,19 @@ import {
   DollarSign,
   Calendar,
   MapPin,
-  Loader2
+  Loader2,
+  Star,
+  Edit
 } from "lucide-react";
-import { getCustomerOrders, ServiceOrderWithDetails } from "@/services/api/services";
+import { getCustomerOrders, ServiceOrderWithDetails, servicesApi } from "@/services/api/services";
+import { WriteReviewModal } from "./WriteReviewModal";
 
 export const ServiceOrdersTab: React.FC = () => {
   const [orders, setOrders] = useState<ServiceOrderWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("all");
+  const [reviewingOrder, setReviewingOrder] = useState<ServiceOrderWithDetails | null>(null);
+  const [reviewEligibility, setReviewEligibility] = useState<Map<string, boolean>>(new Map());
 
   useEffect(() => {
     loadOrders();
@@ -34,6 +39,8 @@ export const ServiceOrdersTab: React.FC = () => {
 
       if (response) {
         setOrders(response.data);
+        // Check review eligibility for completed orders
+        checkReviewEligibility(response.data);
       }
     } catch (error) {
       console.error("Error loading orders:", error);
@@ -41,6 +48,29 @@ export const ServiceOrdersTab: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const checkReviewEligibility = async (ordersList: ServiceOrderWithDetails[]) => {
+    const completedOrders = ordersList.filter((order) => order.status === "completed");
+    const eligibilityMap = new Map<string, boolean>();
+
+    await Promise.all(
+      completedOrders.map(async (order) => {
+        try {
+          const response = await servicesApi.canReviewOrder(order.orderId);
+          eligibilityMap.set(order.orderId, response.canReview);
+        } catch (error) {
+          console.error(`Error checking review eligibility for order ${order.orderId}:`, error);
+          eligibilityMap.set(order.orderId, false);
+        }
+      })
+    );
+
+    setReviewEligibility(eligibilityMap);
+  };
+
+  const handleWriteReview = (order: ServiceOrderWithDetails) => {
+    setReviewingOrder(order);
   };
 
   const getStatusBadge = (status: string) => {
@@ -223,6 +253,28 @@ export const ServiceOrdersTab: React.FC = () => {
                       </div>
                     )}
 
+                    {/* Review Button - Show for completed orders */}
+                    {order.status === "completed" && (
+                      <div className="mb-4">
+                        {reviewEligibility.get(order.orderId) === true ? (
+                          <button
+                            onClick={() => handleWriteReview(order)}
+                            className="w-full bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black font-semibold px-4 py-3 rounded-lg hover:from-[#FFD700] hover:to-[#FFCC00] transition-all duration-200 flex items-center justify-center gap-2"
+                          >
+                            <Star className="w-4 h-4" />
+                            Write a Review
+                          </button>
+                        ) : reviewEligibility.get(order.orderId) === false ? (
+                          <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 flex items-center gap-2">
+                            <CheckCircle className="w-5 h-5 text-green-400" />
+                            <span className="text-sm text-green-400 font-medium">
+                              Review submitted
+                            </span>
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+
                     {order.bookingDate && (
                       <div className="flex items-center gap-2 text-sm text-gray-400 mb-4">
                         <Clock className="w-4 h-4" />
@@ -261,6 +313,19 @@ export const ServiceOrdersTab: React.FC = () => {
         <p className="text-center text-gray-500 text-sm">
           Showing {orders.length} booking{orders.length !== 1 ? "s" : ""}
         </p>
+      )}
+
+      {/* Write Review Modal */}
+      {reviewingOrder && (
+        <WriteReviewModal
+          order={reviewingOrder}
+          isOpen={!!reviewingOrder}
+          onClose={() => setReviewingOrder(null)}
+          onSuccess={() => {
+            setReviewingOrder(null);
+            loadOrders();
+          }}
+        />
       )}
     </div>
   );
