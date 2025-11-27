@@ -8,6 +8,7 @@ import { eventBus } from '../../../events/EventBus';
 import { DatabaseService } from '../../../services/DatabaseService';
 import { shopPurchaseService } from '../services/ShopPurchaseService';
 import { ShopSubscriptionRepository } from '../../../repositories/ShopSubscriptionRepository';
+import { NotificationService } from '../../notification/services/NotificationService';
 import Stripe from 'stripe';
 
 const router = Router();
@@ -861,6 +862,25 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event, subscriptionS
             subscriptionId: subscription.id,
             billingReference: subscription.id
           });
+
+          // Send notification to shop about subscription approval
+          try {
+            const db = DatabaseService.getInstance();
+            const shopQuery = await db.query(
+              'SELECT wallet_address FROM shops WHERE shop_id = $1',
+              [shopId]
+            );
+
+            if (shopQuery.rows.length > 0 && shopQuery.rows[0].wallet_address) {
+              const notificationService = new NotificationService();
+              await notificationService.createSubscriptionApprovedNotification(
+                shopQuery.rows[0].wallet_address
+              );
+              logger.info('Subscription approval notification sent', { shopId, subscriptionId: subscription.id });
+            }
+          } catch (notifError) {
+            logger.error('Failed to send subscription approval notification:', notifError);
+          }
         } catch (shopSubError) {
           logger.error('Failed to create shop_subscriptions record', {
             shopId,

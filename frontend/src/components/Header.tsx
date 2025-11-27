@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createThirdwebClient } from "thirdweb";
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import Section from "./Section";
 import { useAuth } from "@/hooks/useAuth";
 import Spinner from "./Spinner";
@@ -32,17 +33,28 @@ const Header: React.FC = () => {
     setIsMenuOpen(!isMenuOpen);
   };
 
+  // Debounced scroll handler for better performance
+  const handleScroll = useCallback(() => {
+    const isScrolled = window.scrollY > 10;
+    if (isScrolled !== scrolled) {
+      setScrolled(isScrolled);
+    }
+  }, [scrolled]);
+
   useEffect(() => {
-    const handleScroll = () => {
-      const isScrolled = window.scrollY > 10;
-      if (isScrolled !== scrolled) {
-        setScrolled(isScrolled);
-      }
+    let timeoutId: NodeJS.Timeout;
+
+    const debouncedHandleScroll = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(handleScroll, 10);
     };
 
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [scrolled]);
+    window.addEventListener("scroll", debouncedHandleScroll, { passive: true });
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener("scroll", debouncedHandleScroll);
+    };
+  }, [handleScroll]);
 
   // Track when modal opens to mark the start of a sign-in flow
   const signInInitiatedRef = useRef(false);
@@ -136,8 +148,15 @@ const Header: React.FC = () => {
             <div className="flex flex-wrap justify-between items-center w-full relative">
               {/* Logo */}
               <Link href="/" className="flex items-center flex-shrink-0">
-                <div className="flex items-center">
-                  <img src="/img/nav-logo.png" alt="" />
+                <div className="flex items-center relative w-[180px] h-[40px]">
+                  <Image
+                    src="/img/nav-logo.png"
+                    alt="RepairCoin Logo"
+                    fill
+                    priority
+                    sizes="180px"
+                    className="object-contain"
+                  />
                 </div>
               </Link>
 
@@ -357,10 +376,13 @@ const Header: React.FC = () => {
 
               {/* Right Content - Character Illustrations */}
               <div className="flex-1 relative h-64 md:h-80">
-                <img
+                <Image
                   src="/img/connect-modal.png"
                   alt="RepairCoin Characters"
-                  className="absolute inset-0 w-full h-full object-contain"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  className="object-contain"
+                  priority
                 />
               </div>
             </div>

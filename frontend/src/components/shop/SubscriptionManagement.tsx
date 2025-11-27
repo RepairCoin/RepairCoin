@@ -413,6 +413,93 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
             )}
           </div>
         </div>
+      ) : subscription && subscription.status === 'paused' ? (
+        <div className="space-y-6">
+          <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-6 h-6 text-blue-400" />
+              <div className="flex-1">
+                <h4 className="text-lg font-semibold text-blue-400">Subscription Paused</h4>
+                <p className="text-sm text-gray-300 mt-1">
+                  Your subscription has been temporarily paused by the administrator.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* What this means */}
+          <div className="bg-gray-800 rounded-lg p-6">
+            <h4 className="text-lg font-semibold text-white mb-4">What This Means</h4>
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <XCircle className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-white font-medium">Limited Operations</p>
+                  <p className="text-sm text-gray-400">You cannot issue rewards or process redemptions while paused</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-white font-medium">Billing Paused</p>
+                  <p className="text-sm text-gray-400">You will not be charged while your subscription is paused</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <CheckCircle className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-white font-medium">Subscription Retained</p>
+                  <p className="text-sm text-gray-400">Your subscription details and history are preserved</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Subscription Details */}
+          <div className="bg-gray-800 rounded-lg p-6">
+            <h4 className="text-lg font-semibold text-white mb-4">Subscription Details</h4>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Monthly Amount:</span>
+                <span className="text-white font-medium">${subscription.monthlyAmount}/mo</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Status:</span>
+                <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm font-medium">Paused</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Paused On:</span>
+                <span className="text-white font-medium">
+                  {subscription.pausedAt ? new Date(subscription.pausedAt).toLocaleDateString() : 'Recently'}
+                </span>
+              </div>
+              {subscription.pauseReason && (
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Reason:</span>
+                  <span className="text-white font-medium">{subscription.pauseReason}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Contact Admin */}
+          <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-4">
+            <h4 className="text-lg font-semibold text-yellow-400 mb-2">Need Help?</h4>
+            <p className="text-sm text-gray-300 mb-3">
+              Your subscription has been paused by the administrator. Please contact support to resolve any issues or have your subscription resumed.
+            </p>
+           {/*  <div className="flex gap-3">
+              <Button
+                onClick={syncSubscription}
+                variant="outline"
+                disabled={syncing}
+                className="border-yellow-600 text-yellow-300 hover:bg-yellow-700 hover:text-white"
+              >
+                {syncing ? 'Syncing...' : 'Check Status'}
+              </Button>
+            </div> */}
+          </div>
+        </div>
       ) : subscription && subscription.status === 'pending' ? (
         <div className="space-y-6">
           <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-4">
@@ -426,7 +513,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
               </div>
             </div>
           </div>
-          
+
           {/* Subscription Details */}
           <div className="bg-gray-800 rounded-lg p-6">
             <h4 className="text-lg font-semibold text-white mb-4">Subscription Details</h4>
@@ -467,6 +554,79 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
               className="border-red-600 text-red-600 hover:bg-red-600 hover:text-white"
             >
               Cancel Subscription Request
+            </Button>
+          </div>
+        </div>
+      ) : subscription && subscription.status === 'cancelled' ? (
+        <div className="space-y-6">
+          {/* Cancelled Subscription */}
+          <div className="bg-red-900/20 border border-red-700 rounded-lg p-4">
+            <div className="flex items-center gap-3">
+              <XCircle className="w-6 h-6 text-red-400" />
+              <div className="flex-1">
+                <h4 className="text-lg font-semibold text-red-400">Subscription Cancelled</h4>
+                <p className="text-sm text-gray-300 mt-1">
+                  Your subscription has been cancelled and is no longer active.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Subscription Details */}
+          <div className="bg-gray-800 rounded-lg p-6">
+            <h4 className="text-lg font-semibold text-white mb-4">Previous Subscription</h4>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Monthly Amount:</span>
+                <span className="text-white font-medium">${subscription.monthlyAmount}/mo</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Cancelled On:</span>
+                <span className="text-white font-medium">
+                  {subscription.cancelledAt ? new Date(subscription.cancelledAt).toLocaleDateString() : 'Recently'}
+                </span>
+              </div>
+              {subscription.cancellationReason && (
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Reason:</span>
+                  <span className="text-white font-medium">{subscription.cancellationReason}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-gray-400">Total Paid:</span>
+                <span className="text-white font-medium">${subscription.totalPaid}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Resubscribe Section */}
+          <div className="bg-gray-800 rounded-lg p-6 text-center">
+            <h4 className="text-lg font-semibold text-white mb-2">Want to Resume Operations?</h4>
+            <p className="text-gray-400 mb-6">
+              Subscribe again to regain full operational status and continue serving your customers.
+            </p>
+
+            <div className="space-y-3 mb-6">
+              <div className="flex items-center gap-2 text-sm text-gray-300">
+                <CheckCircle className="w-4 h-4 text-green-400" />
+                <span>Issue RCN rewards to customers</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-gray-300">
+                <CheckCircle className="w-4 h-4 text-green-400" />
+                <span>Process customer redemptions</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-gray-300">
+                <CheckCircle className="w-4 h-4 text-green-400" />
+                <span>Purchase RCN tokens at $0.10 each</span>
+              </div>
+            </div>
+
+            <Button
+              className="bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold"
+            >
+              <Link href="/shop/subscription-form">
+                Subscribe Again
+              </Link>
             </Button>
           </div>
         </div>
