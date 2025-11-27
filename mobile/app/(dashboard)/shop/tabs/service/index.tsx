@@ -14,73 +14,9 @@ import { useState } from "react";
 import { ServiceData } from "@/services/ShopServices";
 import { SERVICE_CATEGORIES } from "@/constants/service-categories";
 
-const datajson = [
-  {
-    active: true,
-    category: "Automotive",
-    createdAt: "2023-01-01T00:00:00Z",
-    description:
-      "Complete oil change service with filter replacement and fluid top-up",
-    durationMinutes: 30,
-    imageUrl:
-      "https://images.unsplash.com/photo-1487754180451-c456f719a1fc?w=400&h=300&fit=crop",
-    priceUsd: 45,
-    serviceId: "1",
-    serviceName: "Oil Change",
-    shopId: "1",
-    tags: ["Automotive", "Maintenance"],
-    updatedAt: "2023-01-01T00:00:00Z",
-  },
-  {
-    active: true,
-    category: "education_classes",
-    createdAt: "2023-01-01T00:00:00Z",
-    description: "Professional brake pad replacement for all vehicle types",
-    durationMinutes: 90,
-    imageUrl:
-      "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?w=400&h=300&fit=crop",
-    priceUsd: 150,
-    serviceId: "2",
-    serviceName: "Brake Service",
-    shopId: "1",
-    tags: ["Automotive", "Safety"],
-    updatedAt: "2023-01-01T00:00:00Z",
-  },
-  {
-    active: false,
-    category: "Automotive",
-    createdAt: "2023-01-01T00:00:00Z",
-    description: "Complete tire rotation and wheel alignment service",
-    durationMinutes: 60,
-    imageUrl:
-      "https://images.unsplash.com/photo-1553440569-bcc63803a83d?w=400&h=300&fit=crop",
-    priceUsd: 80,
-    serviceId: "3",
-    serviceName: "Tire Rotation",
-    shopId: "1",
-    tags: ["Automotive", "Tires"],
-    updatedAt: "2023-01-01T00:00:00Z",
-  },
-  {
-    active: true,
-    category: "Automotive",
-    createdAt: "2023-01-01T00:00:00Z",
-    description: "Full diagnostic scan and engine performance check",
-    durationMinutes: 45,
-    imageUrl:
-      "https://images.unsplash.com/photo-1530046339160-ce3e530c7d2f?w=400&h=300&fit=crop",
-    priceUsd: 95,
-    serviceId: "4",
-    serviceName: "Engine Diagnostic",
-    shopId: "1",
-    tags: ["Automotive", "Diagnostic"],
-    updatedAt: "2023-01-01T00:00:00Z",
-  },
-];
-
 export default function Service() {
-  const [refreshing, setRefreshing] = useState(false);
   const { data: servicesData, isLoading, error, refetch } = useShopServices();
+  const [refreshing, setRefreshing] = useState(false);
 
   console.log("servicesDataservicesData: ", servicesData);
 
@@ -105,15 +41,21 @@ export default function Service() {
       <TouchableOpacity activeOpacity={0.8}>
         <View className="bg-gray-900 rounded-xl overflow-hidden">
           <View className="relative">
-            <Image
-              source={{
-                uri:
-                  item.imageUrl ||
-                  "https://via.placeholder.com/200x120/2D3748/FFCC00?text=Service",
-              }}
-              className="w-full h-28"
-              resizeMode="cover"
-            />
+            {item.imageUrl ? (
+              <Image
+                source={{ uri: item.imageUrl }}
+                className="w-full h-28"
+                resizeMode="cover"
+              />
+            ) : (
+              <View className="w-full h-28 bg-gray-800 items-center justify-center">
+                <Ionicons
+                  name="image-outline"
+                  size={32}
+                  color="#6B7280"
+                />  
+              </View>
+            )}
             <View
               className={`absolute top-2 right-2 px-2 py-1 rounded-full ${item.active ? "bg-green-500" : "bg-gray-600"}`}
             >
@@ -176,7 +118,7 @@ export default function Service() {
           </View>
         ) : (
           <FlatList
-            data={datajson}
+            data={servicesData || []}
             keyExtractor={(item, index) => `${item.serviceId}-${index}`}
             renderItem={renderServiceItem}
             numColumns={2}
