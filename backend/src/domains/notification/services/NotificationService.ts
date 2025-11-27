@@ -9,6 +9,10 @@ export interface NotificationMessageTemplates {
   redemption_rejected: (data: { customerName: string; amount: number }) => string;
   redemption_cancelled: (data: { shopName: string; amount: number }) => string;
   token_gifted: (data: { fromCustomerName: string; amount: number }) => string;
+  subscription_paused: (data: { reason?: string }) => string;
+  subscription_resumed: () => string;
+  subscription_cancelled: (data: { reason?: string }) => string;
+  subscription_approved: () => string;
 }
 
 export class NotificationService {
@@ -38,7 +42,19 @@ export class NotificationService {
         `${data.shopName} cancelled the redemption request for ${data.amount} RCN.`,
 
       token_gifted: (data) =>
-        `You received ${data.amount} RCN gift from ${data.fromCustomerName}!`
+        `You received ${data.amount} RCN gift from ${data.fromCustomerName}!`,
+
+      subscription_paused: (data) =>
+        `Your subscription has been paused by admin${data.reason ? ': ' + data.reason : '.'}`,
+
+      subscription_resumed: () =>
+        'Your subscription has been resumed by admin and is now active.',
+
+      subscription_cancelled: (data) =>
+        `Your subscription has been cancelled by admin${data.reason ? ': ' + data.reason : '.'}`,
+
+      subscription_approved: () =>
+        'Your subscription has been approved and is now active!'
     };
   }
 
@@ -255,5 +271,73 @@ export class NotificationService {
       logger.error('Error in NotificationService.cleanupOldNotifications:', error);
       throw error;
     }
+  }
+
+  async createSubscriptionPausedNotification(
+    shopAddress: string,
+    reason?: string
+  ): Promise<Notification> {
+    const message = this.messageTemplates.subscription_paused({ reason });
+
+    return this.createNotification({
+      senderAddress: 'SYSTEM',
+      receiverAddress: shopAddress,
+      notificationType: 'subscription_paused',
+      message,
+      metadata: {
+        reason,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  async createSubscriptionResumedNotification(
+    shopAddress: string
+  ): Promise<Notification> {
+    const message = this.messageTemplates.subscription_resumed();
+
+    return this.createNotification({
+      senderAddress: 'SYSTEM',
+      receiverAddress: shopAddress,
+      notificationType: 'subscription_resumed',
+      message,
+      metadata: {
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  async createSubscriptionCancelledNotification(
+    shopAddress: string,
+    reason?: string
+  ): Promise<Notification> {
+    const message = this.messageTemplates.subscription_cancelled({ reason });
+
+    return this.createNotification({
+      senderAddress: 'SYSTEM',
+      receiverAddress: shopAddress,
+      notificationType: 'subscription_cancelled',
+      message,
+      metadata: {
+        reason,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  async createSubscriptionApprovedNotification(
+    shopAddress: string
+  ): Promise<Notification> {
+    const message = this.messageTemplates.subscription_approved();
+
+    return this.createNotification({
+      senderAddress: 'SYSTEM',
+      receiverAddress: shopAddress,
+      notificationType: 'subscription_approved',
+      message,
+      metadata: {
+        timestamp: new Date().toISOString()
+      }
+    });
   }
 }
