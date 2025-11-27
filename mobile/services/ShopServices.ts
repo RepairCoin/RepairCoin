@@ -551,3 +551,30 @@ export const getShopServices = async (
     throw error;
   }
 };
+
+export interface CreateServiceRequest {
+  serviceName: string;
+  description?: string;
+  category?: string;
+  priceUsd: number;
+  durationMinutes?: number;
+  imageUrl?: string;
+  tags?: string[];
+  active?: boolean;
+}
+
+export const createService = async (
+  serviceData: CreateServiceRequest
+): Promise<{ success: boolean; data?: ServiceData; message?: string }> => {
+  try {
+    // The backend expects tags as a JSON array string if provided
+    const requestData = {
+      ...serviceData,
+      tags: serviceData.tags ? JSON.stringify(serviceData.tags) : undefined
+    };
+    return await apiClient.post(`/services`, requestData);
+  } catch (error: any) {
+    console.error("Failed to create service:", error.message);
+    throw error;
+  }
+};
