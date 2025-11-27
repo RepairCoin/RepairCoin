@@ -35,6 +35,7 @@ interface Subscription {
   totalPaid: number;
   nextPaymentDate?: string;
   lastPaymentDate?: string;
+  stripePeriodEnd?: string; // Stripe's current_period_end - actual subscription end date
   enrolledAt: string;
   activatedAt?: string;
   cancelledAt?: string;
@@ -364,6 +365,75 @@ export default function SubscriptionManagementTab() {
       ),
       sortable: true,
       sortValue: (sub) => sub.paymentsMade
+    },
+    {
+      key: 'subscribedTill',
+      header: 'Subscribed Till',
+      accessor: (sub) => {
+        // Priority: Use Stripe's current_period_end if available (most accurate)
+        // Fallback: Calculate from payment dates
+        let subscribedTillDate: Date | null = null;
+
+        if (sub.stripePeriodEnd) {
+          // Use Stripe's current_period_end - this is the most accurate
+          subscribedTillDate = new Date(sub.stripePeriodEnd);
+        } else if (sub.status === 'active' && sub.nextPaymentDate) {
+          // For active subscriptions without Stripe data, use nextPaymentDate
+          subscribedTillDate = new Date(sub.nextPaymentDate);
+        } else if (sub.lastPaymentDate) {
+          // For paused/cancelled, calculate from lastPaymentDate + 30 days
+          const lastPayment = new Date(sub.lastPaymentDate);
+          subscribedTillDate = new Date(lastPayment.getTime() + 30 * 24 * 60 * 60 * 1000);
+        } else if (sub.activatedAt) {
+          // If no payment made yet, use 30 days from activation
+          const activated = new Date(sub.activatedAt);
+          subscribedTillDate = new Date(activated.getTime() + 30 * 24 * 60 * 60 * 1000);
+        }
+
+        if (!subscribedTillDate || isNaN(subscribedTillDate.getTime())) {
+          return <span className="text-gray-500">-</span>;
+        }
+
+        const now = new Date();
+        const daysRemaining = Math.ceil((subscribedTillDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        const hasExpired = daysRemaining < 0;
+
+        return (
+          <div>
+            <div className={`font-medium ${hasExpired ? 'text-red-400' : 'text-white'}`}>
+              {subscribedTillDate.toLocaleDateString()}
+            </div>
+            {hasExpired && (
+              <Badge className="mt-1 bg-red-500/20 text-red-400 border-red-500/50 text-xs">
+                Expired {Math.abs(daysRemaining)} days ago
+              </Badge>
+            )}
+            {!hasExpired && daysRemaining <= 7 && (
+              <Badge className="mt-1 bg-yellow-500/20 text-yellow-400 border-yellow-500/50 text-xs">
+                {daysRemaining} days left
+              </Badge>
+            )}
+          </div>
+        );
+      },
+      sortable: true,
+      sortValue: (sub) => {
+        let subscribedTillDate: Date | null = null;
+
+        if (sub.stripePeriodEnd) {
+          subscribedTillDate = new Date(sub.stripePeriodEnd);
+        } else if (sub.status === 'active' && sub.nextPaymentDate) {
+          subscribedTillDate = new Date(sub.nextPaymentDate);
+        } else if (sub.lastPaymentDate) {
+          const lastPayment = new Date(sub.lastPaymentDate);
+          subscribedTillDate = new Date(lastPayment.getTime() + 30 * 24 * 60 * 60 * 1000);
+        } else if (sub.activatedAt) {
+          const activated = new Date(sub.activatedAt);
+          subscribedTillDate = new Date(activated.getTime() + 30 * 24 * 60 * 60 * 1000);
+        }
+
+        return subscribedTillDate && !isNaN(subscribedTillDate.getTime()) ? subscribedTillDate.getTime() : '';
+      }
     },
     {
       key: 'nextPaymentDate',

@@ -20,14 +20,23 @@ router.get('/subscriptions', async (req: Request, res: Response) => {
     const offset = (Number(page) - 1) * Number(limit);
 
     let query = `
+      WITH latest_stripe_subs AS (
+        SELECT DISTINCT ON (shop_id)
+          shop_id,
+          current_period_end
+        FROM stripe_subscriptions
+        ORDER BY shop_id, created_at DESC
+      )
       SELECT
         subs.*,
         s.name as shop_name,
         s.email as shop_email,
         s.wallet_address,
-        s.phone
+        s.phone,
+        ss.current_period_end as stripe_period_end
       FROM shop_subscriptions subs
       JOIN shops s ON s.shop_id = subs.shop_id
+      LEFT JOIN latest_stripe_subs ss ON s.shop_id = ss.shop_id
     `;
 
     const params: any[] = [];
@@ -56,6 +65,7 @@ router.get('/subscriptions', async (req: Request, res: Response) => {
       totalPaid: parseFloat(row.total_paid || 0),
       nextPaymentDate: row.next_payment_date,
       lastPaymentDate: row.last_payment_date,
+      stripePeriodEnd: row.stripe_period_end, // Stripe's current_period_end for accurate subscription end date
       isActive: row.is_active,
       enrolledAt: row.enrolled_at,
       activatedAt: row.activated_at,
