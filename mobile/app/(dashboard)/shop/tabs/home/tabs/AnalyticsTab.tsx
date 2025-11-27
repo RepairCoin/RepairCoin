@@ -83,7 +83,7 @@ export default function AnalyticsTab() {
     <ThemedView className="w-full h-full">
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header Card */}
-        <View className="h-52 my-4">
+        <View className="h-48 my-4">
           <View className="w-full h-full bg-[#FFCC00] rounded-3xl flex-row overflow-hidden relative">
             <View
               className="w-[300px] h-[300px] border-[48px] border-[rgba(102,83,7,0.13)] rounded-full absolute"
@@ -216,74 +216,6 @@ export default function AnalyticsTab() {
             </View>
           </View>
         </View>
-
-        {/* Redemption Chart */}
-        {/* <View className="bg-[#1F2937] rounded-2xl p-4 mb-4">
-          <Text className="text-white font-bold text-lg mb-2">
-            Token Redemptions
-          </Text>
-          <Text className="text-gray-400 text-sm mb-4">
-            Monthly RCN tokens redeemed
-          </Text>
-
-          <LineChart
-            data={lossData}
-            width={chartWidth}
-            height={200}
-            color="#10B981"
-            thickness={3}
-            dataPointsColor="#10B981"
-            dataPointsRadius={5}
-            areaChart
-            startFillColor="rgba(16, 185, 129, 0.3)"
-            endFillColor="rgba(16, 185, 129, 0.01)"
-            startOpacity={0.9}
-            endOpacity={0.1}
-            xAxisColor="#374151"
-            yAxisColor="#374151"
-            xAxisLabelTextStyle={{
-              color: "#9CA3AF",
-              fontSize: 11,
-            }}
-            yAxisTextStyle={{
-              color: "#9CA3AF",
-              fontSize: 11,
-            }}
-            noOfSections={4}
-            rulesColor="#374151"
-            rulesType="solid"
-            curved
-            isAnimated
-            animationDuration={800}
-            spacing={spacing}
-            initialSpacing={20}
-            endSpacing={20}
-            hideDataPoints={false}
-            pointerConfig={{
-              pointerStripHeight: 160,
-              pointerStripColor: "#10B981",
-              pointerStripWidth: 2,
-              pointerColor: "#10B981",
-              radius: 6,
-              pointerLabelWidth: 100,
-              pointerLabelHeight: 50,
-              activatePointersOnLongPress: true,
-              autoAdjustPointerLabelPosition: true,
-              pointerLabelComponent: (items: { value: number }[]) => (
-                <View className="bg-black px-3 py-2 rounded-lg">
-                  <Text className="text-[#10B981] font-bold text-sm">
-                    {items[0]?.value} RCN
-                  </Text>
-                </View>
-              ),
-            }}
-          />
-
-          <View className="flex-row items-center mt-4">
-            <View className="w-3 h-3 bg-[#10B981] rounded-full mr-2" />
-            <Text className="text-gray-400 text-sm">Redemptions (RCN)</Text>
-          </View>
-        </View> */}
       </ScrollView>
     </ThemedView>
   );

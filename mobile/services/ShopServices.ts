@@ -1,4 +1,5 @@
 import { apiClient } from "@/utilities/axios";
+import { buildQueryString } from "@/utilities/helper";
 
 export interface Location {
   lat: number;
@@ -209,6 +210,33 @@ export interface CreatePromoCodeRequest {
   per_customer_limit?: number;
   max_bonus?: number;
   is_active: boolean;
+}
+
+export interface ServiceData {
+  active: boolean;
+  category: string;
+  createdAt: string;
+  description: string;
+  durationMinutes: number;
+  imageUrl: string;
+  priceUsd: number;
+  serviceId: string;
+  serviceName: string;
+  shopId: string;
+  tags: string[];
+  updatedAt: string;
+}
+
+export interface ServiceResponse {
+  data: ServiceData[];
+  pagination: {
+    hasMore: boolean;
+    limit: number;
+    page: number;
+    totalItems: number;
+    totalPages: number;
+  };
+  success: boolean;
 }
 
 export const listShops = async (): Promise<ShopResponse> => {
@@ -507,6 +535,19 @@ export const getCustomerBalance = async (
     return await apiClient.get(`/customers/balance/${customerAddress}`);
   } catch (error: any) {
     console.error("Failed to get customer balance:", error.message);
+    throw error;
+  }
+};
+
+export const getShopServices = async (
+  shopId: string,
+  options?: { page?: number; limit?: number }
+): Promise<ServiceResponse> => {
+  try {
+    const queryString = options ? buildQueryString(options) : '';
+    return await apiClient.get<ServiceResponse>(`/services/shop/${shopId}${queryString}`);
+  } catch (error: any) {
+    console.error("Failed to get shop services:", error.message);
     throw error;
   }
 };
