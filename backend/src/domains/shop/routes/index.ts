@@ -4,15 +4,16 @@ import { authMiddleware, requireRole, requireShopOrAdmin, requireShopOwnership }
 import { optionalAuthMiddleware } from '../../../middleware/optionalAuth';
 import { validateRequired, validateEthereumAddress, validateEmail, validateNumeric } from '../../../middleware/errorHandler';
 import { validateShopUniqueness } from '../../../middleware/validation';
-import { 
-  shopRepository, 
-  customerRepository, 
+import {
+  shopRepository,
+  customerRepository,
   transactionRepository,
-  redemptionSessionRepository 
+  redemptionSessionRepository
 } from '../../../repositories';
 import { TokenMinter } from '../../../contracts/TokenMinter';
 import { TierManager } from '../../../contracts/TierManager';
 import { logger } from '../../../utils/logger';
+import { DatabaseService } from '../../../services/DatabaseService';
 import { RoleValidator } from '../../../utils/roleValidator';
 import { validateShopRoleConflict } from '../../../middleware/roleConflictValidator';
 import { ReferralService } from '../../../services/ReferralService';
@@ -237,11 +238,22 @@ router.get('/wallet/:address',
         });
       }
 
+      // Fetch subscription status from shop_subscriptions table
+      const db = DatabaseService.getInstance();
+      const subQuery = await db.query(
+        'SELECT status FROM shop_subscriptions WHERE shop_id = $1 ORDER BY enrolled_at DESC LIMIT 1',
+        [shop.shopId]
+      );
+      const subscriptionStatus = subQuery.rows.length > 0 ? subQuery.rows[0].status : null;
+
       // Different data based on user role
       let shopData;
       if (req.user?.role === 'admin' || (req.user?.role === 'shop' && req.user.shopId === shop.shopId)) {
         // Full data for admin or shop owner
-        shopData = shop;
+        shopData = {
+          ...shop,
+          subscriptionStatus
+        };
       } else {
         // Limited data for others, but include balance info for frontend display
         shopData = {
@@ -267,6 +279,7 @@ router.get('/wallet/:address',
           rcg_balance: shop.rcg_balance,
           // Include subscription status
           subscriptionActive: shop.subscriptionActive,
+          subscriptionStatus,
           // Include suspension information (needed for frontend modal)
           suspendedAt: shop.suspendedAt,
           suspensionReason: shop.suspensionReason,

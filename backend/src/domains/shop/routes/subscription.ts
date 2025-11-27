@@ -63,6 +63,57 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
     const subscriptionService = getSubscriptionService();
     let stripeSubscription = await subscriptionService.getActiveSubscription(shopId);
 
+    // If no active subscription, check shop_subscriptions for paused/cancelled status
+    if (!stripeSubscription) {
+      const db = DatabaseService.getInstance();
+      const shopSubQuery = await db.query(
+        'SELECT * FROM shop_subscriptions WHERE shop_id = $1 ORDER BY enrolled_at DESC LIMIT 1',
+        [shopId]
+      );
+
+      if (shopSubQuery.rows.length > 0) {
+        const shopSub = shopSubQuery.rows[0];
+
+        // If subscription is paused or cancelled, return it
+        if (shopSub.status === 'paused' || shopSub.status === 'cancelled') {
+          logger.info(`📋 Subscription found with status: ${shopSub.status}`, {
+            shopId,
+            status: shopSub.status,
+            subscriptionId: shopSub.id
+          });
+
+          return res.json({
+            success: true,
+            data: {
+              currentSubscription: {
+                id: shopSub.id,
+                shopId: shopSub.shop_id,
+                status: shopSub.status,
+                monthlyAmount: parseFloat(shopSub.monthly_amount || 500),
+                subscriptionType: shopSub.subscription_type || 'standard',
+                billingMethod: shopSub.billing_method,
+                billingReference: shopSub.billing_reference,
+                paymentsMade: shopSub.payments_made || 0,
+                totalPaid: parseFloat(shopSub.total_paid || 0),
+                nextPaymentDate: shopSub.next_payment_date,
+                lastPaymentDate: shopSub.last_payment_date,
+                isActive: shopSub.is_active,
+                enrolledAt: shopSub.enrolled_at,
+                activatedAt: shopSub.activated_at,
+                cancelledAt: shopSub.cancelled_at,
+                pausedAt: shopSub.paused_at,
+                resumedAt: shopSub.resumed_at,
+                cancellationReason: shopSub.cancellation_reason,
+                pauseReason: shopSub.pause_reason,
+                notes: shopSub.notes
+              },
+              hasActiveSubscription: false
+            }
+          });
+        }
+      }
+    }
+
     if (stripeSubscription) {
       // Sync with Stripe to ensure database is up-to-date
       try {
