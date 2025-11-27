@@ -238,17 +238,18 @@ export class StripeService {
         return currentSub;
       }
 
-      // Resume the subscription
-      const subscription = await this.stripe.subscriptions.resume(
+      // Resume the subscription by setting pause_collection to null (empty string)
+      const subscription = await this.stripe.subscriptions.update(
         subscriptionId,
         {
-          // proration_datetime: prorationTimestamp // Optional: Calculate prorations as of this time
+          pause_collection: '' as any // Setting to empty string removes the pause
         }
       );
 
       logger.info('Subscription resumed', {
         subscriptionId,
-        status: subscription.status
+        status: subscription.status,
+        pause_collection: subscription.pause_collection
       });
 
       return subscription;

@@ -17,7 +17,8 @@ import {
   RefreshCw,
   X,
   TrendingUp,
-  Store
+  Store,
+  Search
 } from 'lucide-react';
 import apiClient from '@/services/api/client';
 
@@ -64,6 +65,7 @@ export default function SubscriptionManagementTab() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Modal states
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
@@ -118,7 +120,7 @@ export default function SubscriptionManagementTab() {
     await loadSubscriptions(true);
   };
 
-  const filterSubscriptions = useCallback((tab: string) => {
+  const filterSubscriptions = useCallback((tab: string, search: string) => {
     let filtered: Subscription[] = [];
 
     switch (tab) {
@@ -141,6 +143,15 @@ export default function SubscriptionManagementTab() {
         filtered = subscriptions;
     }
 
+    // Apply search filter
+    if (search.trim()) {
+      const searchLower = search.toLowerCase();
+      filtered = filtered.filter(s =>
+        (s.shopName && s.shopName.toLowerCase().includes(searchLower)) ||
+        s.shopId.toLowerCase().includes(searchLower)
+      );
+    }
+
     setFilteredSubscriptions(filtered);
   }, [subscriptions]);
 
@@ -149,8 +160,8 @@ export default function SubscriptionManagementTab() {
   }, [loadSubscriptions]);
 
   useEffect(() => {
-    filterSubscriptions(activeTab);
-  }, [subscriptions, activeTab, filterSubscriptions]);
+    filterSubscriptions(activeTab, searchQuery);
+  }, [subscriptions, activeTab, searchQuery, filterSubscriptions]);
 
   const handleApprove = async () => {
     if (!selectedSubscription) return;
@@ -583,6 +594,20 @@ export default function SubscriptionManagementTab() {
       <div className="border-2 border-[#FFCC00] bg-black/40 backdrop-blur-xl shadow-2xl rounded-lg overflow-hidden">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <div className="border-b-2 border-[#FFCC00]/50 bg-gradient-to-r from-black/60 via-black/40 to-black/60 backdrop-blur-md p-3 sm:p-4">
+            {/* Search Bar */}
+            <div className="mb-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search by shop name or ID..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-black/40 border-2 border-[#FFCC00]/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-[#FFCC00] focus:ring-2 focus:ring-[#FFCC00]/20 transition-all"
+                />
+              </div>
+            </div>
+
             {/* Mobile: Grid layout for tabs, Desktop: Single row with sync button */}
             <div className="flex flex-col md:flex-row md:items-center gap-3">
               {/* Tabs - Grid on mobile, flex on desktop */}
