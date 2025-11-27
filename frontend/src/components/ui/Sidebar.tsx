@@ -33,7 +33,7 @@ import {
   BuyRcnIcon,
   SettingsIcon,
   LogoutIcon,
-  LookupIcon
+  LookupIcon,
 } from "../icon";
 import { useAuthStore } from "@/stores/authStore";
 import { logout } from "@/services/api/auth";
@@ -83,33 +83,48 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [expandedSections, setExpandedSections] = useState<string[]>(["dashboard", "service", "rewards", "customers", "shop-tools", "settings"]);
+  const [expandedSections, setExpandedSections] = useState<string[]>([
+    "dashboard",
+    "service",
+    "rewards",
+    "customers",
+    "shop-tools",
+    "settings",
+  ]);
 
   // Auto-collapse subtabs when switching to a different main tab
   React.useEffect(() => {
     // If activeTab changes and it's not "customers", collapse the customers subtab
     if (activeTab && activeTab !== "customers") {
-      setExpandedItems(prev => prev.filter(id => id !== "customers"));
+      setExpandedItems((prev) => prev.filter((id) => id !== "customers"));
     }
     // If activeTab changes and it's not "shops-management", collapse the shops subtab
     if (activeTab && activeTab !== "shops-management") {
-      setExpandedItems(prev => prev.filter(id => id !== "shops-management"));
+      setExpandedItems((prev) =>
+        prev.filter((id) => id !== "shops-management")
+      );
     }
     // If activeTab changes and it's not "services" or "bookings", collapse the service subtab
     if (activeTab && activeTab !== "services" && activeTab !== "bookings") {
-      setExpandedItems(prev => prev.filter(id => id !== "service"));
+      setExpandedItems((prev) => prev.filter((id) => id !== "service"));
     }
     // Auto-expand customers when it becomes active
     if (activeTab === "customers" && !expandedItems.includes("customers")) {
-      setExpandedItems(prev => [...prev, "customers"]);
+      setExpandedItems((prev) => [...prev, "customers"]);
     }
     // Auto-expand shops when it becomes active
-    if (activeTab === "shops-management" && !expandedItems.includes("shops-management")) {
-      setExpandedItems(prev => [...prev, "shops-management"]);
+    if (
+      activeTab === "shops-management" &&
+      !expandedItems.includes("shops-management")
+    ) {
+      setExpandedItems((prev) => [...prev, "shops-management"]);
     }
     // Auto-expand service when services or bookings becomes active
-    if ((activeTab === "services" || activeTab === "bookings") && !expandedItems.includes("service")) {
-      setExpandedItems(prev => [...prev, "service"]);
+    if (
+      (activeTab === "services" || activeTab === "bookings") &&
+      !expandedItems.includes("service")
+    ) {
+      setExpandedItems((prev) => [...prev, "service"]);
     }
   }, [activeTab]);
 
@@ -194,7 +209,13 @@ const Sidebar: React.FC<SidebarProps> = ({
         {
           title: "Overview",
           href: "/shop?tab=overview",
-          icon: <OverviewIcon width={24} height={24} isActive={activeTab === "overview"} />,
+          icon: (
+            <OverviewIcon
+              width={24}
+              height={24}
+              isActive={activeTab === "overview"}
+            />
+          ),
           tabId: "overview",
         },
         {
@@ -220,13 +241,25 @@ const Sidebar: React.FC<SidebarProps> = ({
         {
           title: "Issue Rewards",
           href: "/shop?tab=issue-rewards",
-          icon: <IssueRewardsIcon width={24} height={24} isActive={activeTab === "issue-rewards"} />,
+          icon: (
+            <IssueRewardsIcon
+              width={24}
+              height={24}
+              isActive={activeTab === "issue-rewards"}
+            />
+          ),
           tabId: "issue-rewards",
         },
         {
           title: "Redeem",
           href: "/shop?tab=redeem",
-          icon: <RedeemIcon width={24} height={24} isActive={activeTab === "redeem"} />,
+          icon: (
+            <RedeemIcon
+              width={24}
+              height={24}
+              isActive={activeTab === "redeem"}
+            />
+          ),
           tabId: "redeem",
         },
         {
@@ -238,13 +271,25 @@ const Sidebar: React.FC<SidebarProps> = ({
         {
           title: "Customers",
           href: "/shop?tab=customers",
-          icon: <CustomerIcon width={24} height={24} isActive={activeTab === "customers"} />,
+          icon: (
+            <CustomerIcon
+              width={24}
+              height={24}
+              isActive={activeTab === "customers"}
+            />
+          ),
           tabId: "customers",
         },
         {
           title: "Lookup",
           href: "/shop?tab=lookup",
-          icon: <LookupIcon width={24} height={24} isActive={activeTab === "lookup"}/>,
+          icon: (
+            <LookupIcon
+              width={24}
+              height={24}
+              isActive={activeTab === "lookup"}
+            />
+          ),
           tabId: "lookup",
         },
         {
@@ -268,7 +313,13 @@ const Sidebar: React.FC<SidebarProps> = ({
         {
           title: "Buy Credits",
           href: "/shop?tab=purchase",
-          icon: <BuyRcnIcon width={24} height={24} isActive={activeTab === "purchase"} />,
+          icon: (
+            <BuyRcnIcon
+              width={24}
+              height={24}
+              isActive={activeTab === "purchase"}
+            />
+          ),
           tabId: "purchase",
         },
       ];
@@ -276,12 +327,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
     if (userRole === "admin") {
       const adminItems = [];
-      
-      // Role-based access control
-      // Super Admin: All tabs
-      // Admin: All tabs except Admins management
-      // Moderator: Read-only (Overview only)
-      
+
       // Overview is always visible for any admin
       adminItems.push({
         title: "Overview",
@@ -289,10 +335,10 @@ const Sidebar: React.FC<SidebarProps> = ({
         icon: <span className="text-xl">📊</span>,
         tabId: "overview",
       });
-      
+
       // Check role for tab visibility
-      const isSuper = isSuperAdmin === true || adminRole === 'super_admin';
-      
+      const isSuper = isSuperAdmin === true || adminRole === "super_admin";
+
       // Only Super Admin can manage other admins
       if (isSuper) {
         adminItems.push({
@@ -302,7 +348,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           tabId: "admins",
         });
       }
-      
+
       // These tabs are always visible for all admin roles
       adminItems.push(
         {
@@ -391,7 +437,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const menuItems = getMenuItems();
 
-  // Get organized sections for shop sidebar
+  // Get organized sections for shop sidebar (DEFINED ONLY ONCE)
   const getShopSections = (): SidebarSection[] => {
     if (userRole !== "shop") return [];
 
@@ -403,7 +449,13 @@ const Sidebar: React.FC<SidebarProps> = ({
           {
             title: "Overview",
             href: "/shop?tab=overview",
-            icon: <OverviewIcon width={24} height={24} isActive={activeTab === "overview"} />,
+            icon: (
+              <OverviewIcon
+                width={24}
+                height={24}
+                isActive={activeTab === "overview"}
+              />
+            ),
             tabId: "overview",
           },
         ],
@@ -433,13 +485,25 @@ const Sidebar: React.FC<SidebarProps> = ({
           {
             title: "Issue Rewards",
             href: "/shop?tab=issue-rewards",
-            icon: <IssueRewardsIcon width={24} height={24} isActive={activeTab === "issue-rewards"} />,
+            icon: (
+              <IssueRewardsIcon
+                width={24}
+                height={24}
+                isActive={activeTab === "issue-rewards"}
+              />
+            ),
             tabId: "issue-rewards",
           },
           {
             title: "Redeem",
             href: "/shop?tab=redeem",
-            icon: <RedeemIcon width={24} height={24} isActive={activeTab === "redeem"} />,
+            icon: (
+              <RedeemIcon
+                width={24}
+                height={24}
+                isActive={activeTab === "redeem"}
+              />
+            ),
             tabId: "redeem",
           },
           {
@@ -457,13 +521,25 @@ const Sidebar: React.FC<SidebarProps> = ({
           {
             title: "Customers",
             href: "/shop?tab=customers",
-            icon: <CustomerIcon width={24} height={24} isActive={activeTab === "customers"} />,
+            icon: (
+              <CustomerIcon
+                width={24}
+                height={24}
+                isActive={activeTab === "customers"}
+              />
+            ),
             tabId: "customers",
           },
           {
             title: "Lookup",
             href: "/shop?tab=lookup",
-            icon: <LookupIcon width={24} height={24} isActive={activeTab === "lookup"}/>,
+            icon: (
+              <LookupIcon
+                width={24}
+                height={24}
+                isActive={activeTab === "lookup"}
+              />
+            ),
             tabId: "lookup",
           },
         ],
@@ -493,7 +569,13 @@ const Sidebar: React.FC<SidebarProps> = ({
           {
             title: "Buy Credits",
             href: "/shop?tab=purchase",
-            icon: <BuyRcnIcon width={24} height={24} isActive={activeTab === "purchase"} />,
+            icon: (
+              <BuyRcnIcon
+                width={24}
+                height={24}
+                isActive={activeTab === "purchase"}
+              />
+            ),
             tabId: "purchase",
           },
         ],
@@ -503,50 +585,56 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const shopSections = getShopSections();
 
+  // Toggle section (DEFINED ONLY ONCE)
   const toggleSection = (sectionId: string) => {
-    setExpandedSections(prev =>
+    setExpandedSections((prev) =>
       prev.includes(sectionId)
-        ? prev.filter(id => id !== sectionId)
+        ? prev.filter((id) => id !== sectionId)
         : [...prev, sectionId]
     );
   };
 
-  const bottomMenuItems: SidebarItem[] = userRole === "shop" ? [
-    {
-      title: "Settings",
-      href: "/shop?tab=settings",
-      icon: <Settings className="w-5 h-5" />,
-      tabId: "settings",
-    },
-    {
-      title: "Logout",
-      href: "/logout",
-      icon: <LogOut className="w-5 h-5" />,
-    },
-  ] : userRole === "customer" ? [
-    {
-      title: "Settings",
-      href: "/customer?tab=settings",
-      icon: <SettingsIcon width={24} height={24} />,
-      tabId: "settings",
-    },
-    {
-      title: "Logout",
-      href: "/logout",
-      icon: <LogoutIcon width={24} height={24} />,
-    }
-  ] : [
-    {
-      title: "Settings",
-      href: `/${userRole}?tab=settings`,
-      icon: <SettingsIcon width={24} height={24} />,
-    },
-    {
-      title: "Logout",
-      href: "/logout",
-      icon: <LogoutIcon width={24} height={24} />,
-    },
-  ];
+  const bottomMenuItems: SidebarItem[] =
+    userRole === "shop"
+      ? [
+          {
+            title: "Settings",
+            href: "/shop?tab=settings",
+            icon: <Settings className="w-5 h-5" />,
+            tabId: "settings",
+          },
+          {
+            title: "Logout",
+            href: "/logout",
+            icon: <LogOut className="w-5 h-5" />,
+          },
+        ]
+      : userRole === "customer"
+      ? [
+          {
+            title: "Settings",
+            href: "/customer?tab=settings",
+            icon: <SettingsIcon width={24} height={24} />,
+            tabId: "settings",
+          },
+          {
+            title: "Logout",
+            href: "/logout",
+            icon: <LogoutIcon width={24} height={24} />,
+          },
+        ]
+      : [
+          {
+            title: "Settings",
+            href: `/${userRole}?tab=settings`,
+            icon: <SettingsIcon width={24} height={24} />,
+          },
+          {
+            title: "Logout",
+            href: "/logout",
+            icon: <LogoutIcon width={24} height={24} />,
+          },
+        ];
 
   return (
     <>
@@ -555,7 +643,11 @@ const Sidebar: React.FC<SidebarProps> = ({
         onClick={onToggle}
         className="lg:hidden fixed top-3 left-3 sm:top-4 sm:left-4 z-50 p-1.5 sm:p-2 rounded-lg bg-gray-900 text-yellow-400 hover:bg-gray-800"
       >
-        {isOpen ? <X className="w-5 h-5 sm:w-6 sm:h-6" /> : <Menu className="w-5 h-5 sm:w-6 sm:h-6" />}
+        {isOpen ? (
+          <X className="w-5 h-5 sm:w-6 sm:h-6" />
+        ) : (
+          <Menu className="w-5 h-5 sm:w-6 sm:h-6" />
+        )}
       </button>
 
       {/* Overlay for mobile */}
@@ -595,7 +687,9 @@ const Sidebar: React.FC<SidebarProps> = ({
               )}
               {isCollapsed && (
                 <div className="w-8 h-8 sm:w-10 sm:h-10 bg-yellow-400 rounded-full flex items-center justify-center">
-                  <span className="text-black font-bold text-xs sm:text-sm">RC</span>
+                  <span className="text-black font-bold text-xs sm:text-sm">
+                    RC
+                  </span>
                 </div>
               )}
             </button>
@@ -632,193 +726,260 @@ const Sidebar: React.FC<SidebarProps> = ({
 
             {/* Main Navigation */}
             <nav className="py-3 sm:py-4">
-            {userRole === "shop" && !isCollapsed ? (
-              /* Shop Sidebar with Sections */
-              <div className="space-y-4 px-2 sm:px-3">
-                {shopSections.map((section) => {
-                  const isSectionExpanded = expandedSections.includes(section.id);
+              {userRole === "shop" && !isCollapsed ? (
+                /* Shop Sidebar with Sections */
+                <div className="space-y-4 px-2 sm:px-3">
+                  {shopSections.map((section) => {
+                    const isSectionExpanded = expandedSections.includes(
+                      section.id
+                    );
 
-                  return (
-                    <div key={section.id}>
-                      {/* Section Header */}
-                      <button
-                        onClick={() => toggleSection(section.id)}
-                        className="flex items-center justify-between w-full px-2 py-2 text-[#FFCC00] text-xs font-semibold tracking-wider hover:opacity-80 transition-opacity"
-                      >
-                        <span>{section.title}</span>
-                        <ChevronDown
-                          className={`w-4 h-4 transition-transform duration-200 ${
-                            isSectionExpanded ? "rotate-180" : ""
-                          }`}
-                        />
-                      </button>
-
-                      {/* Section Items */}
-                      {isSectionExpanded && (
-                        <ul className="space-y-1 mt-2">
-                          {section.items.map((item) => {
-                            const isActive = item.tabId ? activeTab === item.tabId : pathname === item.href;
-
-                            const handleClick = (e: React.MouseEvent) => {
-                              if (item.tabId && onTabChange) {
-                                e.preventDefault();
-                                onTabChange(item.tabId);
-                              }
-                            };
-
-                            return (
-                              <li key={item.href}>
-                                <Link
-                                  href={item.href}
-                                  onClick={handleClick}
-                                  className={`
-                                    flex items-center space-x-3 px-3 sm:px-4 py-2 sm:py-3 rounded-lg
-                                    transition-colors duration-200
-                                    ${
-                                      isActive
-                                        ? "bg-[#FFCC00] text-[#101010] font-medium"
-                                        : "text-white hover:bg-gray-800 hover:text-white"
-                                    }
-                                  `}
-                                >
-                                  <div className="w-5 h-5 flex items-center justify-center">
-                                    {React.isValidElement(item.icon)
-                                      ? React.cloneElement(item.icon as React.ReactElement<any>, {
-                                          className: `w-5 h-5 ${isActive ? "text-[#101010]" : ""}`
-                                        })
-                                      : item.icon
-                                    }
-                                  </div>
-                                  <span className="text-sm sm:text-base">{item.title}</span>
-                                </Link>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              /* Regular Sidebar for other roles or collapsed state */
-              <ul className="space-y-1 px-2 sm:px-3">
-                {menuItems.map((item) => {
-                  const hasSubItems = item.subItems && item.subItems.length > 0;
-                  const isExpanded = expandedItems.includes(item.tabId || item.href);
-                  const hasActiveSubItem = hasSubItems && item.subItems?.some(sub => activeTab === sub.tabId);
-                  const isDirectlyActive = (userRole === "shop" || userRole === "customer" || userRole === "admin") && item.tabId
-                    ? activeTab === item.tabId
-                    : pathname === item.href ||
-                      (item.href !== `/${userRole}` &&
-                        pathname.startsWith(item.href));
-
-                  const handleClick = (e: React.MouseEvent) => {
-                    if (item.href === "/logout") {
-                      e.preventDefault();
-                      handleLogout();
-                    } else if (hasSubItems) {
-                      e.preventDefault();
-                      const itemId = item.tabId || item.href;
-                      setExpandedItems(prev =>
-                        prev.includes(itemId)
-                          ? prev.filter(id => id !== itemId)
-                          : [...prev, itemId]
-                      );
-                      // Still navigate to main tab when clicking parent
-                      if ((userRole === "shop" || userRole === "customer" || userRole === "admin") && item.tabId && onTabChange) {
-                        onTabChange(item.tabId);
-                      }
-                    } else if ((userRole === "shop" || userRole === "customer" || userRole === "admin") && item.tabId && onTabChange) {
-                      e.preventDefault();
-                      onTabChange(item.tabId);
-                    }
-                  };
-
-                  return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        onClick={handleClick}
-                        className={`
-                          flex items-center ${isCollapsed ? "justify-center" : "justify-between"} px-3 sm:px-4 py-2 sm:py-3 rounded-lg
-                          transition-colors duration-200
-                          ${
-                            isDirectlyActive
-                              ? "bg-yellow-400 text-gray-900 font-medium"
-                              : hasActiveSubItem
-                              ? "bg-gray-800 text-yellow-400 font-medium border border-yellow-400 border-opacity-30"
-                              : "text-gray-300 hover:bg-gray-800 hover:text-white"
-                          }
-                        `}
-                        title={isCollapsed ? item.title : undefined}
-                      >
-                        <div className={`flex items-center ${isCollapsed ? "" : "space-x-3"}`}>
-                          {React.isValidElement(item.icon)
-                            ? React.cloneElement(item.icon as React.ReactElement<any>, {
-                                className: `w-4 h-4 sm:w-5 sm:h-5 ${
-                                  isDirectlyActive ? "text-gray-900" : hasActiveSubItem ? "text-yellow-400" : ""
-                                }`
-                              })
-                            : item.icon
-                          }
-                          {!isCollapsed && <span className="text-sm sm:text-base">{item.title}</span>}
-                        </div>
-                        {!isCollapsed && hasSubItems && (
+                    return (
+                      <div key={section.id}>
+                        {/* Section Header */}
+                        <button
+                          onClick={() => toggleSection(section.id)}
+                          className="flex items-center justify-between w-full px-2 py-2 text-[#FFCC00] text-xs font-semibold tracking-wider hover:opacity-80 transition-opacity"
+                        >
+                          <span>{section.title}</span>
                           <ChevronDown
                             className={`w-4 h-4 transition-transform duration-200 ${
-                              isExpanded ? "rotate-180" : ""
-                            } ${
-                              isDirectlyActive ? "text-gray-900" : hasActiveSubItem ? "text-yellow-400" : "text-gray-400"
+                              isSectionExpanded ? "rotate-180" : ""
                             }`}
                           />
+                        </button>
+
+                        {/* Section Items */}
+                        {isSectionExpanded && (
+                          <ul className="space-y-1 mt-2">
+                            {section.items.map((item) => {
+                              const isActive = item.tabId
+                                ? activeTab === item.tabId
+                                : pathname === item.href;
+
+                              const handleClick = (e: React.MouseEvent) => {
+                                if (item.tabId && onTabChange) {
+                                  e.preventDefault();
+                                  onTabChange(item.tabId);
+                                }
+                              };
+
+                              return (
+                                <li key={item.href}>
+                                  <Link
+                                    href={item.href}
+                                    onClick={handleClick}
+                                    className={`
+                                      flex items-center space-x-3 px-3 sm:px-4 py-2 sm:py-3 rounded-lg
+                                      transition-colors duration-200
+                                      ${
+                                        isActive
+                                          ? "bg-[#FFCC00] text-[#101010] font-medium"
+                                          : "text-white hover:bg-gray-800 hover:text-white"
+                                      }
+                                    `}
+                                  >
+                                    <div className="w-5 h-5 flex items-center justify-center">
+                                      {React.isValidElement(item.icon)
+                                        ? React.cloneElement(
+                                            item.icon as React.ReactElement<any>,
+                                            {
+                                              className: `w-5 h-5 ${
+                                                isActive ? "text-[#101010]" : ""
+                                              }`,
+                                            }
+                                          )
+                                        : item.icon}
+                                    </div>
+                                    <span className="text-sm sm:text-base">
+                                      {item.title}
+                                    </span>
+                                  </Link>
+                                </li>
+                              );
+                            })}
+                          </ul>
                         )}
-                      </Link>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                /* Regular Sidebar for other roles or collapsed state */
+                <ul className="space-y-1 px-2 sm:px-3">
+                  {menuItems.map((item) => {
+                    const hasSubItems =
+                      item.subItems && item.subItems.length > 0;
+                    const isExpanded = expandedItems.includes(
+                      item.tabId || item.href
+                    );
+                    const hasActiveSubItem =
+                      hasSubItems &&
+                      item.subItems?.some((sub) => activeTab === sub.tabId);
+                    const isDirectlyActive =
+                      (userRole === "shop" ||
+                        userRole === "customer" ||
+                        userRole === "admin") &&
+                      item.tabId
+                        ? activeTab === item.tabId
+                        : pathname === item.href ||
+                          (item.href !== `/${userRole}` &&
+                            pathname.startsWith(item.href));
 
-                      {/* Sub Items */}
-                      {!isCollapsed && hasSubItems && isExpanded && (
-                        <ul className="mt-1 ml-4 space-y-1">
-                          {item.subItems?.map((subItem) => {
-                            const subIsActive = (userRole === "shop" || userRole === "customer" || userRole === "admin") && subItem.tabId
-                              ? activeSubTab === subItem.tabId
-                              : pathname === subItem.href;
+                    const handleClick = (e: React.MouseEvent) => {
+                      if (item.href === "/logout") {
+                        e.preventDefault();
+                        handleLogout();
+                      } else if (hasSubItems) {
+                        e.preventDefault();
+                        const itemId = item.tabId || item.href;
+                        setExpandedItems((prev) =>
+                          prev.includes(itemId)
+                            ? prev.filter((id) => id !== itemId)
+                            : [...prev, itemId]
+                        );
+                        // Still navigate to main tab when clicking parent
+                        if (
+                          (userRole === "shop" ||
+                            userRole === "customer" ||
+                            userRole === "admin") &&
+                          item.tabId &&
+                          onTabChange
+                        ) {
+                          onTabChange(item.tabId);
+                        }
+                      } else if (
+                        (userRole === "shop" ||
+                          userRole === "customer" ||
+                          userRole === "admin") &&
+                        item.tabId &&
+                        onTabChange
+                      ) {
+                        e.preventDefault();
+                        onTabChange(item.tabId);
+                      }
+                    };
 
-                            const handleSubClick = (e: React.MouseEvent) => {
-                              if ((userRole === "shop" || userRole === "customer" || userRole === "admin") && subItem.tabId && onTabChange) {
-                                e.preventDefault();
-                                onTabChange(subItem.tabId);
-                              }
-                            };
+                    return (
+                      <li key={item.href}>
+                        <Link
+                          href={item.href}
+                          onClick={handleClick}
+                          className={`
+                            flex items-center ${
+                              isCollapsed ? "justify-center" : "justify-between"
+                            } px-3 sm:px-4 py-2 sm:py-3 rounded-lg
+                            transition-colors duration-200
+                            ${
+                              isDirectlyActive
+                                ? "bg-yellow-400 text-gray-900 font-medium"
+                                : hasActiveSubItem
+                                ? "bg-gray-800 text-yellow-400 font-medium border border-yellow-400 border-opacity-30"
+                                : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                            }
+                          `}
+                          title={isCollapsed ? item.title : undefined}
+                        >
+                          <div
+                            className={`flex items-center ${
+                              isCollapsed ? "" : "space-x-3"
+                            }`}
+                          >
+                            {React.isValidElement(item.icon)
+                              ? React.cloneElement(
+                                  item.icon as React.ReactElement<any>,
+                                  {
+                                    className: `w-4 h-4 sm:w-5 sm:h-5 ${
+                                      isDirectlyActive
+                                        ? "text-gray-900"
+                                        : hasActiveSubItem
+                                        ? "text-yellow-400"
+                                        : ""
+                                    }`,
+                                  }
+                                )
+                              : item.icon}
+                            {!isCollapsed && (
+                              <span className="text-sm sm:text-base">
+                                {item.title}
+                              </span>
+                            )}
+                          </div>
+                          {!isCollapsed && hasSubItems && (
+                            <ChevronDown
+                              className={`w-4 h-4 transition-transform duration-200 ${
+                                isExpanded ? "rotate-180" : ""
+                              } ${
+                                isDirectlyActive
+                                  ? "text-gray-900"
+                                  : hasActiveSubItem
+                                  ? "text-yellow-400"
+                                  : "text-gray-400"
+                              }`}
+                            />
+                          )}
+                        </Link>
 
-                            return (
-                              <li key={subItem.href}>
-                                <Link
-                                  href={subItem.href}
-                                  onClick={handleSubClick}
-                                  className={`
-                                    flex items-center space-x-2 px-3 py-2 rounded-lg
-                                    transition-colors duration-200 text-sm
-                                    ${
-                                      subIsActive
-                                        ? "bg-[#FFCC00] text-gray-900 font-medium"
-                                        : "text-gray-400 hover:bg-gray-800 hover:text-white"
-                                    }
-                                  `}
-                                >
-                                  <span className={subIsActive ? "text-gray-900" : ""}>{subItem.icon}</span>
-                                  <span>{subItem.title}</span>
-                                </Link>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </nav>
+                        {/* Sub Items */}
+                        {!isCollapsed && hasSubItems && isExpanded && (
+                          <ul className="mt-1 ml-4 space-y-1">
+                            {item.subItems?.map((subItem) => {
+                              const subIsActive =
+                                (userRole === "shop" ||
+                                  userRole === "customer" ||
+                                  userRole === "admin") &&
+                                subItem.tabId
+                                  ? activeSubTab === subItem.tabId
+                                  : pathname === subItem.href;
+
+                              const handleSubClick = (e: React.MouseEvent) => {
+                                if (
+                                  (userRole === "shop" ||
+                                    userRole === "customer" ||
+                                    userRole === "admin") &&
+                                  subItem.tabId &&
+                                  onTabChange
+                                ) {
+                                  e.preventDefault();
+                                  onTabChange(subItem.tabId);
+                                }
+                              };
+
+                              return (
+                                <li key={subItem.href}>
+                                  <Link
+                                    href={subItem.href}
+                                    onClick={handleSubClick}
+                                    className={`
+                                      flex items-center space-x-2 px-3 py-2 rounded-lg
+                                      transition-colors duration-200 text-sm
+                                      ${
+                                        subIsActive
+                                          ? "bg-[#FFCC00] text-gray-900 font-medium"
+                                          : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                                      }
+                                    `}
+                                  >
+                                    <span
+                                      className={
+                                        subIsActive ? "text-gray-900" : ""
+                                      }
+                                    >
+                                      {subItem.icon}
+                                    </span>
+                                    <span>{subItem.title}</span>
+                                  </Link>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </nav>
 
             {/* Settings Section */}
             <div className="border-t border-gray-800 p-3 sm:p-4">
@@ -837,18 +998,30 @@ const Sidebar: React.FC<SidebarProps> = ({
               )}
 
               {/* Show items if: not collapsed, OR not shop role, OR section is expanded */}
-              {(isCollapsed || userRole !== "shop" || expandedSections.includes("settings")) && (
+              {(isCollapsed ||
+                userRole !== "shop" ||
+                expandedSections.includes("settings")) && (
                 <ul className="space-y-1">
                   {bottomMenuItems.map((item) => {
-                    const isActive = (userRole === "shop" || userRole === "customer" || userRole === "admin") && item.tabId
-                      ? activeTab === item.tabId
-                      : pathname === item.href;
+                    const isActive =
+                      (userRole === "shop" ||
+                        userRole === "customer" ||
+                        userRole === "admin") &&
+                      item.tabId
+                        ? activeTab === item.tabId
+                        : pathname === item.href;
 
                     const handleClick = (e: React.MouseEvent) => {
                       if (item.href === "/logout") {
                         e.preventDefault();
                         handleLogout();
-                      } else if ((userRole === "shop" || userRole === "customer" || userRole === "admin") && item.tabId && onTabChange) {
+                      } else if (
+                        (userRole === "shop" ||
+                          userRole === "customer" ||
+                          userRole === "admin") &&
+                        item.tabId &&
+                        onTabChange
+                      ) {
                         e.preventDefault();
                         onTabChange(item.tabId);
                       }
@@ -860,7 +1033,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                           href={item.href}
                           onClick={handleClick}
                           className={`
-                            flex items-center ${isCollapsed ? "justify-center" : "space-x-3"} px-3 sm:px-4 py-2 sm:py-3 rounded-lg
+                            flex items-center ${
+                              isCollapsed ? "justify-center" : "space-x-3"
+                            } px-3 sm:px-4 py-2 sm:py-3 rounded-lg
                             transition-colors duration-200
                             ${
                               isActive
@@ -871,12 +1046,20 @@ const Sidebar: React.FC<SidebarProps> = ({
                           title={isCollapsed ? item.title : undefined}
                         >
                           {React.isValidElement(item.icon)
-                            ? React.cloneElement(item.icon as React.ReactElement<any>, {
-                                className: `w-4 h-4 sm:w-5 sm:h-5 ${isActive ? "text-[#101010]" : ""}`
-                              })
-                            : item.icon
-                          }
-                          {!isCollapsed && <span className="text-sm sm:text-base">{item.title}</span>}
+                            ? React.cloneElement(
+                                item.icon as React.ReactElement<any>,
+                                {
+                                  className: `w-4 h-4 sm:w-5 sm:h-5 ${
+                                    isActive ? "text-[#101010]" : ""
+                                  }`,
+                                }
+                              )
+                            : item.icon}
+                          {!isCollapsed && (
+                            <span className="text-sm sm:text-base">
+                              {item.title}
+                            </span>
+                          )}
                         </Link>
                       </li>
                     );
@@ -891,19 +1074,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <div className="bg-gradient-to-br from-[#FFCC00] to-[#FFB800] rounded-2xl p-4 relative overflow-hidden min-h-[176px]">
                   {/* Bottom shadow gradient */}
                   <div className="absolute bottom-0 left-0 right-0 h-14 bg-gradient-to-t from-black/80 via-black/60 to-transparent rounded-b-2xl pointer-events-none z-[5]" />
-
-                  {/* Background person image */}
-                 {/*  <div className="absolute bottom-0 right-0 w-[140px] h-full pointer-events-none">
-                    <img
-                      src="/shop/need-help-person.png"
-                      alt=""
-                      className="w-full h-2/3 object-scale-down object-bottom absolute bottom-0 right-0 opacity-40"
-                      onError={(e) => {
-                        // Hide image if it fails to load
-                        e.currentTarget.style.display = 'none';
-                      }}
-                    />
-                  </div> */}
 
                   {/* Content */}
                   <div className="relative z-10">
@@ -923,28 +1093,31 @@ const Sidebar: React.FC<SidebarProps> = ({
                     {/* Contact Icons */}
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => window.open('tel:+1234567890', '_self')}
+                        onClick={() => window.open("tel:+1234567890", "_self")}
                         className="bg-black rounded-full p-2 hover:bg-gray-800 transition-colors"
                         title="Call us"
                       >
                         <Phone className="w-4 h-4 text-white" />
                       </button>
                       <button
-                        onClick={() => window.open('mailto:support@repaircoin.com', '_blank')}
+                        onClick={() =>
+                          window.open("mailto:support@repaircoin.com", "_blank")
+                        }
                         className="bg-[#EBEFF5] rounded-full p-2 hover:bg-gray-300 transition-colors"
                         title="Email us"
                       >
                         <Mail className="w-4 h-4 text-black" />
                       </button>
                       <button
-                        onClick={() => window.open('https://wa.me/1234567890', '_blank')}
+                        onClick={() =>
+                          window.open("https://wa.me/1234567890", "_blank")
+                        }
                         className="bg-[#EBEFF5] rounded-full p-2 hover:bg-gray-300 transition-colors"
                         title="Chat with us"
                       >
                         <MessageCircle className="w-4 h-4 text-black" />
                       </button>
                     </div>
-                   
                   </div>
                 </div>
               </div>

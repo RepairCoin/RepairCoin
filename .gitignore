@@ -138,3 +138,5 @@ dist
 
 # android
 /mobile/android/
+
+backend/.env.test
