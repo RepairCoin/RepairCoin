@@ -13,6 +13,12 @@ process.env.THIRDWEB_CLIENT_ID = process.env.THIRDWEB_CLIENT_ID || 'test-client-
 process.env.THIRDWEB_SECRET_KEY = process.env.THIRDWEB_SECRET_KEY || 'test-secret-key';
 process.env.REPAIRCOIN_CONTRACT_ADDRESS = process.env.REPAIRCOIN_CONTRACT_ADDRESS || '0x0000000000000000000000000000000000000000';
 process.env.PRIVATE_KEY = process.env.PRIVATE_KEY || '0000000000000000000000000000000000000000000000000000000000000000';
+// DigitalOcean Spaces config for ImageStorageService
+process.env.DO_SPACES_BUCKET = process.env.DO_SPACES_BUCKET || 'test-bucket';
+process.env.DO_SPACES_KEY = process.env.DO_SPACES_KEY || 'test-spaces-key';
+process.env.DO_SPACES_SECRET = process.env.DO_SPACES_SECRET || 'test-spaces-secret';
+process.env.DO_SPACES_ENDPOINT = process.env.DO_SPACES_ENDPOINT || 'https://nyc3.digitaloceanspaces.com';
+process.env.DO_SPACES_REGION = process.env.DO_SPACES_REGION || 'nyc3';
 
 // Mock console methods to reduce noise in tests
 global.console = {
