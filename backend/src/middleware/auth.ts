@@ -511,7 +511,7 @@ export const refreshToken = (req: Request, res: Response, next: NextFunction) =>
       role: req.user.role as any,
       shopId: req.user.shopId
     });
-    
+
     res.json({
       success: true,
       token: newToken,
@@ -524,5 +524,49 @@ export const refreshToken = (req: Request, res: Response, next: NextFunction) =>
       error: 'Token refresh failed',
       code: 'TOKEN_REFRESH_ERROR'
     });
+  }
+};
+
+/**
+ * Optional authentication middleware
+ * Tries to authenticate but doesn't fail if no token is present
+ * Useful for routes that should work for both authenticated and non-authenticated users
+ */
+export const optionalAuthMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    // Try to get token from cookies first
+    let token = req.cookies?.auth_token;
+
+    // Fallback to Authorization header
+    if (!token) {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+      }
+    }
+
+    // If no token, just continue without user
+    if (!token) {
+      return next();
+    }
+
+    // Try to verify token
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET || 'fallback-secret'
+    ) as AccessTokenPayload;
+
+    // Set user if token is valid
+    req.user = {
+      address: decoded.address,
+      role: decoded.role,
+      shopId: decoded.shopId
+    };
+
+    next();
+  } catch (error) {
+    // If token verification fails, just continue without user
+    // Don't block the request
+    next();
   }
 };

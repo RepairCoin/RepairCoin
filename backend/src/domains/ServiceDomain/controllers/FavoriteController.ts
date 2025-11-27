@@ -116,9 +116,29 @@ export class FavoriteController {
         limit
       });
 
+      // Transform data to match frontend ShopServiceWithShopInfo interface
+      const transformedItems = result.items.map((item: any) => ({
+        serviceId: item.serviceId,
+        shopId: item.shopId,
+        serviceName: item.serviceName,
+        description: item.description,
+        priceUsd: item.priceUsd,
+        durationMinutes: item.durationMinutes,
+        category: item.category,
+        imageUrl: item.imageUrl,
+        tags: item.tags,
+        averageRating: item.averageRating,
+        reviewCount: item.reviewCount,
+        active: true,
+        companyName: item.shopName, // Map shopName to companyName
+        shopAddress: item.shopAddress,
+        shopIsVerified: item.shopIsVerified || false,
+        createdAt: item.createdAt
+      }));
+
       res.json({
         success: true,
-        data: result.items,
+        data: transformedItems,
         pagination: result.pagination
       });
     } catch (error) {

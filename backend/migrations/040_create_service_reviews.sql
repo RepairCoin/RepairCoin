@@ -8,8 +8,8 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Create service_reviews table
 CREATE TABLE IF NOT EXISTS service_reviews (
   review_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  service_id UUID NOT NULL,
-  order_id UUID NOT NULL,
+  service_id VARCHAR(50) NOT NULL,
+  order_id VARCHAR(50) NOT NULL,
   customer_address VARCHAR(255) NOT NULL,
   shop_id VARCHAR(255) NOT NULL,
   rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),

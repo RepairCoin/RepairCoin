@@ -25,6 +25,7 @@ import {
   SERVICE_CATEGORIES,
 } from "@/services/api/services";
 import { CreateServiceModal } from "@/components/shop/modals/CreateServiceModal";
+import { ShopServiceDetailsModal } from "@/components/shop/modals/ShopServiceDetailsModal";
 
 interface ServicesTabProps {
   shopId: string;
@@ -36,6 +37,7 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingService, setEditingService] = useState<ShopService | null>(null);
   const [deletingService, setDeletingService] = useState<string | null>(null);
+  const [viewingService, setViewingService] = useState<ShopService | null>(null);
 
   useEffect(() => {
     loadServices();
@@ -43,16 +45,29 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId }) => {
 
   const loadServices = async () => {
     setLoading(true);
+    console.log('🛍️ [ServicesTab] Loading services for shopId:', shopId);
+
     try {
       const response = await getShopServices(shopId, { limit: 100 });
+      console.log('🛍️ [ServicesTab] API Response:', {
+        response,
+        hasData: !!response?.data,
+        dataLength: response?.data?.length,
+        rawData: response?.data
+      });
+
       if (response?.data) {
         setServices(response.data);
+        console.log('✅ [ServicesTab] Services set in state:', response.data.length, 'services');
+      } else {
+        console.warn('⚠️ [ServicesTab] No data in response');
       }
     } catch (error) {
-      console.error("Error loading services:", error);
+      console.error("❌ [ServicesTab] Error loading services:", error);
       toast.error("Failed to load services");
     } finally {
       setLoading(false);
+      console.log('🏁 [ServicesTab] Loading complete. Total services:', services.length);
     }
   };
 
@@ -84,9 +99,17 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId }) => {
 
   const handleToggleActive = async (service: ShopService) => {
     try {
-      await updateService(service.serviceId, { active: !service.active });
+      const updatedService = await updateService(service.serviceId, { active: !service.active });
       toast.success(`Service ${service.active ? "deactivated" : "activated"} successfully!`);
-      loadServices();
+
+      // Update only the specific service in state instead of reloading all services
+      if (updatedService) {
+        setServices(prevServices =>
+          prevServices.map(s =>
+            s.serviceId === service.serviceId ? updatedService : s
+          )
+        );
+      }
     } catch (error) {
       console.error("Error toggling service:", error);
       toast.error("Failed to update service status");
@@ -170,7 +193,8 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId }) => {
               key={service.serviceId}
               className={`bg-[#1A1A1A] border ${
                 service.active ? "border-gray-800" : "border-gray-700 opacity-60"
-              } rounded-2xl p-6 hover:border-[#FFCC00]/30 transition-all duration-200`}
+              } rounded-2xl p-6 hover:border-[#FFCC00]/30 transition-all duration-200 cursor-pointer`}
+              onClick={() => setViewingService(service)}
             >
               {/* Service Image */}
               {service.imageUrl ? (
@@ -266,14 +290,20 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId }) => {
               {/* Actions */}
               <div className="flex gap-2 pt-4 border-t border-gray-800">
                 <button
-                  onClick={() => setEditingService(service)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditingService(service);
+                  }}
                   className="flex-1 flex items-center justify-center gap-2 bg-blue-600/20 text-blue-400 border border-blue-600/30 px-4 py-2 rounded-lg hover:bg-blue-600/30 transition-colors duration-200"
                 >
                   <Edit className="w-4 h-4" />
                   Edit
                 </button>
                 <button
-                  onClick={() => handleDeleteService(service.serviceId)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteService(service.serviceId);
+                  }}
                   disabled={deletingService === service.serviceId}
                   className="flex-1 flex items-center justify-center gap-2 bg-red-600/20 text-red-400 border border-red-600/30 px-4 py-2 rounded-lg hover:bg-red-600/30 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -301,6 +331,14 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId }) => {
           onSubmit={(data) => handleEditService(editingService.serviceId, data)}
           initialData={editingService}
           isEditing
+        />
+      )}
+
+      {/* View Service Details Modal */}
+      {viewingService && (
+        <ShopServiceDetailsModal
+          service={viewingService}
+          onClose={() => setViewingService(null)}
         />
       )}
     </div>

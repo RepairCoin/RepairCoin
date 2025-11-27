@@ -9,7 +9,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS service_favorites (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   customer_address VARCHAR(255) NOT NULL,
-  service_id UUID NOT NULL,
+  service_id VARCHAR(50) NOT NULL,
   created_at TIMESTAMP DEFAULT NOW(),
 
   -- Constraints

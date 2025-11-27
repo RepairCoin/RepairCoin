@@ -116,12 +116,27 @@ export class ServiceController {
       const { shopId } = req.params;
       const requestingShopId = req.user?.shopId;
 
+      console.log('🔍 [getShopServices] Request details:', {
+        shopId,
+        requestingShopId,
+        userRole: req.user?.role,
+        isAuthenticated: !!req.user,
+        isOwner: requestingShopId === shopId,
+        willShowInactive: requestingShopId === shopId
+      });
+
       const options = {
         page: parseInt(req.query.page as string) || 1,
         limit: parseInt(req.query.limit as string) || 20,
         // Only show active services to public, show all to shop owner
         activeOnly: requestingShopId !== shopId
       };
+
+      console.log('🔍 [getShopServices] Query options:', {
+        ...options,
+        activeOnly: options.activeOnly,
+        explanation: options.activeOnly ? 'Showing only ACTIVE services (public view)' : 'Showing ALL services (shop owner view)'
+      });
 
       const result = await this.service.getShopServices(shopId, options);
 

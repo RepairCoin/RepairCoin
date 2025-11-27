@@ -152,16 +152,26 @@ cp env.example .env
 - Referral rewards: 25 RCN referrer, 10 RCN referee
 - No daily or monthly earning limits
 - 20% redemption at any shop, 100% at earning shop
+- Service marketplace browsing with filters and search
+- Service favorites system for saving preferred services
+- Social sharing (WhatsApp, Twitter, Facebook, copy link)
+- Review and rating system for completed service bookings
+- View service details with reviews and ratings
 
-### Shop Features  
+### Shop Features
 - $500/month Stripe subscription
 - Purchase RCN at tiered pricing
 - Issue rewards & process redemptions
 - Customer lookup & management
+- Service marketplace management (create, edit, delete, activate/deactivate)
+- Image upload integration with DigitalOcean Spaces
+- Service booking management with custom completion modal
+- View and respond to customer reviews
+- Service details modal with integrated reviews tab
 
 ### Admin Features
 - Platform statistics & analytics
-- Shop approval & management  
+- Shop approval & management
 - Token minting & treasury tracking
 - Customer management
 
@@ -211,3 +221,60 @@ stripe listen --forward-to localhost:4000/api/shops/webhooks/stripe
 - remember to only commit if i say so
 - to check database check the env database is directly connected to digital ocean
 - when creating a ui in frontend check shadcn components and use it
+
+## Frontend Development Accomplishments
+
+### Service Favorites System
+- Created interactive heart icon button to save favorite services
+- Built dedicated favorites view with grid layout for easy browsing
+- Added favorite buttons to all service cards for quick access
+- Shows real-time status of which services you've favorited
+- Only available to customers (secure access)
+- Integrated favorites directly into marketplace with toggle button
+- One-click switch between all services and your saved favorites
+- Clean interface that hides filters when viewing favorites only
+
+### Social Sharing System
+- Created share button with dropdown menu for easy sharing
+- Integrated WhatsApp, Twitter, and Facebook sharing options
+- Added one-click copy link feature with success notification
+- Designed clean UI with recognizable social media icons
+- Positioned share buttons on service cards for convenience
+- Smart dropdown that closes when clicking outside
+
+### Reviews & Ratings System
+- Built star rating display that shows service quality at a glance
+- Created review browsing with pagination for easy navigation
+- Developed complete review submission form for customers
+- Added star ratings visible on all service cards
+- Customers can filter reviews by rating (1-5 stars)
+- Expandable review cards to show full content
+- Shop owners can respond to customer reviews
+- Added "Helpful" voting so customers can highlight useful reviews
+- Support for review photos (ready for future use)
+
+### Shop Dashboard Improvements
+- Fixed shop bookings layout with cleaner 3-column grid design
+- Reduced oversized "Mark Complete" button to compact size
+- Created custom CompleteOrderModal showing RCN rewards
+- Moved status badges to header for better hierarchy
+- Changed completion button to green for better UX
+- Fixed duplicate order bug in payment flow
+- Integrated service reviews into Services tab (removed separate Reviews tab)
+- Made service cards clickable to open details modal
+- Created ShopServiceDetailsModal with tabs for Details and Reviews
+- Shop owners can view and respond to reviews from service details
+
+### Integration & Polish
+- Connected review system to completed service bookings
+- Customers can now write reviews directly from their orders
+- Shows review status (whether already reviewed or eligible to review)
+- Updated service details page with tabbed interface
+- Separated service information and customer reviews for clarity
+- All buttons on service cards now align perfectly at the bottom
+- Fixed text overflow issues for long business names and addresses
+- Repositioned action buttons for better visibility and access
+- Enhanced button visibility with improved styling and effects
+- All features work seamlessly on mobile and desktop devices
+- Consistent design across all new features for professional look
+- Smooth loading states and animations for better user experience

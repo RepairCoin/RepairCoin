@@ -41,7 +41,7 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
   const [isFavorited, setIsFavorited] = useState(initialIsFavorited ?? false);
   const [isLoading, setIsLoading] = useState(false);
   const [isChecking, setIsChecking] = useState(initialIsFavorited === undefined);
-  const { user, isAuthenticated } = useAuthStore();
+  const { isAuthenticated, isCustomer, userType } = useAuthStore();
 
   // Size classes
   const sizeClasses = {
@@ -58,10 +58,10 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
 
   // Check initial favorite status if not provided
   useEffect(() => {
-    if (initialIsFavorited === undefined && isAuthenticated && user?.role === "customer") {
+    if (initialIsFavorited === undefined && isAuthenticated && isCustomer) {
       checkFavoriteStatus();
     }
-  }, [serviceId, isAuthenticated, user?.role]);
+  }, [serviceId, isAuthenticated, isCustomer]);
 
   const checkFavoriteStatus = async () => {
     try {
@@ -86,7 +86,7 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
     }
 
     // Check user role
-    if (user?.role !== "customer") {
+    if (!isCustomer) {
       toast.error("Only customers can favorite services");
       return;
     }
@@ -115,29 +115,35 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
     }
   };
 
-  // Don't show for non-customers
-  if (!isAuthenticated || user?.role !== "customer") {
-    return null;
-  }
+  const isDisabled = isLoading || isChecking || !isAuthenticated || !isCustomer;
+  const tooltipText = !isAuthenticated
+    ? "Sign in to favorite services"
+    : !isCustomer
+    ? "Only customers can favorite services"
+    : isFavorited
+    ? "Remove from favorites"
+    : "Add to favorites";
 
   return (
     <button
       onClick={handleToggleFavorite}
-      disabled={isLoading || isChecking}
+      disabled={isDisabled}
       className={`
         ${sizeClasses[size]}
         flex items-center justify-center gap-2
         rounded-full
+        backdrop-blur-sm
         transition-all duration-200
+        shadow-lg
         ${
           isFavorited
-            ? "bg-red-500 text-white hover:bg-red-600"
-            : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-red-500"
+            ? "bg-red-500/90 text-white hover:bg-red-600 hover:scale-110"
+            : "bg-black/60 text-gray-300 hover:bg-black/80 hover:text-red-500 hover:scale-110"
         }
         disabled:opacity-50 disabled:cursor-not-allowed
         ${className}
       `}
-      title={isFavorited ? "Remove from favorites" : "Add to favorites"}
+      title={tooltipText}
     >
       {isChecking ? (
         <div className={`${iconSizes[size]} animate-spin rounded-full border-2 border-gray-400 border-t-transparent`} />

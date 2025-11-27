@@ -5,7 +5,7 @@ import { OrderController } from './controllers/OrderController';
 import { FavoriteController } from './controllers/FavoriteController';
 import { ReviewController } from './controllers/ReviewController';
 import { PaymentService } from './services/PaymentService';
-import { authMiddleware, requireRole } from '../../middleware/auth';
+import { authMiddleware, optionalAuthMiddleware, requireRole } from '../../middleware/auth';
 import { StripeService } from '../../services/StripeService';
 
 const router = Router();
@@ -126,34 +126,10 @@ export function initializeRoutes(stripe: StripeService): Router {
 
   /**
    * @swagger
-   * /api/services/{id}:
-   *   get:
-   *     summary: Get service by ID
-   *     description: Get detailed service information with shop details (Public access)
-   *     tags: [Services]
-   *     parameters:
-   *       - in: path
-   *         name: id
-   *         required: true
-   *         schema:
-   *           type: string
-   *     responses:
-   *       200:
-   *         description: Service details
-   *       404:
-   *         description: Service not found
-   */
-  router.get(
-    '/:id',
-    serviceController.getServiceById
-  );
-
-  /**
-   * @swagger
    * /api/services/shop/{shopId}:
    *   get:
    *     summary: Get all services for a shop
-   *     description: Get all services offered by a specific shop
+   *     description: Get all services offered by a specific shop (Public, but shop owners see inactive services too)
    *     tags: [Services]
    *     parameters:
    *       - in: path
@@ -175,7 +151,168 @@ export function initializeRoutes(stripe: StripeService): Router {
    */
   router.get(
     '/shop/:shopId',
+    optionalAuthMiddleware, // Authenticate if token present, but don't require it
     serviceController.getShopServices
+  );
+
+  // ==================== FAVORITES ROUTES (before /:id) ====================
+
+  /**
+   * @swagger
+   * /api/services/favorites:
+   *   post:
+   *     summary: Add service to favorites (Customer only)
+   *     description: Bookmark a service for later
+   *     tags: [Favorites]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - serviceId
+   *             properties:
+   *               serviceId:
+   *                 type: string
+   *     responses:
+   *       201:
+   *         description: Service favorited
+   */
+  router.post(
+    '/favorites',
+    authMiddleware,
+    requireRole(['customer']),
+    favoriteController.addFavorite
+  );
+
+  /**
+   * @swagger
+   * /api/services/favorites:
+   *   get:
+   *     summary: Get customer's favorites (Customer only)
+   *     description: Get all favorited services
+   *     tags: [Favorites]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: page
+   *         schema:
+   *           type: integer
+   *       - in: query
+   *         name: limit
+   *         schema:
+   *           type: integer
+   *     responses:
+   *       200:
+   *         description: List of favorited services
+   */
+  router.get(
+    '/favorites',
+    authMiddleware,
+    requireRole(['customer']),
+    (req, res) => favoriteController.getCustomerFavorites(req, res)
+  );
+
+  /**
+   * @swagger
+   * /api/services/favorites/check/{serviceId}:
+   *   get:
+   *     summary: Check if service is favorited (Customer only)
+   *     description: Check favorite status of a service
+   *     tags: [Favorites]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: serviceId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Favorite status
+   */
+  router.get(
+    '/favorites/check/:serviceId',
+    authMiddleware,
+    requireRole(['customer']),
+    favoriteController.checkFavorite
+  );
+
+  /**
+   * @swagger
+   * /api/services/favorites/{serviceId}:
+   *   delete:
+   *     summary: Remove service from favorites (Customer only)
+   *     description: Unbookmark a service
+   *     tags: [Favorites]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: serviceId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Service removed from favorites
+   */
+  router.delete(
+    '/favorites/:serviceId',
+    authMiddleware,
+    requireRole(['customer']),
+    favoriteController.removeFavorite
+  );
+
+  /**
+   * @swagger
+   * /api/services/{serviceId}/favorites/count:
+   *   get:
+   *     summary: Get favorite count for a service (Public)
+   *     description: Get number of times a service has been favorited
+   *     tags: [Favorites]
+   *     parameters:
+   *       - in: path
+   *         name: serviceId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Favorite count
+   */
+  router.get(
+    '/:serviceId/favorites/count',
+    favoriteController.getServiceFavoriteCount
+  );
+
+  /**
+   * @swagger
+   * /api/services/{id}:
+   *   get:
+   *     summary: Get service by ID
+   *     description: Get detailed service information with shop details (Public access)
+   *     tags: [Services]
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Service details
+   *       404:
+   *         description: Service not found
+   */
+  router.get(
+    '/:id',
+    serviceController.getServiceById
   );
 
   /**
@@ -501,142 +638,6 @@ export function initializeRoutes(stripe: StripeService): Router {
     authMiddleware,
     requireRole(['customer']),
     orderController.cancelOrder
-  );
-
-  // ==================== FAVORITES ROUTES ====================
-
-  /**
-   * @swagger
-   * /api/services/favorites:
-   *   post:
-   *     summary: Add service to favorites (Customer only)
-   *     description: Bookmark a service for later
-   *     tags: [Favorites]
-   *     security:
-   *       - bearerAuth: []
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             type: object
-   *             required:
-   *               - serviceId
-   *             properties:
-   *               serviceId:
-   *                 type: string
-   *     responses:
-   *       201:
-   *         description: Service favorited
-   */
-  router.post(
-    '/favorites',
-    authMiddleware,
-    requireRole(['customer']),
-    favoriteController.addFavorite
-  );
-
-  /**
-   * @swagger
-   * /api/services/favorites/{serviceId}:
-   *   delete:
-   *     summary: Remove service from favorites (Customer only)
-   *     description: Unbookmark a service
-   *     tags: [Favorites]
-   *     security:
-   *       - bearerAuth: []
-   *     parameters:
-   *       - in: path
-   *         name: serviceId
-   *         required: true
-   *         schema:
-   *           type: string
-   *     responses:
-   *       200:
-   *         description: Service removed from favorites
-   */
-  router.delete(
-    '/favorites/:serviceId',
-    authMiddleware,
-    requireRole(['customer']),
-    favoriteController.removeFavorite
-  );
-
-  /**
-   * @swagger
-   * /api/services/favorites/check/{serviceId}:
-   *   get:
-   *     summary: Check if service is favorited (Customer only)
-   *     description: Check favorite status of a service
-   *     tags: [Favorites]
-   *     security:
-   *       - bearerAuth: []
-   *     parameters:
-   *       - in: path
-   *         name: serviceId
-   *         required: true
-   *         schema:
-   *           type: string
-   *     responses:
-   *       200:
-   *         description: Favorite status
-   */
-  router.get(
-    '/favorites/check/:serviceId',
-    authMiddleware,
-    requireRole(['customer']),
-    favoriteController.checkFavorite
-  );
-
-  /**
-   * @swagger
-   * /api/services/favorites:
-   *   get:
-   *     summary: Get customer's favorites (Customer only)
-   *     description: Get all favorited services
-   *     tags: [Favorites]
-   *     security:
-   *       - bearerAuth: []
-   *     parameters:
-   *       - in: query
-   *         name: page
-   *         schema:
-   *           type: integer
-   *       - in: query
-   *         name: limit
-   *         schema:
-   *           type: integer
-   *     responses:
-   *       200:
-   *         description: List of favorited services
-   */
-  router.get(
-    '/favorites',
-    authMiddleware,
-    requireRole(['customer']),
-    favoriteController.getCustomerFavorites
-  );
-
-  /**
-   * @swagger
-   * /api/services/{serviceId}/favorites/count:
-   *   get:
-   *     summary: Get favorite count for a service (Public)
-   *     description: Get number of times a service has been favorited
-   *     tags: [Favorites]
-   *     parameters:
-   *       - in: path
-   *         name: serviceId
-   *         required: true
-   *         schema:
-   *           type: string
-   *     responses:
-   *       200:
-   *         description: Favorite count
-   */
-  router.get(
-    '/:serviceId/favorites/count',
-    favoriteController.getServiceFavoriteCount
   );
 
   // ==================== REVIEWS ROUTES ====================

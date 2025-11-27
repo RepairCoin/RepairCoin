@@ -270,19 +270,6 @@ export default function ShopDashboardClient() {
     shopData?.subscriptionEndsAt &&
     new Date(shopData.subscriptionEndsAt) > new Date();
 
-  // Debug logging for cancelled subscription detection
-  if (shopData?.subscriptionStatus) {
-    console.log('🔍 Cancelled subscription check:', {
-      subscriptionStatus: shopData.subscriptionStatus,
-      subscriptionCancelledAt: shopData.subscriptionCancelledAt,
-      subscriptionEndsAt: shopData.subscriptionEndsAt,
-      endsAtDate: shopData.subscriptionEndsAt ? new Date(shopData.subscriptionEndsAt) : null,
-      now: new Date(),
-      isInFuture: shopData.subscriptionEndsAt ? new Date(shopData.subscriptionEndsAt) > new Date() : false,
-      isCancelledButActive
-    });
-  }
-
   // Shop should be blocked if: suspended, rejected, pending, paused, or not operational (unsubscribed/expired)
   const isBlocked = !!(isSuspended || isRejected || isPending || isPaused || !isOperational);
 
