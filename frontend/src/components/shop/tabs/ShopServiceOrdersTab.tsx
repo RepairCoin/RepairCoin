@@ -86,7 +86,7 @@ export const ShopServiceOrdersTab: React.FC<ShopServiceOrdersTabProps> = ({ shop
         return {
           icon: <Clock className="w-4 h-4" />,
           text: "Pending Payment",
-          className: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+          className: "bg-purple-500/20 text-purple-400 border-purple-500/30",
         };
       case "cancelled":
         return {
@@ -248,119 +248,128 @@ export const ShopServiceOrdersTab: React.FC<ShopServiceOrdersTabProps> = ({ shop
             return (
               <div
                 key={order.orderId}
-                className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-6 hover:border-[#FFCC00]/30 transition-all duration-200"
+                className="bg-[#1A1A1A] border border-gray-800 rounded-xl overflow-hidden hover:border-[#FFCC00]/30 transition-all duration-200"
               >
-                {/* Header with Service Name and Status */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-bold text-white mb-1">
-                      {order.serviceName}
-                    </h3>
-                    {order.serviceDescription && (
-                      <p className="text-sm text-gray-400 line-clamp-1">
-                        {order.serviceDescription}
-                      </p>
-                    )}
-                  </div>
-                  <span
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border whitespace-nowrap ml-4 ${statusBadge.className}`}
-                  >
-                    {statusBadge.icon}
-                    {statusBadge.text}
-                  </span>
-                </div>
-
-                {/* Order Details Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-                  {/* Amount */}
-                  <div className="bg-[#0D0D0D] border border-gray-800 rounded-lg p-3">
-                    <div className="flex items-center gap-2 text-sm text-gray-400 mb-1">
-                      <DollarSign className="w-4 h-4" />
-                      <span>Amount</span>
-                    </div>
-                    <span className="font-bold text-lg text-green-500">
-                      ${order.totalAmount.toFixed(2)}
-                    </span>
-                  </div>
-
-                  {/* Booked Date */}
-                  <div className="bg-[#0D0D0D] border border-gray-800 rounded-lg p-3">
-                    <div className="flex items-center gap-2 text-sm text-gray-400 mb-1">
-                      <Calendar className="w-4 h-4" />
-                      <span>Booked</span>
-                    </div>
-                    <span className="font-semibold text-sm text-white">
-                      {formatDate(order.createdAt)}
-                    </span>
-                  </div>
-
-                  {/* Customer */}
-                  <div className="bg-[#0D0D0D] border border-gray-800 rounded-lg p-3">
-                    <div className="flex items-center gap-2 text-sm text-gray-400 mb-1">
-                      <User className="w-4 h-4" />
-                      <span>Customer</span>
-                    </div>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(order.customerAddress);
-                        toast.success("Address copied!");
-                      }}
-                      className="text-[#FFCC00] hover:text-[#FFD700] font-mono text-sm underline"
-                    >
-                      {truncateAddress(order.customerAddress)}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Booking Date (if scheduled) */}
-                {order.bookingDate && (
-                  <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3 mb-4">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Clock className="w-4 h-4 text-purple-400" />
-                      <span className="text-purple-300">
-                        <span className="font-semibold text-purple-400">Scheduled for:</span>{" "}
-                        {formatDate(order.bookingDate)}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Customer Notes */}
-                {order.notes && (
-                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mb-4">
-                    <p className="text-sm text-blue-300">
-                      <span className="font-semibold text-blue-400">Customer Notes:</span>{" "}
-                      {order.notes}
-                    </p>
-                  </div>
-                )}
-
-                {/* Action Button / Status */}
-                <div className="flex items-center justify-between pt-3 border-t border-gray-800">
-                  <div className="text-xs text-gray-500">Order ID: {order.orderId}</div>
-
-                  {order.status === "paid" && (
-                    <button
-                      onClick={() => setSelectedOrder(order)}
-                      disabled={updatingOrder === order.orderId}
-                      className="bg-gradient-to-r from-green-600 to-green-700 text-white font-semibold px-5 py-2 rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg"
-                    >
-                      <CheckCircle className="w-4 h-4" />
-                      Mark Complete
-                    </button>
-                  )}
-
-                  {order.status === "completed" && order.completedAt && (
-                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg px-4 py-2">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 text-blue-400" />
-                        <div className="text-left">
-                          <p className="text-sm font-semibold text-blue-400">Completed</p>
-                          <p className="text-xs text-gray-400">{formatDate(order.completedAt)}</p>
-                        </div>
+                {/* Header Bar with Status */}
+                <div className="bg-gradient-to-r from-[#FFCC00] to-[#FFD700] border-b border-[#FFCC00] px-5 py-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Package className="w-5 h-5 text-black" />
+                      <div>
+                        <h3 className="text-base font-bold text-black">
+                          {order.serviceName}
+                        </h3>
+                        <p className="text-xs text-black/60">ID: {order.orderId}</p>
                       </div>
                     </div>
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold border ${statusBadge.className}`}
+                    >
+                      {statusBadge.icon}
+                      {statusBadge.text}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Main Content */}
+                <div className="p-5">
+                  {/* Key Info Grid - Horizontal on Desktop */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    {/* Amount */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <DollarSign className="w-5 h-5 text-green-400" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Amount</p>
+                        <p className="text-lg font-bold text-green-400">
+                          ${order.totalAmount.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Booked Date */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Calendar className="w-5 h-5 text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Booked</p>
+                        <p className="text-sm font-semibold text-white">
+                          {formatDate(order.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Customer */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-[#FFCC00]/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <User className="w-5 h-5 text-[#FFCC00]" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Customer</p>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(order.customerAddress);
+                            toast.success("Address copied!");
+                          }}
+                          className="text-sm text-[#FFCC00] hover:text-[#FFD700] font-mono underline transition-colors"
+                        >
+                          {truncateAddress(order.customerAddress)}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Additional Info */}
+                  {(order.bookingDate || order.notes) && (
+                    <div className="space-y-2 mb-4">
+                      {/* Scheduled Date */}
+                      {order.bookingDate && (
+                        <div className="bg-purple-500/5 border border-purple-500/20 rounded-lg px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                            <p className="text-sm text-purple-200">
+                              <span className="font-medium">Scheduled:</span>{" "}
+                              {formatDate(order.bookingDate)}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Customer Notes */}
+                      {order.notes && (
+                        <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg px-3 py-2">
+                          <p className="text-sm text-blue-200">
+                            <span className="font-medium text-blue-300">Note:</span> {order.notes}
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   )}
+
+                  {/* Action Footer */}
+                  <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-800">
+                    {order.status === "paid" && (
+                      <button
+                        onClick={() => setSelectedOrder(order)}
+                        disabled={updatingOrder === order.orderId}
+                        className="bg-gradient-to-r from-green-600 to-green-700 text-white font-semibold px-4 py-2 rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        Mark Complete
+                      </button>
+                    )}
+
+                    {order.status === "completed" && order.completedAt && (
+                      <div className="flex items-center gap-2 text-blue-400">
+                        <CheckCircle className="w-4 h-4" />
+                        <span className="text-sm font-medium">
+                          Completed on {formatDate(order.completedAt)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             );
