@@ -839,4 +839,164 @@ export class CustomerRepository extends BaseRepository {
     }
   }
 
+  /**
+   * Find customers who have interacted with a specific shop
+   * Used for marketing campaign targeting
+   */
+  async findByShopInteraction(shopId: string): Promise<Array<{
+    walletAddress: string;
+    email?: string;
+    name?: string;
+    tier?: string;
+    totalSpent?: number;
+    visitCount?: number;
+    lastVisit?: Date;
+  }>> {
+    try {
+      // Get customers who have transactions with this shop
+      const query = `
+        SELECT DISTINCT
+          c.address as wallet_address,
+          c.email,
+          c.name,
+          c.tier,
+          COALESCE(stats.total_spent, 0) as total_spent,
+          COALESCE(stats.visit_count, 0) as visit_count,
+          stats.last_visit
+        FROM customers c
+        INNER JOIN (
+          SELECT
+            customer_address,
+            SUM(CASE WHEN type = 'redemption' THEN amount ELSE 0 END) as total_spent,
+            COUNT(DISTINCT DATE(created_at)) as visit_count,
+            MAX(created_at) as last_visit
+          FROM transactions
+          WHERE shop_id = $1
+          GROUP BY customer_address
+        ) stats ON c.address = stats.customer_address
+        WHERE c.is_active = true
+          AND (c.suspended_at IS NULL)
+        ORDER BY stats.last_visit DESC
+      `;
+
+      const result = await this.pool.query(query, [shopId]);
+
+      return result.rows.map(row => ({
+        walletAddress: row.wallet_address,
+        email: row.email || undefined,
+        name: row.name || undefined,
+        tier: row.tier || undefined,
+        totalSpent: parseFloat(row.total_spent) || 0,
+        visitCount: parseInt(row.visit_count) || 0,
+        lastVisit: row.last_visit ? new Date(row.last_visit) : undefined
+      }));
+    } catch (error) {
+      logger.error('Error finding customers by shop interaction:', error);
+      throw new Error('Failed to find customers by shop interaction');
+    }
+  }
+
+  /**
+   * Find customers who have interacted with a specific shop with pagination and search
+   * Used for marketing campaign targeting with select customers option
+   */
+  async findByShopInteractionPaginated(
+    shopId: string,
+    options: { page: number; limit: number; search?: string }
+  ): Promise<{
+    customers: Array<{
+      walletAddress: string;
+      email?: string;
+      name?: string;
+      tier?: string;
+      totalSpent?: number;
+      visitCount?: number;
+      lastVisit?: Date;
+    }>;
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    try {
+      const { page = 1, limit = 10, search } = options;
+      const offset = (page - 1) * limit;
+
+      // Base query for customers with shop interaction
+      let baseQuery = `
+        FROM customers c
+        INNER JOIN (
+          SELECT
+            customer_address,
+            SUM(CASE WHEN type = 'redemption' THEN amount ELSE 0 END) as total_spent,
+            COUNT(DISTINCT DATE(created_at)) as visit_count,
+            MAX(created_at) as last_visit
+          FROM transactions
+          WHERE shop_id = $1
+          GROUP BY customer_address
+        ) stats ON c.address = stats.customer_address
+        WHERE c.is_active = true
+          AND (c.suspended_at IS NULL)
+      `;
+
+      const params: any[] = [shopId];
+
+      // Add search filter
+      if (search) {
+        baseQuery += `
+          AND (
+            LOWER(c.address) LIKE LOWER($${params.length + 1}) OR
+            LOWER(c.email) LIKE LOWER($${params.length + 1}) OR
+            LOWER(c.name) LIKE LOWER($${params.length + 1})
+          )
+        `;
+        params.push(`%${search}%`);
+      }
+
+      // Count query
+      const countQuery = `SELECT COUNT(DISTINCT c.address) as count ${baseQuery}`;
+      const countResult = await this.pool.query(countQuery, params);
+      const total = parseInt(countResult.rows[0].count) || 0;
+
+      // Data query with pagination
+      const dataQuery = `
+        SELECT DISTINCT
+          c.address as wallet_address,
+          c.email,
+          c.name,
+          c.tier,
+          COALESCE(stats.total_spent, 0) as total_spent,
+          COALESCE(stats.visit_count, 0) as visit_count,
+          stats.last_visit
+        ${baseQuery}
+        ORDER BY stats.last_visit DESC
+        LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+      `;
+      params.push(limit, offset);
+
+      const result = await this.pool.query(dataQuery, params);
+
+      const customers = result.rows.map(row => ({
+        walletAddress: row.wallet_address,
+        email: row.email || undefined,
+        name: row.name || undefined,
+        tier: row.tier || undefined,
+        totalSpent: parseFloat(row.total_spent) || 0,
+        visitCount: parseInt(row.visit_count) || 0,
+        lastVisit: row.last_visit ? new Date(row.last_visit) : undefined
+      }));
+
+      return {
+        customers,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      };
+    } catch (error) {
+      logger.error('Error finding customers by shop interaction (paginated):', error);
+      throw new Error('Failed to find customers by shop interaction');
+    }
+  }
+
 }
