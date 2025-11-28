@@ -115,7 +115,10 @@ export default function Service() {
 
   const renderServiceItem = ({ item }: { item: ServiceData }) => (
     <View className="flex-1 mx-2 my-2">
-      <TouchableOpacity activeOpacity={0.8}>
+      <TouchableOpacity 
+        onPress={() => router.push(`/shop/service/${item.serviceId}`)}
+        activeOpacity={0.8}
+      >
         <View className="bg-gray-900 rounded-xl overflow-hidden">
           <View className="relative">
             {item.imageUrl ? (
