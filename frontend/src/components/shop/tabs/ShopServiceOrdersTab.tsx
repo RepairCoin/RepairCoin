@@ -310,22 +310,22 @@ export const ShopServiceOrdersTab: React.FC<ShopServiceOrdersTabProps> = ({ shop
                       )}
                     </div>
 
-                    {/* Mark Complete Button - Compact */}
+                    {/* Mark Complete Button - Compact inline */}
                     {order.status === "paid" && (
                       <button
                         onClick={() => setSelectedOrder(order)}
                         disabled={updatingOrder === order.orderId}
-                        className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white font-medium px-3 py-2 rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1.5 text-sm"
+                        className="bg-gradient-to-r from-green-600 to-green-700 text-white font-medium px-3 py-1 rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1 text-xs"
                       >
-                        <CheckCircle className="w-3.5 h-3.5" />
+                        <CheckCircle className="w-3 h-3" />
                         {updatingOrder === order.orderId ? "Processing..." : "Mark Complete"}
                       </button>
                     )}
 
-                    {/* Completed Badge - Compact */}
+                    {/* Completed Badge - Compact inline */}
                     {order.status === "completed" && order.completedAt && (
-                      <div className="bg-green-500/10 border border-green-500/30 rounded-lg px-3 py-2 flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 text-green-400" />
+                      <div className="bg-green-500/10 border border-green-500/30 rounded-lg px-2 py-1 inline-flex items-center gap-1.5">
+                        <CheckCircle className="w-3.5 h-3.5 text-green-400" />
                         <span className="text-xs text-green-400 font-medium">
                           Completed {formatDate(order.completedAt)}
                         </span>
