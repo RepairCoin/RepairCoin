@@ -21,6 +21,7 @@ import {
   Search
 } from 'lucide-react';
 import apiClient from '@/services/api/client';
+import { toast } from 'react-hot-toast';
 
 interface Subscription {
   id: number;
@@ -178,10 +179,11 @@ export default function SubscriptionManagementTab() {
       );
 
       setShowApproveModal(false);
+      toast.success('Subscription approved successfully');
       await loadSubscriptions();
     } catch (error) {
       console.error('Error approving subscription:', error);
-      alert('Failed to approve subscription');
+      toast.error('Failed to approve subscription');
     } finally {
       setActionLoading(false);
     }
@@ -202,11 +204,12 @@ export default function SubscriptionManagementTab() {
 
       setShowCancelModal(false);
       setCancellationReason('');
+      toast.success('Subscription cancelled successfully');
       // Sync after canceling to get latest status from Stripe
       await loadSubscriptions(true);
     } catch (error) {
       console.error('Error cancelling subscription:', error);
-      alert('Failed to cancel subscription');
+      toast.error('Failed to cancel subscription');
     } finally {
       setActionLoading(false);
     }
@@ -224,18 +227,14 @@ export default function SubscriptionManagementTab() {
 
       setShowPauseModal(false);
       setSelectedSubscription(null);
-
-      // Show success message if returned
-      if (response.message) {
-        alert(response.message);
-      }
+      toast.success(response.message || 'Subscription paused successfully');
 
       // Sync after pausing to get latest status from Stripe
       await loadSubscriptions(true);
     } catch (error: any) {
       console.error('Error pausing subscription:', error);
       const errorMessage = error?.response?.data?.error || error?.message || 'Failed to pause subscription';
-      alert(errorMessage);
+      toast.error(errorMessage);
       // Reload to get current state even on error
       await loadSubscriptions(true);
     } finally {
@@ -263,7 +262,7 @@ export default function SubscriptionManagementTab() {
           await loadSubscriptions();
           setShowResumeModal(false);
           setSelectedSubscription(null);
-          alert('Subscription was already active in Stripe. Status updated successfully.');
+          toast.success('Subscription was already active in Stripe. Status updated successfully.');
           return;
         }
       } catch (syncError) {
@@ -277,18 +276,14 @@ export default function SubscriptionManagementTab() {
 
       setShowResumeModal(false);
       setSelectedSubscription(null);
-
-      // Show success message if returned
-      if (response.message) {
-        alert(response.message);
-      }
+      toast.success(response.message || 'Subscription resumed successfully');
 
       // Sync after resuming to get latest status from Stripe
       await loadSubscriptions(true);
     } catch (error: any) {
       console.error('Error resuming subscription:', error);
       const errorMessage = error?.response?.data?.error || error?.message || 'Failed to resume subscription';
-      alert(errorMessage);
+      toast.error(errorMessage);
       // Reload to get current state even on error
       await loadSubscriptions(true);
     } finally {
