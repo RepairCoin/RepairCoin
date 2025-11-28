@@ -280,7 +280,10 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
                   )}
                 </div>
                 <button
-                  onClick={() => handleToggleActive(service)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleToggleActive(service);
+                  }}
                   className="ml-2"
                   title={service.active ? "Deactivate service" : "Activate service"}
                 >
