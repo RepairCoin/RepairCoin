@@ -67,8 +67,16 @@ export class EmailService {
   }
 
   private initializeTransporter() {
+    logger.debug('Initializing email service with config:', {
+      host: this.config.host,
+      port: this.config.port,
+      secure: this.config.secure,
+      hasAuth: !!this.config.auth?.user,
+      from: this.config.from,
+    });
+
     if (!this.config.auth?.user) {
-      logger.warn('Email service not configured - emails will be logged only');
+      logger.warn('Email service not configured - emails will be logged only. Set EMAIL_USER env variable.');
       this.isConfigured = false;
       return;
     }
@@ -80,9 +88,13 @@ export class EmailService {
         secure: this.config.secure,
         auth: this.config.auth
       });
-      
+
       this.isConfigured = true;
-      logger.info('Email service initialized');
+      logger.info('Email service initialized successfully', {
+        host: this.config.host,
+        port: this.config.port,
+        user: this.config.auth.user,
+      });
     } catch (error) {
       logger.error('Failed to initialize email service:', error);
       this.isConfigured = false;
@@ -317,34 +329,44 @@ export class EmailService {
   private async sendEmail(to: string, subject: string, html: string): Promise<boolean> {
     if (!this.isConfigured || !this.transporter) {
       // Log email content if not configured
-      logger.info('Email Service - Mock Send:', {
+      logger.info('Email Service - Mock Send (not configured):', {
         to,
         subject,
+        isConfigured: this.isConfigured,
+        hasTransporter: !!this.transporter,
         preview: html.substring(0, 200) + '...'
       });
       return true;
     }
 
     try {
+      logger.debug('Attempting to send email:', {
+        to,
+        subject,
+        from: this.config.from,
+      });
+
       const info = await this.transporter.sendMail({
         from: this.config.from,
         to,
         subject,
         html
       });
-      
+
       logger.info('Email sent successfully:', {
         to,
         subject,
         messageId: info.messageId
       });
-      
+
       return true;
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Failed to send email:', {
         to,
         subject,
-        error
+        errorMessage: error.message,
+        errorCode: error.code,
+        errorResponse: error.response,
       });
       return false;
     }

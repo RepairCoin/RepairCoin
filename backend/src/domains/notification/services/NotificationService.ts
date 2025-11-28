@@ -13,6 +13,7 @@ export interface NotificationMessageTemplates {
   subscription_resumed: () => string;
   subscription_cancelled: (data: { reason?: string }) => string;
   subscription_approved: () => string;
+  subscription_reactivated: () => string;
 }
 
 export class NotificationService {
@@ -54,7 +55,10 @@ export class NotificationService {
         `Your subscription has been cancelled by admin${data.reason ? ': ' + data.reason : '.'}`,
 
       subscription_approved: () =>
-        'Your subscription has been approved and is now active!'
+        'Your subscription has been approved and is now active!',
+
+      subscription_reactivated: () =>
+        'Your subscription has been reactivated and will continue as normal.'
     };
   }
 
@@ -334,6 +338,22 @@ export class NotificationService {
       senderAddress: 'SYSTEM',
       receiverAddress: shopAddress,
       notificationType: 'subscription_approved',
+      message,
+      metadata: {
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  async createSubscriptionReactivatedNotification(
+    shopAddress: string
+  ): Promise<Notification> {
+    const message = this.messageTemplates.subscription_reactivated();
+
+    return this.createNotification({
+      senderAddress: 'SYSTEM',
+      receiverAddress: shopAddress,
+      notificationType: 'subscription_reactivated',
       message,
       metadata: {
         timestamp: new Date().toISOString()

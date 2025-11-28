@@ -18,9 +18,11 @@ import {
   X,
   TrendingUp,
   Store,
-  Search
+  Search,
+  RotateCcw
 } from 'lucide-react';
 import apiClient from '@/services/api/client';
+import { toast } from 'react-hot-toast';
 
 interface Subscription {
   id: number;
@@ -74,6 +76,7 @@ export default function SubscriptionManagementTab() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showPauseModal, setShowPauseModal] = useState(false);
   const [showResumeModal, setShowResumeModal] = useState(false);
+  const [showReactivateModal, setShowReactivateModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [cancellationReason, setCancellationReason] = useState('');
@@ -178,10 +181,11 @@ export default function SubscriptionManagementTab() {
       );
 
       setShowApproveModal(false);
+      toast.success('Subscription approved successfully');
       await loadSubscriptions();
     } catch (error) {
       console.error('Error approving subscription:', error);
-      alert('Failed to approve subscription');
+      toast.error('Failed to approve subscription');
     } finally {
       setActionLoading(false);
     }
@@ -202,11 +206,12 @@ export default function SubscriptionManagementTab() {
 
       setShowCancelModal(false);
       setCancellationReason('');
+      toast.success('Subscription cancelled successfully');
       // Sync after canceling to get latest status from Stripe
       await loadSubscriptions(true);
     } catch (error) {
       console.error('Error cancelling subscription:', error);
-      alert('Failed to cancel subscription');
+      toast.error('Failed to cancel subscription');
     } finally {
       setActionLoading(false);
     }
@@ -218,17 +223,22 @@ export default function SubscriptionManagementTab() {
     try {
       setActionLoading(true);
 
-      await apiClient.post(
+      const response = await apiClient.post(
         `/admin/subscription/subscriptions/${selectedSubscription.id}/pause`
       );
 
       setShowPauseModal(false);
       setSelectedSubscription(null);
+      toast.success(response.message || 'Subscription paused successfully');
+
       // Sync after pausing to get latest status from Stripe
       await loadSubscriptions(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error pausing subscription:', error);
-      alert('Failed to pause subscription');
+      const errorMessage = error?.response?.data?.error || error?.message || 'Failed to pause subscription';
+      toast.error(errorMessage);
+      // Reload to get current state even on error
+      await loadSubscriptions(true);
     } finally {
       setActionLoading(false);
     }
@@ -254,7 +264,7 @@ export default function SubscriptionManagementTab() {
           await loadSubscriptions();
           setShowResumeModal(false);
           setSelectedSubscription(null);
-          alert('Subscription was already active in Stripe. Status updated successfully.');
+          toast.success('Subscription was already active in Stripe. Status updated successfully.');
           return;
         }
       } catch (syncError) {
@@ -262,20 +272,74 @@ export default function SubscriptionManagementTab() {
       }
 
       // Now attempt to resume
-      await apiClient.post(
+      const response = await apiClient.post(
         `/admin/subscription/subscriptions/${selectedSubscription.id}/resume`
       );
 
       setShowResumeModal(false);
       setSelectedSubscription(null);
+      toast.success(response.message || 'Subscription resumed successfully');
+
       // Sync after resuming to get latest status from Stripe
       await loadSubscriptions(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error resuming subscription:', error);
-      alert('Failed to resume subscription');
+      const errorMessage = error?.response?.data?.error || error?.message || 'Failed to resume subscription';
+      toast.error(errorMessage);
+      // Reload to get current state even on error
+      await loadSubscriptions(true);
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleReactivate = async () => {
+    if (!selectedSubscription) return;
+
+    try {
+      setActionLoading(true);
+
+      const response = await apiClient.post(
+        `/admin/subscription/subscriptions/${selectedSubscription.id}/reactivate`
+      );
+
+      setShowReactivateModal(false);
+      setSelectedSubscription(null);
+      toast.success(response.message || 'Subscription reactivated successfully');
+
+      // Sync after reactivating to get latest status from Stripe
+      await loadSubscriptions(true);
+    } catch (error: any) {
+      console.error('Error reactivating subscription:', error);
+      const errorMessage = error?.response?.data?.error || error?.message || 'Failed to reactivate subscription';
+      toast.error(errorMessage);
+      // Reload to get current state even on error
+      await loadSubscriptions(true);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Helper function to check if cancelled subscription can be reactivated
+  const canReactivate = (sub: Subscription): boolean => {
+    if (sub.status !== 'cancelled') return false;
+
+    // Check if there's still time left on the subscription
+    let subscribedTillDate: Date | null = null;
+
+    if (sub.stripePeriodEnd) {
+      subscribedTillDate = new Date(sub.stripePeriodEnd);
+    } else if (sub.lastPaymentDate) {
+      const lastPayment = new Date(sub.lastPaymentDate);
+      subscribedTillDate = new Date(lastPayment.getTime() + 30 * 24 * 60 * 60 * 1000);
+    }
+
+    if (!subscribedTillDate || isNaN(subscribedTillDate.getTime())) {
+      return false;
+    }
+
+    // Can reactivate if subscription hasn't fully expired yet
+    return subscribedTillDate.getTime() > Date.now();
   };
 
   // Table columns - Simplified for collapsible view
@@ -535,6 +599,21 @@ export default function SubscriptionManagementTab() {
             >
               <CheckCircle className="w-3.5 h-3.5 mr-1" />
               Resume
+            </Button>
+          )}
+
+          {sub.status === 'cancelled' && canReactivate(sub) && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="bg-emerald-500/10 border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300 hover:border-emerald-400 font-medium transition-all"
+              onClick={() => {
+                setSelectedSubscription(sub);
+                setShowReactivateModal(true);
+              }}
+            >
+              <RotateCcw className="w-3.5 h-3.5 mr-1" />
+              Reactivate
             </Button>
           )}
 
@@ -1158,6 +1237,68 @@ export default function SubscriptionManagementTab() {
                 className="px-4 py-2 bg-green-600 text-white rounded-3xl hover:bg-green-700 transition-colors disabled:opacity-50"
               >
                 {actionLoading ? 'Resuming...' : 'Resume Subscription'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reactivate Modal */}
+      {showReactivateModal && selectedSubscription && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#212121] border border-gray-800 rounded-xl shadow-2xl w-full max-w-md transform transition-all">
+            <div
+              className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-3xl"
+              style={{
+                backgroundImage: `url('/img/cust-ref-widget3.png')`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                backgroundRepeat: "no-repeat",
+              }}
+            >
+              <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
+                Reactivate Subscription
+              </p>
+              <button
+                onClick={() => setShowReactivateModal(false)}
+                disabled={actionLoading}
+                className="p-2 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-900" />
+              </button>
+            </div>
+
+            <div className="px-6 py-4">
+              <p className="text-gray-300 mb-4">
+                Reactivate subscription for <span className="text-white font-semibold">{selectedSubscription.shopName || selectedSubscription.shopId}</span>?
+              </p>
+
+              <div className="bg-emerald-900/30 border border-emerald-700 rounded-lg p-4">
+                <h4 className="font-semibold text-emerald-400 mb-2">Reactivating will:</h4>
+                <ul className="space-y-1 text-sm text-emerald-300">
+                  <li>• Cancel the scheduled cancellation</li>
+                  <li>• Restore subscription to active status</li>
+                  <li>• Continue billing at end of current period</li>
+                  <li>• Allow shop to continue issuing rewards</li>
+                  <li>• Send confirmation notification to shop owner</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-700 flex justify-end gap-3">
+              <button
+                onClick={() => setShowReactivateModal(false)}
+                disabled={actionLoading}
+                className="px-4 py-2 bg-gray-700 text-white rounded-3xl hover:bg-gray-600 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReactivate}
+                disabled={actionLoading}
+                className="px-4 py-2 bg-emerald-600 text-white rounded-3xl hover:bg-emerald-700 transition-colors disabled:opacity-50"
+              >
+                {actionLoading ? 'Reactivating...' : 'Reactivate Subscription'}
               </button>
             </div>
           </div>
