@@ -52,29 +52,18 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
 
   const loadServices = async () => {
     setLoading(true);
-    console.log('🛍️ [ServicesTab] Loading services for shopId:', shopId);
 
     try {
       const response = await getShopServices(shopId, { limit: 100 });
-      console.log('🛍️ [ServicesTab] API Response:', {
-        response,
-        hasData: !!response?.data,
-        dataLength: response?.data?.length,
-        rawData: response?.data
-      });
 
       if (response?.data) {
         setServices(response.data);
-        console.log('✅ [ServicesTab] Services set in state:', response.data.length, 'services');
-      } else {
-        console.warn('⚠️ [ServicesTab] No data in response');
       }
     } catch (error) {
-      console.error("❌ [ServicesTab] Error loading services:", error);
+      console.error("Error loading services:", error);
       toast.error("Failed to load services");
     } finally {
       setLoading(false);
-      console.log('🏁 [ServicesTab] Loading complete. Total services:', services.length);
     }
   };
 
