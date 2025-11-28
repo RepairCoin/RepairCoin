@@ -308,7 +308,7 @@ export const ShopServiceOrdersTab: React.FC<ShopServiceOrdersTabProps> = ({ shop
                         <button
                           onClick={() => setSelectedOrder(order)}
                           disabled={updatingOrder === order.orderId}
-                          className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white font-semibold px-4 py-3 rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                          className="bg-gradient-to-r from-green-600 to-green-700 text-white font-semibold px-6 py-2 rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
                         >
                           <CheckCircle className="w-4 h-4" />
                           {updatingOrder === order.orderId ? "Processing..." : "Mark Complete"}

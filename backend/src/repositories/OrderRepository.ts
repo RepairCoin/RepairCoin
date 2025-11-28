@@ -300,6 +300,7 @@ export class OrderRepository extends BaseRepository {
           o.*,
           s.service_name,
           s.description as service_description,
+          s.image_url as service_image_url,
           s.duration_minutes as service_duration,
           s.category as service_category,
           c.name as customer_name
