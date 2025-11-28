@@ -677,22 +677,115 @@ router.post('/subscriptions/:subscriptionId/sync', async (req: Request, res: Res
   }
 });
 
-// Reactivate a canceled subscription
+// Reactivate a canceled subscription (undo cancel_at_period_end)
 router.post('/subscriptions/:subscriptionId/reactivate', async (req: Request, res: Response) => {
   try {
     const { subscriptionId } = req.params;
 
-    // This would need implementation in SubscriptionService
-    // For now, return a placeholder response
+    logger.info('Attempting to reactivate subscription', { subscriptionId });
+
+    // Get subscription from shop_subscriptions by ID
+    const subQuery = await db.query(
+      'SELECT billing_reference, status, shop_id FROM shop_subscriptions WHERE id = $1',
+      [subscriptionId]
+    );
+
+    if (subQuery.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Subscription not found'
+      });
+    }
+
+    const { billing_reference: stripeSubscriptionId, status, shop_id: shopId } = subQuery.rows[0];
+
+    if (!stripeSubscriptionId) {
+      return res.status(400).json({
+        success: false,
+        error: 'No Stripe subscription reference found'
+      });
+    }
+
+    // Only allow reactivation of cancelled subscriptions
+    if (status !== 'cancelled') {
+      return res.status(400).json({
+        success: false,
+        error: `Cannot reactivate a subscription with status: ${status}. Only cancelled subscriptions can be reactivated.`
+      });
+    }
+
+    // Check the actual Stripe subscription status
+    const stripeSubscription = await stripeService.getSubscription(stripeSubscriptionId);
+
+    // If subscription is fully canceled in Stripe, we cannot reactivate
+    if (stripeSubscription.status === 'canceled') {
+      return res.status(400).json({
+        success: false,
+        error: 'This subscription has been fully canceled in Stripe and cannot be reactivated. Please create a new subscription.'
+      });
+    }
+
+    // If subscription has cancel_at_period_end set, we can unset it to reactivate
+    if (stripeSubscription.cancel_at_period_end) {
+      // Remove the cancel_at_period_end flag in Stripe
+      await stripeService.getStripe().subscriptions.update(stripeSubscriptionId, {
+        cancel_at_period_end: false
+      });
+
+      logger.info('Removed cancel_at_period_end flag in Stripe', { stripeSubscriptionId });
+    }
+
+    // Update stripe_subscriptions table
+    await db.query(
+      `UPDATE stripe_subscriptions
+       SET status = 'active', cancel_at_period_end = false, canceled_at = NULL, updated_at = CURRENT_TIMESTAMP
+       WHERE stripe_subscription_id = $1`,
+      [stripeSubscriptionId]
+    );
+
+    // Update shop_subscriptions table
+    await db.query(
+      `UPDATE shop_subscriptions
+       SET status = 'active', is_active = true, cancelled_at = NULL, cancellation_reason = NULL, activated_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [subscriptionId]
+    );
+
+    // Get shop wallet address for notification
+    const shopQuery = await db.query(
+      'SELECT wallet_address FROM shops WHERE shop_id = $1',
+      [shopId]
+    );
+
+    if (shopQuery.rows.length > 0 && shopQuery.rows[0].wallet_address) {
+      try {
+        await notificationService.createSubscriptionReactivatedNotification(
+          shopQuery.rows[0].wallet_address
+        );
+        logger.info('Subscription reactivation notification sent', { shopId, subscriptionId });
+      } catch (notifError) {
+        logger.error('Failed to send reactivation notification:', notifError);
+      }
+    }
+
+    logger.info('Subscription reactivated successfully', {
+      subscriptionId,
+      stripeSubscriptionId,
+      shopId
+    });
+
     res.json({
       success: true,
-      message: 'Subscription reactivation not yet implemented'
+      message: 'Subscription reactivated successfully'
     });
   } catch (error) {
-    logger.error('Error reactivating subscription:', error);
+    logger.error('Error reactivating subscription:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     res.status(500).json({
       success: false,
-      error: 'Failed to reactivate subscription'
+      error: error instanceof Error ? error.message : 'Failed to reactivate subscription'
     });
   }
 });
