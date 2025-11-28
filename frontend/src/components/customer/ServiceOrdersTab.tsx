@@ -241,38 +241,37 @@ export const ServiceOrdersTab: React.FC = () => {
                       )}
                     </div>
 
-                    {/* RCN Earned - Compact */}
-                    {order.status === "completed" && order.rcnEarned && order.rcnEarned > 0 && (
-                      <div className="bg-[#FFCC00]/10 border border-[#FFCC00]/30 rounded-lg px-3 py-2 mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg">🪙</span>
-                          <span className="text-xs font-semibold text-[#FFCC00]">
-                            +{order.rcnEarned.toFixed(2)} RCN Earned
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Review Button - Compact */}
+                    {/* Action Row - Compact inline badges */}
                     {order.status === "completed" && (
-                      <>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* RCN Earned Badge */}
+                        {order.rcnEarned && order.rcnEarned > 0 && (
+                          <div className="bg-[#FFCC00]/10 border border-[#FFCC00]/30 rounded-lg px-2 py-1 inline-flex items-center gap-1.5">
+                            <span className="text-base">🪙</span>
+                            <span className="text-xs font-semibold text-[#FFCC00]">
+                              +{order.rcnEarned.toFixed(2)} RCN
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Review Button/Badge */}
                         {reviewEligibility.get(order.orderId) === true ? (
                           <button
                             onClick={() => handleWriteReview(order)}
-                            className="w-full bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black font-medium px-3 py-2 rounded-lg hover:from-[#FFD700] hover:to-[#FFCC00] transition-all duration-200 inline-flex items-center justify-center gap-1.5 text-sm"
+                            className="bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black font-medium px-3 py-1 rounded-lg hover:from-[#FFD700] hover:to-[#FFCC00] transition-all duration-200 inline-flex items-center gap-1 text-xs"
                           >
-                            <Star className="w-3.5 h-3.5" />
+                            <Star className="w-3 h-3" />
                             Write Review
                           </button>
                         ) : reviewEligibility.get(order.orderId) === false ? (
-                          <div className="bg-green-500/10 border border-green-500/30 rounded-lg px-3 py-2 flex items-center gap-2">
-                            <CheckCircle className="w-4 h-4 text-green-400" />
+                          <div className="bg-green-500/10 border border-green-500/30 rounded-lg px-2 py-1 inline-flex items-center gap-1.5">
+                            <CheckCircle className="w-3.5 h-3.5 text-green-400" />
                             <span className="text-xs text-green-400 font-medium">
                               Review submitted
                             </span>
                           </div>
                         ) : null}
-                      </>
+                      </div>
                     )}
                   </div>
                 </div>
