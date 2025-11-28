@@ -315,6 +315,62 @@ router.post('/subscriptions/:subscriptionId/pause', async (req: Request, res: Re
       });
     }
 
+    // Check if subscription is already paused or cancelled
+    if (status === 'paused') {
+      return res.status(400).json({
+        success: false,
+        error: 'Subscription is already paused'
+      });
+    }
+
+    if (status === 'cancelled') {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot pause a cancelled subscription. Please create a new subscription instead.'
+      });
+    }
+
+    // Check actual Stripe status before attempting to pause
+    try {
+      const stripeSubscription = await stripeService.getSubscription(stripeSubscriptionId);
+
+      if (stripeSubscription.status === 'canceled') {
+        // Update our database to match Stripe
+        await db.query(
+          `UPDATE shop_subscriptions
+           SET status = 'cancelled', is_active = false, cancelled_at = CURRENT_TIMESTAMP
+           WHERE id = $1`,
+          [subscriptionId]
+        );
+
+        return res.status(400).json({
+          success: false,
+          error: 'This subscription has been cancelled in Stripe. Database has been updated. Please create a new subscription instead.'
+        });
+      }
+
+      if (stripeSubscription.pause_collection) {
+        // Already paused in Stripe, update our database
+        await db.query(
+          `UPDATE shop_subscriptions
+           SET status = 'paused', is_active = false, paused_at = CURRENT_TIMESTAMP
+           WHERE id = $1`,
+          [subscriptionId]
+        );
+
+        return res.json({
+          success: true,
+          message: 'Subscription was already paused in Stripe. Database updated.'
+        });
+      }
+    } catch (stripeCheckError) {
+      logger.error('Failed to check Stripe subscription status before pause', {
+        subscriptionId: stripeSubscriptionId,
+        error: stripeCheckError instanceof Error ? stripeCheckError.message : 'Unknown error'
+      });
+      // Continue with pause attempt - Stripe will return appropriate error
+    }
+
     logger.info('Pausing subscription', { subscriptionId, stripeSubscriptionId, shopId });
 
     // Pause the subscription via Stripe
@@ -394,12 +450,70 @@ router.post('/subscriptions/:subscriptionId/resume', async (req: Request, res: R
       shopId
     });
 
-    // Check if subscription is actually paused
-    if (status !== 'paused') {
+    // Check if subscription is cancelled - cannot resume cancelled subscriptions
+    if (status === 'cancelled') {
       return res.status(400).json({
         success: false,
-        error: `Subscription is not paused (current status: ${status}). Only paused subscriptions can be resumed.`
+        error: 'Cannot resume a cancelled subscription. Please create a new subscription instead.'
       });
+    }
+
+    // Check if subscription is already active
+    if (status === 'active') {
+      return res.status(400).json({
+        success: false,
+        error: 'Subscription is already active.'
+      });
+    }
+
+    // Check actual Stripe status before attempting to resume
+    try {
+      const stripeSubscription = await stripeService.getSubscription(stripeSubscriptionId);
+
+      if (stripeSubscription.status === 'canceled') {
+        // Update our database to match Stripe
+        await db.query(
+          `UPDATE shop_subscriptions
+           SET status = 'cancelled', is_active = false, cancelled_at = CURRENT_TIMESTAMP
+           WHERE id = $1`,
+          [subscriptionId]
+        );
+
+        return res.status(400).json({
+          success: false,
+          error: 'This subscription has been cancelled in Stripe. Database has been updated. Please create a new subscription instead.'
+        });
+      }
+
+      // If subscription is already active in Stripe (no pause_collection)
+      if (stripeSubscription.status === 'active' && !stripeSubscription.pause_collection) {
+        // Update our database to match Stripe
+        await db.query(
+          `UPDATE shop_subscriptions
+           SET status = 'active', is_active = true, resumed_at = CURRENT_TIMESTAMP
+           WHERE id = $1`,
+          [subscriptionId]
+        );
+
+        // Also update stripe_subscriptions if needed
+        await db.query(
+          `UPDATE stripe_subscriptions
+           SET status = 'active', updated_at = CURRENT_TIMESTAMP
+           WHERE stripe_subscription_id = $1`,
+          [stripeSubscriptionId]
+        );
+
+        return res.json({
+          success: true,
+          message: 'Subscription is already active in Stripe. Database updated.'
+        });
+      }
+    } catch (stripeCheckError) {
+      logger.error('Failed to check Stripe subscription status before resume', {
+        subscriptionId: stripeSubscriptionId,
+        error: stripeCheckError instanceof Error ? stripeCheckError.message : 'Unknown error'
+      });
+      // Continue with resume attempt - let the actual resume call handle errors
     }
 
     try {

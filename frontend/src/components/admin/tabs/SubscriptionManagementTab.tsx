@@ -218,17 +218,26 @@ export default function SubscriptionManagementTab() {
     try {
       setActionLoading(true);
 
-      await apiClient.post(
+      const response = await apiClient.post(
         `/admin/subscription/subscriptions/${selectedSubscription.id}/pause`
       );
 
       setShowPauseModal(false);
       setSelectedSubscription(null);
+
+      // Show success message if returned
+      if (response.message) {
+        alert(response.message);
+      }
+
       // Sync after pausing to get latest status from Stripe
       await loadSubscriptions(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error pausing subscription:', error);
-      alert('Failed to pause subscription');
+      const errorMessage = error?.response?.data?.error || error?.message || 'Failed to pause subscription';
+      alert(errorMessage);
+      // Reload to get current state even on error
+      await loadSubscriptions(true);
     } finally {
       setActionLoading(false);
     }
@@ -262,17 +271,26 @@ export default function SubscriptionManagementTab() {
       }
 
       // Now attempt to resume
-      await apiClient.post(
+      const response = await apiClient.post(
         `/admin/subscription/subscriptions/${selectedSubscription.id}/resume`
       );
 
       setShowResumeModal(false);
       setSelectedSubscription(null);
+
+      // Show success message if returned
+      if (response.message) {
+        alert(response.message);
+      }
+
       // Sync after resuming to get latest status from Stripe
       await loadSubscriptions(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error resuming subscription:', error);
-      alert('Failed to resume subscription');
+      const errorMessage = error?.response?.data?.error || error?.message || 'Failed to resume subscription';
+      alert(errorMessage);
+      // Reload to get current state even on error
+      await loadSubscriptions(true);
     } finally {
       setActionLoading(false);
     }
