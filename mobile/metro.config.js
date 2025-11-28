@@ -8,8 +8,9 @@ config.resolver.extraNodeModules = {
   '@aws-sdk/client-kms': require.resolve('./shims/emptyModule.js'),
   '@aws-sdk/credential-providers': require.resolve('./shims/emptyModule.js'),
   '@aws-sdk/client-lambda': require.resolve('./shims/emptyModule.js'),
-  'react-native-quick-crypto': require.resolve('./shims/emptyModule.js'),
   'react-native-aes-gcm-crypto': require.resolve('./shims/emptyModule.js'),
+  // Map Node.js crypto to react-native-quick-crypto for thirdweb
+  crypto: require.resolve('react-native-quick-crypto'),
 };
 
 module.exports = withNativeWind(config, { input: "./global.css" });

@@ -1,3 +1,4 @@
+import { ServiceCategory } from "@/constants/service-categories";
 import { apiClient } from "@/utilities/axios";
 import { buildQueryString } from "@/utilities/helper";
 
@@ -237,6 +238,17 @@ export interface ServiceResponse {
     totalPages: number;
   };
   success: boolean;
+}
+
+export interface UpdateServiceData {
+  serviceName?: string;
+  description?: string;
+  priceUsd?: number;
+  durationMinutes?: number;
+  category?: ServiceCategory;
+  imageUrl?: string;
+  tags?: string[];
+  active?: boolean;
 }
 
 export const listShops = async (): Promise<ShopResponse> => {
@@ -578,3 +590,31 @@ export const createService = async (
     throw error;
   }
 };
+
+export const updateService = async (
+  serviceId: string,
+  updates: UpdateServiceData
+): Promise<{ success: boolean; data?: ServiceData; message?: string }> => {
+  try {
+    const requestData = {
+      ...updates,
+      tags: updates.tags ? JSON.stringify(updates.tags) : undefined
+    };
+    return await apiClient.put(`/services/${serviceId}`, requestData);
+  } catch (error: any) {
+    console.error("Failed to update service:", error.message);
+    throw error;
+  }
+};
+
+export const deleteService = async (
+  serviceId: string
+): Promise<{ success: boolean; message?: string }> => {
+  try {
+    return await apiClient.delete(`/services/${serviceId}`);
+  } catch (error: any) {
+    console.error("Failed to delete service:", error.message);
+    throw error;
+  }
+};
+
