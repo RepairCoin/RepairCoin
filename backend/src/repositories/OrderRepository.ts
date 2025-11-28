@@ -22,6 +22,7 @@ export interface ServiceOrder {
 export interface ServiceOrderWithDetails extends ServiceOrder {
   serviceName?: string;
   serviceDescription?: string;
+  serviceImageUrl?: string;
   serviceDuration?: number;
   serviceCategory?: string;
   shopName?: string;
