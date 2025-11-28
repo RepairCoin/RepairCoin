@@ -887,7 +887,7 @@ export default function ShopDashboardClient() {
           )}
 
           {activeTab === "services" && shopData && (
-            <ServicesTab shopId={shopData.shopId} />
+            <ServicesTab shopId={shopData.shopId} shopData={shopData} />
           )}
 
           {activeTab === "bookings" && shopData && (

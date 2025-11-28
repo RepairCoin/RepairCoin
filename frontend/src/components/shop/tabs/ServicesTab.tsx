@@ -27,11 +27,18 @@ import {
 import { CreateServiceModal } from "@/components/shop/modals/CreateServiceModal";
 import { ShopServiceDetailsModal } from "@/components/shop/modals/ShopServiceDetailsModal";
 
-interface ServicesTabProps {
-  shopId: string;
+interface ShopData {
+  subscriptionActive?: boolean;
+  rcg_balance?: number;
+  rcg_tier?: string;
 }
 
-export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId }) => {
+interface ServicesTabProps {
+  shopId: string;
+  shopData?: ShopData | null;
+}
+
+export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) => {
   const [services, setServices] = useState<ShopService[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -140,6 +147,11 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId }) => {
     return cat?.label || category;
   };
 
+  // Check if shop meets requirements to create services
+  const hasSubscription = shopData?.subscriptionActive === true;
+  const hasRCG = (shopData?.rcg_balance ?? 0) >= 10000;
+  const canCreateServices = hasSubscription || hasRCG;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -153,6 +165,30 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId }) => {
 
   return (
     <div className="space-y-6">
+      {/* Requirement Warning Banner */}
+      {!canCreateServices && (
+        <div className="bg-red-900/20 border-2 border-red-500/50 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <div className="text-2xl text-red-400">⚠️</div>
+            <div className="flex-1">
+              <h3 className="text-lg font-bold mb-1 text-red-400">
+                Subscription or RCG Holdings Required
+              </h3>
+              <p className="text-gray-300 text-sm mb-3">
+                To create and manage services in the marketplace, you need either:
+              </p>
+              <ul className="text-gray-300 text-sm space-y-1 mb-3 ml-4">
+                <li>• An active RepairCoin subscription ($500/month), OR</li>
+                <li>• Hold at least 10,000 RCG tokens</li>
+              </ul>
+              <p className="text-gray-400 text-xs">
+                Current Status: {hasSubscription ? '✅ Active Subscription' : '❌ No Subscription'} | {hasRCG ? `✅ ${shopData?.rcg_balance?.toFixed(2)} RCG` : `❌ ${shopData?.rcg_balance?.toFixed(2) || 0} RCG (need 10,000)`}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -162,8 +198,22 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId }) => {
           </p>
         </div>
         <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-2 bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black font-semibold px-6 py-3 rounded-xl hover:from-[#FFD700] hover:to-[#FFCC00] transition-all duration-200 transform hover:scale-105 shadow-lg"
+          onClick={() => {
+            if (!canCreateServices) {
+              toast.error("You need an active subscription or 10,000+ RCG to create services", {
+                duration: 5000,
+                position: 'top-right'
+              });
+              return;
+            }
+            setShowCreateModal(true);
+          }}
+          disabled={!canCreateServices}
+          className={`flex items-center gap-2 font-semibold px-6 py-3 rounded-xl transition-all duration-200 transform shadow-lg ${
+            canCreateServices
+              ? "bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black hover:from-[#FFD700] hover:to-[#FFCC00] hover:scale-105 cursor-pointer"
+              : "bg-gray-700 text-gray-500 cursor-not-allowed opacity-50"
+          }`}
         >
           <Plus className="w-5 h-5" />
           Create Service
@@ -176,11 +226,27 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId }) => {
           <div className="text-6xl mb-4">🛠️</div>
           <h3 className="text-xl font-semibold text-white mb-2">No Services Yet</h3>
           <p className="text-gray-400 mb-6">
-            Create your first service to start accepting bookings from customers
+            {canCreateServices
+              ? "Create your first service to start accepting bookings from customers"
+              : "You need an active subscription or 10,000+ RCG to create services"}
           </p>
           <button
-            onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black font-semibold px-6 py-3 rounded-xl hover:from-[#FFD700] hover:to-[#FFCC00] transition-all duration-200"
+            onClick={() => {
+              if (!canCreateServices) {
+                toast.error("You need an active subscription or 10,000+ RCG to create services", {
+                  duration: 5000,
+                  position: 'top-right'
+                });
+                return;
+              }
+              setShowCreateModal(true);
+            }}
+            disabled={!canCreateServices}
+            className={`inline-flex items-center gap-2 font-semibold px-6 py-3 rounded-xl transition-all duration-200 ${
+              canCreateServices
+                ? "bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black hover:from-[#FFD700] hover:to-[#FFCC00]"
+                : "bg-gray-700 text-gray-500 cursor-not-allowed opacity-50"
+            }`}
           >
             <Plus className="w-5 h-5" />
             Create Your First Service
