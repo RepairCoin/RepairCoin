@@ -130,6 +130,7 @@ export const useAuthStore = create<AuthState>()(
 
             if (response.ok) {
               const data = await response.json();
+              console.log("datadatadata: ", data)
               return { exists: true, type: data.type, data: data.user };
             } else if (response.status === 404) {
               // This is expected for new users - not an error
