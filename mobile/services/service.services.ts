@@ -4,7 +4,7 @@ import {
   ServiceResponse,
   ServiceData,
   UpdateServiceData,
-} from "./interfaces/service.interface";
+} from "../interfaces/service.interface";
 import { apiClient } from "@/utilities/axios";
 
 class ServiceApi {
