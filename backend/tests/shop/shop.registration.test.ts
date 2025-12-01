@@ -701,12 +701,11 @@ describe('Shop Registration Tests', () => {
         });
 
       expect(response.status).toBe(201);
-      // NOTE: Currently reimbursementAddress is NOT lowercased when provided
-      // This is inconsistent with walletAddress handling - potential bug
-      // The address is stored as-is (with mixed case)
+      // Custom reimbursement address should be normalized to lowercase
+      // This is consistent with walletAddress handling
       expect(createShopSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          reimbursementAddress: customReimbursementAddr // Not lowercased - see note
+          reimbursementAddress: customReimbursementAddr.toLowerCase()
         })
       );
     });
@@ -1000,11 +999,9 @@ describe('Shop Registration Tests', () => {
               shopId: payload as any
             });
 
-          // SECURITY NOTE: Currently accepts object payloads (201)
-          // Ideally should reject non-string shopId (400)
-          // This is safe for PostgreSQL (uses parameterized queries)
-          // but could be an issue if migrating to MongoDB
-          expect([400, 201]).toContain(response.status);
+          // Rejects non-string shopId values with 400 Bad Request
+          expect(response.status).toBe(400);
+          expect(response.body.error).toContain('shopId must be a string');
         }
       });
     });

@@ -2,12 +2,14 @@
 import { Router } from 'express';
 import { requireRole,authMiddleware } from '../../../middleware/auth';
 import { validateCustomerRoleConflict } from '../../../middleware/roleConflictValidator';
-import { 
-  validateRequired, 
-  validateEthereumAddress, 
-  validateEmail, 
+import {
+  validateRequired,
+  validateEthereumAddress,
+  validateEmail,
   validateNumeric,
-  asyncHandler 
+  validateStringLength,
+  validatePhoneNumber,
+  asyncHandler
 } from '../../../middleware/errorHandler';
 import { validateCustomerUniqueness } from '../../../middleware/validation';
 import { RateLimiter, createRateLimitMiddleware } from '../../../utils/rateLimiter';
@@ -84,6 +86,8 @@ router.post('/register',
   validateRequired(['walletAddress']),
   validateEthereumAddress('walletAddress'),
   validateEmail('email'),
+  validateStringLength('name', 255),
+  validatePhoneNumber('phone'),
   validateCustomerUniqueness({ email: true, wallet: true }),
   validateCustomerRoleConflict,
   asyncHandler(customerController.registerCustomer.bind(customerController))
@@ -108,6 +112,8 @@ router.put('/:address',
   requireRole(['admin', 'customer']),
   validateEthereumAddress('address'),
   validateEmail('email'),
+  validateStringLength('name', 255),
+  validatePhoneNumber('phone'),
   validateCustomerUniqueness({ email: true, wallet: false, excludeField: 'address' }),
   asyncHandler(customerController.updateCustomer.bind(customerController))
 );

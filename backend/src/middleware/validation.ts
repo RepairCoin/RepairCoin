@@ -67,23 +67,39 @@ export const ValidationRules = {
     if (!value) {
       return { isValid: true, errors: [] }; // Phone is optional
     }
-    
+
     if (typeof value !== 'string') {
       return { isValid: false, errors: ['Phone must be a string'] };
     }
-    
-    // Remove all non-digits
-    const cleaned = value.replace(/\D/g, '');
-    
-    // Check length (US format: 10 digits, international: 10-15 digits)
-    if (cleaned.length < 10 || cleaned.length > 15) {
-      return { isValid: false, errors: ['Phone number must be 10-15 digits'] };
+
+    // Check for malformed formats like double plus
+    if (/^\+\+/.test(value)) {
+      return { isValid: false, errors: ['Invalid phone number format'] };
     }
-    
-    return { 
-      isValid: true, 
-      errors: [], 
-      sanitizedValue: cleaned 
+
+    // Check for invalid characters (only allow digits, leading +, spaces, dashes, dots, parentheses)
+    const allowedCharsRegex = /^[+]?[\d\s\-().]+$/;
+    if (!allowedCharsRegex.test(value)) {
+      return { isValid: false, errors: ['Phone number contains invalid characters'] };
+    }
+
+    // Remove all non-digits to count the actual digits
+    const digitsOnly = value.replace(/\D/g, '');
+
+    // Check minimum length (7 digits per E.164 minimum)
+    if (digitsOnly.length < 7) {
+      return { isValid: false, errors: ['Phone number must have at least 7 digits'] };
+    }
+
+    // Check maximum length (15 digits per E.164 standard)
+    if (digitsOnly.length > 15) {
+      return { isValid: false, errors: ['Phone number must not exceed 15 digits'] };
+    }
+
+    return {
+      isValid: true,
+      errors: [],
+      sanitizedValue: digitsOnly
     };
   },
 

@@ -297,14 +297,90 @@ export const validateNumeric = (field: string, min?: number, max?: number) => {
 export const validateEmail = (field: string) => {
   return (req: Request, res: Response, next: NextFunction) => {
     const email = req.body[field];
-    
+
     if (email) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
         return next(new ValidationError(`${field} must be a valid email address`));
       }
     }
-    
+
+    next();
+  };
+};
+
+// String length validation
+export const validateStringLength = (field: string, maxLength: number = 255) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const value = req.body[field];
+
+    if (value && typeof value === 'string' && value.length > maxLength) {
+      return next(new ValidationError(`${field} must not exceed ${maxLength} characters`));
+    }
+
+    next();
+  };
+};
+
+// String type validation (rejects non-string values like objects)
+export const validateStringType = (field: string) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const value = req.body[field];
+
+    // Skip if not provided (use validateRequired for required fields)
+    if (value === undefined || value === null) {
+      return next();
+    }
+
+    if (typeof value !== 'string') {
+      return next(new ValidationError(`${field} must be a string`));
+    }
+
+    next();
+  };
+};
+
+// Phone number validation
+export const validatePhoneNumber = (field: string) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const value = req.body[field];
+
+    // Phone is optional - skip if not provided
+    if (!value) {
+      return next();
+    }
+
+    if (typeof value !== 'string') {
+      return next(new ValidationError(`${field} must be a string`));
+    }
+
+    // Check for malformed formats like double plus
+    if (/^\+\+/.test(value)) {
+      return next(new ValidationError(`Invalid phone number format`));
+    }
+
+    // Check for invalid characters (only allow digits, leading +, spaces, dashes, dots, parentheses)
+    const allowedCharsRegex = /^[+]?[\d\s\-().]+$/;
+    if (!allowedCharsRegex.test(value)) {
+      return next(new ValidationError(`Phone number contains invalid characters`));
+    }
+
+    // Remove all non-digits to count the actual digits
+    const digitsOnly = value.replace(/\D/g, '');
+
+    // Check minimum length (7 digits per E.164 minimum)
+    if (digitsOnly.length < 7) {
+      return next(new ValidationError(`Phone number must have at least 7 digits`));
+    }
+
+    // Check maximum length (15 digits per E.164 standard)
+    if (digitsOnly.length > 15) {
+      return next(new ValidationError(`Phone number must not exceed 15 digits`));
+    }
+
+    // Sanitize the phone number to digits only
+    req.body[field] = digitsOnly;
+
     next();
   };
 };

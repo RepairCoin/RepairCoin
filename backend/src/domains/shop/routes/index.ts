@@ -2,7 +2,7 @@
 import { Router, Request, Response } from 'express';
 import { authMiddleware, requireRole, requireShopOrAdmin, requireShopOwnership } from '../../../middleware/auth';
 import { optionalAuthMiddleware } from '../../../middleware/optionalAuth';
-import { validateRequired, validateEthereumAddress, validateEmail, validateNumeric } from '../../../middleware/errorHandler';
+import { validateRequired, validateEthereumAddress, validateEmail, validateNumeric, validateStringType } from '../../../middleware/errorHandler';
 import { validateShopUniqueness } from '../../../middleware/validation';
 import {
   shopRepository,
@@ -353,6 +353,7 @@ router.get('/wallet/:address',
 // Register new shop
 router.post('/register',
   validateRequired(['shopId', 'name', 'address', 'phone', 'email', 'walletAddress']),
+  validateStringType('shopId'),
   validateEthereumAddress('walletAddress'),
   validateEmail('email'),
   validateShopUniqueness({ email: true, wallet: true }),
@@ -420,7 +421,7 @@ router.post('/register',
         phone,
         email,
         walletAddress: walletAddress.toLowerCase(),
-        reimbursementAddress: reimbursementAddress || walletAddress.toLowerCase(),
+        reimbursementAddress: (reimbursementAddress || walletAddress).toLowerCase(),
         verified: false, // Requires admin approval
         active: false,   // Activated after verification
         crossShopEnabled: false, // Default to false, can be enabled later
