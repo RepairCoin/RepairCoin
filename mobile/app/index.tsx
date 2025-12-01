@@ -1,31 +1,19 @@
 import { Image, Text, View } from "react-native";
 import Screen from "@/components/ui/Screen";
 import { useEffect } from "react";
-import { router } from "expo-router";
-import { useSplashNavigation } from "@/hooks/useAuthQueries";
+import { useAuth } from "@/hooks/auth/useAuth";
 
 const logo = require("@/assets/images/logo.png");
 
 export default function Splash() {
-  const { checkAuth, isLoading, navigationRoute } = useSplashNavigation();
+  const { useSplashNavigation } = useAuth();
+  const { navigate, hasHydrated } = useSplashNavigation();
 
   useEffect(() => {
-    // Check authentication status on mount
-    checkAuth();
-  }, []);
-
-  useEffect(() => {
-    // Wait a minimum of 3 seconds for splash screen
-    const timer = setTimeout(() => {
-      if (!isLoading && navigationRoute) {
-        router.replace(navigationRoute as any);
-      }
-    }, 3000);
-
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [isLoading, navigationRoute]);
+    if (hasHydrated) {
+      navigate();
+    }
+  }, [hasHydrated]);
 
   return (
     <Screen>

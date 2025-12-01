@@ -19,7 +19,7 @@ import {
 import { goBack } from "expo-router/build/global-state/routing";
 import { ThemedView } from "@/components/ui/ThemedView";
 import { useShopRewards, RepairType } from "@/hooks/useShopRewards";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/store/auth.store";
 import { QRScanner } from "@/components/shop/QRScanner";
 
 // Tier styles

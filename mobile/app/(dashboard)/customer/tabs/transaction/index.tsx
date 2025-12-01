@@ -8,7 +8,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/store/auth.store";
 import { useEarningHistory } from "@/hooks";
 import { EarningHistory } from "@/services/CustomerServices";
 import TransactionHistoryCard from "@/components/common/TransactionHistoryCard";

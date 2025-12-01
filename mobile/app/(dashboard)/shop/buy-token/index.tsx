@@ -22,7 +22,7 @@ import { router } from "expo-router";
 import { ThemedView } from "@/components/ui/ThemedView";
 import { useShopPurchase } from "@/hooks/useShopPurchase";
 import { useShopByWalletAddress } from "@/hooks/useShopQueries";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/store/auth.store";
 import SubscriptionModal from "@/components/shop/SubscriptionModal";
 
 export default function BuyToken() {

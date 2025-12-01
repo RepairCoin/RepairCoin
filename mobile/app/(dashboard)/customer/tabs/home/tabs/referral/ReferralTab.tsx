@@ -9,7 +9,7 @@ import {
 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Clipboard from "expo-clipboard";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/store/auth.store";
 import { useCustomer } from "@/hooks";
 import HorizontalCard from "@/components/ui/HorizontalCard";
 

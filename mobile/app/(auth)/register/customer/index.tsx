@@ -6,7 +6,7 @@ import { AntDesign } from "@expo/vector-icons";
 import Screen from "@/components/ui/Screen";
 import PrimaryButton from "@/components/ui/PrimaryButton";
 import { RegisterAsCustomerService } from "@/services/RegisterServices";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/store/auth.store";
 import { EmailValidation } from "@/utilities/Validation";
 
 // Types

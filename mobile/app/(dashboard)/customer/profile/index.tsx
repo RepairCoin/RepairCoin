@@ -4,7 +4,7 @@ import { View, Text, TextInput, Alert, Platform } from "react-native";
 import Screen from "@/components/ui/Screen";
 import { useState } from "react";
 import PrimaryButton from "@/components/ui/PrimaryButton";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/store/auth.store";
 import {
   useCustomer,
   useUpdateCustomerProfile,

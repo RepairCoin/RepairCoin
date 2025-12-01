@@ -9,7 +9,7 @@ import {
 import React, { useEffect, useState } from "react";
 import * as Clipboard from "expo-clipboard";
 import { router } from "expo-router";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/store/auth.store";
 import { useTheme } from "@/hooks/useTheme";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { ThemedView } from "@/components/ui/ThemedView";

@@ -17,7 +17,7 @@ import Screen from "@/components/ui/Screen";
 import PrimaryButton from "@/components/ui/PrimaryButton";
 import { apiClient } from "@/utilities/axios";
 import { useShopByWalletAddress } from "@/hooks/useShopQueries";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/store/auth.store";
 
 type SubscriptionFormData = {
   shopName: string;

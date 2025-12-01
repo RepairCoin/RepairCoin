@@ -4,7 +4,7 @@ import { Feather } from "@expo/vector-icons";
 import WalletTab from "./tabs/wallet/WalletTab";
 import ApprovalTab from "./tabs/approval/ApprovalTab";
 import ReferralTab from "./tabs/referral/ReferralTab";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/store/auth.store";
 import { useCustomer } from "@/hooks";
 import { router } from "expo-router";
 

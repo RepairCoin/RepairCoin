@@ -2,6 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { authApi } from "@/services/auth.services";
 import { useAuthStore } from "@/store/auth.store";
 import { router } from "expo-router";
+import apiClient from "@/utilities/axios";
 
 export function useAuth() {
   const useGetToken = () => {
@@ -15,7 +16,7 @@ export function useAuth() {
     });
   };
 
-  const useCheckUserExists = () => {
+  const useGetProfile = () => {
     return useMutation({
       mutationFn: async (address: string) => {
         return await authApi.checkUserExists(address);
@@ -26,12 +27,13 @@ export function useAuth() {
     });
   };
 
-  // Hook for connecting wallet using Zustand store
   const useConnectWallet = () => {
     const setAccount = useAuthStore((state) => state.setAccount);
     const setUserProfile = useAuthStore((state) => state.setUserProfile);
-    const setToken = useAuthStore((state) => state.setToken);
+    const setAccessToken = useAuthStore((state) => state.setAccessToken);
+    const setRefreshToken = useAuthStore((state) => state.setRefreshToken);
     const setUserType = useAuthStore((state) => state.setUserType);
+
     const getTokenMutation = useGetToken();
 
     return useMutation({
@@ -48,8 +50,10 @@ export function useAuth() {
           const getTokenResult = await getTokenMutation.mutateAsync(address);
           if (getTokenResult.success) {
             setUserProfile(result.user);
-            setToken(getTokenResult.token);
+            setAccessToken(getTokenResult.token);
+            setRefreshToken(getTokenResult.refreshToken);
             setUserType(result.type);
+            apiClient.setAuthToken(getTokenResult.token);
 
             if (!result.exists) {
               router.push("/register");
@@ -76,9 +80,58 @@ export function useAuth() {
     });
   };
 
+  const useSplashNavigation = () => {
+    const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+    const userProfile = useAuthStore((state) => state.userProfile);
+    const userType = useAuthStore((state) => state.userType);
+    const accessToken = useAuthStore((state) => state.accessToken);
+    const hasHydrated = useAuthStore((state) => state.hasHydrated);
+    const logout = useAuthStore((state) => state.logout);
+
+    const navigate = async () => {
+      // Wait for store to hydrate before checking auth
+      if (!hasHydrated) {
+        console.log("[Auth] Store not hydrated yet, waiting...");
+        return;
+      }
+
+      console.log("[Auth] isAuthenticated:", isAuthenticated);
+      console.log("[Auth] accessToken:", !!accessToken);
+      console.log("[Auth] userProfile:", userProfile);
+
+      // Check if we have stored auth data
+      if (!isAuthenticated || !userProfile?.address || !accessToken) {
+        console.log("[Auth] No stored authentication found");
+        await logout(false);
+        router.replace("/onboarding1");
+        return;
+      }
+
+      // Restore token to axios client
+      apiClient.setAuthToken(accessToken);
+
+      // Navigate based on user type
+      if (userType === "customer") {
+        router.replace("/customer/tabs/home");
+      } else if (userType === "shop") {
+        const active = userProfile?.isActive || false;
+        if (active) {
+          router.replace("/shop/tabs/home");
+        } else {
+          router.replace("/register/pending");
+        }
+      } else {
+        router.replace("/onboarding1");
+      }
+    };
+
+    return { navigate, isAuthenticated, userProfile, hasHydrated };
+  };
+
   return {
     useGetToken,
-    useCheckUserExists,
+    useGetProfile,
     useConnectWallet,
+    useSplashNavigation,
   };
 }

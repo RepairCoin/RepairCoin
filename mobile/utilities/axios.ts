@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
+import { authApi } from '@/services/auth.services';
+import { useAuthStore } from '@/store/auth.store';
 
 interface DecodedToken {
   exp: number;
@@ -71,30 +72,26 @@ class ApiClient {
   private async refreshToken(): Promise<string | null> {
     try {
       console.log('[ApiClient] Attempting to refresh token...');
-      
-      // Get stored refresh token
-      const refreshToken = await AsyncStorage.getItem('refresh_token');
+
+      // Get stored refresh token from Zustand store
+      const { refreshToken, setAccessToken, setRefreshToken } = useAuthStore.getState();
       if (!refreshToken) {
         console.log('[ApiClient] No refresh token found');
         return null;
       }
 
       // Call refresh endpoint
-      const response = await axios.post(`${this.baseURL}/auth/refresh`, {
-        refreshToken
-      }, {
-        timeout: 5000
-      });
+      const response = await authApi.getRefreshToken(refreshToken);
 
       if (response.data.success) {
         const { accessToken, refreshToken: newRefreshToken } = response.data.data;
-        
-        // Store new tokens
-        await AsyncStorage.setItem('auth_token', accessToken);
+
+        // Store new tokens in Zustand store
+        setAccessToken(accessToken);
         if (newRefreshToken) {
-          await AsyncStorage.setItem('refresh_token', newRefreshToken);
+          setRefreshToken(newRefreshToken);
         }
-        
+
         console.log('[ApiClient] Token refreshed successfully');
         return accessToken;
       }
@@ -103,12 +100,12 @@ class ApiClient {
       return null;
     } catch (error: any) {
       console.error('[ApiClient] Token refresh error:', error.message);
-      
+
       // If refresh fails with 401, clear tokens and redirect to login
       if (error.response?.status === 401) {
         await this.clearAuthToken();
       }
-      
+
       return null;
     }
   }
@@ -118,19 +115,20 @@ class ApiClient {
     this.instance.interceptors.request.use(
       async (config) => {
         try {
-          let token = await AsyncStorage.getItem('auth_token');
-          
+          // Get token from Zustand store
+          let token = useAuthStore.getState().accessToken;
+
           if (token) {
             // Check if token is expired
             if (this.isTokenExpired(token)) {
               console.log('[ApiClient] Token expired, attempting refresh...');
-              
+
               // If not already refreshing, start refresh
               if (!this.isRefreshing) {
                 this.isRefreshing = true;
-                
+
                 const newToken = await this.refreshToken();
-                
+
                 if (newToken) {
                   token = newToken;
                   this.onTokenRefreshed(newToken);
@@ -139,7 +137,7 @@ class ApiClient {
                   await this.clearAuthToken();
                   this.onTokenRefreshed('');
                 }
-                
+
                 this.isRefreshing = false;
               } else {
                 // Wait for refresh to complete
@@ -151,7 +149,7 @@ class ApiClient {
                 });
               }
             }
-            
+
             if (token) {
               config.headers.Authorization = `Bearer ${token}`;
               console.log('[Axios Interceptor] Added token to request:', config.url);
@@ -162,7 +160,7 @@ class ApiClient {
         } catch (error) {
           console.warn('[Axios Interceptor] Failed to process auth token:', error);
         }
-        
+
         return config;
       },
       (error) => {
@@ -261,22 +259,10 @@ class ApiClient {
   }
 
   // Set auth tokens
-  public async setAuthToken(accessToken: string, refreshToken?: string): Promise<void> {
+  public setAuthToken(accessToken: string): void {
     try {
-      await AsyncStorage.setItem('auth_token', accessToken);
-      if (refreshToken) {
-        await AsyncStorage.setItem('refresh_token', refreshToken);
-      }
       this.instance.defaults.headers.Authorization = `Bearer ${accessToken}`;
-      
-      // Decode and log token expiry for debugging
-      try {
-        const decoded = jwtDecode<DecodedToken>(accessToken);
-        const expiryDate = new Date(decoded.exp * 1000);
-        console.log('[ApiClient] Token set, expires at:', expiryDate.toLocaleString());
-      } catch (e) {
-        console.log('[ApiClient] Token set (unable to decode)');
-      }
+      console.log('[ApiClient] Auth token set');
     } catch (error) {
       console.error('Failed to set auth token:', error);
     }
@@ -285,8 +271,6 @@ class ApiClient {
   // Clear auth tokens
   public async clearAuthToken(): Promise<void> {
     try {
-      await AsyncStorage.removeItem('auth_token');
-      await AsyncStorage.removeItem('refresh_token');
       delete this.instance.defaults.headers.Authorization;
       console.log('[ApiClient] Auth tokens cleared');
     } catch (error) {

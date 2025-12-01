@@ -4,7 +4,7 @@ import { goBack } from "expo-router/build/global-state/routing";
 import { View, Text, TextInput, Platform, ScrollView, Alert } from "react-native";
 import PrimaryButton from "@/components/ui/PrimaryButton";
 import { ThemedView } from "@/components/ui/ThemedView";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/store/auth.store";
 import { useShopByWalletAddress, useUpdateShopDetails } from "@/hooks";
 
 

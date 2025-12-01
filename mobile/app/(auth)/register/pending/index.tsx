@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore } from '@/store/auth.store';
 import Screen from '@/components/ui/Screen';
 import { Ionicons } from '@expo/vector-icons';
 
