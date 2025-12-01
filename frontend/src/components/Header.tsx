@@ -11,13 +11,18 @@ import { useAuth } from "@/hooks/useAuth";
 import Spinner from "./Spinner";
 import { WalletDetectionService } from "@/services/walletDetectionService";
 import { useModalStore } from "@/stores/modalStore";
+import { authApi } from "@/services/api/auth";
 
 const Header: React.FC = () => {
   const account = useActiveAccount();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, userType } = useAuth();
+  const [sessionChecked, setSessionChecked] = useState(false);
+  const [hasValidSession, setHasValidSession] = useState(false);
+  const [sessionUserType, setSessionUserType] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const { isWelcomeModalOpen, openWelcomeModal, closeWelcomeModal } = useModalStore();
+  const { isWelcomeModalOpen, openWelcomeModal, closeWelcomeModal } =
+    useModalStore();
   const router = useRouter();
   const pathname = usePathname();
   const hasCheckedRef = useRef(false);
@@ -56,79 +61,110 @@ const Header: React.FC = () => {
     };
   }, [handleScroll]);
 
+  // Check for existing session on mount (for public pages like homepage)
+  useEffect(() => {
+    const checkSession = async () => {
+      if (sessionChecked) return;
+
+      try {
+        const session = await authApi.getSession();
+        if (session.isValid && session.user) {
+          const userData = session.user as any;
+          setHasValidSession(true);
+          setSessionUserType(userData.type || userData.role);
+        }
+      } catch (error) {
+        // No valid session - this is normal for logged out users
+      } finally {
+        setSessionChecked(true);
+      }
+    };
+
+    checkSession();
+  }, [sessionChecked]);
+
   // Track when modal opens to mark the start of a sign-in flow
   const signInInitiatedRef = useRef(false);
 
   useEffect(() => {
     if (isWelcomeModalOpen) {
       // User opened the modal - mark that a sign-in was initiated
-      console.log('🟦 [Header] Modal opened - marking sign-in initiated');
+      console.log("🟦 [Header] Modal opened - marking sign-in initiated");
       signInInitiatedRef.current = true;
     }
   }, [isWelcomeModalOpen]);
 
   // Handle wallet connection after sign-in
   useEffect(() => {
-    console.log('🟦 [Header] useEffect triggered', {
+    console.log("🟦 [Header] useEffect triggered", {
       hasAccount: !!account?.address,
       address: account?.address,
       previousRef: previousAccountRef.current,
       signInInitiated: signInInitiatedRef.current,
-      hasChecked: hasCheckedRef.current
+      hasChecked: hasCheckedRef.current,
     });
 
     if (account?.address) {
       // Check if this is from a user-initiated sign-in (modal was opened)
-      const isNewSignIn = signInInitiatedRef.current && previousAccountRef.current !== account.address;
-      
-      console.log('🟦 [Header] Connection analysis', {
+      const isNewSignIn =
+        signInInitiatedRef.current &&
+        previousAccountRef.current !== account.address;
+
+      console.log("🟦 [Header] Connection analysis", {
         isNewSignIn,
         currentAddress: account.address,
         previousAddress: previousAccountRef.current,
-        signInWasInitiated: signInInitiatedRef.current
+        signInWasInitiated: signInInitiatedRef.current,
       });
 
       if (isNewSignIn && !hasCheckedRef.current) {
-        console.log('🟦 [Header] ✅ NEW SIGN-IN detected - checking registration');
-        
+        console.log(
+          "🟦 [Header] ✅ NEW SIGN-IN detected - checking registration"
+        );
+
         // Mark as checked to prevent duplicate checks
         hasCheckedRef.current = true;
         signInInitiatedRef.current = false; // Reset the flag
-        
+
         // Check wallet registration status and redirect if needed
         const checkAndRedirect = async () => {
           try {
             const detector = WalletDetectionService.getInstance();
             const result = await detector.detectWalletType(account.address);
-            
-            console.log('� [Header] Detection result:', result);
-            
+
+            console.log("� [Header] Detection result:", result);
+
             if (!result.isRegistered) {
-              console.log('🟦 [Header] 🔄 New user detected, redirecting to /choose...');
+              console.log(
+                "🟦 [Header] 🔄 New user detected, redirecting to /choose..."
+              );
               closeWelcomeModal(); // Close modal before redirect
               setTimeout(() => {
-                router.push('/choose');
+                router.push("/choose");
               }, 100);
             } else {
-              console.log('🟦 [Header] ✅ Registered user, staying on current page');
+              console.log(
+                "🟦 [Header] ✅ Registered user, staying on current page"
+              );
               closeWelcomeModal(); // Close modal anyway
             }
           } catch (error) {
-            console.error('🟦 [Header] ❌ Error detecting wallet:', error);
+            console.error("🟦 [Header] ❌ Error detecting wallet:", error);
           }
         };
-        
+
         checkAndRedirect();
       } else if (previousAccountRef.current !== account.address) {
-        console.log('🟦 [Header] Address changed but not from modal sign-in (page load)');
+        console.log(
+          "🟦 [Header] Address changed but not from modal sign-in (page load)"
+        );
       }
-      
+
       // Update tracked address
       previousAccountRef.current = account.address;
-      
     } else if (!account?.address && previousAccountRef.current) {
       // Reset everything when wallet disconnects
-      console.log('🟦 [Header] Wallet disconnected - resetting all refs');
+      console.log("🟦 [Header] Wallet disconnected - resetting all refs");
       previousAccountRef.current = undefined;
       hasCheckedRef.current = false;
       signInInitiatedRef.current = false;
@@ -138,10 +174,9 @@ const Header: React.FC = () => {
   return (
     <>
       <header
-        className={`fixed top-0 left-0 z-50 w-full transition-all duration-300 ${scrolled
-          ? "bg-black/90 backdrop-blur-sm shadow-md"
-          : "bg-transparent"
-          }`}
+        className={`fixed top-0 left-0 z-50 w-full transition-all duration-300 ${
+          scrolled ? "bg-black/90 backdrop-blur-sm shadow-md" : "bg-transparent"
+        }`}
       >
         <nav className="py-4">
           <Section>
@@ -208,17 +243,17 @@ const Header: React.FC = () => {
               <nav className="hidden lg:flex items-center absolute left-1/2 transform -translate-x-1/2">
                 <ul className="flex space-x-6">
                   {["Home", "Features", "Rewards", "About"].map((item) => {
-                    const href = item === "Home" ? "/" : `/${item.toLowerCase()}`;
-                    const isActive = pathname?.toLowerCase() === href.toLowerCase();
+                    const href =
+                      item === "Home" ? "/" : `/${item.toLowerCase()}`;
+                    const isActive =
+                      pathname?.toLowerCase() === href.toLowerCase();
 
                     return (
                       <li key={item}>
                         <Link
                           href={href}
                           className={`${
-                            isActive
-                              ? "text-[#F7CC00]"
-                              : "text-white"
+                            isActive ? "text-[#F7CC00]" : "text-white"
                           } hover:text-[#F7CC00] px-3 py-2 text-sm font-medium transition-colors duration-200`}
                         >
                           {item}
@@ -231,24 +266,35 @@ const Header: React.FC = () => {
 
               {/* Auth Buttons */}
               <div className="hidden lg:flex items-center">
-                {
-                  account?.address && !isLoading ? (
-                    <div className="flex justify-center items-center">
-                      <ConnectButton
-                        client={client}
-                        connectModal={{ size: "wide" }}
-                      />
-                    </div>
-                  ) : (
-                    <button
-                      onClick={openWelcomeModal}
-                      disabled={isLoading}
-                      className="text-black bg-[#F7CC00] hover:bg-[#E5BB00] px-6 py-2 rounded-md text-sm font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[90px]"
-                    >
-                      {isLoading ? <Spinner className="w-5 h-5" /> : "Login"}
-                    </button>
-                  )
-                }
+                {isLoading || !sessionChecked ? (
+                  <button
+                    disabled
+                    className="text-black bg-[#F7CC00] px-6 py-2 rounded-md text-sm font-semibold opacity-50 cursor-not-allowed flex items-center justify-center min-w-[90px]"
+                  >
+                    <Spinner className="w-5 h-5" />
+                  </button>
+                ) : account?.address ? (
+                  <div className="flex justify-center items-center">
+                    <ConnectButton
+                      client={client}
+                      connectModal={{ size: "wide" }}
+                    />
+                  </div>
+                ) : (isAuthenticated && userType) || (hasValidSession && sessionUserType) ? (
+                  <button
+                    onClick={() => router.push(`/${userType || sessionUserType}`)}
+                    className="text-black bg-[#F7CC00] hover:bg-[#E5BB00] px-6 py-2 rounded-md text-sm font-semibold transition-all duration-200 flex items-center justify-center min-w-[90px]"
+                  >
+                    Dashboard
+                  </button>
+                ) : (
+                  <button
+                    onClick={openWelcomeModal}
+                    className="text-black bg-[#F7CC00] hover:bg-[#E5BB00] px-6 py-2 rounded-md text-sm font-semibold transition-all duration-200 flex items-center justify-center min-w-[90px]"
+                  >
+                    Login
+                  </button>
+                )}
               </div>
             </div>
 
@@ -258,43 +304,59 @@ const Header: React.FC = () => {
                 <div className="px-4 py-4 space-y-4">
                   {/* Navigation Links */}
                   <nav className="flex flex-col items-center space-y-3">
-                    {["Home", "Features", "Rewards", "About"].map(
-                      (item) => {
-                        const href = item === "Home" ? "/" : `/${item.toLowerCase()}`;
-                        const isActive = pathname?.toLowerCase() === href.toLowerCase();
+                    {["Home", "Features", "Rewards", "About"].map((item) => {
+                      const href =
+                        item === "Home" ? "/" : `/${item.toLowerCase()}`;
+                      const isActive =
+                        pathname?.toLowerCase() === href.toLowerCase();
 
-                        return (
-                          <Link
-                            key={`mobile-${item}`}
-                            href={href}
-                            className={`w-full text-center px-4 py-3 text-base font-medium ${
-                              isActive ? "text-[#F7CC00]" : "text-black"
-                            } hover:text-[#F7CC00] hover:bg-gray-900/50 rounded-lg transition-colors duration-200`}
-                            onClick={() => setIsMenuOpen(false)}
-                          >
-                            {item}
-                          </Link>
-                        );
-                      }
-                    )}
+                      return (
+                        <Link
+                          key={`mobile-${item}`}
+                          href={href}
+                          className={`w-full text-center px-4 py-3 text-base font-medium ${
+                            isActive ? "text-[#F7CC00]" : "text-black"
+                          } hover:text-[#F7CC00] hover:bg-gray-900/50 rounded-lg transition-colors duration-200`}
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          {item}
+                        </Link>
+                      );
+                    })}
                   </nav>
 
                   {/* Auth Buttons */}
                   <div className="pt-2 space-y-3">
-                    {account?.address && !isLoading ? (
+                    {isLoading || !sessionChecked ? (
+                      <button
+                        disabled
+                        className="w-full px-4 py-3 text-base font-semibold text-center text-black bg-[#F7CC00] rounded-md opacity-50 cursor-not-allowed flex items-center justify-center"
+                      >
+                        <Spinner className="w-5 h-5" />
+                      </button>
+                    ) : account?.address ? (
                       <div className="flex justify-center items-center">
-                        <ConnectButton 
+                        <ConnectButton
                           client={client}
                           connectModal={{ size: "wide" }}
                         />
                       </div>
+                    ) : (isAuthenticated && userType) || (hasValidSession && sessionUserType) ? (
+                      <button
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          router.push(`/${userType || sessionUserType}`);
+                        }}
+                        className="w-full px-4 py-3 text-base font-semibold text-center text-black bg-[#F7CC00] hover:bg-[#E5BB00] rounded-md transition-colors duration-200 flex items-center justify-center"
+                      >
+                        Dashboard
+                      </button>
                     ) : (
                       <button
                         onClick={openWelcomeModal}
-                        disabled={isLoading}
-                        className="w-full px-4 py-3 text-base font-semibold text-center text-black bg-[#F7CC00] hover:bg-[#E5BB00] rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                        className="w-full px-4 py-3 text-base font-semibold text-center text-black bg-[#F7CC00] hover:bg-[#E5BB00] rounded-md transition-colors duration-200 flex items-center justify-center"
                       >
-                        {isLoading ? <Spinner className="w-5 h-5" /> : "Login"}
+                        Login
                       </button>
                     )}
                   </div>
@@ -358,7 +420,8 @@ const Header: React.FC = () => {
                     connectModal={{ size: "wide" }}
                     connectButton={{
                       label: "Connect Wallet",
-                      className: "!bg-[#F7CC00] hover:!bg-[#E5BB00] !text-gray-900 !justify-center !w-full !font-semibold !px-8 !py-3 !rounded-full !inline-flex !items-center !gap-3 !transition-all !duration-200 !shadow-lg hover:!shadow-xl !border-none",
+                      className:
+                        "!bg-[#F7CC00] hover:!bg-[#E5BB00] !text-gray-900 !justify-center !w-full !font-semibold !px-8 !py-3 !rounded-full !inline-flex !items-center !gap-3 !transition-all !duration-200 !shadow-lg hover:!shadow-xl !border-none",
                       style: {
                         backgroundColor: "#F7CC00",
                         color: "#111827",
@@ -367,8 +430,9 @@ const Header: React.FC = () => {
                         width: "100%",
                         justifyContent: "center",
                         padding: "0.75rem 2rem",
-                        boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
-                      }
+                        boxShadow:
+                          "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+                      },
                     }}
                   />
                 </div>

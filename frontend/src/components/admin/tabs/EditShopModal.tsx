@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { toast } from 'react-hot-toast';
-import { X } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import { toast } from "react-hot-toast";
+import { X } from "lucide-react";
 
 interface Shop {
   shopId: string;
@@ -31,39 +31,39 @@ export const EditShopModal: React.FC<EditShopModalProps> = ({
   isOpen,
   onClose,
   shop,
-  onRefresh
+  onRefresh,
 }) => {
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    address: '',
-    city: '',
-    country: '',
-    website: '',
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+    city: "",
+    country: "",
+    website: "",
     // crossShopEnabled removed - universal redemption is now always enabled
   });
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (shop) {
-      console.log('EditShopModal - Loading shop data:', {
+      console.log("EditShopModal - Loading shop data:", {
         shopId: shop.shopId || shop.shop_id,
         name: shop.name,
         city: shop.city,
         country: shop.country,
         website: shop.website,
-        fullShopObject: shop
+        fullShopObject: shop,
       });
 
       setFormData({
-        name: shop.name || '',
-        email: shop.email || '',
-        phone: shop.phone || '',
-        address: shop.address || '',
-        city: shop.city || '',
-        country: shop.country || '',
-        website: shop.website || '',
+        name: shop.name || "",
+        email: shop.email || "",
+        phone: shop.phone || "",
+        address: shop.address || "",
+        city: shop.city || "",
+        country: shop.country || "",
+        website: shop.website || "",
         // crossShopEnabled removed - universal redemption is now always enabled
       });
     }
@@ -87,43 +87,49 @@ export const EditShopModal: React.FC<EditShopModalProps> = ({
         // cross_shop_enabled removed - universal redemption is now always enabled
       };
 
-      console.log('EditShopModal - Submitting update:', {
+      console.log("EditShopModal - Submitting update:", {
         shopId,
         updateData,
-        formData
+        formData,
       });
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/shops/${shopId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Important: send cookies for authentication
-        body: JSON.stringify(updateData)
-      });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/shops/${shopId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include", // Important: send cookies for authentication
+          body: JSON.stringify(updateData),
+        }
+      );
 
       if (response.ok) {
-        toast.success('Shop updated successfully');
+        toast.success("Shop updated successfully");
         // Refresh the shop list to get latest data
         await onRefresh();
         // Don't close modal - just keep it open with updated data
       } else {
         const errorData = await response.json();
-        toast.error(errorData.error || 'Failed to update shop');
+        toast.error(errorData.error || "Failed to update shop");
       }
     } catch (error) {
-      console.error('Error updating shop:', error);
-      toast.error('Network error while updating shop');
+      console.error("Error updating shop:", error);
+      toast.error("Network error while updating shop");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
     const { name, value, type } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
+      [name]:
+        type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
     }));
   };
 
@@ -296,17 +302,29 @@ export const EditShopModal: React.FC<EditShopModalProps> = ({
                 ✅ Universal Redemption Active
               </p>
               <p className="text-xs text-green-400 mt-1">
-                All RepairCoin customers can redeem 100% of their earned RCN at any participating shop.
+                All RepairCoin customers can redeem 100% of their earned RCN at
+                any participating shop.
               </p>
             </div>
 
             {/* Shop Status Information */}
             <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
-              <h4 className="text-sm font-medium text-gray-300 mb-2">Shop Information</h4>
+              <h4 className="text-sm font-medium text-gray-300 mb-2">
+                Shop Information
+              </h4>
               <div className="text-sm text-gray-400 space-y-1">
-                <p><span className="font-medium text-gray-300">Shop ID:</span> {shop.shopId || shop.shop_id}</p>
-                <p><span className="font-medium text-gray-300">Status:</span> {shop.active ? 'Active' : 'Suspended'}</p>
-                <p><span className="font-medium text-gray-300">Verified:</span> {shop.verified ? 'Yes' : 'No'}</p>
+                <p>
+                  <span className="font-medium text-gray-300">Shop ID:</span>{" "}
+                  {shop.shopId || shop.shop_id}
+                </p>
+                <p>
+                  <span className="font-medium text-gray-300">Status:</span>{" "}
+                  {shop.active ? "Active" : "Suspended"}
+                </p>
+                <p>
+                  <span className="font-medium text-gray-300">Verified:</span>{" "}
+                  {shop.verified ? "Yes" : "No"}
+                </p>
               </div>
             </div>
           </form>
@@ -327,7 +345,7 @@ export const EditShopModal: React.FC<EditShopModalProps> = ({
             disabled={isLoading}
             className="px-4 py-2 bg-[#FFCC00] text-black rounded-3xl hover:from-yellow-500 hover:to-orange-500 transition-all disabled:opacity-50"
           >
-            {isLoading ? 'Updating...' : 'Update Shop'}
+            {isLoading ? "Updating..." : "Update Shop"}
           </button>
         </div>
       </div>

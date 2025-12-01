@@ -84,14 +84,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [expandedSections, setExpandedSections] = useState<string[]>([
-    "dashboard",
-    "service",
-    "rewards",
-    "customers",
-    "shop-tools",
-    "settings",
-  ]);
+  const [expandedSections, setExpandedSections] = useState<string[]>([]);
 
   // Auto-collapse subtabs when switching to a different main tab
   React.useEffect(() => {

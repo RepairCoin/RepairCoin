@@ -1,19 +1,33 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { AlertCircle, CheckCircle, XCircle, CreditCard, Calendar, DollarSign } from 'lucide-react';
-import Link from 'next/link';
-import apiClient from '@/services/api/client';
+import React, { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  AlertCircle,
+  CheckCircle,
+  XCircle,
+  CreditCard,
+  Calendar,
+  DollarSign,
+} from "lucide-react";
+import Link from "next/link";
+import apiClient from "@/services/api/client";
 
 interface Subscription {
   id?: number;
   shopId: string;
-  status: 'pending' | 'active' | 'cancelled' | 'paused' | 'defaulted';
+  status: "pending" | "active" | "cancelled" | "paused" | "defaulted";
   monthlyAmount: number;
   subscriptionType: string;
-  billingMethod?: 'credit_card' | 'ach' | 'wire' | 'crypto';
+  billingMethod?: "credit_card" | "ach" | "wire" | "crypto";
   billingReference?: string;
   paymentsMade: number;
   totalPaid: number;
@@ -40,7 +54,10 @@ interface SubscriptionManagementProps {
   shopWallet?: string;
 }
 
-export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ shopId, shopWallet }) => {
+export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
+  shopId,
+  shopWallet,
+}) => {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -49,27 +66,30 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
   const [cancelling, setCancelling] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
   const [reactivating, setReactivating] = useState(false);
-  const [cancellationReason, setCancellationReason] = useState('');
+  const [cancellationReason, setCancellationReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [billingForm, setBillingForm] = useState({
-    billingEmail: '',
-    billingContact: '',
-    billingPhone: ''
+    billingEmail: "",
+    billingContact: "",
+    billingPhone: "",
   });
 
   useEffect(() => {
     loadSubscriptionStatus();
-    
+
     // Prefill form with shop data if available
-    const shopData = JSON.parse(localStorage.getItem('shopData') || '{}');
+    const shopData = JSON.parse(localStorage.getItem("shopData") || "{}");
     if (shopData) {
-      setBillingForm(prev => ({
+      setBillingForm((prev) => ({
         ...prev,
-        billingEmail: shopData.email || '',
-        billingContact: `${shopData.firstName || ''} ${shopData.lastName || ''}`.trim() || shopData.ownerName || '',
-        billingPhone: shopData.phoneNumber || ''
+        billingEmail: shopData.email || "",
+        billingContact:
+          `${shopData.firstName || ""} ${shopData.lastName || ""}`.trim() ||
+          shopData.ownerName ||
+          "",
+        billingPhone: shopData.phoneNumber || "",
       }));
     }
   }, [shopId]);
@@ -79,11 +99,11 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
       setLoading(true);
       setError(null);
 
-      const response = await apiClient.get('/shops/subscription/status');
+      const response = await apiClient.get("/shops/subscription/status");
 
       if (!response.success) {
-        console.error('Subscription status error:', response);
-        throw new Error(response.error || 'Failed to load subscription status');
+        console.error("Subscription status error:", response);
+        throw new Error(response.error || "Failed to load subscription status");
       }
 
       const result = response;
@@ -93,22 +113,29 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
           ...sub,
           // Map backend fields to frontend interface
           cancelAtPeriodEnd: sub.cancelAtPeriodEnd,
-          currentPeriodEnd: sub.currentPeriodEnd || sub.nextPaymentDate
+          currentPeriodEnd: sub.currentPeriodEnd || sub.nextPaymentDate,
         });
-        console.log('✅ SUBSCRIPTION STATUS: TRUE - Active subscription found:', {
-          subscriptionId: sub.id,
-          status: sub.status,
-          subscriptionType: sub.subscriptionType,
-          monthlyAmount: sub.monthlyAmount,
-          cancelAtPeriodEnd: sub.cancelAtPeriodEnd,
-          currentPeriodEnd: sub.currentPeriodEnd
-        });
+        console.log(
+          "✅ SUBSCRIPTION STATUS: TRUE - Active subscription found:",
+          {
+            subscriptionId: sub.id,
+            status: sub.status,
+            subscriptionType: sub.subscriptionType,
+            monthlyAmount: sub.monthlyAmount,
+            cancelAtPeriodEnd: sub.cancelAtPeriodEnd,
+            currentPeriodEnd: sub.currentPeriodEnd,
+          }
+        );
       } else {
-        console.log('❌ SUBSCRIPTION STATUS: FALSE - No active subscription found');
+        console.log(
+          "❌ SUBSCRIPTION STATUS: FALSE - No active subscription found"
+        );
       }
     } catch (error) {
-      console.error('Error loading subscription:', error);
-      setError(error instanceof Error ? error.message : 'Failed to load subscription');
+      console.error("Error loading subscription:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to load subscription"
+      );
     } finally {
       setLoading(false);
     }
@@ -119,23 +146,25 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
       setSyncing(true);
       setError(null);
 
-      const response = await apiClient.post('/shops/subscription/sync');
+      const response = await apiClient.post("/shops/subscription/sync");
 
       if (!response.success) {
-        throw new Error(response.error || 'Failed to sync subscription');
+        throw new Error(response.error || "Failed to sync subscription");
       }
 
       const result = response;
       if (result.data?.synced) {
-        setSuccessMessage('Subscription synced successfully!');
+        setSuccessMessage("Subscription synced successfully!");
         // Reload subscription status
         await loadSubscriptionStatus();
       } else {
-        setError(result.message || 'No new subscription to sync');
+        setError(result.message || "No new subscription to sync");
       }
     } catch (error) {
-      console.error('Error syncing subscription:', error);
-      setError(error instanceof Error ? error.message : 'Failed to sync subscription');
+      console.error("Error syncing subscription:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to sync subscription"
+      );
     } finally {
       setSyncing(false);
     }
@@ -148,19 +177,19 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
 
       // Validate form
       if (!billingForm.billingEmail || !billingForm.billingContact) {
-        setError('Please fill in all required fields');
+        setError("Please fill in all required fields");
         setSubscribing(false);
         return;
       }
 
-      const result = await apiClient.post('/shops/subscription/subscribe', {
-        billingMethod: 'credit_card', // Always credit card now
+      const result = await apiClient.post("/shops/subscription/subscribe", {
+        billingMethod: "credit_card", // Always credit card now
         billingEmail: billingForm.billingEmail,
         billingContact: billingForm.billingContact,
         billingPhone: billingForm.billingPhone,
-        notes: 'Monthly subscription enrollment'
+        notes: "Monthly subscription enrollment",
       });
-      
+
       // If we get a successful response, check if it's because of existing pending subscription
       if (!result.success && result.error) {
         throw new Error(result.error);
@@ -170,11 +199,11 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
       if (result.data.enrollment) {
         setSubscription({
           ...result.data.enrollment,
-          subscriptionType: 'monthly_subscription'
+          subscriptionType: "monthly_subscription",
         });
       }
       setShowSubscribeModal(false);
-      
+
       // Handle pending subscription resume
       if (result.data.isPendingResume) {
         setSuccessMessage(result.data.message);
@@ -186,7 +215,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
         }
       } else if (result.data.paymentUrl) {
         // Handle payment redirect for new subscriptions
-        setSuccessMessage('Redirecting to secure payment...');
+        setSuccessMessage("Redirecting to secure payment...");
         setTimeout(() => {
           window.location.href = result.data.paymentUrl;
         }, 1500);
@@ -196,8 +225,8 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
         setTimeout(() => setSuccessMessage(null), 10000);
       }
     } catch (error) {
-      console.error('Error subscribing:', error);
-      setError(error instanceof Error ? error.message : 'Failed to subscribe');
+      console.error("Error subscribing:", error);
+      setError(error instanceof Error ? error.message : "Failed to subscribe");
     } finally {
       setSubscribing(false);
     }
@@ -208,19 +237,22 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
       setCancelling(true);
       setError(null);
 
-      const result = await apiClient.post('/shops/subscription/cancel', {
-        reason: cancellationReason || 'Cancelled by shop owner'
+      const result = await apiClient.post("/shops/subscription/cancel", {
+        reason: cancellationReason || "Cancelled by shop owner",
       });
 
       if (!result.success) {
-        throw new Error(result.error || 'Failed to cancel subscription');
+        throw new Error(result.error || "Failed to cancel subscription");
       }
 
       setShowCancelModal(false);
-      setCancellationReason('');
+      setCancellationReason("");
 
       // Show success message
-      setSuccessMessage(result.data.message || 'Subscription cancelled successfully. You can resubscribe at any time.');
+      setSuccessMessage(
+        result.data.message ||
+          "Subscription cancelled successfully. You can resubscribe at any time."
+      );
 
       // Clear success message after 10 seconds
       setTimeout(() => setSuccessMessage(null), 10000);
@@ -228,8 +260,10 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
       // Reload to ensure we have the latest status with properly formatted data
       await loadSubscriptionStatus();
     } catch (error) {
-      console.error('Error cancelling subscription:', error);
-      setError(error instanceof Error ? error.message : 'Failed to cancel subscription');
+      console.error("Error cancelling subscription:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to cancel subscription"
+      );
     } finally {
       setCancelling(false);
     }
@@ -240,16 +274,19 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
       setReactivating(true);
       setError(null);
 
-      const result = await apiClient.post('/shops/subscription/reactivate');
+      const result = await apiClient.post("/shops/subscription/reactivate");
 
       if (!result.success) {
-        throw new Error(result.error || 'Failed to reactivate subscription');
+        throw new Error(result.error || "Failed to reactivate subscription");
       }
 
       setShowReactivateModal(false);
 
       // Show success message
-      setSuccessMessage(result.data.message || 'Subscription reactivated successfully! Your subscription will continue as normal.');
+      setSuccessMessage(
+        result.data.message ||
+          "Subscription reactivated successfully! Your subscription will continue as normal."
+      );
 
       // Clear success message after 10 seconds
       setTimeout(() => setSuccessMessage(null), 10000);
@@ -257,8 +294,12 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
       // Reload to ensure we have the latest status with properly formatted data
       await loadSubscriptionStatus();
     } catch (error) {
-      console.error('Error reactivating subscription:', error);
-      setError(error instanceof Error ? error.message : 'Failed to reactivate subscription');
+      console.error("Error reactivating subscription:", error);
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to reactivate subscription"
+      );
     } finally {
       setReactivating(false);
     }
@@ -278,8 +319,10 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
 
   return (
     <div className="bg-[#212121] rounded-2xl shadow-xl p-6">
-      <h3 className="text-2xl font-bold text-[#FFCC00] mb-6">Monthly Subscription</h3>
-      
+      <h3 className="text-2xl font-bold text-[#FFCC00] mb-6">
+        Monthly Subscription
+      </h3>
+
       {successMessage && (
         <div className="bg-green-900/20 border border-green-700 rounded-lg p-4 mb-6">
           <div className="flex items-center gap-2">
@@ -298,7 +341,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
         </div>
       )}
 
-      {subscription && subscription.status === 'active' ? (
+      {subscription && subscription.status === "active" ? (
         <div className="space-y-6">
           {/* Active Subscription Status */}
           {subscription.cancelAtPeriodEnd ? (
@@ -307,8 +350,17 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
                 <div className="flex items-center gap-3">
                   <AlertCircle className="w-6 h-6 text-yellow-400" />
                   <div>
-                    <h4 className="text-lg font-semibold text-yellow-400">Subscription Ending</h4>
-                    <p className="text-sm text-gray-400">Your subscription will end on {subscription.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString() : 'end of billing period'}</p>
+                    <h4 className="text-lg font-semibold text-yellow-400">
+                      Subscription Ending
+                    </h4>
+                    <p className="text-sm text-gray-400">
+                      Your subscription will end on{" "}
+                      {subscription.currentPeriodEnd
+                        ? new Date(
+                            subscription.currentPeriodEnd
+                          ).toLocaleDateString()
+                        : "end of billing period"}
+                    </p>
                   </div>
                 </div>
                 <span className="px-3 py-1 bg-yellow-500/20 text-yellow-400 rounded-full text-sm font-medium">
@@ -333,8 +385,12 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
                 <div className="flex items-center gap-3">
                   <CheckCircle className="w-6 h-6 text-green-400" />
                   <div>
-                    <h4 className="text-lg font-semibold text-green-400">Active Subscription</h4>
-                    <p className="text-sm text-gray-400">Your shop is operationally qualified</p>
+                    <h4 className="text-lg font-semibold text-green-400">
+                      Active Subscription
+                    </h4>
+                    <p className="text-sm text-gray-400">
+                      Your shop is operationally qualified
+                    </p>
                   </div>
                 </div>
                 <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-sm font-medium">
@@ -351,7 +407,9 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
                 <DollarSign className="w-4 h-4 text-gray-400" />
                 <span className="text-sm text-gray-400">Monthly Fee</span>
               </div>
-              <p className="text-xl font-bold text-white">${subscription.monthlyAmount}/mo</p>
+              <p className="text-xl font-bold text-white">
+                ${subscription.monthlyAmount}/mo
+              </p>
             </div>
 
             <div className="bg-gray-800 rounded-lg p-4">
@@ -359,26 +417,35 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
                 <CreditCard className="w-4 h-4 text-gray-400" />
                 <span className="text-sm text-gray-400">Payments Made</span>
               </div>
-              <p className="text-xl font-bold text-white">{subscription.paymentsMade}</p>
-              <p className="text-sm text-gray-500">${subscription.totalPaid} total</p>
+              <p className="text-xl font-bold text-white">
+                {subscription.paymentsMade}
+              </p>
+              <p className="text-sm text-gray-500">
+                ${subscription.totalPaid} total
+              </p>
             </div>
 
             <div className="bg-gray-800 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Calendar className="w-4 h-4 text-gray-400" />
                 <span className="text-sm text-gray-400">
-                  {subscription.cancelAtPeriodEnd ? 'Subscription Ends' : 'Next Payment'}
+                  {subscription.cancelAtPeriodEnd
+                    ? "Subscription Ends"
+                    : "Next Payment"}
                 </span>
               </div>
               <p className="text-xl font-bold text-white">
                 {subscription.cancelAtPeriodEnd
-                  ? (subscription.currentPeriodEnd
-                      ? new Date(subscription.currentPeriodEnd).toLocaleDateString()
-                      : new Date(subscription.nextPaymentDate || '').toLocaleDateString())
-                  : (subscription.nextPaymentDate
-                      ? new Date(subscription.nextPaymentDate).toLocaleDateString()
-                      : 'Not scheduled')
-                }
+                  ? subscription.currentPeriodEnd
+                    ? new Date(
+                        subscription.currentPeriodEnd
+                      ).toLocaleDateString()
+                    : new Date(
+                        subscription.nextPaymentDate || ""
+                      ).toLocaleDateString()
+                  : subscription.nextPaymentDate
+                  ? new Date(subscription.nextPaymentDate).toLocaleDateString()
+                  : "Not scheduled"}
               </p>
             </div>
           </div>
@@ -394,7 +461,13 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
                   Reactivate Subscription
                 </Button>
                 <p className="text-sm text-gray-400 mt-2">
-                  Changed your mind? Reactivate to keep your subscription after {subscription.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString() : 'the current period'}.
+                  Changed your mind? Reactivate to keep your subscription after{" "}
+                  {subscription.currentPeriodEnd
+                    ? new Date(
+                        subscription.currentPeriodEnd
+                      ).toLocaleDateString()
+                    : "the current period"}
+                  .
                 </p>
               </div>
             ) : (
@@ -402,7 +475,8 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
                 <Button
                   onClick={() => setShowCancelModal(true)}
                   variant="destructive"
-                  className="bg-red-600 hover:bg-red-700"
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors
+  font-medium flex items-center justify-center gap-2"
                 >
                   Cancel Subscription
                 </Button>
@@ -413,15 +487,18 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
             )}
           </div>
         </div>
-      ) : subscription && subscription.status === 'paused' ? (
+      ) : subscription && subscription.status === "paused" ? (
         <div className="space-y-6">
           <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4">
             <div className="flex items-center gap-3">
               <AlertCircle className="w-6 h-6 text-blue-400" />
               <div className="flex-1">
-                <h4 className="text-lg font-semibold text-blue-400">Subscription Paused</h4>
+                <h4 className="text-lg font-semibold text-blue-400">
+                  Subscription Paused
+                </h4>
                 <p className="text-sm text-gray-300 mt-1">
-                  Your subscription has been temporarily paused by the administrator.
+                  Your subscription has been temporarily paused by the
+                  administrator.
                 </p>
               </div>
             </div>
@@ -429,27 +506,37 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
 
           {/* What this means */}
           <div className="bg-gray-800 rounded-lg p-6">
-            <h4 className="text-lg font-semibold text-white mb-4">What This Means</h4>
+            <h4 className="text-lg font-semibold text-white mb-4">
+              What This Means
+            </h4>
             <div className="space-y-3">
               <div className="flex items-start gap-3">
                 <XCircle className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="text-white font-medium">Limited Operations</p>
-                  <p className="text-sm text-gray-400">You cannot issue rewards or process redemptions while paused</p>
+                  <p className="text-sm text-gray-400">
+                    You cannot issue rewards or process redemptions while paused
+                  </p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="text-white font-medium">Billing Paused</p>
-                  <p className="text-sm text-gray-400">You will not be charged while your subscription is paused</p>
+                  <p className="text-sm text-gray-400">
+                    You will not be charged while your subscription is paused
+                  </p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <CheckCircle className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="text-white font-medium">Subscription Retained</p>
-                  <p className="text-sm text-gray-400">Your subscription details and history are preserved</p>
+                  <p className="text-white font-medium">
+                    Subscription Retained
+                  </p>
+                  <p className="text-sm text-gray-400">
+                    Your subscription details and history are preserved
+                  </p>
                 </div>
               </div>
             </div>
@@ -457,26 +544,36 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
 
           {/* Subscription Details */}
           <div className="bg-gray-800 rounded-lg p-6">
-            <h4 className="text-lg font-semibold text-white mb-4">Subscription Details</h4>
+            <h4 className="text-lg font-semibold text-white mb-4">
+              Subscription Details
+            </h4>
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-gray-400">Monthly Amount:</span>
-                <span className="text-white font-medium">${subscription.monthlyAmount}/mo</span>
+                <span className="text-white font-medium">
+                  ${subscription.monthlyAmount}/mo
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Status:</span>
-                <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm font-medium">Paused</span>
+                <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm font-medium">
+                  Paused
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Paused On:</span>
                 <span className="text-white font-medium">
-                  {subscription.pausedAt ? new Date(subscription.pausedAt).toLocaleDateString() : 'Recently'}
+                  {subscription.pausedAt
+                    ? new Date(subscription.pausedAt).toLocaleDateString()
+                    : "Recently"}
                 </span>
               </div>
               {subscription.pauseReason && (
                 <div className="flex justify-between">
                   <span className="text-gray-400">Reason:</span>
-                  <span className="text-white font-medium">{subscription.pauseReason}</span>
+                  <span className="text-white font-medium">
+                    {subscription.pauseReason}
+                  </span>
                 </div>
               )}
             </div>
@@ -484,11 +581,15 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
 
           {/* Contact Admin */}
           <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-4">
-            <h4 className="text-lg font-semibold text-yellow-400 mb-2">Need Help?</h4>
+            <h4 className="text-lg font-semibold text-yellow-400 mb-2">
+              Need Help?
+            </h4>
             <p className="text-sm text-gray-300 mb-3">
-              Your subscription has been paused by the administrator. Please contact support to resolve any issues or have your subscription resumed.
+              Your subscription has been paused by the administrator. Please
+              contact support to resolve any issues or have your subscription
+              resumed.
             </p>
-           {/*  <div className="flex gap-3">
+            {/*  <div className="flex gap-3">
               <Button
                 onClick={syncSubscription}
                 variant="outline"
@@ -500,15 +601,18 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
             </div> */}
           </div>
         </div>
-      ) : subscription && subscription.status === 'pending' ? (
+      ) : subscription && subscription.status === "pending" ? (
         <div className="space-y-6">
           <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-4">
             <div className="flex items-center gap-3">
               <AlertCircle className="w-6 h-6 text-yellow-400" />
               <div className="flex-1">
-                <h4 className="text-lg font-semibold text-yellow-400">Subscription Pending</h4>
+                <h4 className="text-lg font-semibold text-yellow-400">
+                  Subscription Pending
+                </h4>
                 <p className="text-sm text-gray-300 mt-1">
-                  Your subscription request has been submitted. Please complete the payment setup to activate your subscription.
+                  Your subscription request has been submitted. Please complete
+                  the payment setup to activate your subscription.
                 </p>
               </div>
             </div>
@@ -516,19 +620,29 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
 
           {/* Subscription Details */}
           <div className="bg-gray-800 rounded-lg p-6">
-            <h4 className="text-lg font-semibold text-white mb-4">Subscription Details</h4>
+            <h4 className="text-lg font-semibold text-white mb-4">
+              Subscription Details
+            </h4>
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-gray-400">Monthly Amount:</span>
-                <span className="text-white font-medium">${subscription.monthlyAmount}/mo</span>
+                <span className="text-white font-medium">
+                  ${subscription.monthlyAmount}/mo
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Term:</span>
-                <span className="text-white font-medium">{subscription.termMonths || 6} months</span>
+                <span className="text-white font-medium">
+                  {subscription.termMonths || 6} months
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Total Commitment:</span>
-                <span className="text-white font-medium">${subscription.totalCommitment || (subscription.monthlyAmount * 6)}</span>
+                <span className="text-white font-medium">
+                  $
+                  {subscription.totalCommitment ||
+                    subscription.monthlyAmount * 6}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Payment Method:</span>
@@ -536,7 +650,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
               </div>
             </div>
           </div>
-          
+
           {/* Action Buttons */}
           <div className="flex gap-3">
             <Button
@@ -557,14 +671,16 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
             </Button>
           </div>
         </div>
-      ) : subscription && subscription.status === 'cancelled' ? (
+      ) : subscription && subscription.status === "cancelled" ? (
         <div className="space-y-6">
           {/* Cancelled Subscription */}
           <div className="bg-red-900/20 border border-red-700 rounded-lg p-4">
             <div className="flex items-center gap-3">
               <XCircle className="w-6 h-6 text-red-400" />
               <div className="flex-1">
-                <h4 className="text-lg font-semibold text-red-400">Subscription Cancelled</h4>
+                <h4 className="text-lg font-semibold text-red-400">
+                  Subscription Cancelled
+                </h4>
                 <p className="text-sm text-gray-300 mt-1">
                   Your subscription has been cancelled and is no longer active.
                 </p>
@@ -574,36 +690,49 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
 
           {/* Subscription Details */}
           <div className="bg-gray-800 rounded-lg p-6">
-            <h4 className="text-lg font-semibold text-white mb-4">Previous Subscription</h4>
+            <h4 className="text-lg font-semibold text-white mb-4">
+              Previous Subscription
+            </h4>
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-gray-400">Monthly Amount:</span>
-                <span className="text-white font-medium">${subscription.monthlyAmount}/mo</span>
+                <span className="text-white font-medium">
+                  ${subscription.monthlyAmount}/mo
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Cancelled On:</span>
                 <span className="text-white font-medium">
-                  {subscription.cancelledAt ? new Date(subscription.cancelledAt).toLocaleDateString() : 'Recently'}
+                  {subscription.cancelledAt
+                    ? new Date(subscription.cancelledAt).toLocaleDateString()
+                    : "Recently"}
                 </span>
               </div>
               {subscription.cancellationReason && (
                 <div className="flex justify-between">
                   <span className="text-gray-400">Reason:</span>
-                  <span className="text-white font-medium">{subscription.cancellationReason}</span>
+                  <span className="text-white font-medium">
+                    {subscription.cancellationReason}
+                  </span>
                 </div>
               )}
               <div className="flex justify-between">
                 <span className="text-gray-400">Total Paid:</span>
-                <span className="text-white font-medium">${subscription.totalPaid}</span>
+                <span className="text-white font-medium">
+                  ${subscription.totalPaid}
+                </span>
               </div>
             </div>
           </div>
 
           {/* Resubscribe Section */}
           <div className="bg-gray-800 rounded-lg p-6 text-center">
-            <h4 className="text-lg font-semibold text-white mb-2">Want to Resume Operations?</h4>
+            <h4 className="text-lg font-semibold text-white mb-2">
+              Want to Resume Operations?
+            </h4>
             <p className="text-gray-400 mb-6">
-              Subscribe again to regain full operational status and continue serving your customers.
+              Subscribe again to regain full operational status and continue
+              serving your customers.
             </p>
 
             <div className="space-y-3 mb-6">
@@ -621,12 +750,8 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
               </div>
             </div>
 
-            <Button
-              className="bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold"
-            >
-              <Link href="/shop/subscription-form">
-                Subscribe Again
-              </Link>
+            <Button className="bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold">
+              <Link href="/shop/subscription-form">Subscribe Again</Link>
             </Button>
           </div>
         </div>
@@ -635,11 +760,13 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
           {/* No Active Subscription */}
           <div className="bg-gray-800 rounded-lg p-6 text-center">
             <XCircle className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-            <h4 className="text-lg font-semibold text-white mb-2">No Active Subscription</h4>
+            <h4 className="text-lg font-semibold text-white mb-2">
+              No Active Subscription
+            </h4>
             <p className="text-gray-400 mb-6">
               Subscribe for $500/month to operate without RCG tokens
             </p>
-            
+
             <div className="space-y-3 mb-6">
               <div className="flex items-center gap-2 text-sm text-gray-300">
                 <CheckCircle className="w-4 h-4 text-green-400" />
@@ -664,24 +791,21 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
                 /* onClick={() => setShowSubscribeModal(true)} */
                 className="bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold"
               >
-                <Link href="/shop/subscription-form">
-                 Subscribe Now
-                </Link>
-               
+                <Link href="/shop/subscription-form">Subscribe Now</Link>
               </Button>
-              
+
               <Button
                 onClick={syncSubscription}
                 variant="outline"
                 disabled={syncing}
                 className="border-gray-600 text-gray-300 hover:bg-gray-700"
               >
-                {syncing ? 'Syncing...' : 'Sync Status'}
+                {syncing ? "Syncing..." : "Sync Status"}
               </Button>
             </div>
-            
+
             {/* Show reactivate option if previously subscribed */}
-            {subscription && subscription.status === 'cancelled' && (
+            {subscription && subscription.status === "cancelled" && (
               <div className="mt-4">
                 <p className="text-sm text-gray-600 mb-2">
                   Previously subscribed? Reactivate instantly!
@@ -708,7 +832,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
               Subscribe for $500/month to operate your shop without RCG tokens.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             <div className="bg-gray-100 rounded-lg p-4">
               <h4 className="font-semibold mb-2">What's Included:</h4>
@@ -720,71 +844,101 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
                 <li>• Cancel anytime</li>
               </ul>
             </div>
-            
+
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                 <p className="text-sm text-red-600">{error}</p>
               </div>
             )}
-            
+
             <div className="space-y-3">
               <div>
-                <label htmlFor="billingContact" className="block text-sm font-medium mb-1">
+                <label
+                  htmlFor="billingContact"
+                  className="block text-sm font-medium mb-1"
+                >
                   Billing Contact Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   id="billingContact"
                   value={billingForm.billingContact}
-                  onChange={(e) => setBillingForm({ ...billingForm, billingContact: e.target.value })}
+                  onChange={(e) =>
+                    setBillingForm({
+                      ...billingForm,
+                      billingContact: e.target.value,
+                    })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFCC00]"
                   placeholder="John Doe"
                   required
                 />
               </div>
-              
+
               <div>
-                <label htmlFor="billingEmail" className="block text-sm font-medium mb-1">
+                <label
+                  htmlFor="billingEmail"
+                  className="block text-sm font-medium mb-1"
+                >
                   Billing Email <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="email"
                   id="billingEmail"
                   value={billingForm.billingEmail}
-                  onChange={(e) => setBillingForm({ ...billingForm, billingEmail: e.target.value })}
+                  onChange={(e) =>
+                    setBillingForm({
+                      ...billingForm,
+                      billingEmail: e.target.value,
+                    })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFCC00]"
                   placeholder="billing@example.com"
                   required
                 />
               </div>
-              
+
               <div>
-                <label htmlFor="billingPhone" className="block text-sm font-medium mb-1">
+                <label
+                  htmlFor="billingPhone"
+                  className="block text-sm font-medium mb-1"
+                >
                   Phone Number
                 </label>
                 <input
                   type="tel"
                   id="billingPhone"
                   value={billingForm.billingPhone}
-                  onChange={(e) => setBillingForm({ ...billingForm, billingPhone: e.target.value })}
+                  onChange={(e) =>
+                    setBillingForm({
+                      ...billingForm,
+                      billingPhone: e.target.value,
+                    })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFCC00]"
                   placeholder="+1 (555) 123-4567"
                 />
               </div>
-              
+
               <div>
-                <label htmlFor="paymentMethod" className="block text-sm font-medium mb-1">
+                <label
+                  htmlFor="paymentMethod"
+                  className="block text-sm font-medium mb-1"
+                >
                   Payment Method
                 </label>
                 <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
                   <CreditCard className="w-5 h-5 text-gray-600" />
-                  <span className="text-gray-700 font-medium">Credit Card (via Stripe)</span>
+                  <span className="text-gray-700 font-medium">
+                    Credit Card (via Stripe)
+                  </span>
                 </div>
               </div>
             </div>
-            
+
             <div className="text-sm text-gray-500">
-              You'll be redirected to Stripe to securely complete your subscription setup.
+              You'll be redirected to Stripe to securely complete your
+              subscription setup.
             </div>
           </div>
 
@@ -801,7 +955,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
               disabled={subscribing}
               className="bg-[#FFCC00] hover:bg-[#FFD700] text-black"
             >
-              {subscribing ? 'Creating...' : 'Create Subscription'}
+              {subscribing ? "Creating..." : "Create Subscription"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -811,15 +965,20 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
       <Dialog open={showReactivateModal} onOpenChange={setShowReactivateModal}>
         <DialogContent className="sm:max-w-md bg-[#1A1A1A] border-gray-800 text-white">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-white">Reactivate Subscription</DialogTitle>
+            <DialogTitle className="text-2xl font-bold text-white">
+              Reactivate Subscription
+            </DialogTitle>
             <DialogDescription className="pt-2 text-gray-400">
-              Confirm that you want to reactivate your subscription and continue with automatic billing.
+              Confirm that you want to reactivate your subscription and continue
+              with automatic billing.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
-              <h4 className="font-semibold text-green-400 mb-3">After reactivation:</h4>
+              <h4 className="font-semibold text-green-400 mb-3">
+                After reactivation:
+              </h4>
               <ul className="space-y-2 text-sm text-green-300">
                 <li className="flex items-start gap-2">
                   <CheckCircle className="w-4 h-4 text-green-400 mt-0.5" />
@@ -835,14 +994,20 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle className="w-4 h-4 text-green-400 mt-0.5" />
-                  <span>Continue issuing rewards and processing redemptions</span>
+                  <span>
+                    Continue issuing rewards and processing redemptions
+                  </span>
                 </li>
               </ul>
             </div>
 
             <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-3">
               <p className="text-sm text-yellow-300">
-                Your subscription will no longer end on {subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString() : 'the scheduled date'} and will renew automatically.
+                Your subscription will no longer end on{" "}
+                {subscription?.currentPeriodEnd
+                  ? new Date(subscription.currentPeriodEnd).toLocaleDateString()
+                  : "the scheduled date"}{" "}
+                and will renew automatically.
               </p>
             </div>
           </div>
@@ -861,7 +1026,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
               disabled={reactivating}
               className="flex-1 bg-[#FFCC00] hover:bg-[#FFD700] text-black font-semibold disabled:opacity-50"
             >
-              {reactivating ? 'Reactivating...' : 'Confirm Reactivation'}
+              {reactivating ? "Reactivating..." : "Confirm Reactivation"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -871,15 +1036,20 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
       <Dialog open={showCancelModal} onOpenChange={setShowCancelModal}>
         <DialogContent className="sm:max-w-md bg-[#1A1A1A] border-gray-800 text-white">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-white">Cancel Subscription</DialogTitle>
+            <DialogTitle className="text-2xl font-bold text-white">
+              Cancel Subscription
+            </DialogTitle>
             <DialogDescription className="pt-2 text-gray-400">
-              Are you sure you want to cancel your subscription? You'll lose operational status immediately.
+              Are you sure you want to cancel your subscription? You'll lose
+              operational status immediately.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="bg-red-900/20 border border-red-700 rounded-lg p-4">
-              <h4 className="font-semibold text-red-400 mb-3">After cancellation:</h4>
+              <h4 className="font-semibold text-red-400 mb-3">
+                After cancellation:
+              </h4>
               <ul className="space-y-2 text-sm text-red-300">
                 <li className="flex items-start gap-2">
                   <span className="text-red-400">•</span>
@@ -919,7 +1089,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
               variant="outline"
               onClick={() => {
                 setShowCancelModal(false);
-                setCancellationReason('');
+                setCancellationReason("");
               }}
               disabled={cancelling}
               className="flex-1 bg-transparent border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white"
@@ -931,7 +1101,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
               disabled={cancelling}
               className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold disabled:opacity-50"
             >
-              {cancelling ? 'Cancelling...' : 'Cancel Subscription'}
+              {cancelling ? "Cancelling..." : "Cancel Subscription"}
             </Button>
           </DialogFooter>
         </DialogContent>

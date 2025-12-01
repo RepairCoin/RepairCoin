@@ -5,7 +5,7 @@ import { toast } from "react-hot-toast";
 import Tooltip from "../../ui/tooltip";
 import { Camera, X } from "lucide-react";
 import QrScanner from "qr-scanner";
-import apiClient from '@/services/api/client';
+import apiClient from "@/services/api/client";
 
 interface ShopData {
   purchasedRcnBalance: number;
@@ -39,9 +39,9 @@ interface RepairOption {
 }
 
 const TIER_BONUSES = {
-  BRONZE: 0,    // No bonus for Bronze
-  SILVER: 2,    // +2 RCN per repair
-  GOLD: 5,      // +5 RCN per repair
+  BRONZE: 0, // No bonus for Bronze
+  SILVER: 2, // +2 RCN per repair
+  GOLD: 5, // +5 RCN per repair
 } as const;
 
 const TIER_STYLES = {
@@ -75,6 +75,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
   const [success, setSuccess] = useState<string | null>(null);
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [fetchingCustomer, setFetchingCustomer] = useState(false);
+  const [customerFetchCompleted, setCustomerFetchCompleted] = useState(false);
   const [promoBonus, setPromoBonus] = useState<number>(0);
   const [fetchingPromo, setFetchingPromo] = useState(false);
   const [promoError, setPromoError] = useState<string | null>(null);
@@ -141,9 +142,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
       if (!shopId) return;
 
       try {
-        const response = await apiClient.get(
-          `/shops/${shopId}/promo-codes`
-        );
+        const response = await apiClient.get(`/shops/${shopId}/promo-codes`);
 
         if (response.success && response.data) {
           setAvailablePromoCodes(response.data);
@@ -157,11 +156,92 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
   }, [shopId]);
 
   useEffect(() => {
+    // Track if this effect instance is still valid (for cleanup/race condition handling)
+    let isCancelled = false;
+
     if (customerAddress && customerAddress.length === 42) {
-      fetchCustomerInfo();
+      // Reset fetch completed flag and set fetching to true
+      setCustomerFetchCompleted(false);
+      setFetchingCustomer(true);
+
+      // Inline fetch to avoid stale closure issues with customerAddress
+      const fetchCustomer = async () => {
+        setError(null);
+
+        // Check if shop is trying to issue rewards to themselves
+        if (
+          shopData?.walletAddress &&
+          customerAddress.toLowerCase() === shopData.walletAddress.toLowerCase()
+        ) {
+          if (!isCancelled) {
+            setCustomerInfo(null);
+            setError("You cannot issue rewards to your own wallet address");
+            setFetchingCustomer(false);
+            setCustomerFetchCompleted(true);
+          }
+          return;
+        }
+
+        try {
+          const response = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/customers/${customerAddress}`
+          );
+
+          // Don't update state if this effect was cancelled
+          if (isCancelled) return;
+
+          if (response.ok) {
+            const result = await response.json();
+            const customerData = result.data.customer || result.data;
+            setCustomerInfo({
+              tier: customerData.tier || "BRONZE",
+              lifetimeEarnings: customerData.lifetimeEarnings || 0,
+              isActive: customerData.isActive !== false,
+              suspended:
+                customerData.suspended || customerData.isActive === false,
+              suspensionReason: customerData.suspensionReason,
+            });
+
+            // Show error if customer is suspended
+            if (customerData.isActive === false || customerData.suspended) {
+              setError(
+                `Cannot issue rewards to suspended customer${
+                  customerData.suspensionReason
+                    ? ": " + customerData.suspensionReason
+                    : ""
+                }`
+              );
+            }
+          } else {
+            // Customer not found - set to null instead of default values
+            setCustomerInfo(null);
+          }
+        } catch (err) {
+          console.error("Error fetching customer:", err);
+          // Network error or other issue - set to null
+          if (!isCancelled) {
+            setCustomerInfo(null);
+          }
+        } finally {
+          if (!isCancelled) {
+            setFetchingCustomer(false);
+            setCustomerFetchCompleted(true);
+          }
+        }
+      };
+
+      fetchCustomer();
     } else {
       setCustomerInfo(null);
+      setFetchingCustomer(false);
+      setCustomerFetchCompleted(false);
     }
+
+    // Cleanup function to cancel outdated requests
+    return () => {
+      isCancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customerAddress]);
 
   // Fetch promo bonus when promo code changes
@@ -184,16 +264,18 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
           }
         );
 
-        console.log('Promo validation result:', result);
+        console.log("Promo validation result:", result);
         if (result.success && result.data.is_valid) {
           // Calculate bonus based on validation result
           const rewardBeforePromo = baseReward + tierBonus;
           let bonusAmount = 0;
 
-          if (result.data.bonus_type === 'fixed') {
+          if (result.data.bonus_type === "fixed") {
             bonusAmount = parseFloat(result.data.bonus_value) || 0;
-          } else if (result.data.bonus_type === 'percentage') {
-            bonusAmount = (rewardBeforePromo * (parseFloat(result.data.bonus_value) || 0)) / 100;
+          } else if (result.data.bonus_type === "percentage") {
+            bonusAmount =
+              (rewardBeforePromo * (parseFloat(result.data.bonus_value) || 0)) /
+              100;
           }
 
           // Apply max_bonus cap if it exists
@@ -204,18 +286,18 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
             }
           }
 
-          console.log('Calculated promo bonus:', bonusAmount);
+          console.log("Calculated promo bonus:", bonusAmount);
           setPromoBonus(bonusAmount);
           setPromoError(null);
         } else {
-          console.log('Promo invalid:', result.data?.error_message);
+          console.log("Promo invalid:", result.data?.error_message);
           setPromoBonus(0);
-          setPromoError(result.data?.error_message || 'Invalid promo code');
+          setPromoError(result.data?.error_message || "Invalid promo code");
         }
       } catch (err) {
         console.error("Error fetching promo bonus:", err);
         setPromoBonus(0);
-        setPromoError('Failed to validate promo code');
+        setPromoError("Failed to validate promo code");
       } finally {
         setFetchingPromo(false);
       }
@@ -226,65 +308,19 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
     return () => clearTimeout(timeoutId);
   }, [promoCode, shopId, customerAddress, baseReward, tierBonus]);
 
-  const fetchCustomerInfo = async () => {
-    setFetchingCustomer(true);
-    setError(null);
-
-    // Check if shop is trying to issue rewards to themselves
-    if (shopData?.walletAddress &&
-        customerAddress.toLowerCase() === shopData.walletAddress.toLowerCase()) {
-      setCustomerInfo(null);
-      setError("You cannot issue rewards to your own wallet address");
-      setFetchingCustomer(false);
-      return;
-    }
-
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/customers/${customerAddress}`
-      );
-
-      if (response.ok) {
-        const result = await response.json();
-        const customerData = result.data.customer || result.data;
-        setCustomerInfo({
-          tier: customerData.tier || "BRONZE",
-          lifetimeEarnings: customerData.lifetimeEarnings || 0,
-          isActive: customerData.isActive !== false,
-          suspended: customerData.suspended || customerData.isActive === false,
-          suspensionReason: customerData.suspensionReason
-        });
-
-        // Show error if customer is suspended
-        if (customerData.isActive === false || customerData.suspended) {
-          setError(`Cannot issue rewards to suspended customer${customerData.suspensionReason ? ': ' + customerData.suspensionReason : ''}`);
-        }
-      } else {
-        // Customer not found - set to null instead of default values
-        setCustomerInfo(null);
-      }
-    } catch (err) {
-      console.error("Error fetching customer:", err);
-      // Network error or other issue - set to null
-      setCustomerInfo(null);
-    } finally {
-      setFetchingCustomer(false);
-    }
-  };
-
   const issueReward = async () => {
     // Check if shop is blocked first
     if (isBlocked) {
       setError(blockReason);
       toast.error(blockReason, {
         duration: 5000,
-        position: 'top-right',
+        position: "top-right",
         style: {
-          background: '#EF4444',
-          color: 'white',
-          fontWeight: 'bold',
+          background: "#EF4444",
+          color: "white",
+          fontWeight: "bold",
         },
-        icon: '🚫',
+        icon: "🚫",
       });
       return;
     }
@@ -295,20 +331,30 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
     }
 
     // Prevent shop from issuing rewards to themselves
-    if (shopData?.walletAddress &&
-        customerAddress.toLowerCase() === shopData.walletAddress.toLowerCase()) {
+    if (
+      shopData?.walletAddress &&
+      customerAddress.toLowerCase() === shopData.walletAddress.toLowerCase()
+    ) {
       setError("You cannot issue rewards to your own wallet address");
       return;
     }
 
     if (!customerInfo) {
-      setError("Customer not found. Customer must be registered before receiving rewards.");
+      setError(
+        "Customer not found. Customer must be registered before receiving rewards."
+      );
       return;
     }
 
     // Check if customer is suspended
     if (customerInfo.isActive === false || customerInfo.suspended) {
-      setError(`Cannot issue rewards to suspended customer${customerInfo.suspensionReason ? ': ' + customerInfo.suspensionReason : ''}`);
+      setError(
+        `Cannot issue rewards to suspended customer${
+          customerInfo.suspensionReason
+            ? ": " + customerInfo.suspensionReason
+            : ""
+        }`
+      );
       return;
     }
 
@@ -356,7 +402,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
         baseReward,
         tierBonus,
         promoBonus,
-        hasSufficientBalance
+        hasSufficientBalance,
       });
 
       const result = await apiClient.post(
@@ -369,15 +415,15 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
         `Successfully issued ${result.data.totalReward} RCN to customer!`,
         {
           duration: 5000,
-          position: 'top-right',
+          position: "top-right",
           style: {
-            background: '#10B981',
-            color: 'white',
-            fontWeight: 'bold',
-            fontSize: '16px',
-            padding: '16px',
+            background: "#10B981",
+            color: "white",
+            fontWeight: "bold",
+            fontSize: "16px",
+            padding: "16px",
           },
-          icon: '🎉',
+          icon: "🎉",
         }
       );
 
@@ -404,25 +450,27 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
     } catch (err) {
       console.error("Error issuing reward:", err);
       let errorMessage: string;
-      
+
       if (err instanceof Error && err.message.includes("Failed to fetch")) {
-        errorMessage = "Network error. Please check your connection and try again. If the problem persists, try refreshing the page.";
+        errorMessage =
+          "Network error. Please check your connection and try again. If the problem persists, try refreshing the page.";
       } else {
-        errorMessage = err instanceof Error ? err.message : "Failed to issue reward";
+        errorMessage =
+          err instanceof Error ? err.message : "Failed to issue reward";
       }
-      
+
       setError(errorMessage);
-      
+
       // Show error toast notification
       toast.error(errorMessage, {
         duration: 5000,
-        position: 'top-right',
+        position: "top-right",
         style: {
-          background: '#EF4444',
-          color: 'white',
-          fontWeight: 'bold',
-          fontSize: '16px',
-          padding: '16px',
+          background: "#EF4444",
+          color: "white",
+          fontWeight: "bold",
+          fontSize: "16px",
+          padding: "16px",
         },
       });
     } finally {
@@ -437,7 +485,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
       setCameraLoading(true);
 
       // Wait for video element to be ready in the DOM
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       if (!videoRef.current) {
         throw new Error("Video element not ready");
@@ -462,7 +510,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
         {
           highlightScanRegion: true,
           highlightCodeOutline: true,
-          preferredCamera: 'environment' // Use back camera on mobile
+          preferredCamera: "environment", // Use back camera on mobile
         }
       );
 
@@ -476,11 +524,13 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
         console.error("Scanner start error:", startError);
 
         // Provide more specific error messages
-        if (startError.name === 'NotAllowedError') {
-          toast.error("Camera permission denied. Please allow camera access in your browser settings.");
-        } else if (startError.name === 'NotFoundError') {
+        if (startError.name === "NotAllowedError") {
+          toast.error(
+            "Camera permission denied. Please allow camera access in your browser settings."
+          );
+        } else if (startError.name === "NotFoundError") {
           toast.error("No camera found on this device.");
-        } else if (startError.name === 'NotReadableError') {
+        } else if (startError.name === "NotReadableError") {
           toast.error("Camera is already in use by another application.");
         } else {
           toast.error("Failed to start camera. Please try again.");
@@ -508,9 +558,9 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
     // Explicitly stop all video tracks to ensure camera is released
     if (videoRef.current && videoRef.current.srcObject) {
       const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(track => {
+      stream.getTracks().forEach((track) => {
         track.stop();
-        console.log('Camera track stopped:', track.kind);
+        console.log("Camera track stopped:", track.kind);
       });
       videoRef.current.srcObject = null;
     }
@@ -584,7 +634,9 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                 >
                   <svg
                     className={`w-full h-full text-black transition-all duration-300 ${
-                      repairType === option.type ? "opacity-100 scale-100" : "opacity-0 scale-50"
+                      repairType === option.type
+                        ? "opacity-100 scale-100"
+                        : "opacity-0 scale-50"
                     }`}
                     fill="currentColor"
                     viewBox="0 0 20 20"
@@ -601,14 +653,22 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className={`font-semibold text-base md:text-base transition-colors leading-tight ${
-                  repairType === option.type ? "text-white" : "text-gray-200 group-hover:text-white"
-                }`}>
+                <h3
+                  className={`font-semibold text-base md:text-base transition-colors leading-tight ${
+                    repairType === option.type
+                      ? "text-white"
+                      : "text-gray-200 group-hover:text-white"
+                  }`}
+                >
                   {option.label}
                 </h3>
-                <p className={`text-xs mt-1 transition-colors leading-snug ${
-                  repairType === option.type ? "text-gray-300" : "text-gray-500 group-hover:text-gray-400"
-                }`}>
+                <p
+                  className={`text-xs mt-1 transition-colors leading-snug ${
+                    repairType === option.type
+                      ? "text-gray-300"
+                      : "text-gray-500 group-hover:text-gray-400"
+                  }`}
+                >
                   {option.description}
                 </p>
               </div>
@@ -617,11 +677,11 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
               <div className="flex flex-col items-end">
                 <span
                   className={`text-xl md:text-2xl font-bold transition-colors leading-none ${
-                    repairType === option.type 
-                      ? "text-[#FFCC00]" 
+                    repairType === option.type
+                      ? "text-[#FFCC00]"
                       : option.rcn === 0 && option.type !== "custom"
-                        ? "text-gray-600"
-                        : "text-gray-400 group-hover:text-[#FFCC00]/70"
+                      ? "text-gray-600"
+                      : "text-gray-400 group-hover:text-[#FFCC00]/70"
                   }`}
                 >
                   {option.type === "custom"
@@ -630,9 +690,13 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                       : "?"
                     : option.rcn}
                 </span>
-                <span className={`text-xs uppercase tracking-wide mt-1 leading-none ${
-                  repairType === option.type ? "text-[#FFCC00]" : "text-gray-500"
-                }`}>
+                <span
+                  className={`text-xs uppercase tracking-wide mt-1 leading-none ${
+                    repairType === option.type
+                      ? "text-[#FFCC00]"
+                      : "text-gray-500"
+                  }`}
+                >
                   RCN
                 </span>
               </div>
@@ -645,7 +709,6 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
       </div>
     </label>
   );
-
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -678,7 +741,8 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                       value={customerAddress}
                       onChange={(e) => setCustomerAddress(e.target.value)}
                       placeholder="0x0000...0000"
-                      className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent transition-all"
+                      disabled={isBlocked}
+                      className={`w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent transition-all ${isBlocked ? "opacity-50 cursor-not-allowed" : ""}`}
                     />
                     {fetchingCustomer && (
                       <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -719,8 +783,16 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                     Promo Code (Optional)
                     {promoBonus > 0 && (
                       <span className="flex items-center gap-1 text-xs font-normal px-2 py-1 bg-[#FFCC00]/20 text-[#FFCC00] rounded-full">
-                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        <svg
+                          className="w-3 h-3"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clipRule="evenodd"
+                          />
                         </svg>
                         +{promoBonus} RCN
                       </span>
@@ -745,7 +817,9 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                         }
                       }}
                       onFocus={() => setShowPromoDropdown(true)}
-                      onBlur={() => setTimeout(() => setShowPromoDropdown(false), 200)}
+                      onBlur={() =>
+                        setTimeout(() => setShowPromoDropdown(false), 200)
+                      }
                       placeholder="Enter or select promo code"
                       className={`w-full px-4 py-3 bg-[#0D0D0D] border text-white rounded-xl focus:ring-2 focus:border-transparent transition-all ${
                         promoBonus > 0
@@ -757,13 +831,21 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                       <button
                         type="button"
                         onClick={() => {
-                          setPromoCode('');
+                          setPromoCode("");
                           setPromoBonus(0);
                         }}
                         className="absolute right-10 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
                       >
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        <svg
+                          className="w-5 h-5"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                            clipRule="evenodd"
+                          />
                         </svg>
                       </button>
                     )}
@@ -790,7 +872,9 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                       <div className="absolute z-10 w-full mt-2 bg-[#1A1A1A] border border-gray-700 rounded-xl shadow-xl max-h-64 overflow-y-auto">
                         {availablePromoCodes
                           .filter((code) =>
-                            code.code.toUpperCase().includes(promoCode.toUpperCase())
+                            code.code
+                              .toUpperCase()
+                              .includes(promoCode.toUpperCase())
                           )
                           .map((code) => (
                             <div
@@ -814,7 +898,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                                           : "bg-gray-500/20 text-gray-400"
                                       }`}
                                     >
-                                      {code.is_active ? 'Active' : 'Inactive'}
+                                      {code.is_active ? "Active" : "Inactive"}
                                     </span>
                                   </div>
                                   {code.name && (
@@ -831,7 +915,8 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                                   </div>
                                   {code.total_usage_limit && (
                                     <p className="text-xs text-gray-500 mt-1">
-                                      {code.times_used || 0}/{code.total_usage_limit} used
+                                      {code.times_used || 0}/
+                                      {code.total_usage_limit} used
                                     </p>
                                   )}
                                 </div>
@@ -839,7 +924,9 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                             </div>
                           ))}
                         {availablePromoCodes.filter((code) =>
-                          code.code.toUpperCase().includes(promoCode.toUpperCase())
+                          code.code
+                            .toUpperCase()
+                            .includes(promoCode.toUpperCase())
                         ).length === 0 && (
                           <div className="px-4 py-3 text-center text-gray-500">
                             No matching promo codes
@@ -848,11 +935,19 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                       </div>
                     )}
                   </div>
-                  
+
                   {promoError && (
                     <div className="mt-2 text-sm text-red-400 flex items-center gap-1">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      <svg
+                        className="w-4 h-4"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                       {promoError}
                     </div>
@@ -890,95 +985,103 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
 
               {/* Show message if shop tries to issue rewards to themselves */}
               {!fetchingCustomer &&
-               customerAddress &&
-               customerAddress.length === 42 &&
-               shopData?.walletAddress &&
-               customerAddress.toLowerCase() === shopData.walletAddress.toLowerCase() && (
-                <div className="bg-yellow-500/10 rounded-xl p-4 border border-yellow-500/30">
-                  <div className="flex items-center gap-3">
-                    <svg
-                      className="w-5 h-5 text-yellow-400 flex-shrink-0"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <div>
-                      <p className="text-yellow-400 font-semibold text-sm">
-                        Cannot Issue to Your Own Wallet
-                      </p>
-                      <p className="text-yellow-300/70 text-xs mt-1">
-                        You cannot issue rewards to your own wallet address. Please enter a customer's wallet address.
-                      </p>
+                customerAddress &&
+                customerAddress.length === 42 &&
+                shopData?.walletAddress &&
+                customerAddress.toLowerCase() ===
+                  shopData.walletAddress.toLowerCase() && (
+                  <div className="bg-yellow-500/10 rounded-xl p-4 border border-yellow-500/30">
+                    <div className="flex items-center gap-3">
+                      <svg
+                        className="w-5 h-5 text-yellow-400 flex-shrink-0"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      <div>
+                        <p className="text-yellow-400 font-semibold text-sm">
+                          Cannot Issue to Your Own Wallet
+                        </p>
+                        <p className="text-yellow-300/70 text-xs mt-1">
+                          You cannot issue rewards to your own wallet address.
+                          Please enter a customer's wallet address.
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {/* Show message if customer not found */}
               {!fetchingCustomer &&
-               customerAddress &&
-               customerAddress.length === 42 &&
-               !customerInfo &&
-               !(shopData?.walletAddress && customerAddress.toLowerCase() === shopData.walletAddress.toLowerCase()) && (
-                <div className="bg-red-500/10 rounded-xl p-4 border border-red-500/30">
-                  <div className="flex items-center gap-3">
-                    <svg
-                      className="w-5 h-5 text-red-400 flex-shrink-0"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <div>
-                      <p className="text-red-400 font-semibold text-sm">
-                        Customer Not Registered
-                      </p>
-                      <p className="text-red-300/70 text-xs mt-1">
-                        This wallet address is not registered. Customer must register before receiving rewards.
-                      </p>
+                customerFetchCompleted &&
+                customerAddress &&
+                customerAddress.length === 42 &&
+                !customerInfo &&
+                !(
+                  shopData?.walletAddress &&
+                  customerAddress.toLowerCase() ===
+                    shopData.walletAddress.toLowerCase()
+                ) && (
+                  <div className="bg-red-500/10 rounded-xl p-4 border border-red-500/30">
+                    <div className="flex items-center gap-3">
+                      <svg
+                        className="w-5 h-5 text-red-400 flex-shrink-0"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      <div>
+                        <p className="text-red-400 font-semibold text-sm">
+                          Customer Not Registered
+                        </p>
+                        <p className="text-red-300/70 text-xs mt-1">
+                          This wallet address is not registered. Customer must
+                          register before receiving rewards.
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {/* Show message if customer is suspended */}
               {customerInfo &&
-               (customerInfo.isActive === false || customerInfo.suspended) && (
-                <div className="bg-red-500/10 rounded-xl p-4 border border-red-500/30">
-                  <div className="flex items-center gap-3">
-                    <svg
-                      className="w-5 h-5 text-red-400 flex-shrink-0"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <div>
-                      <p className="text-red-400 font-semibold text-sm">
-                        Customer Account Suspended
-                      </p>
-                      <p className="text-red-300/70 text-xs mt-1">
-                        {customerInfo.suspensionReason
-                          ? `This customer's account has been suspended: ${customerInfo.suspensionReason}`
-                          : 'This customer\'s account has been suspended. Cannot issue rewards to suspended customers.'}
-                      </p>
+                (customerInfo.isActive === false || customerInfo.suspended) && (
+                  <div className="bg-red-500/10 rounded-xl p-4 border border-red-500/30">
+                    <div className="flex items-center gap-3">
+                      <svg
+                        className="w-5 h-5 text-red-400 flex-shrink-0"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      <div>
+                        <p className="text-red-400 font-semibold text-sm">
+                          Customer Account Suspended
+                        </p>
+                        <p className="text-red-300/70 text-xs mt-1">
+                          {customerInfo.suspensionReason
+                            ? `This customer's account has been suspended: ${customerInfo.suspensionReason}`
+                            : "This customer's account has been suspended. Cannot issue rewards to suspended customers."}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
             </div>
           </div>
 
@@ -1008,7 +1111,8 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                         </span>
                       </div>
                       <span className="text-gray-300">
-                        Enter customer's wallet address to check their tier and earnings
+                        Enter customer's wallet address to check their tier and
+                        earnings
                       </span>
                     </li>
                     <li className="flex items-start gap-3">
@@ -1028,7 +1132,8 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                         </span>
                       </div>
                       <span className="text-gray-300">
-                        Tier bonuses are automatically added (Silver +2, Gold +5 RCN)
+                        Tier bonuses are automatically added (Silver +2, Gold +5
+                        RCN)
                       </span>
                     </li>
                     <li className="flex items-start gap-3">
@@ -1038,7 +1143,8 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                         </span>
                       </div>
                       <span className="text-gray-300">
-                        RCN tokens are instantly transferred to customer's wallet
+                        RCN tokens are instantly transferred to customer's
+                        wallet
                       </span>
                     </li>
                   </ul>
@@ -1179,7 +1285,6 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                 </div>
               </div>
             )} */}
-
           </div>
         </div>
 
@@ -1266,16 +1371,14 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 bg-[#FFCC00] rounded-full"></div>
-                        <span className="text-gray-300">
-                          Promo Bonus
-                        </span>
+                        <span className="text-gray-300">Promo Bonus</span>
                       </div>
                       <span className="text-[#FFCC00] font-semibold text-lg">
                         +{promoBonus} RCN
                       </span>
                     </div>
                   )}
-                  
+
                   {fetchingPromo && (
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -1300,7 +1403,6 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                       </div>
                     </div>
                   </div>
-
                 </div>
 
                 <button
@@ -1432,7 +1534,8 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
             </div>
 
             <p className="text-gray-400 text-sm mt-4 text-center">
-              Position the customer&apos;s QR code within the frame to scan their wallet address
+              Position the customer&apos;s QR code within the frame to scan
+              their wallet address
             </p>
 
             <button
