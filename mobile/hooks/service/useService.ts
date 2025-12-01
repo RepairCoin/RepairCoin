@@ -8,7 +8,7 @@ import {
   deleteService,
   UpdateServiceData,
 } from "@/services/ShopServices";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/store/auth.store";
 import { Alert } from "react-native";
 
 export function useService() {

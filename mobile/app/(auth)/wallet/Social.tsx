@@ -11,7 +11,7 @@ import {
   SocialConnectWalletService,
 } from "@/services/RegisterServices";
 import { ThirdWebStrategy } from "@/utilities/GlobalTypes";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/store/auth.store";
 import { EmailValidation } from "@/utilities/Validation";
 
 export default function ConnectWalletWithSocialPage() {

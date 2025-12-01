@@ -12,7 +12,7 @@ import {
   RewardRequest,
   CreatePromoCodeRequest,
 } from "@/services/ShopServices";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/store/auth.store";
 import { queryKeys } from "@/config/queryClient";
 import { Alert } from "react-native";
 import { router } from "expo-router";

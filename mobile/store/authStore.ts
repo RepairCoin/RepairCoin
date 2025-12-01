@@ -207,10 +207,10 @@ export const useAuthStore = create<AuthState>()(
                 if (tokenResponse.ok) {
                   const tokenData = await tokenResponse.json();
                   if (tokenData.data) {
-                    const { accessToken, refreshToken } = tokenData.data;
+                    const { accessToken } = tokenData.data;
                     profile.token = accessToken;
                     // Set both tokens in axios client for future API calls
-                    await apiClient.setAuthToken(accessToken, refreshToken);
+                    await apiClient.setAuthToken(accessToken);
                   } else if (tokenData.token) {
                     // Fallback for old response format
                     profile.token = tokenData.token;

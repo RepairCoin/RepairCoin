@@ -12,7 +12,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Feather } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useShopByWalletAddress } from "@/hooks";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/store/auth.store";
 import { ThemedView } from "@/components/ui/ThemedView";
 import WalletTab from "./tabs/WalletTab";
 import PromoCodeTab from "./tabs/PromoCodeTab";
@@ -25,8 +25,6 @@ export default function Home() {
   const { account } = useAuthStore();
   const {
     data: shopData,
-    isLoading,
-    error,
     refetch,
   } = useShopByWalletAddress(account?.address || "");
   const isOperational =
@@ -38,6 +36,8 @@ export default function Home() {
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [hasUserDismissedModal, setHasUserDismissedModal] = useState(false);
   const shopTabs: ShopTabs[] = ["Wallet", "Analysis", "Promo Code"];
+
+  console.log("shopDatashopData: ", shopData)
 
   // Load dismissed state from AsyncStorage on mount
   useEffect(() => {

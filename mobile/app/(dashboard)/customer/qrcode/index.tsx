@@ -5,7 +5,7 @@ import Screen from "@/components/ui/Screen";
 import { useState } from "react";
 import ShareQRCodeModal from "@/components/customer/ShareQRCodeModal";
 import QRCode from "react-native-qrcode-svg";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/store/auth.store";
 import * as Clipboard from "expo-clipboard";
 
 export default function QRCodeScreen() {

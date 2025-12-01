@@ -6,7 +6,7 @@ import LoginButton from "@/components/ui/LoginButton";
 import { router } from "expo-router";
 import { externalWalletConnectService } from "@/services/RegisterServices";
 import { WalletType } from "@/utilities/GlobalTypes";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/store/auth.store";
 
 export default function ConnectWalletPage() {
   const { account, setAccount, checkUserExists, login, isCustomer } =

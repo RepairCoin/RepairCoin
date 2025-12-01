@@ -16,8 +16,6 @@ export default function PromoCodeTab() {
   const { data: promoCodesData, isLoading } = useShopPromoCodes();
   const updatePromoCodeStatusMutation = useUpdatePromoCodeStatus();
 
-  console.log("promoCodesData: ", promoCodesData)
-
   const handleTogglePromoCode = (promoCodeId: string, isActive: boolean) => {
     updatePromoCodeStatusMutation.mutate({ promoCodeId, isActive });
   };

@@ -13,7 +13,7 @@ import {
   useGetShopCustomers,
   useShopCustomerGrowth,
 } from "@/hooks/useShopQueries";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/store/auth.store";
 
 export default function CustomerList() {
   const { userProfile } = useAuthStore();

@@ -3,7 +3,7 @@ import { ThemedView } from "@/components/ui/ThemedView";
 import { AntDesign, MaterialIcons } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useShopByWalletAddress } from "@/hooks";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/store/auth.store";
 
 export default function Subscription() {
   const { account } = useAuthStore();

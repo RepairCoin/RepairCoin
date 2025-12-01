@@ -19,7 +19,7 @@ import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { useAuthCustomer, useCustomer } from "@/hooks";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/store/auth.store";
 import { Tier } from "@/utilities/GlobalTypes";
 
 import TierBenefitsModal from "./TierBenefitsModal";

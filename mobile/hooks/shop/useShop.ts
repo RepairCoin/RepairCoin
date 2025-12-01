@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/store/auth.store";
 import { router } from "expo-router";
 import { CreateShopRequest } from "@/interfaces/shop.interface";
 import { shopApi } from "@/services/shop.services";

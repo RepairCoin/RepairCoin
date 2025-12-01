@@ -19,7 +19,7 @@ import { SERVICE_CATEGORIES } from "@/constants/service-categories";
 import { router } from "expo-router";
 import { useUpdateService } from "@/hooks/useShopService";
 import { useQueryClient } from "@tanstack/react-query";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/store/auth.store";
 
 export default function Service() {
   const { data: servicesData, isLoading, error, refetch } = useShopServices();

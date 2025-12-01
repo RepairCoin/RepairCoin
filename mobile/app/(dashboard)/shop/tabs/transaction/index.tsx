@@ -8,7 +8,7 @@ import {
   Pressable 
 } from "react-native";
 import { ThemedView } from "@/components/ui/ThemedView";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/store/auth.store";
 import { useShopTransactions } from "@/hooks";
 import TransactionHistoryCard from "@/components/common/TransactionHistoryCard";
 import { Feather } from "@expo/vector-icons";

@@ -21,7 +21,7 @@ import { CompanySize, MonthlyRevenue } from "@/utilities/GlobalTypes";
 import ThirdShopRegisterSlide from "@/components/shop/register/ThirdSlide";
 import SocialMediaSlide from "@/components/shop/register/SocialMediaSlide";
 import FourthShopRegisterSlide from "@/components/shop/register/FourthSlide";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/store/auth.store";
 import { useRegisterShop } from "@/hooks/useAuthQueries";
 import { ShopRegistrationFormData } from "@/services/authServices";
 

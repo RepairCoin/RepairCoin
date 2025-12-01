@@ -4,8 +4,8 @@ import { useConnect } from "thirdweb/react";
 import { client } from "@/constants/thirdweb";
 import { createWallet, walletConnect } from "thirdweb/wallets";
 
+import { useAuth } from "@/hooks/auth/useAuth";
 import { ThemedButton } from "@/components/ui/ThemedButton";
-import { useConnectWallet } from "@/hooks/useAuthQueries";
 import WalletSelectionModal from "@/components/wallet/WalletSelectionModal";
 
 const globe = require("@/assets/images/global_spin.png");
@@ -56,6 +56,7 @@ export default function OnboardingStep3({
 
 const ConnectWithMetaMask = () => {
   const { connect, isConnecting } = useConnect();
+  const { useConnectWallet } = useAuth();
   const connectWalletMutation = useConnectWallet();
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [connectingWallet, setConnectingWallet] = useState<string>();

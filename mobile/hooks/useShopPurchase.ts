@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
   createStripeCheckout, 
 } from '@/services/ShopServices';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore } from '@/store/auth.store';
 import { Alert } from 'react-native';
 
 // Hook for creating Stripe checkout
