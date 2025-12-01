@@ -11,7 +11,250 @@ interface NotificationModalProps {
   onDelete: (id: string) => void;
 }
 
+// Render a design block for marketing campaigns
+const renderMarketingBlock = (block: any, metadata: any) => {
+  const style = block.style || {};
+
+  switch (block.type) {
+    case 'headline':
+      return (
+        <h2
+          key={block.id}
+          style={{
+            fontSize: style.fontSize || '24px',
+            fontWeight: style.fontWeight || 'bold',
+            textAlign: style.textAlign || 'center',
+            color: style.color || '#111827',
+            margin: '0 0 16px 0',
+          }}
+        >
+          {block.content}
+        </h2>
+      );
+
+    case 'text':
+      return (
+        <div
+          key={block.id}
+          className="rich-text-content"
+          style={{
+            fontSize: style.fontSize || '14px',
+            textAlign: style.textAlign || 'left',
+            color: style.color || '#374151',
+            lineHeight: 1.6,
+            margin: '0 0 16px 0',
+          }}
+          dangerouslySetInnerHTML={{ __html: block.content }}
+        />
+      );
+
+    case 'button':
+      return (
+        <div key={block.id} style={{ textAlign: 'center', margin: '16px 0' }}>
+          <button
+            style={{
+              display: 'inline-block',
+              backgroundColor: style.backgroundColor || '#eab308',
+              color: style.textColor || '#000',
+              padding: '12px 30px',
+              borderRadius: '6px',
+              border: 'none',
+              fontWeight: 'bold',
+              fontSize: '14px',
+              cursor: 'pointer',
+            }}
+          >
+            {block.content}
+          </button>
+        </div>
+      );
+
+    case 'coupon':
+      if (!metadata.couponValue) return null;
+      const couponDisplay = metadata.couponType === 'percentage'
+        ? `${metadata.couponValue}%`
+        : `$${metadata.couponValue}`;
+      const expiryText = metadata.couponExpiresAt
+        ? `Expires: ${new Date(metadata.couponExpiresAt).toLocaleDateString()}`
+        : '';
+
+      return (
+        <div
+          key={block.id}
+          style={{
+            backgroundColor: style.backgroundColor || '#10B981',
+            color: style.textColor || 'white',
+            padding: '24px',
+            borderRadius: '8px',
+            textAlign: 'center',
+            margin: '16px 0',
+          }}
+        >
+          <div style={{ fontSize: '42px', fontWeight: 'bold', marginBottom: '8px' }}>
+            {couponDisplay}
+          </div>
+          <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '4px' }}>
+            OFF your next visit!
+          </div>
+          {expiryText && (
+            <div style={{ fontSize: '12px', opacity: 0.8, marginTop: '12px' }}>
+              {expiryText}
+            </div>
+          )}
+        </div>
+      );
+
+    case 'service_card':
+      return (
+        <div
+          key={block.id}
+          style={{
+            backgroundColor: style.backgroundColor || '#10B981',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            margin: '16px 0',
+          }}
+        >
+          {/* Service Image */}
+          {block.serviceImage ? (
+            <div style={{ height: '140px', overflow: 'hidden' }}>
+              <img
+                src={block.serviceImage}
+                alt={block.serviceName || 'Service'}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                }}
+              />
+            </div>
+          ) : (
+            <div
+              style={{
+                height: '100px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'rgba(0,0,0,0.2)',
+              }}
+            >
+              <span style={{ fontSize: '32px' }}>🔧</span>
+            </div>
+          )}
+          {/* Service Info */}
+          <div
+            style={{
+              padding: '16px',
+              backgroundColor: '#1a1a2e',
+              borderTop: '1px solid rgba(255,255,255,0.1)',
+            }}
+          >
+            <div style={{ color: 'white', fontWeight: 'bold', fontSize: '16px' }}>
+              {block.serviceName || 'Featured Service'}
+            </div>
+            {block.servicePrice !== undefined && block.servicePrice !== null && (
+              <div style={{ color: '#10B981', fontWeight: '600', marginTop: '4px' }}>
+                ${typeof block.servicePrice === 'number' ? block.servicePrice.toFixed(2) : block.servicePrice}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+
+    case 'image':
+      return (
+        <div key={block.id} style={{ textAlign: 'center', margin: '16px 0' }}>
+          <img
+            src={block.src}
+            alt=""
+            style={{ maxWidth: style.maxWidth || '100%', height: 'auto', borderRadius: '4px' }}
+          />
+        </div>
+      );
+
+    case 'divider':
+      return <hr key={block.id} style={{ border: 'none', borderTop: '1px solid #444', margin: '16px 0' }} />;
+
+    case 'spacer':
+      return <div key={block.id} style={{ height: style.height || '16px' }} />;
+
+    default:
+      return null;
+  }
+};
+
+// Marketing campaign content renderer
+const MarketingCampaignContent: React.FC<{ metadata: any }> = ({ metadata }) => {
+  const design = metadata.designContent;
+
+  if (!design?.blocks || !Array.isArray(design.blocks)) {
+    return <p className="text-gray-300">Campaign content not available</p>;
+  }
+
+  return (
+    <div className="bg-white rounded-lg overflow-hidden">
+      {/* Styles for rich text content */}
+      <style>{`
+        .rich-text-content p { margin: 0 0 8px 0; }
+        .rich-text-content ul, .rich-text-content ol { margin: 8px 0; padding-left: 24px; }
+        .rich-text-content li { margin: 4px 0; }
+        .rich-text-content strong, .rich-text-content b { font-weight: bold; }
+        .rich-text-content em, .rich-text-content i { font-style: italic; }
+        .rich-text-content u { text-decoration: underline; }
+        .rich-text-content s, .rich-text-content strike { text-decoration: line-through; }
+        .rich-text-content a { color: #10B981; text-decoration: underline; }
+        .rich-text-content h1 { font-size: 24px; font-weight: bold; margin: 16px 0 8px 0; }
+        .rich-text-content h2 { font-size: 20px; font-weight: bold; margin: 14px 0 6px 0; }
+        .rich-text-content h3 { font-size: 18px; font-weight: bold; margin: 12px 0 4px 0; }
+        .rich-text-content blockquote { border-left: 3px solid #10B981; padding-left: 12px; margin: 8px 0; color: #666; }
+      `}</style>
+      {/* Header */}
+      {design.header?.enabled !== false && (
+        <div
+          className="p-6 text-center"
+          style={{ backgroundColor: design.header?.backgroundColor || '#1a1a2e' }}
+        >
+          {design.header?.showLogo !== false && (
+            <div
+              className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center"
+              style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}
+            >
+              <span className="text-white font-bold text-lg">RC</span>
+            </div>
+          )}
+          <h1 className="text-white text-xl font-bold m-0">{metadata.shopName}</h1>
+        </div>
+      )}
+
+      {/* Blocks - white background content area */}
+      <div className="p-4 space-y-2">
+        {design.blocks.map((block: any) => renderMarketingBlock(block, metadata))}
+      </div>
+
+      {/* Footer */}
+      {(design.footer?.showSocial || design.footer?.showUnsubscribe) && (
+        <div className="border-t border-gray-200 p-4 text-center text-sm text-gray-500 bg-gray-50">
+          {design.footer?.showSocial && (
+            <div className="mb-2">
+              <span className="mx-2">Website</span>
+              <span className="mx-2">Instagram</span>
+              <span className="mx-2">Facebook</span>
+            </div>
+          )}
+          {design.footer?.showUnsubscribe && (
+            <p className="text-xs text-gray-500">
+              You received this because you are a customer of {metadata.shopName}.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const NotificationModal: React.FC<NotificationModalProps> = ({ notification, onClose, onDelete }) => {
+  const isMarketingCampaign = notification.notificationType === 'marketing_campaign';
+
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'reward_issued':
@@ -26,6 +269,8 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ notification, onC
         return '🚫';
       case 'token_gifted':
         return '🎁';
+      case 'marketing_campaign':
+        return '📢';
       default:
         return '📬';
     }
@@ -45,6 +290,8 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ notification, onC
         return 'Redemption Cancelled';
       case 'token_gifted':
         return 'Tokens Received';
+      case 'marketing_campaign':
+        return notification.metadata?.campaignName || 'Campaign';
       default:
         return 'Notification';
     }
@@ -82,48 +329,55 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ notification, onC
 
           {/* Content */}
           <div className="px-6 py-6 space-y-4">
-            {/* Message */}
-            <div>
-              <p className="text-gray-300 text-base leading-relaxed">
-                {notification.message}
-              </p>
-            </div>
+            {/* Marketing Campaign Content */}
+            {isMarketingCampaign && notification.metadata?.designContent ? (
+              <MarketingCampaignContent metadata={notification.metadata} />
+            ) : (
+              <>
+                {/* Message */}
+                <div>
+                  <p className="text-gray-300 text-base leading-relaxed">
+                    {notification.message}
+                  </p>
+                </div>
 
-            {/* Metadata */}
-            {notification.metadata && Object.keys(notification.metadata).length > 0 && (
-              <div className="bg-[#0D0D0D] rounded-lg p-4 space-y-2">
-                <h4 className="text-sm font-semibold text-[#FFCC00] mb-2">Details</h4>
+                {/* Metadata */}
+                {notification.metadata && Object.keys(notification.metadata).length > 0 && (
+                  <div className="bg-[#0D0D0D] rounded-lg p-4 space-y-2">
+                    <h4 className="text-sm font-semibold text-[#FFCC00] mb-2">Details</h4>
 
-                {notification.metadata.amount && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Amount:</span>
-                    <span className="text-white font-semibold">{notification.metadata.amount} RCN</span>
+                    {notification.metadata.amount && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Amount:</span>
+                        <span className="text-white font-semibold">{notification.metadata.amount} RCN</span>
+                      </div>
+                    )}
+
+                    {notification.metadata.shopName && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Shop:</span>
+                        <span className="text-white">{notification.metadata.shopName}</span>
+                      </div>
+                    )}
+
+                    {notification.metadata.fromCustomerName && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">From:</span>
+                        <span className="text-white">{notification.metadata.fromCustomerName}</span>
+                      </div>
+                    )}
+
+                    {notification.metadata.transactionId && (
+                      <div className="text-sm">
+                        <span className="text-gray-400">Transaction ID:</span>
+                        <p className="text-white font-mono text-xs mt-1 break-all">
+                          {notification.metadata.transactionId}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
-
-                {notification.metadata.shopName && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Shop:</span>
-                    <span className="text-white">{notification.metadata.shopName}</span>
-                  </div>
-                )}
-
-                {notification.metadata.fromCustomerName && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">From:</span>
-                    <span className="text-white">{notification.metadata.fromCustomerName}</span>
-                  </div>
-                )}
-
-                {notification.metadata.transactionId && (
-                  <div className="text-sm">
-                    <span className="text-gray-400">Transaction ID:</span>
-                    <p className="text-white font-mono text-xs mt-1 break-all">
-                      {notification.metadata.transactionId}
-                    </p>
-                  </div>
-                )}
-              </div>
+              </>
             )}
 
             {/* Timestamp */}
@@ -176,6 +430,8 @@ export const NotificationBell: React.FC = () => {
         return '🚫';
       case 'token_gifted':
         return '🎁';
+      case 'marketing_campaign':
+        return '📢';
       default:
         return '📬';
     }

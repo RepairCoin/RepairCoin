@@ -91,7 +91,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
       formData.append("image", file);
 
       // Determine endpoint based on image type
-      const endpoint = `/api/upload/${
+      const endpoint = `/upload/${
         imageType === "logo"
           ? "shop-logo"
           : imageType === "service"
@@ -99,18 +99,18 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
           : "shop-banner"
       }`;
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`, {
+      const url = `${process.env.NEXT_PUBLIC_API_URL}${endpoint}`;
+
+      const response = await fetch(url, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
+        credentials: 'include', // Send cookies for authentication
         body: formData,
       });
 
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.error || "Upload failed");
+        throw new Error(result.error || result.message || "Upload failed");
       }
 
       toast.success("Image uploaded successfully!");

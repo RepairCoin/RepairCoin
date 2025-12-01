@@ -27,6 +27,7 @@ import { ShopLocationTab } from "@/components/shop/tabs/ShopLocationTab";
 import { GroupsTab } from "@/components/shop/tabs/GroupsTab";
 import { ServicesTab } from "@/components/shop/tabs/ServicesTab";
 import { ShopServiceOrdersTab } from "@/components/shop/tabs/ShopServiceOrdersTab";
+import { MarketingTab } from "@/components/shop/tabs/MarketingTab";
 import { useShopRegistration } from "@/hooks/useShopRegistration";
 import { OnboardingModal } from "@/components/shop/OnboardingModal";
 import { SuspendedShopModal } from "@/components/shop/SuspendedShopModal";
@@ -887,7 +888,7 @@ export default function ShopDashboardClient() {
           )}
 
           {activeTab === "services" && shopData && (
-            <ServicesTab shopId={shopData.shopId} />
+            <ServicesTab shopId={shopData.shopId} shopData={shopData} />
           )}
 
           {activeTab === "bookings" && shopData && (
@@ -963,6 +964,10 @@ export default function ShopDashboardClient() {
 
           {activeTab === "subscription" && shopData && (
             <SubscriptionManagement shopId={shopData.shopId} />
+          )}
+
+          {activeTab === "marketing" && shopData && (
+            <MarketingTab shopId={shopData.shopId} shopName={shopData.name} />
           )}
 
           {activeTab === "settings" && shopData && (

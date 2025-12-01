@@ -18,22 +18,48 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
   onBook,
   onViewDetails,
 }) => {
+  const [imageError, setImageError] = React.useState(false);
+
   const getCategoryLabel = (category?: string) => {
     if (!category) return "Other";
     const cat = SERVICE_CATEGORIES.find((c) => c.value === category);
     return cat?.label || category;
   };
 
+  // Validate if the imageUrl is a valid web image URL
+  const isValidImageUrl = (url: string | null | undefined): boolean => {
+    if (!url) return false;
+
+    // Check if it's a file:// URL (invalid for web)
+    if (url.startsWith('file://')) {
+      return false;
+    }
+
+    // Check if it's a valid HTTP/HTTPS URL
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      return false;
+    }
+
+    // Check if URL points to an actual image file
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
+    const hasImageExtension = imageExtensions.some(ext => url.toLowerCase().includes(ext));
+
+    return true;
+  };
+
+  const validImageUrl = isValidImageUrl(service.imageUrl) ? service.imageUrl : null;
+
   return (
     <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl overflow-hidden hover:border-[#FFCC00]/50 transition-all duration-200 hover:shadow-lg hover:shadow-[#FFCC00]/10 group flex flex-col h-full">
       {/* Service Image */}
       <div className="relative flex-shrink-0">
-        {service.imageUrl ? (
+        {validImageUrl && !imageError ? (
           <div className="w-full h-48 overflow-hidden bg-gray-800">
             <img
-              src={service.imageUrl}
+              src={validImageUrl}
               alt={service.serviceName}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              onError={() => setImageError(true)}
             />
           </div>
         ) : (

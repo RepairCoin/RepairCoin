@@ -22,6 +22,7 @@ export interface ServiceOrder {
 export interface ServiceOrderWithDetails extends ServiceOrder {
   serviceName?: string;
   serviceDescription?: string;
+  serviceImageUrl?: string;
   serviceDuration?: number;
   serviceCategory?: string;
   shopName?: string;
@@ -109,6 +110,7 @@ export class OrderRepository extends BaseRepository {
           o.*,
           s.service_name,
           s.description as service_description,
+          s.image_url as service_image_url,
           s.duration_minutes as service_duration,
           s.category as service_category,
           sh.name as shop_name,
@@ -210,6 +212,7 @@ export class OrderRepository extends BaseRepository {
           o.*,
           s.service_name,
           s.description as service_description,
+          s.image_url as service_image_url,
           s.duration_minutes as service_duration,
           s.category as service_category,
           sh.name as shop_name,
@@ -300,6 +303,7 @@ export class OrderRepository extends BaseRepository {
           o.*,
           s.service_name,
           s.description as service_description,
+          s.image_url as service_image_url,
           s.duration_minutes as service_duration,
           s.category as service_category,
           c.name as customer_name
@@ -452,6 +456,7 @@ export class OrderRepository extends BaseRepository {
       ...this.mapOrderRow(row),
       serviceName: row.service_name,
       serviceDescription: row.service_description,
+      serviceImageUrl: row.service_image_url,
       serviceDuration: row.service_duration,
       serviceCategory: row.service_category,
       shopName: row.shop_name,
