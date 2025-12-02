@@ -1,6 +1,6 @@
 // backend/src/routes/shops.ts
 import { Router, Request, Response } from 'express';
-import { authMiddleware, requireRole, requireShopOrAdmin, requireShopOwnership } from '../../../middleware/auth';
+import { authMiddleware, requireRole, requireShopOrAdmin, requireShopOwnership, requireActiveSubscription } from '../../../middleware/auth';
 import { optionalAuthMiddleware } from '../../../middleware/optionalAuth';
 import { validateRequired, validateEthereumAddress, validateEmail, validateNumeric, validateStringType } from '../../../middleware/errorHandler';
 import { validateShopUniqueness } from '../../../middleware/validation';
@@ -58,7 +58,8 @@ import purchaseSyncRoutes from './purchase-sync';
 const router = Router();
 
 // Register sub-routes (protected by auth)
-router.use('/purchase', authMiddleware, requireRole(['shop']), purchaseRoutes);
+// Purchase routes require active subscription (enforces cancellation if beyond grace period)
+router.use('/purchase', authMiddleware, requireRole(['shop']), requireActiveSubscription(), purchaseRoutes);
 router.use('/tier-bonus', authMiddleware, requireRole(['shop']), tierBonusRoutes);
 router.use('/deposit', authMiddleware, requireRole(['shop']), depositRoutes); // RCN deposit routes
 router.use('/purchase-sync', authMiddleware, requireRole(['shop']), purchaseSyncRoutes); // Payment sync routes
@@ -1041,6 +1042,7 @@ router.post('/:shopId/redeem',
   authMiddleware,
   requireShopOrAdmin,
   requireShopOwnership,
+  requireActiveSubscription(), // Enforce subscription for processing redemptions
   validateRequired(['customerAddress', 'amount']),
   validateEthereumAddress('customerAddress'),
   validateNumeric('amount', 0.1, 1000),
@@ -1504,6 +1506,7 @@ router.post('/:shopId/issue-reward',
   authMiddleware,
   requireShopOrAdmin,
   requireShopOwnership,
+  requireActiveSubscription(), // Enforce subscription for issuing rewards
   validateRequired(['customerAddress', 'repairAmount']),
   validateEthereumAddress('customerAddress'),
   validateNumeric('repairAmount', 1, 100000),

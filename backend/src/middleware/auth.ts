@@ -5,6 +5,7 @@ import { logger } from '../utils/logger';
 import { customerRepository, shopRepository, adminRepository } from '../repositories';
 import { AdminService } from '../domains/admin/services/AdminService';
 import { RefreshTokenRepository } from '../repositories/RefreshTokenRepository';
+import { getSubscriptionEnforcementService } from '../services/SubscriptionEnforcementService';
 
 interface BaseJWTPayload {
   address: string;
@@ -569,4 +570,83 @@ export const optionalAuthMiddleware = async (req: Request, res: Response, next: 
     // Don't block the request
     next();
   }
+};
+
+/**
+ * Subscription enforcement middleware for shop routes
+ * Checks if shop's subscription is valid and enforces cancellation if beyond grace period
+ * Use this on critical shop operations (purchasing RCN, issuing rewards, etc.)
+ *
+ * @param options.strict - If true, blocks access for any overdue subscription. If false, allows grace period.
+ */
+export const requireActiveSubscription = (options: { strict?: boolean } = {}) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // Only applies to shop users
+      if (!req.user || req.user.role !== 'shop' || !req.user.shopId) {
+        return next();
+      }
+
+      const enforcementService = getSubscriptionEnforcementService();
+      const result = await enforcementService.enforceForShop(req.user.shopId);
+
+      if (!result.isValid) {
+        // Subscription is not valid
+        if (result.action === 'cancelled') {
+          logger.security('Shop access blocked - subscription cancelled', {
+            shopId: req.user.shopId,
+            path: req.path,
+            reason: result.message
+          });
+
+          return res.status(403).json({
+            success: false,
+            error: 'Your subscription has been cancelled due to non-payment',
+            code: 'SUBSCRIPTION_CANCELLED',
+            message: result.message
+          });
+        }
+
+        // No active subscription found
+        logger.security('Shop access blocked - no active subscription', {
+          shopId: req.user.shopId,
+          path: req.path
+        });
+
+        return res.status(403).json({
+          success: false,
+          error: 'Active subscription required for this operation',
+          code: 'SUBSCRIPTION_REQUIRED',
+          message: result.message
+        });
+      }
+
+      // If strict mode and subscription is overdue (even within grace period), block
+      if (options.strict && result.message.includes('overdue')) {
+        logger.security('Shop access blocked - subscription overdue (strict mode)', {
+          shopId: req.user.shopId,
+          path: req.path,
+          message: result.message
+        });
+
+        return res.status(403).json({
+          success: false,
+          error: 'Your subscription payment is overdue',
+          code: 'SUBSCRIPTION_OVERDUE',
+          message: result.message
+        });
+      }
+
+      // Subscription is valid (or within grace period for non-strict mode)
+      next();
+
+    } catch (error: any) {
+      logger.error('Subscription enforcement middleware error', {
+        shopId: req.user?.shopId,
+        error: error.message
+      });
+      // On error, allow access but log (fail-open for availability)
+      next();
+    }
+  };
 };

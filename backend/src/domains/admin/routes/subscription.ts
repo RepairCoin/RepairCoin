@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { SubscriptionService } from '../../../services/SubscriptionService';
 import { getStripeService } from '../../../services/StripeService';
+import { getSubscriptionEnforcementService } from '../../../services/SubscriptionEnforcementService';
 import { ShopRepository } from '../../../repositories/ShopRepository';
 import { DatabaseService } from '../../../services/DatabaseService';
 import { logger } from '../../../utils/logger';
@@ -786,6 +787,134 @@ router.post('/subscriptions/:subscriptionId/reactivate', async (req: Request, re
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to reactivate subscription'
+    });
+  }
+});
+
+// ============================================
+// Subscription Enforcement Endpoints
+// ============================================
+
+// Get enforcement statistics for admin dashboard
+router.get('/subscriptions/enforcement/stats', async (req: Request, res: Response) => {
+  try {
+    const enforcementService = getSubscriptionEnforcementService();
+    const stats = await enforcementService.getEnforcementStats();
+
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    logger.error('Error fetching enforcement stats:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch enforcement statistics'
+    });
+  }
+});
+
+// Get list of overdue subscriptions
+router.get('/subscriptions/overdue', async (req: Request, res: Response) => {
+  try {
+    const enforcementService = getSubscriptionEnforcementService();
+    const overdueSubscriptions = await enforcementService.getOverdueSubscriptions();
+
+    res.json({
+      success: true,
+      data: {
+        subscriptions: overdueSubscriptions,
+        count: overdueSubscriptions.length
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching overdue subscriptions:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch overdue subscriptions'
+    });
+  }
+});
+
+// Run enforcement manually (admin can trigger the cron job manually)
+router.post('/subscriptions/enforcement/run', async (req: Request, res: Response) => {
+  try {
+    logger.info('Manual enforcement triggered by admin', {
+      adminAddress: req.user?.address
+    });
+
+    const enforcementService = getSubscriptionEnforcementService();
+    const stats = await enforcementService.enforceAllSubscriptions();
+
+    res.json({
+      success: true,
+      message: 'Enforcement completed successfully',
+      data: stats
+    });
+  } catch (error) {
+    logger.error('Error running manual enforcement:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to run subscription enforcement'
+    });
+  }
+});
+
+// Enforce a specific shop's subscription
+router.post('/subscriptions/:shopId/enforce', async (req: Request, res: Response) => {
+  try {
+    const { shopId } = req.params;
+
+    logger.info('Manual enforcement for specific shop triggered by admin', {
+      shopId,
+      adminAddress: req.user?.address
+    });
+
+    const enforcementService = getSubscriptionEnforcementService();
+    const result = await enforcementService.enforceForShop(shopId);
+
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    logger.error('Error enforcing shop subscription:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to enforce shop subscription'
+    });
+  }
+});
+
+// Get enforcement log for a specific subscription
+router.get('/subscriptions/:stripeSubscriptionId/enforcement-log', async (req: Request, res: Response) => {
+  try {
+    const { stripeSubscriptionId } = req.params;
+
+    const query = `
+      SELECT * FROM subscription_enforcement_log
+      WHERE stripe_subscription_id = $1
+    `;
+
+    const result = await db.query(query, [stripeSubscriptionId]);
+
+    if (result.rows.length === 0) {
+      return res.json({
+        success: true,
+        data: null,
+        message: 'No enforcement log found for this subscription'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: result.rows[0]
+    });
+  } catch (error) {
+    logger.error('Error fetching enforcement log:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch enforcement log'
     });
   }
 });

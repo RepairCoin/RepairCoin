@@ -31,6 +31,7 @@ import { eventBus } from './events/EventBus';
 import { monitoringService } from './services/MonitoringService';
 import { cleanupService } from './services/CleanupService';
 import { StartupValidationService } from './services/StartupValidationService';
+import { startSubscriptionEnforcement, stopSubscriptionEnforcement } from './services/SubscriptionEnforcementService';
 
 // WebSocket imports
 import { Server as WebSocketServer } from 'ws';
@@ -438,6 +439,7 @@ class RepairCoinApp {
       eventBus.clear();
       monitoringService.stopMonitoring();
       cleanupService.stopScheduledCleanup();
+      stopSubscriptionEnforcement();
 
       // Common cleanup
       if (generalCache?.destroy) {
@@ -593,6 +595,11 @@ class RepairCoinApp {
         // Start error monitoring
         monitorErrors();
         logger.info(`🚨 Error monitoring started`);
+
+        // Start subscription enforcement service - runs daily at 2 AM UTC
+        // Checks for overdue subscriptions, sends warnings, and auto-cancels after grace period
+        startSubscriptionEnforcement('0 2 * * *');
+        logger.info('⚖️ Subscription enforcement service started (daily at 2 AM UTC)');
       }
     });
   }
