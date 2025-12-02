@@ -170,19 +170,23 @@ export class StripeService {
    */
   async cancelSubscription(subscriptionId: string, immediately: boolean = false): Promise<Stripe.Subscription> {
     try {
-      const subscription = await this.stripe.subscriptions.update(subscriptionId, {
-        cancel_at_period_end: !immediately,
-        ...(immediately && { prorate: true })
-      });
+      let subscription: Stripe.Subscription;
 
       if (immediately) {
-        await this.stripe.subscriptions.cancel(subscriptionId);
+        // Cancel immediately - just call cancel() without deprecated options
+        subscription = await this.stripe.subscriptions.cancel(subscriptionId);
+      } else {
+        // Cancel at period end
+        subscription = await this.stripe.subscriptions.update(subscriptionId, {
+          cancel_at_period_end: true
+        });
       }
 
       logger.info('Subscription canceled', {
         subscriptionId,
         immediately,
-        cancelAtPeriodEnd: subscription.cancel_at_period_end
+        cancelAtPeriodEnd: subscription.cancel_at_period_end,
+        status: subscription.status
       });
 
       return subscription;
