@@ -21,13 +21,14 @@ import { goBack } from "expo-router/build/global-state/routing";
 import { router } from "expo-router";
 import { ThemedView } from "@/components/ui/ThemedView";
 import { useShopPurchase } from "@/hooks/useShopPurchase";
-import { useShopByWalletAddress } from "@/hooks/useShopQueries";
+import { useShop } from "@/hooks/shop/useShop";
 import { useAuthStore } from "@/store/auth.store";
 import SubscriptionModal from "@/components/shop/SubscriptionModal";
 
 export default function BuyToken() {
   const { account } = useAuthStore();
-  const { data: shopData } = useShopByWalletAddress(account?.address || "");
+  const { useGetShopByWalletAddress } = useShop();
+  const { data: shopData } = useGetShopByWalletAddress(account?.address || "");
 
   const {
     // Amount management
@@ -50,8 +51,8 @@ export default function BuyToken() {
 
   // Check if shop is qualified to buy RCN
   const isQualified =
-    shopData?.data?.operational_status === "subscription_qualified" ||
-    shopData?.data?.operational_status === "rcg_qualified";
+    shopData?.operational_status === "subscription_qualified" ||
+    shopData?.operational_status === "rcg_qualified";
 
   
   // Quick purchase amounts

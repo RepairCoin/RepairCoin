@@ -5,30 +5,31 @@ import { View, Text, TextInput, Platform, ScrollView, Alert } from "react-native
 import PrimaryButton from "@/components/ui/PrimaryButton";
 import { ThemedView } from "@/components/ui/ThemedView";
 import { useAuthStore } from "@/store/auth.store";
-import { useShopByWalletAddress, useUpdateShopDetails } from "@/hooks";
-
+import { useUpdateShopDetails } from "@/hooks";
+import { useShop } from "@/hooks/shop/useShop";
 
 export default function EditShopProfilePage() {
   const { account } = useAuthStore();
-  const { data: shopData, isLoading, error } = useShopByWalletAddress(
+  const { useGetShopByWalletAddress } = useShop();
+  const { data: shopData } = useGetShopByWalletAddress(
     account?.address || ""
   );
   const updateShopMutation = useUpdateShopDetails(account?.address || "");
 
   const [shopFormData, setShopFormData] = useState({
-    name: shopData?.data?.name || "",
-    email: shopData?.data?.email || "",
-    phone: shopData?.data?.phone || "",
-    address: shopData?.data?.address || "",
-    facebook: shopData?.data?.facebook || "",
-    twitter: shopData?.data?.twitter || "",
-    instagram: shopData?.data?.instagram || "",
-    website: shopData?.data?.website || "",
-    walletAddress: shopData?.data?.walletAddress || "",
+    name: shopData?.name || "",
+    email: shopData?.email || "",
+    phone: shopData?.phone || "",
+    address: shopData?.address || "",
+    facebook: shopData?.facebook || "",
+    twitter: shopData?.twitter || "",
+    instagram: shopData?.instagram || "",
+    website: shopData?.website || "",
+    walletAddress: shopData?.walletAddress || "",
   });
 
   const handleSaveChanges = async () => {
-    if (!shopData?.data?.shopId) {
+    if (!shopData?.shopId) {
       Alert.alert("Error", "Shop ID not found");
       return;
     }
@@ -41,14 +42,14 @@ export default function EditShopProfilePage() {
 
     try {
       await updateShopMutation.mutateAsync({
-        shopId: shopData.data.shopId,
+        shopId: shopData.shopId,
         shopData: {
           ...shopFormData,
-          active: shopData.data.active,
-          crossShopEnabled: shopData.data.crossShopEnabled,
-          verified: shopData.data.verified,
-          joinDate: shopData.data.joinDate,
-          operational_status: shopData.data.operational_status,
+          active: shopData.active,
+          crossShopEnabled: shopData.crossShopEnabled,
+          verified: shopData.verified,
+          joinDate: shopData.joinDate,
+          operational_status: shopData.operational_status,
         },
       });
       Alert.alert("Success", "Shop details updated successfully", [

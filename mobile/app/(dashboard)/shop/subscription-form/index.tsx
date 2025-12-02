@@ -16,7 +16,7 @@ import { useRouter } from "expo-router";
 import Screen from "@/components/ui/Screen";
 import PrimaryButton from "@/components/ui/PrimaryButton";
 import { apiClient } from "@/utilities/axios";
-import { useShopByWalletAddress } from "@/hooks/useShopQueries";
+import { useShop } from "@/hooks/shop/useShop";
 import { useAuthStore } from "@/store/auth.store";
 
 type SubscriptionFormData = {
@@ -41,7 +41,8 @@ type SubscriptionResponse = {
 export default function SubscriptionForm() {
   const router = useRouter();
   const { account } = useAuthStore();
-  const { data: shopData, isLoading: isLoadingShop } = useShopByWalletAddress(
+  const { useGetShopByWalletAddress } = useShop();
+  const { data: shopData, isLoading: isLoadingShop } = useGetShopByWalletAddress(
     account?.address || ""
   );
 
@@ -57,13 +58,13 @@ export default function SubscriptionForm() {
 
   // Pre-fill form with existing shop data
   useEffect(() => {
-    if (shopData?.data) {
+    if (shopData) {
       setFormData((prev) => ({
         ...prev,
-        shopName: shopData.data.name || "",
-        email: shopData.data.email || "",
-        phoneNumber: shopData.data.phone || "",
-        shopAddress: shopData.data.address || "",
+        shopName: shopData?.name || "",
+        email: shopData?.email || "",
+        phoneNumber: shopData?.phone || "",
+        shopAddress: shopData?.address || "",
       }));
     }
   }, [shopData]);

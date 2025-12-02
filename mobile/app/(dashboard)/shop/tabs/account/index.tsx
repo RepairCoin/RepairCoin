@@ -13,7 +13,7 @@ import { useAuthStore } from "@/store/auth.store";
 import { useTheme } from "@/hooks/useTheme";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { ThemedView } from "@/components/ui/ThemedView";
-import { useShopByWalletAddress } from "@/hooks";
+import { useShop } from "@/hooks/shop/useShop";
 
 type CopyableFieldProps = {
   value: string;
@@ -60,7 +60,8 @@ const CopyableField = ({
 export default function Account() {
   const { logout } = useAuthStore((state) => state);
   const { account } = useAuthStore();
-  const { data: shopData } = useShopByWalletAddress(account?.address || "");
+  const { useGetShopByWalletAddress } = useShop();
+  const { data: shopData } = useGetShopByWalletAddress(account?.address || "");
   const { isLightMode, toggleColorScheme } = useTheme();
   
   const theme = useThemeColor();
@@ -93,10 +94,10 @@ export default function Account() {
         <View className="flex-row py-6 px-4 justify-between bg-[#212121] rounded-xl items-center">
           <View className="gap-2">
             <Text className="text-[#FFCC00] text-xl font-bold">
-             {shopData?.data?.name || "No name"}
+             {shopData?.name || "No name"}
             </Text>
             <Text className="text-white/50 text-base">
-              {shopData?.data?.email || "No email"}
+              {shopData?.email || "No email"}
             </Text>
           </View>
           <Pressable
