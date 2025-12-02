@@ -9,11 +9,13 @@ import {
   Modal,
   Alert,
   Switch,
+  Animated,
+  Pressable,
 } from "react-native";
 import { ThemedView } from "@/components/ui/ThemedView";
 import { Ionicons } from "@expo/vector-icons";
 import { useService } from "@/hooks/service/useService";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { ServiceData } from "@/services/ShopServices";
 import { SERVICE_CATEGORIES } from "@/constants/service-categories";
 import { router } from "expo-router";
@@ -34,6 +36,86 @@ export default function Service() {
   const [actionModalVisible, setActionModalVisible] = useState(false);
   const [selectedService, setSelectedService] = useState<ServiceData | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [fabExpanded, setFabExpanded] = useState(false);
+
+  // Animation values for FAB
+  const fabAnimation = useRef(new Animated.Value(0)).current;
+  const rotateAnimation = useRef(new Animated.Value(0)).current;
+
+  const toggleFab = () => {
+    const toValue = fabExpanded ? 0 : 1;
+
+    Animated.parallel([
+      Animated.spring(fabAnimation, {
+        toValue,
+        friction: 5,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+      Animated.timing(rotateAnimation, {
+        toValue,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    setFabExpanded(!fabExpanded);
+  };
+
+  const closeFab = () => {
+    if (fabExpanded) {
+      Animated.parallel([
+        Animated.spring(fabAnimation, {
+          toValue: 0,
+          friction: 5,
+          tension: 40,
+          useNativeDriver: true,
+        }),
+        Animated.timing(rotateAnimation, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+      setFabExpanded(false);
+    }
+  };
+
+  const handleCreateService = () => {
+    closeFab();
+    router.push("/shop/service-form");
+  };
+
+  const handleCreateBooking = () => {
+    closeFab();
+    router.push("/shop/booking");
+  };
+
+  // Animation interpolations
+  const rotation = rotateAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '45deg'],
+  });
+
+  const serviceButtonTranslateY = fabAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -70],
+  });
+
+  const bookingButtonTranslateY = fabAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -140],
+  });
+
+  const fabOpacity = fabAnimation.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0, 0, 1],
+  });
+
+  const fabScale = fabAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.5, 1],
+  });
 
   const getCategoryLabel = (category?: string) => {
     if (!category) return "Other";
@@ -211,22 +293,106 @@ export default function Service() {
         )}
       </View>
 
-      <TouchableOpacity
-        onPress={() => router.push("/shop/service-form")}
-        className="absolute bottom-6 right-6 bg-[#FFCC00] w-14 h-14 rounded-full items-center justify-center"
-        style={{
-          shadowColor: "#000",
-          shadowOffset: {
-            width: 0,
-            height: 2,
-          },
-          shadowOpacity: 0.25,
-          shadowRadius: 3.84,
-          elevation: 5,
-        }}
-      >
-        <Ionicons name="add" size={28} color="black" />
-      </TouchableOpacity>
+      {/* FAB Overlay - closes FAB when tapping outside */}
+      {fabExpanded && (
+        <Pressable
+          onPress={closeFab}
+          className="absolute inset-0 bg-black/40"
+        />
+      )}
+
+      {/* Floating Action Button Group */}
+      <View className="absolute bottom-6 right-6">
+        {/* Create Booking Button */}
+        <Animated.View
+          style={{
+            position: 'absolute',
+            bottom: -40,
+            right: 35,
+            transform: [
+              { translateY: bookingButtonTranslateY },
+              { scale: fabScale },
+            ],
+            opacity: fabOpacity,
+          }}
+        >
+          <TouchableOpacity
+            onPress={handleCreateBooking}
+            className="flex-row items-center"
+            activeOpacity={0.8}
+          >
+            <View className="px-3 py-2 rounded-lg mr-2">
+              <Text className="text-white text-sm font-medium">Booking</Text>
+            </View>
+            <View
+              className="bg-[#FFCC00] w-12 h-12 rounded-full items-center justify-center"
+              style={{
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.25,
+                shadowRadius: 3.84,
+                elevation: 5,
+              }}
+            >
+              <Ionicons name="calendar" size={22} color="black" />
+            </View>
+          </TouchableOpacity>
+        </Animated.View>
+
+        {/* Create Service Button */}
+        <Animated.View
+          style={{
+            position: 'absolute',
+            bottom: -30,
+            right: 30,
+            transform: [
+              { translateY: serviceButtonTranslateY },
+              { scale: fabScale },
+            ],
+            opacity: fabOpacity,
+          }}
+        >
+          <TouchableOpacity
+            onPress={handleCreateService}
+            className="flex-row items-center"
+            activeOpacity={0.8}
+          >
+            <View className="px-3 py-2 rounded-lg mr-2">
+              <Text className="text-white text-sm font-medium">Service</Text>
+            </View>
+            <View
+              className="bg-[#FFCC00] w-12 h-12 rounded-full items-center justify-center"
+              style={{
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.25,
+                shadowRadius: 3.84,
+                elevation: 5,
+              }}
+            >
+              <Ionicons name="construct" size={22} color="black" />
+            </View>
+          </TouchableOpacity>
+        </Animated.View>
+
+        {/* Main FAB Button */}
+        <TouchableOpacity
+          onPress={toggleFab}
+          className="bg-[#FFCC00] w-14 h-14 rounded-full items-center justify-center"
+          style={{
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.25,
+            shadowRadius: 3.84,
+            elevation: 5,
+          }}
+          activeOpacity={0.8}
+        >
+          <Animated.View style={{ transform: [{ rotate: rotation }] }}>
+            <Ionicons name="add" size={28} color="black" />
+          </Animated.View>
+        </TouchableOpacity>
+      </View>
 
       {/* Service Action Modal */}
       <Modal
