@@ -124,10 +124,10 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
           </div>
 
           {/* Rating */}
-          {service.averageRating && service.averageRating > 0 && (
+          {((service.avgRating && service.avgRating > 0) || (service.averageRating && service.averageRating > 0)) && (
             <div className="mb-3">
               <StarRating
-                value={service.averageRating}
+                value={service.avgRating || service.averageRating || 0}
                 size="sm"
                 showNumber
                 showCount

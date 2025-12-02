@@ -2,16 +2,23 @@
 import { Request, Response } from 'express';
 import { PaymentService } from '../services/PaymentService';
 import { OrderRepository } from '../../../repositories/OrderRepository';
+import { NotificationService } from '../../notification/services/NotificationService';
+import { ServiceRepository } from '../../../repositories/ServiceRepository';
+import { shopRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
 
 export class OrderController {
   private paymentService: PaymentService;
   private orderRepository: OrderRepository;
+  private notificationService: NotificationService;
+  private serviceRepository: ServiceRepository;
 
   constructor(paymentService: PaymentService) {
     this.paymentService = paymentService;
     this.orderRepository = new OrderRepository();
+    this.notificationService = new NotificationService();
+    this.serviceRepository = new ServiceRepository();
   }
 
   /**
@@ -25,7 +32,7 @@ export class OrderController {
         return res.status(401).json({ success: false, error: 'Customer authentication required' });
       }
 
-      const { serviceId, bookingDate, notes } = req.body;
+      const { serviceId, bookingDate, bookingTime, rcnToRedeem, notes } = req.body;
 
       if (!serviceId) {
         return res.status(400).json({ success: false, error: 'Service ID is required' });
@@ -35,6 +42,8 @@ export class OrderController {
         serviceId,
         customerAddress,
         bookingDate: bookingDate ? new Date(bookingDate) : undefined,
+        bookingTime,
+        rcnToRedeem: rcnToRedeem ? parseFloat(rcnToRedeem) : undefined,
         notes
       });
 
@@ -254,6 +263,37 @@ export class OrderController {
             customerAddress: updatedOrder.customerAddress,
             amount: updatedOrder.totalAmount
           });
+
+          // Send notification to customer about order completion
+          // Wait a bit for RCN rewards to be minted (event bus processes async)
+          setTimeout(async () => {
+            try {
+              const service = await this.serviceRepository.getServiceById(updatedOrder.serviceId);
+              const shop = await shopRepository.getShop(updatedOrder.shopId);
+
+              // Get the order details with RCN earned
+              const orderWithDetails = await this.orderRepository.getOrderWithDetails(updatedOrder.orderId);
+              const rcnEarned = orderWithDetails?.rcnEarned || 0;
+
+              if (service && shop && shop.walletAddress) {
+                await this.notificationService.createServiceOrderCompletedNotification(
+                  shop.walletAddress,
+                  updatedOrder.customerAddress,
+                  shop.name,
+                  service.serviceName,
+                  rcnEarned,
+                  updatedOrder.orderId
+                );
+                logger.info('Order completion notification sent to customer', {
+                  customerAddress: updatedOrder.customerAddress,
+                  orderId: updatedOrder.orderId,
+                  rcnEarned
+                });
+              }
+            } catch (notifError) {
+              logger.error('Failed to send order completion notification:', notifError);
+            }
+          }, 2000); // Wait 2 seconds for RCN to be minted
         } catch (eventError) {
           logger.error('Failed to publish order completed event:', eventError);
           // Don't fail the request if event publishing fails

@@ -42,6 +42,10 @@ export interface ShopServiceWithShopInfo extends ShopService {
   shopEmail?: string;
   shopIsVerified: boolean;
   distance?: number;
+  avgRating?: number;
+  reviewCount?: number;
+  // Legacy fields for compatibility
+  averageRating?: number;
 }
 
 export interface ServiceOrder {
@@ -52,7 +56,11 @@ export interface ServiceOrder {
   stripePaymentIntentId?: string;
   status: OrderStatus;
   totalAmount: number;
+  rcnRedeemed?: number;
+  rcnDiscountUsd?: number;
+  finalAmountUsd?: number;
   bookingDate?: string;
+  bookingTime?: string;
   completedAt?: string;
   notes?: string;
   createdAt: string;
@@ -97,6 +105,8 @@ export interface UpdateServiceData {
 export interface CreatePaymentIntentData {
   serviceId: string;
   bookingDate?: string;
+  bookingTime?: string;
+  rcnToRedeem?: number;
   notes?: string;
 }
 
@@ -105,6 +115,11 @@ export interface CreatePaymentIntentResponse {
   clientSecret: string;
   amount: number;
   currency: string;
+  totalAmount?: number;
+  rcnRedeemed?: number;
+  rcnDiscountUsd?: number;
+  finalAmount?: number;
+  customerRcnBalance?: number;
 }
 
 export interface ServiceFilters {

@@ -14,6 +14,10 @@ export interface NotificationMessageTemplates {
   subscription_cancelled: (data: { reason?: string }) => string;
   subscription_approved: () => string;
   subscription_reactivated: () => string;
+  service_booking_received: (data: { customerName: string; serviceName: string; amount: number }) => string;
+  service_order_completed: (data: { shopName: string; serviceName: string; rcnEarned: number }) => string;
+  service_payment_failed: (data: { serviceName: string; reason: string }) => string;
+  service_order_cancelled: (data: { serviceName: string; refundStatus?: string }) => string;
 }
 
 export class NotificationService {
@@ -58,7 +62,19 @@ export class NotificationService {
         'Your subscription has been approved and is now active!',
 
       subscription_reactivated: () =>
-        'Your subscription has been reactivated and will continue as normal.'
+        'Your subscription has been reactivated and will continue as normal.',
+
+      service_booking_received: (data) =>
+        `New booking received from ${data.customerName} for ${data.serviceName} ($${data.amount.toFixed(2)})`,
+
+      service_order_completed: (data) =>
+        `${data.shopName} completed your ${data.serviceName} service. You earned ${data.rcnEarned} RCN!`,
+
+      service_payment_failed: (data) =>
+        `Payment failed for ${data.serviceName}: ${data.reason}`,
+
+      service_order_cancelled: (data) =>
+        `Your ${data.serviceName} booking has been cancelled${data.refundStatus ? '. ' + data.refundStatus : '.'}`
     };
   }
 
@@ -356,6 +372,102 @@ export class NotificationService {
       notificationType: 'subscription_reactivated',
       message,
       metadata: {
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  // Service Marketplace Notifications
+
+  async createServiceBookingReceivedNotification(
+    customerAddress: string,
+    shopAddress: string,
+    customerName: string,
+    serviceName: string,
+    amount: number,
+    orderId: string
+  ): Promise<Notification> {
+    const message = this.messageTemplates.service_booking_received({ customerName, serviceName, amount });
+
+    return this.createNotification({
+      senderAddress: customerAddress,
+      receiverAddress: shopAddress,
+      notificationType: 'service_booking_received',
+      message,
+      metadata: {
+        customerName,
+        serviceName,
+        amount,
+        orderId,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  async createServiceOrderCompletedNotification(
+    shopAddress: string,
+    customerAddress: string,
+    shopName: string,
+    serviceName: string,
+    rcnEarned: number,
+    orderId: string
+  ): Promise<Notification> {
+    const message = this.messageTemplates.service_order_completed({ shopName, serviceName, rcnEarned });
+
+    return this.createNotification({
+      senderAddress: shopAddress,
+      receiverAddress: customerAddress,
+      notificationType: 'service_order_completed',
+      message,
+      metadata: {
+        shopName,
+        serviceName,
+        rcnEarned,
+        orderId,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  async createServicePaymentFailedNotification(
+    customerAddress: string,
+    serviceName: string,
+    reason: string,
+    orderId: string
+  ): Promise<Notification> {
+    const message = this.messageTemplates.service_payment_failed({ serviceName, reason });
+
+    return this.createNotification({
+      senderAddress: 'SYSTEM',
+      receiverAddress: customerAddress,
+      notificationType: 'service_payment_failed',
+      message,
+      metadata: {
+        serviceName,
+        reason,
+        orderId,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  async createServiceOrderCancelledNotification(
+    customerAddress: string,
+    serviceName: string,
+    orderId: string,
+    refundStatus?: string
+  ): Promise<Notification> {
+    const message = this.messageTemplates.service_order_cancelled({ serviceName, refundStatus });
+
+    return this.createNotification({
+      senderAddress: 'SYSTEM',
+      receiverAddress: customerAddress,
+      notificationType: 'service_order_cancelled',
+      message,
+      metadata: {
+        serviceName,
+        orderId,
+        refundStatus,
         timestamp: new Date().toISOString()
       }
     });

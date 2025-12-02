@@ -2,6 +2,9 @@
 import { OrderRepository, CreateOrderParams, ServiceOrder } from '../../../repositories/OrderRepository';
 import { ServiceRepository } from '../../../repositories/ServiceRepository';
 import { StripeService } from '../../../services/StripeService';
+import { NotificationService } from '../../notification/services/NotificationService';
+import { RcnRedemptionService } from './RcnRedemptionService';
+import { customerRepository, shopRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 import Stripe from 'stripe';
@@ -10,6 +13,8 @@ export interface CreatePaymentIntentRequest {
   serviceId: string;
   customerAddress: string;
   bookingDate?: Date;
+  bookingTime?: string;
+  rcnToRedeem?: number;
   notes?: string;
 }
 
@@ -18,6 +23,11 @@ export interface CreatePaymentIntentResponse {
   clientSecret: string;
   amount: number;
   currency: string;
+  totalAmount?: number;
+  rcnRedeemed?: number;
+  rcnDiscountUsd?: number;
+  finalAmount?: number;
+  customerRcnBalance?: number;
 }
 
 export interface ConfirmPaymentRequest {
@@ -28,11 +38,15 @@ export class PaymentService {
   private orderRepository: OrderRepository;
   private serviceRepository: ServiceRepository;
   private stripeService: StripeService;
+  private notificationService: NotificationService;
+  private rcnRedemptionService: RcnRedemptionService;
 
   constructor(stripeService: StripeService) {
     this.orderRepository = new OrderRepository();
     this.serviceRepository = new ServiceRepository();
     this.stripeService = stripeService;
+    this.notificationService = new NotificationService();
+    this.rcnRedemptionService = new RcnRedemptionService();
   }
 
   /**
@@ -50,6 +64,30 @@ export class PaymentService {
         throw new Error('Service is not available for booking');
       }
 
+      let rcnRedeemed = 0;
+      let rcnDiscountUsd = 0;
+      let finalAmountUsd = service.priceUsd;
+      let customerRcnBalance = 0;
+
+      // Handle RCN redemption if requested
+      if (request.rcnToRedeem && request.rcnToRedeem > 0) {
+        const redemption = await this.rcnRedemptionService.calculateRedemption({
+          customerAddress: request.customerAddress,
+          servicePriceUsd: service.priceUsd,
+          shopId: service.shopId,
+          rcnToRedeem: request.rcnToRedeem
+        });
+
+        if (!redemption.isValid) {
+          throw new Error(redemption.error || 'Invalid RCN redemption');
+        }
+
+        rcnRedeemed = redemption.rcnRedeemed;
+        rcnDiscountUsd = redemption.rcnDiscountUsd;
+        finalAmountUsd = redemption.finalAmountUsd;
+        customerRcnBalance = redemption.remainingBalance;
+      }
+
       // Generate order ID
       const orderId = `ord_${uuidv4()}`;
 
@@ -60,15 +98,19 @@ export class PaymentService {
         customerAddress: request.customerAddress,
         shopId: service.shopId,
         totalAmount: service.priceUsd,
+        rcnRedeemed,
+        rcnDiscountUsd,
+        finalAmountUsd,
         bookingDate: request.bookingDate,
+        bookingTime: request.bookingTime,
         notes: request.notes
       };
 
       const order = await this.orderRepository.createOrder(orderParams);
 
-      // Create Stripe Payment Intent
+      // Create Stripe Payment Intent for final amount (after discount)
       // Stripe uses smallest currency unit (cents for USD)
-      const amountInCents = Math.round(service.priceUsd * 100);
+      const amountInCents = Math.round(finalAmountUsd * 100);
 
       const paymentIntent = await this.stripeService.createPaymentIntent({
         amount: amountInCents,
@@ -78,9 +120,12 @@ export class PaymentService {
           serviceId: service.serviceId,
           shopId: service.shopId,
           customerAddress: request.customerAddress,
+          totalAmount: service.priceUsd.toString(),
+          rcnRedeemed: rcnRedeemed.toString(),
+          rcnDiscountUsd: rcnDiscountUsd.toString(),
           type: 'service_booking'
         },
-        description: `Service Booking: ${service.serviceName}`
+        description: `Service Booking: ${service.serviceName}${rcnRedeemed > 0 ? ` (${rcnRedeemed} RCN redeemed)` : ''}`
       });
 
       // Update order with payment intent ID
@@ -90,14 +135,22 @@ export class PaymentService {
         orderId,
         serviceId: service.serviceId,
         paymentIntentId: paymentIntent.id,
-        amount: service.priceUsd
+        totalAmount: service.priceUsd,
+        rcnRedeemed,
+        rcnDiscountUsd,
+        finalAmount: finalAmountUsd
       });
 
       return {
         orderId: order.orderId,
         clientSecret: paymentIntent.client_secret!,
-        amount: service.priceUsd,
-        currency: 'usd'
+        amount: finalAmountUsd,
+        currency: 'usd',
+        totalAmount: service.priceUsd,
+        rcnRedeemed,
+        rcnDiscountUsd,
+        finalAmount: finalAmountUsd,
+        customerRcnBalance
       };
     } catch (error) {
       logger.error('Error creating payment intent:', error);
@@ -116,17 +169,63 @@ export class PaymentService {
         throw new Error('Order not found for payment intent');
       }
 
+      // Process RCN redemption if any
+      if (order.rcnRedeemed && order.rcnRedeemed > 0) {
+        const redeemed = await this.rcnRedemptionService.processRedemption(
+          order.customerAddress,
+          order.rcnRedeemed,
+          order.orderId,
+          order.shopId
+        );
+
+        if (!redeemed) {
+          logger.error('Failed to process RCN redemption, but payment succeeded', {
+            orderId: order.orderId,
+            rcnRedeemed: order.rcnRedeemed
+          });
+          // Continue with order - payment already went through
+          // This should be handled manually or with a retry mechanism
+        } else {
+          logger.info('RCN redemption processed successfully', {
+            orderId: order.orderId,
+            rcnRedeemed: order.rcnRedeemed,
+            discountUsd: order.rcnDiscountUsd
+          });
+        }
+      }
+
       // Update order status to paid
       const updatedOrder = await this.orderRepository.updateOrderStatus(order.orderId, 'paid');
 
       logger.info('Payment confirmed for service order', {
         orderId: order.orderId,
         paymentIntentId,
-        amount: order.totalAmount
+        totalAmount: order.totalAmount,
+        finalAmount: order.finalAmountUsd,
+        rcnDiscount: order.rcnDiscountUsd
       });
 
-      // TODO: Emit event for potential RCN rewards integration
-      // eventBus.emit('service:order_paid', { orderId, customerId, shopId, amount });
+      // Send notification to shop about new booking
+      try {
+        const service = await this.serviceRepository.getServiceById(order.serviceId);
+        const customer = await customerRepository.getCustomer(order.customerAddress);
+        const shop = await shopRepository.getShop(order.shopId);
+
+        if (service && shop && shop.walletAddress) {
+          await this.notificationService.createServiceBookingReceivedNotification(
+            order.customerAddress,
+            shop.walletAddress,
+            customer?.name || 'Customer',
+            service.serviceName,
+            order.totalAmount,
+            order.orderId
+          );
+          logger.info('Booking notification sent to shop', { shopId: order.shopId, orderId: order.orderId });
+        }
+      } catch (notifError) {
+        logger.error('Failed to send booking notification:', notifError);
+        // Don't fail the payment if notification fails
+      }
 
       return updatedOrder;
     } catch (error) {
@@ -163,6 +262,22 @@ export class PaymentService {
         paymentIntentId,
         reason
       });
+
+      // Send notification to customer about payment failure
+      try {
+        const service = await this.serviceRepository.getServiceById(order.serviceId);
+        if (service) {
+          await this.notificationService.createServicePaymentFailedNotification(
+            order.customerAddress,
+            service.serviceName,
+            reason || 'Payment processing failed',
+            order.orderId
+          );
+          logger.info('Payment failure notification sent to customer', { customerAddress: order.customerAddress, orderId: order.orderId });
+        }
+      } catch (notifError) {
+        logger.error('Failed to send payment failure notification:', notifError);
+      }
     } catch (error) {
       logger.error('Error handling payment failure:', error);
       throw error;

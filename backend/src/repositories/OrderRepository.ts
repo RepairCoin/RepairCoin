@@ -12,7 +12,11 @@ export interface ServiceOrder {
   stripePaymentIntentId?: string;
   status: OrderStatus;
   totalAmount: number;
+  rcnRedeemed?: number;
+  rcnDiscountUsd?: number;
+  finalAmountUsd?: number;
   bookingDate?: Date;
+  bookingTime?: string;
   completedAt?: Date;
   notes?: string;
   createdAt: Date;
@@ -38,7 +42,11 @@ export interface CreateOrderParams {
   customerAddress: string;
   shopId: string;
   totalAmount: number;
+  rcnRedeemed?: number;
+  rcnDiscountUsd?: number;
+  finalAmountUsd?: number;
   bookingDate?: Date;
+  bookingTime?: string;
   notes?: string;
 }
 
@@ -57,8 +65,9 @@ export class OrderRepository extends BaseRepository {
       const query = `
         INSERT INTO service_orders (
           order_id, service_id, customer_address, shop_id, total_amount,
-          booking_date, notes, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
+          rcn_redeemed, rcn_discount_usd, final_amount_usd,
+          booking_date, booking_time, notes, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending')
         RETURNING *
       `;
 
@@ -68,12 +77,21 @@ export class OrderRepository extends BaseRepository {
         params.customerAddress.toLowerCase(),
         params.shopId,
         params.totalAmount,
+        params.rcnRedeemed || 0,
+        params.rcnDiscountUsd || 0,
+        params.finalAmountUsd || params.totalAmount,
         params.bookingDate || null,
+        params.bookingTime || null,
         params.notes || null
       ];
 
       const result = await this.pool.query(query, values);
-      logger.info('Order created', { orderId: params.orderId, serviceId: params.serviceId });
+      logger.info('Order created', {
+        orderId: params.orderId,
+        serviceId: params.serviceId,
+        rcnRedeemed: params.rcnRedeemed || 0,
+        discountUsd: params.rcnDiscountUsd || 0
+      });
       return this.mapOrderRow(result.rows[0]);
     } catch (error) {
       logger.error('Error creating order:', error);
@@ -440,7 +458,11 @@ export class OrderRepository extends BaseRepository {
       stripePaymentIntentId: row.stripe_payment_intent_id,
       status: row.status,
       totalAmount: parseFloat(row.total_amount),
+      rcnRedeemed: row.rcn_redeemed ? parseFloat(row.rcn_redeemed) : 0,
+      rcnDiscountUsd: row.rcn_discount_usd ? parseFloat(row.rcn_discount_usd) : 0,
+      finalAmountUsd: row.final_amount_usd ? parseFloat(row.final_amount_usd) : parseFloat(row.total_amount),
       bookingDate: row.booking_date,
+      bookingTime: row.booking_time,
       completedAt: row.completed_at,
       notes: row.notes,
       createdAt: row.created_at,

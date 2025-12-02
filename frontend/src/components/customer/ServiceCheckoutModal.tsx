@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, DollarSign, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { X, DollarSign, Clock, CheckCircle, AlertCircle, Coins } from "lucide-react";
 import { ShopServiceWithShopInfo } from "@/services/api/services";
 import { createPaymentIntent } from "@/services/api/services";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { loadStripe, StripeElementsOptions } from "@stripe/stripe-js";
+import { useCustomerStore } from "@/stores/customerStore";
 
 // Initialize Stripe
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "");
@@ -21,9 +22,10 @@ const CheckoutForm: React.FC<{
   service: ShopServiceWithShopInfo;
   clientSecret: string;
   orderId: string;
+  finalAmount: number;
   onSuccess: () => void;
   onError: (error: string) => void;
-}> = ({ service, clientSecret, orderId, onSuccess, onError }) => {
+}> = ({ service, clientSecret, orderId, finalAmount, onSuccess, onError }) => {
   const stripe = useStripe();
   const elements = useElements();
   const [processing, setProcessing] = useState(false);
@@ -135,7 +137,7 @@ const CheckoutForm: React.FC<{
         disabled={!stripe || processing}
         className="w-full bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black font-bold text-lg px-6 py-4 rounded-xl hover:from-[#FFD700] hover:to-[#FFCC00] transition-all duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
       >
-        {processing ? "Processing..." : `Pay $${service.priceUsd.toFixed(2)}`}
+        {processing ? "Processing..." : `Pay $${finalAmount.toFixed(2)}`}
       </button>
 
       {/* Security Notice */}
@@ -152,42 +154,58 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const { customer } = useCustomerStore();
   const [clientSecret, setClientSecret] = useState<string>("");
   const [orderId, setOrderId] = useState<string>("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [paymentInitialized, setPaymentInitialized] = useState(false);
 
-  useEffect(() => {
-    // Prevent duplicate payment intent creation
+  // RCN Redemption State
+  const [rcnToRedeem, setRcnToRedeem] = useState(0);
+  const [showRedemption, setShowRedemption] = useState(false);
+  const customerBalance = customer?.rcnBalance || 0;
+
+  // Calculate discount and final amount
+  const RCN_TO_USD = 0.10;
+  const MAX_DISCOUNT_PCT = 0.20; // 20% cap
+  const MIN_SERVICE_PRICE = 10;
+
+  const canUseRedemption = service.priceUsd >= MIN_SERVICE_PRICE && customerBalance > 0;
+  const maxDiscountUsd = service.priceUsd * MAX_DISCOUNT_PCT;
+  const maxRcnRedeemable = Math.floor(Math.min(maxDiscountUsd / RCN_TO_USD, customerBalance));
+
+  const actualRcnRedeemed = Math.min(rcnToRedeem, maxRcnRedeemable);
+  const discountUsd = actualRcnRedeemed * RCN_TO_USD;
+  const finalAmount = Math.max(service.priceUsd - discountUsd, 0);
+
+  const handleInitializePayment = async () => {
     if (paymentInitialized) return;
 
-    // Create payment intent when modal opens
-    const initializePayment = async () => {
-      try {
-        setPaymentInitialized(true);
-        const response = await createPaymentIntent({
-          serviceId: service.serviceId,
-        });
+    try {
+      setLoading(true);
+      setPaymentInitialized(true);
 
-        if (response) {
-          setClientSecret(response.clientSecret);
-          setOrderId(response.orderId);
-        } else {
-          setError("Failed to initialize payment. Please try again.");
-          setPaymentInitialized(false); // Reset on error
-        }
-      } catch (err) {
+      const response = await createPaymentIntent({
+        serviceId: service.serviceId,
+        rcnToRedeem: actualRcnRedeemed > 0 ? actualRcnRedeemed : undefined,
+      });
+
+      if (response) {
+        setClientSecret(response.clientSecret);
+        setOrderId(response.orderId);
+      } else {
         setError("Failed to initialize payment. Please try again.");
-        setPaymentInitialized(false); // Reset on error
-      } finally {
-        setLoading(false);
+        setPaymentInitialized(false);
       }
-    };
-
-    initializePayment();
-  }, [service.serviceId, paymentInitialized]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to initialize payment. Please try again.");
+      setPaymentInitialized(false);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handlePaymentSuccess = () => {
     setPaymentSuccess(true);
@@ -284,6 +302,102 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
                 </div>
               </div>
 
+              {/* RCN Redemption Section */}
+              {canUseRedemption && !paymentInitialized && (
+                <div className="bg-[#0D0D0D] border border-[#FFCC00]/30 rounded-xl p-5 mb-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Coins className="w-5 h-5 text-[#FFCC00]" />
+                      <h3 className="text-sm font-semibold text-white">Use RCN for Discount</h3>
+                    </div>
+                    <button
+                      onClick={() => setShowRedemption(!showRedemption)}
+                      className="text-xs text-[#FFCC00] hover:text-[#FFD700] transition-colors"
+                    >
+                      {showRedemption ? "Hide" : "Show"}
+                    </button>
+                  </div>
+
+                  <div className="text-xs text-gray-400 mb-3">
+                    Balance: <span className="text-[#FFCC00] font-semibold">{customerBalance.toFixed(0)} RCN</span>
+                    {" "}(${ (customerBalance * RCN_TO_USD).toFixed(2)})
+                  </div>
+
+                  {showRedemption && (
+                    <div className="space-y-4">
+                      {/* Slider */}
+                      <div>
+                        <input
+                          type="range"
+                          min="0"
+                          max={maxRcnRedeemable}
+                          step="1"
+                          value={rcnToRedeem}
+                          onChange={(e) => setRcnToRedeem(Number(e.target.value))}
+                          className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[#FFCC00]"
+                        />
+                        <div className="flex justify-between text-xs text-gray-500 mt-1">
+                          <span>0 RCN</span>
+                          <span>{maxRcnRedeemable} RCN (Max 20%)</span>
+                        </div>
+                      </div>
+
+                      {/* Redemption Details */}
+                      {actualRcnRedeemed > 0 && (
+                        <div className="bg-[#1A1A1A] border border-gray-700 rounded-lg p-3 space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-400">Redeeming:</span>
+                            <span className="text-[#FFCC00] font-semibold">{actualRcnRedeemed} RCN</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-400">Discount:</span>
+                            <span className="text-green-500 font-semibold">-${discountUsd.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm pt-2 border-t border-gray-700">
+                            <span className="text-gray-400">Original Price:</span>
+                            <span className="text-gray-400 line-through">${service.priceUsd.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-base font-bold">
+                            <span className="text-white">Final Price:</span>
+                            <span className="text-[#FFCC00]">${finalAmount.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-500">Remaining Balance:</span>
+                            <span className="text-gray-500">{(customerBalance - actualRcnRedeemed).toFixed(0)} RCN</span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                        <p className="text-xs text-blue-300">
+                          💡 You'll earn RCN on the full ${service.priceUsd.toFixed(2)} service price when completed!
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Warning if service price too low */}
+              {!canUseRedemption && customerBalance > 0 && service.priceUsd < MIN_SERVICE_PRICE && (
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 mb-6">
+                  <p className="text-sm text-yellow-300">
+                    RCN redemption requires a minimum service price of ${MIN_SERVICE_PRICE}.
+                  </p>
+                </div>
+              )}
+
+              {/* Proceed to Payment Button */}
+              {!paymentInitialized && (
+                <button
+                  onClick={handleInitializePayment}
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black font-bold text-lg px-6 py-4 rounded-xl hover:from-[#FFD700] hover:to-[#FFCC00] transition-all duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none mb-6"
+                >
+                  {loading ? "Preparing..." : `Proceed to Payment - $${finalAmount.toFixed(2)}`}
+                </button>
+              )}
+
               {/* Payment Form */}
               {loading && (
                 <div className="flex items-center justify-center py-12">
@@ -312,6 +426,7 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
                       service={service}
                       clientSecret={clientSecret}
                       orderId={orderId}
+                      finalAmount={finalAmount}
                       onSuccess={handlePaymentSuccess}
                       onError={handlePaymentError}
                     />

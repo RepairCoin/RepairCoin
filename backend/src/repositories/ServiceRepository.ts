@@ -23,6 +23,8 @@ export interface ShopServiceWithShopInfo extends ShopService {
   shopPhone?: string;
   shopEmail?: string;
   shopLogo?: string;
+  avgRating?: number;
+  reviewCount?: number;
 }
 
 export interface CreateServiceParams {
@@ -56,6 +58,7 @@ export interface ServiceFilters {
   minPrice?: number;
   maxPrice?: number;
   activeOnly?: boolean;
+  sortBy?: 'price_asc' | 'price_desc' | 'rating_desc' | 'newest' | 'oldest';
 }
 
 export class ServiceRepository extends BaseRepository {
@@ -252,6 +255,28 @@ export class ServiceRepository extends BaseRepository {
 
       const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
+      // Determine sort order
+      let orderByClause = 'ORDER BY s.created_at DESC'; // Default: newest first
+      if (filters.sortBy) {
+        switch (filters.sortBy) {
+          case 'price_asc':
+            orderByClause = 'ORDER BY s.price_usd ASC';
+            break;
+          case 'price_desc':
+            orderByClause = 'ORDER BY s.price_usd DESC';
+            break;
+          case 'rating_desc':
+            orderByClause = 'ORDER BY COALESCE(avg_rating, 0) DESC, review_count DESC';
+            break;
+          case 'newest':
+            orderByClause = 'ORDER BY s.created_at DESC';
+            break;
+          case 'oldest':
+            orderByClause = 'ORDER BY s.created_at ASC';
+            break;
+        }
+      }
+
       // Get total count
       const countQuery = `
         SELECT COUNT(*) as total
@@ -261,7 +286,7 @@ export class ServiceRepository extends BaseRepository {
       const countResult = await this.pool.query(countQuery, params);
       const total = parseInt(countResult.rows[0].total);
 
-      // Get paginated results with shop info
+      // Get paginated results with shop info and review stats
       const query = `
         SELECT
           s.*,
@@ -269,11 +294,15 @@ export class ServiceRepository extends BaseRepository {
           sh.address as shop_address,
           sh.phone as shop_phone,
           sh.email as shop_email,
-          NULL as shop_logo
+          NULL as shop_logo,
+          COALESCE(AVG(r.rating), 0) as avg_rating,
+          COUNT(r.id) as review_count
         FROM shop_services s
         INNER JOIN shops sh ON s.shop_id = sh.shop_id
+        LEFT JOIN service_reviews r ON s.service_id = r.service_id
         ${whereClause}
-        ORDER BY s.created_at DESC
+        GROUP BY s.service_id, sh.shop_id
+        ${orderByClause}
         LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
       `;
       params.push(limit, offset);
@@ -408,7 +437,9 @@ export class ServiceRepository extends BaseRepository {
       shopAddress: row.shop_address,
       shopPhone: row.shop_phone,
       shopEmail: row.shop_email,
-      shopLogo: row.shop_logo
+      shopLogo: row.shop_logo,
+      avgRating: row.avg_rating ? parseFloat(row.avg_rating) : 0,
+      reviewCount: row.review_count ? parseInt(row.review_count) : 0
     };
   }
 }

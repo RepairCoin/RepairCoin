@@ -4,11 +4,14 @@ import React from "react";
 import { Search, X } from "lucide-react";
 import { SERVICE_CATEGORIES, ServiceCategory } from "@/services/api/services";
 
+export type SortOption = 'newest' | 'price_asc' | 'price_desc' | 'rating_desc' | 'oldest';
+
 export interface FilterState {
   category?: ServiceCategory;
   search?: string;
   minPrice?: number;
   maxPrice?: number;
+  sortBy?: SortOption;
 }
 
 interface ServiceFiltersProps {
@@ -43,7 +46,14 @@ export const ServiceFilters: React.FC<ServiceFiltersProps> = ({
     onFilterChange({ ...filters, maxPrice: numValue });
   };
 
-  const hasActiveFilters = filters.category || filters.search || filters.minPrice || filters.maxPrice;
+  const handleSortChange = (value: string) => {
+    onFilterChange({
+      ...filters,
+      sortBy: value ? (value as SortOption) : undefined,
+    });
+  };
+
+  const hasActiveFilters = filters.category || filters.search || filters.minPrice || filters.maxPrice || filters.sortBy;
 
   return (
     <div className="flex flex-col sm:flex-row gap-3">
@@ -71,6 +81,19 @@ export const ServiceFilters: React.FC<ServiceFiltersProps> = ({
             {cat.label}
           </option>
         ))}
+      </select>
+
+      {/* Sort By */}
+      <select
+        value={filters.sortBy || "newest"}
+        onChange={(e) => handleSortChange(e.target.value)}
+        className="bg-[#1A1A1A] border border-gray-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#FFCC00]/50 transition-colors cursor-pointer min-w-[150px]"
+      >
+        <option value="newest">Newest First</option>
+        <option value="rating_desc">Highest Rated</option>
+        <option value="price_asc">Price: Low to High</option>
+        <option value="price_desc">Price: High to Low</option>
+        <option value="oldest">Oldest First</option>
       </select>
 
       {/* Price Range */}
