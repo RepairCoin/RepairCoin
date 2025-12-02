@@ -2,14 +2,16 @@ import { Text, View, Pressable } from "react-native";
 import { ThemedView } from "@/components/ui/ThemedView";
 import { AntDesign, MaterialIcons } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
-import { useShopByWalletAddress } from "@/hooks";
+
 import { useAuthStore } from "@/store/auth.store";
+import { useShop } from "@/hooks/shop/useShop";
 
 export default function Subscription() {
   const { account } = useAuthStore();
-  const { data: shopData } = useShopByWalletAddress(account?.address || "");
+  const { useGetShopByWalletAddress } = useShop();
+  const { data: shopData } = useGetShopByWalletAddress(account?.address || "");
 
-  const isSubscribed = shopData?.data?.operational_status === "subscription_qualified";
+  const isSubscribed = shopData?.operational_status === "subscription_qualified";
 
   const handleSubscribe = () => {
     // TODO: Implement Stripe subscription

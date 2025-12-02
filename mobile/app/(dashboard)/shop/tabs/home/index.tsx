@@ -1,17 +1,9 @@
 import React, { useCallback, useState, useEffect } from "react";
-import {
-  Image,
-  Pressable,
-  Text,
-  View,
-  RefreshControl,
-  ScrollView,
-  Alert,
-} from "react-native";
+import { Image, Pressable, Text, View, Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Feather } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
-import { useShopByWalletAddress } from "@/hooks";
+import { useShop } from "@/hooks/shop/useShop";
 import { useAuthStore } from "@/store/auth.store";
 import { ThemedView } from "@/components/ui/ThemedView";
 import WalletTab from "./tabs/WalletTab";
@@ -22,14 +14,11 @@ import SubscriptionModal from "@/components/shop/SubscriptionModal";
 type ShopTabs = "Wallet" | "Analysis" | "Promo Code";
 
 export default function Home() {
+  const { useGetShopByWalletAddress } = useShop();
   const { account } = useAuthStore();
-  const {
-    data: shopData,
-    refetch,
-  } = useShopByWalletAddress(account?.address || "");
-  const isOperational =
-    shopData?.data?.operational_status === "rcg_qualified" ||
-    shopData?.data?.operational_status === "subscription_qualified";
+  const { data: shopData, refetch } = useGetShopByWalletAddress(
+    account?.address || ""
+  );
 
   const [activeTab, setActiveTab] = useState<ShopTabs>("Wallet");
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
@@ -37,7 +26,9 @@ export default function Home() {
   const [hasUserDismissedModal, setHasUserDismissedModal] = useState(false);
   const shopTabs: ShopTabs[] = ["Wallet", "Analysis", "Promo Code"];
 
-  console.log("shopDatashopData: ", shopData)
+  const isOperational =
+    shopData?.operational_status === "rcg_qualified" ||
+    shopData?.operational_status === "subscription_qualified";
 
   // Load dismissed state from AsyncStorage on mount
   useEffect(() => {
@@ -67,7 +58,7 @@ export default function Home() {
 
   // Show modal when shop is not operational (only if user hasn't dismissed it)
   useEffect(() => {
-    if (shopData?.data && !isOperational && !hasUserDismissedModal) {
+    if (shopData && !isOperational && !hasUserDismissedModal) {
       setShowSubscriptionModal(true);
     }
   }, [shopData, isOperational, hasUserDismissedModal]);
@@ -141,7 +132,7 @@ export default function Home() {
               Hello!
             </Text>
             <Text className="text-lg font-semibold text-white">
-              {shopData?.data.name}
+              {shopData?.name}
             </Text>
           </View>
         </View>
@@ -166,11 +157,11 @@ export default function Home() {
             </React.Fragment>
           ))}
         </View>
-        {activeTab === "Wallet" && shopData?.data && (
-          <WalletTab shopData={shopData.data} />
+        {activeTab === "Wallet" && shopData && (
+          <WalletTab shopData={shopData} />
         )}
-        {activeTab === "Promo Code" && shopData?.data && <PromoCodeTab />}
-        {activeTab === "Analysis" && shopData?.data && <AnalyticsTab />}
+        {activeTab === "Promo Code" && shopData && <PromoCodeTab />}
+        {activeTab === "Analysis" && shopData && <AnalyticsTab />}
       </View>
       <SubscriptionModal
         visible={showSubscriptionModal}

@@ -1,3 +1,5 @@
+import { BaseResponse } from "./base.interface";
+
 export interface CreateShopRequest {
   // Shop Information
   shopId: string;
@@ -40,3 +42,29 @@ export interface CreateShopRequest {
   // Terms and Conditions
   acceptTerms: boolean;
 }
+
+export interface ShopByWalletAddressData {
+  active: boolean;
+  address: string;
+  crossShopEnabled: boolean;
+  email: string;
+  facebook: string;
+  instagram: string;
+  joinDate: string;
+  name: string;
+  operational_status: string;
+  phone: string;
+  purchasedRcnBalance: number;
+  rcg_balance: number;
+  rcg_tier: string;
+  shopId: string;
+  totalRcnPurchased: number;
+  totalRedemptions: number;
+  totalTokensIssued: number;
+  twitter: string;
+  verified: boolean;
+  walletAddress: string;
+  website: string;
+}
+
+export interface ShopByWalletAddressResponse extends BaseResponse<ShopByWalletAddressData> {}
