@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   Text,
   View,
@@ -5,27 +6,27 @@ import {
   TextInput,
   ScrollView,
   Alert,
-  Switch,
   Image,
   Platform,
   Modal,
   FlatList,
 } from "react-native";
-import { ThemedView } from "@/components/ui/ThemedView";
-import { AntDesign, Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
-import { goBack } from "expo-router/build/global-state/routing";
-import { SERVICE_CATEGORIES } from "@/constants/service-categories";
 import * as ImagePicker from "expo-image-picker";
-import { useCreateService, useUpdateService } from "@/hooks/useShopService";
 import { useLocalSearchParams } from "expo-router";
-import { useEffect } from "react";
-import { ServiceData, UpdateServiceData } from "@/services/ShopServices";
+import { AntDesign, Ionicons } from "@expo/vector-icons";
+import { goBack } from "expo-router/build/global-state/routing";
 import { useQueryClient } from "@tanstack/react-query";
+
+import { ThemedView } from "@/components/ui/ThemedView";
+import { SERVICE_CATEGORIES } from "@/constants/service-categories";
 import { useAuthStore } from "@/store/auth.store";
+import { useService } from "@/hooks/service/useService";
+import { UpdateServiceData } from "@/interfaces/service.interface";
+import { queryKeys } from "@/config/queryClient";
 
 export default function ServiceForm() {
   const params = useLocalSearchParams();
+  const { useCreateService, useUpdateService } = useService();
   const isEditMode = params.mode === "edit";
   const serviceId = params.serviceId as string;
   const serviceDataString = params.data as string;
@@ -55,7 +56,7 @@ export default function ServiceForm() {
   useEffect(() => {
     if (isEditMode && serviceDataString) {
       try {
-        const serviceData: ServiceData = JSON.parse(serviceDataString);
+        const serviceData: UpdateServiceData = JSON.parse(serviceDataString);
         setFormData({
           serviceName: serviceData.serviceName || "",
           category: serviceData.category || "repairs",
@@ -154,9 +155,9 @@ export default function ServiceForm() {
           serviceData: updateData
         });
         
-        // Invalidate and refetch services list
-        await queryClient.invalidateQueries({ queryKey: ["shopServices", shopId] });
-        
+        // Invalidate and refetch services list (use servicesBase for partial match)
+        await queryClient.invalidateQueries({ queryKey: queryKeys.servicesBase(shopId!) });
+
         Alert.alert("Success", "Service updated successfully", [
           { text: "OK", onPress: () => goBack() },
         ]);
@@ -177,9 +178,9 @@ export default function ServiceForm() {
           serviceData: createData
         });
         
-        // Invalidate and refetch services list
-        await queryClient.invalidateQueries({ queryKey: ["shopServices", shopId] });
-        
+        // Invalidate and refetch services list (use servicesBase for partial match)
+        await queryClient.invalidateQueries({ queryKey: queryKeys.servicesBase(shopId!) });
+
         Alert.alert("Success", "Service created successfully", [
           { text: "OK", onPress: () => goBack() },
         ]);

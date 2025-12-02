@@ -1,15 +1,9 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import {
-  ServiceResponse,
-  createService,
-  CreateServiceRequest,
-  getShopServices,
-  updateService,
-  deleteService,
-  UpdateServiceData,
-} from "@/services/ShopServices";
-import { useAuthStore } from "@/store/auth.store";
 import { Alert } from "react-native";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useAuthStore } from "@/store/auth.store";
+import { queryKeys } from "@/config/queryClient";
+import { serviceApi } from "@/services/service.services";
+import { CreateServiceRequest, ServiceResponse, UpdateServiceData } from "@/interfaces/service.interface";
 
 export function useService() {
   const useServiceQuery = (options?: { page?: number; limit?: number }) => {
@@ -17,12 +11,9 @@ export function useService() {
     const shopId = userProfile?.shopId;
 
     return useQuery({
-      queryKey: ["shopServices", shopId, options],
+      queryKey: queryKeys.services(shopId!, options),
       queryFn: async () => {
-        const response: ServiceResponse = await getShopServices(
-          shopId!,
-          options
-        );
+        const response: ServiceResponse = await serviceApi.getAll(shopId!, options);
         return response.data;
       },
       enabled: !!shopId,
@@ -37,7 +28,7 @@ export function useService() {
       }: {
         serviceData: CreateServiceRequest;
       }) => {
-        const response: any = await createService(serviceData);
+        const response: any = await serviceApi.create(serviceData);
         return response.data;
       },
       onError: (error: any) => {
@@ -56,7 +47,7 @@ export function useService() {
         serviceId: string;
         serviceData: UpdateServiceData;
       }) => {
-        const response: any = await updateService(serviceId, serviceData);
+        const response: any = await serviceApi.update(serviceId, serviceData);
         return response.data;
       },
       onError: (error: any) => {
@@ -69,7 +60,7 @@ export function useService() {
   const useDeleteService = () => {
     return useMutation({
       mutationFn: async ({ serviceId }: { serviceId: string }) => {
-        const response: any = await deleteService(serviceId);
+        const response: any = await serviceApi.delete(serviceId);
         return response.data;
       },
       onSuccess: () => {

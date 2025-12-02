@@ -8,7 +8,7 @@ import {
 import { apiClient } from "@/utilities/axios";
 
 class ServiceApi {
-  async getServices(
+  async getAll(
     shopId: string,
     options?: { page?: number; limit?: number }
   ): Promise<ServiceResponse> {

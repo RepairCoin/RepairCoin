@@ -12,20 +12,22 @@ import {
 } from "react-native";
 import { ThemedView } from "@/components/ui/ThemedView";
 import { Ionicons } from "@expo/vector-icons";
-import { useShopServices } from "@/hooks/useShopService";
+import { useService } from "@/hooks/service/useService";
 import { useState } from "react";
 import { ServiceData } from "@/services/ShopServices";
 import { SERVICE_CATEGORIES } from "@/constants/service-categories";
 import { router } from "expo-router";
-import { useUpdateService } from "@/hooks/useShopService";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/auth.store";
+import { queryKeys } from "@/config/queryClient";
 
 export default function Service() {
-  const { data: servicesData, isLoading, error, refetch } = useShopServices();
-  const { mutateAsync: updateServiceMutation } = useUpdateService();
   const queryClient = useQueryClient();
   const { userProfile } = useAuthStore();
+  const { useServiceQuery, useUpdateService } = useService();
+  const { data: servicesData, isLoading, error, refetch } = useServiceQuery();
+  const { mutateAsync: updateServiceMutation } = useUpdateService();
+
   const shopId = userProfile?.shopId;
   
   const [refreshing, setRefreshing] = useState(false);
@@ -64,25 +66,6 @@ export default function Service() {
     }
   };
 
-  const handleDelete = () => {
-    Alert.alert(
-      "Delete Service",
-      "Are you sure you want to delete this service?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            setActionModalVisible(false);
-            // TODO: Call delete API
-            console.log("Delete service:", selectedService?.serviceId);
-          },
-        },
-      ]
-    );
-  };
-
   const handleToggleStatus = async (value: boolean) => {
     if (selectedService && !isUpdating) {
       setIsUpdating(true);
@@ -96,8 +79,8 @@ export default function Service() {
         // Update local state
         setSelectedService({ ...selectedService, active: value });
         
-        // Invalidate and refetch services list
-        await queryClient.invalidateQueries({ queryKey: ["shopServices", shopId] });
+        // Invalidate and refetch services list (use servicesBase for partial match)
+        await queryClient.invalidateQueries({ queryKey: queryKeys.servicesBase(shopId!) });
         
         // Show success feedback
         Alert.alert(

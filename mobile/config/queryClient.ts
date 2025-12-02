@@ -71,6 +71,10 @@ export const queryKeys = {
   auth: () => [...queryKeys.all, 'auth'] as const,
   authUser: () => [...queryKeys.auth(), 'user'] as const,
   authSession: () => [...queryKeys.auth(), 'session'] as const,
+
+  // Service related
+  servicesBase: (shopId: string) => [...queryKeys.all, 'services', shopId] as const,
+  services: (shopId: string, options?: { page?: number; limit?: number }) => [...queryKeys.servicesBase(shopId), options] as const,
 } as const;
 
 export type QueryKeys = typeof queryKeys;
