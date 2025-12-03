@@ -34,6 +34,15 @@ class ServiceApi {
     }
   }
 
+  async getService(serviceId: string): Promise<ServiceResponse> {
+    try {
+      return await apiClient.get<ServiceResponse>(`/services/${serviceId}`);
+    } catch (error: any) {
+      console.error("Failed to get service detail:", error.message);
+      throw error;
+    }
+  }
+
   async create(
     serviceData: CreateServiceRequest
   ): Promise<{ success: boolean; data?: ServiceData; message?: string }> {

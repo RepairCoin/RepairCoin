@@ -24,6 +24,11 @@ export interface ServiceData {
   shopId: string;
   tags: string[];
   updatedAt: string;
+  // Shop details (available in service detail response)
+  shopName?: string;
+  shopAddress?: string;
+  shopPhone?: string;
+  shopEmail?: string;
 }
 
 export interface CreateServiceRequest {
@@ -48,4 +53,4 @@ export interface UpdateServiceData {
   active?: boolean;
 }
 
-export interface ServiceResponse extends BaseResponse<ServiceData[]> {}
+export interface ServiceResponse extends BaseResponse<ServiceData> {}
