@@ -8,7 +8,7 @@ export default function HorizontalCard({
 }: {
   label: string;
   Icon: any;
-  number: number;
+  number: number | string;
 }) {
   return (
     <View className="flex h-28 rounded-2xl overflow-hidden mx-4 my-2">
