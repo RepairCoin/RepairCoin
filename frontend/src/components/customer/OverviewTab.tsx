@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useReadContract, useActiveAccount } from "thirdweb/react";
 import { getContract, createThirdwebClient } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
-import { WalletIcon, TrophyIcon, RepairsIcon, CheckShieldIcon } from "../icon";
+import { WalletIcon, TrophyIcon, RedeemIcon, IssueRewardsIcon } from "../icon";
 import { useCustomer } from "@/hooks/useCustomer";
 import { useCustomerStore } from "@/stores/customerStore";
 import { useAuthStore } from "@/stores/authStore";
@@ -319,20 +319,20 @@ export const OverviewTab: React.FC = () => {
           subtitleClassName="text-gray-400 text-xs sm:text-sm"
         />
 
-        {/* Total Repairs Card */}
+        {/* Tokens Redeemed Card */}
         <StatCard
           title="Tokens Redeemed"
           value={balanceData?.totalRedeemed || 0}
-          icon={<RepairsIcon />}
+          icon={<RedeemIcon />}
           titleClassName="text-yellow-400 text-sm md:text-base font-medium"
           valueClassName="text-white text-lg sm:text-xl md:text-2xl font-semibold"
         />
 
-        {/* Total Repairs Card */}
+        {/* Tokens Earned Card */}
         <StatCard
           title="Tokens Earned"
           value={balanceData?.lifetimeEarned || 0}
-          icon={<RepairsIcon />}
+          icon={<IssueRewardsIcon />}
           titleClassName="text-yellow-400 text-sm md:text-base font-medium"
           valueClassName="text-white text-lg sm:text-xl md:text-2xl font-semibold"
         />

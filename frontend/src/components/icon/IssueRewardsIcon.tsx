@@ -1,19 +1,56 @@
-const IssueRewardsIcon = ({ width, height, isActive }: any) => {
+const IssueRewardsIcon = ({ width = "100%", height = "100%" }: any) => {
   return (
-    <svg
-      width={width}
-      height={height}
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
+    <svg width={width} height={height} viewBox="0 0 57 56" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+      <g filter="url(#filter0_d_rewards)">
+        <rect x="6" y="2" width="45" height="45" rx="12" fill="#FFCC00" />
+      </g>
+      {/* Diamond/gem icon for rewards */}
       <path
-        d="M12 20L4.6797 10.8496C4.34718 10.434 4.18092 10.2262 4.13625 9.9757C4.09159 9.72524 4.17575 9.47276 4.34407 8.96778L5.0883 6.73509C5.52832 5.41505 5.74832 4.75503 6.2721 4.37752C6.79587 4 7.49159 4 8.88304 4H15.117C16.5084 4 17.2041 4 17.7279 4.37752C18.2517 4.75503 18.4717 5.41505 18.9117 6.73509L19.6559 8.96778C19.8243 9.47276 19.9084 9.72524 19.8637 9.9757C19.8191 10.2262 19.6528 10.434 19.3203 10.8496L12 20ZM12 20L15.5 9M12 20L8.5 9M19.5 10L15.5 9M15.5 9L14 5M15.5 9H8.5M10 5L8.5 9M8.5 9L4.5 10"
-        stroke={isActive ? '#000000' : 'white'}
-        strokeOpacity="0.8"
-        strokeWidth="2"
+        d="M28.5 33L20 21.5C19.75 21.2 19.62 21.05 19.6 20.87C19.58 20.69 19.65 20.52 19.78 20.18L20.35 18.65C20.66 17.75 20.81 17.3 21.17 17.05C21.53 16.8 22 16.8 22.95 16.8H34.05C35 16.8 35.47 16.8 35.83 17.05C36.19 17.3 36.34 17.75 36.65 18.65L37.22 20.18C37.35 20.52 37.42 20.69 37.4 20.87C37.38 21.05 37.25 21.2 37 21.5L28.5 33Z"
+        fill="#000510"
+      />
+      <path
+        d="M28.5 33L32.5 21M28.5 33L24.5 21M37 21.5L32.5 21M32.5 21L31 17.5M32.5 21H24.5M26 17.5L24.5 21M24.5 21L20 21.5"
+        stroke="#000510"
+        strokeWidth="1.5"
         strokeLinecap="round"
       />
+      <defs>
+        <filter
+          id="filter0_d_rewards"
+          x="0.5"
+          y="-2.38419e-07"
+          width="56"
+          height="56"
+          filterUnits="userSpaceOnUse"
+          colorInterpolationFilters="sRGB"
+        >
+          <feFlood floodOpacity="0" result="BackgroundImageFix" />
+          <feColorMatrix
+            in="SourceAlpha"
+            type="matrix"
+            values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
+            result="hardAlpha"
+          />
+          <feOffset dy="3.5" />
+          <feGaussianBlur stdDeviation="2.75" />
+          <feColorMatrix
+            type="matrix"
+            values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.02 0"
+          />
+          <feBlend
+            mode="normal"
+            in2="BackgroundImageFix"
+            result="effect1_dropShadow_rewards"
+          />
+          <feBlend
+            mode="normal"
+            in="SourceGraphic"
+            in2="effect1_dropShadow_rewards"
+            result="shape"
+          />
+        </filter>
+      </defs>
     </svg>
   );
 };

@@ -218,105 +218,109 @@ export function AnalyticsTab() {
     <div className="space-y-8">
       {/* Navigation Tabs */}
       <div className="bg-[#212121] rounded-2xl shadow-xl border border-[#FFCC00]/20">
-        <div className="px-6 py-4 border-b border-[#FFCC00]/20">
-          <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold text-[#FFCC00]">Advanced Analytics</h1>
+        <div className="px-4 sm:px-6 py-4 border-b border-[#FFCC00]/20">
+          {/* Header - Stack on mobile */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <h1 className="text-xl sm:text-3xl font-bold text-[#FFCC00]">Advanced Analytics</h1>
             <button
               onClick={handleRunMonitoringChecks}
               disabled={monitoringLoading}
-              className="px-4 py-2 bg-[#FFCC00] text-[#0D0D0D] rounded-lg hover:bg-[#FFCC00]/90 disabled:opacity-50 flex items-center gap-2 font-bold"
+              className="px-3 sm:px-4 py-2 bg-[#FFCC00] text-[#0D0D0D] rounded-lg hover:bg-[#FFCC00]/90 disabled:opacity-50 flex items-center justify-center gap-2 font-bold text-sm sm:text-base w-full sm:w-auto"
             >
               {monitoringLoading ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
               ) : (
                 '🔍'
               )}
-              Run Monitoring Checks
+              <span className="hidden xs:inline">Run</span> Monitoring Checks
             </button>
           </div>
-          <div className="flex gap-4 mt-4">
-            {[
-              { id: 'overview', label: 'Overview', icon: '📊' },
-              { id: 'circulation', label: 'Token Circulation', icon: '🪙' },
-              { id: 'rankings', label: 'Shop Rankings', icon: '🏆' },
-              { id: 'alerts', label: 'Alerts', icon: '🚨', badge: alerts.filter(a => !a.acknowledged).length }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all ${
-                  activeTab === tab.id
-                    ? 'bg-[#FFCC00] text-[#0D0D0D] font-bold'
-                    : 'text-[#FFCC00]/70 hover:bg-[#FFCC00]/10 hover:text-[#FFCC00]'
-                }`}
-              >
-                <span>{tab.icon}</span>
-                {tab.label}
-                {tab.badge > 0 && (
-                  <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1">
-                    {tab.badge}
-                  </span>
-                )}
-              </button>
-            ))}
+          {/* Tabs - Horizontal scroll on mobile */}
+          <div className="mt-4 -mx-4 sm:mx-0 px-4 sm:px-0 overflow-x-auto scrollbar-hide">
+            <div className="flex gap-2 sm:gap-4 min-w-max pb-2 sm:pb-0">
+              {[
+                { id: 'overview', label: 'Overview', icon: '📊' },
+                { id: 'circulation', label: 'Circulation', icon: '🪙' },
+                { id: 'rankings', label: 'Rankings', icon: '🏆' },
+                { id: 'alerts', label: 'Alerts', icon: '🚨', badge: alerts.filter(a => !a.acknowledged).length }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`px-3 sm:px-4 py-2 rounded-lg flex items-center gap-1.5 sm:gap-2 transition-all whitespace-nowrap text-sm sm:text-base ${
+                    activeTab === tab.id
+                      ? 'bg-[#FFCC00] text-[#0D0D0D] font-bold'
+                      : 'text-[#FFCC00]/70 hover:bg-[#FFCC00]/10 hover:text-[#FFCC00]'
+                  }`}
+                >
+                  <span>{tab.icon}</span>
+                  {tab.label}
+                  {tab.badge !== undefined && tab.badge > 0 && (
+                    <span className="bg-red-500 text-white text-xs rounded-full px-1.5 sm:px-2 py-0.5 sm:py-1">
+                      {tab.badge}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Overview Tab */}
       {activeTab === 'overview' && (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Key Metrics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-[#212121] rounded-2xl shadow-xl p-6 border border-[#FFCC00]/20 hover:border-[#FFCC00]/40 transition-all">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+            <div className="bg-[#212121] rounded-xl sm:rounded-2xl shadow-xl p-3 sm:p-6 border border-[#FFCC00]/20 hover:border-[#FFCC00]/40 transition-all">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-[#FFCC00]/70">Total Supply</p>
-                  <p className="text-3xl font-bold text-[#FFCC00]">
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm font-medium text-[#FFCC00]/70">Total Supply</p>
+                  <p className="text-lg sm:text-3xl font-bold text-[#FFCC00] truncate">
                     {tokenMetrics?.totalSupply?.toLocaleString() || 0}
                   </p>
-                  <p className="text-xs text-[#FFCC00]/60 mt-1">RCN tokens</p>
+                  <p className="text-[10px] sm:text-xs text-[#FFCC00]/60 mt-1">RCN tokens</p>
                 </div>
-                <div className="text-3xl">🪙</div>
+                <div className="text-xl sm:text-3xl flex-shrink-0">🪙</div>
               </div>
             </div>
 
-            <div className="bg-[#212121] rounded-2xl shadow-xl p-6 border border-[#22C55E]/20 hover:border-[#22C55E]/40 transition-all">
+            <div className="bg-[#212121] rounded-xl sm:rounded-2xl shadow-xl p-3 sm:p-6 border border-[#22C55E]/20 hover:border-[#22C55E]/40 transition-all">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-[#22C55E]/70">In Circulation</p>
-                  <p className="text-3xl font-bold text-[#22C55E]">
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm font-medium text-[#22C55E]/70">In Circulation</p>
+                  <p className="text-lg sm:text-3xl font-bold text-[#22C55E] truncate">
                     {tokenMetrics?.totalInCirculation?.toLocaleString() || 0}
                   </p>
-                  <p className="text-xs text-[#22C55E]/60 mt-1">Active tokens</p>
+                  <p className="text-[10px] sm:text-xs text-[#22C55E]/60 mt-1">Active tokens</p>
                 </div>
-                <div className="text-3xl">🔄</div>
+                <div className="text-xl sm:text-3xl flex-shrink-0">🔄</div>
               </div>
             </div>
 
-            <div className="bg-[#212121] rounded-2xl shadow-xl p-6 border border-[#A855F7]/20 hover:border-[#A855F7]/40 transition-all">
+            <div className="bg-[#212121] rounded-xl sm:rounded-2xl shadow-xl p-3 sm:p-6 border border-[#A855F7]/20 hover:border-[#A855F7]/40 transition-all">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-[#A855F7]/70">Active Customers</p>
-                  <p className="text-3xl font-bold text-[#A855F7]">
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm font-medium text-[#A855F7]/70">Active Customers</p>
+                  <p className="text-lg sm:text-3xl font-bold text-[#A855F7] truncate">
                     {tokenMetrics?.customerBalances?.activeCustomers?.toLocaleString() || 0}
                   </p>
-                  <p className="text-xs text-[#A855F7]/60 mt-1">With tokens</p>
+                  <p className="text-[10px] sm:text-xs text-[#A855F7]/60 mt-1">With tokens</p>
                 </div>
-                <div className="text-3xl">👥</div>
+                <div className="text-xl sm:text-3xl flex-shrink-0">👥</div>
               </div>
             </div>
 
-            <div className="bg-[#212121] rounded-2xl shadow-xl p-6 border border-[#FB923C]/20 hover:border-[#FB923C]/40 transition-all">
+            <div className="bg-[#212121] rounded-xl sm:rounded-2xl shadow-xl p-3 sm:p-6 border border-[#FB923C]/20 hover:border-[#FB923C]/40 transition-all">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-[#FB923C]/70">Active Shops</p>
-                  <p className="text-3xl font-bold text-[#FB923C]">
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm font-medium text-[#FB923C]/70">Active Shops</p>
+                  <p className="text-lg sm:text-3xl font-bold text-[#FB923C] truncate">
                     {tokenMetrics?.shopBalances?.length || 0}
                   </p>
-                  <p className="text-xs text-[#FB923C]/60 mt-1">Issuing tokens</p>
+                  <p className="text-[10px] sm:text-xs text-[#FB923C]/60 mt-1">Issuing tokens</p>
                 </div>
-                <div className="text-3xl">🏪</div>
+                <div className="text-xl sm:text-3xl flex-shrink-0">🏪</div>
               </div>
             </div>
           </div>
@@ -356,33 +360,33 @@ export function AnalyticsTab() {
           )}
 
           {/* Recent Alerts */}
-          <div className="bg-[#212121] rounded-2xl shadow-xl border border-[#FFCC00]/20 hover:border-[#FFCC00]/40 transition-all duration-300">
-            <div className="px-6 py-4 border-b border-[#FFCC00]/20">
-              <h2 className="text-xl font-bold text-[#FFCC00]">Recent Alerts</h2>
+          <div className="bg-[#212121] rounded-xl sm:rounded-2xl shadow-xl border border-[#FFCC00]/20 hover:border-[#FFCC00]/40 transition-all duration-300">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-[#FFCC00]/20">
+              <h2 className="text-lg sm:text-xl font-bold text-[#FFCC00]">Recent Alerts</h2>
             </div>
-            <div className="p-6">
+            <div className="p-3 sm:p-6">
               {alerts.slice(0, 5).map((alert) => (
-                <div key={alert.id} className={`p-4 rounded-lg border mb-3 bg-gradient-to-r from-[#0D0D0D] to-[#212121] border-[#FFCC00]/30 hover:border-[#FFCC00]/50 transition-all duration-200`}>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-semibold text-[#FFCC00]">{alert.title}</h3>
-                      <p className="text-sm text-[#FFCC00]/70">{alert.message}</p>
-                      <p className="text-xs text-[#FFCC00]/50 mt-1">
+                <div key={alert.id} className={`p-3 sm:p-4 rounded-lg border mb-2 sm:mb-3 bg-gradient-to-r from-[#0D0D0D] to-[#212121] border-[#FFCC00]/30 hover:border-[#FFCC00]/50 transition-all duration-200`}>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-[#FFCC00] text-sm sm:text-base">{alert.title}</h3>
+                      <p className="text-xs sm:text-sm text-[#FFCC00]/70 line-clamp-2">{alert.message}</p>
+                      <p className="text-[10px] sm:text-xs text-[#FFCC00]/50 mt-1">
                         {new Date(alert.createdAt).toLocaleString()}
                       </p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-shrink-0">
                       {!alert.acknowledged && (
                         <button
                           onClick={() => handleMarkAlertAsRead(alert.id)}
-                          className="px-3 py-1 bg-[#FFCC00]/20 hover:bg-[#FFCC00]/30 text-[#FFCC00] rounded text-xs border border-[#FFCC00]/40 transition-all"
+                          className="px-2 sm:px-3 py-1 bg-[#FFCC00]/20 hover:bg-[#FFCC00]/30 text-[#FFCC00] rounded text-[10px] sm:text-xs border border-[#FFCC00]/40 transition-all"
                         >
                           Mark Read
                         </button>
                       )}
                       <button
                         onClick={() => handleResolveAlert(alert.id)}
-                        className="px-3 py-1 bg-[#FFCC00] hover:bg-[#FFCC00]/90 text-[#0D0D0D] rounded text-xs font-bold transition-all"
+                        className="px-2 sm:px-3 py-1 bg-[#FFCC00] hover:bg-[#FFCC00]/90 text-[#0D0D0D] rounded text-[10px] sm:text-xs font-bold transition-all"
                       >
                         Resolve
                       </button>
@@ -397,50 +401,50 @@ export function AnalyticsTab() {
 
       {/* Token Circulation Tab */}
       {activeTab === 'circulation' && tokenMetrics && (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Supply Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-[#212121] rounded-2xl shadow-xl p-6 border border-[#FFCC00]/20">
-              <h3 className="text-lg font-semibold text-[#FFCC00] mb-4">Supply Overview</h3>
-              <div className="space-y-4">
-                <div className="flex justify-between">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+            <div className="bg-[#212121] rounded-xl sm:rounded-2xl shadow-xl p-4 sm:p-6 border border-[#FFCC00]/20">
+              <h3 className="text-base sm:text-lg font-semibold text-[#FFCC00] mb-3 sm:mb-4">Supply Overview</h3>
+              <div className="space-y-3 sm:space-y-4">
+                <div className="flex justify-between items-center text-sm sm:text-base">
                   <span className="text-[#FFCC00]/70">Total Supply:</span>
                   <span className="font-semibold text-[#FFCC00]">{tokenMetrics.totalSupply.toLocaleString()} RCN</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center text-sm sm:text-base">
                   <span className="text-[#FFCC00]/70">In Circulation:</span>
                   <span className="font-semibold text-[#22C55E]">{tokenMetrics.totalInCirculation.toLocaleString()} RCN</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center text-sm sm:text-base">
                   <span className="text-[#FFCC00]/70">Total Redeemed:</span>
                   <span className="font-semibold text-[#4F9EF8]">{tokenMetrics.totalRedeemed.toLocaleString()} RCN</span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-[#212121] rounded-2xl shadow-xl p-6 border border-[#22C55E]/20">
-              <h3 className="text-lg font-semibold text-[#22C55E] mb-4">Customer Analytics</h3>
-              <div className="space-y-4">
-                <div className="flex justify-between">
+            <div className="bg-[#212121] rounded-xl sm:rounded-2xl shadow-xl p-4 sm:p-6 border border-[#22C55E]/20">
+              <h3 className="text-base sm:text-lg font-semibold text-[#22C55E] mb-3 sm:mb-4">Customer Analytics</h3>
+              <div className="space-y-3 sm:space-y-4">
+                <div className="flex justify-between items-center text-sm sm:text-base">
                   <span className="text-[#22C55E]/70">Active Customers:</span>
                   <span className="font-semibold text-[#22C55E]">{tokenMetrics.customerBalances.activeCustomers.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center text-sm sm:text-base">
                   <span className="text-[#22C55E]/70">Total Balance:</span>
                   <span className="font-semibold text-[#22C55E]">{tokenMetrics.customerBalances.totalCustomerBalance.toLocaleString()} RCN</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center text-sm sm:text-base">
                   <span className="text-[#22C55E]/70">Average Balance:</span>
                   <span className="font-semibold text-[#22C55E]">{tokenMetrics.customerBalances.averageBalance.toFixed(2)} RCN</span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-[#212121] rounded-2xl shadow-xl p-6 border border-[#A855F7]/20">
-              <h3 className="text-lg font-semibold text-[#A855F7] mb-4">Recent Activity</h3>
+            <div className="bg-[#212121] rounded-xl sm:rounded-2xl shadow-xl p-4 sm:p-6 border border-[#A855F7]/20 sm:col-span-2 lg:col-span-1">
+              <h3 className="text-base sm:text-lg font-semibold text-[#A855F7] mb-3 sm:mb-4">Recent Activity</h3>
               <div className="space-y-2">
                 {tokenMetrics.dailyActivity.slice(0, 5).map((day, index) => (
-                  <div key={index} className="flex justify-between text-sm">
+                  <div key={index} className="flex justify-between text-xs sm:text-sm">
                     <span className="text-[#A855F7]/70">{new Date(day.date).toLocaleDateString()}:</span>
                     <span className={`font-semibold ${day.netFlow >= 0 ? 'text-[#22C55E]' : 'text-[#EF4444]'}`}>
                       {day.netFlow >= 0 ? '+' : ''}{day.netFlow.toFixed(0)} RCN
@@ -452,33 +456,33 @@ export function AnalyticsTab() {
           </div>
 
           {/* Top Shops by Balance */}
-          <div className="bg-[#212121] rounded-2xl shadow-xl border border-[#FFCC00]/20">
-            <div className="px-6 py-4 border-b border-[#FFCC00]/20">
-              <h2 className="text-xl font-bold text-[#FFCC00]">Shop Token Balances</h2>
+          <div className="bg-[#212121] rounded-xl sm:rounded-2xl shadow-xl border border-[#FFCC00]/20">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-[#FFCC00]/20">
+              <h2 className="text-lg sm:text-xl font-bold text-[#FFCC00]">Shop Token Balances</h2>
             </div>
-            <div className="p-6">
-              <div className="overflow-x-auto">
-                <table className="w-full">
+            <div className="p-3 sm:p-6">
+              <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
+                <table className="w-full min-w-[500px]">
                   <thead>
                     <tr className="border-b border-[#FFCC00]/20">
-                      <th className="text-left py-3 font-semibold text-[#FFCC00]/70">Shop</th>
-                      <th className="text-right py-3 font-semibold text-[#FFCC00]/70">Current Balance</th>
-                      <th className="text-right py-3 font-semibold text-[#FFCC00]/70">Tokens Issued</th>
-                      <th className="text-right py-3 font-semibold text-[#FFCC00]/70">Redemptions</th>
+                      <th className="text-left py-2 sm:py-3 font-semibold text-[#FFCC00]/70 text-xs sm:text-sm">Shop</th>
+                      <th className="text-right py-2 sm:py-3 font-semibold text-[#FFCC00]/70 text-xs sm:text-sm">Balance</th>
+                      <th className="text-right py-2 sm:py-3 font-semibold text-[#FFCC00]/70 text-xs sm:text-sm">Issued</th>
+                      <th className="text-right py-2 sm:py-3 font-semibold text-[#FFCC00]/70 text-xs sm:text-sm">Redeemed</th>
                     </tr>
                   </thead>
                   <tbody>
                     {tokenMetrics.shopBalances.slice(0, 10).map((shop, index) => (
                       <tr key={shop.shopId} className="border-b border-[#FFCC00]/10 hover:bg-[#FFCC00]/5 transition-all">
-                        <td className="py-3">
+                        <td className="py-2 sm:py-3">
                           <div>
-                            <div className="font-medium text-[#FFCC00]">{shop.shopName}</div>
-                            <div className="text-sm text-[#FFCC00]/50">{shop.shopId}</div>
+                            <div className="font-medium text-[#FFCC00] text-xs sm:text-sm truncate max-w-[120px] sm:max-w-none">{shop.shopName}</div>
+                            <div className="text-[10px] sm:text-sm text-[#FFCC00]/50 truncate max-w-[120px] sm:max-w-none">{shop.shopId}</div>
                           </div>
                         </td>
-                        <td className="text-right py-3 font-semibold text-[#22C55E]">{shop.balance.toLocaleString()} RCN</td>
-                        <td className="text-right py-3 text-[#4F9EF8]">{shop.tokensIssued.toLocaleString()} RCN</td>
-                        <td className="text-right py-3 text-[#A855F7]">{shop.redemptionsProcessed.toLocaleString()} RCN</td>
+                        <td className="text-right py-2 sm:py-3 font-semibold text-[#22C55E] text-xs sm:text-sm whitespace-nowrap">{shop.balance.toLocaleString()} RCN</td>
+                        <td className="text-right py-2 sm:py-3 text-[#4F9EF8] text-xs sm:text-sm whitespace-nowrap">{shop.tokensIssued.toLocaleString()} RCN</td>
+                        <td className="text-right py-2 sm:py-3 text-[#A855F7] text-xs sm:text-sm whitespace-nowrap">{shop.redemptionsProcessed.toLocaleString()} RCN</td>
                       </tr>
                     ))}
                   </tbody>
@@ -491,7 +495,7 @@ export function AnalyticsTab() {
 
       {/* Shop Rankings Tab */}
       {activeTab === 'rankings' && (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Row 1: Performance Score Distribution */}
           <WorkingChart
             data={shopRankings.map(shop => ({
@@ -559,60 +563,60 @@ export function AnalyticsTab() {
 
       {/* Alerts Tab */}
       {activeTab === 'alerts' && (
-        <div className="bg-[#212121] rounded-2xl shadow-xl border border-[#FFCC00]/20">
-          <div className="px-6 py-4 border-b border-[#FFCC00]/20">
-            <div className="flex items-center justify-between">
+        <div className="bg-[#212121] rounded-xl sm:rounded-2xl shadow-xl border border-[#FFCC00]/20">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-[#FFCC00]/20">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-xl font-bold text-[#FFCC00]">System Alerts</h2>
-                <p className="text-[#FFCC00]/70 mt-1">Total: {alertsTotal} alerts</p>
+                <h2 className="text-lg sm:text-xl font-bold text-[#FFCC00]">System Alerts</h2>
+                <p className="text-[#FFCC00]/70 text-sm mt-1">Total: {alertsTotal} alerts</p>
               </div>
               <button
                 onClick={loadAlerts}
                 disabled={alertsLoading}
-                className="px-4 py-2 bg-[#FFCC00] text-[#0D0D0D] rounded-lg hover:bg-[#FFCC00]/90 disabled:opacity-50 font-bold"
+                className="px-3 sm:px-4 py-2 bg-[#FFCC00] text-[#0D0D0D] rounded-lg hover:bg-[#FFCC00]/90 disabled:opacity-50 font-bold text-sm sm:text-base w-full sm:w-auto"
               >
                 {alertsLoading ? 'Loading...' : 'Refresh'}
               </button>
             </div>
           </div>
-          <div className="p-6">
-            <div className="space-y-4">
+          <div className="p-3 sm:p-6">
+            <div className="space-y-3 sm:space-y-4">
               {alerts.map((alert) => (
-                <div key={alert.id} className={`p-4 rounded-lg border ${getSeverityColor(alert.severity)}`}>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="font-semibold">{alert.title}</h3>
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getSeverityColor(alert.severity)}`}>
+                <div key={alert.id} className={`p-3 sm:p-4 rounded-lg border ${getSeverityColor(alert.severity)}`}>
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <h3 className="font-semibold text-sm sm:text-base">{alert.title}</h3>
+                        <span className={`px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold border ${getSeverityColor(alert.severity)}`}>
                           {alert.severity.toUpperCase()}
                         </span>
                         {alert.acknowledged && (
-                          <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
+                          <span className="px-2 py-0.5 sm:py-1 bg-green-100 text-green-800 rounded-full text-[10px] sm:text-xs">
                             READ
                           </span>
                         )}
                       </div>
-                      <p className="text-sm opacity-85 mb-2">{alert.message}</p>
-                      <div className="text-xs opacity-70 space-y-1">
+                      <p className="text-xs sm:text-sm opacity-85 mb-2 line-clamp-2">{alert.message}</p>
+                      <div className="text-[10px] sm:text-xs opacity-70 space-y-1">
                         <p>Type: {alert.alertType}</p>
                         <p>Created: {new Date(alert.createdAt).toLocaleString()}</p>
                         {alert.acknowledgedAt && (
-                          <p>Read: {new Date(alert.acknowledgedAt).toLocaleString()} by {alert.acknowledgedBy}</p>
+                          <p className="truncate">Read: {new Date(alert.acknowledgedAt).toLocaleString()} by {alert.acknowledgedBy}</p>
                         )}
                       </div>
                     </div>
-                    <div className="flex gap-2 ml-4">
+                    <div className="flex gap-2 flex-shrink-0">
                       {!alert.acknowledged && (
                         <button
                           onClick={() => handleMarkAlertAsRead(alert.id)}
-                          className="px-3 py-1 bg-white bg-opacity-50 rounded text-xs hover:bg-opacity-75"
+                          className="px-2 sm:px-3 py-1 bg-white bg-opacity-50 rounded text-[10px] sm:text-xs hover:bg-opacity-75"
                         >
                           Mark Read
                         </button>
                       )}
                       <button
                         onClick={() => handleResolveAlert(alert.id)}
-                        className="px-3 py-1 bg-white bg-opacity-50 rounded text-xs hover:bg-opacity-75"
+                        className="px-2 sm:px-3 py-1 bg-white bg-opacity-50 rounded text-[10px] sm:text-xs hover:bg-opacity-75"
                       >
                         Resolve
                       </button>

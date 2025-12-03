@@ -1,27 +1,58 @@
-const RedeemIcon = ({ width, height, color, isActive }: any) => {
+const RedeemIcon = ({ width = "100%", height = "100%" }: any) => {
   return (
-    <svg
-      width={width}
-      height={height}
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
+    <svg width={width} height={height} viewBox="0 0 57 56" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+      <g filter="url(#filter0_d_redeem)">
+        <rect x="6" y="2" width="45" height="45" rx="12" fill="#FFCC00" />
+      </g>
+      {/* Gift box icon */}
       <path
-        d="M11 15V21H8C7.05719 21 6.58586 20.9999 6.29297 20.707C6.00008 20.4141 6 19.9428 6 19V15H11ZM18 19C18 19.9428 17.9999 20.4141 17.707 20.707C17.4141 20.9999 16.9428 21 16 21H13V15H18V19ZM19 8C19.9428 8 20.4141 8.00008 20.707 8.29297C20.9999 8.58586 21 9.05719 21 10V11C21 11.9428 20.9999 12.4141 20.707 12.707C20.4141 12.9999 19.9428 13 19 13H13V8H19ZM11 13H5C4.05719 13 3.58586 12.9999 3.29297 12.707C3.00008 12.4141 3 11.9428 3 11V10C3 9.05719 3.00008 8.58586 3.29297 8.29297C3.58586 8.00008 4.05719 8 5 8H11V13Z"
-        fill={isActive ? '#000000' : 'white'}
-        fillOpacity="0.8"
+        d="M23 24V32H27V24H23ZM30 32H34V24H30V32ZM35 19C35.5523 19 36 19.4477 36 20V22C36 22.5523 35.5523 23 35 23H30V19H35ZM27 23H22C21.4477 23 21 22.5523 21 22V20C21 19.4477 21.4477 19 22 19H27V23Z"
+        fill="#000510"
       />
       <path
-        d="M19 4.63246V4.45035C19 3.24487 17.819 2.39366 16.6754 2.77487C15.2448 3.25174 13.9449 4.05514 12.8786 5.12144L12 6V7H15.6754C15.8904 7 16.104 6.96534 16.3079 6.89737L17.7026 6.43246C18.4774 6.1742 19 5.44914 19 4.63246Z"
-        fill={isActive ? '#000000' : 'white'}
-        fillOpacity="0.8"
+        d="M34 15.5V15.4C34 14.5 33.2 13.9 32.4 14.2C31.4 14.5 30.5 15 29.7 15.7L29 16.5V17H31.5C31.65 17 31.8 16.98 31.94 16.92L32.9 16.6C33.45 16.42 33.82 15.9 33.82 15.32L34 15.5Z"
+        fill="#000510"
       />
       <path
-        d="M5 4.63246V4.45035C5 3.24487 6.18099 2.39366 7.3246 2.77487C8.75521 3.25174 10.0551 4.05514 11.1214 5.12144L12 6V7H8.32456C8.10959 7 7.89603 6.96534 7.6921 6.89737L6.29737 6.43246C5.52259 6.1742 5 5.44914 5 4.63246Z"
-        fill={isActive ? '#000000' : 'white'}
-        fillOpacity="0.8"
+        d="M23 15.5V15.4C23 14.5 23.8 13.9 24.6 14.2C25.6 14.5 26.5 15 27.3 15.7L28 16.5V17H25.5C25.35 17 25.2 16.98 25.06 16.92L24.1 16.6C23.55 16.42 23.18 15.9 23.18 15.32L23 15.5Z"
+        fill="#000510"
       />
+      <defs>
+        <filter
+          id="filter0_d_redeem"
+          x="0.5"
+          y="-2.38419e-07"
+          width="56"
+          height="56"
+          filterUnits="userSpaceOnUse"
+          colorInterpolationFilters="sRGB"
+        >
+          <feFlood floodOpacity="0" result="BackgroundImageFix" />
+          <feColorMatrix
+            in="SourceAlpha"
+            type="matrix"
+            values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
+            result="hardAlpha"
+          />
+          <feOffset dy="3.5" />
+          <feGaussianBlur stdDeviation="2.75" />
+          <feColorMatrix
+            type="matrix"
+            values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.02 0"
+          />
+          <feBlend
+            mode="normal"
+            in2="BackgroundImageFix"
+            result="effect1_dropShadow_redeem"
+          />
+          <feBlend
+            mode="normal"
+            in="SourceGraphic"
+            in2="effect1_dropShadow_redeem"
+            result="shape"
+          />
+        </filter>
+      </defs>
     </svg>
   );
 };
