@@ -1,8 +1,12 @@
 import { View, Text } from "react-native";
 import { AntDesign, Feather } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
+import { useBooking } from "@/hooks/booking/useBooking";
 
 export default function Booking() {
+  const { useShopBookingQuery } = useBooking();
+  const { data: bookingsData, isLoading, error } = useShopBookingQuery();
+  console.log("bookingsData", bookingsData);
   return (
     <View className="w-full h-full bg-zinc-950">
       <View className="pt-16 px-4 gap-4">
