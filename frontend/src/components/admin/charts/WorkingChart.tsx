@@ -2,6 +2,24 @@
 
 import React from 'react';
 
+// Helper function to format large numbers compactly for Y-axis labels
+const formatCompact = (value: number): string => {
+  const absValue = Math.abs(value);
+  if (absValue >= 1000000) {
+    return (value / 1000000).toFixed(1) + 'M';
+  }
+  if (absValue >= 1000) {
+    return (value / 1000).toFixed(1) + 'K';
+  }
+  if (absValue >= 100) {
+    return value.toFixed(0);
+  }
+  if (absValue >= 1) {
+    return value.toFixed(1);
+  }
+  return value.toFixed(2);
+};
+
 interface DataPoint {
   date: string;
   value: number;
@@ -168,22 +186,30 @@ export const WorkingChart: React.FC<WorkingChartProps> = ({
   };
 
   return (
-    <div className="bg-[#212121] rounded-2xl shadow-xl p-8 border border-[#FFCC00]/20 hover:shadow-2xl hover:border-[#FFCC00]/40 transition-all duration-300">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-2xl font-bold text-[#FFCC00]">{title}</h3>
-        <div className="text-xs bg-yellow-500 text-black px-2 py-1 rounded font-bold">
+    <div className="bg-[#212121] rounded-2xl shadow-xl p-4 sm:p-8 border border-[#FFCC00]/20 hover:shadow-2xl hover:border-[#FFCC00]/40 transition-all duration-300">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 sm:mb-6">
+        <h3 className="text-lg sm:text-2xl font-bold text-[#FFCC00]">{title}</h3>
+        <div className="text-xs bg-yellow-500 text-black px-2 py-1 rounded font-bold self-start sm:self-auto">
           {type.toUpperCase()} | {data?.length || 0} items
         </div>
       </div>
-      
+
+      {/* Y-axis labels - shown horizontally above chart on mobile */}
+      <div className="flex sm:hidden justify-between mb-2 px-1">
+        <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30 text-[10px]">{formatCompact(minValue)}</span>
+        <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30 text-[10px]">{formatCompact((maxValue + minValue) / 2)}</span>
+        <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30 text-[10px]">{formatCompact(maxValue)}</span>
+      </div>
+
       <div className="relative" style={{ height: `${height + 60}px` }}>
-        <div className="absolute left-0 top-0 flex flex-col justify-between text-xs font-medium text-[#FFCC00]/70 w-auto min-w-16 max-w-32" style={{ height: `${height}px` }}>
-          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30 whitespace-nowrap">{formatValue(maxValue)}</span>
-          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30 whitespace-nowrap">{formatValue((maxValue + minValue) / 2)}</span>
-          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30 whitespace-nowrap">{formatValue(minValue)}</span>
+        {/* Y-axis labels - vertical on desktop only */}
+        <div className="hidden sm:flex absolute left-0 top-0 flex-col justify-between text-xs font-medium text-[#FFCC00]/70 w-auto min-w-16 max-w-32" style={{ height: `${height}px` }}>
+          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30 whitespace-nowrap text-xs">{formatValue(maxValue)}</span>
+          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30 whitespace-nowrap text-xs">{formatValue((maxValue + minValue) / 2)}</span>
+          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30 whitespace-nowrap text-xs">{formatValue(minValue)}</span>
         </div>
 
-        <div className="ml-36 relative bg-gradient-to-br from-[#0D0D0D] to-[#212121] rounded-xl border border-[#FFCC00]/30 shadow-inner" style={{ height: `${height}px` }}>
+        <div className="sm:ml-36 relative bg-gradient-to-br from-[#0D0D0D] to-[#212121] rounded-xl border border-[#FFCC00]/30 shadow-inner" style={{ height: `${height}px` }}>
           <div className="absolute inset-0 p-2">
             {[0, 0.25, 0.5, 0.75, 1].map((percent) => (
               <div
@@ -207,57 +233,57 @@ export const WorkingChart: React.FC<WorkingChartProps> = ({
         
         {/* X-axis labels */}
         {type === 'bar' ? (
-          <div className="absolute bottom-0 left-36 right-0 flex gap-1 mt-4">
+          <div className="absolute bottom-0 left-0 sm:left-36 right-0 flex gap-1 mt-4 overflow-x-auto">
             {data.map((point, index) => (
               <div
                 key={index}
-                className="flex-1 text-center"
+                className="flex-1 text-center min-w-0"
                 style={{ maxWidth: `${100 / data.length}%` }}
               >
                 <span
-                  className="bg-gray-700 px-1 py-1 rounded shadow-sm text-white text-xs block truncate"
+                  className="bg-gray-700 px-1 py-1 rounded shadow-sm text-white block truncate"
                   title={point.date}
-                  style={{ fontSize: '10px' }}
+                  style={{ fontSize: '8px' }}
                 >
-                  {point.date.length > 8 ? point.date.substring(0, 8) + '...' : point.date}
+                  {point.date.length > 4 ? point.date.substring(0, 4) : point.date}
                 </span>
               </div>
             ))}
           </div>
         ) : (
-          <div className="absolute bottom-0 left-36 right-0 flex justify-between text-sm font-medium text-gray-300 mt-4">
+          <div className="absolute bottom-0 left-0 sm:left-36 right-0 flex justify-between text-xs sm:text-sm font-medium text-gray-300 mt-4">
             {data.length > 0 && (
               <>
-                <span className="bg-gray-700 px-2 py-1 rounded shadow-sm text-white">{data[0].date.length > 10 ? new Date(data[0].date).toLocaleDateString() : data[0].date}</span>
+                <span className="bg-gray-700 px-1 sm:px-2 py-1 rounded shadow-sm text-white text-[10px] sm:text-xs">{data[0].date.length > 10 ? new Date(data[0].date).toLocaleDateString() : data[0].date}</span>
                 {data.length > 2 && (
-                  <span className="bg-gray-700 px-2 py-1 rounded shadow-sm text-white">{data[Math.floor(data.length / 2)].date.length > 10 ? new Date(data[Math.floor(data.length / 2)].date).toLocaleDateString() : data[Math.floor(data.length / 2)].date}</span>
+                  <span className="bg-gray-700 px-1 sm:px-2 py-1 rounded shadow-sm text-white hidden sm:block text-[10px] sm:text-xs">{data[Math.floor(data.length / 2)].date.length > 10 ? new Date(data[Math.floor(data.length / 2)].date).toLocaleDateString() : data[Math.floor(data.length / 2)].date}</span>
                 )}
-                <span className="bg-gray-700 px-2 py-1 rounded shadow-sm text-white">{data[data.length - 1].date.length > 10 ? new Date(data[data.length - 1].date).toLocaleDateString() : data[data.length - 1].date}</span>
+                <span className="bg-gray-700 px-1 sm:px-2 py-1 rounded shadow-sm text-white text-[10px] sm:text-xs">{data[data.length - 1].date.length > 10 ? new Date(data[data.length - 1].date).toLocaleDateString() : data[data.length - 1].date}</span>
               </>
             )}
           </div>
         )}
       </div>
       
-      <div className="mt-6 grid grid-cols-4 gap-6">
-        <div className="text-center p-4 bg-gradient-to-br from-[#FFCC00]/20 to-[#FFCC00]/30 rounded-xl border border-[#FFCC00]/40 shadow-sm">
-          <p className="text-[#FFCC00]/80 text-sm font-medium mb-1">Peak</p>
-          <p className="text-xl font-bold text-[#FFCC00]">{formatValue(maxValue)}</p>
+      <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-6">
+        <div className="text-center p-3 sm:p-4 bg-gradient-to-br from-[#FFCC00]/20 to-[#FFCC00]/30 rounded-xl border border-[#FFCC00]/40 shadow-sm">
+          <p className="text-[#FFCC00]/80 text-xs sm:text-sm font-medium mb-1">Peak</p>
+          <p className="text-sm sm:text-xl font-bold text-[#FFCC00] truncate">{formatValue(maxValue)}</p>
         </div>
-        <div className="text-center p-4 bg-gradient-to-br from-[#22C55E]/20 to-[#22C55E]/30 rounded-xl border border-[#22C55E]/40 shadow-sm">
-          <p className="text-[#22C55E]/80 text-sm font-medium mb-1">Average</p>
-          <p className="text-xl font-bold text-[#22C55E]">
+        <div className="text-center p-3 sm:p-4 bg-gradient-to-br from-[#22C55E]/20 to-[#22C55E]/30 rounded-xl border border-[#22C55E]/40 shadow-sm">
+          <p className="text-[#22C55E]/80 text-xs sm:text-sm font-medium mb-1">Average</p>
+          <p className="text-sm sm:text-xl font-bold text-[#22C55E] truncate">
             {formatValue(Math.round(values.reduce((sum, v) => sum + v, 0) / values.length))}
           </p>
         </div>
-        <div className="text-center p-4 bg-gradient-to-br from-[#A855F7]/20 to-[#A855F7]/30 rounded-xl border border-[#A855F7]/40 shadow-sm">
-          <p className="text-[#A855F7]/80 text-sm font-medium mb-1">Total</p>
-          <p className="text-xl font-bold text-[#A855F7]">{formatValue(values.reduce((sum, v) => sum + v, 0))}</p>
+        <div className="text-center p-3 sm:p-4 bg-gradient-to-br from-[#A855F7]/20 to-[#A855F7]/30 rounded-xl border border-[#A855F7]/40 shadow-sm">
+          <p className="text-[#A855F7]/80 text-xs sm:text-sm font-medium mb-1">Total</p>
+          <p className="text-sm sm:text-xl font-bold text-[#A855F7] truncate">{formatValue(values.reduce((sum, v) => sum + v, 0))}</p>
         </div>
-        <div className="text-center p-4 bg-gradient-to-br from-[#4F9EF8]/20 to-[#4F9EF8]/30 rounded-xl border border-[#4F9EF8]/40 shadow-sm">
-          <p className="text-[#4F9EF8]/80 text-sm font-medium mb-1">Trend</p>
-          <p className="text-2xl font-bold text-[#4F9EF8]">
-            {values.length > 1 && values[values.length - 1] > values[0] ? '📈' : 
+        <div className="text-center p-3 sm:p-4 bg-gradient-to-br from-[#4F9EF8]/20 to-[#4F9EF8]/30 rounded-xl border border-[#4F9EF8]/40 shadow-sm">
+          <p className="text-[#4F9EF8]/80 text-xs sm:text-sm font-medium mb-1">Trend</p>
+          <p className="text-lg sm:text-2xl font-bold text-[#4F9EF8]">
+            {values.length > 1 && values[values.length - 1] > values[0] ? '📈' :
              values.length > 1 && values[values.length - 1] < values[0] ? '📉' : '➖'}
           </p>
         </div>
@@ -302,30 +328,38 @@ export const WorkingLineChart: React.FC<WorkingLineChartProps> = ({
   };
 
   return (
-    <div className="bg-[#212121] rounded-2xl shadow-xl p-8 border border-[#FFCC00]/20 hover:shadow-2xl hover:border-[#FFCC00]/40 transition-all duration-300">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-2xl font-bold text-[#FFCC00]">{title}</h3>
-        <div className="flex gap-6">
+    <div className="bg-[#212121] rounded-2xl shadow-xl p-4 sm:p-8 border border-[#FFCC00]/20 hover:shadow-2xl hover:border-[#FFCC00]/40 transition-all duration-300">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
+        <h3 className="text-lg sm:text-2xl font-bold text-[#FFCC00]">{title}</h3>
+        <div className="flex gap-3 sm:gap-6 flex-wrap">
           {lines.map((line) => (
-            <div key={line.key} className="flex items-center gap-3">
-              <div 
-                className="w-4 h-4 rounded-full shadow-sm border border-[#FFCC00]/40" 
+            <div key={line.key} className="flex items-center gap-2 sm:gap-3">
+              <div
+                className="w-3 h-3 sm:w-4 sm:h-4 rounded-full shadow-sm border border-[#FFCC00]/40"
                 style={{ backgroundColor: getColor(line.color) }}
               ></div>
-              <span className="text-sm font-medium text-[#FFCC00]/80">{line.label}</span>
+              <span className="text-xs sm:text-sm font-medium text-[#FFCC00]/80">{line.label}</span>
             </div>
           ))}
         </div>
       </div>
-      
+
+      {/* Y-axis labels - shown horizontally above chart on mobile */}
+      <div className="flex sm:hidden justify-between mb-2 px-1">
+        <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30 text-[10px]">{formatCompact(minValue)}</span>
+        <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30 text-[10px]">{formatCompact((maxValue + minValue) / 2)}</span>
+        <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30 text-[10px]">{formatCompact(maxValue)}</span>
+      </div>
+
       <div className="relative" style={{ height: `${height + 40}px` }}>
-        <div className="absolute left-0 top-0 flex flex-col justify-between text-xs text-[#FFCC00]/70 w-auto min-w-16 max-w-32" style={{ height: `${height}px` }}>
-          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30 whitespace-nowrap">{formatValue(maxValue)}</span>
-          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30 whitespace-nowrap">{formatValue((maxValue + minValue) / 2)}</span>
-          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30 whitespace-nowrap">{formatValue(minValue)}</span>
+        {/* Y-axis labels - vertical on desktop only */}
+        <div className="hidden sm:flex absolute left-0 top-0 flex-col justify-between text-xs text-[#FFCC00]/70 w-auto min-w-16 max-w-32" style={{ height: `${height}px` }}>
+          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30 whitespace-nowrap text-xs">{formatValue(maxValue)}</span>
+          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30 whitespace-nowrap text-xs">{formatValue((maxValue + minValue) / 2)}</span>
+          <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30 whitespace-nowrap text-xs">{formatValue(minValue)}</span>
         </div>
 
-        <div className="ml-36 relative bg-gradient-to-br from-[#0D0D0D] to-[#212121] rounded-xl border border-[#FFCC00]/30 shadow-inner" style={{ height: `${height}px` }}>
+        <div className="sm:ml-36 relative bg-gradient-to-br from-[#0D0D0D] to-[#212121] rounded-xl border border-[#FFCC00]/30 shadow-inner" style={{ height: `${height}px` }}>
           <div className="absolute inset-0">
             {[0, 0.25, 0.5, 0.75, 1].map((percent) => (
               <div
@@ -342,7 +376,7 @@ export const WorkingLineChart: React.FC<WorkingLineChartProps> = ({
               />
             ))}
           </div>
-          
+
           <div className="absolute inset-0">
             <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" className="overflow-hidden">
               <defs>
@@ -431,14 +465,14 @@ export const WorkingLineChart: React.FC<WorkingLineChartProps> = ({
           </div>
         </div>
         
-        <div className="absolute bottom-0 left-36 right-0 flex justify-between text-xs text-[#FFCC00]/70 mt-2">
+        <div className="absolute bottom-0 left-0 sm:left-36 right-0 flex justify-between text-xs text-[#FFCC00]/70 mt-2">
           {data.length > 0 && (
             <>
-              <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30">{new Date(data[0].date).toLocaleDateString()}</span>
+              <span className="bg-[#0D0D0D] px-1 sm:px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30 text-[10px] sm:text-xs">{new Date(data[0].date).toLocaleDateString()}</span>
               {data.length > 2 && (
-                <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30">{new Date(data[Math.floor(data.length / 2)].date).toLocaleDateString()}</span>
+                <span className="bg-[#0D0D0D] px-1 sm:px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30 hidden sm:block text-[10px] sm:text-xs">{new Date(data[Math.floor(data.length / 2)].date).toLocaleDateString()}</span>
               )}
-              <span className="bg-[#0D0D0D] px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30">{new Date(data[data.length - 1].date).toLocaleDateString()}</span>
+              <span className="bg-[#0D0D0D] px-1 sm:px-2 py-1 rounded shadow-sm text-[#FFCC00] border border-[#FFCC00]/30 text-[10px] sm:text-xs">{new Date(data[data.length - 1].date).toLocaleDateString()}</span>
             </>
           )}
         </div>
@@ -506,39 +540,44 @@ export const WorkingPieChart: React.FC<WorkingPieChartProps> = ({
     });
   };
 
+  // Calculate responsive size for mobile
+  const mobileSize = Math.min(size, 200);
+
   return (
-    <div className="bg-[#212121] rounded-2xl shadow-xl p-8 border border-[#FFCC00]/20 hover:shadow-2xl hover:border-[#FFCC00]/40 transition-all duration-300">
-      <h3 className="text-2xl font-bold text-[#FFCC00] mb-6">{title}</h3>
-      
-      <div className="flex items-center gap-8">
-        <div className="relative" style={{ width: size, height: size }}>
-          <svg width={size} height={size} className="transform -rotate-90 filter drop-shadow-lg">
+    <div className="bg-[#212121] rounded-2xl shadow-xl p-4 sm:p-8 border border-[#FFCC00]/20 hover:shadow-2xl hover:border-[#FFCC00]/40 transition-all duration-300">
+      <h3 className="text-lg sm:text-2xl font-bold text-[#FFCC00] mb-4 sm:mb-6">{title}</h3>
+
+      <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
+        {/* Pie Chart */}
+        <div className="relative flex-shrink-0" style={{ width: mobileSize, height: mobileSize }}>
+          <svg width={mobileSize} height={mobileSize} className="transform -rotate-90 filter drop-shadow-lg w-full h-full" viewBox={`0 0 ${size} ${size}`}>
             {renderPieSlices()}
           </svg>
-          
+
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center bg-[#0D0D0D] rounded-full p-4 shadow-lg border border-[#FFCC00]/40">
-              <p className="text-3xl font-bold text-[#FFCC00]">{formatValue(total)}</p>
-              <p className="text-sm font-medium text-[#FFCC00]/70">Total</p>
+            <div className="text-center bg-[#0D0D0D] rounded-full p-3 sm:p-4 shadow-lg border border-[#FFCC00]/40">
+              <p className="text-xl sm:text-3xl font-bold text-[#FFCC00]">{formatValue(total)}</p>
+              <p className="text-xs sm:text-sm font-medium text-[#FFCC00]/70">Total</p>
             </div>
           </div>
         </div>
-        
-        <div className="flex-1 space-y-3">
+
+        {/* Legend */}
+        <div className="w-full sm:flex-1 space-y-2 sm:space-y-3">
           {data.map((segment, index) => {
             const percentage = (segment.value / total) * 100;
             return (
-              <div key={index} className="flex items-center justify-between p-4 bg-gradient-to-r from-[#0D0D0D] to-[#212121] rounded-xl border border-[#FFCC00]/20 hover:shadow-md hover:border-[#FFCC00]/40 transition-all duration-200">
-                <div className="flex items-center gap-3">
-                  <div 
-                    className="w-4 h-4 rounded-full shadow-sm border border-[#FFCC00]/40" 
+              <div key={index} className="flex items-center justify-between p-3 sm:p-4 bg-gradient-to-r from-[#0D0D0D] to-[#212121] rounded-xl border border-[#FFCC00]/20 hover:shadow-md hover:border-[#FFCC00]/40 transition-all duration-200">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                  <div
+                    className="w-3 h-3 sm:w-4 sm:h-4 rounded-full shadow-sm border border-[#FFCC00]/40 flex-shrink-0"
                     style={{ backgroundColor: segment.color }}
                   ></div>
-                  <span className="text-sm font-semibold text-[#FFCC00]">{segment.label}</span>
+                  <span className="text-xs sm:text-sm font-semibold text-[#FFCC00] truncate">{segment.label}</span>
                 </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold text-[#FFCC00]">{formatValue(segment.value)}</p>
-                  <p className="text-xs font-medium text-[#FFCC00]/70">{percentage.toFixed(1)}%</p>
+                <div className="text-right flex-shrink-0 ml-2">
+                  <p className="text-sm sm:text-lg font-bold text-[#FFCC00]">{formatValue(segment.value)}</p>
+                  <p className="text-[10px] sm:text-xs font-medium text-[#FFCC00]/70">{percentage.toFixed(1)}%</p>
                 </div>
               </div>
             );

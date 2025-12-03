@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
+import {
   Users,
-  Store,
+  Building2,
+  ClipboardList,
   DollarSign
 } from 'lucide-react';
 import { DashboardHeader } from '@/components/ui/DashboardHeader';
@@ -160,12 +161,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = React.memo(() => {
         <StatCard
           title="Active Shops"
           value={stats?.totalShops || 0}
-          icon={<Store className="w-6 h-6 text-white" />}
+          icon={<Building2 className="w-6 h-6 text-white" />}
         />
         <StatCard
           title="Pending Application"
           value={pendingShopsCount || 0}
-          icon={<Store className="w-6 h-6 text-white" />}
+          icon={<ClipboardList className="w-6 h-6 text-white" />}
         />
         {/* <MetricCard
           title="Tokens Issued"
