@@ -4,11 +4,22 @@ import {
   ServiceResponse,
   ServiceData,
   UpdateServiceData,
+  ServiceFilters,
 } from "../interfaces/service.interface";
 import { apiClient } from "@/utilities/axios";
 
 class ServiceApi {
-  async getAll(
+  async getAll(filters?: ServiceFilters): Promise<ServiceResponse> {
+    try {
+      const queryString = filters ? buildQueryString({...filters}) : "";
+      return await apiClient.get<ServiceResponse>(`/services${queryString}`);
+    } catch (error: any) {
+      console.error("Failed to get all services:", error.message);
+      throw error;
+    }
+  }
+
+  async getShopServices(
     shopId: string,
     options?: { page?: number; limit?: number }
   ): Promise<ServiceResponse> {

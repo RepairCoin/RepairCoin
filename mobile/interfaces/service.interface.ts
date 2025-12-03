@@ -1,6 +1,16 @@
 import { ServiceCategory } from "@/constants/service-categories";
 import { BaseResponse } from "./base.interface";
 
+export interface ServiceFilters {
+  shopId?: string;
+  category?: ServiceCategory;
+  search?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  page?: number;
+  limit?: number;
+}
+
 export interface ServiceData {
   active: boolean;
   category: ServiceCategory;

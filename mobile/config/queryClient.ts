@@ -74,8 +74,8 @@ export const queryKeys = {
   authSession: () => [...queryKeys.auth(), 'session'] as const,
 
   // Service related
-  servicesBase: (shopId: string) => [...queryKeys.all, 'services', shopId] as const,
-  services: (shopId: string, options?: { page?: number; limit?: number }) => [...queryKeys.servicesBase(shopId), options] as const,
+  services: () => [...queryKeys.all, 'services'] as const,
+  shopServices: (shopId: string, options?: { page?: number; limit?: number }) => [...queryKeys.services(), shopId, options] as const,
 
   // Booking related
   bookings: (filters?: BookingFilters) => [...queryKeys.all, 'bookings', filters] as const,
