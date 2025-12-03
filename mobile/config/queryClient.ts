@@ -38,13 +38,13 @@ export const queryKeys = {
   
   // Customer related (primary focus)
   customers: () => [...queryKeys.all, 'customers'] as const,
-  customer: (id: string) => [...queryKeys.customers(), id] as const,
-  customerProfile: (id: string) => [...queryKeys.customer(id), 'profile'] as const,
-  customerTransactions: (id: string) => [...queryKeys.customer(id), 'transactions'] as const,
-  customerRedemptions: (id: string) => [...queryKeys.customer(id), 'redemptions'] as const,
-  customerTier: (id: string) => [...queryKeys.customer(id), 'tier'] as const,
-  customerReferrals: (id: string) => [...queryKeys.customer(id), 'referrals'] as const,
-  earningHistory: (address: string) => [...queryKeys.customer(address), 'earningHistory'] as const,
+  customer: (walletAddress: string) => [...queryKeys.customers(), walletAddress] as const,
+  customerProfile: (walletAddress: string) => [...queryKeys.customer(walletAddress), 'profile'] as const,
+  customerTransactions: (walletAddress: string) => [...queryKeys.customer(walletAddress), 'transactions'] as const,
+  customerRedemptions: (walletAddress: string) => [...queryKeys.customer(walletAddress), 'redemptions'] as const,
+  customerTier: (walletAddress: string) => [...queryKeys.customer(walletAddress), 'tier'] as const,
+  customerReferrals: (walletAddress: string) => [...queryKeys.customer(walletAddress), 'referrals'] as const,
+  earningHistory: (walletAddress: string) => [...queryKeys.customer(walletAddress), 'earningHistory'] as const,
   
   // Shop related (for future development)
   shops: () => [...queryKeys.all, 'shops'] as const,

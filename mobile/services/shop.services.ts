@@ -5,9 +5,9 @@ import {
 } from "../interfaces/shop.interface";
 
 class ShopApi {
-  async register(registrationData: CreateShopRequest) {
+  async register(payload: CreateShopRequest) {
     try {
-      return await apiClient.post("/shops/register", registrationData);
+      return await apiClient.post("/shops/register", payload);
     } catch (error) {
       console.error("Failed to register shop:", error);
       throw error;
