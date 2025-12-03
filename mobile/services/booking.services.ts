@@ -1,10 +1,11 @@
 import { apiClient } from "@/utilities/axios";
 import { buildQueryString } from "@/utilities/helper/buildQueryString";
+import { BookingFilters } from "@/interfaces/booking.interfaces";
 
 class BookingApi {
-  async getShopBookings(shopId: string) {
+  async getShopBookings(filters?: BookingFilters) {
     try {
-      const queryString = buildQueryString({ shopId });
+      const queryString = buildQueryString({...filters});
       return await apiClient.get(`/services/orders/shop${queryString}`);
     } catch (error: any) {
       console.error("Failed to get bookings:", error.message);
@@ -12,9 +13,9 @@ class BookingApi {
     }
   }
 
-  async getCustomerBookings() {
+  async getCustomerBookings(filters?: BookingFilters) {
     try {
-      const queryString = buildQueryString({});
+      const queryString = buildQueryString({...filters});
       return await apiClient.get(`/services/orders/customer${queryString}`);
     } catch (error: any) {
       console.error("Failed to get bookings:", error.message);

@@ -1,3 +1,4 @@
+import { BookingFilters } from '@/interfaces/booking.interfaces';
 import { QueryClient } from '@tanstack/react-query';
 
 export const createQueryClient = () => {
@@ -75,6 +76,9 @@ export const queryKeys = {
   // Service related
   servicesBase: (shopId: string) => [...queryKeys.all, 'services', shopId] as const,
   services: (shopId: string, options?: { page?: number; limit?: number }) => [...queryKeys.servicesBase(shopId), options] as const,
+
+  // Booking related
+  bookings: (filters?: BookingFilters) => [...queryKeys.all, 'bookings', filters] as const,
 } as const;
 
 export type QueryKeys = typeof queryKeys;
