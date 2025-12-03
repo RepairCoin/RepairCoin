@@ -3,9 +3,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { DashboardHeader } from "@/components/ui/DashboardHeader";
 import {
   CreditCard,
   DollarSign,
@@ -37,7 +36,7 @@ interface Subscription {
   totalPaid: number;
   nextPaymentDate?: string;
   lastPaymentDate?: string;
-  stripePeriodEnd?: string; // Stripe's current_period_end - actual subscription end date
+  stripePeriodEnd?: string;
   enrolledAt: string;
   activatedAt?: string;
   cancelledAt?: string;
@@ -61,20 +60,27 @@ interface SubscriptionStats {
   overdueCount: number;
 }
 
+// Stat card data for cleaner rendering
+interface StatCardData {
+  title: string;
+  value: string | number;
+  subtitle: string;
+  icon: React.ElementType;
+  colorClass: string;
+  bgGradient: string;
+}
+
 export default function SubscriptionManagementTab() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-  const [filteredSubscriptions, setFilteredSubscriptions] = useState<
-    Subscription[]
-  >([]);
+  const [filteredSubscriptions, setFilteredSubscriptions] = useState<Subscription[]>([]);
   const [stats, setStats] = useState<SubscriptionStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [activeTab, setActiveTab] = useState("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   // Modal states
-  const [selectedSubscription, setSelectedSubscription] =
-    useState<Subscription | null>(null);
+  const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showPauseModal, setShowPauseModal] = useState(false);
@@ -94,8 +100,7 @@ export default function SubscriptionManagementTab() {
       monthlyRecurring: subs
         .filter((s) => s.status === "active")
         .reduce((sum, s) => sum + s.monthlyAmount, 0),
-      overdueCount: subs.filter((s) => s.daysOverdue && s.daysOverdue > 0)
-        .length,
+      overdueCount: subs.filter((s) => s.daysOverdue && s.daysOverdue > 0).length,
     };
     setStats(stats);
   }, []);
@@ -109,13 +114,9 @@ export default function SubscriptionManagementTab() {
           setLoading(true);
         }
 
-        // Add sync parameter to fetch latest status from Stripe (disabled by default for performance)
-        const response = await apiClient.get(
-          "/admin/subscription/subscriptions",
-          {
-            params: syncFromStripe ? { sync: "true" } : {},
-          }
-        );
+        const response = await apiClient.get("/admin/subscription/subscriptions", {
+          params: syncFromStripe ? { sync: "true" } : {},
+        });
 
         if (response.success) {
           const subs = response.data || [];
@@ -140,10 +141,10 @@ export default function SubscriptionManagementTab() {
   };
 
   const filterSubscriptions = useCallback(
-    (tab: string, search: string) => {
+    (filter: string, search: string) => {
       let filtered: Subscription[] = [];
 
-      switch (tab) {
+      switch (filter) {
         case "active":
           filtered = subscriptions.filter((s) => s.status === "active");
           break;
@@ -154,9 +155,7 @@ export default function SubscriptionManagementTab() {
           filtered = subscriptions.filter((s) => s.status === "paused");
           break;
         case "overdue":
-          filtered = subscriptions.filter(
-            (s) => s.daysOverdue && s.daysOverdue > 0
-          );
+          filtered = subscriptions.filter((s) => s.daysOverdue && s.daysOverdue > 0);
           break;
         case "cancelled":
           filtered = subscriptions.filter(
@@ -187,24 +186,20 @@ export default function SubscriptionManagementTab() {
   }, [loadSubscriptions]);
 
   useEffect(() => {
-    filterSubscriptions(activeTab, searchQuery);
-  }, [subscriptions, activeTab, searchQuery, filterSubscriptions]);
+    filterSubscriptions(filterStatus, searchQuery);
+  }, [subscriptions, filterStatus, searchQuery, filterSubscriptions]);
 
   const handleApprove = async () => {
     if (!selectedSubscription) return;
 
     try {
       setActionLoading(true);
-
       await apiClient.post(
         `/admin/subscription/subscriptions/${selectedSubscription.id}/approve`,
         {
-          nextPaymentDate: new Date(
-            Date.now() + 30 * 24 * 60 * 60 * 1000
-          ).toISOString(), // 30 days from now
+          nextPaymentDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         }
       );
-
       setShowApproveModal(false);
       toast.success("Subscription approved successfully");
       await loadSubscriptions();
@@ -221,18 +216,15 @@ export default function SubscriptionManagementTab() {
 
     try {
       setActionLoading(true);
-
       await apiClient.post(
         `/admin/subscription/subscriptions/${selectedSubscription.id}/cancel`,
         {
           reason: cancellationReason || "Cancelled by administrator",
         }
       );
-
       setShowCancelModal(false);
       setCancellationReason("");
       toast.success("Subscription cancelled successfully");
-      // Sync after canceling to get latest status from Stripe
       await loadSubscriptions(true);
     } catch (error) {
       console.error("Error cancelling subscription:", error);
@@ -247,25 +239,18 @@ export default function SubscriptionManagementTab() {
 
     try {
       setActionLoading(true);
-
       const response = await apiClient.post(
         `/admin/subscription/subscriptions/${selectedSubscription.id}/pause`
       );
-
       setShowPauseModal(false);
       setSelectedSubscription(null);
       toast.success(response.message || "Subscription paused successfully");
-
-      // Sync after pausing to get latest status from Stripe
       await loadSubscriptions(true);
     } catch (error: any) {
       console.error("Error pausing subscription:", error);
       const errorMessage =
-        error?.response?.data?.error ||
-        error?.message ||
-        "Failed to pause subscription";
+        error?.response?.data?.error || error?.message || "Failed to pause subscription";
       toast.error(errorMessage);
-      // Reload to get current state even on error
       await loadSubscriptions(true);
     } finally {
       setActionLoading(false);
@@ -277,49 +262,36 @@ export default function SubscriptionManagementTab() {
 
     try {
       setActionLoading(true);
-
-      // First, try to sync from Stripe to ensure we have the latest status
       console.log("Syncing subscription from Stripe before resume...");
       try {
         const syncData = await apiClient.post(
           `/admin/subscription/subscriptions/${selectedSubscription.id}/sync`
         );
-
         console.log("Sync result:", syncData);
 
-        // If sync shows it's already active, just reload and show success
         if (syncData.data?.newStatus === "active") {
           await loadSubscriptions();
           setShowResumeModal(false);
           setSelectedSubscription(null);
-          toast.success(
-            "Subscription was already active in Stripe. Status updated successfully."
-          );
+          toast.success("Subscription was already active in Stripe. Status updated successfully.");
           return;
         }
       } catch (syncError) {
         console.warn("Sync failed, continuing with resume:", syncError);
       }
 
-      // Now attempt to resume
       const response = await apiClient.post(
         `/admin/subscription/subscriptions/${selectedSubscription.id}/resume`
       );
-
       setShowResumeModal(false);
       setSelectedSubscription(null);
       toast.success(response.message || "Subscription resumed successfully");
-
-      // Sync after resuming to get latest status from Stripe
       await loadSubscriptions(true);
     } catch (error: any) {
       console.error("Error resuming subscription:", error);
       const errorMessage =
-        error?.response?.data?.error ||
-        error?.message ||
-        "Failed to resume subscription";
+        error?.response?.data?.error || error?.message || "Failed to resume subscription";
       toast.error(errorMessage);
-      // Reload to get current state even on error
       await loadSubscriptions(true);
     } finally {
       setActionLoading(false);
@@ -331,190 +303,182 @@ export default function SubscriptionManagementTab() {
 
     try {
       setActionLoading(true);
-
       const response = await apiClient.post(
         `/admin/subscription/subscriptions/${selectedSubscription.id}/reactivate`
       );
-
       setShowReactivateModal(false);
       setSelectedSubscription(null);
-      toast.success(
-        response.message || "Subscription reactivated successfully"
-      );
-
-      // Sync after reactivating to get latest status from Stripe
+      toast.success(response.message || "Subscription reactivated successfully");
       await loadSubscriptions(true);
     } catch (error: any) {
       console.error("Error reactivating subscription:", error);
       const errorMessage =
-        error?.response?.data?.error ||
-        error?.message ||
-        "Failed to reactivate subscription";
+        error?.response?.data?.error || error?.message || "Failed to reactivate subscription";
       toast.error(errorMessage);
-      // Reload to get current state even on error
       await loadSubscriptions(true);
     } finally {
       setActionLoading(false);
     }
   };
 
-  // Helper function to check if cancelled subscription can be reactivated
   const canReactivate = (sub: Subscription): boolean => {
     if (sub.status !== "cancelled") return false;
-
-    // Check if there's still time left on the subscription
     let subscribedTillDate: Date | null = null;
 
     if (sub.stripePeriodEnd) {
       subscribedTillDate = new Date(sub.stripePeriodEnd);
     } else if (sub.lastPaymentDate) {
       const lastPayment = new Date(sub.lastPaymentDate);
-      subscribedTillDate = new Date(
-        lastPayment.getTime() + 30 * 24 * 60 * 60 * 1000
-      );
+      subscribedTillDate = new Date(lastPayment.getTime() + 30 * 24 * 60 * 60 * 1000);
     }
 
     if (!subscribedTillDate || isNaN(subscribedTillDate.getTime())) {
       return false;
     }
-
-    // Can reactivate if subscription hasn't fully expired yet
     return subscribedTillDate.getTime() > Date.now();
   };
 
-  // Table columns - Simplified for collapsible view
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return "-";
+    const date = new Date(dateStr);
+    return isNaN(date.getTime())
+      ? "-"
+      : date.toLocaleDateString("en-US", { timeZone: "America/Chicago" });
+  };
+
+  // Status badge component
+  const getStatusBadge = (sub: Subscription) => {
+    const statusConfig = {
+      active: {
+        color: "bg-green-500/10 text-green-400 border-green-500/20",
+        icon: CheckCircle,
+      },
+      pending: {
+        color: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+        icon: Clock,
+      },
+      paused: {
+        color: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+        icon: PauseCircle,
+      },
+      cancelled: {
+        color: "bg-red-500/10 text-red-400 border-red-500/20",
+        icon: XCircle,
+      },
+      defaulted: {
+        color: "bg-red-500/10 text-red-400 border-red-500/20",
+        icon: AlertCircle,
+      },
+    };
+
+    const config = statusConfig[sub.status];
+    const Icon = config.icon;
+
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded-full text-xs font-medium border ${config.color}`}
+      >
+        <Icon className="w-3 h-3" />
+        <span className="capitalize">{sub.status}</span>
+      </span>
+    );
+  };
+
+  // Table columns
   const columns: Column<Subscription>[] = [
     {
-      key: "shopId",
+      key: "shop",
       header: "Shop",
+      sortable: true,
+      sortValue: (sub) => sub.shopName || sub.shopId,
       accessor: (sub) => (
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-3">
           <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-gradient-to-br from-[#FFCC00] to-yellow-600 flex items-center justify-center flex-shrink-0">
             <Store className="h-4 w-4 sm:h-5 sm:w-5 text-gray-900" />
           </div>
           <div className="min-w-0">
-            <div className="font-semibold text-white text-sm sm:text-base truncate">
+            <p className="text-sm font-semibold text-white truncate">
               {sub.shopName || sub.shopId}
-            </div>
-            <div className="text-xs text-gray-400 hidden sm:block truncate">
+            </p>
+            <p className="text-xs text-gray-400 font-mono truncate hidden sm:block">
               {sub.shopId}
-            </div>
+            </p>
           </div>
         </div>
       ),
-      sortable: true,
-      sortValue: (sub) => sub.shopName || sub.shopId,
     },
     {
       key: "status",
       header: "Status",
-      accessor: (sub) => {
-        const statusConfig = {
-          active: {
-            variant: "default" as const,
-            color:
-              "bg-green-500/20 text-green-400 border-green-500/50 hover:bg-green-500/30",
-            icon: CheckCircle,
-          },
-          pending: {
-            variant: "default" as const,
-            color:
-              "bg-yellow-500/20 text-yellow-400 border-yellow-500/50 hover:bg-yellow-500/30",
-            icon: Clock,
-          },
-          paused: {
-            variant: "default" as const,
-            color:
-              "bg-blue-500/20 text-blue-400 border-blue-500/50 hover:bg-blue-500/30",
-            icon: PauseCircle,
-          },
-          cancelled: {
-            variant: "default" as const,
-            color:
-              "bg-red-500/20 text-red-400 border-red-500/50 hover:bg-red-500/30",
-            icon: XCircle,
-          },
-          defaulted: {
-            variant: "default" as const,
-            color:
-              "bg-red-500/20 text-red-400 border-red-500/50 hover:bg-red-500/30",
-            icon: AlertCircle,
-          },
-        };
-
-        const config = statusConfig[sub.status];
-        const Icon = config.icon;
-
-        return (
-          <Badge
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 border ${config.color} transition-all duration-200`}
-          >
-            <Icon className="w-3.5 h-3.5" />
-            <span className="font-medium">
-              {sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}
-            </span>
-          </Badge>
-        );
-      },
       sortable: true,
       sortValue: (sub) => sub.status,
+      className: "hidden sm:table-cell",
+      headerClassName: "hidden sm:table-cell",
+      accessor: (sub) => getStatusBadge(sub),
     },
     {
-      key: "monthlyAmount",
+      key: "monthly",
       header: "Monthly",
-      accessor: (sub) => (
-        <div>
-          <div className="font-semibold text-emerald-400">
-            ${sub.monthlyAmount}
-          </div>
-          <div className="text-xs text-gray-500">per month</div>
-        </div>
-      ),
       sortable: true,
       sortValue: (sub) => sub.monthlyAmount,
-    },
-    {
-      key: "paymentsMade",
-      header: "Payments",
+      className: "hidden md:table-cell",
+      headerClassName: "hidden md:table-cell",
       accessor: (sub) => (
-        <div>
-          <div className="font-medium text-white">
-            {sub.paymentsMade} payments
-          </div>
-          <div className="text-sm text-purple-400 font-medium">
-            ${sub.totalPaid.toLocaleString()} total
-          </div>
+        <div className="text-sm">
+          <p className="text-emerald-400 font-semibold">${sub.monthlyAmount}</p>
+          <p className="text-xs text-gray-400">per month</p>
         </div>
       ),
+    },
+    {
+      key: "payments",
+      header: "Payments",
       sortable: true,
       sortValue: (sub) => sub.paymentsMade,
+      className: "hidden lg:table-cell",
+      headerClassName: "hidden lg:table-cell",
+      accessor: (sub) => (
+        <div className="text-sm">
+          <p className="text-white font-medium">{sub.paymentsMade} payments</p>
+          <p className="text-purple-400 text-xs">${sub.totalPaid.toLocaleString()} total</p>
+        </div>
+      ),
     },
     {
       key: "subscribedTill",
       header: "Subscribed Till",
-      accessor: (sub) => {
-        // Priority: Use Stripe's current_period_end if available (most accurate)
-        // Fallback: Calculate from payment dates
+      sortable: true,
+      sortValue: (sub) => {
         let subscribedTillDate: Date | null = null;
-
         if (sub.stripePeriodEnd) {
-          // Use Stripe's current_period_end - this is the most accurate
           subscribedTillDate = new Date(sub.stripePeriodEnd);
         } else if (sub.status === "active" && sub.nextPaymentDate) {
-          // For active subscriptions without Stripe data, use nextPaymentDate
           subscribedTillDate = new Date(sub.nextPaymentDate);
         } else if (sub.lastPaymentDate) {
-          // For paused/cancelled, calculate from lastPaymentDate + 30 days
           const lastPayment = new Date(sub.lastPaymentDate);
-          subscribedTillDate = new Date(
-            lastPayment.getTime() + 30 * 24 * 60 * 60 * 1000
-          );
+          subscribedTillDate = new Date(lastPayment.getTime() + 30 * 24 * 60 * 60 * 1000);
         } else if (sub.activatedAt) {
-          // If no payment made yet, use 30 days from activation
           const activated = new Date(sub.activatedAt);
-          subscribedTillDate = new Date(
-            activated.getTime() + 30 * 24 * 60 * 60 * 1000
-          );
+          subscribedTillDate = new Date(activated.getTime() + 30 * 24 * 60 * 60 * 1000);
+        }
+        return subscribedTillDate && !isNaN(subscribedTillDate.getTime())
+          ? subscribedTillDate.getTime()
+          : 0;
+      },
+      className: "hidden xl:table-cell",
+      headerClassName: "hidden xl:table-cell",
+      accessor: (sub) => {
+        let subscribedTillDate: Date | null = null;
+        if (sub.stripePeriodEnd) {
+          subscribedTillDate = new Date(sub.stripePeriodEnd);
+        } else if (sub.status === "active" && sub.nextPaymentDate) {
+          subscribedTillDate = new Date(sub.nextPaymentDate);
+        } else if (sub.lastPaymentDate) {
+          const lastPayment = new Date(sub.lastPaymentDate);
+          subscribedTillDate = new Date(lastPayment.getTime() + 30 * 24 * 60 * 60 * 1000);
+        } else if (sub.activatedAt) {
+          const activated = new Date(sub.activatedAt);
+          subscribedTillDate = new Date(activated.getTime() + 30 * 24 * 60 * 60 * 1000);
         }
 
         if (!subscribedTillDate || isNaN(subscribedTillDate.getTime())) {
@@ -528,629 +492,349 @@ export default function SubscriptionManagementTab() {
         const hasExpired = daysRemaining < 0;
 
         return (
-          <div>
-            <div
-              className={`font-medium ${
-                hasExpired ? "text-red-400" : "text-white"
-              }`}
-            >
+          <div className="text-sm">
+            <p className={`font-medium ${hasExpired ? "text-red-400" : "text-white"}`}>
               {subscribedTillDate.toLocaleDateString()}
-            </div>
+            </p>
             {hasExpired && (
-              <Badge className="mt-1 bg-red-500/20 text-red-400 border-red-500/50 text-xs">
+              <span className="text-xs text-red-400">
                 Expired {Math.abs(daysRemaining)} days ago
-              </Badge>
+              </span>
             )}
             {!hasExpired && daysRemaining <= 7 && (
-              <Badge className="mt-1 bg-yellow-500/20 text-yellow-400 border-yellow-500/50 text-xs">
-                {daysRemaining} days left
-              </Badge>
+              <span className="text-xs text-yellow-400">{daysRemaining} days left</span>
             )}
           </div>
         );
-      },
-      sortable: true,
-      sortValue: (sub) => {
-        let subscribedTillDate: Date | null = null;
-
-        if (sub.stripePeriodEnd) {
-          subscribedTillDate = new Date(sub.stripePeriodEnd);
-        } else if (sub.status === "active" && sub.nextPaymentDate) {
-          subscribedTillDate = new Date(sub.nextPaymentDate);
-        } else if (sub.lastPaymentDate) {
-          const lastPayment = new Date(sub.lastPaymentDate);
-          subscribedTillDate = new Date(
-            lastPayment.getTime() + 30 * 24 * 60 * 60 * 1000
-          );
-        } else if (sub.activatedAt) {
-          const activated = new Date(sub.activatedAt);
-          subscribedTillDate = new Date(
-            activated.getTime() + 30 * 24 * 60 * 60 * 1000
-          );
-        }
-
-        return subscribedTillDate && !isNaN(subscribedTillDate.getTime())
-          ? subscribedTillDate.getTime()
-          : "";
-      },
-    },
-    {
-      key: "nextPaymentDate",
-      header: "Next Payment",
-      accessor: (sub) => {
-        if (!sub.nextPaymentDate || sub.status !== "active") {
-          return <span className="text-gray-500">-</span>;
-        }
-
-        const date = new Date(sub.nextPaymentDate);
-        if (isNaN(date.getTime())) {
-          return <span className="text-gray-500">-</span>;
-        }
-
-        const now = new Date();
-        const daysUntil = Math.ceil(
-          (date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-        );
-
-        return (
-          <div>
-            <div className="text-white font-medium">
-              {date.toLocaleDateString()}
-            </div>
-            {daysUntil < 0 && (
-              <Badge className="mt-1 bg-red-500/20 text-red-400 border-red-500/50 text-xs">
-                {Math.abs(daysUntil)} days overdue
-              </Badge>
-            )}
-            {daysUntil >= 0 && daysUntil <= 7 && (
-              <Badge className="mt-1 bg-yellow-500/20 text-yellow-400 border-yellow-500/50 text-xs">
-                Due in {daysUntil} days
-              </Badge>
-            )}
-          </div>
-        );
-      },
-      sortable: true,
-      sortValue: (sub) => {
-        if (!sub.nextPaymentDate) return "";
-        const date = new Date(sub.nextPaymentDate);
-        return isNaN(date.getTime()) ? "" : date.getTime();
       },
     },
     {
       key: "actions",
       header: "Actions",
       accessor: (sub) => (
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 md:gap-2">
           {sub.status === "pending" && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="bg-green-500/10 border-green-500/50 text-green-400 hover:bg-green-500/20 hover:text-green-300 hover:border-green-400 font-medium transition-all"
-              onClick={() => {
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
                 setSelectedSubscription(sub);
                 setShowApproveModal(true);
               }}
+              className="p-1 md:p-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors"
+              title="Approve"
             >
-              <CheckCircle className="w-3.5 h-3.5 mr-1" />
-              Approve
-            </Button>
+              <CheckCircle className="w-3.5 h-3.5 md:w-4 md:h-4" />
+            </button>
           )}
 
           {sub.status === "active" && (
             <>
-              <Button
-                size="sm"
-                variant="outline"
-                className="bg-blue-500/10 border-blue-500/50 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300 hover:border-blue-400 font-medium transition-all"
-                onClick={() => {
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
                   setSelectedSubscription(sub);
                   setShowPauseModal(true);
                 }}
+                className="p-1 md:p-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors"
+                title="Pause"
               >
-                <PauseCircle className="w-3.5 h-3.5 mr-1" />
-                Pause
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="bg-red-500/10 border-red-500/50 text-red-400 hover:bg-red-500/20 hover:text-red-300 hover:border-red-400 font-medium transition-all"
-                onClick={() => {
+                <PauseCircle className="w-3.5 h-3.5 md:w-4 md:h-4" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
                   setSelectedSubscription(sub);
                   setShowCancelModal(true);
                 }}
+                className="p-1 md:p-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors"
+                title="Cancel"
               >
-                <XCircle className="w-3.5 h-3.5 mr-1" />
-                Cancel
-              </Button>
+                <XCircle className="w-3.5 h-3.5 md:w-4 md:h-4" />
+              </button>
             </>
           )}
 
           {sub.status === "paused" && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="bg-green-500/10 border-green-500/50 text-green-400 hover:bg-green-500/20 hover:text-green-300 hover:border-green-400 font-medium transition-all"
-              onClick={() => {
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
                 setSelectedSubscription(sub);
                 setShowResumeModal(true);
               }}
+              className="p-1 md:p-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors"
+              title="Resume"
             >
-              <CheckCircle className="w-3.5 h-3.5 mr-1" />
-              Resume
-            </Button>
+              <CheckCircle className="w-3.5 h-3.5 md:w-4 md:h-4" />
+            </button>
           )}
 
           {sub.status === "cancelled" && canReactivate(sub) && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="bg-emerald-500/10 border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300 hover:border-emerald-400 font-medium transition-all"
-              onClick={() => {
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
                 setSelectedSubscription(sub);
                 setShowReactivateModal(true);
               }}
+              className="p-1 md:p-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg hover:bg-emerald-500/20 transition-colors"
+              title="Reactivate"
             >
-              <RotateCcw className="w-3.5 h-3.5 mr-1" />
-              Reactivate
-            </Button>
+              <RotateCcw className="w-3.5 h-3.5 md:w-4 md:h-4" />
+            </button>
           )}
 
-          <Button
-            size="sm"
-            variant="outline"
-            className="bg-gray-500/10 border-gray-500/50 text-gray-300 hover:bg-gray-500/20 hover:text-white hover:border-gray-400 font-medium transition-all"
-            onClick={() => {
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
               setSelectedSubscription(sub);
               setShowDetailsModal(true);
             }}
+            className="p-1 md:p-1.5 bg-gray-500/10 text-gray-300 border border-gray-500/20 rounded-lg hover:bg-gray-500/20 transition-colors"
+            title="View Details"
           >
-            Details
-          </Button>
+            <CreditCard className="w-3.5 h-3.5 md:w-4 md:h-4" />
+          </button>
         </div>
       ),
     },
   ];
 
+  // Render expanded content for mobile
+  const renderExpandedContent = (sub: Subscription) => (
+    <div className="p-4 space-y-4">
+      {/* Status - Show on mobile when hidden in table */}
+      <div className="sm:hidden">
+        <p className="text-xs text-gray-500 mb-2">Status</p>
+        {getStatusBadge(sub)}
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        {/* Monthly - Hidden on md+ in table */}
+        <div className="md:hidden">
+          <p className="text-xs text-gray-500 mb-1">Monthly</p>
+          <p className="text-emerald-400 font-semibold">${sub.monthlyAmount}</p>
+        </div>
+
+        {/* Payments - Hidden on lg+ in table */}
+        <div className="lg:hidden">
+          <p className="text-xs text-gray-500 mb-1">Payments</p>
+          <p className="text-white font-medium">{sub.paymentsMade}</p>
+          <p className="text-purple-400 text-xs">${sub.totalPaid.toLocaleString()}</p>
+        </div>
+
+        {/* Next Payment */}
+        <div>
+          <p className="text-xs text-gray-500 mb-1">Next Payment</p>
+          <p className="text-white text-sm">{formatDate(sub.nextPaymentDate)}</p>
+        </div>
+
+        {/* Last Payment */}
+        <div>
+          <p className="text-xs text-gray-500 mb-1">Last Payment</p>
+          <p className="text-white text-sm">{formatDate(sub.lastPaymentDate)}</p>
+        </div>
+      </div>
+
+      {/* Cancellation Reason */}
+      {sub.cancellationReason && (
+        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-medium text-red-400 mb-1">Cancellation Reason</p>
+              <p className="text-xs text-gray-300">{sub.cancellationReason}</p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // Stats card data
+  const getStatCards = (): StatCardData[] => {
+    if (!stats) return [];
+
+    return [
+      {
+        title: "Active",
+        value: stats.totalActive,
+        subtitle: "Currently active",
+        icon: CheckCircle,
+        colorClass: "text-green-400",
+        bgGradient: "from-green-500/20 to-green-600/10",
+      },
+      {
+        title: "Pending",
+        value: stats.totalPending,
+        subtitle: "Awaiting approval",
+        icon: Clock,
+        colorClass: "text-yellow-400",
+        bgGradient: "from-yellow-500/20 to-yellow-600/10",
+      },
+      {
+        title: "Paused",
+        value: stats.totalPaused,
+        subtitle: "Temporarily paused",
+        icon: PauseCircle,
+        colorClass: "text-blue-400",
+        bgGradient: "from-blue-500/20 to-blue-600/10",
+      },
+      {
+        title: "Overdue",
+        value: stats.overdueCount,
+        subtitle: "Payment overdue",
+        icon: AlertCircle,
+        colorClass: "text-red-400",
+        bgGradient: "from-red-500/20 to-red-600/10",
+      },
+      {
+        title: "MRR",
+        value: `$${stats.monthlyRecurring.toLocaleString()}`,
+        subtitle: "Monthly recurring",
+        icon: TrendingUp,
+        colorClass: "text-emerald-400",
+        bgGradient: "from-emerald-500/20 to-emerald-600/10",
+      },
+      {
+        title: "Revenue",
+        value: `$${stats.totalRevenue.toLocaleString()}`,
+        subtitle: "All-time revenue",
+        icon: DollarSign,
+        colorClass: "text-purple-400",
+        bgGradient: "from-purple-500/20 to-purple-600/10",
+      },
+    ];
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <RefreshCw className="w-8 h-8 animate-spin text-gray-400" />
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-yellow-400 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading subscriptions...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      {/* Statistics Cards */}
+    <div className="space-y-6">
+      {/* Header */}
+      <DashboardHeader
+        title="Subscription Management"
+        subtitle="Manage shop subscriptions and billing"
+      />
+
+      {/* Statistics Cards - Responsive grid */}
       {stats && (
-        <div className="grid gap-2 sm:gap-3 md:gap-4 grid-cols-2 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-          <Card className="border-2 border-[#FFCC00]/50 bg-gradient-to-br from-green-500/10 via-black/40 to-green-600/5 backdrop-blur-md hover:shadow-xl hover:shadow-green-500/30 hover:border-green-500/70 hover:scale-105 transition-all duration-300">
-            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 gap-2 sm:gap-3">
-              <CardTitle className="text-[10px] sm:text-xs md:text-sm font-bold text-white uppercase tracking-wide flex-1">
-                Active
-              </CardTitle>
-              <div className="h-6 w-6 sm:h-7 sm:w-7 md:h-9 md:w-9 rounded-full bg-green-500/30 backdrop-blur-sm flex items-center justify-center ring-2 ring-green-500/50 flex-shrink-0">
-                <CheckCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-green-300" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
+          {getStatCards().map((card) => {
+            const Icon = card.icon;
+            return (
+              <div
+                key={card.title}
+                className={`bg-gradient-to-br ${card.bgGradient} bg-[#212121] rounded-2xl p-4 border border-gray-700/50 hover:border-gray-600/50 transition-all`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+                    {card.title}
+                  </p>
+                  <div className={`p-2 rounded-lg bg-black/30 ${card.colorClass}`}>
+                    <Icon className="w-4 h-4" />
+                  </div>
+                </div>
+                <p className="text-2xl font-bold text-white mb-1">{card.value}</p>
+                <p className="text-xs text-gray-400">{card.subtitle}</p>
               </div>
-            </CardHeader>
-            <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
-              <div className="text-xl sm:text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
-                {stats.totalActive}
-              </div>
-              <p className="text-[10px] sm:text-xs text-green-300 mt-0.5 sm:mt-1 font-medium">
-                Currently active
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-2 border-[#FFCC00]/50 bg-gradient-to-br from-yellow-500/10 via-black/40 to-yellow-600/5 backdrop-blur-md hover:shadow-xl hover:shadow-yellow-500/30 hover:border-yellow-500/70 hover:scale-105 transition-all duration-300">
-            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 gap-2 sm:gap-3">
-              <CardTitle className="text-[10px] sm:text-xs md:text-sm font-bold text-white uppercase tracking-wide flex-1">
-                Pending
-              </CardTitle>
-              <div className="h-6 w-6 sm:h-7 sm:w-7 md:h-9 md:w-9 rounded-full bg-yellow-500/30 backdrop-blur-sm flex items-center justify-center ring-2 ring-yellow-500/50 flex-shrink-0">
-                <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-yellow-300" />
-              </div>
-            </CardHeader>
-            <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
-              <div className="text-xl sm:text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
-                {stats.totalPending}
-              </div>
-              <p className="text-[10px] sm:text-xs text-yellow-300 mt-0.5 sm:mt-1 font-medium">
-                Awaiting approval
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-2 border-[#FFCC00]/50 bg-gradient-to-br from-blue-500/10 via-black/40 to-blue-600/5 backdrop-blur-md hover:shadow-xl hover:shadow-blue-500/30 hover:border-blue-500/70 hover:scale-105 transition-all duration-300">
-            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 gap-2 sm:gap-3">
-              <CardTitle className="text-[10px] sm:text-xs md:text-sm font-bold text-white uppercase tracking-wide flex-1">
-                Paused
-              </CardTitle>
-              <div className="h-6 w-6 sm:h-7 sm:w-7 md:h-9 md:w-9 rounded-full bg-blue-500/30 backdrop-blur-sm flex items-center justify-center ring-2 ring-blue-500/50 flex-shrink-0">
-                <PauseCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-blue-300" />
-              </div>
-            </CardHeader>
-            <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
-              <div className="text-xl sm:text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
-                {stats.totalPaused}
-              </div>
-              <p className="text-[10px] sm:text-xs text-blue-300 mt-0.5 sm:mt-1 font-medium">
-                Temporarily paused
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-2 border-[#FFCC00]/50 bg-gradient-to-br from-red-500/10 via-black/40 to-red-600/5 backdrop-blur-md hover:shadow-xl hover:shadow-red-500/30 hover:border-red-500/70 hover:scale-105 transition-all duration-300">
-            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 gap-2 sm:gap-3">
-              <CardTitle className="text-[10px] sm:text-xs md:text-sm font-bold text-white uppercase tracking-wide flex-1">
-                Overdue
-              </CardTitle>
-              <div className="h-6 w-6 sm:h-7 sm:w-7 md:h-9 md:w-9 rounded-full bg-red-500/30 backdrop-blur-sm flex items-center justify-center ring-2 ring-red-500/50 flex-shrink-0">
-                <AlertCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-red-300" />
-              </div>
-            </CardHeader>
-            <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
-              <div className="text-xl sm:text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
-                {stats.overdueCount}
-              </div>
-              <p className="text-[10px] sm:text-xs text-red-300 mt-0.5 sm:mt-1 font-medium">
-                Payment overdue
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-2 border-[#FFCC00]/50 bg-gradient-to-br from-emerald-500/10 via-black/40 to-emerald-600/5 backdrop-blur-md hover:shadow-xl hover:shadow-emerald-500/30 hover:border-emerald-500/70 hover:scale-105 transition-all duration-300">
-            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 gap-2 sm:gap-3">
-              <CardTitle className="text-[10px] sm:text-xs md:text-sm font-bold text-white uppercase tracking-wide flex-1">
-                Monthly Recurring
-              </CardTitle>
-              <div className="h-6 w-6 sm:h-7 sm:w-7 md:h-9 md:w-9 rounded-full bg-emerald-500/30 backdrop-blur-sm flex items-center justify-center ring-2 ring-emerald-500/50 flex-shrink-0">
-                <TrendingUp className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-emerald-300" />
-              </div>
-            </CardHeader>
-            <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
-              <div className="text-xl sm:text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
-                ${stats.monthlyRecurring.toLocaleString()}
-              </div>
-              <p className="text-[10px] sm:text-xs text-emerald-300 mt-0.5 sm:mt-1 font-medium">
-                MRR from active shops
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-2 border-[#FFCC00]/50 bg-gradient-to-br from-purple-500/10 via-black/40 to-purple-600/5 backdrop-blur-md hover:shadow-xl hover:shadow-purple-500/30 hover:border-purple-500/70 hover:scale-105 transition-all duration-300">
-            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 gap-2 sm:gap-3">
-              <CardTitle className="text-[10px] sm:text-xs md:text-sm font-bold text-white uppercase tracking-wide flex-1">
-                Total Revenue
-              </CardTitle>
-              <div className="h-6 w-6 sm:h-7 sm:w-7 md:h-9 md:w-9 rounded-full bg-purple-500/30 backdrop-blur-sm flex items-center justify-center ring-2 ring-purple-500/50 flex-shrink-0">
-                <DollarSign className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-purple-300" />
-              </div>
-            </CardHeader>
-            <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
-              <div className="text-xl sm:text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
-                ${stats.totalRevenue.toLocaleString()}
-              </div>
-              <p className="text-[10px] sm:text-xs text-purple-300 mt-0.5 sm:mt-1 font-medium">
-                All-time revenue
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-2 border-[#FFCC00]/50 bg-gradient-to-br from-gray-500/10 via-black/40 to-gray-600/5 backdrop-blur-md hover:shadow-xl hover:shadow-gray-500/30 hover:border-gray-500/70 hover:scale-105 transition-all duration-300">
-            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 gap-2 sm:gap-3">
-              <CardTitle className="text-[10px] sm:text-xs md:text-sm font-bold text-white uppercase tracking-wide flex-1">
-                Cancelled
-              </CardTitle>
-              <div className="h-6 w-6 sm:h-7 sm:w-7 md:h-9 md:w-9 rounded-full bg-gray-500/30 backdrop-blur-sm flex items-center justify-center ring-2 ring-gray-500/50 flex-shrink-0">
-                <XCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-gray-300" />
-              </div>
-            </CardHeader>
-            <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
-              <div className="text-xl sm:text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
-                {stats.totalCancelled}
-              </div>
-              <p className="text-[10px] sm:text-xs text-gray-300 mt-0.5 sm:mt-1 font-medium">
-                Inactive subscriptions
-              </p>
-            </CardContent>
-          </Card>
+            );
+          })}
         </div>
       )}
 
-      {/* Subscription Tabs */}
-      <div className="border-2 border-[#FFCC00] bg-black/40 backdrop-blur-xl shadow-2xl rounded-lg overflow-hidden">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <div className="border-b-2 border-[#FFCC00]/50 bg-gradient-to-r from-black/60 via-black/40 to-black/60 backdrop-blur-md p-3 sm:p-4">
-            {/* Search Bar */}
-            <div className="mb-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search by shop name or ID..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-black/40 border-2 border-[#FFCC00]/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-[#FFCC00] focus:ring-2 focus:ring-[#FFCC00]/20 transition-all"
-                />
-              </div>
+      {/* Main Content Card */}
+      <div className="bg-[#212121] rounded-3xl">
+        <div
+          className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-3 md:py-4 text-white rounded-t-3xl"
+          style={{
+            backgroundImage: `url('/img/cust-ref-widget3.png')`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+          }}
+        >
+          <p className="text-sm sm:text-base md:text-lg lg:text-xl text-gray-900 font-semibold">
+            Monitor Subscriptions
+          </p>
+        </div>
+
+        {/* Controls */}
+        <div className="p-4 md:p-6 border-b border-gray-700/50">
+          <div className="flex flex-col sm:flex-row gap-3">
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by shop name or ID..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-[#2F2F2F] border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-yellow-400 text-sm"
+              />
             </div>
 
-            {/* Mobile: Grid layout for tabs, Desktop: Single row with sync button */}
-            <div className="flex flex-col md:flex-row md:items-center gap-3">
-              {/* Tabs - Grid on mobile, flex on desktop */}
-              <div className="flex-1">
-                <TabsList className="grid grid-cols-3 md:inline-flex md:flex-wrap gap-1 sm:gap-2 h-auto p-0 bg-transparent border-none w-full md:w-auto">
-                  <TabsTrigger
-                    value="all"
-                    className="rounded-md px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-300 font-medium hover:text-white hover:bg-white/5 data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-bold data-[state=active]:shadow-lg transition-all"
-                  >
-                    All
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="active"
-                    className="rounded-md px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-300 font-medium hover:text-white hover:bg-white/5 data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-bold data-[state=active]:shadow-lg transition-all"
-                  >
-                    Active
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="pending"
-                    className="rounded-md px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-300 font-medium hover:text-white hover:bg-white/5 data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-bold data-[state=active]:shadow-lg transition-all"
-                  >
-                    Pending
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="paused"
-                    className="rounded-md px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-300 font-medium hover:text-white hover:bg-white/5 data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-bold data-[state=active]:shadow-lg transition-all"
-                  >
-                    Paused
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="overdue"
-                    className="rounded-md px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-300 font-medium hover:text-white hover:bg-white/5 data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-bold data-[state=active]:shadow-lg transition-all"
-                  >
-                    Overdue
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="cancelled"
-                    className="rounded-md px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-300 font-medium hover:text-white hover:bg-white/5 data-[state=active]:bg-[#FFCC00] data-[state=active]:text-black data-[state=active]:font-bold data-[state=active]:shadow-lg transition-all"
-                  >
-                    Cancelled
-                  </TabsTrigger>
-                </TabsList>
-              </div>
+            {/* Filter and Sync */}
+            <div className="flex gap-2 sm:gap-3">
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-[#FFCC00] border border-gray-600 rounded-3xl text-black focus:outline-none focus:border-yellow-400 text-sm"
+              >
+                <option value="all">All Subscriptions</option>
+                <option value="active">Active</option>
+                <option value="pending">Pending</option>
+                <option value="paused">Paused</option>
+                <option value="overdue">Overdue</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
 
-              {/* Sync Button */}
-              <Button
+              <button
                 onClick={handleSync}
                 disabled={syncing || loading}
-                variant="outline"
-                size="sm"
-                className="w-full md:w-auto md:flex-shrink-0 bg-[#FFCC00] text-black border-2 border-[#FFCC00] hover:bg-[#FFD700] hover:border-[#FFD700] hover:shadow-lg hover:shadow-yellow-500/50 transition-all text-xs sm:text-sm font-bold"
+                className="px-3 sm:px-4 py-2 bg-[#FFCC00] text-black border border-yellow-500 rounded-3xl hover:bg-yellow-500 transition-all text-sm font-medium disabled:opacity-50 flex items-center gap-2"
               >
-                <RefreshCw
-                  className={`w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 ${
-                    syncing ? "animate-spin" : ""
-                  }`}
-                />
-                {syncing ? "Syncing..." : "Sync from Stripe"}
-              </Button>
+                <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />
+                <span className="hidden sm:inline">{syncing ? "Syncing..." : "Sync Stripe"}</span>
+              </button>
             </div>
           </div>
+        </div>
 
-          <TabsContent value={activeTab} className="mt-0 p-0">
-            {/* Desktop: Full table, Mobile: Expandable rows */}
-            <div className="hidden md:block">
-              <DataTable
-                data={filteredSubscriptions}
-                columns={columns}
-                keyExtractor={(sub) => sub.id.toString()}
-                emptyMessage={`No ${
-                  activeTab === "all" ? "" : activeTab
-                } subscriptions found`}
-              />
-            </div>
-            <div className="block md:hidden">
-              {/* Mobile: Only show shop and status columns, expand for details */}
-              <DataTable
-                data={filteredSubscriptions}
-                columns={[
-                  {
-                    key: "shopId",
-                    header: "Shop",
-                    accessor: (sub) => (
-                      <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#FFCC00] to-yellow-600 flex items-center justify-center flex-shrink-0">
-                          <Store className="h-4 w-4 text-gray-900" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="font-semibold text-white text-sm truncate">
-                            {sub.shopName || sub.shopId}
-                          </div>
-                        </div>
-                      </div>
-                    ),
-                    sortable: true,
-                    sortValue: (sub) => sub.shopName || sub.shopId,
-                  },
-                  {
-                    key: "status",
-                    header: "Status",
-                    accessor: (sub) => {
-                      const statusConfig = {
-                        active: {
-                          color:
-                            "bg-green-500/20 text-green-400 border-green-500/50",
-                          icon: CheckCircle,
-                        },
-                        pending: {
-                          color:
-                            "bg-yellow-500/20 text-yellow-400 border-yellow-500/50",
-                          icon: Clock,
-                        },
-                        paused: {
-                          color:
-                            "bg-blue-500/20 text-blue-400 border-blue-500/50",
-                          icon: PauseCircle,
-                        },
-                        cancelled: {
-                          color: "bg-red-500/20 text-red-400 border-red-500/50",
-                          icon: XCircle,
-                        },
-                        defaulted: {
-                          color: "bg-red-500/20 text-red-400 border-red-500/50",
-                          icon: AlertCircle,
-                        },
-                      };
-                      const config = statusConfig[sub.status];
-                      const Icon = config.icon;
-                      return (
-                        <Badge
-                          className={`inline-flex items-center gap-1 px-2 py-1 border text-xs ${config.color}`}
-                        >
-                          <Icon className="w-3 h-3" />
-                          <span className="font-medium">
-                            {sub.status.charAt(0).toUpperCase() +
-                              sub.status.slice(1)}
-                          </span>
-                        </Badge>
-                      );
-                    },
-                    sortable: true,
-                    sortValue: (sub) => sub.status,
-                  },
-                ]}
-                keyExtractor={(sub) => sub.id.toString()}
-                emptyMessage={`No ${
-                  activeTab === "all" ? "" : activeTab
-                } subscriptions found`}
-                expandable={true}
-                renderExpandedContent={(sub) => (
-                  <div className="p-4 bg-gradient-to-r from-white/5 via-white/10 to-white/5 space-y-3">
-                    {/* Details Grid */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-xs text-gray-400 uppercase tracking-wide">
-                          Monthly
-                        </label>
-                        <p className="text-emerald-400 font-semibold text-base mt-1">
-                          ${sub.monthlyAmount}
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-400 uppercase tracking-wide">
-                          Payments
-                        </label>
-                        <p className="text-white font-medium mt-1">
-                          {sub.paymentsMade}
-                        </p>
-                        <p className="text-purple-400 text-xs">
-                          ${sub.totalPaid.toLocaleString()}
-                        </p>
-                      </div>
-                      {sub.nextPaymentDate && sub.status === "active" && (
-                        <div className="col-span-2">
-                          <label className="text-xs text-gray-400 uppercase tracking-wide">
-                            Next Payment
-                          </label>
-                          <p className="text-white font-medium mt-1">
-                            {new Date(sub.nextPaymentDate).toLocaleDateString()}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex flex-wrap gap-2 pt-4 border-t border-white/10">
-                      {sub.status === "pending" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="bg-green-500/10 border-green-500/50 text-green-400 hover:bg-green-500/20 font-medium"
-                          onClick={() => {
-                            setSelectedSubscription(sub);
-                            setShowApproveModal(true);
-                          }}
-                        >
-                          <CheckCircle className="w-3.5 h-3.5 mr-1" />
-                          Approve
-                        </Button>
-                      )}
-                      {sub.status === "active" && (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="bg-blue-500/10 border-blue-500/50 text-blue-400 hover:bg-blue-500/20 font-medium"
-                            onClick={() => {
-                              setSelectedSubscription(sub);
-                              setShowPauseModal(true);
-                            }}
-                          >
-                            <PauseCircle className="w-3.5 h-3.5 mr-1" />
-                            Pause
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="bg-red-500/10 border-red-500/50 text-red-400 hover:bg-red-500/20 font-medium"
-                            onClick={() => {
-                              setSelectedSubscription(sub);
-                              setShowCancelModal(true);
-                            }}
-                          >
-                            <XCircle className="w-3.5 h-3.5 mr-1" />
-                            Cancel
-                          </Button>
-                        </>
-                      )}
-                      {sub.status === "paused" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="bg-green-500/10 border-green-500/50 text-green-400 hover:bg-green-500/20 font-medium"
-                          onClick={() => {
-                            setSelectedSubscription(sub);
-                            setShowResumeModal(true);
-                          }}
-                        >
-                          <CheckCircle className="w-3.5 h-3.5 mr-1" />
-                          Resume
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="bg-gray-500/10 border-gray-500/50 text-gray-300 hover:bg-gray-500/20 font-medium"
-                        onClick={() => {
-                          setSelectedSubscription(sub);
-                          setShowDetailsModal(true);
-                        }}
-                      >
-                        Details
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              />
-            </div>
-          </TabsContent>
-        </Tabs>
+        {/* Table */}
+        <div className="p-4 md:p-6">
+          <DataTable
+            data={filteredSubscriptions}
+            columns={columns}
+            keyExtractor={(sub) => sub.id.toString()}
+            expandable={true}
+            renderExpandedContent={renderExpandedContent}
+            headerClassName="bg-gray-900/60 border-gray-800"
+            emptyMessage={`No ${filterStatus === "all" ? "" : filterStatus} subscriptions found`}
+            emptyIcon={<AlertCircle className="w-12 h-12 text-gray-500 mx-auto mb-4" />}
+            showPagination={true}
+            itemsPerPage={10}
+          />
+        </div>
       </div>
 
       {/* Approve Modal */}
       {showApproveModal && selectedSubscription && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#212121] border border-gray-800 rounded-xl shadow-2xl w-full max-w-md transform transition-all">
+          <div className="bg-[#212121] border border-gray-800 rounded-xl shadow-2xl w-full max-w-md">
             <div
-              className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-3xl"
+              className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-xl"
               style={{
                 backgroundImage: `url('/img/cust-ref-widget3.png')`,
                 backgroundSize: "cover",
                 backgroundPosition: "center",
-                backgroundRepeat: "no-repeat",
               }}
             >
               <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
@@ -1175,9 +859,7 @@ export default function SubscriptionManagementTab() {
               </p>
 
               <div className="bg-green-900/30 border border-green-700 rounded-lg p-4">
-                <h4 className="font-semibold text-green-400 mb-2">
-                  This will:
-                </h4>
+                <h4 className="font-semibold text-green-400 mb-2">This will:</h4>
                 <ul className="space-y-1 text-sm text-green-300">
                   <li>• Activate the subscription immediately</li>
                   <li>• Grant operational status to the shop</li>
@@ -1210,14 +892,13 @@ export default function SubscriptionManagementTab() {
       {/* Cancel Modal */}
       {showCancelModal && selectedSubscription && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#212121] border border-gray-800 rounded-xl shadow-2xl w-full max-w-md transform transition-all">
+          <div className="bg-[#212121] border border-gray-800 rounded-xl shadow-2xl w-full max-w-md">
             <div
-              className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-3xl"
+              className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-xl"
               style={{
                 backgroundImage: `url('/img/cust-ref-widget3.png')`,
                 backgroundSize: "cover",
                 backgroundPosition: "center",
-                backgroundRepeat: "no-repeat",
               }}
             >
               <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
@@ -1287,14 +968,13 @@ export default function SubscriptionManagementTab() {
       {/* Pause Modal */}
       {showPauseModal && selectedSubscription && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#212121] border border-gray-800 rounded-xl shadow-2xl w-full max-w-md transform transition-all">
+          <div className="bg-[#212121] border border-gray-800 rounded-xl shadow-2xl w-full max-w-md">
             <div
-              className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-3xl"
+              className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-xl"
               style={{
                 backgroundImage: `url('/img/cust-ref-widget3.png')`,
                 backgroundSize: "cover",
                 backgroundPosition: "center",
-                backgroundRepeat: "no-repeat",
               }}
             >
               <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
@@ -1319,9 +999,7 @@ export default function SubscriptionManagementTab() {
               </p>
 
               <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-4">
-                <h4 className="font-semibold text-blue-400 mb-2">
-                  Pausing will:
-                </h4>
+                <h4 className="font-semibold text-blue-400 mb-2">Pausing will:</h4>
                 <ul className="space-y-1 text-sm text-blue-300">
                   <li>• Temporarily suspend billing</li>
                   <li>• Maintain operational status for 30 days</li>
@@ -1354,14 +1032,13 @@ export default function SubscriptionManagementTab() {
       {/* Resume Modal */}
       {showResumeModal && selectedSubscription && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#212121] border border-gray-800 rounded-xl shadow-2xl w-full max-w-md transform transition-all">
+          <div className="bg-[#212121] border border-gray-800 rounded-xl shadow-2xl w-full max-w-md">
             <div
-              className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-3xl"
+              className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-xl"
               style={{
                 backgroundImage: `url('/img/cust-ref-widget3.png')`,
                 backgroundSize: "cover",
                 backgroundPosition: "center",
-                backgroundRepeat: "no-repeat",
               }}
             >
               <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
@@ -1386,9 +1063,7 @@ export default function SubscriptionManagementTab() {
               </p>
 
               <div className="bg-green-900/30 border border-green-700 rounded-lg p-4">
-                <h4 className="font-semibold text-green-400 mb-2">
-                  Resuming will:
-                </h4>
+                <h4 className="font-semibold text-green-400 mb-2">Resuming will:</h4>
                 <ul className="space-y-1 text-sm text-green-300">
                   <li>• Reactivate billing immediately</li>
                   <li>• Restore full operational status</li>
@@ -1421,14 +1096,13 @@ export default function SubscriptionManagementTab() {
       {/* Reactivate Modal */}
       {showReactivateModal && selectedSubscription && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#212121] border border-gray-800 rounded-xl shadow-2xl w-full max-w-md transform transition-all">
+          <div className="bg-[#212121] border border-gray-800 rounded-xl shadow-2xl w-full max-w-md">
             <div
-              className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-3xl"
+              className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-xl"
               style={{
                 backgroundImage: `url('/img/cust-ref-widget3.png')`,
                 backgroundSize: "cover",
                 backgroundPosition: "center",
-                backgroundRepeat: "no-repeat",
               }}
             >
               <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
@@ -1453,9 +1127,7 @@ export default function SubscriptionManagementTab() {
               </p>
 
               <div className="bg-emerald-900/30 border border-emerald-700 rounded-lg p-4">
-                <h4 className="font-semibold text-emerald-400 mb-2">
-                  Reactivating will:
-                </h4>
+                <h4 className="font-semibold text-emerald-400 mb-2">Reactivating will:</h4>
                 <ul className="space-y-1 text-sm text-emerald-300">
                   <li>• Cancel the scheduled cancellation</li>
                   <li>• Restore subscription to active status</li>
@@ -1489,23 +1161,19 @@ export default function SubscriptionManagementTab() {
       {/* Details Modal */}
       {showDetailsModal && selectedSubscription && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#212121] border border-gray-800 rounded-xl shadow-2xl w-full max-w-sm sm:max-w-md md:max-w-2xl lg:max-w-3xl transform transition-all">
+          <div className="bg-[#212121] border border-gray-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
             <div
-              className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-3xl"
+              className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-4 text-white rounded-t-xl"
               style={{
                 backgroundImage: `url('/img/cust-ref-widget3.png')`,
                 backgroundSize: "cover",
                 backgroundPosition: "center",
-                backgroundRepeat: "no-repeat",
               }}
             >
               <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
                 Subscription Details
               </p>
-              <button
-                onClick={() => setShowDetailsModal(false)}
-                className="p-2 rounded-lg transition-colors"
-              >
+              <button onClick={() => setShowDetailsModal(false)} className="p-2 rounded-lg transition-colors">
                 <X className="w-5 h-5 text-gray-900" />
               </button>
             </div>
@@ -1514,179 +1182,72 @@ export default function SubscriptionManagementTab() {
               <div className="space-y-6">
                 {/* Basic Information */}
                 <div className="border-b border-gray-700 pb-6">
-                  <h3 className="text-lg font-semibold text-[#FFCC00] mb-4">
-                    Basic Information
-                  </h3>
+                  <h3 className="text-lg font-semibold text-[#FFCC00] mb-4">Basic Information</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-1">
-                        Shop Name
-                      </label>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Shop Name</label>
                       <p className="text-white font-medium">
-                        {selectedSubscription.shopName ||
-                          selectedSubscription.shopId}
+                        {selectedSubscription.shopName || selectedSubscription.shopId}
                       </p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-1">
-                        Shop ID
-                      </label>
-                      <p className="text-white font-medium">
-                        {selectedSubscription.shopId}
-                      </p>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Shop ID</label>
+                      <p className="text-white font-medium">{selectedSubscription.shopId}</p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-1">
-                        Status
-                      </label>
-                      <p className="text-white font-medium capitalize">
-                        {selectedSubscription.status}
-                      </p>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Status</label>
+                      {getStatusBadge(selectedSubscription)}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-1">
-                        Subscription Type
-                      </label>
-                      <p className="text-white font-medium">
-                        {selectedSubscription.subscriptionType}
-                      </p>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Subscription Type</label>
+                      <p className="text-white font-medium">{selectedSubscription.subscriptionType}</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Payment Information */}
                 <div className="border-b border-gray-700 pb-6">
-                  <h3 className="text-lg font-semibold text-[#FFCC00] mb-4">
-                    Payment Information
-                  </h3>
+                  <h3 className="text-lg font-semibold text-[#FFCC00] mb-4">Payment Information</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-1">
-                        Monthly Amount
-                      </label>
-                      <p className="text-white font-medium">
-                        ${selectedSubscription.monthlyAmount}
-                      </p>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Monthly Amount</label>
+                      <p className="text-white font-medium">${selectedSubscription.monthlyAmount}</p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-1">
-                        Payments Made
-                      </label>
-                      <p className="text-white font-medium">
-                        {selectedSubscription.paymentsMade}
-                      </p>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Payments Made</label>
+                      <p className="text-white font-medium">{selectedSubscription.paymentsMade}</p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-1">
-                        Total Paid
-                      </label>
-                      <p className="text-white font-medium">
-                        ${selectedSubscription.totalPaid}
-                      </p>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Total Paid</label>
+                      <p className="text-white font-medium">${selectedSubscription.totalPaid}</p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-1">
-                        Next Payment
-                      </label>
-                      <p className="text-white font-medium">
-                        {selectedSubscription.nextPaymentDate &&
-                        !isNaN(
-                          new Date(
-                            selectedSubscription.nextPaymentDate
-                          ).getTime()
-                        )
-                          ? new Date(
-                              selectedSubscription.nextPaymentDate
-                            ).toLocaleDateString("en-US", {
-                              timeZone: "America/Chicago",
-                            })
-                          : "-"}
-                      </p>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Next Payment</label>
+                      <p className="text-white font-medium">{formatDate(selectedSubscription.nextPaymentDate)}</p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-1">
-                        Last Payment
-                      </label>
-                      <p className="text-white font-medium">
-                        {selectedSubscription.lastPaymentDate &&
-                        !isNaN(
-                          new Date(
-                            selectedSubscription.lastPaymentDate
-                          ).getTime()
-                        )
-                          ? new Date(
-                              selectedSubscription.lastPaymentDate
-                            ).toLocaleDateString("en-US", {
-                              timeZone: "America/Chicago",
-                            })
-                          : "-"}
-                      </p>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Last Payment</label>
+                      <p className="text-white font-medium">{formatDate(selectedSubscription.lastPaymentDate)}</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Timeline Information */}
-                <div
-                  className={
-                    selectedSubscription.cancellationReason
-                      ? "border-b border-gray-700 pb-6"
-                      : ""
-                  }
-                >
-                  <h3 className="text-lg font-semibold text-[#FFCC00] mb-4">
-                    Timeline
-                  </h3>
+                <div className={selectedSubscription.cancellationReason ? "border-b border-gray-700 pb-6" : ""}>
+                  <h3 className="text-lg font-semibold text-[#FFCC00] mb-4">Timeline</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-1">
-                        Enrolled Date
-                      </label>
-                      <p className="text-white font-medium">
-                        {selectedSubscription.enrolledAt &&
-                        !isNaN(
-                          new Date(selectedSubscription.enrolledAt).getTime()
-                        )
-                          ? new Date(
-                              selectedSubscription.enrolledAt
-                            ).toLocaleDateString("en-US", {
-                              timeZone: "America/Chicago",
-                            })
-                          : "-"}
-                      </p>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Enrolled Date</label>
+                      <p className="text-white font-medium">{formatDate(selectedSubscription.enrolledAt)}</p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-1">
-                        Activated Date
-                      </label>
-                      <p className="text-white font-medium">
-                        {selectedSubscription.activatedAt &&
-                        !isNaN(
-                          new Date(selectedSubscription.activatedAt).getTime()
-                        )
-                          ? new Date(
-                              selectedSubscription.activatedAt
-                            ).toLocaleDateString("en-US", {
-                              timeZone: "America/Chicago",
-                            })
-                          : "-"}
-                      </p>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Activated Date</label>
+                      <p className="text-white font-medium">{formatDate(selectedSubscription.activatedAt)}</p>
                     </div>
                     {selectedSubscription.cancelledAt && (
                       <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">
-                          Cancelled Date
-                        </label>
-                        <p className="text-white font-medium">
-                          {!isNaN(
-                            new Date(selectedSubscription.cancelledAt).getTime()
-                          )
-                            ? new Date(
-                                selectedSubscription.cancelledAt
-                              ).toLocaleDateString("en-US", {
-                                timeZone: "America/Chicago",
-                              })
-                            : "-"}
-                        </p>
+                        <label className="block text-sm font-medium text-gray-400 mb-1">Cancelled Date</label>
+                        <p className="text-white font-medium">{formatDate(selectedSubscription.cancelledAt)}</p>
                       </div>
                     )}
                   </div>
@@ -1695,16 +1256,10 @@ export default function SubscriptionManagementTab() {
                 {/* Cancellation Information */}
                 {selectedSubscription.cancellationReason && (
                   <div>
-                    <h3 className="text-lg font-semibold text-[#FFCC00] mb-4">
-                      Cancellation Information
-                    </h3>
+                    <h3 className="text-lg font-semibold text-[#FFCC00] mb-4">Cancellation Information</h3>
                     <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-1">
-                        Cancellation Reason
-                      </label>
-                      <p className="text-white">
-                        {selectedSubscription.cancellationReason}
-                      </p>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Cancellation Reason</label>
+                      <p className="text-white">{selectedSubscription.cancellationReason}</p>
                     </div>
                   </div>
                 )}

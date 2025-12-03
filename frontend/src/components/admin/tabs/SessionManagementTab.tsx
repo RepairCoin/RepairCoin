@@ -1,11 +1,27 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { toast } from "react-hot-toast";
-import { adminApi } from "@/services/api/admin";
+import React, { useState, useEffect, useCallback } from "react";
+import { DataTable, Column } from "@/components/ui/DataTable";
+import { DashboardHeader } from "@/components/ui/DashboardHeader";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle } from "lucide-react";
+import {
+  Users,
+  Shield,
+  Store,
+  User,
+  CheckCircle,
+  XCircle,
+  Clock,
+  RefreshCw,
+  Search,
+  AlertTriangle,
+  Monitor,
+  Globe,
+  Ban,
+} from "lucide-react";
+import { toast } from "react-hot-toast";
+import { adminApi } from "@/services/api/admin";
 
 interface Session {
   id: string;
@@ -36,26 +52,34 @@ interface SessionsResponse {
   };
 }
 
+interface StatCardData {
+  title: string;
+  value: string | number;
+  subtitle: string;
+  icon: React.ElementType;
+  colorClass: string;
+  bgGradient: string;
+}
+
 export function SessionManagementTab() {
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [filteredSessions, setFilteredSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
 
-  // Filters
-  const [roleFilter, setRoleFilter] = useState<"all" | "admin" | "shop" | "customer">("all");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "expired" | "revoked">("active");
+  // Filters - default to "all" so stats are calculated correctly
+  const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
-  // Pagination
-  const [page, setPage] = useState(1);
+  // Pagination from API
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 50,
     total: 0,
     pages: 1
   });
-
-  // Search
-  const [searchQuery, setSearchQuery] = useState("");
 
   // Revoke modal state
   const [revokeModal, setRevokeModal] = useState<{
@@ -73,12 +97,17 @@ export function SessionManagementTab() {
   });
   const [revokeReason, setRevokeReason] = useState("");
 
-  const fetchSessions = async () => {
+  const fetchSessions = useCallback(async (isRefresh = false) => {
     try {
-      setLoading(true);
-      const params: any = {
-        page,
-        limit: 50,
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      const params: Record<string, string | number | undefined> = {
+        page: 1,
+        limit: 100,
         status: statusFilter === "all" ? undefined : statusFilter
       };
 
@@ -91,18 +120,48 @@ export function SessionManagementTab() {
       if (response.success) {
         setSessions(response.sessions);
         setPagination(response.pagination);
+        if (isRefresh) {
+          toast.success("Sessions refreshed successfully");
+        }
       }
     } catch (error: any) {
       console.error("Error fetching sessions:", error);
       toast.error(error.message || "Failed to load sessions");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, [roleFilter, statusFilter]);
 
   useEffect(() => {
     fetchSessions();
-  }, [page, roleFilter, statusFilter]);
+  }, [fetchSessions]);
+
+  // Filter sessions by search query
+  const filterSessions = useCallback((search: string) => {
+    let filtered = [...sessions];
+
+    if (search.trim()) {
+      const query = search.toLowerCase();
+      filtered = filtered.filter(
+        (session) =>
+          session.userAddress.toLowerCase().includes(query) ||
+          session.userName?.toLowerCase().includes(query) ||
+          session.shopName?.toLowerCase().includes(query) ||
+          session.ipAddress?.toLowerCase().includes(query)
+      );
+    }
+
+    setFilteredSessions(filtered);
+  }, [sessions]);
+
+  useEffect(() => {
+    filterSessions(searchQuery);
+  }, [sessions, searchQuery, filterSessions]);
+
+  const handleRefresh = () => {
+    fetchSessions(true);
+  };
 
   const openRevokeModal = (tokenId: string, userName: string | undefined, isRevokeAll: boolean = false, userAddress?: string) => {
     setRevokeModal({
@@ -131,13 +190,11 @@ export function SessionManagementTab() {
 
     try {
       if (revokeModal.isRevokeAll && revokeModal.userAddress) {
-        // Revoke all sessions for user
         setRevoking(revokeModal.userAddress);
         const finalReason = revokeReason.trim() || `All sessions revoked by admin for user: ${revokeModal.userName || revokeModal.userAddress}`;
         await adminApi.revokeAllUserSessions(revokeModal.userAddress, finalReason);
         toast.success("All user sessions revoked successfully");
       } else if (revokeModal.tokenId) {
-        // Revoke single session
         setRevoking(revokeModal.tokenId);
         const finalReason = revokeReason.trim() || `Revoked by admin for user: ${revokeModal.userName || 'Unknown'}`;
         await adminApi.revokeSession(revokeModal.tokenId, finalReason);
@@ -154,31 +211,70 @@ export function SessionManagementTab() {
     }
   };
 
-  const getStatusBadge = (session: Session) => {
-    if (session.revoked) {
-      return <span className="px-2 py-1 text-xs rounded-full bg-red-500/20 text-red-400">Revoked</span>;
-    }
-
+  const getSessionStatus = (session: Session): "active" | "expired" | "revoked" => {
+    if (session.revoked) return "revoked";
     const now = new Date();
     const expiresAt = new Date(session.expiresAt);
+    if (expiresAt < now) return "expired";
+    return "active";
+  };
 
-    if (expiresAt < now) {
-      return <span className="px-2 py-1 text-xs rounded-full bg-gray-500/20 text-gray-400">Expired</span>;
-    }
+  const getStatusBadge = (session: Session) => {
+    const status = getSessionStatus(session);
 
-    return <span className="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-400">Active</span>;
+    const statusConfig: Record<string, { color: string; icon: React.ElementType }> = {
+      active: {
+        color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+        icon: CheckCircle,
+      },
+      expired: {
+        color: "bg-gray-500/10 text-gray-400 border-gray-500/20",
+        icon: Clock,
+      },
+      revoked: {
+        color: "bg-red-500/10 text-red-400 border-red-500/20",
+        icon: XCircle,
+      },
+    };
+
+    const config = statusConfig[status];
+    const Icon = config.icon;
+
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded-full text-xs font-medium border ${config.color}`}
+      >
+        <Icon className="w-3 h-3" />
+        <span className="capitalize">{status}</span>
+      </span>
+    );
   };
 
   const getRoleBadge = (role: string) => {
-    const colors = {
-      admin: "bg-purple-500/20 text-purple-400",
-      shop: "bg-blue-500/20 text-blue-400",
-      customer: "bg-yellow-500/20 text-yellow-400"
+    const roleConfig: Record<string, { color: string; icon: React.ElementType }> = {
+      admin: {
+        color: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+        icon: Shield,
+      },
+      shop: {
+        color: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+        icon: Store,
+      },
+      customer: {
+        color: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+        icon: User,
+      },
     };
 
+    const config = roleConfig[role] || roleConfig.customer;
+    const Icon = config.icon;
+
     return (
-      <span className={`px-2 py-1 text-xs rounded-full ${colors[role as keyof typeof colors]}`}>
-        {role.charAt(0).toUpperCase() + role.slice(1)}
+      <span
+        className={`inline-flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded-full text-xs font-medium border ${config.color}`}
+      >
+        <Icon className="w-3 h-3" />
+        <span className="capitalize">{role}</span>
       </span>
     );
   };
@@ -203,218 +299,317 @@ export function SessionManagementTab() {
     return `${diffDays}d ago`;
   };
 
-  // Filter sessions by search query
-  const filteredSessions = sessions.filter(session => {
-    if (!searchQuery) return true;
+  // Calculate stats
+  const stats = {
+    total: pagination.total,
+    active: sessions.filter(s => !s.revoked && new Date(s.expiresAt) > new Date()).length,
+    expired: sessions.filter(s => !s.revoked && new Date(s.expiresAt) < new Date()).length,
+    revoked: sessions.filter(s => s.revoked).length,
+  };
 
-    const query = searchQuery.toLowerCase();
+  const getStatCards = (): StatCardData[] => {
+    return [
+      {
+        title: "Total Sessions",
+        value: stats.total,
+        subtitle: "All time",
+        icon: Users,
+        colorClass: "text-yellow-400",
+        bgGradient: "from-yellow-500/20 to-yellow-600/10",
+      },
+      {
+        title: "Active",
+        value: stats.active,
+        subtitle: "Currently valid",
+        icon: CheckCircle,
+        colorClass: "text-emerald-400",
+        bgGradient: "from-emerald-500/20 to-emerald-600/10",
+      },
+      {
+        title: "Expired",
+        value: stats.expired,
+        subtitle: "Past validity",
+        icon: Clock,
+        colorClass: "text-gray-400",
+        bgGradient: "from-gray-500/20 to-gray-600/10",
+      },
+      {
+        title: "Revoked",
+        value: stats.revoked,
+        subtitle: "Manually revoked",
+        icon: Ban,
+        colorClass: "text-red-400",
+        bgGradient: "from-red-500/20 to-red-600/10",
+      },
+    ];
+  };
+
+  // Table columns
+  const columns: Column<Session>[] = [
+    {
+      key: "user",
+      header: "User",
+      sortable: true,
+      sortValue: (session) => session.userName || session.shopName || session.userAddress,
+      accessor: (session) => (
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-gradient-to-br from-[#FFCC00] to-yellow-600 flex items-center justify-center flex-shrink-0">
+            {session.userRole === "admin" ? (
+              <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-gray-900" />
+            ) : session.userRole === "shop" ? (
+              <Store className="h-4 w-4 sm:h-5 sm:w-5 text-gray-900" />
+            ) : (
+              <User className="h-4 w-4 sm:h-5 sm:w-5 text-gray-900" />
+            )}
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-white truncate">
+              {session.userName || session.shopName || "Unknown"}
+            </p>
+            <p className="text-xs text-gray-400 font-mono truncate">
+              {session.userAddress.slice(0, 6)}...{session.userAddress.slice(-4)}
+            </p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "role",
+      header: "Role",
+      sortable: true,
+      sortValue: (session) => session.userRole,
+      className: "hidden sm:table-cell",
+      headerClassName: "hidden sm:table-cell",
+      accessor: (session) => getRoleBadge(session.userRole),
+    },
+    {
+      key: "status",
+      header: "Status",
+      sortable: true,
+      sortValue: (session) => getSessionStatus(session),
+      accessor: (session) => getStatusBadge(session),
+    },
+    {
+      key: "lastUsed",
+      header: "Last Used",
+      sortable: true,
+      sortValue: (session) => new Date(session.lastUsedAt).getTime(),
+      className: "hidden md:table-cell",
+      headerClassName: "hidden md:table-cell",
+      accessor: (session) => (
+        <div className="text-sm">
+          <p className="text-white font-medium">{getTimeAgo(session.lastUsedAt)}</p>
+          <p className="text-xs text-gray-400">{formatDate(session.lastUsedAt)}</p>
+        </div>
+      ),
+    },
+    {
+      key: "expires",
+      header: "Expires",
+      sortable: true,
+      sortValue: (session) => new Date(session.expiresAt).getTime(),
+      className: "hidden lg:table-cell",
+      headerClassName: "hidden lg:table-cell",
+      accessor: (session) => {
+        const isExpired = new Date(session.expiresAt) < new Date();
+        return (
+          <div className="text-sm">
+            <p className={`font-medium ${isExpired ? "text-gray-500" : "text-white"}`}>
+              {isExpired ? "Expired" : getTimeAgo(session.expiresAt)}
+            </p>
+            <p className="text-xs text-gray-400">{formatDate(session.expiresAt)}</p>
+          </div>
+        );
+      },
+    },
+    {
+      key: "ip",
+      header: "IP Address",
+      sortable: false,
+      className: "hidden xl:table-cell",
+      headerClassName: "hidden xl:table-cell",
+      accessor: (session) => (
+        <div className="flex items-center gap-2">
+          <Globe className="w-4 h-4 text-gray-500" />
+          <span className="text-sm text-gray-300 font-mono">{session.ipAddress || "N/A"}</span>
+        </div>
+      ),
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      accessor: (session) => (
+        <div className="flex items-center gap-1.5 md:gap-2">
+          {!session.revoked ? (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openRevokeModal(session.tokenId, session.userName || session.shopName, false, session.userAddress);
+                }}
+                disabled={revoking === session.tokenId}
+                className="p-1 md:p-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                title="Revoke"
+              >
+                <XCircle className="w-3.5 h-3.5 md:w-4 md:h-4" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openRevokeModal(session.tokenId, session.userName || session.shopName, true, session.userAddress);
+                }}
+                className="p-1 md:p-1.5 bg-orange-500/10 text-orange-400 border border-orange-500/20 rounded-lg hover:bg-orange-500/20 transition-colors"
+                title="Revoke All"
+              >
+                <Ban className="w-3.5 h-3.5 md:w-4 md:h-4" />
+              </button>
+            </>
+          ) : (
+            session.revokedReason && (
+              <span className="text-xs text-gray-500 truncate max-w-[100px]" title={session.revokedReason}>
+                {session.revokedReason.slice(0, 20)}...
+              </span>
+            )
+          )}
+        </div>
+      ),
+    },
+  ];
+
+  if (loading) {
     return (
-      session.userAddress.toLowerCase().includes(query) ||
-      session.userName?.toLowerCase().includes(query) ||
-      session.shopName?.toLowerCase().includes(query) ||
-      session.ipAddress?.toLowerCase().includes(query)
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-yellow-400 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading sessions...</p>
+        </div>
+      </div>
     );
-  });
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold text-yellow-400 mb-2">Session Management</h2>
-        <p className="text-gray-400">Manage active user sessions and revoke access when needed</p>
+      <DashboardHeader
+        title="Session Management"
+        subtitle="Manage active user sessions and revoke access when needed"
+      />
+
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
+        {getStatCards().map((card) => {
+          const Icon = card.icon;
+          return (
+            <div
+              key={card.title}
+              className={`bg-gradient-to-br ${card.bgGradient} bg-[#212121] rounded-2xl p-4 border border-gray-700/50 hover:border-gray-600/50 transition-all`}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+                  {card.title}
+                </p>
+                <div className={`p-2 rounded-lg bg-black/30 ${card.colorClass}`}>
+                  <Icon className="w-4 h-4" />
+                </div>
+              </div>
+              <p className="text-2xl font-bold text-white mb-1">{card.value}</p>
+              <p className="text-xs text-gray-400">{card.subtitle}</p>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-4 items-center bg-gray-800/50 p-4 rounded-lg">
-        <div className="flex-1 min-w-[300px]">
-          <input
-            type="text"
-            placeholder="Search by address, name, or IP..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-4 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+      {/* Main Content Card */}
+      <div className="bg-[#212121] rounded-3xl">
+        <div
+          className="w-full flex justify-between items-center gap-2 px-4 md:px-8 py-3 md:py-4 text-white rounded-t-3xl"
+          style={{
+            backgroundImage: `url('/img/cust-ref-widget3.png')`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <Monitor className="w-5 h-5 text-gray-900" />
+            <p className="text-sm sm:text-base md:text-lg lg:text-xl text-gray-900 font-semibold">
+              Active Sessions
+            </p>
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="p-4 md:p-6 border-b border-gray-700/50">
+          <div className="flex flex-col sm:flex-row gap-3">
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by address, name, or IP..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-[#2F2F2F] border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-yellow-400 text-sm"
+              />
+            </div>
+
+            {/* Filters and Refresh */}
+            <div className="flex flex-wrap gap-2 sm:gap-3">
+              <select
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-[#FFCC00] border border-gray-600 rounded-3xl text-black focus:outline-none focus:border-yellow-400 text-sm"
+              >
+                <option value="all">All Roles</option>
+                <option value="admin">Admin</option>
+                <option value="shop">Shop</option>
+                <option value="customer">Customer</option>
+              </select>
+
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-[#FFCC00] border border-gray-600 rounded-3xl text-black focus:outline-none focus:border-yellow-400 text-sm"
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="expired">Expired</option>
+                <option value="revoked">Revoked</option>
+              </select>
+
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing || loading}
+                className="px-3 sm:px-4 py-2 bg-[#FFCC00] text-black border border-yellow-500 rounded-3xl hover:bg-yellow-500 transition-all text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+              >
+                <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+                <span className="hidden sm:inline">{refreshing ? "Refreshing..." : "Refresh"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="p-4 md:p-6">
+          <DataTable
+            data={filteredSessions}
+            columns={columns}
+            keyExtractor={(session) => session.id}
+            headerClassName="bg-gray-900/60 border-gray-800"
+            emptyMessage="No sessions found"
+            emptyIcon={<Users className="w-12 h-12 text-gray-500 mx-auto mb-4" />}
+            showPagination={true}
+            itemsPerPage={10}
           />
         </div>
-
-        <select
-          value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value as any)}
-          className="px-4 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
-        >
-          <option value="all">All Roles</option>
-          <option value="admin">Admin</option>
-          <option value="shop">Shop</option>
-          <option value="customer">Customer</option>
-        </select>
-
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as any)}
-          className="px-4 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
-        >
-          <option value="all">All Status</option>
-          <option value="active">Active</option>
-          <option value="expired">Expired</option>
-          <option value="revoked">Revoked</option>
-        </select>
-
-        <button
-          onClick={fetchSessions}
-          disabled={loading}
-          className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-600 text-black font-semibold rounded-lg transition-colors"
-        >
-          {loading ? "Loading..." : "Refresh"}
-        </button>
       </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-          <div className="text-gray-400 text-sm">Total Sessions</div>
-          <div className="text-2xl font-bold text-white mt-1">{pagination.total}</div>
-        </div>
-        <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-          <div className="text-gray-400 text-sm">Active</div>
-          <div className="text-2xl font-bold text-green-400 mt-1">
-            {sessions.filter(s => !s.revoked && new Date(s.expiresAt) > new Date()).length}
-          </div>
-        </div>
-        <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-          <div className="text-gray-400 text-sm">Expired</div>
-          <div className="text-2xl font-bold text-gray-400 mt-1">
-            {sessions.filter(s => !s.revoked && new Date(s.expiresAt) < new Date()).length}
-          </div>
-        </div>
-        <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-          <div className="text-gray-400 text-sm">Revoked</div>
-          <div className="text-2xl font-bold text-red-400 mt-1">
-            {sessions.filter(s => s.revoked).length}
-          </div>
-        </div>
-      </div>
-
-      {/* Sessions Table */}
-      <div className="bg-gray-800/50 rounded-lg border border-gray-700 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-gray-700/50 text-left">
-                <th className="px-4 py-3 text-sm font-semibold text-gray-300">User</th>
-                <th className="px-4 py-3 text-sm font-semibold text-gray-300">Role</th>
-                <th className="px-4 py-3 text-sm font-semibold text-gray-300">Status</th>
-                <th className="px-4 py-3 text-sm font-semibold text-gray-300">Last Used</th>
-                <th className="px-4 py-3 text-sm font-semibold text-gray-300">Expires</th>
-                <th className="px-4 py-3 text-sm font-semibold text-gray-300">IP Address</th>
-                <th className="px-4 py-3 text-sm font-semibold text-gray-300">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-700">
-              {loading ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
-                    Loading sessions...
-                  </td>
-                </tr>
-              ) : filteredSessions.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
-                    No sessions found
-                  </td>
-                </tr>
-              ) : (
-                filteredSessions.map((session) => (
-                  <tr key={session.id} className="hover:bg-gray-700/30 transition-colors">
-                    <td className="px-4 py-3">
-                      <div>
-                        <div className="text-white font-medium">
-                          {session.userName || session.shopName || "Unknown"}
-                        </div>
-                        <div className="text-xs text-gray-400 font-mono">
-                          {session.userAddress.slice(0, 6)}...{session.userAddress.slice(-4)}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">{getRoleBadge(session.userRole)}</td>
-                    <td className="px-4 py-3">{getStatusBadge(session)}</td>
-                    <td className="px-4 py-3">
-                      <div className="text-sm text-white">{getTimeAgo(session.lastUsedAt)}</div>
-                      <div className="text-xs text-gray-400">{formatDate(session.lastUsedAt)}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="text-sm text-white">
-                        {new Date(session.expiresAt) > new Date()
-                          ? getTimeAgo(session.expiresAt)
-                          : "Expired"
-                        }
-                      </div>
-                      <div className="text-xs text-gray-400">{formatDate(session.expiresAt)}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="text-sm text-gray-300 font-mono">{session.ipAddress || "N/A"}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        {!session.revoked && (
-                          <>
-                            <button
-                              onClick={() => openRevokeModal(session.tokenId, session.userName || session.shopName, false, session.userAddress)}
-                              disabled={revoking === session.tokenId}
-                              className="px-3 py-1 text-xs bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded disabled:opacity-50 transition-colors"
-                            >
-                              {revoking === session.tokenId ? "Revoking..." : "Revoke"}
-                            </button>
-                            <button
-                              onClick={() => openRevokeModal(session.tokenId, session.userName || session.shopName, true, session.userAddress)}
-                              className="px-3 py-1 text-xs bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 rounded transition-colors"
-                            >
-                              Revoke All
-                            </button>
-                          </>
-                        )}
-                        {session.revoked && session.revokedReason && (
-                          <div className="text-xs text-gray-400" title={session.revokedReason}>
-                            {session.revokedReason.slice(0, 30)}...
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Pagination */}
-      {pagination.pages > 1 && (
-        <div className="flex justify-center gap-2">
-          <button
-            onClick={() => setPage(page - 1)}
-            disabled={page === 1}
-            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 text-white rounded-lg transition-colors"
-          >
-            Previous
-          </button>
-          <span className="px-4 py-2 bg-gray-800 text-white rounded-lg">
-            Page {page} of {pagination.pages}
-          </span>
-          <button
-            onClick={() => setPage(page + 1)}
-            disabled={page === pagination.pages}
-            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 text-white rounded-lg transition-colors"
-          >
-            Next
-          </button>
-        </div>
-      )}
 
       {/* Revoke Confirmation Modal */}
       <Dialog open={revokeModal.isOpen} onOpenChange={closeRevokeModal}>
-        <DialogContent className="sm:max-w-[500px] bg-gray-900 border-gray-700">
+        <DialogContent className="sm:max-w-[500px] bg-[#212121] border-gray-700">
           <DialogHeader className="flex flex-row items-start gap-3">
-            <div className="mt-1">
-              <AlertTriangle className="w-6 h-6 text-red-500" />
+            <div className="mt-1 p-2 rounded-lg bg-red-500/20">
+              <AlertTriangle className="w-6 h-6 text-red-400" />
             </div>
             <div className="flex-1">
               <DialogTitle className="text-lg font-semibold text-white">
@@ -423,7 +618,7 @@ export function SessionManagementTab() {
               <DialogDescription className="mt-2 text-sm text-gray-400">
                 {revokeModal.isRevokeAll ? (
                   <>
-                    Are you sure you want to revoke <strong>ALL sessions</strong> for{" "}
+                    Are you sure you want to revoke <strong className="text-white">ALL sessions</strong> for{" "}
                     <strong className="text-white">{revokeModal.userName || revokeModal.userAddress}</strong>?
                     <br />
                     <span className="text-red-400">
@@ -454,7 +649,7 @@ export function SessionManagementTab() {
               onChange={(e) => setRevokeReason(e.target.value)}
               placeholder="Enter reason for revocation..."
               rows={3}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+              className="w-full px-3 py-2 bg-[#2F2F2F] border border-gray-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-yellow-400 resize-none"
             />
           </div>
 
@@ -463,14 +658,14 @@ export function SessionManagementTab() {
               variant="outline"
               onClick={closeRevokeModal}
               disabled={!!revoking}
-              className="sm:mr-2 border-gray-600 text-gray-300 hover:bg-gray-800"
+              className="sm:mr-2 border-gray-600 text-gray-300 hover:bg-gray-800 rounded-3xl"
             >
               Cancel
             </Button>
             <Button
               onClick={handleConfirmRevoke}
               disabled={!!revoking}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="bg-red-600 hover:bg-red-700 text-white rounded-3xl"
             >
               {revoking ? (
                 <div className="flex items-center gap-2">
