@@ -26,8 +26,8 @@ import { queryKeys } from "@/config/queryClient";
 export default function Service() {
   const queryClient = useQueryClient();
   const { userProfile } = useAuthStore();
-  const { useServiceQuery, useUpdateService } = useService();
-  const { data: servicesData, isLoading, error, refetch } = useServiceQuery();
+  const { useShopServicesQuery, useUpdateService } = useService();
+  const { data: servicesData, isLoading, error, refetch } = useShopServicesQuery();
   const { mutateAsync: updateServiceMutation } = useUpdateService();
 
   const shopId = userProfile?.shopId;
@@ -162,7 +162,7 @@ export default function Service() {
         setSelectedService({ ...selectedService, active: value });
         
         // Invalidate and refetch services list (use servicesBase for partial match)
-        await queryClient.invalidateQueries({ queryKey: queryKeys.servicesBase(shopId!) });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.shopServices(shopId!) });
         
         // Show success feedback
         Alert.alert(

@@ -4,6 +4,7 @@ import {
   Ionicons,
   MaterialIcons,
   FontAwesome5,
+  MaterialCommunityIcons,
   FontAwesome6,
 } from "@expo/vector-icons";
 import { router, usePathname } from "expo-router";
@@ -65,8 +66,8 @@ export default function CustomFooter() {
           id: "Service",
           label: "Service",
           icon: (isActive: boolean) => (
-            <Ionicons
-              name="people-outline"
+            <MaterialIcons
+              name="home-repair-service"
               size={25}
               color={isActive ? "#FFD600" : "#888"}
             />
@@ -113,6 +114,18 @@ export default function CustomFooter() {
           />
         ),
         route: "/customer/tabs/transaction",
+      },
+      {
+        id: "Services",
+        label: "Services",
+        icon: (isActive: boolean) => (
+          <MaterialIcons
+            name="home-repair-service"
+            size={25}
+            color={isActive ? "#FFD600" : "#888"}
+          />
+        ),
+        route: "/customer/tabs/service",
       },
       {
         id: "Shop",
