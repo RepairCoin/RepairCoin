@@ -98,8 +98,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         prev.filter((id) => id !== "shops-management")
       );
     }
-    // If activeTab changes and it's not "services" or "bookings", collapse the service subtab
-    if (activeTab && activeTab !== "services" && activeTab !== "bookings") {
+    // If activeTab changes and it's not "services" or "bookings" or "service-analytics", collapse the service subtab
+    if (activeTab && activeTab !== "services" && activeTab !== "bookings" && activeTab !== "service-analytics") {
       setExpandedItems((prev) => prev.filter((id) => id !== "service"));
     }
     // Auto-expand customers when it becomes active
@@ -113,9 +113,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     ) {
       setExpandedItems((prev) => [...prev, "shops-management"]);
     }
-    // Auto-expand service when services or bookings becomes active
+    // Auto-expand service when services or bookings or service-analytics becomes active
     if (
-      (activeTab === "services" || activeTab === "bookings") &&
+      (activeTab === "services" || activeTab === "bookings" || activeTab === "service-analytics") &&
       !expandedItems.includes("service")
     ) {
       setExpandedItems((prev) => [...prev, "service"]);
@@ -229,6 +229,12 @@ const Sidebar: React.FC<SidebarProps> = ({
               href: "/shop?tab=bookings",
               icon: <Receipt className="w-4 h-4" />,
               tabId: "bookings",
+            },
+            {
+              title: "Analytics",
+              href: "/shop?tab=service-analytics",
+              icon: <BarChart3 className="w-4 h-4" />,
+              tabId: "service-analytics",
             },
           ],
         },
