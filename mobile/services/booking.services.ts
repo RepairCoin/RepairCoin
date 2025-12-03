@@ -1,9 +1,9 @@
 import { apiClient } from "@/utilities/axios";
 import { buildQueryString } from "@/utilities/helper/buildQueryString";
-import { BookingFilters } from "@/interfaces/booking.interfaces";
+import { BookingFilters, BookingResponse } from "@/interfaces/booking.interfaces";
 
 class BookingApi {
-  async getShopBookings(filters?: BookingFilters) {
+  async getShopBookings(filters?: BookingFilters): Promise<BookingResponse> {
     try {
       const queryString = buildQueryString({...filters});
       return await apiClient.get(`/services/orders/shop${queryString}`);
@@ -13,7 +13,7 @@ class BookingApi {
     }
   }
 
-  async getCustomerBookings(filters?: BookingFilters) {
+  async getCustomerBookings(filters?: BookingFilters): Promise<BookingResponse> {
     try {
       const queryString = buildQueryString({...filters});
       return await apiClient.get(`/services/orders/customer${queryString}`);
