@@ -32,6 +32,17 @@ export function useService() {
     });
   };
 
+  const useGetService = (serviceId: string) => {
+    return useQuery({
+      queryKey: queryKeys.service(serviceId),
+      queryFn: async () => {
+        const response: ServiceResponse = await serviceApi.getService(serviceId);
+        return response.data;
+      },
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    });
+  }
+
   const useCreateService = () => {
     return useMutation({
       mutationFn: async ({
@@ -87,6 +98,7 @@ export function useService() {
   return {
     useGetAllServicesQuery,
     useShopServicesQuery,
+    useGetService,
     useCreateService,
     useUpdateService,
     useDeleteService,

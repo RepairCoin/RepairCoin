@@ -76,6 +76,7 @@ export const queryKeys = {
   // Service related
   services: () => [...queryKeys.all, 'services'] as const,
   shopServices: (shopId: string, options?: { page?: number; limit?: number }) => [...queryKeys.services(), shopId, options] as const,
+  service: (id: string) => [...queryKeys.services(), id] as const,
 
   // Booking related
   bookings: (filters?: BookingFilters) => [...queryKeys.all, 'bookings', filters] as const,
