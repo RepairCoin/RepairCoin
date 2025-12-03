@@ -4,6 +4,7 @@ import { ServiceController } from './controllers/ServiceController';
 import { OrderController } from './controllers/OrderController';
 import { FavoriteController } from './controllers/FavoriteController';
 import { ReviewController } from './controllers/ReviewController';
+import { AnalyticsController } from './controllers/AnalyticsController';
 import { PaymentService } from './services/PaymentService';
 import { authMiddleware, optionalAuthMiddleware, requireRole } from '../../middleware/auth';
 import { StripeService } from '../../services/StripeService';
@@ -17,6 +18,7 @@ export function initializeRoutes(stripe: StripeService): Router {
   const orderController = new OrderController(paymentService);
   const favoriteController = new FavoriteController();
   const reviewController = new ReviewController();
+  const analyticsController = new AnalyticsController();
 
   // ==================== SERVICE MANAGEMENT ROUTES ====================
 
@@ -930,6 +932,282 @@ export function initializeRoutes(stripe: StripeService): Router {
     authMiddleware,
     requireRole(['customer']),
     reviewController.canReview
+  );
+
+  // ==================== ANALYTICS ROUTES ====================
+
+  /**
+   * @swagger
+   * /api/services/analytics/shop:
+   *   get:
+   *     summary: Get comprehensive analytics for shop's services (Shop only)
+   *     description: Retrieve detailed analytics including overview metrics, top services, order trends, and category breakdown
+   *     tags: [Service Analytics]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: topServicesLimit
+   *         schema:
+   *           type: integer
+   *           default: 10
+   *         description: Number of top services to return
+   *       - in: query
+   *         name: trendDays
+   *         schema:
+   *           type: integer
+   *           default: 30
+   *         description: Number of days for trend analysis
+   *     responses:
+   *       200:
+   *         description: Shop analytics summary
+   */
+  router.get(
+    '/analytics/shop',
+    authMiddleware,
+    requireRole(['shop']),
+    analyticsController.getShopAnalytics
+  );
+
+  /**
+   * @swagger
+   * /api/services/analytics/shop/overview:
+   *   get:
+   *     summary: Get shop service overview metrics (Shop only)
+   *     description: Retrieve high-level metrics for shop's services
+   *     tags: [Service Analytics]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Shop overview metrics
+   */
+  router.get(
+    '/analytics/shop/overview',
+    authMiddleware,
+    requireRole(['shop']),
+    analyticsController.getShopOverview
+  );
+
+  /**
+   * @swagger
+   * /api/services/analytics/shop/top-services:
+   *   get:
+   *     summary: Get top performing services (Shop only)
+   *     description: Retrieve shop's best performing services by revenue
+   *     tags: [Service Analytics]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: limit
+   *         schema:
+   *           type: integer
+   *           default: 10
+   *     responses:
+   *       200:
+   *         description: List of top services
+   */
+  router.get(
+    '/analytics/shop/top-services',
+    authMiddleware,
+    requireRole(['shop']),
+    analyticsController.getTopServices
+  );
+
+  /**
+   * @swagger
+   * /api/services/analytics/shop/trends:
+   *   get:
+   *     summary: Get order trends (Shop only)
+   *     description: Retrieve daily order trends for specified period
+   *     tags: [Service Analytics]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: days
+   *         schema:
+   *           type: integer
+   *           default: 30
+   *     responses:
+   *       200:
+   *         description: Daily order trends
+   */
+  router.get(
+    '/analytics/shop/trends',
+    authMiddleware,
+    requireRole(['shop']),
+    analyticsController.getShopOrderTrends
+  );
+
+  /**
+   * @swagger
+   * /api/services/analytics/shop/categories:
+   *   get:
+   *     summary: Get category breakdown (Shop only)
+   *     description: Retrieve performance metrics by service category
+   *     tags: [Service Analytics]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Category performance data
+   */
+  router.get(
+    '/analytics/shop/categories',
+    authMiddleware,
+    requireRole(['shop']),
+    analyticsController.getShopCategoryBreakdown
+  );
+
+  /**
+   * @swagger
+   * /api/services/analytics/platform:
+   *   get:
+   *     summary: Get platform-wide service analytics (Admin only)
+   *     description: Retrieve comprehensive platform metrics for service marketplace
+   *     tags: [Service Analytics]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: topShopsLimit
+   *         schema:
+   *           type: integer
+   *           default: 10
+   *       - in: query
+   *         name: trendDays
+   *         schema:
+   *           type: integer
+   *           default: 30
+   *     responses:
+   *       200:
+   *         description: Platform analytics summary
+   */
+  router.get(
+    '/analytics/platform',
+    authMiddleware,
+    requireRole(['admin']),
+    analyticsController.getPlatformAnalytics
+  );
+
+  /**
+   * @swagger
+   * /api/services/analytics/platform/overview:
+   *   get:
+   *     summary: Get platform overview metrics (Admin only)
+   *     description: Retrieve high-level platform metrics
+   *     tags: [Service Analytics]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Platform overview metrics
+   */
+  router.get(
+    '/analytics/platform/overview',
+    authMiddleware,
+    requireRole(['admin']),
+    analyticsController.getPlatformOverview
+  );
+
+  /**
+   * @swagger
+   * /api/services/analytics/platform/top-shops:
+   *   get:
+   *     summary: Get top performing shops (Admin only)
+   *     description: Retrieve shops with best marketplace performance
+   *     tags: [Service Analytics]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: limit
+   *         schema:
+   *           type: integer
+   *           default: 10
+   *     responses:
+   *       200:
+   *         description: List of top shops
+   */
+  router.get(
+    '/analytics/platform/top-shops',
+    authMiddleware,
+    requireRole(['admin']),
+    analyticsController.getTopShops
+  );
+
+  /**
+   * @swagger
+   * /api/services/analytics/platform/trends:
+   *   get:
+   *     summary: Get platform order trends (Admin only)
+   *     description: Retrieve daily platform-wide order trends
+   *     tags: [Service Analytics]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: days
+   *         schema:
+   *           type: integer
+   *           default: 30
+   *     responses:
+   *       200:
+   *         description: Daily platform trends
+   */
+  router.get(
+    '/analytics/platform/trends',
+    authMiddleware,
+    requireRole(['admin']),
+    analyticsController.getPlatformOrderTrends
+  );
+
+  /**
+   * @swagger
+   * /api/services/analytics/platform/categories:
+   *   get:
+   *     summary: Get platform category performance (Admin only)
+   *     description: Retrieve platform-wide category metrics
+   *     tags: [Service Analytics]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: limit
+   *         schema:
+   *           type: integer
+   *           default: 10
+   *     responses:
+   *       200:
+   *         description: Category performance data
+   */
+  router.get(
+    '/analytics/platform/categories',
+    authMiddleware,
+    requireRole(['admin']),
+    analyticsController.getPlatformCategoryPerformance
+  );
+
+  /**
+   * @swagger
+   * /api/services/analytics/platform/health:
+   *   get:
+   *     summary: Get marketplace health score (Admin only)
+   *     description: Retrieve overall health score and metrics for service marketplace
+   *     tags: [Service Analytics]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Marketplace health metrics
+   */
+  router.get(
+    '/analytics/platform/health',
+    authMiddleware,
+    requireRole(['admin']),
+    analyticsController.getMarketplaceHealthScore
   );
 
   return router;
