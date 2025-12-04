@@ -53,4 +53,4 @@ export interface UpdateServiceData {
   active?: boolean;
 }
 
-export interface ServiceResponse extends BaseResponse<ServiceData> {}
+export interface ServiceResponse extends BaseResponse<ServiceData[]> {}
