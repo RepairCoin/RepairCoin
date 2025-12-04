@@ -320,6 +320,50 @@ Advance through loyalty tiers to earn bonus tokens with every repair:
 
 ---
 
+## 🛒 Service Marketplace ✅ **NEW (December 2024)**
+
+### **Browse Services**
+- **Service Discovery**: Browse all available services across participating shops
+- **Search & Filters**: Find services by name, category, price range, and location
+- **Service Cards**: View detailed service information at a glance:
+  - Service name, price, and duration
+  - Shop information and ratings
+  - Customer reviews and ratings (⭐ 1-5 stars)
+  - Service category and description
+- **Sort Options**: Sort by price, rating, newest, or oldest
+- **Category Filtering**: Filter by service categories (oil change, brakes, etc.)
+
+### **Service Favorites** ✅
+- **Save Services**: Bookmark favorite services with heart icon
+- **Favorites View**: Dedicated page to view all saved services
+- **Quick Access**: Toggle between all services and favorites in marketplace
+- **One-Click Booking**: Easy booking from favorites list
+- **Real-time Status**: See which services you've favorited instantly
+
+### **Service Details**
+- **Detailed Information**: View complete service descriptions and pricing
+- **Shop Information**: See shop details, location, and contact info
+- **Customer Reviews**: Read reviews from verified customers
+- **Star Ratings**: See average rating and total review count
+- **Share Services**: Share services via social media or copy link
+- **Book Service**: Direct booking from service details page
+
+### **Social Sharing** ✅
+- **Share Options**: Share services via WhatsApp, Twitter, Facebook
+- **Copy Link**: One-click link copying with success notification
+- **Referral Integration**: Share services with your referral code included
+- **Social Proof**: See how many people have booked each service
+
+### **Reviews & Ratings System** ✅
+- **Write Reviews**: Rate and review services after completion (1-5 stars)
+- **View Reviews**: Browse all customer reviews with filtering options
+- **Filter by Rating**: Filter reviews by star rating (1-5 stars)
+- **Helpful Voting**: Mark helpful reviews to surface quality feedback
+- **Verified Badge**: See "Verified Order" badges on legitimate reviews
+- **Shop Responses**: View shop owner responses to reviews
+- **Review Submission**: Easy review form after completing service bookings
+- **Review Status**: See if you've already reviewed a service
+
 ## 🔍 Shop Discovery & Selection
 
 ### **Finding the Right Shop**
