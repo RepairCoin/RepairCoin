@@ -347,6 +347,38 @@ cd backend && npm run dev:docs
 
 ## 📝 Recent Updates
 
+### December 4, 2024
+- **Service Analytics Dashboard** - Comprehensive performance tracking for shops
+  - Top performing services with conversion rates
+  - Category breakdown and revenue analytics
+  - Order trends with customizable time periods (7/30/90 days)
+  - RCN redemption and customer rating insights
+- **Admin Marketplace Analytics** - Platform-wide insights
+  - Marketplace health score (0-100) based on 4 key metrics
+  - Top performing shops and service categories
+  - Revenue and order trends across all shops
+- Fixed deployment errors (TypeScript compilation and missing dependencies)
+- Fixed shop purchase history accessibility
+- Fixed customer marketplace query bug
+
+### December 2-3, 2024
+- **Reviews & Ratings System**
+  - Customer reviews with 1-5 star ratings
+  - Shop response capability
+  - Helpful voting and verified order badges
+  - Integrated review tabs in service details
+- **Service Favorites System**
+  - Save/bookmark favorite services
+  - Dedicated favorites view with toggle
+  - One-click access from marketplace
+- **Social Sharing**
+  - Share services via WhatsApp, Twitter, Facebook
+  - Copy link feature with success notifications
+- **Shop Dashboard Improvements**
+  - Redesigned booking items with compact layout
+  - Custom completion modal showing RCN rewards
+  - Clickable service cards opening details modal
+
 ### September 1, 2025
 - Transitioned to dual-token model (RCN utility + RCG governance)
 - Updated RCN to unlimited supply with burn mechanism

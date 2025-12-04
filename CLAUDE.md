@@ -168,12 +168,27 @@ cp env.example .env
 - Service booking management with custom completion modal
 - View and respond to customer reviews
 - Service details modal with integrated reviews tab
+- **Service Analytics Dashboard** (NEW):
+  - Performance metrics and revenue tracking
+  - Top 5 performing services with conversion rates
+  - Category breakdown with detailed statistics
+  - Order trends with time period filters (7/30/90 days)
+  - RCN redemption analytics
+  - Customer rating insights
+- View purchase history (accessible even without active subscription)
 
 ### Admin Features
 - Platform statistics & analytics
 - Shop approval & management
 - Token minting & treasury tracking
 - Customer management
+- **Service Marketplace Analytics** (NEW):
+  - Platform-wide performance overview
+  - Marketplace health score (0-100) with 4 key metrics
+  - Top performing shops and categories
+  - Revenue and order trends
+  - Service adoption and conversion rates
+  - Customer satisfaction metrics
 
 ## Common Issues & Solutions
 
@@ -264,6 +279,26 @@ stripe listen --forward-to localhost:4000/api/shops/webhooks/stripe
 - Made service cards clickable to open details modal
 - Created ShopServiceDetailsModal with tabs for Details and Reviews
 - Shop owners can view and respond to reviews from service details
+
+### Service Analytics System (December 4, 2024)
+- **Shop Analytics Dashboard** - Comprehensive performance tracking
+  - 8 metric cards: total services, revenue, average order value, customer rating
+  - RCN metrics: redemption rate, total redeemed, discounts given
+  - Top 5 performing services with detailed stats
+  - Category breakdown showing performance by service type
+  - Order trends with daily activity for last 7/30/90 days
+  - Time period filters for flexible analysis
+- **Admin Analytics Dashboard** - Platform-wide insights
+  - Marketplace health score (0-100) with color-coded status
+  - 4 key health metrics: shop adoption, avg services per shop, order conversion, customer satisfaction
+  - Top performing shops with revenue and rating data
+  - Top categories by revenue and order count
+  - Platform overview: total shops, revenue, orders, RCN metrics
+- **Backend Implementation**
+  - 11 new API endpoints (5 for shops, 6 for admins)
+  - Complex SQL queries with CTEs for optimal performance
+  - Full TypeScript API client with type safety
+  - Real-time data aggregation
 
 ### Integration & Polish
 - Connected review system to completed service bookings
