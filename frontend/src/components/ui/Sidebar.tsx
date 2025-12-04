@@ -924,6 +924,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                         {/* Sub Items */}
                         {!isCollapsed && hasSubItems && isExpanded && (
                           <ul className="mt-1 ml-4 space-y-1">
+                            {(() => {
+                              if (item.title === "Service") {
+                                console.log("Service subItems:", item.subItems);
+                              }
+                              return null;
+                            })()}
                             {item.subItems?.map((subItem) => {
                               const subIsActive =
                                 (userRole === "shop" ||
