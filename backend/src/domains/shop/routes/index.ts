@@ -58,8 +58,8 @@ import purchaseSyncRoutes from './purchase-sync';
 const router = Router();
 
 // Register sub-routes (protected by auth)
-// Purchase routes require active subscription (enforces cancellation if beyond grace period)
-router.use('/purchase', authMiddleware, requireRole(['shop']), requireActiveSubscription(), purchaseRoutes);
+// Purchase routes - auth required, but subscription only for purchase operations (not viewing history/balance)
+router.use('/purchase', authMiddleware, requireRole(['shop']), purchaseRoutes);
 router.use('/tier-bonus', authMiddleware, requireRole(['shop']), tierBonusRoutes);
 router.use('/deposit', authMiddleware, requireRole(['shop']), depositRoutes); // RCN deposit routes
 router.use('/purchase-sync', authMiddleware, requireRole(['shop']), purchaseSyncRoutes); // Payment sync routes
