@@ -41,7 +41,7 @@ export interface Customer {
   tierProgression: {};
 }
 
-export interface CreateCustomerRequest {
+export interface CustomerFormData {
   address?: string;
   name?: string;
   email: string;

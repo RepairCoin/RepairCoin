@@ -10,8 +10,7 @@ import React, { useEffect, useState } from "react";
 import * as Clipboard from "expo-clipboard";
 import { router } from "expo-router";
 import { useAuthStore } from "@/store/auth.store";
-import { useTheme } from "@/hooks/useTheme";
-import { useThemeColor } from "@/hooks/useThemeColor";
+import { useTheme } from "@/hooks/theme/useTheme";
 import { ThemedView } from "@/components/ui/ThemedView";
 import { useShop } from "@/hooks/shop/useShop";
 
@@ -26,7 +25,7 @@ const CopyableField = ({
   isCopied,
   handleCopyValue,
 }: CopyableFieldProps) => {
-  const displayValue = 
+  const displayValue =
     value && value.length > 20 ? `${value.substring(0, 20)}...` : value || "";
 
   return (
@@ -58,14 +57,13 @@ const CopyableField = ({
 };
 
 export default function Account() {
+  const { useGetShopByWalletAddress } = useShop();
+  const { useThemeColor } = useTheme();
+
   const { logout } = useAuthStore((state) => state);
   const { account } = useAuthStore();
-  const { useGetShopByWalletAddress } = useShop();
   const { data: shopData } = useGetShopByWalletAddress(account?.address || "");
-  const { isLightMode, toggleColorScheme } = useTheme();
-  
-  const theme = useThemeColor();
-  // Now you can access: theme.background, theme.text, theme.textInverted, etc.
+  const { isLightMode, toggleColorScheme } = useThemeColor();
 
   const [isCopied, setIsCopied] = useState<boolean>(false);
 
@@ -94,7 +92,7 @@ export default function Account() {
         <View className="flex-row py-6 px-4 justify-between bg-[#212121] rounded-xl items-center">
           <View className="gap-2">
             <Text className="text-[#FFCC00] text-xl font-bold">
-             {shopData?.name || "No name"}
+              {shopData?.name || "No name"}
             </Text>
             <Text className="text-white/50 text-base">
               {shopData?.email || "No email"}
@@ -114,9 +112,7 @@ export default function Account() {
           </View>
           <CopyableField
             value={account?.address || ""}
-            handleCopyValue={() =>
-              handleCopyValue(account?.address || "")
-            }
+            handleCopyValue={() => handleCopyValue(account?.address || "")}
             isCopied={isCopied}
           />
         </View>
@@ -131,17 +127,15 @@ export default function Account() {
                 />
               </View>
               <View className="px-4 gap-1">
-                <Text className="text-white text-xl font-semibold">
-                  Theme
-                </Text>
+                <Text className="text-white text-xl font-semibold">Theme</Text>
                 <Text className="text-white/50 text-sm">
                   {isLightMode ? "Light Mode" : "Dark Mode"}
                 </Text>
               </View>
             </View>
             <Switch
-              trackColor={{ false: '#767577', true: '#FFCC00' }}
-              thumbColor={isLightMode ? '#fff' : '#f4f3f4'}
+              trackColor={{ false: "#767577", true: "#FFCC00" }}
+              thumbColor={isLightMode ? "#fff" : "#f4f3f4"}
               ios_backgroundColor="#767577"
               onValueChange={toggleColorScheme}
               value={isLightMode}
@@ -149,11 +143,15 @@ export default function Account() {
           </View>
           <Pressable
             onPress={() => router.push("/shop/subscription")}
-            className="flex-row justify-between items-center pt-4"
+            className="flex-row justify-between items-center py-4 border-b border-zinc-700"
           >
             <View className="flex-row items-center">
               <View className="rounded-full bg-[#2B2B2B] w-12 h-12 items-center justify-center">
-                <MaterialIcons name="card-membership" color="#FFCC00" size={20} />
+                <MaterialIcons
+                  name="card-membership"
+                  color="#FFCC00"
+                  size={20}
+                />
               </View>
               <View className="px-4 gap-1">
                 <Text className="text-white text-xl font-semibold">
@@ -161,6 +159,25 @@ export default function Account() {
                 </Text>
                 <Text className="text-white/50 text-sm">
                   Manage your subscription
+                </Text>
+              </View>
+            </View>
+            <AntDesign name="right" color="#fff" size={18} />
+          </Pressable>
+          <Pressable
+            onPress={() => router.push("/shop/booking")}
+            className="flex-row justify-between items-center pt-4"
+          >
+            <View className="flex-row items-center">
+              <View className="rounded-full bg-[#2B2B2B] w-12 h-12 items-center justify-center">
+                <Ionicons name="calendar" color="#FFCC00" size={20} />
+              </View>
+              <View className="px-4 gap-1">
+                <Text className="text-white text-xl font-semibold">
+                  Booking
+                </Text>
+                <Text className="text-white/50 text-sm">
+                  Manage your bookings
                 </Text>
               </View>
             </View>

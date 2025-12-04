@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
-import { CreateShopRequest } from "@/interfaces/shop.interface";
+import { ShopFormData } from "@/interfaces/shop.interface";
 import { shopApi } from "@/services/shop.services";
 import { useAuthStore } from "@/store/auth.store";
 import { useAuth } from "../auth/useAuth";
@@ -10,16 +10,8 @@ import { ShopByWalletAddressResponse } from "@/interfaces/shop.interface";
 
 export function useShop() {
   const useRegisterShop = () => {
-    const setUserProfile = useAuthStore((state) => state.setUserProfile);
-    const setAccessToken = useAuthStore((state) => state.setAccessToken);
-    const setRefreshToken = useAuthStore((state) => state.setRefreshToken);
-    const setUserType = useAuthStore((state) => state.setUserType);
-    const { useGetToken } = useAuth();
-
-    const getTokenMutation = useGetToken();
-
     return useMutation({
-      mutationFn: async (formData: CreateShopRequest) => {
+      mutationFn: async (formData: ShopFormData) => {
         if (!formData.walletAddress) {
           throw new Error("No wallet address provided");
         }
@@ -28,18 +20,7 @@ export function useShop() {
       },
       onSuccess: async (result) => {
         if (result.success) {
-          const getTokenResult = await getTokenMutation.mutateAsync(
-            result.user?.walletAddress
-          );
-          if (getTokenResult.success) {
-            setUserProfile(result.user);
-            setAccessToken(getTokenResult.token);
-            setRefreshToken(getTokenResult.refreshToken);
-            setUserType(result.type);
-            apiClient.setAuthToken(getTokenResult.token);
-
-            router.push("/shop/tabs/home");
-          }
+          router.push("/register/pending");
         }
       },
       onError: (error: any) => {

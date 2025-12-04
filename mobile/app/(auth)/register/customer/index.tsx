@@ -5,9 +5,9 @@ import { AntDesign } from "@expo/vector-icons";
 
 import Screen from "@/components/ui/Screen";
 import PrimaryButton from "@/components/ui/PrimaryButton";
-import { RegisterAsCustomerService } from "@/services/RegisterServices";
 import { useAuthStore } from "@/store/auth.store";
 import { EmailValidation } from "@/utilities/Validation";
+import { useCustomer } from "@/hooks/customer/useCustomer";
 
 // Types
 interface FormData {
@@ -63,6 +63,9 @@ const FormInput: React.FC<FormInputProps> = ({
 
 // Main Component
 export default function RegisterAsCustomerPage() {
+  const { useRegisterCustomer } = useCustomer();
+  const { mutate: registerCustomer, isPending: isLoading } = useRegisterCustomer();
+
   // State Management
   const [formData, setFormData] = useState<FormData>({
     fullName: "",
@@ -71,11 +74,9 @@ export default function RegisterAsCustomerPage() {
   });
   
   const [formErrors, setFormErrors] = useState<FormErrors>({});
-  const [isLoading, setIsLoading] = useState(false);
 
   // Auth Store
   const account = useAuthStore((state) => state.account);
-  const login = useAuthStore((state) => state.login);
 
   // Form Handlers
   const updateFormData = useCallback((field: keyof FormData, value: string) => {
@@ -110,47 +111,26 @@ export default function RegisterAsCustomerPage() {
 
   // Form Submission
   const handleSubmit = useCallback(async () => {
-    if (!validateForm()) {
-      return;
-    }
-
-    if (!account?.address) {
-      Alert.alert("Error", "Wallet not connected. Please connect your wallet first.");
-      router.push("/wallet");
-      return;
-    }
-
-    setIsLoading(true);
-
     try {
-      const response = await RegisterAsCustomerService({
-        walletAddress: account.address,
-        name: formData.fullName.trim(),
-        email: formData.email.trim().toLowerCase(),
-        phone: "", // Phone is optional/not required anymore
-        referralCode: formData.referral.trim() || undefined,
-      });
-
-      if (response.success) {
-        // Login the user after successful registration
-        await login();
-        router.push("/register/customer/Success");
-      } else {
-        Alert.alert(
-          "Registration Failed",
-          "An error occurred during registration. Please try again."
-        );
+      if (!validateForm()) {
+        return;
       }
+
+      const submissionData = {
+        ...formData,
+        walletAddress: account.address,
+      };
+
+      registerCustomer(submissionData);
+      
     } catch (error) {
       console.error("Registration error:", error);
       Alert.alert(
         "Registration Error",
         "Unable to complete registration. Please check your connection and try again."
       );
-    } finally {
-      setIsLoading(false);
     }
-  }, [validateForm, account, formData, login]);
+  }, [validateForm, account, formData]);
 
   // Check if form is valid for submission
   const isFormValid = useMemo(() => {

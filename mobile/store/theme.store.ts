@@ -19,7 +19,7 @@ export const useThemeStore = create<ThemeState>()(
         })),
     }),
     {
-      name: 'theme-storage',
+      name: 'theme-store',
       storage: createJSONStorage(() => AsyncStorage),
     }
   )

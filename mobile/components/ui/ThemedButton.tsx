@@ -5,7 +5,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { ThemedText } from "./ThemedText";
-import { useThemeColor } from "@/hooks/useThemeColor";
+import { useTheme } from "@/hooks/theme/useTheme";
 
 export type ThemedButtonProps = {
   onPress?: PressableProps["onPress"];
@@ -16,10 +16,11 @@ export type ThemedButtonProps = {
 };
 
 export function ThemedButton(props: ThemedButtonProps) {
+  const { useThemeColor } = useTheme();
+  const { theme } = useThemeColor();
   const variant = props.variant ?? "primary";
-  const theme = useThemeColor();
   const textColor = variant == "secondary" ? theme.text : theme.textInverted;
-  
+
   return (
     <TouchableOpacity
       disabled={props.loading}

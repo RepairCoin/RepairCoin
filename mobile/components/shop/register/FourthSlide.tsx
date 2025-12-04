@@ -3,13 +3,13 @@ import { AntDesign } from "@expo/vector-icons";
 import { Checkbox } from "expo-checkbox";
 import Screen from "@/components/ui/Screen";
 import PrimaryButton from "@/components/ui/PrimaryButton";
-import type { ShopRegistrationFormData } from "@/services/authServices";
+import { ShopFormData } from "@/interfaces/shop.interface";
 
 type Props = {
   handleGoBack: () => void;
   handleSubmit: () => void;
-  formData: ShopRegistrationFormData;
-  updateFormData: <K extends keyof ShopRegistrationFormData>(field: K, value: ShopRegistrationFormData[K]) => void;
+  formData: ShopFormData;
+  updateFormData: <K extends keyof ShopFormData>(field: K, value: ShopFormData[K]) => void;
   isLoading?: boolean;
 };
 

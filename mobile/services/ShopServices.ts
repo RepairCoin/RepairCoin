@@ -43,7 +43,7 @@ export interface ShopResponse {
   message?: string;
 }
 
-export interface ShopByWalletAddressData {
+export interface ShopData {
   active: boolean;
   address: string;
   crossShopEnabled: boolean;
@@ -68,7 +68,7 @@ export interface ShopByWalletAddressData {
 }
 
 export interface ShopByWalletAddressResponse {
-  data: ShopByWalletAddressData;
+  data: ShopData;
   success: boolean;
   message?: string;
 }

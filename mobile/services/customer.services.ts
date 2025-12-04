@@ -1,4 +1,4 @@
-import { CreateCustomerRequest, CustomerData } from "@/interfaces/customer.interface";
+import { CustomerFormData, CustomerData } from "@/interfaces/customer.interface";
 import apiClient from "@/utilities/axios";
 
 class CustomerApi {
@@ -20,7 +20,7 @@ class CustomerApi {
     }
   };
 
-  async register(payload: CreateCustomerRequest) {
+  async register(payload: CustomerFormData) {
     try {
       return await apiClient.post("/customers/register", payload);
     } catch (error) {

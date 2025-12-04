@@ -1,11 +1,11 @@
 import apiClient from "@/utilities/axios";
 import {
-  CreateShopRequest,
+  ShopFormData,
   ShopByWalletAddressResponse,
-} from "../interfaces/shop.interface";
+} from "@/interfaces/shop.interface";
 
 class ShopApi {
-  async register(payload: CreateShopRequest) {
+  async register(payload: ShopFormData) {
     try {
       return await apiClient.post("/shops/register", payload);
     } catch (error) {

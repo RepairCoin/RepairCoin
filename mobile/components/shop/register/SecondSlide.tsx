@@ -2,15 +2,14 @@ import { View, Text, TextInput, Pressable, StyleSheet, Alert } from "react-nativ
 import { AntDesign, Ionicons } from "@expo/vector-icons";
 import RNPickerSelect from "react-native-picker-select";
 import Screen from "@/components/ui/Screen";
-import { CompanySize, MonthlyRevenue } from "@/utilities/GlobalTypes";
-import type { ShopRegistrationFormData } from "@/services/authServices";
 import { useMemo } from "react";
+import { ShopFormData } from "@/interfaces/shop.interface";
 
 type Props = {
   handleGoBack: () => void;
   handleGoNext: () => void;
-  formData: ShopRegistrationFormData;
-  updateFormData: <K extends keyof ShopRegistrationFormData>(field: K, value: ShopRegistrationFormData[K]) => void;
+  formData: ShopFormData;
+  updateFormData: <K extends keyof ShopFormData>(field: K, value: ShopFormData[K]) => void;
 };
 
 export default function SecondShopRegisterSlide({
