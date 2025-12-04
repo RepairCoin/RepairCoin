@@ -296,7 +296,7 @@ export class ServiceRepository extends BaseRepository {
           sh.email as shop_email,
           NULL as shop_logo,
           COALESCE(AVG(r.rating), 0) as avg_rating,
-          COUNT(r.id) as review_count
+          COUNT(r.review_id) as review_count
         FROM shop_services s
         INNER JOIN shops sh ON s.shop_id = sh.shop_id
         LEFT JOIN service_reviews r ON s.service_id = r.service_id
