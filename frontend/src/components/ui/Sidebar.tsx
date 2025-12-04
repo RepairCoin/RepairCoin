@@ -25,6 +25,7 @@ import {
   ShoppingBag,
   Receipt,
   Heart,
+  BarChart3,
 } from "lucide-react";
 import {
   IssueRewardsIcon,
