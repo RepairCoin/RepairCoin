@@ -3,14 +3,14 @@ import { AntDesign, Ionicons } from "@expo/vector-icons";
 import CountryPicker, { CountryCode } from "react-native-country-picker-modal";
 import { MaskedTextInput } from "react-native-mask-text";
 import Screen from "@/components/ui/Screen";
-import type { ShopRegistrationFormData } from "@/services/authServices";
 import { useMemo } from "react";
+import { ShopFormData } from "@/interfaces/shop.interface";
 
 type Props = {
   handleGoBack: () => void;
   handleGoNext: () => void;
-  formData: ShopRegistrationFormData;
-  updateFormData: <K extends keyof ShopRegistrationFormData>(field: K, value: ShopRegistrationFormData[K]) => void;
+  formData: ShopFormData;
+  updateFormData: <K extends keyof ShopFormData>(field: K, value: ShopFormData[K]) => void;
   countryCode: CountryCode;
   setCountryCode: (code: CountryCode) => void;
 }

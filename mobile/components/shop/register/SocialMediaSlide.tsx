@@ -1,14 +1,13 @@
 import { View, Text, TextInput, Pressable, Alert } from "react-native";
 import { AntDesign, Ionicons } from "@expo/vector-icons";
 import Screen from "@/components/ui/Screen";
-import type { ShopRegistrationFormData } from "@/services/authServices";
-import { useMemo } from "react";
+import { ShopFormData } from "@/interfaces/shop.interface";
 
 type Props = {
   handleGoBack: () => void;
   handleGoNext: () => void;
-  formData: ShopRegistrationFormData;
-  updateFormData: <K extends keyof ShopRegistrationFormData>(field: K, value: ShopRegistrationFormData[K]) => void;
+  formData: ShopFormData;
+  updateFormData: <K extends keyof ShopFormData>(field: K, value: ShopFormData[K]) => void;
 };
 
 export default function SocialMediaSlide({

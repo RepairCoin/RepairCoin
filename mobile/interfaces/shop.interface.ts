@@ -1,6 +1,6 @@
 import { BaseResponse } from "./base.interface";
 
-export interface CreateShopRequest {
+export interface ShopFormData {
   // Shop Information
   shopId: string;
   name: string; // Company name
@@ -43,7 +43,7 @@ export interface CreateShopRequest {
   acceptTerms: boolean;
 }
 
-export interface ShopByWalletAddressData {
+export interface ShopData {
   active: boolean;
   address: string;
   crossShopEnabled: boolean;
@@ -67,4 +67,4 @@ export interface ShopByWalletAddressData {
   website: string;
 }
 
-export interface ShopByWalletAddressResponse extends BaseResponse<ShopByWalletAddressData> {}
+export interface ShopByWalletAddressResponse extends BaseResponse<ShopData> {}

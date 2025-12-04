@@ -1,10 +1,8 @@
-import { goBack } from "expo-router/build/global-state/routing";
 import React, {
   useCallback,
   useMemo,
   useRef,
   useState,
-  useEffect,
 } from "react";
 import {
   FlatList,
@@ -13,17 +11,17 @@ import {
   Dimensions,
   Alert,
 } from "react-native";
-import { CountryCode } from "react-native-country-picker-modal";
 import { router } from "expo-router";
+import { goBack } from "expo-router/build/global-state/routing";
+import { CountryCode } from "react-native-country-picker-modal";
+import { useAuthStore } from "@/store/auth.store";
+import { useShop } from "@/hooks/shop/useShop";
 import FirstShopRegisterSlide from "@/components/shop/register/FirstSlide";
 import SecondShopRegisterSlide from "@/components/shop/register/SecondSlide";
-import { CompanySize, MonthlyRevenue } from "@/utilities/GlobalTypes";
 import ThirdShopRegisterSlide from "@/components/shop/register/ThirdSlide";
 import SocialMediaSlide from "@/components/shop/register/SocialMediaSlide";
 import FourthShopRegisterSlide from "@/components/shop/register/FourthSlide";
-import { useAuthStore } from "@/store/auth.store";
-import { useRegisterShop } from "@/hooks/useAuthQueries";
-import { ShopRegistrationFormData } from "@/services/authServices";
+import { ShopFormData } from "@/interfaces/shop.interface";
 
 const { width } = Dimensions.get("window");
 
@@ -33,6 +31,7 @@ type Slide = {
 
 export default function RegisterAsShopPage() {
   const account = useAuthStore((state) => state.account);
+  const { useRegisterShop } = useShop();
   const { mutate: registerShop, isPending } = useRegisterShop();
   const [index, setIndex] = useState(0);
   const flatRef = useRef<FlatList<Slide>>(null);
@@ -47,7 +46,7 @@ export default function RegisterAsShopPage() {
     []
   );
 
-  const [formData, setFormData] = useState<ShopRegistrationFormData>({
+  const [formData, setFormData] = useState<ShopFormData>({
     // Shop Information
     shopId: "",
     name: "",
@@ -92,9 +91,9 @@ export default function RegisterAsShopPage() {
   const [countryCode, setCountryCode] = useState<CountryCode>("US");
 
   const updateFormData = useCallback(
-    <K extends keyof ShopRegistrationFormData>(
+    <K extends keyof ShopFormData>(
       field: K,
-      value: ShopRegistrationFormData[K]
+      value: ShopFormData[K]
     ) => {
       setFormData((prev) => {
         const updated = { ...prev, [field]: value };
@@ -127,15 +126,6 @@ export default function RegisterAsShopPage() {
 
   // Form Submission
   const handleSubmit = useCallback(async () => {
-    if (!account?.address) {
-      Alert.alert(
-        "Error",
-        "Wallet not connected. Please connect your wallet first."
-      );
-      router.push("/wallet");
-      return;
-    }
-
     try {
       // Add wallet address to form data
       const submissionData = {
@@ -144,20 +134,7 @@ export default function RegisterAsShopPage() {
       };
 
       // Call the mutation
-      registerShop(submissionData, {
-        onSuccess: (result) => {
-          if (result.success) {
-            router.push("/register/pending");
-          }
-        },
-        onError: (error) => {
-          console.error("Registration error:", error);
-          Alert.alert(
-            "Registration Failed",
-            "An error occurred during registration. Please try again."
-          );
-        }
-      });
+      registerShop(submissionData);
     } catch (error) {
       console.error("Registration error:", error);
       Alert.alert(

@@ -18,7 +18,7 @@ import { router, useRouter } from "expo-router";
 import { useAuthStore } from "@/store/auth.store";
 import { Tier } from "@/utilities/GlobalTypes";
 import DetailCard from "@/components/ui/DetailCard";
-import { ShopByWalletAddressData } from "@/services/ShopServices";
+import { ShopData } from "@/services/ShopServices";
 
 interface TierInfo {
   color: [string, string];
@@ -129,7 +129,7 @@ const BalanceCard: React.FC<{
 export default function WalletTab({
   shopData,
 }: {
-  shopData: ShopByWalletAddressData;
+  shopData: ShopData;
 }) {
   const router = useRouter();
   const { account } = useAuthStore();
