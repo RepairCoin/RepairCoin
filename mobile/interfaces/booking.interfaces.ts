@@ -29,4 +29,4 @@ export interface BookingData {
   updatedAt: string;
 }
 
-export interface BookingResponse extends BaseResponse<BookingData> {}
+export interface BookingResponse extends BaseResponse<BookingData[]> {}

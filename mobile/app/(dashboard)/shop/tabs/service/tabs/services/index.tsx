@@ -14,21 +14,22 @@ import { router } from "expo-router";
 import { SERVICE_CATEGORIES } from "@/constants/service-categories";
 import ServiceCard from "@/components/shared/ServiceCard";
 
-export default function ServicesTab() {
-  const { useGetAllServicesQuery } = useService();
+export default function ServicesTab({
+    setActionModalVisible,
+    setSelectedService,
+}: {
+    setActionModalVisible: (visible: boolean) => void;
+    setSelectedService: (service: ServiceData) => void;
+}) {
+  const { useShopServicesQuery } = useService();
   const {
     data: servicesData,
     isLoading,
     error,
     refetch,
-  } = useGetAllServicesQuery();
+  } = useShopServicesQuery();
 
-  const activeServices =
-    servicesData?.filter((service: ServiceData) => service.active) || [];
-
-  const handleServicePress = (item: ServiceData) => {
-    router.push(`/customer/service/${item.serviceId}`);
-  };
+  const [refreshing, setRefreshing] = React.useState(false);
 
   const getCategoryLabel = (category?: string) => {
     if (!category) return "Other";
@@ -37,7 +38,14 @@ export default function ServicesTab() {
   };
 
   const handleRefresh = async () => {
+    setRefreshing(true);
     await refetch();
+    setRefreshing(false);
+  };
+
+  const handleMenuPress = (item: ServiceData) => {
+    setSelectedService(item);
+    setActionModalVisible(true);
   };
 
   const renderServiceItem = ({ item }: { item: ServiceData }) => (
@@ -47,8 +55,14 @@ export default function ServicesTab() {
       title={item.serviceName}
       description={item.description}
       price={item.priceUsd}
-      duration={item.durationMinutes}
-      onPress={() => handleServicePress(item)}
+      badgeStatus={{
+        label: item.active ? "Active" : "Inactive",
+        active: item.active,
+      }}
+      onPress={() => router.push(`/shop/service/${item.serviceId}`)}
+      showMenu
+      menuPosition="footer"
+      onMenuPress={() => handleMenuPress(item)}
     />
   );
 
@@ -67,14 +81,14 @@ export default function ServicesTab() {
         </View>
       ) : (
         <FlatList
-          data={activeServices}
+          data={servicesData || []}
           keyExtractor={(item, index) => `${item.serviceId}-${index}`}
           renderItem={renderServiceItem}
           numColumns={2}
           contentContainerStyle={{ paddingBottom: 100 }}
           refreshControl={
             <RefreshControl
-              refreshing={isLoading}
+              refreshing={refreshing}
               onRefresh={handleRefresh}
               tintColor="#FFCC00"
             />
@@ -83,10 +97,10 @@ export default function ServicesTab() {
             <View className="flex-1 justify-center items-center pt-20">
               <Ionicons name="briefcase-outline" size={64} color="#666" />
               <Text className="text-gray-400 text-center mt-4">
-                No services available
+                No services yet
               </Text>
               <Text className="text-gray-500 text-sm text-center mt-2">
-                Check back later for new services
+                Tap the + button to add your first service
               </Text>
             </View>
           }
