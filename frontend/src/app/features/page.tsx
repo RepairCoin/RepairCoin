@@ -2,14 +2,48 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, User, Store, Shield, Users, DollarSign, CreditCard, QrCode, Gift } from "lucide-react";
+import {
+  Users,
+  Store,
+  Shield,
+  ShoppingBag,
+  CreditCard,
+  Gift,
+  QrCode,
+  Medal,
+  Coins,
+  Heart,
+  BarChart3,
+  Building2,
+  UserCheck,
+  DollarSign,
+  Activity
+} from "lucide-react";
+import Image from "next/image";
+
+type TabType = "customer" | "shop" | "admin";
+
+interface Feature {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  details: string[];
+}
+
+interface TokenCard {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  details: { label: string; value: string }[];
+  iconBg: string;
+}
 
 export default function FeaturesPage() {
-  const [activeTab, setActiveTab] = useState<"customer" | "shop" | "admin">("customer");
+  const [activeTab, setActiveTab] = useState<TabType>("customer");
 
-  const customerFeatures = [
+  const customerFeatures: Feature[] = [
     {
-      icon: <DollarSign className="w-6 h-6" />,
+      icon: <Coins className="w-6 h-6" />,
       title: "Earn RCN Tokens",
       description: "Earn 1 RCN token for every $10 spent on repairs",
       details: [
@@ -20,7 +54,7 @@ export default function FeaturesPage() {
       ]
     },
     {
-      icon: <CreditCard className="w-6 h-6" />,
+      icon: <ShoppingBag className="w-6 h-6" />,
       title: "Redeem for Savings",
       description: "Use tokens to save money on future repairs",
       details: [
@@ -33,7 +67,7 @@ export default function FeaturesPage() {
     {
       icon: <Users className="w-6 h-6" />,
       title: "Referral Rewards",
-      description: "Earn 25 RCN for each successful referral",
+      description: "Use tokens to save money on future repairs",
       details: [
         "Unlimited referrals with unique codes",
         "Friends get 10 RCN welcome bonus",
@@ -53,21 +87,21 @@ export default function FeaturesPage() {
       ]
     },
     {
-      icon: <Gift className="w-6 h-6" />,
+      icon: <Medal className="w-6 h-6" />,
       title: "Loyalty Tiers",
       description: "Advance through tiers for bonus rewards",
       details: [
         "Bronze: Standard earning rate",
         "Silver: +2 bonus tokens per transaction",
-        "Gold: +5 bonus tokens per transaction", 
+        "Gold: +5 bonus tokens per transaction",
         "Priority support and exclusive offers"
       ]
     }
   ];
 
-  const shopFeatures = [
+  const shopFeatures: Feature[] = [
     {
-      icon: <Store className="w-6 h-6" />,
+      icon: <Heart className="w-6 h-6" />,
       title: "Customer Loyalty Platform",
       description: "Build lasting relationships with token rewards",
       details: [
@@ -78,7 +112,7 @@ export default function FeaturesPage() {
       ]
     },
     {
-      icon: <DollarSign className="w-6 h-6" />,
+      icon: <Coins className="w-6 h-6" />,
       title: "RCN Token Management",
       description: "Purchase and manage token inventory",
       details: [
@@ -100,7 +134,7 @@ export default function FeaturesPage() {
       ]
     },
     {
-      icon: <Users className="w-6 h-6" />,
+      icon: <BarChart3 className="w-6 h-6" />,
       title: "Analytics & Reports",
       description: "Track performance and customer insights",
       details: [
@@ -123,7 +157,7 @@ export default function FeaturesPage() {
     }
   ];
 
-  const adminFeatures = [
+  const adminFeatures: Feature[] = [
     {
       icon: <Shield className="w-6 h-6" />,
       title: "Platform Management",
@@ -153,8 +187,8 @@ export default function FeaturesPage() {
       details: [
         "RCN token minting and supply control",
         "RCG governance token management",
-        "Revenue sharing distribution (10% to stakers, 10% to DAO)",
-        "Token pricing and tier management"
+        "Token pricing and tier management",
+        "Revenue sharing distribution (10% to stakers, 10% to DAO)"
       ]
     },
     {
@@ -169,7 +203,7 @@ export default function FeaturesPage() {
       ]
     },
     {
-      icon: <CreditCard className="w-6 h-6" />,
+      icon: <Activity className="w-6 h-6" />,
       title: "Financial Oversight",
       description: "Monitor platform financial health",
       details: [
@@ -181,7 +215,54 @@ export default function FeaturesPage() {
     }
   ];
 
-  const getFeatures = () => {
+  const tokenCards: TokenCard[] = [
+    {
+      icon: <DollarSign className="w-6 h-6" />,
+      title: "RCN Utility Tokens",
+      description: "Earn it. Use it. Redeem it.",
+      iconBg: "bg-[#ffcc00]",
+      details: [
+        { label: "Value", value: "1 RCN = $0.10 USD" },
+        { label: "Purpose", value: "Customer rewards and redemptions" },
+        { label: "Earning", value: "1 RCN per $10 spent on repairs" },
+        { label: "Usage", value: "100% value at earning shop, 20% elsewhere" },
+        { label: "Tiers", value: "Bonus tokens for Silver (+2) and Gold (+5) customers" }
+      ]
+    },
+    {
+      icon: <Shield className="w-6 h-6" />,
+      title: "RCG Governance Tokens",
+      description: "Built for governance and long-term value.",
+      iconBg: "bg-[#ffcc00]",
+      details: [
+        { label: "Supply", value: "100M fixed supply" },
+        { label: "Purpose", value: "Shop tier benefits and governance" },
+        { label: "Tiers", value: "Standard/Premium/Elite (10K/50K/200K+ RCG)" },
+        { label: "Benefits", value: "Better RCN pricing for shops" },
+        { label: "Revenue", value: "10% to stakers, 10% to DAO" }
+      ]
+    }
+  ];
+
+  const techFeatures = [
+    {
+      icon: <Shield className="w-6 h-6" />,
+      title: "Blockchain Powered",
+      description: "Built on Base Sepolia with Thirdweb SDK v5 for secure, transparent transactions"
+    },
+    {
+      icon: <Building2 className="w-6 h-6" />,
+      title: "Enterprise Ready",
+      description: "PostgreSQL database with domain-driven architecture for scalability"
+    },
+    {
+      icon: <UserCheck className="w-6 h-6" />,
+      title: "User Focused",
+      description: "Next.js 15 + React 19 frontend with mobile-first design"
+    }
+  ];
+
+  const getFeatures = (): Feature[] => {
     switch (activeTab) {
       case "customer":
         return customerFeatures;
@@ -194,7 +275,7 @@ export default function FeaturesPage() {
     }
   };
 
-  const getTabDescription = () => {
+  const getTabDescription = (): string => {
     switch (activeTab) {
       case "customer":
         return "Earn tokens with every repair and redeem them for savings at participating shops";
@@ -208,105 +289,154 @@ export default function FeaturesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0D0D0D] text-white">
-      {/* Header */}
-     {/*  <div className="bg-gradient-to-r from-gray-900 to-black border-b border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Link
-                href="/"
-                className="flex items-center space-x-2 text-yellow-400 hover:text-yellow-300 transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5" />
-                <span>Back to Home</span>
-              </Link>
-            </div>
-            <div className="flex items-center space-x-4">
-              <img src="/img/nav-logo.png" alt="RepairCoin" className="h-8" />
-            </div>
-          </div>
+    <div className="min-h-screen bg-[#191919] text-white">
+      {/* Hero Section with Background Image - extends behind feature cards */}
+      <div className="relative">
+        {/* Background image - wave pattern - extends to cover cards area */}
+        <div className="absolute inset-0 h-[700px] md:h-[700px]">
+          <Image
+            src="/img/features/hero-bg.png"
+            alt="Hero background"
+            fill
+            className="object-cover object-top"
+            priority
+          />
+          {/* Subtle overlay for text readability */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-transparent" />
         </div>
-      </div> */}
 
-      {/* Hero Section */}
-      <div className="bg-gradient-to-b from-gray-900 to-[#0D0D0D] py-16">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <h1 className="text-5xl font-bold mb-6 bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+        {/* Hero Content */}
+        <div className="relative max-w-7xl mx-auto px-4 pt-44">
+          {/* Title */}
+          <h1 className="text-5xl md:text-6xl font-bold text-center mb-6">
             RepairCoin Features
           </h1>
-          <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+
+          {/* Subtitle */}
+          <p className="text-base md:text-lg text-center text-white/80 max-w-xl mx-auto mb-10">
             Discover how RepairCoin revolutionizes the repair industry with blockchain-powered loyalty rewards
           </p>
-        </div>
-      </div>
 
-      {/* Tab Navigation */}
-      <div className="max-w-7xl mx-auto px-4 mb-8">
-        <div className="flex justify-center">
-          <div className="bg-gray-800 rounded-lg p-1 flex space-x-1">
-            <button
-              onClick={() => setActiveTab("customer")}
-              className={`px-6 py-3 rounded-md flex items-center space-x-2 transition-all duration-200 ${
-                activeTab === "customer"
-                  ? "bg-yellow-400 text-gray-900 font-medium"
-                  : "text-gray-300 hover:text-white hover:bg-gray-700"
-              }`}
-            >
-              <User className="w-5 h-5" />
-              <span>Customers</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("shop")}
-              className={`px-6 py-3 rounded-md flex items-center space-x-2 transition-all duration-200 ${
-                activeTab === "shop"
-                  ? "bg-yellow-400 text-gray-900 font-medium"
-                  : "text-gray-300 hover:text-white hover:bg-gray-700"
-              }`}
-            >
-              <Store className="w-5 h-5" />
-              <span>Shops</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("admin")}
-              className={`px-6 py-3 rounded-md flex items-center space-x-2 transition-all duration-200 ${
-                activeTab === "admin"
-                  ? "bg-yellow-400 text-gray-900 font-medium"
-                  : "text-gray-300 hover:text-white hover:bg-gray-700"
-              }`}
-            >
-              <Shield className="w-5 h-5" />
-              <span>Admins</span>
-            </button>
+          {/* Tab Navigation */}
+          <div className="flex justify-center mb-8">
+            <div className="bg-white rounded-lg p-1 flex gap-1 shadow-lg">
+              <button
+                onClick={() => setActiveTab("customer")}
+                className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-200 text-sm font-medium ${
+                  activeTab === "customer"
+                    ? "bg-[#ffcc00] text-black"
+                    : "text-black hover:bg-gray-100"
+                }`}
+              >
+                <Users className="w-5 h-5" />
+                <span>Customers</span>
+              </button>
+              <button
+                onClick={() => setActiveTab("shop")}
+                className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-200 text-sm font-medium ${
+                  activeTab === "shop"
+                    ? "bg-[#ffcc00] text-black"
+                    : "text-black hover:bg-gray-100"
+                }`}
+              >
+                <Store className="w-5 h-5" />
+                <span>Shops</span>
+              </button>
+              <button
+                onClick={() => setActiveTab("admin")}
+                className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-200 text-sm font-medium ${
+                  activeTab === "admin"
+                    ? "bg-[#ffcc00] text-black"
+                    : "text-black hover:bg-gray-100"
+                }`}
+              >
+                <Shield className="w-5 h-5" />
+                <span>Admins</span>
+              </button>
+            </div>
           </div>
+
+          {/* Tab Description */}
+          <p className="text-center text-white/70 max-w-3xl mx-auto mb-12">
+            {getTabDescription()}
+          </p>
         </div>
-      </div>
 
-      {/* Tab Description */}
-      <div className="max-w-7xl mx-auto px-4 mb-12 text-center">
-        <p className="text-lg text-gray-400">{getTabDescription()}</p>
-      </div>
-
-      {/* Features Grid */}
-      <div className="max-w-7xl mx-auto px-4 pb-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {/* Features Grid - positioned within hero background */}
+        <div className="relative max-w-7xl mx-auto px-4 pb-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {getFeatures().map((feature, index) => (
             <div
               key={index}
-              className="bg-gray-900 border border-gray-800 rounded-xl p-6 hover:border-yellow-400 transition-all duration-300 hover:shadow-xl hover:shadow-yellow-400/10"
+              className="bg-[#101010] border border-[rgba(83,83,83,0.21)] rounded-lg p-6 hover:border-[#ffcc00]/30 transition-all duration-300"
             >
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="p-2 bg-yellow-400 rounded-lg text-gray-900">
-                  {feature.icon}
+              {/* Icon with shadow effect */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-[#ffcc00]/20 blur-md rounded-lg" />
+                  <div className="relative p-2 bg-[#ffcc00] rounded-lg text-black">
+                    {feature.icon}
+                  </div>
                 </div>
                 <h3 className="text-xl font-semibold text-white">{feature.title}</h3>
               </div>
-              <p className="text-gray-400 mb-4">{feature.description}</p>
+
+              {/* Description */}
+              <p className="text-[#999999] mb-4">{feature.description}</p>
+
+              {/* Details with yellow bullets */}
               <ul className="space-y-2">
                 {feature.details.map((detail, detailIndex) => (
-                  <li key={detailIndex} className="flex items-start space-x-2 text-sm text-gray-300">
-                    <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full mt-2 flex-shrink-0"></div>
-                    <span>{detail}</span>
+                  <li key={detailIndex} className="flex items-start gap-2 text-sm">
+                    <span className="text-[#ffcc00] mt-1.5">•</span>
+                    <span className="text-white">{detail}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        </div>
+      </div>
+
+      {/* Dual-Token Business Model Section */}
+      <div className="max-w-7xl mx-auto px-4 py-16">
+        <h2 className="text-4xl md:text-5xl font-bold text-center mb-4">
+          Dual-Token Business Model
+        </h2>
+        <p className="text-lg text-[#e8e8e8] text-center mb-12">
+          Designed for stability, growth, and real-world usability.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {tokenCards.map((card, index) => (
+            <div
+              key={index}
+              className="bg-[#101010] border border-[rgba(83,83,83,0.21)] rounded-lg p-6"
+            >
+              {/* Icon with shadow effect */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-[#ffcc00]/20 blur-md rounded-lg" />
+                  <div className={`relative p-2 ${card.iconBg} rounded-lg text-black`}>
+                    {card.icon}
+                  </div>
+                </div>
+                <h3 className="text-lg font-semibold text-white">{card.title}</h3>
+              </div>
+
+              {/* Description */}
+              <p className="text-[#999999] text-sm mb-4">{card.description}</p>
+
+              {/* Details with yellow bullets and bold labels */}
+              <ul className="space-y-2">
+                {card.details.map((detail, detailIndex) => (
+                  <li key={detailIndex} className="flex items-start gap-2 text-sm">
+                    <span className="text-[#ffcc00] mt-1.5">•</span>
+                    <span>
+                      <span className="font-semibold text-white">{detail.label}:</span>
+                      <span className="text-white"> {detail.value}</span>
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -315,116 +445,88 @@ export default function FeaturesPage() {
         </div>
       </div>
 
-      {/* Business Model Section */}
-      <div className="bg-gray-900 border-t border-gray-800 py-16">
-        <div className="max-w-7xl mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12 text-white">
-            Dual-Token Business Model
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-            <div className="bg-[#0D0D0D] border border-gray-800 rounded-xl p-6">
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="p-2 bg-green-500 rounded-lg">
-                  <DollarSign className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="text-2xl font-semibold text-white">RCN Utility Tokens</h3>
-              </div>
-              <div className="space-y-3 text-gray-300">
-                <p>• <strong>Value:</strong> 1 RCN = $0.10 USD</p>
-                <p>• <strong>Purpose:</strong> Customer rewards and redemptions</p>
-                <p>• <strong>Earning:</strong> 1 RCN per $10 spent on repairs</p>
-                <p>• <strong>Usage:</strong> 100% value at earning shop, 20% elsewhere</p>
-                <p>• <strong>Tiers:</strong> Bonus tokens for Silver (+2) and Gold (+5) customers</p>
-              </div>
-            </div>
-            <div className="bg-[#0D0D0D] border border-gray-800 rounded-xl p-6">
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="p-2 bg-purple-500 rounded-lg">
-                  <Shield className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="text-2xl font-semibold text-white">RCG Governance Tokens</h3>
-              </div>
-              <div className="space-y-3 text-gray-300">
-                <p>• <strong>Supply:</strong> 100M fixed supply</p>
-                <p>• <strong>Purpose:</strong> Shop tier benefits and governance</p>
-                <p>• <strong>Tiers:</strong> Standard/Premium/Elite (10K/50K/200K+ RCG)</p>
-                <p>• <strong>Benefits:</strong> Better RCN pricing for shops</p>
-                <p>• <strong>Revenue:</strong> 10% to stakers, 10% to DAO</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Built on Modern Technology Section */}
+      <div className="max-w-7xl mx-auto px-4 py-16">
+        <h2 className="text-4xl md:text-5xl font-bold text-center mb-4">
+          Built on Modern Technology
+        </h2>
+        <p className="text-lg text-[#e8e8e8] text-center mb-12">
+          Powering RepairCoin with speed, security, and real scalability.
+        </p>
 
-      {/* Technology Stack */}
-      <div className="bg-[#0D0D0D] py-16">
-        <div className="max-w-7xl mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12 text-white">
-            Built on Modern Technology
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="text-center">
-              <div className="bg-blue-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Shield className="w-8 h-8 text-white" />
-              </div>
-              <h3 className="text-xl font-semibold text-white mb-2">Blockchain Powered</h3>
-              <p className="text-gray-400">Built on Base Sepolia with Thirdweb SDK v5 for secure, transparent transactions</p>
-            </div>
-            <div className="text-center">
-              <div className="bg-green-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Store className="w-8 h-8 text-white" />
-              </div>
-              <h3 className="text-xl font-semibold text-white mb-2">Enterprise Ready</h3>
-              <p className="text-gray-400">PostgreSQL database with domain-driven architecture for scalability</p>
-            </div>
-            <div className="text-center">
-              <div className="bg-purple-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Users className="w-8 h-8 text-white" />
-              </div>
-              <h3 className="text-xl font-semibold text-white mb-2">User Focused</h3>
-              <p className="text-gray-400">Next.js 15 + React 19 frontend with mobile-first design</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Call to Action */}
-      <div className="bg-gradient-to-r from-yellow-400 to-orange-500 py-16">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold text-gray-900 mb-6">
-            Ready to Get Started?
-          </h2>
-          <p className="text-xl text-gray-800 mb-8 max-w-2xl mx-auto">
-            Join the RepairCoin ecosystem and revolutionize how you handle repair shop loyalty
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/customer"
-              className="bg-gray-900 text-white px-8 py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors"
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {techFeatures.map((feature, index) => (
+            <div
+              key={index}
+              className="bg-[#101010] border border-[rgba(83,83,83,0.21)] rounded-lg p-6 text-center"
             >
-              Join as Customer
-            </Link>
-            <Link
-              href="/register/shop"
-              className="bg-white text-gray-900 px-8 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors"
-            >
-              Register Your Shop
-            </Link>
-          </div>
+              {/* Centered icon with shadow effect */}
+              <div className="flex justify-center mb-4">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-[#ffcc00]/20 blur-md rounded-lg" />
+                  <div className="relative p-2 bg-[#ffcc00] rounded-lg text-black">
+                    {feature.icon}
+                  </div>
+                </div>
+              </div>
+
+              <h3 className="text-lg font-semibold text-white mb-3">{feature.title}</h3>
+              <p className="text-[#999999] text-sm">{feature.description}</p>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="bg-black border-t border-gray-800 py-8">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <div className="flex items-center justify-center space-x-4 mb-4">
-            <img src="/img/nav-logo.png" alt="RepairCoin" className="h-6" />
+      {/* Call to Action Section */}
+      <div className="max-w-7xl mx-auto px-4 py-16">
+        <div className="relative overflow-hidden rounded-3xl min-h-[300px]">
+          {/* Background image */}
+          <div
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+            style={{ backgroundImage: "url('/img/features/getstarted-bg.png')" }}
+          />
+          {/* Dark overlay for better text readability */}
+          <div className="absolute inset-0 bg-black/40" />
+
+          {/* Content */}
+          <div className="relative flex flex-col lg:flex-row items-center justify-between h-full">
+            {/* Text content */}
+            <div className="px-8 md:px-16 py-12 lg:max-w-[60%]">
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+                Ready to Get Started?
+              </h2>
+              <p className="text-lg text-[#e8e8e8] mb-8 max-w-2xl">
+                Sign up now and turn every repair, service, and purchase into rewards. Start building your RCN balance from day one.
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Link
+                  href="/customer"
+                  className="bg-[#ffcc00] text-black px-8 py-3 rounded-lg font-medium hover:bg-[#e6b800] transition-colors inline-flex items-center justify-center"
+                >
+                  Join as Customer →
+                </Link>
+                <Link
+                  href="/register/shop"
+                  className="bg-white text-black px-8 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors inline-flex items-center justify-center"
+                >
+                  Join as Shop Owner →
+                </Link>
+              </div>
+            </div>
+
+            {/* Persons image - visible on larger screens */}
+            <div className="hidden lg:block absolute right-0 bottom-0 h-full w-[40%]">
+              <Image
+                src="/img/features/getstarted-persons.png"
+                alt="Happy customers"
+                fill
+                className="object-contain object-right-bottom"
+              />
+            </div>
           </div>
-          <p className="text-gray-500">
-            © 2024 RepairCoin. All rights reserved. Built with blockchain technology for the future of automotive repair.
-          </p>
         </div>
-      </footer>
+      </div>
     </div>
   );
 }
