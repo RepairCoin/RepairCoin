@@ -25,6 +25,13 @@ export interface ShopServiceWithShopInfo extends ShopService {
   shopLogo?: string;
   avgRating?: number;
   reviewCount?: number;
+  shopLocation?: {
+    lat: number;
+    lng: number;
+    city?: string;
+    state?: string;
+    zipCode?: string;
+  };
 }
 
 export interface CreateServiceParams {
