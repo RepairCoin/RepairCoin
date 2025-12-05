@@ -8,6 +8,14 @@ export interface BookingFilters {
   limit?: number;
 }
 
+export interface BookingFormData {
+  serviceId: string;
+  bookingDate?: string;
+  bookingTime?: string;
+  rcnToRedeem?: number;
+  notes?: string;
+}
+
 export interface BookingData {
   orderId: string;
   shopId: string;

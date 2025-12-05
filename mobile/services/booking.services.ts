@@ -1,6 +1,6 @@
 import { apiClient } from "@/utilities/axios";
 import { buildQueryString } from "@/utilities/helper/buildQueryString";
-import { BookingFilters, BookingResponse } from "@/interfaces/booking.interfaces";
+import { BookingFilters, BookingFormData, BookingResponse } from "@/interfaces/booking.interfaces";
 
 class BookingApi {
   async getShopBookings(filters?: BookingFilters): Promise<BookingResponse> {
@@ -59,7 +59,7 @@ class BookingApi {
     }
   }
 
-  async createPaymentIntent(data: any) {
+  async createPaymentIntent(data: BookingFormData) {
     try {
       return await apiClient.post("/services/orders/create-payment-intent", data);
     } catch (error: any) {
