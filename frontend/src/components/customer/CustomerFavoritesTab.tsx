@@ -38,11 +38,20 @@ export const CustomerFavoritesTab: React.FC<CustomerFavoritesTabProps> = ({
         } else {
           setFavorites((prev) => [...prev, ...(response.data || [])]);
         }
-        setHasMore(response.pagination?.hasMore || false);
+        setHasMore(response.pagination.page < response.pagination.totalPages);
+      } else {
+        if (page === 1) {
+          setFavorites([]);
+        }
+        setHasMore(false);
       }
     } catch (error) {
       console.error("Error fetching favorites:", error);
       toast.error("Failed to load favorites");
+      if (page === 1) {
+        setFavorites([]);
+      }
+      setHasMore(false);
     } finally {
       setIsLoading(false);
     }

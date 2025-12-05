@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { FaFacebook, FaTwitter, FaInstagram } from "react-icons/fa";
 import { ShopService } from "@/services/shopService";
-import { getAllServices, ShopServiceWithShopInfo } from "@/services/api/services";
+import { getAllServices, getShopServices, ShopServiceWithShopInfo } from "@/services/api/services";
 import { ServiceCard } from "./ServiceCard";
 import { ServiceDetailsModal } from "./ServiceDetailsModal";
 import { ServiceCheckoutModal } from "./ServiceCheckoutModal";
@@ -61,18 +61,36 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
   const loadShopData = async () => {
     setLoading(true);
     try {
-      // Fetch shop info and services
+      console.log("🔍 [ShopProfile] Loading data for shopId:", shopId);
+
+      // Fetch shop info and services using the dedicated getShopServices endpoint
       const [shopData, servicesData] = await Promise.all([
         ShopService.getShopById(shopId),
-        getAllServices({ shopId, activeOnly: true }),
+        getShopServices(shopId),
       ]);
+
+      console.log("🔍 [ShopProfile] Shop data:", shopData);
+      console.log("🔍 [ShopProfile] Services response:", servicesData);
+      console.log("🔍 [ShopProfile] Services data array:", servicesData?.data);
+      console.log("🔍 [ShopProfile] Number of services:", servicesData?.data?.length || 0);
 
       if (shopData) {
         setShopInfo(shopData);
       }
 
-      if (servicesData) {
-        setServices(servicesData.data);
+      if (servicesData && servicesData.data && shopData) {
+        // Map services to include shop info for ServiceCard compatibility
+        const servicesWithShopInfo = servicesData.data.map(service => ({
+          ...service,
+          companyName: shopData.name,
+          shopName: shopData.name,
+          shopAddress: shopData.address,
+          shopPhone: shopData.phone,
+          shopEmail: shopData.email,
+          shopIsVerified: shopData.verified,
+          shopLocation: shopData.location,
+        }));
+        setServices(servicesWithShopInfo);
       }
     } catch (error) {
       console.error("Error loading shop data:", error);

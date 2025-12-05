@@ -45,7 +45,13 @@ export const ServiceMarketplaceClient: React.FC = () => {
           } else {
             setServices(prev => [...prev, ...response.data]);
           }
-          setHasMore(response.pagination.hasMore);
+          setHasMore(response.pagination.page < response.pagination.totalPages);
+        } else {
+          // Handle null response
+          if (page === 1) {
+            setServices([]);
+          }
+          setHasMore(false);
         }
       } else {
         // Load all services
@@ -62,12 +68,22 @@ export const ServiceMarketplaceClient: React.FC = () => {
           } else {
             setServices(prev => [...prev, ...response.data]);
           }
-          setHasMore(response.pagination.hasMore);
+          setHasMore(response.pagination.page < response.pagination.totalPages);
+        } else {
+          // Handle null response
+          if (page === 1) {
+            setServices([]);
+          }
+          setHasMore(false);
         }
       }
     } catch (error) {
       console.error("Error loading services:", error);
       toast.error(showFavoritesOnly ? "Failed to load favorites" : "Failed to load services");
+      if (page === 1) {
+        setServices([]);
+      }
+      setHasMore(false);
     } finally {
       setLoading(false);
     }
