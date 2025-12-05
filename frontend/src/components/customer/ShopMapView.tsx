@@ -8,6 +8,44 @@ import { ShopServiceWithShopInfo } from "@/services/api/services";
 import toast from "react-hot-toast";
 import "leaflet/dist/leaflet.css";
 
+// Custom styles for Leaflet popups
+if (typeof window !== "undefined") {
+  const style = document.createElement("style");
+  style.textContent = `
+    .leaflet-popup-content-wrapper {
+      background-color: #1F2937 !important;
+      color: white !important;
+      border-radius: 12px !important;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5) !important;
+      padding: 0 !important;
+      border: 1px solid #374151 !important;
+    }
+    .leaflet-popup-content {
+      margin: 0 !important;
+      min-width: 240px !important;
+    }
+    .leaflet-popup-tip-container {
+      display: none !important;
+    }
+    .leaflet-popup-close-button {
+      color: #9CA3AF !important;
+      font-size: 24px !important;
+      padding: 4px 8px !important;
+      top: 4px !important;
+      right: 4px !important;
+    }
+    .leaflet-popup-close-button:hover {
+      color: #FFCC00 !important;
+      background-color: rgba(255, 204, 0, 0.1) !important;
+      border-radius: 4px !important;
+    }
+  `;
+  if (!document.getElementById("leaflet-custom-popup-styles")) {
+    style.id = "leaflet-custom-popup-styles";
+    document.head.appendChild(style);
+  }
+}
+
 // Dynamic import for map to avoid SSR issues
 const MapContainer = dynamic(
   () => import("react-leaflet").then((mod) => mod.MapContainer),
@@ -215,10 +253,26 @@ export const ShopMapView: React.FC<ShopMapViewProps> = ({
   };
 
   const handleShopMarkerClick = (shop: Shop) => {
+    // Prevent re-triggering if already selected
+    if (selectedShop?.shopId === shop.shopId) {
+      return;
+    }
+
     setSelectedShop(shop);
+
+    // Only center map if shop is not already centered
     if (shop.location) {
-      setMapCenter([shop.location.lat, shop.location.lng]);
-      setMapZoom(16);
+      const currentCenter = mapCenter;
+      const distance = Math.sqrt(
+        Math.pow(currentCenter[0] - shop.location.lat, 2) +
+        Math.pow(currentCenter[1] - shop.location.lng, 2)
+      );
+
+      // Only update if distance is significant (more than 0.001 degrees ~100m)
+      if (distance > 0.001 || mapZoom !== 16) {
+        setMapCenter([shop.location.lat, shop.location.lng]);
+        setMapZoom(16);
+      }
     }
   };
 

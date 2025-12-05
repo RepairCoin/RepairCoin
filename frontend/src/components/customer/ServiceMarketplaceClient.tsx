@@ -164,12 +164,35 @@ export const ServiceMarketplaceClient: React.FC = () => {
               ? "Your favorited services"
               : viewMode === "map"
               ? "Find nearby shops on the map"
+              : filters.shopId
+              ? `Browsing services from ${services.find(s => s.shopId === filters.shopId)?.shopName || "shop"}`
               : "Discover and book services from local businesses"}
           </p>
         </div>
 
-        {/* Filters - Hide when showing favorites or map view */}
-        {!showFavoritesOnly && viewMode === "grid" && (
+        {/* Active Shop Filter */}
+        {viewMode === "grid" && filters.shopId && !showFavoritesOnly && (
+          <div className="mb-6 flex items-center gap-3 bg-[#1A1A1A] border border-gray-800 rounded-xl p-4">
+            <div className="flex-1">
+              <p className="text-sm text-gray-400 mb-1">Viewing shop:</p>
+              <p className="text-white font-semibold">
+                {services.find(s => s.shopId === filters.shopId)?.shopName || filters.shopId}
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setFilters({ ...filters, shopId: undefined });
+                setPage(1);
+              }}
+              className="px-4 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
+            >
+              View All Shops
+            </button>
+          </div>
+        )}
+
+        {/* Filters - Hide when showing favorites, map view, or viewing specific shop */}
+        {!showFavoritesOnly && viewMode === "grid" && !filters.shopId && (
           <div className="mb-8">
             <ServiceFilters
               filters={filters}
@@ -185,11 +208,10 @@ export const ServiceMarketplaceClient: React.FC = () => {
             services={services}
             loading={loading}
             onShopSelect={(shopId) => {
-              // Find all services from this shop
-              const shopServices = services.filter(s => s.shopId === shopId);
-              if (shopServices.length > 0) {
-                setSelectedService(shopServices[0]);
-              }
+              // Switch to grid view and filter by shop
+              setViewMode("grid");
+              setFilters({ ...filters, shopId });
+              setPage(1);
             }}
           />
         ) : null}
