@@ -30,11 +30,11 @@ export default function ServiceForm() {
   const isEditMode = params.mode === "edit";
   const serviceId = params.serviceId as string;
   const serviceDataString = params.data as string;
-  
+
   const queryClient = useQueryClient();
   const { userProfile } = useAuthStore();
   const shopId = userProfile?.shopId;
-  
+
   const { mutateAsync: createServiceMutation } = useCreateService();
   const { mutateAsync: updateServiceMutation } = useUpdateService();
 
@@ -51,7 +51,7 @@ export default function ServiceForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [categoryModalVisible, setCategoryModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  
+
   // Load service data for edit mode
   useEffect(() => {
     if (isEditMode && serviceDataString) {
@@ -89,6 +89,60 @@ export default function ServiceForm() {
     setSearchQuery("");
   };
 
+  const [isUploading, setIsUploading] = useState(false);
+
+  const uploadImage = async (uri: string): Promise<string | null> => {
+    try {
+      setIsUploading(true);
+
+      // Get auth token from store
+      const { accessToken } = useAuthStore.getState();
+      if (!accessToken) {
+        throw new Error("Authentication required");
+      }
+
+      // Get file info from URI
+      const filename = uri.split("/").pop() || "image.jpg";
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : "image/jpeg";
+
+      // Create FormData for React Native
+      const uploadFormData = new FormData();
+      uploadFormData.append("image", {
+        uri: uri,
+        name: filename,
+        type: type,
+      } as any);
+
+      const baseUrl =
+        process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
+      const url = `${baseUrl}/upload/service-image`;
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: uploadFormData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || result.message || "Upload failed");
+      }
+
+      console.log("Upload success - url:", result.url, "key:", result.key);
+      return result.url;
+    } catch (error) {
+      console.log("Upload error:", error);
+      Alert.alert("Upload Failed", "Failed to upload image. Please try again.");
+      return null;
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleImagePick = async () => {
     const permissionResult =
       await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -109,8 +163,19 @@ export default function ServiceForm() {
     });
 
     if (!result.canceled) {
-      setSelectedImage(result.assets[0].uri);
-      setFormData({ ...formData, imageUrl: result.assets[0].uri });
+      const localUri = result.assets[0].uri;
+      setSelectedImage(localUri);
+
+      // Upload image to server
+      const uploadedUrl = await uploadImage(localUri);
+
+      if (uploadedUrl) {
+        // Use the server URL for the form data
+        setFormData({ ...formData, imageUrl: uploadedUrl });
+      } else {
+        // If upload failed, clear the selection
+        setSelectedImage(null);
+      }
     }
   };
 
@@ -133,9 +198,9 @@ export default function ServiceForm() {
 
     try {
       const tags = formData.tags
-        .split(',')
-        .map(tag => tag.trim())
-        .filter(tag => tag.length > 0);
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter((tag) => tag.length > 0);
 
       if (isEditMode && serviceId) {
         // Update existing service
@@ -149,14 +214,16 @@ export default function ServiceForm() {
           tags: tags.length > 0 ? tags : undefined,
           active: formData.active,
         };
-        
+
         await updateServiceMutation({
           serviceId,
-          serviceData: updateData
+          serviceData: updateData,
         });
-        
+
         // Invalidate and refetch services list (use servicesBase for partial match)
-        await queryClient.invalidateQueries({ queryKey: queryKeys.servicesBase(shopId!) });
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.service(shopId!),
+        });
 
         Alert.alert("Success", "Service updated successfully", [
           { text: "OK", onPress: () => goBack() },
@@ -173,20 +240,25 @@ export default function ServiceForm() {
           tags: tags.length > 0 ? tags : undefined,
           active: formData.active,
         };
-        
+
         await createServiceMutation({
-          serviceData: createData
+          serviceData: createData,
         });
-        
+
         // Invalidate and refetch services list (use servicesBase for partial match)
-        await queryClient.invalidateQueries({ queryKey: queryKeys.servicesBase(shopId!) });
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.service(shopId!),
+        });
 
         Alert.alert("Success", "Service created successfully", [
           { text: "OK", onPress: () => goBack() },
         ]);
       }
     } catch (error) {
-      console.error(`Failed to ${isEditMode ? 'update' : 'create'} service:`, error);
+      console.error(
+        `Failed to ${isEditMode ? "update" : "create"} service:`,
+        error
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -276,9 +348,22 @@ export default function ServiceForm() {
             <Text className="text-gray-400 text-sm mb-2">Service Image</Text>
             <TouchableOpacity
               onPress={handleImagePick}
+              disabled={isUploading}
               className="relative overflow-hidden"
             >
-              {selectedImage ? (
+              {isUploading ? (
+                <View className="bg-gray-800 rounded-lg border-2 border-dashed border-gray-700 h-40 items-center justify-center">
+                  <View className="bg-gray-700/50 rounded-full p-4 mb-3">
+                    <Ionicons name="cloud-upload-outline" size={32} color="#FFCC00" />
+                  </View>
+                  <Text className="text-white font-medium mb-1">
+                    Uploading Image...
+                  </Text>
+                  <Text className="text-gray-500 text-xs">
+                    Please wait
+                  </Text>
+                </View>
+              ) : selectedImage ? (
                 <View className="relative">
                   <Image
                     source={{ uri: selectedImage }}
@@ -344,9 +429,13 @@ export default function ServiceForm() {
             }`}
           >
             <Text className="text-black font-semibold text-base">
-              {isSubmitting 
-                ? (isEditMode ? "Updating..." : "Creating...") 
-                : (isEditMode ? "Update Service" : "Create Service")}
+              {isSubmitting
+                ? isEditMode
+                  ? "Updating..."
+                  : "Creating..."
+                : isEditMode
+                  ? "Update Service"
+                  : "Create Service"}
             </Text>
           </TouchableOpacity>
         </View>

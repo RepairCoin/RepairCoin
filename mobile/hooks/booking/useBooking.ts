@@ -1,34 +1,50 @@
 import { bookingApi } from "@/services/booking.services";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/config/queryClient";
-import { BookingFilters, BookingResponse } from "@/interfaces/booking.interfaces";
+import {
+  BookingFilters,
+  BookingFormData,
+  BookingResponse,
+} from "@/interfaces/booking.interfaces";
 
 export function useBooking() {
-  const useShopBookingQuery = (
-    filters?: BookingFilters
-  ) => {
+  const useShopBookingQuery = (filters?: BookingFilters) => {
     return useQuery({
       queryKey: queryKeys.bookings(filters),
       queryFn: async () => {
-        const response: BookingResponse = await bookingApi.getShopBookings(filters);
+        const response: BookingResponse =
+          await bookingApi.getShopBookings(filters);
         return response.data;
       },
       staleTime: 5 * 60 * 1000, // 5 minutes
     });
   };
 
-  const useCustomerBookingQuery = (
-    filters?: BookingFilters
-  ) => {
+  const useCustomerBookingQuery = (filters?: BookingFilters) => {
     return useQuery({
       queryKey: queryKeys.bookings(filters),
       queryFn: async () => {
-        const response: BookingResponse = await bookingApi.getCustomerBookings(filters);
+        const response: BookingResponse =
+          await bookingApi.getCustomerBookings(filters);
         return response.data;
       },
       staleTime: 5 * 60 * 1000, // 5 minutes
     });
   };
 
-  return { useShopBookingQuery, useCustomerBookingQuery };
+  const useCreateBookingMutation = () => {
+    return useMutation({
+      mutationFn: async (data: BookingFormData) => {
+        const response: BookingResponse =
+          await bookingApi.createPaymentIntent(data);
+        return response.data;
+      },
+    });
+  };
+
+  return {
+    useShopBookingQuery,
+    useCustomerBookingQuery,
+    useCreateBookingMutation,
+  };
 }
