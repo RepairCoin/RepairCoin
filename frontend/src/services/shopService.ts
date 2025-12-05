@@ -54,6 +54,28 @@ export class ShopService {
   }
 
   /**
+   * Get shop by ID (public endpoint for shop profiles)
+   */
+  static async getShopById(shopId: string): Promise<any> {
+    try {
+      const response = await fetch(`${API_URL}/shops/${shopId}`);
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          return null; // Shop not found
+        }
+        throw new Error(`Failed to fetch shop: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.data || null;
+    } catch (error) {
+      console.error("Error fetching shop by ID:", error);
+      throw error;
+    }
+  }
+
+  /**
    * Register a new shop
    */
   static async registerShop(walletAddress: string, formData: ShopRegistrationFormData) {
