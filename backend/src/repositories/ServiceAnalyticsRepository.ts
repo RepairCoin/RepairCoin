@@ -85,7 +85,9 @@ export class ServiceAnalyticsRepository extends BaseRepository {
             SUM(CASE WHEN active = false THEN 1 ELSE 0 END) as inactive_services,
             COALESCE(AVG(average_rating), 0) as avg_rating,
             COALESCE(SUM(review_count), 0) as total_reviews,
-            COALESCE(SUM(favorite_count), 0) as total_favorites
+            (SELECT COUNT(*) FROM service_favorites sf WHERE sf.service_id IN (
+              SELECT service_id FROM shop_services WHERE shop_id = $1
+            )) as total_favorites
           FROM shop_services
           WHERE shop_id = $1
         ),
@@ -173,18 +175,19 @@ export class ServiceAnalyticsRepository extends BaseRepository {
           COALESCE(SUM(CASE WHEN o.status IN ('paid', 'completed') THEN o.total_amount ELSE 0 END), 0) as total_revenue,
           COALESCE(s.average_rating, 0) as average_rating,
           COALESCE(s.review_count, 0) as review_count,
-          COALESCE(s.favorite_count, 0) as favorite_count,
+          COALESCE(COUNT(DISTINCT f.customer_address), 0) as favorite_count,
           COALESCE(SUM(CASE WHEN o.status IN ('paid', 'completed') THEN o.rcn_redeemed ELSE 0 END), 0) as rcn_redeemed,
           COALESCE(SUM(CASE WHEN o.status IN ('paid', 'completed') THEN o.rcn_discount_usd ELSE 0 END), 0) as rcn_discount_usd,
           CASE
-            WHEN COUNT(DISTINCT o.order_id) > 0
-            THEN (COUNT(DISTINCT o.order_id)::float / GREATEST(s.favorite_count, 1)) * 100
+            WHEN COUNT(DISTINCT o.order_id) > 0 AND COUNT(DISTINCT f.customer_address) > 0
+            THEN (COUNT(DISTINCT o.order_id)::float / COUNT(DISTINCT f.customer_address)) * 100
             ELSE 0
           END as conversion_rate
         FROM shop_services s
         LEFT JOIN service_orders o ON s.service_id = o.service_id
+        LEFT JOIN service_favorites f ON s.service_id = f.service_id
         WHERE s.shop_id = $1
-        GROUP BY s.service_id, s.service_name, s.category, s.price_usd, s.average_rating, s.review_count, s.favorite_count
+        GROUP BY s.service_id, s.service_name, s.category, s.price_usd, s.average_rating, s.review_count
         ORDER BY total_revenue DESC
         LIMIT $2
       `;

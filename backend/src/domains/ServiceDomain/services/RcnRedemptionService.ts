@@ -51,6 +51,7 @@ export class RcnRedemptionService {
       // Validation 2: Customer balance
       const customer = await customerRepository.getCustomer(customerAddress);
       if (!customer) {
+        logger.error('Customer not found for RCN redemption', { customerAddress, servicePriceUsd });
         return {
           isValid: false,
           error: 'Customer not found',
@@ -62,7 +63,42 @@ export class RcnRedemptionService {
         };
       }
 
-      const customerBalance = customer.currentRcnBalance || 0;
+      let customerBalance = customer.currentRcnBalance || 0;
+
+      // If balance is 0 but customer has lifetime earnings, sync balance from transactions
+      if (customerBalance === 0 && customer.lifetimeEarnings > 0) {
+        logger.warn('Customer has 0 balance but lifetime earnings > 0. Attempting balance sync...', {
+          customerAddress,
+          lifetimeEarnings: customer.lifetimeEarnings
+        });
+
+        try {
+          await customerRepository.syncCustomerBalance(customerAddress);
+          // Refetch customer data after sync
+          const syncedCustomer = await customerRepository.getCustomer(customerAddress);
+          if (syncedCustomer) {
+            customerBalance = syncedCustomer.currentRcnBalance || 0;
+            logger.info('Customer balance synced successfully', {
+              customerAddress,
+              newBalance: customerBalance
+            });
+          }
+        } catch (syncError) {
+          logger.error('Failed to sync customer balance', { customerAddress, error: syncError });
+          // Continue with 0 balance if sync fails
+        }
+      }
+
+      logger.info('Customer balance check for RCN redemption', {
+        customerAddress,
+        customerBalance,
+        rcnToRedeem,
+        customerData: {
+          name: customer.name,
+          lifetimeEarnings: customer.lifetimeEarnings,
+          totalRedemptions: customer.totalRedemptions
+        }
+      });
 
       // Validation 3: Sufficient balance
       if (rcnToRedeem > customerBalance) {

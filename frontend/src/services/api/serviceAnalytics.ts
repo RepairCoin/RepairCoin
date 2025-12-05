@@ -1,7 +1,7 @@
 // frontend/src/services/api/serviceAnalytics.ts
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 // Types
 export interface ShopServiceMetrics {
@@ -99,99 +99,99 @@ export interface MarketplaceHealthScore {
 // Shop Analytics API
 export const serviceAnalyticsApi = {
   // Shop endpoints
-  async getShopAnalytics(token: string, options?: { topServicesLimit?: number; trendDays?: number }): Promise<ShopAnalyticsSummary> {
+  async getShopAnalytics(options?: { topServicesLimit?: number; trendDays?: number }): Promise<ShopAnalyticsSummary> {
     const params = new URLSearchParams();
     if (options?.topServicesLimit) params.append('topServicesLimit', options.topServicesLimit.toString());
     if (options?.trendDays) params.append('trendDays', options.trendDays.toString());
 
     const response = await axios.get<{ success: boolean; data: ShopAnalyticsSummary }>(
-      `${API_URL}/api/services/analytics/shop${params.toString() ? '?' + params.toString() : ''}`,
-      { headers: { Authorization: `Bearer ${token}` } }
+      `${API_URL}/services/analytics/shop${params.toString() ? '?' + params.toString() : ''}`,
+      { withCredentials: true }
     );
     return response.data.data;
   },
 
-  async getShopOverview(token: string): Promise<ShopServiceMetrics> {
+  async getShopOverview(): Promise<ShopServiceMetrics> {
     const response = await axios.get<{ success: boolean; data: ShopServiceMetrics }>(
-      `${API_URL}/api/services/analytics/shop/overview`,
-      { headers: { Authorization: `Bearer ${token}` } }
+      `${API_URL}/services/analytics/shop/overview`,
+      { withCredentials: true }
     );
     return response.data.data;
   },
 
-  async getTopServices(token: string, limit: number = 10): Promise<ServicePerformance[]> {
+  async getTopServices(limit: number = 10): Promise<ServicePerformance[]> {
     const response = await axios.get<{ success: boolean; data: ServicePerformance[] }>(
-      `${API_URL}/api/services/analytics/shop/top-services?limit=${limit}`,
-      { headers: { Authorization: `Bearer ${token}` } }
+      `${API_URL}/services/analytics/shop/top-services?limit=${limit}`,
+      { withCredentials: true }
     );
     return response.data.data;
   },
 
-  async getShopOrderTrends(token: string, days: number = 30): Promise<OrderTrend[]> {
+  async getShopOrderTrends(days: number = 30): Promise<OrderTrend[]> {
     const response = await axios.get<{ success: boolean; data: OrderTrend[] }>(
-      `${API_URL}/api/services/analytics/shop/trends?days=${days}`,
-      { headers: { Authorization: `Bearer ${token}` } }
+      `${API_URL}/services/analytics/shop/trends?days=${days}`,
+      { withCredentials: true }
     );
     return response.data.data;
   },
 
-  async getShopCategoryBreakdown(token: string): Promise<CategoryPerformance[]> {
+  async getShopCategoryBreakdown(): Promise<CategoryPerformance[]> {
     const response = await axios.get<{ success: boolean; data: CategoryPerformance[] }>(
-      `${API_URL}/api/services/analytics/shop/categories`,
-      { headers: { Authorization: `Bearer ${token}` } }
+      `${API_URL}/services/analytics/shop/categories`,
+      { withCredentials: true }
     );
     return response.data.data;
   },
 
   // Admin endpoints
-  async getPlatformAnalytics(token: string, options?: { topShopsLimit?: number; trendDays?: number }): Promise<PlatformAnalyticsSummary> {
+  async getPlatformAnalytics(options?: { topShopsLimit?: number; trendDays?: number }): Promise<PlatformAnalyticsSummary> {
     const params = new URLSearchParams();
     if (options?.topShopsLimit) params.append('topShopsLimit', options.topShopsLimit.toString());
     if (options?.trendDays) params.append('trendDays', options.trendDays.toString());
 
     const response = await axios.get<{ success: boolean; data: PlatformAnalyticsSummary }>(
-      `${API_URL}/api/services/analytics/platform${params.toString() ? '?' + params.toString() : ''}`,
-      { headers: { Authorization: `Bearer ${token}` } }
+      `${API_URL}/services/analytics/platform${params.toString() ? '?' + params.toString() : ''}`,
+      { withCredentials: true }
     );
     return response.data.data;
   },
 
-  async getPlatformOverview(token: string): Promise<PlatformServiceMetrics> {
+  async getPlatformOverview(): Promise<PlatformServiceMetrics> {
     const response = await axios.get<{ success: boolean; data: PlatformServiceMetrics }>(
-      `${API_URL}/api/services/analytics/platform/overview`,
-      { headers: { Authorization: `Bearer ${token}` } }
+      `${API_URL}/services/analytics/platform/overview`,
+      { withCredentials: true }
     );
     return response.data.data;
   },
 
-  async getTopShops(token: string, limit: number = 10): Promise<TopPerformingShop[]> {
+  async getTopShops(limit: number = 10): Promise<TopPerformingShop[]> {
     const response = await axios.get<{ success: boolean; data: TopPerformingShop[] }>(
-      `${API_URL}/api/services/analytics/platform/top-shops?limit=${limit}`,
-      { headers: { Authorization: `Bearer ${token}` } }
+      `${API_URL}/services/analytics/platform/top-shops?limit=${limit}`,
+      { withCredentials: true }
     );
     return response.data.data;
   },
 
-  async getPlatformOrderTrends(token: string, days: number = 30): Promise<OrderTrend[]> {
+  async getPlatformOrderTrends(days: number = 30): Promise<OrderTrend[]> {
     const response = await axios.get<{ success: boolean; data: OrderTrend[] }>(
-      `${API_URL}/api/services/analytics/platform/trends?days=${days}`,
-      { headers: { Authorization: `Bearer ${token}` } }
+      `${API_URL}/services/analytics/platform/trends?days=${days}`,
+      { withCredentials: true }
     );
     return response.data.data;
   },
 
-  async getPlatformCategoryPerformance(token: string, limit: number = 10): Promise<CategoryPerformance[]> {
+  async getPlatformCategoryPerformance(limit: number = 10): Promise<CategoryPerformance[]> {
     const response = await axios.get<{ success: boolean; data: CategoryPerformance[] }>(
-      `${API_URL}/api/services/analytics/platform/categories?limit=${limit}`,
-      { headers: { Authorization: `Bearer ${token}` } }
+      `${API_URL}/services/analytics/platform/categories?limit=${limit}`,
+      { withCredentials: true }
     );
     return response.data.data;
   },
 
-  async getMarketplaceHealthScore(token: string): Promise<MarketplaceHealthScore> {
+  async getMarketplaceHealthScore(): Promise<MarketplaceHealthScore> {
     const response = await axios.get<{ success: boolean; data: MarketplaceHealthScore }>(
-      `${API_URL}/api/services/analytics/platform/health`,
-      { headers: { Authorization: `Bearer ${token}` } }
+      `${API_URL}/services/analytics/platform/health`,
+      { withCredentials: true }
     );
     return response.data.data;
   }

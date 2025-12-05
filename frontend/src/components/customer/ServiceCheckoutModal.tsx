@@ -154,7 +154,7 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const { customer } = useCustomerStore();
+  const { balanceData } = useCustomerStore();
   const [clientSecret, setClientSecret] = useState<string>("");
   const [orderId, setOrderId] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -164,17 +164,18 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
 
   // RCN Redemption State
   const [rcnToRedeem, setRcnToRedeem] = useState(0);
-  const [showRedemption, setShowRedemption] = useState(false);
-  const customerBalance = customer?.rcnBalance || 0;
+  const [showRedemption, setShowRedemption] = useState(true);
+  const customerBalance = balanceData?.availableBalance || 0;
 
   // Calculate discount and final amount
   const RCN_TO_USD = 0.10;
   const MAX_DISCOUNT_PCT = 0.20; // 20% cap
   const MIN_SERVICE_PRICE = 10;
 
-  const canUseRedemption = service.priceUsd >= MIN_SERVICE_PRICE && customerBalance > 0;
+  const showRedemptionSection = service.priceUsd >= MIN_SERVICE_PRICE;
+  const canUseRedemption = showRedemptionSection && customerBalance > 0;
   const maxDiscountUsd = service.priceUsd * MAX_DISCOUNT_PCT;
-  const maxRcnRedeemable = Math.floor(Math.min(maxDiscountUsd / RCN_TO_USD, customerBalance));
+  const maxRcnRedeemable = customerBalance > 0 ? Math.floor(Math.min(maxDiscountUsd / RCN_TO_USD, customerBalance)) : 0;
 
   const actualRcnRedeemed = Math.min(rcnToRedeem, maxRcnRedeemable);
   const discountUsd = actualRcnRedeemed * RCN_TO_USD;
@@ -236,6 +237,27 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <style>{`
+        input[type="range"]::-webkit-slider-thumb {
+          appearance: none;
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: #FFCC00;
+          cursor: pointer;
+          border: 3px solid #1A1A1A;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        input[type="range"]::-moz-range-thumb {
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: #FFCC00;
+          cursor: pointer;
+          border: 3px solid #1A1A1A;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+      `}</style>
       <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-800 sticky top-0 bg-[#1A1A1A] z-10">
@@ -303,7 +325,7 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
               </div>
 
               {/* RCN Redemption Section */}
-              {canUseRedemption && !paymentInitialized && (
+              {showRedemptionSection && !paymentInitialized && (
                 <div className="bg-[#0D0D0D] border border-[#FFCC00]/30 rounded-xl p-5 mb-6">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
@@ -319,22 +341,38 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
                   </div>
 
                   <div className="text-xs text-gray-400 mb-3">
-                    Balance: <span className="text-[#FFCC00] font-semibold">{customerBalance.toFixed(0)} RCN</span>
+                    Balance: <span className={`font-semibold ${customerBalance > 0 ? 'text-[#FFCC00]' : 'text-gray-500'}`}>
+                      {customerBalance.toFixed(0)} RCN
+                    </span>
                     {" "}(${ (customerBalance * RCN_TO_USD).toFixed(2)})
                   </div>
+
+                  {customerBalance === 0 && (
+                    <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 mb-3">
+                      <p className="text-xs text-gray-400">
+                        💰 Complete services to earn RCN and unlock discounts!
+                      </p>
+                    </div>
+                  )}
 
                   {showRedemption && (
                     <div className="space-y-4">
                       {/* Slider */}
-                      <div>
+                      <div className={customerBalance === 0 ? 'opacity-50 pointer-events-none' : ''}>
                         <input
                           type="range"
                           min="0"
-                          max={maxRcnRedeemable}
+                          max={maxRcnRedeemable || 100}
                           step="1"
                           value={rcnToRedeem}
                           onChange={(e) => setRcnToRedeem(Number(e.target.value))}
-                          className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[#FFCC00]"
+                          disabled={customerBalance === 0}
+                          className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                          style={{
+                            background: maxRcnRedeemable > 0
+                              ? `linear-gradient(to right, #FFCC00 0%, #FFCC00 ${(rcnToRedeem / maxRcnRedeemable) * 100}%, #374151 ${(rcnToRedeem / maxRcnRedeemable) * 100}%, #374151 100%)`
+                              : '#374151'
+                          }}
                         />
                         <div className="flex justify-between text-xs text-gray-500 mt-1">
                           <span>0 RCN</span>
@@ -379,10 +417,10 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
               )}
 
               {/* Warning if service price too low */}
-              {!canUseRedemption && customerBalance > 0 && service.priceUsd < MIN_SERVICE_PRICE && (
+              {service.priceUsd < MIN_SERVICE_PRICE && (
                 <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 mb-6">
                   <p className="text-sm text-yellow-300">
-                    RCN redemption requires a minimum service price of ${MIN_SERVICE_PRICE}.
+                    💡 RCN redemption is available for services ${MIN_SERVICE_PRICE} and above.
                   </p>
                 </div>
               )}

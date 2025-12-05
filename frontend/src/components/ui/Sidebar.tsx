@@ -477,6 +477,12 @@ const Sidebar: React.FC<SidebarProps> = ({
             icon: <Receipt className="w-5 h-5" />,
             tabId: "bookings",
           },
+             {
+              title: "Analytics",
+              href: "/shop?tab=service-analytics",
+              icon: <BarChart3 className="w-4 h-4" />,
+              tabId: "service-analytics",
+            },
         ],
       },
       {
