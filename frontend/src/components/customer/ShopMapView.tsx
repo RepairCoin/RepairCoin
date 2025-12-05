@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { MapPin, Navigation, Phone, Mail, Globe, Loader2, Star, Package } from "lucide-react";
 import { FaFacebook, FaTwitter, FaInstagram } from "react-icons/fa";
 import { ShopServiceWithShopInfo } from "@/services/api/services";
@@ -148,6 +149,7 @@ export const ShopMapView: React.FC<ShopMapViewProps> = ({
   loading,
   onShopSelect,
 }) => {
+  const router = useRouter();
   const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [mapCenter, setMapCenter] = useState<[number, number]>([14.5995, 120.9842]); // Manila default
@@ -553,11 +555,11 @@ export const ShopMapView: React.FC<ShopMapViewProps> = ({
               </div>
 
               <button
-                onClick={() => onShopSelect(selectedShop.shopId)}
+                onClick={() => router.push(`/customer/shop/${selectedShop.shopId}`)}
                 className="w-full bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black font-semibold px-6 py-3 rounded-xl hover:from-[#FFD700] hover:to-[#FFCC00] transition-all duration-200 flex items-center justify-center gap-2"
               >
                 <Globe className="w-5 h-5" />
-                Visit Store
+                Visit Shop Profile
               </button>
             </div>
           ) : (
