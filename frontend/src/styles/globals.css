@@ -84,3 +84,15 @@
 .animate-fadeIn {
   animation: fadeIn 0.3s ease-out;
 }
+
+/* Fix toast notification focus outline in production */
+[role="status"],
+[data-sonner-toast],
+.go4109123758 {
+  outline: none !important;
+}
+
+/* Ensure toast container doesn't show focus ring */
+div[style*="position: fixed"][style*="z-index"] > div {
+  outline: none !important;
+}

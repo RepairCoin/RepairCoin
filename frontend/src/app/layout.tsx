@@ -43,6 +43,7 @@ export default function RootLayout({
                 borderRadius: '12px',
                 fontSize: '14px',
                 maxWidth: '500px',
+                outline: 'none',
               },
               success: {
                 iconTheme: {
@@ -53,6 +54,7 @@ export default function RootLayout({
                   background: '#1C1C1C',
                   color: '#fff',
                   border: '2px solid #FFCC00',
+                  outline: 'none',
                 },
               },
               error: {
@@ -64,6 +66,7 @@ export default function RootLayout({
                   background: '#1C1C1C',
                   color: '#fff',
                   border: '2px solid #EF4444',
+                  outline: 'none',
                 },
                 duration: 5000,
               },
@@ -76,6 +79,7 @@ export default function RootLayout({
                   background: '#1C1C1C',
                   color: '#fff',
                   border: '2px solid #FFCC00',
+                  outline: 'none',
                 },
               },
             }}
