@@ -1,30 +1,26 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useMemo } from "react";
 import {
   View,
   Text,
   Pressable,
   Image,
   ActivityIndicator,
-  ScrollView,
-  RefreshControl,
+  TouchableOpacity,
 } from "react-native";
 import {
   Entypo,
-  MaterialCommunityIcons,
-  MaterialIcons,
-  Octicons,
   SimpleLineIcons,
 } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { useCustomer } from "@/hooks";
+import { useService } from "@/hooks/service/useService";
 import { useAuthStore } from "@/store/auth.store";
 import { Tier } from "@/utilities/GlobalTypes";
-
-import TierBenefitsModal from "./TierBenefitsModal";
-import TokenSummaryModal from "./TokenSummaryModal";
-import DetailCard from "@/components/ui/DetailCard";
+import { ServiceData } from "@/interfaces/service.interface";
+import { SERVICE_CATEGORIES } from "@/constants/service-categories";
+import ServiceCard from "@/components/shared/ServiceCard";
 
 interface TierInfo {
   color: [string, string];
@@ -52,33 +48,6 @@ const TIER_CONFIG: Record<Tier, TierInfo> = {
     nextTierRequirement: 200,
   },
 };
-
-interface ActionButtonProps {
-  onPress: () => void;
-  icon: React.ReactNode;
-  label: string;
-  disabled?: boolean;
-}
-
-const ActionButton: React.FC<ActionButtonProps> = ({
-  onPress,
-  icon,
-  label,
-  disabled = false,
-}) => (
-  <View className="items-center">
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      className={`w-12 h-12 rounded-full justify-center items-center ${
-        disabled ? "bg-gray-700" : "bg-[#1A1A1C]"
-      }`}
-    >
-      {icon}
-    </Pressable>
-    <Text className="text-white text-base font-semibold mt-2">{label}</Text>
-  </View>
-);
 
 const BalanceCard: React.FC<{
   balance: number | undefined;
@@ -172,10 +141,10 @@ export default function WalletTab() {
     refetch,
   } = useCustomer(account?.address);
 
-  const [tierModalVisible, setTierModalVisible] = useState(false);
-  const [tokenSummaryModalVisible, setTokenSummaryModalVisible] =
-    useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+  // Get services
+  const { useGetAllServicesQuery } = useService();
+  const { data: servicesData, isLoading: servicesLoading } =
+    useGetAllServicesQuery();
 
   const totalBalance = (customerData?.customer?.lifetimeEarnings || 0) - (customerData?.customer?.totalRedemptions || 0);
 
@@ -186,22 +155,32 @@ export default function WalletTab() {
     totalEarned: customerData?.customer?.lifetimeEarnings,
   };
 
-  const tierInfo = useMemo(() => TIER_CONFIG[tokenData.tier], [tokenData.tier]);
+  // Get latest 2 active services (sorted by createdAt descending)
+  const displayedServices = useMemo(() => {
+    if (!servicesData || !Array.isArray(servicesData)) {
+      return [];
+    }
+    const activeServices = servicesData.filter((service: ServiceData) => service.active);
+    const sortedServices = [...activeServices].sort(
+      (a: ServiceData, b: ServiceData) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    return sortedServices.slice(0, 2);
+  }, [servicesData]);
 
-  // Callbacks
-  const handleTokenSummaryPress = useCallback(() => {
-    setTokenSummaryModalVisible(true);
-  }, []);
+  const getCategoryLabel = (category?: string) => {
+    if (!category) return "Other";
+    const cat = SERVICE_CATEGORIES.find((c) => c.value === category);
+    return cat?.label || category;
+  };
 
-  const handleTierBenefitsPress = useCallback(() => {
-    setTierModalVisible(true);
-  }, []);
+  const handleServicePress = (item: ServiceData) => {
+    router.push(`/customer/service/${item.serviceId}`);
+  };
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await refetch();
-    setRefreshing(false);
-  }, [refetch]);
+  const handleViewAllServices = () => {
+    router.push("/(dashboard)/customer/tabs/service");
+  };
 
   // Early return for missing data
   if (!account) {
@@ -226,6 +205,8 @@ export default function WalletTab() {
     );
   }
 
+  console.log("displayedServices111: ", displayedServices)
+
   return (
     <View className="mt-4 flex-1">
       {/* Balance Card */}
@@ -235,76 +216,49 @@ export default function WalletTab() {
         isLoading={isLoading}
       />
 
-      {/* Detail Cards - Scrollable Section */}
-      <ScrollView
-        className="flex-1 mt-5"
-        showsVerticalScrollIndicator={true}
-        showsHorizontalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={["#FFCC00"]}
-            tintColor="#FFCC00"
-            progressBackgroundColor="#1A1A1C"
-          />
-        }
-        contentContainerStyle={{
-          paddingBottom: 20,
-          gap: 16,
-        }}
-        scrollEventThrottle={16}
-        bounces={true}
-      >
-        <DetailCard
-          icon={
-            <MaterialCommunityIcons
-              name="hand-coin-outline"
-              color="#000"
-              size={16}
-            />
-          }
-          title="Tokens Redeemed"
-          label="Total RCN tokens you've spent at shops"
-          badge={
-            isLoading ? (
-              <ActivityIndicator size="small" color="#000" />
-            ) : (
-              <>
-                <Text className="text-3xl font-semibold">
-                  {tokenData.totalRedeemed}
-                </Text>{" "}
-              </>
-            )
-          }
-        />
+      {/* Choose Service Section */}
+      <View className="mt-5">
+        {/* Header */}
+        <View className="flex-row justify-between items-center mb-4">
+          <Text className="text-white text-xl font-bold">Services</Text>
+          <TouchableOpacity onPress={handleViewAllServices}>
+            <Text className="text-[#FFCC00] text-sm font-semibold">
+              View All
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-        <DetailCard
-          icon={
-            <MaterialCommunityIcons name="screwdriver" color="#000" size={16} />
-          }
-          title="Tokens Earned"
-          label="Total RCN tokens earned from repairs"
-          badge={
-            isLoading ? (
-              <ActivityIndicator size="small" color="#000" />
-            ) : (
-              <>
-                <Text className="text-3xl font-semibold">
-                  {tokenData.totalEarned}
-                </Text>{" "}
-              </>
-            )
-          }
-        />
-
-        <DetailCard
-          icon={<SimpleLineIcons name="badge" color="#000" size={16} />}
-          title="Your Tier Level"
-          label={tierInfo.intro}
-          badge={tierInfo.label}
-        />
-      </ScrollView>
+        {/* Service Cards */}
+        {servicesLoading ? (
+          <View className="justify-center items-center py-10">
+            <ActivityIndicator size="large" color="#FFCC00" />
+          </View>
+        ) : displayedServices.length > 0 ? (
+          <View className="flex-row" style={{ marginHorizontal: -8 }}>
+            {displayedServices.map((item: ServiceData) => (
+              <ServiceCard
+                key={item.serviceId}
+                imageUrl={item.imageUrl}
+                category={getCategoryLabel(item.category)}
+                title={item.serviceName}
+                description={item.description}
+                price={item.priceUsd}
+                duration={item.durationMinutes}
+                onPress={() => handleServicePress(item)}
+              />
+            ))}
+          </View>
+        ) : (
+          <View className="items-center py-10">
+            <Text className="text-gray-400 text-center">
+              No services available
+            </Text>
+            <Text className="text-gray-500 text-sm text-center mt-2">
+              Check back later for new services
+            </Text>
+          </View>
+        )}
+      </View>
     </View>
   );
 }
