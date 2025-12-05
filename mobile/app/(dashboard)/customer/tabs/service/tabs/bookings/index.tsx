@@ -62,6 +62,7 @@ export default function BookingsTab() {
           bgColor: statusStyle.bgColor,
           textColor: statusStyle.textColor,
         }}
+        statusPosition="image"
         onPress={() => handleBookingPress(item)}
       />
     );

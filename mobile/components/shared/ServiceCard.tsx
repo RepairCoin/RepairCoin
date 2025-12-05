@@ -1,13 +1,6 @@
 import { Text, View, TouchableOpacity, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-interface MenuOption {
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  onPress: () => void;
-  destructive?: boolean;
-}
-
 interface ServiceCardProps {
   imageUrl?: string | null;
   category: string;
@@ -21,6 +14,7 @@ interface ServiceCardProps {
     bgColor: string;
     textColor: string;
   };
+  statusPosition?: "image" | "body";
   badgeStatus?: {
     label: string;
     active: boolean;
@@ -40,6 +34,7 @@ export default function ServiceCard({
   duration,
   date,
   status,
+  statusPosition = "body",
   badgeStatus,
   onPress,
   showMenu,
@@ -93,6 +88,17 @@ export default function ServiceCard({
                   </Text>
                 </View>
               )}
+              {status && statusPosition === "image" && (
+                <View
+                  className={`absolute top-2 right-2 px-2 py-1 rounded-full ${status.bgColor}`}
+                >
+                  <Text
+                    className={`text-xs font-medium capitalize ${status.textColor}`}
+                  >
+                    {status.label}
+                  </Text>
+                </View>
+              )}
             </View>
           )}
 
@@ -101,7 +107,7 @@ export default function ServiceCard({
               <Text className="text-xs text-gray-500 uppercase tracking-wide">
                 {category}
               </Text>
-              {status && (
+              {status && statusPosition === "body" && (
                 <View className={`px-2 py-1 rounded-full ${status.bgColor}`}>
                   <Text
                     className={`text-xs font-medium capitalize ${status.textColor}`}

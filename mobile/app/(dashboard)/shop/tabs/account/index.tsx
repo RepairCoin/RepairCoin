@@ -164,25 +164,6 @@ export default function Account() {
             </View>
             <AntDesign name="right" color="#fff" size={18} />
           </Pressable>
-          <Pressable
-            onPress={() => router.push("/shop/booking")}
-            className="flex-row justify-between items-center pt-4"
-          >
-            <View className="flex-row items-center">
-              <View className="rounded-full bg-[#2B2B2B] w-12 h-12 items-center justify-center">
-                <Ionicons name="calendar" color="#FFCC00" size={20} />
-              </View>
-              <View className="px-4 gap-1">
-                <Text className="text-white text-xl font-semibold">
-                  Booking
-                </Text>
-                <Text className="text-white/50 text-sm">
-                  Manage your bookings
-                </Text>
-              </View>
-            </View>
-            <AntDesign name="right" color="#fff" size={18} />
-          </Pressable>
         </View>
         <View className="p-4 bg-[#212121] rounded-xl mt-4">
           <Pressable
