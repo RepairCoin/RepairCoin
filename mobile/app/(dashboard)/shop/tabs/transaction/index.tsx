@@ -1,11 +1,12 @@
-import React, { useState, useCallback } from "react";
-import { 
-  View, 
-  Text, 
-  FlatList, 
-  RefreshControl, 
+import React, { useState, useCallback, useMemo } from "react";
+import {
+  View,
+  Text,
+  FlatList,
+  RefreshControl,
   ActivityIndicator,
-  Pressable 
+  Pressable,
+  TextInput,
 } from "react-native";
 import { ThemedView } from "@/components/ui/ThemedView";
 import { useAuthStore } from "@/store/auth.store";
@@ -17,6 +18,7 @@ import { PurchaseHistory } from "@/services/ShopServices";
 export default function TransactionHistory() {
   const { userProfile } = useAuthStore((state) => state);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const {
     data: transactions,
@@ -25,9 +27,36 @@ export default function TransactionHistory() {
     refetch: transactionsRefetch,
   } = useShopTransactions(userProfile?.shopId || "");
 
-  const transactionHistoryData = React.useMemo(() => {
+  const transactionHistoryData = useMemo(() => {
     return transactions?.purchases || [];
   }, [transactions]);
+
+  const filteredTransactions = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return transactionHistoryData;
+    }
+
+    const query = searchQuery.toLowerCase();
+    return transactionHistoryData.filter((tx) => {
+      // Search by date
+      const date = new Date(tx.createdAt).toLocaleDateString();
+      if (date.toLowerCase().includes(query)) return true;
+
+      // Search by amount
+      if (tx.amount.toString().includes(query)) return true;
+
+      // Search by total cost
+      if (tx.totalCost?.toString().includes(query)) return true;
+
+      // Search by payment method
+      if (tx.paymentMethod?.toLowerCase().includes(query)) return true;
+
+      // Search by status
+      if (tx.status?.toLowerCase().includes(query)) return true;
+
+      return false;
+    });
+  }, [transactionHistoryData, searchQuery]);
 
   const handleRefresh = useCallback(async () => {
     try {
@@ -70,7 +99,9 @@ export default function TransactionHistory() {
             Failed to load transactions
           </Text>
           <Text className="text-gray-400 text-sm mt-2 text-center px-4">
-            {transactionsError ? "Shop data not available" : "Unable to fetch transactions"}
+            {transactionsError
+              ? "Shop data not available"
+              : "Unable to fetch transactions"}
           </Text>
           <Pressable
             onPress={handleRefresh}
@@ -95,46 +126,55 @@ export default function TransactionHistory() {
     );
   };
 
-  const renderHeader = () => (
-    <View className="mb-4">
-      <View className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
-        <View className="flex-row items-center justify-between mb-2">
-          <Text className="text-gray-400 text-sm">Total Purchases</Text>
-          <Text className="text-white font-bold text-lg">
-            {transactionHistoryData.length}
-          </Text>
-        </View>
-        <View className="flex-row items-center justify-between">
-          <Text className="text-gray-400 text-sm">Total RCN Bought</Text>
-          <Text className="text-[#FFCC00] font-bold text-lg">
-            {transactionHistoryData.reduce((sum, tx) => sum + tx.amount, 0).toLocaleString()} RCN
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
-
   return (
     <ThemedView className="flex-1">
       <View className="pt-20 px-4">
-        <View className="flex-row justify-between items-center mb-6">
-          <Text className="text-white text-2xl font-bold">
-            Purchase History
-          </Text>
-          <View className="flex-row items-center">
-            <View className="bg-[#FFCC00]/20 px-3 py-1 rounded-full">
-              <Text className="text-[#FFCC00] text-xs font-semibold">
-                RCN PURCHASES
-              </Text>
-            </View>
-          </View>
+        {/* Search Input */}
+        <View className="flex-row items-center bg-zinc-800 rounded-full px-4 py-3 mb-4">
+          <Feather name="search" size={20} color="#9CA3AF" />
+          <TextInput
+            className="flex-1 text-white ml-3 text-left"
+            placeholder="Search by date, amount, status..."
+            placeholderTextColor="#6B7280"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <Pressable onPress={() => setSearchQuery("")}>
+              <Feather name="x-circle" size={20} color="#9CA3AF" />
+            </Pressable>
+          )}
         </View>
 
+        {/* Filter Buttons */}
+        <View className="flex-row gap-4 rounded-full p-1 mb-4">
+          <Pressable className="flex-1 py-2 rounded-full bg-[#FFCC00]">
+            <Text className="text-center font-semibold text-black">Date</Text>
+          </Pressable>
+          <Pressable className="flex-1 py-2 rounded-full bg-[#FFCC00]">
+            <Text className="text-center font-semibold text-black">
+              Transaction
+            </Text>
+          </Pressable>
+          <Pressable className="flex-1 py-2 rounded-full bg-[#FFCC00]">
+            <Text className="text-center font-semibold text-black">Amount</Text>
+          </Pressable>
+        </View>
+
+        {/* Results count when searching */}
+        {searchQuery.length > 0 && (
+          <Text className="text-gray-400 text-sm mb-2">
+            {filteredTransactions.length} result
+            {filteredTransactions.length !== 1 ? "s" : ""} found
+          </Text>
+        )}
+
         <FlatList
-          data={transactionHistoryData}
+          data={filteredTransactions}
           renderItem={renderTransaction}
-          keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
-          ListHeaderComponent={transactionHistoryData.length > 0 ? renderHeader : null}
+          keyExtractor={(item) =>
+            item.id?.toString() || Math.random().toString()
+          }
           ListEmptyComponent={renderEmptyComponent}
           refreshControl={
             <RefreshControl
