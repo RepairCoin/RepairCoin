@@ -135,11 +135,11 @@ export class ServiceRepository extends BaseRepository {
           sh.address as shop_address,
           sh.phone as shop_phone,
           sh.email as shop_email,
-          sh.lat as shop_lat,
-          sh.lng as shop_lng,
-          sh.city as shop_city,
-          sh.state as shop_state,
-          sh.zip_code as shop_zip_code,
+          sh.location_lat as shop_lat,
+          sh.location_lng as shop_lng,
+          sh.location_city as shop_city,
+          sh.location_state as shop_state,
+          sh.location_zip_code as shop_zip_code,
           NULL as shop_logo
         FROM shop_services s
         INNER JOIN shops sh ON s.shop_id = sh.shop_id
@@ -306,11 +306,11 @@ export class ServiceRepository extends BaseRepository {
           sh.address as shop_address,
           sh.phone as shop_phone,
           sh.email as shop_email,
-          sh.lat as shop_lat,
-          sh.lng as shop_lng,
-          sh.city as shop_city,
-          sh.state as shop_state,
-          sh.zip_code as shop_zip_code,
+          sh.location_lat as shop_lat,
+          sh.location_lng as shop_lng,
+          sh.location_city as shop_city,
+          sh.location_state as shop_state,
+          sh.location_zip_code as shop_zip_code,
           NULL as shop_logo,
           COALESCE(AVG(r.rating), 0) as avg_rating,
           COUNT(r.review_id) as review_count
