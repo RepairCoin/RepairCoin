@@ -5,6 +5,20 @@ import { logger } from '../utils/logger';
 import crypto from 'crypto';
 import path from 'path';
 
+// Define Multer file type to avoid dependency on @types/multer in production
+interface MulterFile {
+  fieldname: string;
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  size: number;
+  buffer: Buffer;
+  destination?: string;
+  filename?: string;
+  path?: string;
+  stream?: NodeJS.ReadableStream;
+}
+
 export interface UploadResult {
   success: boolean;
   url?: string;
@@ -76,7 +90,7 @@ export class ImageStorageService {
    * Upload image to DigitalOcean Spaces
    */
   async uploadImage(
-    file: Express.Multer.File,
+    file: MulterFile,
     folder: string = 'images'
   ): Promise<UploadResult> {
     try {
@@ -141,21 +155,21 @@ export class ImageStorageService {
   /**
    * Upload shop logo
    */
-  async uploadShopLogo(file: Express.Multer.File, shopId: string): Promise<UploadResult> {
+  async uploadShopLogo(file: MulterFile, shopId: string): Promise<UploadResult> {
     return this.uploadImage(file, `shops/${shopId}/logos`);
   }
 
   /**
    * Upload service image
    */
-  async uploadServiceImage(file: Express.Multer.File, shopId: string): Promise<UploadResult> {
+  async uploadServiceImage(file: MulterFile, shopId: string): Promise<UploadResult> {
     return this.uploadImage(file, `shops/${shopId}/services`);
   }
 
   /**
    * Upload shop banner
    */
-  async uploadShopBanner(file: Express.Multer.File, shopId: string): Promise<UploadResult> {
+  async uploadShopBanner(file: MulterFile, shopId: string): Promise<UploadResult> {
     return this.uploadImage(file, `shops/${shopId}/banners`);
   }
 

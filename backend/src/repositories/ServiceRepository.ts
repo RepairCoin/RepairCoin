@@ -25,6 +25,13 @@ export interface ShopServiceWithShopInfo extends ShopService {
   shopLogo?: string;
   avgRating?: number;
   reviewCount?: number;
+  shopLocation?: {
+    lat: number;
+    lng: number;
+    city?: string;
+    state?: string;
+    zipCode?: string;
+  };
 }
 
 export interface CreateServiceParams {
@@ -128,6 +135,11 @@ export class ServiceRepository extends BaseRepository {
           sh.address as shop_address,
           sh.phone as shop_phone,
           sh.email as shop_email,
+          sh.location_lat as shop_lat,
+          sh.location_lng as shop_lng,
+          sh.location_city as shop_city,
+          sh.location_state as shop_state,
+          sh.location_zip_code as shop_zip_code,
           NULL as shop_logo
         FROM shop_services s
         INNER JOIN shops sh ON s.shop_id = sh.shop_id
@@ -294,9 +306,14 @@ export class ServiceRepository extends BaseRepository {
           sh.address as shop_address,
           sh.phone as shop_phone,
           sh.email as shop_email,
+          sh.location_lat as shop_lat,
+          sh.location_lng as shop_lng,
+          sh.location_city as shop_city,
+          sh.location_state as shop_state,
+          sh.location_zip_code as shop_zip_code,
           NULL as shop_logo,
           COALESCE(AVG(r.rating), 0) as avg_rating,
-          COUNT(r.id) as review_count
+          COUNT(r.review_id) as review_count
         FROM shop_services s
         INNER JOIN shops sh ON s.shop_id = sh.shop_id
         LEFT JOIN service_reviews r ON s.service_id = r.service_id
@@ -439,7 +456,14 @@ export class ServiceRepository extends BaseRepository {
       shopEmail: row.shop_email,
       shopLogo: row.shop_logo,
       avgRating: row.avg_rating ? parseFloat(row.avg_rating) : 0,
-      reviewCount: row.review_count ? parseInt(row.review_count) : 0
+      reviewCount: row.review_count ? parseInt(row.review_count) : 0,
+      shopLocation: row.shop_lat && row.shop_lng ? {
+        lat: parseFloat(row.shop_lat),
+        lng: parseFloat(row.shop_lng),
+        city: row.shop_city,
+        state: row.shop_state,
+        zipCode: row.shop_zip_code
+      } : undefined
     };
   }
 }

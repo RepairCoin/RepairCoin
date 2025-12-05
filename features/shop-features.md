@@ -301,7 +301,58 @@ RepairCoin provides repair shops with a comprehensive loyalty token platform to 
 
 ---
 
+## 🛍️ Service Marketplace Management ✅ **NEW (December 2024)**
+
+### **Service Creation & Management**
+- **Create Services**: Add new services to your marketplace catalog
+- **Service Details**: Set name, description, price, duration, and category
+- **Image Upload**: Upload service images (DigitalOcean Spaces integration)
+- **Edit Services**: Modify existing service details at any time
+- **Activate/Deactivate**: Control service visibility without deletion
+- **Delete Services**: Remove services from your catalog
+- **Service Categories**: Organize services by category for easy discovery
+- **Tags**: Add searchable tags to improve service discoverability
+
+### **Service Display**
+- **Service Cards**: Beautiful cards showing service details, ratings, and pricing
+- **Shop Branding**: Services display your shop name and information
+- **Customer Reviews**: See customer reviews and ratings on your services
+- **Service Status**: Track active, inactive, and draft services
+- **Performance Metrics**: View service popularity and booking rates
+
+### **Service Bookings** ✅
+- **Booking Management**: View and manage customer service bookings
+- **Booking Details**: Customer info, service details, booking time, payment
+- **Status Tracking**: Track bookings from pending to completed
+- **Mark Complete**: Complete bookings with custom completion modal
+- **RCN Rewards**: See RCN rewards issued for completed services
+- **Order History**: Complete history of all service bookings
+- **Customer Reviews**: View reviews for completed services
+
+### **Reviews & Ratings** ✅
+- **View Reviews**: See all customer reviews for your services
+- **Star Ratings**: Monitor average ratings and review counts
+- **Respond to Reviews**: Reply to customer reviews professionally
+- **Review Analytics**: Track review trends and customer satisfaction
+- **Verified Orders**: All reviews from verified customers only
+- **Helpful Votes**: See which reviews customers find most helpful
+
 ## 📊 Analytics & Reporting
+
+### **Service Analytics Dashboard** ✅ **NEW (December 4, 2024)**
+- **Performance Overview**: Total revenue, orders, views, and conversion rates
+- **Top Services**: Top 5 performing services with detailed metrics:
+  - Views, bookings, and conversion rates
+  - Revenue tracking and average order value
+  - RCN redeemed and customer ratings
+- **Category Breakdown**: Performance analysis by service category
+- **Order Trends**: Time-based analytics with customizable periods:
+  - Last 7, 30, or 90 days
+  - Daily order volume trends
+  - Revenue growth patterns
+- **RCN Analytics**: Track RCN redemption patterns and amounts
+- **Customer Insights**: Average ratings and review statistics
+- **Export Reports**: Download analytics data for external analysis
 
 ### **Performance Metrics**
 - **Revenue Analysis**: Track repair revenue, token costs, and net profit

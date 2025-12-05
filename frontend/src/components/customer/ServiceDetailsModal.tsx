@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, DollarSign, Clock, MapPin, Phone, Mail, Image as ImageIcon, Tag } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { X, DollarSign, Clock, MapPin, Phone, Mail, Image as ImageIcon, Tag, Store } from "lucide-react";
 import { ShopServiceWithShopInfo, SERVICE_CATEGORIES } from "@/services/api/services";
 import { StarRating } from "./StarRating";
 import { FavoriteButton } from "./FavoriteButton";
@@ -19,6 +20,7 @@ export const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({
   onClose,
   onBook,
 }) => {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<"details" | "reviews">("details");
 
   const getCategoryLabel = (category?: string) => {
@@ -255,13 +257,28 @@ export const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({
                 </ul>
               </div>
 
-              {/* Book Now Button */}
-              <button
-                onClick={() => onBook(service)}
-                className="w-full bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black font-bold text-lg px-6 py-4 rounded-xl hover:from-[#FFD700] hover:to-[#FFCC00] transition-all duration-200 transform hover:scale-105 shadow-lg"
-              >
-                Book This Service
-              </button>
+              {/* Action Buttons */}
+              <div className="space-y-3">
+                {/* View Shop Button */}
+                <button
+                  onClick={() => {
+                    router.push(`/customer/shop/${service.shopId}`);
+                    onClose();
+                  }}
+                  className="w-full bg-[#1A1A1A] border-2 border-gray-700 text-white font-semibold text-base px-6 py-3 rounded-xl hover:border-[#FFCC00] hover:bg-[#2A2A2A] transition-all duration-200 flex items-center justify-center gap-2"
+                >
+                  <Store className="w-5 h-5" />
+                  Visit Shop Profile
+                </button>
+
+                {/* Book Now Button */}
+                <button
+                  onClick={() => onBook(service)}
+                  className="w-full bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black font-bold text-lg px-6 py-4 rounded-xl hover:from-[#FFD700] hover:to-[#FFCC00] transition-all duration-200 transform hover:scale-105 shadow-lg"
+                >
+                  Book This Service
+                </button>
+              </div>
               </div>
             </div>
           )}

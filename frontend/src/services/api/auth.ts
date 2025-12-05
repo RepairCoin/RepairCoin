@@ -64,8 +64,19 @@ export const getSession = async (): Promise<{
     const response = await apiClient.get<any>('/auth/session');
     // apiClient already returns response.data
     return response || { isValid: false };
-  } catch (error) {
-    console.error('Error getting session:', error);
+  } catch (error: any) {
+    // 401 is expected when no valid session exists - this is not an error
+    if (error?.response?.status === 401) {
+      console.log('[Auth] No active session (401) - user needs to log in');
+      return { isValid: false };
+    }
+
+    // Log other errors for debugging
+    console.error('[Auth] Unexpected error getting session:', {
+      status: error?.response?.status,
+      message: error?.message,
+      error
+    });
     return { isValid: false };
   }
 };

@@ -35,6 +35,7 @@ export interface ShopService {
 
 export interface ShopServiceWithShopInfo extends ShopService {
   companyName: string;
+  shopName?: string;
   shopAddress?: string;
   shopCity?: string;
   shopCountry?: string;
@@ -44,6 +45,13 @@ export interface ShopServiceWithShopInfo extends ShopService {
   distance?: number;
   avgRating?: number;
   reviewCount?: number;
+  shopLocation?: {
+    lat: number;
+    lng: number;
+    city?: string;
+    state?: string;
+    zipCode?: string;
+  };
   // Legacy fields for compatibility
   averageRating?: number;
 }
@@ -130,6 +138,7 @@ export interface ServiceFilters {
   maxPrice?: number;
   page?: number;
   limit?: number;
+  activeOnly?: boolean;
 }
 
 export interface OrderFilters {
@@ -150,7 +159,7 @@ export interface PaginatedResponse<T> {
 
 // ==================== HELPER FUNCTIONS ====================
 
-const buildQueryString = (params: Record<string, string | number | boolean | undefined>): string => {
+const buildQueryString = (params: Record<string, unknown>): string => {
   const searchParams = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null) {
@@ -183,7 +192,7 @@ export const getAllServices = async (
   filters?: ServiceFilters
 ): Promise<PaginatedResponse<ShopServiceWithShopInfo> | null> => {
   try {
-    const queryString = filters ? buildQueryString(filters) : '';
+    const queryString = filters ? buildQueryString(filters as Record<string, unknown>) : '';
     const response = await apiClient.get<PaginatedResponse<ShopServiceWithShopInfo>>(
       `/services${queryString}`
     );
@@ -215,7 +224,7 @@ export const getShopServices = async (
   options?: { page?: number; limit?: number }
 ): Promise<PaginatedResponse<ShopService> | null> => {
   try {
-    const queryString = options ? buildQueryString(options) : '';
+    const queryString = options ? buildQueryString(options as Record<string, unknown>) : '';
     const response = await apiClient.get<PaginatedResponse<ShopService>>(
       `/services/shop/${shopId}${queryString}`
     );
@@ -297,7 +306,7 @@ export const getCustomerOrders = async (
   filters?: OrderFilters
 ): Promise<PaginatedResponse<ServiceOrderWithDetails> | null> => {
   try {
-    const queryString = filters ? buildQueryString(filters) : '';
+    const queryString = filters ? buildQueryString(filters as Record<string, unknown>) : '';
     const response = await apiClient.get<PaginatedResponse<ServiceOrderWithDetails>>(
       `/services/orders/customer${queryString}`
     );
@@ -315,7 +324,7 @@ export const getShopOrders = async (
   filters?: OrderFilters
 ): Promise<PaginatedResponse<ServiceOrderWithDetails> | null> => {
   try {
-    const queryString = filters ? buildQueryString(filters) : '';
+    const queryString = filters ? buildQueryString(filters as Record<string, unknown>) : '';
     const response = await apiClient.get<PaginatedResponse<ServiceOrderWithDetails>>(
       `/services/orders/shop${queryString}`
     );
@@ -418,7 +427,7 @@ export const getCustomerFavorites = async (options: {
   limit?: number;
 } = {}): Promise<PaginatedResponse<ShopServiceWithShopInfo> | null> => {
   try {
-    const queryString = buildQueryString(options);
+    const queryString = buildQueryString(options as Record<string, unknown>);
     const response = await apiClient.get<PaginatedResponse<ShopServiceWithShopInfo>>(
       `/services/favorites${queryString}`
     );
@@ -498,7 +507,7 @@ export const getServiceReviews = async (
   } = {}
 ): Promise<PaginatedResponse<ServiceReview> | null> => {
   try {
-    const queryString = buildQueryString(options);
+    const queryString = buildQueryString(options as Record<string, unknown>);
     const response = await apiClient.get<PaginatedResponse<ServiceReview>>(
       `/services/${serviceId}/reviews${queryString}`
     );
@@ -517,7 +526,7 @@ export const getCustomerReviews = async (options: {
   limit?: number;
 } = {}): Promise<PaginatedResponse<ServiceReview> | null> => {
   try {
-    const queryString = buildQueryString(options);
+    const queryString = buildQueryString(options as Record<string, unknown>);
     const response = await apiClient.get<PaginatedResponse<ServiceReview>>(
       `/services/reviews/customer${queryString}`
     );
@@ -537,7 +546,7 @@ export const getShopReviews = async (options: {
   rating?: number;
 } = {}): Promise<PaginatedResponse<ServiceReview> | null> => {
   try {
-    const queryString = buildQueryString(options);
+    const queryString = buildQueryString(options as Record<string, unknown>);
     const response = await apiClient.get<PaginatedResponse<ServiceReview>>(
       `/services/reviews/shop${queryString}`
     );
