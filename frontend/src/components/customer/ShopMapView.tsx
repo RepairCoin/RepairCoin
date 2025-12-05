@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { MapPin, Navigation, Phone, Mail, Globe, Loader2 } from "lucide-react";
+import { MapPin, Navigation, Phone, Mail, Globe, Loader2, Star, Package } from "lucide-react";
 import { FaFacebook, FaTwitter, FaInstagram } from "react-icons/fa";
 import { ShopServiceWithShopInfo } from "@/services/api/services";
 import toast from "react-hot-toast";
@@ -94,6 +94,9 @@ interface Shop {
     lat: number;
     lng: number;
   };
+  serviceCount?: number;
+  categories?: string[];
+  avgRating?: number;
 }
 
 interface ShopMapViewProps {
@@ -113,7 +116,7 @@ export const ShopMapView: React.FC<ShopMapViewProps> = ({
   const [mapZoom, setMapZoom] = useState(12);
   const [requestingLocation, setRequestingLocation] = useState(false);
 
-  // Extract unique shops from services
+  // Extract unique shops from services with aggregated data
   const shops: Shop[] = React.useMemo(() => {
     const shopMap = new Map<string, Shop>();
 
@@ -132,7 +135,25 @@ export const ShopMapView: React.FC<ShopMapViewProps> = ({
                   lng: service.shopLocation.lng,
                 }
               : undefined,
+          serviceCount: 0,
+          categories: [],
+          avgRating: 0,
         });
+      }
+
+      const shop = shopMap.get(service.shopId)!;
+      shop.serviceCount = (shop.serviceCount || 0) + 1;
+
+      // Collect unique categories
+      if (service.category && !shop.categories?.includes(service.category)) {
+        shop.categories = [...(shop.categories || []), service.category];
+      }
+
+      // Calculate average rating
+      if (service.avgRating && service.avgRating > 0) {
+        const currentAvg = shop.avgRating || 0;
+        const currentCount = shop.serviceCount || 1;
+        shop.avgRating = ((currentAvg * (currentCount - 1)) + service.avgRating) / currentCount;
       }
     });
 
@@ -317,24 +338,68 @@ export const ShopMapView: React.FC<ShopMapViewProps> = ({
                       click: () => handleShopMarkerClick(shop),
                     }}
                   >
-                    <Popup>
-                      <div className="p-2">
-                        <h4 className="font-semibold">{shop.shopName}</h4>
-                        <p className="text-sm text-gray-600 mb-2">
+                    <Popup maxWidth={300}>
+                      <div className="p-3">
+                        <h4 className="font-bold text-base mb-1">{shop.shopName}</h4>
+
+                        {/* Rating */}
+                        {shop.avgRating && shop.avgRating > 0 ? (
+                          <div className="flex items-center gap-1 mb-2">
+                            <div className="flex">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  className={`w-3 h-3 ${
+                                    star <= Math.round(shop.avgRating!)
+                                      ? "fill-yellow-400 text-yellow-400"
+                                      : "text-gray-300"
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                            <span className="text-xs text-gray-600">
+                              ({shop.avgRating.toFixed(1)})
+                            </span>
+                          </div>
+                        ) : null}
+
+                        <p className="text-xs text-gray-600 mb-2">
+                          <MapPin className="inline w-3 h-3 mr-1" />
                           {shop.shopAddress}
                         </p>
+
+                        {/* Service count and categories */}
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">
+                            <Package className="w-3 h-3" />
+                            <span className="font-medium">{shop.serviceCount} Services</span>
+                          </div>
+                        </div>
+
+                        {shop.categories && shop.categories.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            {shop.categories.slice(0, 2).map((category) => (
+                              <span
+                                key={category}
+                                className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded"
+                              >
+                                {category.replace(/_/g, " ")}
+                              </span>
+                            ))}
+                            {shop.categories.length > 2 && (
+                              <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
+                                +{shop.categories.length - 2} more
+                              </span>
+                            )}
+                          </div>
+                        )}
+
                         {shop.shopPhone && (
-                          <p className="text-sm">
+                          <p className="text-xs mb-2">
                             <Phone className="inline w-3 h-3 mr-1" />
                             {shop.shopPhone}
                           </p>
                         )}
-                        <button
-                          onClick={() => onShopSelect(shop.shopId)}
-                          className="mt-2 w-full bg-[#FFCC00] text-black text-sm font-semibold px-3 py-1 rounded hover:bg-[#FFD700] transition-colors"
-                        >
-                          View Services
-                        </button>
                       </div>
                     </Popup>
                   </Marker>
@@ -348,9 +413,59 @@ export const ShopMapView: React.FC<ShopMapViewProps> = ({
         <div className="lg:col-span-1">
           {selectedShop ? (
             <div className="bg-[#2F2F2F] rounded-xl p-6 border border-gray-600 sticky top-6">
-              <h3 className="text-xl font-bold text-[#FFCC00] mb-4">
+              <h3 className="text-xl font-bold text-[#FFCC00] mb-2">
                 {selectedShop.shopName}
               </h3>
+
+              {/* Rating */}
+              {selectedShop.avgRating && selectedShop.avgRating > 0 ? (
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="flex">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        className={`w-4 h-4 ${
+                          star <= Math.round(selectedShop.avgRating!)
+                            ? "fill-yellow-400 text-yellow-400"
+                            : "text-gray-600"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-sm text-gray-400">
+                    ({selectedShop.avgRating.toFixed(1)})
+                  </span>
+                </div>
+              ) : null}
+
+              {/* Service Stats */}
+              <div className="bg-[#1A1A1A] rounded-lg p-4 mb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Package className="w-5 h-5 text-[#FFCC00]" />
+                    <span className="text-white font-semibold">
+                      {selectedShop.serviceCount} Services
+                    </span>
+                  </div>
+                </div>
+
+                {/* Categories */}
+                {selectedShop.categories && selectedShop.categories.length > 0 && (
+                  <div>
+                    <p className="text-xs text-gray-500 mb-2">Categories:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedShop.categories.map((category) => (
+                        <span
+                          key={category}
+                          className="text-xs bg-[#2F2F2F] text-gray-300 px-2 py-1 rounded border border-gray-700"
+                        >
+                          {category.replace(/_/g, " ")}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <div className="space-y-3 mb-6">
                 <div className="flex items-start">
@@ -385,9 +500,10 @@ export const ShopMapView: React.FC<ShopMapViewProps> = ({
 
               <button
                 onClick={() => onShopSelect(selectedShop.shopId)}
-                className="w-full bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black font-semibold px-6 py-3 rounded-xl hover:from-[#FFD700] hover:to-[#FFCC00] transition-all duration-200"
+                className="w-full bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black font-semibold px-6 py-3 rounded-xl hover:from-[#FFD700] hover:to-[#FFCC00] transition-all duration-200 flex items-center justify-center gap-2"
               >
-                View Services
+                <Globe className="w-5 h-5" />
+                Visit Store
               </button>
             </div>
           ) : (
@@ -404,7 +520,7 @@ export const ShopMapView: React.FC<ShopMapViewProps> = ({
 
           {/* Shops List */}
           <div className="mt-6 bg-[#2F2F2F] rounded-xl border border-gray-600 max-h-[400px] overflow-y-auto">
-            <div className="sticky top-0 bg-[#2F2F2F] border-b border-gray-700 px-4 py-3">
+            <div className="sticky top-0 bg-[#2F2F2F] border-b border-gray-700 px-4 py-3 z-10">
               <h4 className="font-semibold text-white">
                 Nearby Shops ({shops.length})
               </h4>
@@ -417,19 +533,36 @@ export const ShopMapView: React.FC<ShopMapViewProps> = ({
                   className={`w-full text-left p-3 rounded-lg transition-all ${
                     selectedShop?.shopId === shop.shopId
                       ? "bg-[#FFCC00] bg-opacity-20 border border-[#FFCC00]"
-                      : "hover:bg-[#1A1A1A]"
+                      : "hover:bg-[#1A1A1A] border border-transparent"
                   }`}
                 >
-                  <h5
-                    className={`font-medium ${
-                      selectedShop?.shopId === shop.shopId
-                        ? "text-[#FFCC00]"
-                        : "text-white"
-                    }`}
-                  >
-                    {shop.shopName}
-                  </h5>
-                  <p className="text-xs text-gray-400 mt-1">{shop.shopAddress}</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <h5
+                        className={`font-medium text-sm ${
+                          selectedShop?.shopId === shop.shopId
+                            ? "text-[#FFCC00]"
+                            : "text-white"
+                        }`}
+                      >
+                        {shop.shopName}
+                      </h5>
+                      <p className="text-xs text-gray-400 mt-1">{shop.shopAddress}</p>
+                    </div>
+                    <div className="flex-shrink-0 flex flex-col items-end gap-1">
+                      <span className="text-xs bg-blue-900 bg-opacity-30 text-blue-300 px-2 py-0.5 rounded">
+                        {shop.serviceCount} services
+                      </span>
+                      {shop.avgRating && shop.avgRating > 0 ? (
+                        <div className="flex items-center gap-1">
+                          <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                          <span className="text-xs text-gray-400">
+                            {shop.avgRating.toFixed(1)}
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
                 </button>
               ))}
             </div>
