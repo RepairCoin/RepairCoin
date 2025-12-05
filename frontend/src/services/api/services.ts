@@ -35,6 +35,7 @@ export interface ShopService {
 
 export interface ShopServiceWithShopInfo extends ShopService {
   companyName: string;
+  shopName?: string;
   shopAddress?: string;
   shopCity?: string;
   shopCountry?: string;
@@ -44,6 +45,13 @@ export interface ShopServiceWithShopInfo extends ShopService {
   distance?: number;
   avgRating?: number;
   reviewCount?: number;
+  shopLocation?: {
+    lat: number;
+    lng: number;
+    city?: string;
+    state?: string;
+    zipCode?: string;
+  };
   // Legacy fields for compatibility
   averageRating?: number;
 }
