@@ -6,6 +6,14 @@ const nextConfig: NextConfig = {
   swcMinify: true,
   output: 'standalone',
 
+  // Skip type checking and linting during build (handled separately in CI)
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+
   // Enable compression
   compress: true,
 
