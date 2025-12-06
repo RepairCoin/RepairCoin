@@ -16,6 +16,48 @@ import { ShopService } from "@/services/shopService";
 import toast from "react-hot-toast";
 import "leaflet/dist/leaflet.css";
 
+// Custom styles for Leaflet popups
+if (typeof window !== "undefined") {
+  const style = document.createElement("style");
+  style.textContent = `
+    .leaflet-popup-content-wrapper {
+      background-color: #1F2937 !important;
+      color: white !important;
+      border-radius: 12px !important;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5) !important;
+      padding: 0 !important;
+      border: 1px solid #374151 !important;
+    }
+    .leaflet-popup-content {
+      margin: 0 !important;
+      min-width: 200px !important;
+    }
+    .leaflet-popup-tip-container {
+      display: none !important;
+    }
+    .leaflet-popup-close-button {
+      color: #9CA3AF !important;
+      font-size: 22px !important;
+      font-weight: normal !important;
+      width: 24px !important;
+      height: 24px !important;
+      top: 6px !important;
+      right: -8px !important;
+      text-align: center !important;
+      text-decoration: none !important;
+      padding: 0 !important;
+      margin-right: 16px !important;
+    }
+    .leaflet-popup-close-button:hover {
+      color: #FFCC00 !important;
+    }
+  `;
+  if (!document.getElementById("leaflet-findshop-popup-styles")) {
+    style.id = "leaflet-findshop-popup-styles";
+    document.head.appendChild(style);
+  }
+}
+
 // Dynamic import for map to avoid SSR issues
 const MapContainer = dynamic(
   () => import("react-leaflet").then((mod) => mod.MapContainer),
@@ -173,10 +215,8 @@ export function FindShop() {
 
   const handleMarkerClick = (shop: Shop) => {
     setSelectedShop(shop);
-    if (shop.location?.lat && shop.location?.lng) {
-      setMapCenter([shop.location.lat, shop.location.lng]);
-      setMapZoom(16); // Also zoom when clicking on marker
-    }
+    // Don't manually center the map - let Leaflet's autoPan handle it
+    // The Popup has autoPan={true} which will automatically pan to show the popup
   };
 
   console.log("filteredShopsfilteredShops: ", filteredShops);
@@ -354,7 +394,11 @@ export function FindShop() {
                           click: () => handleMarkerClick(shop),
                         }}
                       >
-                        <Popup>
+                        <Popup
+                          autoPan={true}
+                          autoPanPadding={[50, 100]}
+                          keepInView={true}
+                        >
                           <div className="p-2">
                             <h4 className="font-semibold">{shop.name}</h4>
                             {shop.category && (

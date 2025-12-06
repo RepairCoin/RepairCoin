@@ -742,7 +742,9 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                       onChange={(e) => setCustomerAddress(e.target.value)}
                       placeholder="0x0000...0000"
                       disabled={isBlocked}
-                      className={`w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent transition-all ${isBlocked ? "opacity-50 cursor-not-allowed" : ""}`}
+                      className={`w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent transition-all ${
+                        isBlocked ? "opacity-50 cursor-not-allowed" : ""
+                      }`}
                     />
                     {fetchingCustomer && (
                       <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -770,7 +772,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                   </div>
                   <button
                     onClick={startQRScanner}
-                    className="px-4 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-2 whitespace-nowrap"
+                    className="px-4 py-3 bg-[#FFCC00] text-black hover:bg-[#FFD700] font-bold rounded-xl transition-all flex items-center justify-center gap-2 whitespace-nowrap"
                     title="Scan customer's QR code"
                   >
                     <Camera className="w-5 h-5" />
