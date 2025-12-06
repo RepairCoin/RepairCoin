@@ -127,7 +127,7 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
           (result) => {
             // QR code detected
             const scannedText = result.data;
-            
+
             // Check if it's a valid Ethereum address (0x followed by 40 hex characters)
             const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
             if (ethAddressRegex.test(scannedText)) {
@@ -147,7 +147,7 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
             highlightCodeOutline: true,
           }
         );
-        
+
         setQrScanner(scanner);
         await scanner.start();
       }
@@ -222,18 +222,18 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
                 />
               </svg>
             </div>
-            
+
             <button
               onClick={startQRScanner}
               disabled={loading}
-              className="px-4 py-3 bg-blue-600 text-white font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:bg-blue-700 flex items-center justify-center gap-2 whitespace-nowrap"
+              className="px-4 py-3 bg-[#FFCC00] text-black hover:bg-[#FFD700] font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 whitespace-nowrap"
               title="Scan customer's QR code"
             >
               <Camera className="w-5 h-5" />
               <span className="hidden sm:inline">Scan QR</span>
             </button>
           </div>
-          
+
           <button
             onClick={lookupCustomer}
             disabled={loading || !searchAddress}
@@ -703,7 +703,7 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
                 <X className="w-6 h-6" />
               </button>
             </div>
-            
+
             <div className="p-6">
               <div className="relative">
                 <video
@@ -715,7 +715,7 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
                   <div className="w-48 h-48 border-2 border-[#FFCC00] rounded-lg opacity-75"></div>
                 </div>
               </div>
-              
+
               <div className="mt-4 text-center">
                 <p className="text-gray-300 text-sm mb-2">
                   Point your camera at the customer's QR code
@@ -724,7 +724,7 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
                   The QR code should contain their wallet address
                 </p>
               </div>
-              
+
               <div className="mt-6 flex justify-center">
                 <button
                   onClick={stopQRScanner}

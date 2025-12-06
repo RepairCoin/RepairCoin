@@ -142,7 +142,9 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   const loadShopCustomers = async () => {
     setLoadingCustomers(true);
     try {
-      const response = await apiClient.get(`/shops/${shopId}/customers?limit=100`);
+      const response = await apiClient.get(
+        `/shops/${shopId}/customers?limit=100`
+      );
 
       if (response.success) {
         const result = response;
@@ -150,23 +152,27 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
 
         if (shopCustomers.length === 0) {
           try {
-            const allCustomersResponse = await apiClient.get('/customers?limit=100');
+            const allCustomersResponse = await apiClient.get(
+              "/customers?limit=100"
+            );
 
             if (allCustomersResponse.success) {
               const allCustomers = allCustomersResponse.data?.customers || [];
 
-              const transformedCustomers = allCustomers.map((customer: any) => ({
-                address: customer.address,
-                name: customer.name || customer.email || "Unnamed Customer",
-                tier: customer.tier || "BRONZE",
-                lifetime_earnings: customer.lifetimeEarnings || 0,
-                last_transaction_date: customer.lastEarnedDate,
-                total_transactions: 0,
-                isActive: customer.active !== false,
-                suspended: customer.active === false,
-                suspendedAt: customer.suspendedAt,
-                suspensionReason: customer.suspensionReason,
-              }));
+              const transformedCustomers = allCustomers.map(
+                (customer: any) => ({
+                  address: customer.address,
+                  name: customer.name || customer.email || "Unnamed Customer",
+                  tier: customer.tier || "BRONZE",
+                  lifetime_earnings: customer.lifetimeEarnings || 0,
+                  last_transaction_date: customer.lastEarnedDate,
+                  total_transactions: 0,
+                  isActive: customer.active !== false,
+                  suspended: customer.active === false,
+                  suspendedAt: customer.suspendedAt,
+                  suspensionReason: customer.suspensionReason,
+                })
+              );
 
               setShopCustomers(transformedCustomers);
               setShowingAllCustomers(true);
@@ -174,7 +180,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
               setShopCustomers([]);
             }
           } catch (error) {
-            console.error('Error loading all customers:', error);
+            console.error("Error loading all customers:", error);
             setShopCustomers([]);
           }
         } else {
@@ -183,7 +189,9 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
         }
       } else {
         try {
-          const allCustomersResponse = await apiClient.get('/customers?limit=100');
+          const allCustomersResponse = await apiClient.get(
+            "/customers?limit=100"
+          );
 
           if (allCustomersResponse.success) {
             const allCustomers = allCustomersResponse.data?.customers || [];
@@ -205,7 +213,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
             setShowingAllCustomers(true);
           }
         } catch (error) {
-          console.error('Error loading all customers:', error);
+          console.error("Error loading all customers:", error);
         }
       }
     } catch (err) {
@@ -219,7 +227,9 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   const loadRedemptionHistory = async () => {
     setLoadingTransactions(true);
     try {
-      const response = await apiClient.get(`/shops/${shopId}/transactions?type=redeem&limit=20`);
+      const response = await apiClient.get(
+        `/shops/${shopId}/transactions?type=redeem&limit=20`
+      );
 
       if (response.success) {
         const result = response;
@@ -309,7 +319,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
         const balance = result.data?.totalBalance || 0;
         setCustomerBalance(balance);
       } else {
-        console.warn('Could not fetch customer balance:', response.status);
+        console.warn("Could not fetch customer balance:", response.status);
         setCustomerBalance(0);
       }
     } catch (err) {
@@ -324,8 +334,10 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
     console.log("Selecting customer:", customer);
 
     // Prevent selecting shop's own wallet address
-    if (shopData?.walletAddress &&
-        customer.address.toLowerCase() === shopData.walletAddress.toLowerCase()) {
+    if (
+      shopData?.walletAddress &&
+      customer.address.toLowerCase() === shopData.walletAddress.toLowerCase()
+    ) {
       setError("Cannot process redemption from your own wallet address");
       toast.error("Cannot process redemption from your own wallet address");
       return;
@@ -333,7 +345,9 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
 
     // Check if customer is suspended
     if (customer.isActive === false || customer.suspended) {
-      const errorMsg = `Cannot process redemption for suspended customer${customer.suspensionReason ? ': ' + customer.suspensionReason : ''}`;
+      const errorMsg = `Cannot process redemption for suspended customer${
+        customer.suspensionReason ? ": " + customer.suspensionReason : ""
+      }`;
       setError(errorMsg);
       toast.error(errorMsg);
       return;
@@ -388,7 +402,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
           setCustomerExistsResult({
             exists: true,
             checked: true,
-            customerData: response.data.customer
+            customerData: response.data.customer,
           });
         } else {
           setCustomerExistsResult({ exists: false, checked: true });
@@ -422,7 +436,9 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
         }
 
         try {
-          const response = await apiClient.get(`/tokens/redemption-session/status/${currentSession.sessionId}`);
+          const response = await apiClient.get(
+            `/tokens/redemption-session/status/${currentSession.sessionId}`
+          );
 
           if (response.success) {
             const result = response;
@@ -441,7 +457,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
               // Check if session was cancelled by shop or rejected by customer
               const metadata = sessionData.metadata;
               const cancelledByShop = metadata?.cancelledByShop;
-              
+
               if (cancelledByShop) {
                 setError("Redemption request was cancelled");
               } else {
@@ -489,13 +505,13 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
       setError(blockReason);
       toast.error(blockReason, {
         duration: 5000,
-        position: 'top-right',
+        position: "top-right",
         style: {
-          background: '#EF4444',
-          color: 'white',
-          fontWeight: 'bold',
+          background: "#EF4444",
+          color: "white",
+          fontWeight: "bold",
         },
-        icon: '🚫',
+        icon: "🚫",
       });
       return;
     }
@@ -511,15 +527,24 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
       }
 
       // Prevent shop from redeeming from their own wallet
-      if (shopData?.walletAddress &&
-          finalAddress.toLowerCase() === shopData.walletAddress.toLowerCase()) {
+      if (
+        shopData?.walletAddress &&
+        finalAddress.toLowerCase() === shopData.walletAddress.toLowerCase()
+      ) {
         setError("Cannot process redemption from your own wallet address");
         return;
       }
 
       // Check if customer is suspended
-      if (selectedCustomer && (selectedCustomer.isActive === false || selectedCustomer.suspended)) {
-        const errorMsg = `Cannot process redemption for suspended customer${selectedCustomer.suspensionReason ? ': ' + selectedCustomer.suspensionReason : ''}`;
+      if (
+        selectedCustomer &&
+        (selectedCustomer.isActive === false || selectedCustomer.suspended)
+      ) {
+        const errorMsg = `Cannot process redemption for suspended customer${
+          selectedCustomer.suspensionReason
+            ? ": " + selectedCustomer.suspensionReason
+            : ""
+        }`;
         setError(errorMsg);
         toast.error(errorMsg);
         return;
@@ -530,11 +555,14 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
       setSuccess(null);
 
       try {
-        const response = await apiClient.post('/tokens/redemption-session/create', {
-          customerAddress: finalAddress,
-          shopId,
-          amount: redeemAmount,
-        });
+        const response = await apiClient.post(
+          "/tokens/redemption-session/create",
+          {
+            customerAddress: finalAddress,
+            shopId,
+            amount: redeemAmount,
+          }
+        );
 
         if (!response.success) {
           throw new Error(
@@ -599,7 +627,6 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
     }
   };
 
-
   const getTimeRemaining = (expiresAt: string) => {
     const now = new Date().getTime();
     const expiry = new Date(expiresAt).getTime();
@@ -620,7 +647,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
       setCameraLoading(true);
 
       // Wait for video element to be ready in the DOM
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       if (!videoRef.current) {
         throw new Error("Video element not ready");
@@ -643,7 +670,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
             // Try to find and auto-select the customer
             setTimeout(() => {
               const customer = shopCustomers.find(
-                c => c.address.toLowerCase() === scannedText.toLowerCase()
+                (c) => c.address.toLowerCase() === scannedText.toLowerCase()
               );
               if (customer) {
                 handleCustomerSelect(customer);
@@ -656,7 +683,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
         {
           highlightScanRegion: true,
           highlightCodeOutline: true,
-          preferredCamera: 'environment' // Use back camera on mobile
+          preferredCamera: "environment", // Use back camera on mobile
         }
       );
 
@@ -670,11 +697,13 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
         console.error("Scanner start error:", startError);
 
         // Provide more specific error messages
-        if (startError.name === 'NotAllowedError') {
-          toast.error("Camera permission denied. Please allow camera access in your browser settings.");
-        } else if (startError.name === 'NotFoundError') {
+        if (startError.name === "NotAllowedError") {
+          toast.error(
+            "Camera permission denied. Please allow camera access in your browser settings."
+          );
+        } else if (startError.name === "NotFoundError") {
           toast.error("No camera found on this device.");
-        } else if (startError.name === 'NotReadableError') {
+        } else if (startError.name === "NotReadableError") {
           toast.error("Camera is already in use by another application.");
         } else {
           toast.error("Failed to start camera. Please try again.");
@@ -702,9 +731,9 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
     // Explicitly stop all video tracks to ensure camera is released
     if (videoRef.current && videoRef.current.srcObject) {
       const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(track => {
+      stream.getTracks().forEach((track) => {
         track.stop();
-        console.log('Camera track stopped:', track.kind);
+        console.log("Camera track stopped:", track.kind);
       });
       videoRef.current.srcObject = null;
     }
@@ -779,10 +808,13 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
             <div className="flex items-start">
               <Shield className="w-5 h-5 text-blue-500 mt-0.5 mr-3 flex-shrink-0" />
               <div className="flex-1">
-                <h4 className="font-semibold text-blue-400 mb-1">Secure Redemption Process</h4>
+                <h4 className="font-semibold text-blue-400 mb-1">
+                  Secure Redemption Process
+                </h4>
                 <p className="text-sm text-blue-300">
-                  For security, all redemptions require customer approval on their own device. 
-                  Customer must approve the transaction themselves on their phone/device.
+                  For security, all redemptions require customer approval on
+                  their own device. Customer must approve the transaction
+                  themselves on their phone/device.
                 </p>
               </div>
             </div>
@@ -821,7 +853,8 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                             </span>
                           </div>
                           <span className="text-gray-300">
-                            Search for customer by wallet address or scan QR code
+                            Search for customer by wallet address or scan QR
+                            code
                           </span>
                         </li>
                         <li className="flex items-start gap-3">
@@ -841,7 +874,8 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                             </span>
                           </div>
                           <span className="text-gray-300">
-                            System calculates redemption value (100% at your shop, 20% elsewhere)
+                            System calculates redemption value (100% at your
+                            shop, 20% elsewhere)
                           </span>
                         </li>
                         <li className="flex items-start gap-3">
@@ -851,7 +885,8 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                             </span>
                           </div>
                           <span className="text-gray-300">
-                            Approve the redemption to transfer RCN and complete transaction
+                            Approve the redemption to transfer RCN and complete
+                            transaction
                           </span>
                         </li>
                       </ul>
@@ -906,11 +941,11 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                           </div>
                         )}
                       </div>
-                      
+
                       <button
                         onClick={startQRScanner}
                         disabled={loadingCustomers}
-                        className="px-4 py-3 bg-blue-600 text-white font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:bg-blue-700 flex items-center justify-center gap-2 whitespace-nowrap"
+                        className="px-4 py-3 font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all bg-[#FFCC00] text-black hover:bg-[#FFD700] flex items-center justify-center gap-2 whitespace-nowrap"
                         title="Scan customer's QR code"
                       >
                         <Camera className="w-5 h-5" />
@@ -975,7 +1010,8 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                       ) : customerSearch.match(/^0x[a-fA-F0-9]{40}$/i) ? (
                         // Check if entered address is shop's own wallet
                         shopData?.walletAddress &&
-                        customerSearch.toLowerCase() === shopData.walletAddress.toLowerCase() ? (
+                        customerSearch.toLowerCase() ===
+                          shopData.walletAddress.toLowerCase() ? (
                           <div className="p-4 bg-red-900/20 border border-red-500 rounded-xl">
                             <div className="flex items-center gap-3">
                               <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
@@ -984,7 +1020,9 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                                   Cannot Redeem From Own Wallet
                                 </p>
                                 <p className="text-red-300/70 text-xs mt-1">
-                                  You cannot process redemption from your own wallet address. Please enter a customer&apos;s wallet address.
+                                  You cannot process redemption from your own
+                                  wallet address. Please enter a customer&apos;s
+                                  wallet address.
                                 </p>
                               </div>
                             </div>
@@ -1011,10 +1049,13 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                                 ></path>
                               </svg>
-                              <span className="text-gray-400 text-sm">Checking customer...</span>
+                              <span className="text-gray-400 text-sm">
+                                Checking customer...
+                              </span>
                             </div>
                           </div>
-                        ) : !customerExistsResult.checked || !customerExistsResult.exists ? (
+                        ) : !customerExistsResult.checked ||
+                          !customerExistsResult.exists ? (
                           <div className="p-4 bg-red-900/20 border border-red-500 rounded-xl">
                             <div className="flex items-center gap-3">
                               <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
@@ -1023,7 +1064,8 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                                   Customer Not Registered
                                 </p>
                                 <p className="text-red-300/70 text-xs mt-1">
-                                  This wallet address is not registered. Customer must register before redemption.
+                                  This wallet address is not registered.
+                                  Customer must register before redemption.
                                 </p>
                               </div>
                             </div>
@@ -1032,26 +1074,33 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                           <button
                             onClick={() => {
                               // Use the customer data already fetched by checkCustomerExists
-                              const customerData = customerExistsResult.customerData;
+                              const customerData =
+                                customerExistsResult.customerData;
 
                               if (customerData) {
                                 setSelectedCustomer({
                                   address: customerSearch,
-                                  name: customerData.name || "External Customer",
+                                  name:
+                                    customerData.name || "External Customer",
                                   tier: customerData.tier || "UNKNOWN",
                                   lifetime_earnings: 0,
                                   total_transactions: 0,
                                   isActive: customerData.active !== false,
                                   suspended: customerData.active === false,
                                   suspendedAt: customerData.suspendedAt,
-                                  suspensionReason: customerData.suspensionReason,
+                                  suspensionReason:
+                                    customerData.suspensionReason,
                                 });
                                 setCustomerAddress(customerSearch);
                                 setCustomerSearch("");
 
                                 // Check if customer is suspended and show error
                                 if (customerData.active === false) {
-                                  const errorMsg = `Cannot process redemption for suspended customer${customerData.suspensionReason ? ': ' + customerData.suspensionReason : ''}`;
+                                  const errorMsg = `Cannot process redemption for suspended customer${
+                                    customerData.suspensionReason
+                                      ? ": " + customerData.suspensionReason
+                                      : ""
+                                  }`;
                                   setError(errorMsg);
                                   toast.error(errorMsg);
                                 }
@@ -1136,7 +1185,8 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                       </div>
 
                       {/* Show suspension warning if customer is suspended */}
-                      {(selectedCustomer.isActive === false || selectedCustomer.suspended) && (
+                      {(selectedCustomer.isActive === false ||
+                        selectedCustomer.suspended) && (
                         <div className="mt-4 bg-red-500/10 rounded-xl p-4 border border-red-500/30">
                           <div className="flex items-center gap-3">
                             <svg
@@ -1157,7 +1207,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                               <p className="text-red-300/70 text-xs mt-1">
                                 {selectedCustomer.suspensionReason
                                   ? `This customer's account has been suspended: ${selectedCustomer.suspensionReason}`
-                                  : 'This customer\'s account has been suspended. Cannot process redemption for suspended customers.'}
+                                  : "This customer's account has been suspended. Cannot process redemption for suspended customers."}
                               </p>
                             </div>
                           </div>
@@ -1223,7 +1273,6 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
             </>
           )}
 
-
           {/* Waiting for Approval */}
           {sessionStatus === "waiting" && currentSession && (
             <div className="bg-gradient-to-br from-[#1C1C1C] to-[#252525] rounded-2xl p-8 border border-gray-800">
@@ -1273,9 +1322,12 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                       if (!currentSession) return;
 
                       try {
-                        const response = await apiClient.post('/tokens/redemption-session/cancel', {
-                          sessionId: currentSession.sessionId
-                        });
+                        const response = await apiClient.post(
+                          "/tokens/redemption-session/cancel",
+                          {
+                            sessionId: currentSession.sessionId,
+                          }
+                        );
 
                         if (response.success) {
                           setSessionStatus("idle");
@@ -1287,12 +1339,14 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                           await checkForPendingSessions();
                         } else {
                           const errorData = await response.json();
-                          setError(errorData.error || 'Failed to cancel request');
+                          setError(
+                            errorData.error || "Failed to cancel request"
+                          );
                           setTimeout(() => setError(null), 5000);
                         }
                       } catch (err) {
-                        console.error('Error cancelling session:', err);
-                        setError('Failed to cancel request');
+                        console.error("Error cancelling session:", err);
+                        setError("Failed to cancel request");
                         setTimeout(() => setError(null), 5000);
                       }
                     }}
@@ -1303,7 +1357,9 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                   <button
                     onClick={async () => {
                       try {
-                        const response = await apiClient.get(`/tokens/redemption-session/status/${currentSession.sessionId}`);
+                        const response = await apiClient.get(
+                          `/tokens/redemption-session/status/${currentSession.sessionId}`
+                        );
 
                         if (response.success) {
                           const result = response;
@@ -1433,7 +1489,13 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                         {loadingBalance ? (
                           <span className="text-gray-400">Loading...</span>
                         ) : customerBalance !== null ? (
-                          <span className={customerBalance > 0 ? "text-green-400" : "text-red-400"}>
+                          <span
+                            className={
+                              customerBalance > 0
+                                ? "text-green-400"
+                                : "text-red-400"
+                            }
+                          >
                             {customerBalance.toFixed(2)} RCN
                           </span>
                         ) : (
@@ -1465,25 +1527,38 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                 </div>
 
                 {/* Insufficient Balance Warning */}
-                {selectedCustomer && redeemAmount > 0 && customerBalance !== null && customerBalance < redeemAmount && (
-                  <div className="bg-red-900 bg-opacity-20 border border-red-500 rounded-xl p-4 mb-4">
-                    <div className="flex items-center">
-                      <AlertCircle className="w-5 h-5 text-red-500 mr-3 flex-shrink-0" />
-                      <div>
-                        <h4 className="font-semibold text-red-400 mb-1">Insufficient Balance</h4>
-                        <p className="text-sm text-red-300">
-                          Customer has {customerBalance.toFixed(2)} RCN, but {redeemAmount} RCN requested.
-                          {loadingBalance && " (Checking balance...)"}
-                        </p>
+                {selectedCustomer &&
+                  redeemAmount > 0 &&
+                  customerBalance !== null &&
+                  customerBalance < redeemAmount && (
+                    <div className="bg-red-900 bg-opacity-20 border border-red-500 rounded-xl p-4 mb-4">
+                      <div className="flex items-center">
+                        <AlertCircle className="w-5 h-5 text-red-500 mr-3 flex-shrink-0" />
+                        <div>
+                          <h4 className="font-semibold text-red-400 mb-1">
+                            Insufficient Balance
+                          </h4>
+                          <p className="text-sm text-red-300">
+                            Customer has {customerBalance.toFixed(2)} RCN, but{" "}
+                            {redeemAmount} RCN requested.
+                            {loadingBalance && " (Checking balance...)"}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
                 {/* Process Button */}
                 {(() => {
-                  const insufficientBalance = selectedCustomer && redeemAmount > 0 && customerBalance !== null && customerBalance < redeemAmount;
-                  const isSuspended = selectedCustomer && (selectedCustomer.isActive === false || selectedCustomer.suspended);
+                  const insufficientBalance =
+                    selectedCustomer &&
+                    redeemAmount > 0 &&
+                    customerBalance !== null &&
+                    customerBalance < redeemAmount;
+                  const isSuspended =
+                    selectedCustomer &&
+                    (selectedCustomer.isActive === false ||
+                      selectedCustomer.suspended);
                   const isDisabled =
                     sessionStatus !== "idle" ||
                     !selectedCustomer ||
@@ -1510,7 +1585,9 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                           : loadingBalance
                           ? "Loading customer balance..."
                           : insufficientBalance
-                          ? `Customer has insufficient balance (${customerBalance?.toFixed(2) || 0} RCN available)`
+                          ? `Customer has insufficient balance (${
+                              customerBalance?.toFixed(2) || 0
+                            } RCN available)`
                           : "Send request to customer's device for approval"
                       }
                     >
@@ -1726,7 +1803,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                 <X className="w-6 h-6 text-gray-400" />
               </button>
             </div>
-            
+
             <div className="relative rounded-xl overflow-hidden bg-black">
               <video
                 ref={videoRef}
@@ -1769,11 +1846,12 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                 </div>
               )}
             </div>
-            
+
             <p className="text-gray-400 text-sm mt-4 text-center">
-              Position the customer&apos;s QR code within the frame to scan their wallet address
+              Position the customer&apos;s QR code within the frame to scan
+              their wallet address
             </p>
-            
+
             <button
               onClick={stopQRScanner}
               className="w-full mt-4 px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-medium"

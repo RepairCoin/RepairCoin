@@ -23,9 +23,8 @@ export default function GroupTokenOperationsTab({
   const [customerAddress, setCustomerAddress] = useState("");
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
-  const [customerBalance, setCustomerBalance] = useState<shopGroupsAPI.CustomerAffiliateGroupBalance | null>(
-    null
-  );
+  const [customerBalance, setCustomerBalance] =
+    useState<shopGroupsAPI.CustomerAffiliateGroupBalance | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [loadingBalance, setLoadingBalance] = useState(false);
 
@@ -217,7 +216,9 @@ export default function GroupTokenOperationsTab({
       onTransactionComplete?.();
     } catch (error: any) {
       console.error("Error processing transaction:", error);
-      toast.error(error?.response?.data?.error || `Failed to ${operationType} tokens`);
+      toast.error(
+        error?.response?.data?.error || `Failed to ${operationType} tokens`
+      );
     } finally {
       setSubmitting(false);
     }
@@ -260,16 +261,27 @@ export default function GroupTokenOperationsTab({
       {operationType === "earn" && (
         <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-semibold text-blue-300">Your RCN Balance</p>
-            <p className="text-xl font-bold text-[#FFCC00]">{shopRcnBalance.toFixed(2)} RCN</p>
+            <p className="text-sm font-semibold text-blue-300">
+              Your RCN Balance
+            </p>
+            <p className="text-xl font-bold text-[#FFCC00]">
+              {shopRcnBalance.toFixed(2)} RCN
+            </p>
           </div>
           <p className="text-xs text-blue-300 mb-2">
-            <strong>RCN Backing Requirement:</strong> 1:2 ratio (100 {tokenSymbol} requires 50 RCN)
+            <strong>RCN Backing Requirement:</strong> 1:2 ratio (100{" "}
+            {tokenSymbol} requires 50 RCN)
           </p>
           {amount && parseFloat(amount) > 0 && (
             <p className="text-xs text-blue-300">
-              Issuing <strong>{amount} {tokenSymbol}</strong> requires{" "}
-              <strong className="text-[#FFCC00]">{(parseFloat(amount) / 2).toFixed(2)} RCN</strong>
+              Issuing{" "}
+              <strong>
+                {amount} {tokenSymbol}
+              </strong>{" "}
+              requires{" "}
+              <strong className="text-[#FFCC00]">
+                {(parseFloat(amount) / 2).toFixed(2)} RCN
+              </strong>
             </p>
           )}
         </div>
@@ -290,7 +302,7 @@ export default function GroupTokenOperationsTab({
           />
           <button
             onClick={startQRScanner}
-            className="px-4 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-2 whitespace-nowrap"
+            className="px-4 py-3 bg-[#FFCC00] text-black hover:bg-[#FFD700] font-bold rounded-xl transition-all flex items-center justify-center gap-2 whitespace-nowrap"
             title="Scan customer's QR code"
           >
             <Camera className="w-5 h-5" />
@@ -385,13 +397,14 @@ export default function GroupTokenOperationsTab({
         <p className="text-sm text-blue-300">
           {operationType === "earn" ? (
             <>
-              <strong>Issue Tokens:</strong> Give custom tokens to customers for purchases or
-              services. These tokens can only be redeemed at member shops.
+              <strong>Issue Tokens:</strong> Give custom tokens to customers for
+              purchases or services. These tokens can only be redeemed at member
+              shops.
             </>
           ) : (
             <>
-              <strong>Redeem Tokens:</strong> Allow customers to use their custom tokens for
-              discounts or rewards at your shop.
+              <strong>Redeem Tokens:</strong> Allow customers to use their
+              custom tokens for discounts or rewards at your shop.
             </>
           )}
         </p>
