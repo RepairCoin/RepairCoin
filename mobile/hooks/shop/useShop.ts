@@ -60,10 +60,24 @@ export function useShop() {
     });
   };
 
+  const useShopPromoCodes = (shopId: string) => {
+    return useQuery({
+      queryKey: queryKeys.shopPromoCodes(shopId),
+      queryFn: async () => {
+        const response: any = await shopApi.getShopPromoCodes(shopId);
+        return response.data;
+      },
+      enabled: !!shopId,
+      staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+      gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    });
+  }
+
   return {
     useRegisterShop,
     useGetShopByWalletAddress,
     useGetShopCustomers,
     useShopCustomerGrowth,
+    useShopPromoCodes,
   };
 }

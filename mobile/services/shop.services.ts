@@ -47,6 +47,15 @@ class ShopApi {
       throw error;
     }
   }
+
+  async getShopPromoCodes(shopId: string): Promise<any> {
+    try {
+      return await apiClient.get(`/shops/${shopId}/promo-codes`);
+    } catch (error: any) {
+      console.error("Failed to get shop promo codes:", error.message);
+      throw error;
+    }
+  };
 }
 
 export const shopApi = new ShopApi();

@@ -7,13 +7,17 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
-import { useShopPromoCodes, useUpdatePromoCodeStatus } from "@/hooks/useShopRewards";
+import { useUpdatePromoCodeStatus } from "@/hooks/useShopRewards";
 import { ThemedView } from "@/components/ui/ThemedView";
 import { PromoCodeCard } from "@/components/shop/PromoCodeCard";
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
+import { useShop } from "@/hooks/shop/useShop";
+import { useAuthStore } from "@/store/auth.store";
 
 export default function PromoCodeTab() {
-  const { data: promoCodesData, isLoading } = useShopPromoCodes();
+  const shopId = useAuthStore((state) => state.userProfile?.shopId);
+  const { useShopPromoCodes } = useShop();
+  const { data: promoCodesData, isLoading } = useShopPromoCodes(shopId);
   const updatePromoCodeStatusMutation = useUpdatePromoCodeStatus();
 
   const handleTogglePromoCode = (promoCodeId: string, isActive: boolean) => {

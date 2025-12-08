@@ -54,6 +54,7 @@ export const queryKeys = {
   shopTransactions: (id: string) => [...queryKeys.shop(id), 'transactions'] as const,
   shopCustomerGrowth: (id: string) => [...queryKeys.shop(id), 'customerGrowth'] as const,
   shopCustomers: (id: string) => [...queryKeys.shop(id), 'customers'] as const,
+  shopPromoCodes: (shopId: string) => [...queryKeys.shop(shopId), 'promoCodes'] as const,
   nearbyShops: (coordinates: { lat: number; lng: number }) =>
     [...queryKeys.shops(), 'nearby', coordinates] as const,
 
