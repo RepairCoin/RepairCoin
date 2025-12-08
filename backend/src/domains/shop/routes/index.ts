@@ -257,7 +257,38 @@ router.get('/wallet/:address',
       );
 
       const hasActiveStripeSubscription = stripeSubQuery.rows.length > 0;
-      const rcgBalance = shop.rcg_balance || 0;
+
+      // Get actual on-chain RCG balance (not cached database value)
+      // This ensures operational_status is based on real blockchain holdings
+      let rcgBalance = shop.rcg_balance || 0;
+      if (shop.walletAddress) {
+        try {
+          const { RCGTokenReader } = await import('../../../contracts/RCGTokenReader');
+          const rcgReader = new RCGTokenReader();
+          const onChainBalance = await rcgReader.getBalance(shop.walletAddress);
+          rcgBalance = parseFloat(onChainBalance) || 0;
+
+          // Update cached balance in database if different
+          if (rcgBalance !== (shop.rcg_balance || 0)) {
+            await db.query(
+              `UPDATE shops SET rcg_balance = $1, updated_at = CURRENT_TIMESTAMP WHERE shop_id = $2`,
+              [rcgBalance, shop.shopId]
+            );
+            shop.rcg_balance = rcgBalance;
+            logger.info('Synced RCG balance from blockchain', {
+              shopId: shop.shopId,
+              oldBalance: shop.rcg_balance,
+              newBalance: rcgBalance
+            });
+          }
+        } catch (rcgError) {
+          logger.warn('Failed to fetch on-chain RCG balance, using cached value', {
+            shopId: shop.shopId,
+            error: rcgError instanceof Error ? rcgError.message : 'Unknown error'
+          });
+        }
+      }
+
       const expectedOperationalStatus = hasActiveStripeSubscription
         ? 'subscription_qualified'
         : (rcgBalance >= 10000 ? 'rcg_qualified' : 'not_qualified');

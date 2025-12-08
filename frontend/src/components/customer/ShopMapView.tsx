@@ -262,19 +262,12 @@ export const ShopMapView: React.FC<ShopMapViewProps> = ({
 
     setSelectedShop(shop);
 
-    // Only center map if shop is not already centered
-    if (shop.location) {
-      const currentCenter = mapCenter;
-      const distance = Math.sqrt(
-        Math.pow(currentCenter[0] - shop.location.lat, 2) +
-        Math.pow(currentCenter[1] - shop.location.lng, 2)
-      );
-
-      // Only update if distance is significant (more than 0.001 degrees ~100m)
-      if (distance > 0.001 || mapZoom !== 16) {
-        setMapCenter([shop.location.lat, shop.location.lng]);
-        setMapZoom(16);
-      }
+    // Don't manually center the map here - let Leaflet's autoPan handle it
+    // The Popup component has autoPan={true} and autoPanPadding which will
+    // automatically pan the map to show the popup fully when it opens
+    // Only zoom in if we're far away
+    if (shop.location && mapZoom < 14) {
+      setMapZoom(15);
     }
   };
 
@@ -394,7 +387,12 @@ export const ShopMapView: React.FC<ShopMapViewProps> = ({
                       click: () => handleShopMarkerClick(shop),
                     }}
                   >
-                    <Popup maxWidth={300}>
+                    <Popup
+                      maxWidth={300}
+                      autoPan={true}
+                      autoPanPadding={[50, 80]}
+                      keepInView={true}
+                    >
                       <div className="p-3">
                         <h4 className="font-bold text-base mb-1">{shop.shopName}</h4>
 

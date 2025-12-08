@@ -26,6 +26,8 @@ import {
   Receipt,
   Heart,
   BarChart3,
+  UserPlus,
+  CheckCircle,
   Calendar,
   Clock,
 } from "lucide-react";
@@ -177,13 +179,13 @@ const Sidebar: React.FC<SidebarProps> = ({
         {
           title: "Referrals",
           href: "/customer?tab=referrals",
-          icon: <Users className="w-5 h-5" />,
+          icon: <UserPlus className="w-5 h-5" />,
           tabId: "referrals",
         },
         {
           title: "Approvals",
           href: "/customer?tab=approvals",
-          icon: <Users className="w-5 h-5" />,
+          icon: <CheckCircle className="w-5 h-5" />,
           tabId: "approvals",
         },
         {

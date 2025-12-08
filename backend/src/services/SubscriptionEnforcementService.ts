@@ -551,12 +551,41 @@ export class SubscriptionEnforcementService extends BaseRepository {
 
   /**
    * Enforce subscription for a specific shop (on-demand check)
+   *
+   * Shops can be qualified in two ways:
+   * 1. Active Stripe subscription ($500/month)
+   * 2. RCG holdings (10,000+ RCG tokens)
    */
   async enforceForShop(shopId: string): Promise<{
     isValid: boolean;
     action?: string;
     message: string;
   }> {
+    // FIRST: Check if shop is RCG-qualified (10K+ RCG) - no subscription needed
+    const rcgQuery = `
+      SELECT operational_status, rcg_balance
+      FROM shops
+      WHERE shop_id = $1
+    `;
+
+    const rcgResult = await this.pool.query(rcgQuery, [shopId]);
+
+    if (rcgResult.rows.length > 0) {
+      const { operational_status, rcg_balance } = rcgResult.rows[0];
+      const rcgBalanceNum = parseFloat(rcg_balance) || 0;
+
+      // RCG-qualified shops (10K+ RCG) don't need subscription
+      if (operational_status === 'rcg_qualified' || rcgBalanceNum >= 10000) {
+        logger.info('Shop is RCG-qualified, no subscription required', {
+          shopId,
+          operationalStatus: operational_status,
+          rcgBalance: rcgBalanceNum
+        });
+        return { isValid: true, message: 'Shop is RCG-qualified (10K+ RCG holdings)' };
+      }
+    }
+
+    // THEN: Check for active Stripe subscription
     const query = `
       SELECT
         ss.id,
@@ -580,7 +609,7 @@ export class SubscriptionEnforcementService extends BaseRepository {
     const result = await this.pool.query(query, [shopId]);
 
     if (result.rows.length === 0) {
-      return { isValid: false, message: 'No active subscription found' };
+      return { isValid: false, message: 'No active subscription or RCG qualification found' };
     }
 
     const row = result.rows[0];
