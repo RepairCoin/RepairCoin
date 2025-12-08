@@ -4,14 +4,12 @@ import {
   Entypo,
   Feather,
   MaterialIcons,
-  SimpleLineIcons,
 } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import * as Clipboard from "expo-clipboard";
 import { router } from "expo-router";
 import { useAuthStore } from "@/store/auth.store";
-import { useCustomerStore } from "@/store/customerStore";
-import { useCustomer } from "@/hooks";
+import { useCustomer } from "@/hooks/customer/useCustomer";
 
 type CopyableFieldProps = {
   value: string;
@@ -58,8 +56,9 @@ const CopyableField = ({
 export default function Account() {
   const { logout } = useAuthStore((state) => state);
   const { account } = useAuthStore();
+  const { useGetCustomerByWalletAddress } = useCustomer();
   // Use the token balance hook
-  const { data: customerData } = useCustomer(account?.address);
+  const { data: customerData } = useGetCustomerByWalletAddress(account?.address);
 
   const [isCopied, setIsCopied] = useState<boolean>(false);
 

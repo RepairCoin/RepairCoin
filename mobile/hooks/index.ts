@@ -1,5 +1,4 @@
 // Export all React Query hooks for easy importing
-export * from './useCustomerQueries';
 export * from './useShopQueries';
 
 // Re-export React Query utilities

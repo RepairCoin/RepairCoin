@@ -14,13 +14,15 @@ import {
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 
-import { useCustomer } from "@/hooks";
-import { useService } from "@/hooks/service/useService";
-import { useAuthStore } from "@/store/auth.store";
 import { Tier } from "@/utilities/GlobalTypes";
 import { ServiceData } from "@/interfaces/service.interface";
 import { SERVICE_CATEGORIES } from "@/constants/service-categories";
+import { useCustomer } from "@/hooks/customer/useCustomer";
+import { useService } from "@/hooks/service/useService";
+import { useAuthStore } from "@/store/auth.store";
+
 import ServiceCard from "@/components/shared/ServiceCard";
+
 
 interface TierInfo {
   color: [string, string];
@@ -132,6 +134,7 @@ const BalanceCard: React.FC<{
 
 export default function WalletTab() {
   const { account } = useAuthStore();
+  const { useGetCustomerByWalletAddress } = useCustomer();
 
   // Use the token balance hook
   const {
@@ -139,7 +142,7 @@ export default function WalletTab() {
     isLoading,
     error,
     refetch,
-  } = useCustomer(account?.address);
+  } = useGetCustomerByWalletAddress(account?.address);
 
   // Get services
   const { useGetAllServicesQuery } = useService();
@@ -204,8 +207,6 @@ export default function WalletTab() {
       </View>
     );
   }
-
-  console.log("displayedServices111: ", displayedServices)
 
   return (
     <View className="mt-4 flex-1">

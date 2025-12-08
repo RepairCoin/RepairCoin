@@ -29,7 +29,7 @@ class CustomerApi {
     }
   }
 
-  async update(walletAddress: string, payload: CustomerData) {
+  async update(walletAddress: string, payload: Partial<CustomerData>) {
     try {
       return await apiClient.put<any>(`/customers/${walletAddress}`, payload);
     } catch (error) {

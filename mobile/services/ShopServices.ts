@@ -260,19 +260,6 @@ export const listShops = async (): Promise<ShopResponse> => {
   }
 };
 
-export const getShopByWalletAddress = async (
-  walletAddress: string
-): Promise<ShopByWalletAddressResponse> => {
-  try {
-    return await apiClient.get<ShopByWalletAddressResponse>(
-      `/shops/wallet/${walletAddress}`
-    );
-  } catch (error: any) {
-    console.error("Failed to get shop by wallet address:", error.message);
-    throw error;
-  }
-};
-
 export const updateShopDetails = async (
   shopId: string,
   shopData: ShopData
@@ -343,24 +330,6 @@ export const getShopTransactions = async (
     return await apiClient.get(`/shops/purchase/history/${shopId}`);
   } catch (error: any) {
     console.error("Failed to get shop transactions:", error.message);
-    throw error;
-  }
-};
-
-export const getShopCustomerGrowth = async (shopId: string): Promise<CustomerGrowthResponse> => {
-  try {
-    return await apiClient.get<CustomerGrowthResponse>(`/shops/${shopId}/customer-growth?period=7d`);
-  } catch (error: any) {
-    console.error("Failed to get shop customer growth:", error.message);
-    throw error;
-  }
-};
-
-export const getShopCustomers = async (shopId: string): Promise<ShopCustomersResponse> => {
-  try {
-    return await apiClient.get<ShopCustomersResponse>(`/shops/${shopId}/customers?limit=100`);
-  } catch (error: any) {
-    console.error("Failed to get shop customers:", error.message);
     throw error;
   }
 };
@@ -551,19 +520,6 @@ export const getCustomerBalance = async (
   }
 };
 
-export const getShopServices = async (
-  shopId: string,
-  options?: { page?: number; limit?: number }
-): Promise<ServiceResponse> => {
-  try {
-    const queryString = options ? buildQueryString(options) : '';
-    return await apiClient.get<ServiceResponse>(`/services/shop/${shopId}${queryString}`);
-  } catch (error: any) {
-    console.error("Failed to get shop services:", error.message);
-    throw error;
-  }
-};
-
 export interface CreateServiceRequest {
   serviceName: string;
   description?: string;
@@ -574,47 +530,4 @@ export interface CreateServiceRequest {
   tags?: string[];
   active?: boolean;
 }
-
-export const createService = async (
-  serviceData: CreateServiceRequest
-): Promise<{ success: boolean; data?: ServiceData; message?: string }> => {
-  try {
-    // The backend expects tags as a JSON array string if provided
-    const requestData = {
-      ...serviceData,
-      tags: serviceData.tags ? JSON.stringify(serviceData.tags) : undefined
-    };
-    return await apiClient.post(`/services`, requestData);
-  } catch (error: any) {
-    console.error("Failed to create service:", error.message);
-    throw error;
-  }
-};
-
-export const updateService = async (
-  serviceId: string,
-  updates: UpdateServiceData
-): Promise<{ success: boolean; data?: ServiceData; message?: string }> => {
-  try {
-    const requestData = {
-      ...updates,
-      tags: updates.tags ? JSON.stringify(updates.tags) : undefined
-    };
-    return await apiClient.put(`/services/${serviceId}`, requestData);
-  } catch (error: any) {
-    console.error("Failed to update service:", error.message);
-    throw error;
-  }
-};
-
-export const deleteService = async (
-  serviceId: string
-): Promise<{ success: boolean; message?: string }> => {
-  try {
-    return await apiClient.delete(`/services/${serviceId}`);
-  } catch (error: any) {
-    console.error("Failed to delete service:", error.message);
-    throw error;
-  }
-};
 

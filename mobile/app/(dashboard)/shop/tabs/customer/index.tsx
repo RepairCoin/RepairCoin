@@ -1,5 +1,11 @@
 import React, { useState } from "react";
-import { View, ScrollView, Text, TextInput, FlatList, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  FlatList,
+  ActivityIndicator,
+} from "react-native";
 import {
   Feather,
   Fontisto,
@@ -9,24 +15,22 @@ import {
 import HorizontalCard from "@/components/ui/HorizontalCard";
 import { ThemedView } from "@/components/ui/ThemedView";
 import CustomerCard from "@/components/shop/CustomerCard";
-import {
-  useGetShopCustomers,
-  useShopCustomerGrowth,
-} from "@/hooks/useShopQueries";
 import { useAuthStore } from "@/store/auth.store";
+import { useShop } from "@/hooks/shop/useShop";
 
 export default function CustomerList() {
   const { userProfile } = useAuthStore();
-  const [searchText, setSearchText] = useState("");
+  const { useGetShopCustomers, useShopCustomerGrowth } = useShop();
   const { data: growthData } = useShopCustomerGrowth(userProfile?.shopId || "");
   const { data: shopCustomerData, isLoading } = useGetShopCustomers(
     userProfile?.shopId || ""
   );
 
-  console.log("userProfile?.shopId:", userProfile?.shopId);
-  
-  const filteredCustomers = shopCustomerData?.customers?.filter((customer: any) =>
-    customer?.name?.toLowerCase().includes(searchText.toLowerCase())
+  const [searchText, setSearchText] = useState("");
+
+  const filteredCustomers = shopCustomerData?.customers?.filter(
+    (customer: any) =>
+      customer?.name?.toLowerCase().includes(searchText.toLowerCase())
   );
 
   const horizontalCardList: {
@@ -84,7 +88,7 @@ export default function CustomerList() {
           </View>
         </View>
       </View>
-      
+
       <View className="flex-row flex-wrap my-4">
         {horizontalCardList.map((props, i) => (
           <View key={i} style={{ width: "50%" }}>
@@ -94,20 +98,21 @@ export default function CustomerList() {
       </View>
 
       <View className="mx-4 mb-4 pl-2 py-4 rounded-t-xl p-2 gap-4 bg-[#FFCC00]">
-        <Text className="text-black text-lg font-semibold">Recent Customers</Text>
+        <Text className="text-black text-lg font-semibold">
+          Recent Customers
+        </Text>
       </View>
 
       <FlatList
         data={filteredCustomers || []}
         keyExtractor={(item, index) => item?.name || index.toString()}
         renderItem={({ item }) => {
-          console.log("Rendering customer:", item);
           return (
             <CustomerCard
               name={item?.name}
               tier={item?.tier}
-              lifetimeEarnings={item?.lifetime_earnings}
-              lastTransactionDate={item?.last_transaction_date}
+              lifetimeEarnings={item?.lifetimeEarnings}
+              lastTransactionDate={item?.lastEarnedDate}
               onPress={() => console.log("Customer pressed:", item?.name)}
             />
           );

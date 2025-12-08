@@ -66,35 +66,6 @@ export interface CustomerEarningHistoryResponse {
   message: string;
 }
 
-export const getCustomerByWalletAddress = async (
-  address: string
-): Promise<CustomerData> => {
-  try {
-    return await apiClient.get<CustomerData>(`/customers/${address}`);
-  } catch (error) {
-    console.error("Failed to fetch customer:", error);
-    throw error;
-  }
-};
-
-export const getRCNBalanceByWalletAddress = async (address: string) => {
-  try {
-    return await apiClient.get(`/tokens/earned-balance/${address}`);
-  } catch (error) {
-    console.error("Failed to fetch balance:", error);
-    throw error;
-  }
-};
-
-export const getEarningHistoryByWalletAddress = async (address: string, limit: number): Promise<CustomerEarningHistoryResponse> => {
-  try {
-    return await apiClient.get<CustomerEarningHistoryResponse>(`/customers/${address}/transactions?limit=${limit}`);
-  } catch (error) {
-    console.error("Failed to fetch earning history:", error);
-    throw error;
-  }
-};
-
 export const calculateTierByAddress = async (
   address: string,
   repairAmount: number
@@ -109,13 +80,3 @@ export const calculateTierByAddress = async (
     throw error;
   }
 };
-
-export const updateCustomerProfile = async (address: string, updates: { name?: string; email?: string; phone?: string }) => {
-  try {
-    return await apiClient.put<CustomerData>(`/customers/${address}`, updates);
-  } catch (error) {
-    console.error("Failed to update customer profile:", error);
-    throw error;
-  }
-};
-  

@@ -1,4 +1,5 @@
 import { BaseResponse } from "./base.interface";
+import { CustomerData } from "./customer.interface";
 
 export interface ShopFormData {
   // Shop Information
@@ -67,4 +68,26 @@ export interface ShopData {
   website: string;
 }
 
+export interface ShopCustomerData {
+  currentPage: number;
+  customers: CustomerData[];
+  totalItems: number;
+  totalPages: number;
+}
+
+export interface CustomerGrowthData {
+  activeCustomers: number;
+  activeGrowthPercentage: number;
+  averageEarningsPerCustomer: number;
+  avgEarningsGrowthPercentage: number;
+  growthPercentage: number;
+  newCustomers: number;
+  periodLabel: string;
+  regularCustomers: number;
+  regularGrowthPercentage: number;
+  totalCustomers: number;
+}
+
 export interface ShopByWalletAddressResponse extends BaseResponse<ShopData> {}
+export interface ShopCustomersResponse extends BaseResponse<ShopCustomerData> {}
+export interface ShopCustomerGrowthResponse extends BaseResponse<CustomerGrowthData> {}

@@ -1,25 +1,23 @@
 import { Image, View, Text, Pressable } from "react-native";
 import React, { useState } from "react";
 import { Feather } from "@expo/vector-icons";
+import { router } from "expo-router";
 import WalletTab from "./tabs/wallet/WalletTab";
 import ApprovalTab from "./tabs/approval/ApprovalTab";
 import ReferralTab from "./tabs/referral/ReferralTab";
+import { useCustomer } from "@/hooks/customer/useCustomer";
 import { useAuthStore } from "@/store/auth.store";
-import { useCustomer } from "@/hooks";
-import { router } from "expo-router";
 
 type CustomerTabs = "Wallet" | "Referral" | "Approval";
 
 export default function CustomerDashboard() {
   const { account } = useAuthStore();
+  const { useGetCustomerByWalletAddress } = useCustomer();
 
   // Use the token balance hook
   const {
     data: customerData,
-    isLoading,
-    error,
-    refetch,
-  } = useCustomer(account?.address);
+  } = useGetCustomerByWalletAddress(account?.address);
   const [activeTab, setActiveTab] = useState<CustomerTabs>("Wallet");
   const customerTabs: CustomerTabs[] = ["Wallet", "Referral", "Approval"];
 

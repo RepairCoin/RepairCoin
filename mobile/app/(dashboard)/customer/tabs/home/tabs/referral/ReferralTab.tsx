@@ -7,11 +7,10 @@ import {
   MaterialCommunityIcons,
   Octicons,
 } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import * as Clipboard from "expo-clipboard";
 import { useAuthStore } from "@/store/auth.store";
-import { useCustomer } from "@/hooks";
 import HorizontalCard from "@/components/ui/HorizontalCard";
+import { useCustomer } from "@/hooks/customer/useCustomer";
 
 type CopyableFieldProps = {
   value: string;
@@ -57,7 +56,9 @@ const CopyableField = ({
 
 export default function ReferralTab() {
   const { account } = useAuthStore();
-  const { data: customerData } = useCustomer(account?.address);
+  const { useGetCustomerByWalletAddress } = useCustomer();
+  const { data: customerData } = useGetCustomerByWalletAddress(account?.address);
+  
   const [codeCopied, setCodeCopied] = useState<boolean>(false);
   const [linkCopied, setLinkCopied] = useState<boolean>(false);
 

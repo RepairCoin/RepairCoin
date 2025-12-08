@@ -1,18 +1,19 @@
+import { useState } from "react";
+import { View, Text, TextInput, Alert, Platform } from "react-native";
 import { AntDesign } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
-import { View, Text, TextInput, Alert, Platform } from "react-native";
-import Screen from "@/components/ui/Screen";
-import { useState } from "react";
-import PrimaryButton from "@/components/ui/PrimaryButton";
 import { useAuthStore } from "@/store/auth.store";
-import {
-  useCustomer,
-  useUpdateCustomerProfile,
-} from "@/hooks/useCustomerQueries";
+import { useCustomer } from "@/hooks/customer/useCustomer";
+import Screen from "@/components/ui/Screen";
+import PrimaryButton from "@/components/ui/PrimaryButton";
 
 export default function EditProfilePage() {
   const { account } = useAuthStore();
-  const { data: customerData } = useCustomer(account?.address);
+  const { useGetCustomerByWalletAddress, useUpdateCustomerProfile } =
+    useCustomer();
+  const { data: customerData } = useGetCustomerByWalletAddress(
+    account?.address
+  );
   const updateProfileMutation = useUpdateCustomerProfile(account?.address);
 
   const [name, setName] = useState<string>(customerData?.customer?.name || "");
@@ -24,8 +25,6 @@ export default function EditProfilePage() {
   );
 
   const handleSaveChanges = async () => {
-    console.log(name, email, phone);
-
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       Alert.alert("Error", "Please enter a valid email address");

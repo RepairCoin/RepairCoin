@@ -149,7 +149,6 @@ export const useRedemptionSessions = () => {
     queryKey: QUERY_KEYS.REDEMPTION_SESSIONS(walletAddress || ""),
     queryFn: async () => {
       const response: RedemptionSessionsResponse = await fetchMyRedemptionSessions();
-      console.log("RESPONSE SSDS: ", response)
       return response;
     },
     enabled: !!walletAddress,

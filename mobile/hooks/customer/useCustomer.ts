@@ -1,5 +1,5 @@
-import { queryKeys } from "@/config/queryClient";
-import { CustomerFormData } from "@/interfaces/customer.interface";
+import { queryClient, queryKeys } from "@/config/queryClient";
+import { CustomerFormData, TransactionResponse } from "@/interfaces/customer.interface";
 import { customerApi } from "@/services/customer.services";
 import { useAuthStore } from "@/store/auth.store";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -27,10 +27,11 @@ export const useCustomer = () => {
     return useQuery({
       queryKey: queryKeys.customerTransactions(address),
       queryFn: async () => {
-        const response: any = await customerApi.getTransactionByWalletAddress(
+        const response: TransactionResponse = await customerApi.getTransactionByWalletAddress(
           address,
           limit
         );
+        console.log("responseresponse: ", response)
         return response.data;
       },
       staleTime: 10 * 60 * 1000, // 10 minutes
@@ -73,9 +74,24 @@ export const useCustomer = () => {
     });
   };
 
+  const useUpdateCustomerProfile = (address: string) => {
+    return useMutation({
+      mutationFn: async (updates: { name?: string; email?: string; phone?: string }) => {
+        const response = await customerApi.update(address, updates);
+        return response.data;
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.customerProfile(address),
+        });
+      },
+    });
+  };
+
   return {
     useGetCustomerByWalletAddress,
     useGetTransactionsByWalletAddress,
     useRegisterCustomer,
+    useUpdateCustomerProfile
   };
 };

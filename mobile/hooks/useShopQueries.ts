@@ -3,17 +3,11 @@ import { queryClient, queryKeys } from "@/config/queryClient";
 import {
   ShopResponse,
   listShops,
-  getShopByWalletAddress,
-  ShopByWalletAddressResponse,
   updateShopDetails,
   UpdateShopData,
   ShopData,
   getShopTransactions,
   PurchaseHistoryResponse,
-  getShopCustomerGrowth,
-  CustomerGrowthResponse,
-  getShopCustomers,
-  ShopCustomersResponse,
 } from "@/services/ShopServices";
 
 export const useShops = () => {
@@ -22,18 +16,6 @@ export const useShops = () => {
     queryFn: async () => {
       const response: ShopResponse = await listShops();
       return response.data;
-    },
-    staleTime: 10 * 60 * 1000, // 10 minutes
-  });
-};
-
-export const useShopByWalletAddress = (walletAddress: string) => {
-  return useQuery({
-    queryKey: queryKeys.shopByWalletAddress(walletAddress),
-    queryFn: async () => {
-      const response: ShopByWalletAddressResponse =
-        await getShopByWalletAddress(walletAddress);
-      return response;
     },
     staleTime: 10 * 60 * 1000, // 10 minutes
   });
@@ -64,24 +46,3 @@ export const useShopTransactions = (shopId: string) => {
   });
 };
 
-export const useShopCustomerGrowth = (shopId: string) => {
-  return useQuery({
-    queryKey: queryKeys.shopCustomerGrowth(shopId),
-    queryFn: async () => {
-      const response: CustomerGrowthResponse = await getShopCustomerGrowth(shopId);
-      return response?.data;
-    },
-    staleTime: 10 * 60 * 1000, // 10 minutes
-  });
-};
-
-export const useGetShopCustomers = (shopId: string) => {
-  return useQuery({
-    queryKey: queryKeys.shopCustomers(shopId),
-    queryFn: async () => {
-      const response: ShopCustomersResponse = await getShopCustomers(shopId);
-      return response?.data;
-    },
-    staleTime: 10 * 60 * 1000, // 10 minutes
-  });
-};

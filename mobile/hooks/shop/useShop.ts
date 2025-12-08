@@ -1,10 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
-import { ShopFormData } from "@/interfaces/shop.interface";
+import { ShopCustomerGrowthResponse, ShopCustomersResponse, ShopFormData } from "@/interfaces/shop.interface";
 import { shopApi } from "@/services/shop.services";
-import { useAuthStore } from "@/store/auth.store";
-import { useAuth } from "../auth/useAuth";
-import apiClient from "@/utilities/axios";
 import { queryKeys } from "@/config/queryClient";
 import { ShopByWalletAddressResponse } from "@/interfaces/shop.interface";
 
@@ -41,8 +38,32 @@ export function useShop() {
     });
   };
 
+  const useGetShopCustomers = (shopId: string) => {
+    return useQuery({
+      queryKey: queryKeys.shopCustomers(shopId),
+      queryFn: async () => {
+        const response: ShopCustomersResponse = await shopApi.getShopCustomers(shopId);
+        return response.data;
+      },
+      staleTime: 10 * 60 * 1000, // 10 minutes
+    });
+  };
+
+  const useShopCustomerGrowth = (shopId: string) => {
+    return useQuery({
+      queryKey: queryKeys.shopCustomerGrowth(shopId),
+      queryFn: async () => {
+        const response: ShopCustomerGrowthResponse = await shopApi.getShopCustomerGrowth(shopId);
+        return response?.data;
+      },
+      staleTime: 10 * 60 * 1000, // 10 minutes
+    });
+  };
+
   return {
     useRegisterShop,
     useGetShopByWalletAddress,
+    useGetShopCustomers,
+    useShopCustomerGrowth,
   };
 }

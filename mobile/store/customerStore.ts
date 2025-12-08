@@ -3,8 +3,6 @@ import { devtools } from "zustand/middleware";
 import { Tier } from "@/utilities/GlobalTypes";
 import { 
   calculateTierByAddress, 
-  getCustomerByWalletAddress, 
-  getRCNBalanceByWalletAddress 
 } from "@/services/CustomerServices";
 
 export interface RCNBalanceData {
@@ -55,8 +53,6 @@ interface CustomerState {
   setEarningHistory: (earningHistory: RCNEarningHistory | null) => void;
   setTier: (tier: CustomerTierStatus | null) => void;
 
-  fetchCustomerData: (address: string) => Promise<void>;
-  fetchRCNBalance: (address: string) => Promise<void>;
   fetchTier: (address: string, repairAmount: number) => Promise<void>;
 }
 
@@ -78,23 +74,6 @@ export const useCustomerStore = create<CustomerState>()(
     },
     setTier: (tier) => {
       set({ tier }, false, "setTier");
-    },
-
-    fetchCustomerData: async (address) => {
-      try {
-        const res = await getCustomerByWalletAddress(address);
-        get().setCustomerData(res.data);
-      } catch (error) {
-        console.error("An error occured:", error);
-      }
-    },
-    fetchRCNBalance: async (address) => {
-      try {
-        const res = await getRCNBalanceByWalletAddress(address);
-        get().setRCNBalance(res.data);
-      } catch (error) {
-        console.error("An error occured:", error);
-      }
     },
     fetchTier: async (address, repairAmount) => {
       try {

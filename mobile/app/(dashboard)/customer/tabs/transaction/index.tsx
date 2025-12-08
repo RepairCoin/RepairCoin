@@ -9,29 +9,30 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/auth.store";
-import { useEarningHistory } from "@/hooks";
-import { EarningHistory } from "@/services/CustomerServices";
 import TransactionHistoryCard from "@/components/common/TransactionHistoryCard";
 import TransactionHistoryFilterModal from "@/components/customer/TransactionHistoryFilterModal";
+import { useCustomer } from "@/hooks/customer/useCustomer";
+import { TransactionData } from "@/interfaces/customer.interface";
 
 export default function TransactionHistory() {
+  const { useGetTransactionsByWalletAddress } = useCustomer();
   const { account } = useAuthStore((state) => state);
+
   const [searchString, setSearchString] = useState<string>("");
   const [filterModalVisible, setFilterModalVisible] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Use the token balance hook
   const {
-    data: earningHistoryData,
+    data: transactionData,
     isLoading,
     error,
     refetch,
-  } = useEarningHistory(account?.address, 10);
+  } = useGetTransactionsByWalletAddress(account?.address, 10);
 
   const handleRefresh = useCallback(async () => {
     try {
       setRefreshing(true);
-      await refetch(); // your existing refetch function
+      await refetch();
     } finally {
       setRefreshing(false);
     }
@@ -73,8 +74,8 @@ export default function TransactionHistory() {
         data={
           isLoading || error
             ? [] // FlatList still needs a data array
-            : earningHistoryData?.transactions?.filter(
-                (transaction: EarningHistory) =>
+            : transactionData?.transactions?.filter(
+                (transaction: TransactionData) =>
                   !searchString ||
                   transaction.shopName
                     ?.toLowerCase()
