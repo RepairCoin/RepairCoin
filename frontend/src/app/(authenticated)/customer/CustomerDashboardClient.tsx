@@ -14,7 +14,6 @@ import { TokenGiftingTab } from "@/components/customer/TokenGiftingTab";
 import { SuspensionBanner } from "@/components/customer/SuspensionBanner";
 import { ServiceMarketplaceClient } from "@/components/customer/ServiceMarketplaceClient";
 import { ServiceOrdersTab } from "@/components/customer/ServiceOrdersTab";
-import { Toaster } from "react-hot-toast";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 
 const client = createThirdwebClient({
@@ -143,7 +142,6 @@ export default function CustomerDashboardClient() {
       activeTab={activeTab}
       onTabChange={handleTabChange}
     >
-      <Toaster position="top-right" />
       <div
         className="min-h-screen py-8 bg-[#0D0D0D] pt-16 lg:pt-8"
         style={{

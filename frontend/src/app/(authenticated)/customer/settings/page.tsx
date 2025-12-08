@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from 'next/navigation';
-import { toast, Toaster } from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import Link from 'next/link';
 import { useAuthStore } from "@/stores/authStore";
 import apiClient from '@/services/api/client';
@@ -188,8 +188,6 @@ export default function CustomerSettingsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
-      <Toaster position="top-right" />
-      
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
