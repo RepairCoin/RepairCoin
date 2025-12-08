@@ -6,6 +6,8 @@ import { useActiveAccount } from "thirdweb/react";
 import { customerApi } from '../services/api/customer';
 import { showToast } from '../utils/toast';
 import { useCustomerStore, type CustomerData, type BalanceData, type TransactionHistory } from '@/stores/customerStore';
+import { useAuth } from './useAuth';
+import { useAuthStore } from '@/stores/authStore';
 
 interface RegistrationFormData {
   first_name: string;
@@ -44,7 +46,8 @@ export const useCustomer = (): UseCustomerReturn => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const account = useActiveAccount();
-  
+  const { refreshProfile } = useAuth();
+  const {login} = useAuthStore()
   // Get data from Zustand store
   const {
     customerData,
@@ -131,13 +134,15 @@ export const useCustomer = (): UseCustomerReturn => {
 
         // Authenticate the customer to set cookies and create session
         console.log('Authenticating customer after registration...');
-        await refreshProfile();
+        
 
-        // Show redirect message
+        // Show redirect message 
         showToast.success('Redirecting to your dashboard...');
-
-        // Redirect to customer dashboard after authentication
-        setTimeout(() => router.push('/customer'), 1500);
+        login(walletAddress)
+        
+        await refreshProfile();
+        // // Redirect to home waiting for backend create a cookie before it route to customer page
+        router.push('/')
       } else {
         // Registration failed but no specific error from API
         throw new Error('Registration failed. Please try again.');

@@ -58,7 +58,7 @@ export default function CustomerRegisterClient() {
     );
 
     // Refresh the auth profile after registration
-    await refreshProfile();
+
   };
 
   // Clear messages when component unmounts
