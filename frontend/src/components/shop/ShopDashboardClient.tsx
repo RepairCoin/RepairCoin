@@ -998,12 +998,14 @@ export default function ShopDashboardClient() {
               {console.log('🔐 [ShopDashboard] Passing to GroupsTab:', {
                 shopId: shopData.shopId,
                 subscriptionActive: shopData.subscriptionActive,
+                isOperational: isOperational,
+                operationalStatus: shopData.operational_status,
                 subscriptionActiveType: typeof shopData.subscriptionActive,
                 shopDataKeys: Object.keys(shopData)
               })}
               <GroupsTab
                 shopId={shopData.shopId}
-                subscriptionActive={shopData.subscriptionActive || false}
+                subscriptionActive={isOperational || false}
               />
             </>
           )}
