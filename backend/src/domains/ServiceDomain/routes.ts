@@ -5,6 +5,7 @@ import { OrderController } from './controllers/OrderController';
 import { FavoriteController } from './controllers/FavoriteController';
 import { ReviewController } from './controllers/ReviewController';
 import { AnalyticsController } from './controllers/AnalyticsController';
+import { AppointmentController } from './controllers/AppointmentController';
 import { PaymentService } from './services/PaymentService';
 import { authMiddleware, optionalAuthMiddleware, requireRole } from '../../middleware/auth';
 import { StripeService } from '../../services/StripeService';
@@ -19,6 +20,7 @@ export function initializeRoutes(stripe: StripeService): Router {
   const favoriteController = new FavoriteController();
   const reviewController = new ReviewController();
   const analyticsController = new AnalyticsController();
+  const appointmentController = new AppointmentController();
 
   // ==================== SERVICE MANAGEMENT ROUTES ====================
 
@@ -1208,6 +1210,322 @@ export function initializeRoutes(stripe: StripeService): Router {
     authMiddleware,
     requireRole(['admin']),
     analyticsController.getMarketplaceHealthScore
+  );
+
+  // ==================== APPOINTMENT SCHEDULING ROUTES ====================
+
+  /**
+   * @swagger
+   * /api/services/appointments/available-slots:
+   *   get:
+   *     summary: Get available time slots for a service
+   *     description: Returns available appointment slots for a specific service and date
+   *     tags: [Appointments]
+   *     parameters:
+   *       - in: query
+   *         name: shopId
+   *         required: true
+   *         schema:
+   *           type: string
+   *       - in: query
+   *         name: serviceId
+   *         required: true
+   *         schema:
+   *           type: string
+   *       - in: query
+   *         name: date
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: date
+   *     responses:
+   *       200:
+   *         description: List of available time slots
+   */
+  router.get(
+    '/appointments/available-slots',
+    appointmentController.getAvailableTimeSlots
+  );
+
+  /**
+   * @swagger
+   * /api/services/appointments/shop-availability/:shopId:
+   *   get:
+   *     summary: Get shop operating hours
+   *     description: Get shop availability by day of week
+   *     tags: [Appointments]
+   *     parameters:
+   *       - in: path
+   *         name: shopId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Shop availability
+   */
+  router.get(
+    '/appointments/shop-availability/:shopId',
+    appointmentController.getShopAvailability
+  );
+
+  /**
+   * @swagger
+   * /api/services/appointments/shop-availability:
+   *   put:
+   *     summary: Update shop operating hours (Shop only)
+   *     description: Update shop availability for a specific day
+   *     tags: [Appointments]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - dayOfWeek
+   *             properties:
+   *               dayOfWeek:
+   *                 type: integer
+   *                 minimum: 0
+   *                 maximum: 6
+   *               isOpen:
+   *                 type: boolean
+   *               openTime:
+   *                 type: string
+   *               closeTime:
+   *                 type: string
+   *               breakStartTime:
+   *                 type: string
+   *               breakEndTime:
+   *                 type: string
+   *     responses:
+   *       200:
+   *         description: Availability updated
+   */
+  router.put(
+    '/appointments/shop-availability',
+    authMiddleware,
+    requireRole(['shop']),
+    appointmentController.updateShopAvailability
+  );
+
+  /**
+   * @swagger
+   * /api/services/appointments/time-slot-config:
+   *   get:
+   *     summary: Get time slot configuration (Shop only)
+   *     tags: [Appointments]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Time slot configuration
+   */
+  router.get(
+    '/appointments/time-slot-config',
+    authMiddleware,
+    requireRole(['shop']),
+    appointmentController.getTimeSlotConfig
+  );
+
+  /**
+   * @swagger
+   * /api/services/appointments/time-slot-config:
+   *   put:
+   *     summary: Update time slot configuration (Shop only)
+   *     tags: [Appointments]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               slotDurationMinutes:
+   *                 type: integer
+   *               bufferTimeMinutes:
+   *                 type: integer
+   *               maxConcurrentBookings:
+   *                 type: integer
+   *               bookingAdvanceDays:
+   *                 type: integer
+   *               minBookingHours:
+   *                 type: integer
+   *               allowWeekendBooking:
+   *                 type: boolean
+   *     responses:
+   *       200:
+   *         description: Configuration updated
+   */
+  router.put(
+    '/appointments/time-slot-config',
+    authMiddleware,
+    requireRole(['shop']),
+    appointmentController.updateTimeSlotConfig
+  );
+
+  /**
+   * @swagger
+   * /api/services/appointments/date-overrides:
+   *   get:
+   *     summary: Get date overrides (Shop only)
+   *     tags: [Appointments]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: startDate
+   *         schema:
+   *           type: string
+   *       - in: query
+   *         name: endDate
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: List of date overrides
+   */
+  router.get(
+    '/appointments/date-overrides',
+    authMiddleware,
+    requireRole(['shop']),
+    appointmentController.getDateOverrides
+  );
+
+  /**
+   * @swagger
+   * /api/services/appointments/date-overrides:
+   *   post:
+   *     summary: Create date override (Shop only)
+   *     description: Override shop hours for a specific date (holidays, etc.)
+   *     tags: [Appointments]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - overrideDate
+   *             properties:
+   *               overrideDate:
+   *                 type: string
+   *                 format: date
+   *               isClosed:
+   *                 type: boolean
+   *               customOpenTime:
+   *                 type: string
+   *               customCloseTime:
+   *                 type: string
+   *               reason:
+   *                 type: string
+   *     responses:
+   *       200:
+   *         description: Override created
+   */
+  router.post(
+    '/appointments/date-overrides',
+    authMiddleware,
+    requireRole(['shop']),
+    appointmentController.createDateOverride
+  );
+
+  /**
+   * @swagger
+   * /api/services/appointments/date-overrides/:date:
+   *   delete:
+   *     summary: Delete date override (Shop only)
+   *     tags: [Appointments]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: date
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Override deleted
+   */
+  router.delete(
+    '/appointments/date-overrides/:date',
+    authMiddleware,
+    requireRole(['shop']),
+    appointmentController.deleteDateOverride
+  );
+
+  /**
+   * @swagger
+   * /api/services/appointments/calendar:
+   *   get:
+   *     summary: Get shop calendar (Shop only)
+   *     description: Get all bookings in a date range for calendar view
+   *     tags: [Appointments]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: startDate
+   *         required: true
+   *         schema:
+   *           type: string
+   *       - in: query
+   *         name: endDate
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Calendar bookings
+   */
+  router.get(
+    '/appointments/calendar',
+    authMiddleware,
+    requireRole(['shop']),
+    appointmentController.getShopCalendar
+  );
+
+  /**
+   * @swagger
+   * /api/services/:serviceId/duration:
+   *   put:
+   *     summary: Update service duration (Shop only)
+   *     tags: [Appointments]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: serviceId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - durationMinutes
+   *             properties:
+   *               durationMinutes:
+   *                 type: integer
+   *     responses:
+   *       200:
+   *         description: Duration updated
+   */
+  router.put(
+    '/:serviceId/duration',
+    authMiddleware,
+    requireRole(['shop']),
+    appointmentController.updateServiceDuration
   );
 
   return router;

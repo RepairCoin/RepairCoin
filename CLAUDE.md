@@ -157,6 +157,10 @@ cp env.example .env
 - Social sharing (WhatsApp, Twitter, Facebook, copy link)
 - Review and rating system for completed service bookings
 - View service details with reviews and ratings
+- **Appointment Scheduling**:
+  - Select date and time when booking services
+  - Real-time availability display based on shop hours
+  - Visual time slot picker with availability indicators
 
 ### Shop Features
 - $500/month Stripe subscription
@@ -168,13 +172,19 @@ cp env.example .env
 - Service booking management with custom completion modal
 - View and respond to customer reviews
 - Service details modal with integrated reviews tab
-- **Service Analytics Dashboard** (NEW):
+- **Service Analytics Dashboard**:
   - Performance metrics and revenue tracking
   - Top 5 performing services with conversion rates
   - Category breakdown with detailed statistics
   - Order trends with time period filters (7/30/90 days)
   - RCN redemption analytics
   - Customer rating insights
+- **Appointment Scheduling System**:
+  - Configure operating hours for each day of week with break times
+  - Set slot duration, buffer time, and max concurrent bookings
+  - Manage holiday closures and special hours via date overrides
+  - View all bookings in monthly calendar view
+  - Click bookings to see full customer and order details
 - View purchase history (accessible even without active subscription)
 
 ### Admin Features
@@ -313,3 +323,28 @@ stripe listen --forward-to localhost:4000/api/shops/webhooks/stripe
 - All features work seamlessly on mobile and desktop devices
 - Consistent design across all new features for professional look
 - Smooth loading states and animations for better user experience
+
+### Appointment Scheduling System (December 8, 2024)
+- **Backend Infrastructure**
+  - Created 5 database tables: shop_availability, shop_time_slot_config, service_duration_config, shop_date_overrides
+  - Built AppointmentRepository with CRUD operations for availability management
+  - Built AppointmentService with time slot generation algorithm
+  - Created AppointmentController with 11 API endpoints
+  - Added booking_time_slot and booking_end_time columns to service_orders
+- **Customer Booking Flow**
+  - TimeSlotPicker component with grid-based time selection
+  - Real-time availability loading based on shop configuration
+  - Visual indicators for available/unavailable slots
+  - Integrated into ServiceCheckoutModal before payment
+  - 12-hour time format with responsive design
+- **Shop Management Interface**
+  - AvailabilitySettings component with 3-tab interface:
+    - Operating hours configuration for each day with break times
+    - Booking settings: slot duration, buffer time, concurrent bookings
+    - Date overrides for holidays and special hours
+  - AppointmentCalendar component:
+    - Monthly calendar view with all bookings
+    - Color-coded by status (pending/confirmed/completed/cancelled)
+    - Click bookings to view full details modal
+    - Stats showing booking counts by status
+  - Added "Appointments" section to shop sidebar navigation

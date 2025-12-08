@@ -26,6 +26,8 @@ import {
   Receipt,
   Heart,
   BarChart3,
+  Calendar,
+  Clock,
 } from "lucide-react";
 import {
   IssueRewardsIcon,
@@ -483,6 +485,24 @@ const Sidebar: React.FC<SidebarProps> = ({
               icon: <BarChart3 className="w-4 h-4" />,
               tabId: "service-analytics",
             },
+        ],
+      },
+      {
+        id: "appointments",
+        title: "APPOINTMENTS",
+        items: [
+          {
+            title: "Availability",
+            href: "/shop?tab=availability-settings",
+            icon: <Clock className="w-5 h-5" />,
+            tabId: "availability-settings",
+          },
+          {
+            title: "Calendar",
+            href: "/shop?tab=appointment-calendar",
+            icon: <Calendar className="w-5 h-5" />,
+            tabId: "appointment-calendar",
+          },
         ],
       },
       {
