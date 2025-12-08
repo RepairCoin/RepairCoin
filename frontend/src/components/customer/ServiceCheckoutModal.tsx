@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, DollarSign, Clock, CheckCircle, AlertCircle, Coins } from "lucide-react";
+import { X, DollarSign, Clock, CheckCircle, AlertCircle, Coins, Calendar } from "lucide-react";
 import { ShopServiceWithShopInfo } from "@/services/api/services";
 import { createPaymentIntent } from "@/services/api/services";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { loadStripe, StripeElementsOptions } from "@stripe/stripe-js";
 import { useCustomerStore } from "@/stores/customerStore";
+import { TimeSlotPicker } from "./TimeSlotPicker";
 
 // Initialize Stripe
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "");
@@ -162,6 +163,10 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [paymentInitialized, setPaymentInitialized] = useState(false);
 
+  // Booking Date & Time State
+  const [bookingDate, setBookingDate] = useState<Date | null>(null);
+  const [bookingTimeSlot, setBookingTimeSlot] = useState<string | null>(null);
+
   // RCN Redemption State
   const [rcnToRedeem, setRcnToRedeem] = useState(0);
   const [showRedemption, setShowRedemption] = useState(true);
@@ -190,6 +195,8 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
 
       const response = await createPaymentIntent({
         serviceId: service.serviceId,
+        bookingDate: bookingDate?.toISOString().split('T')[0],
+        bookingTime: bookingTimeSlot || undefined,
         rcnToRedeem: actualRcnRedeemed > 0 ? actualRcnRedeemed : undefined,
       });
 
@@ -323,6 +330,44 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* Appointment Scheduling Section */}
+              {!paymentInitialized && (
+                <div className="bg-[#0D0D0D] border border-gray-800 rounded-xl p-5 mb-6">
+                  <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-[#FFCC00]" />
+                    Schedule Your Appointment
+                  </h3>
+
+                  {/* Date Picker */}
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Select Date
+                    </label>
+                    <input
+                      type="date"
+                      value={bookingDate ? bookingDate.toISOString().split('T')[0] : ''}
+                      onChange={(e) => {
+                        setBookingDate(e.target.value ? new Date(e.target.value) : null);
+                        setBookingTimeSlot(null); // Reset time slot when date changes
+                      }}
+                      min={new Date().toISOString().split('T')[0]}
+                      className="w-full px-4 py-3 bg-[#1A1A1A] border border-gray-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                    />
+                  </div>
+
+                  {/* Time Slot Picker */}
+                  {bookingDate && (
+                    <TimeSlotPicker
+                      shopId={service.shopId}
+                      serviceId={service.serviceId}
+                      selectedDate={bookingDate}
+                      selectedTimeSlot={bookingTimeSlot}
+                      onTimeSlotSelect={setBookingTimeSlot}
+                    />
+                  )}
+                </div>
+              )}
 
               {/* RCN Redemption Section */}
               {showRedemptionSection && !paymentInitialized && (
