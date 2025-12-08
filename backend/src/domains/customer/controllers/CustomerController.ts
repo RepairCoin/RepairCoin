@@ -22,21 +22,25 @@ export class CustomerController {
 
   async registerCustomer(req: Request, res: Response) {
     try {
-      const { 
-        walletAddress, 
-        email, 
-        name, 
-        phone, 
-        fixflowCustomerId, 
+      const {
+        walletAddress,
+        email,
+        name,
+        first_name,
+        last_name,
+        phone,
+        fixflowCustomerId,
         referralCode,
         walletType = 'external',
-        authMethod = 'wallet' 
+        authMethod = 'wallet'
       } = req.body;
-      
+
       const result = await this.customerService.registerCustomer({
         walletAddress,
         email,
         name,
+        first_name,
+        last_name,
         phone,
         fixflowCustomerId,
         referralCode,
@@ -73,11 +77,11 @@ export class CustomerController {
   async updateCustomer(req: Request, res: Response) {
     try {
       const { address } = req.params;
-      const { name, email, phone } = req.body;
-      
+      const { name, first_name, last_name, email, phone } = req.body;
+
       const result = await this.customerService.updateCustomer(
         address,
-        { name, email, phone },
+        { name, first_name, last_name, email, phone },
         req.user?.address,
         req.user?.role
       );

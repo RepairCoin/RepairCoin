@@ -8,7 +8,8 @@ import { showToast } from '../utils/toast';
 import { useCustomerStore, type CustomerData, type BalanceData, type TransactionHistory } from '@/stores/customerStore';
 
 interface RegistrationFormData {
-  name: string;
+  first_name: string;
+  last_name: string;
   email: string;
   referralCode: string;
 }
@@ -58,7 +59,8 @@ export const useCustomer = (): UseCustomerReturn => {
   
   // Only keep minimal local state for registration form
   const [registrationFormData, setRegistrationFormData] = useState<RegistrationFormData>({
-    name: '',
+    first_name: '',
+    last_name: '',
     email: '',
     referralCode: ''
   });
@@ -113,7 +115,8 @@ export const useCustomer = (): UseCustomerReturn => {
     try {
       const registrationData = {
         walletAddress,
-        name: registrationFormData.name,
+        first_name: registrationFormData.first_name,
+        last_name: registrationFormData.last_name,
         email: registrationFormData.email,
         referralCode: registrationFormData.referralCode,
       };

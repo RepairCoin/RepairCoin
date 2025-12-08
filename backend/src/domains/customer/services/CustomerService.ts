@@ -10,6 +10,8 @@ export interface CustomerRegistrationData {
   walletAddress: string;
   email?: string;
   name?: string;
+  first_name?: string;
+  last_name?: string;
   phone?: string;
   fixflowCustomerId?: string;
   referralCode?: string;
@@ -19,6 +21,8 @@ export interface CustomerRegistrationData {
 
 export interface CustomerUpdateData {
   name?: string;
+  first_name?: string;
+  last_name?: string;
   email?: string;
   phone?: string;
 }
@@ -155,7 +159,9 @@ export class CustomerService {
         data.name,
         data.email,
         data.phone,
-        data.fixflowCustomerId
+        data.fixflowCustomerId,
+        data.first_name,
+        data.last_name
       );
 
       // Add wallet type and auth method
@@ -219,11 +225,15 @@ export class CustomerService {
       // Update customer profile using the new method
       const profileUpdates: {
         name?: string;
+        first_name?: string;
+        last_name?: string;
         email?: string;
         phone?: string;
       } = {};
 
       if (updates.name !== undefined) profileUpdates.name = updates.name;
+      if (updates.first_name !== undefined) profileUpdates.first_name = updates.first_name;
+      if (updates.last_name !== undefined) profileUpdates.last_name = updates.last_name;
       if (updates.email !== undefined) profileUpdates.email = updates.email;
       if (updates.phone !== undefined) profileUpdates.phone = updates.phone;
 

@@ -33,6 +33,8 @@ export class CustomerRepository extends BaseRepository {
       return result.rows.map(row => ({
         address: row.address,
         name: row.name,
+        first_name: row.first_name,
+        last_name: row.last_name,
         email: row.email,
         phone: row.phone,
         tier: row.tier,
@@ -92,6 +94,8 @@ export class CustomerRepository extends BaseRepository {
       return {
         address: row.address,
         name: row.name,
+        first_name: row.first_name,
+        last_name: row.last_name,
         email: row.email,
         phone: row.phone,
         tier: row.tier,
@@ -132,6 +136,8 @@ export class CustomerRepository extends BaseRepository {
       return {
         address: row.address,
         name: row.name,
+        first_name: row.first_name,
+        last_name: row.last_name,
         email: row.email,
         phone: row.phone,
         tier: row.tier,
@@ -162,15 +168,17 @@ export class CustomerRepository extends BaseRepository {
     try {
       const query = `
         INSERT INTO customers (
-          address, wallet_address, name, email, phone, tier, lifetime_earnings,
+          address, wallet_address, name, first_name, last_name, email, phone, tier, lifetime_earnings,
           last_earned_date, is_active, referral_count
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       `;
-      
+
       await this.pool.query(query, [
         customer.address.toLowerCase(),
         customer.address.toLowerCase(), // wallet_address is same as address
         customer.name,
+        customer.first_name,
+        customer.last_name,
         customer.email,
         customer.phone,
         customer.tier,
@@ -179,7 +187,7 @@ export class CustomerRepository extends BaseRepository {
         customer.isActive,
         customer.referralCount
       ]);
-      
+
       logger.info('Customer created successfully', { address: customer.address });
     } catch (error) {
       logger.error('Error creating customer:', error);
@@ -196,6 +204,8 @@ export class CustomerRepository extends BaseRepository {
       // Map camelCase to snake_case for database fields
       const fieldMappings: { [key: string]: string } = {
         name: 'name',
+        first_name: 'first_name',
+        last_name: 'last_name',
         email: 'email',
         phone: 'phone',
         tier: 'tier',
@@ -310,6 +320,8 @@ export class CustomerRepository extends BaseRepository {
     address: string,
     updates: {
       name?: string;
+      first_name?: string;
+      last_name?: string;
       email?: string;
       phone?: string;
     }
@@ -324,6 +336,18 @@ export class CustomerRepository extends BaseRepository {
         paramCount++;
         setClause.push(`name = $${paramCount}`);
         params.push(updates.name);
+      }
+
+      if (updates.first_name !== undefined) {
+        paramCount++;
+        setClause.push(`first_name = $${paramCount}`);
+        params.push(updates.first_name);
+      }
+
+      if (updates.last_name !== undefined) {
+        paramCount++;
+        setClause.push(`last_name = $${paramCount}`);
+        params.push(updates.last_name);
       }
 
       if (updates.email !== undefined) {
@@ -412,6 +436,8 @@ export class CustomerRepository extends BaseRepository {
       const customers = result.rows.map(row => ({
         address: row.address,
         name: row.name,
+        first_name: row.first_name,
+        last_name: row.last_name,
         email: row.email,
         phone: row.phone,
         tier: row.tier,
