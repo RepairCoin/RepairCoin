@@ -187,7 +187,7 @@ export default function CreateGroupModal({ onClose, onSubmit }: CreateGroupModal
               <strong>Requirements:</strong>
             </p>
             <ul className="text-sm text-blue-300 mt-2 space-y-1 list-disc list-inside">
-              <li>Active RepairCoin subscription ($500/month)</li>
+              <li>Active RepairCoin subscription ($500/month) or RCG qualification (10K+ RCG tokens)</li>
               <li>Custom tokens require RCN backing (1:2 ratio)</li>
               <li>You will automatically become the admin of this group</li>
               <li>Custom tokens can only be earned and redeemed within member shops</li>

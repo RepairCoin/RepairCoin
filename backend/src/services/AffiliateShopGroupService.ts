@@ -58,9 +58,11 @@ export class AffiliateShopGroupService {
         throw new Error('Shop must be active and verified to create a group');
       }
 
-      // Require active RCN subscription to create affiliate groups
-      if (!shop.subscriptionActive) {
-        throw new Error('Active RepairCoin subscription required to create affiliate groups. Subscribe at $500/month to unlock this feature.');
+      // Require active subscription OR RCG qualification to create affiliate groups
+      const isRcgQualified = shop.operational_status === 'rcg_qualified';
+      const isSubscriptionQualified = shop.subscriptionActive || shop.operational_status === 'subscription_qualified';
+      if (!isRcgQualified && !isSubscriptionQualified) {
+        throw new Error('Active RepairCoin subscription or RCG qualification (10K+ RCG tokens) required to create affiliate groups.');
       }
 
       // Generate unique group ID and invite code
@@ -180,9 +182,11 @@ export class AffiliateShopGroupService {
         throw new Error('Shop must be active and verified to join a group');
       }
 
-      // Require active RCN subscription to join affiliate groups
-      if (!shop.subscriptionActive) {
-        throw new Error('Active RepairCoin subscription required to join affiliate groups. Subscribe at $500/month to unlock this feature.');
+      // Require active subscription OR RCG qualification to join affiliate groups
+      const isRcgQualified = shop.operational_status === 'rcg_qualified';
+      const isSubscriptionQualified = shop.subscriptionActive || shop.operational_status === 'subscription_qualified';
+      if (!isRcgQualified && !isSubscriptionQualified) {
+        throw new Error('Active RepairCoin subscription or RCG qualification (10K+ RCG tokens) required to join affiliate groups.');
       }
 
       // Validate group exists
