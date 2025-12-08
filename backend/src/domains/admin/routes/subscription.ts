@@ -336,17 +336,20 @@ router.post('/subscriptions/:subscriptionId/pause', async (req: Request, res: Re
       const stripeSubscription = await stripeService.getSubscription(stripeSubscriptionId);
 
       if (stripeSubscription.status === 'canceled') {
-        // Update our database to match Stripe
-        await db.query(
-          `UPDATE shop_subscriptions
-           SET status = 'cancelled', is_active = false, cancelled_at = CURRENT_TIMESTAMP
-           WHERE id = $1`,
-          [subscriptionId]
-        );
+        // Clean up orphaned database entries
+        logger.info('Subscription is fully canceled in Stripe during pause attempt, cleaning up database entries', {
+          subscriptionId,
+          stripeSubscriptionId,
+          shopId
+        });
+
+        await db.query('DELETE FROM shop_subscriptions WHERE id = $1', [subscriptionId]);
+        await db.query('DELETE FROM stripe_subscriptions WHERE stripe_subscription_id = $1', [stripeSubscriptionId]);
 
         return res.status(400).json({
           success: false,
-          error: 'This subscription has been cancelled in Stripe. Database has been updated. Please create a new subscription instead.'
+          error: 'This subscription has been fully canceled in Stripe. The orphaned database entries have been cleaned up. Please create a new subscription instead.',
+          cleaned: true
         });
       }
 
@@ -365,9 +368,30 @@ router.post('/subscriptions/:subscriptionId/pause', async (req: Request, res: Re
         });
       }
     } catch (stripeCheckError) {
+      const errorMessage = stripeCheckError instanceof Error ? stripeCheckError.message : 'Unknown error';
+
+      // Check if subscription doesn't exist in Stripe
+      if (errorMessage.includes('No such subscription') || errorMessage.includes('resource_missing')) {
+        logger.info('Subscription not found in Stripe during pause attempt, cleaning up orphaned database entries', {
+          subscriptionId,
+          stripeSubscriptionId,
+          shopId,
+          error: errorMessage
+        });
+
+        await db.query('DELETE FROM shop_subscriptions WHERE id = $1', [subscriptionId]);
+        await db.query('DELETE FROM stripe_subscriptions WHERE stripe_subscription_id = $1', [stripeSubscriptionId]);
+
+        return res.status(400).json({
+          success: false,
+          error: 'This subscription no longer exists in Stripe. The orphaned database entries have been cleaned up. Please create a new subscription.',
+          cleaned: true
+        });
+      }
+
       logger.error('Failed to check Stripe subscription status before pause', {
         subscriptionId: stripeSubscriptionId,
-        error: stripeCheckError instanceof Error ? stripeCheckError.message : 'Unknown error'
+        error: errorMessage
       });
       // Continue with pause attempt - Stripe will return appropriate error
     }
@@ -472,17 +496,20 @@ router.post('/subscriptions/:subscriptionId/resume', async (req: Request, res: R
       const stripeSubscription = await stripeService.getSubscription(stripeSubscriptionId);
 
       if (stripeSubscription.status === 'canceled') {
-        // Update our database to match Stripe
-        await db.query(
-          `UPDATE shop_subscriptions
-           SET status = 'cancelled', is_active = false, cancelled_at = CURRENT_TIMESTAMP
-           WHERE id = $1`,
-          [subscriptionId]
-        );
+        // Clean up orphaned database entries
+        logger.info('Subscription is fully canceled in Stripe during resume attempt, cleaning up database entries', {
+          subscriptionId,
+          stripeSubscriptionId,
+          shopId
+        });
+
+        await db.query('DELETE FROM shop_subscriptions WHERE id = $1', [subscriptionId]);
+        await db.query('DELETE FROM stripe_subscriptions WHERE stripe_subscription_id = $1', [stripeSubscriptionId]);
 
         return res.status(400).json({
           success: false,
-          error: 'This subscription has been cancelled in Stripe. Database has been updated. Please create a new subscription instead.'
+          error: 'This subscription has been fully canceled in Stripe. The orphaned database entries have been cleaned up. Please create a new subscription instead.',
+          cleaned: true
         });
       }
 
@@ -510,9 +537,30 @@ router.post('/subscriptions/:subscriptionId/resume', async (req: Request, res: R
         });
       }
     } catch (stripeCheckError) {
+      const errorMessage = stripeCheckError instanceof Error ? stripeCheckError.message : 'Unknown error';
+
+      // Check if subscription doesn't exist in Stripe
+      if (errorMessage.includes('No such subscription') || errorMessage.includes('resource_missing')) {
+        logger.info('Subscription not found in Stripe during resume attempt, cleaning up orphaned database entries', {
+          subscriptionId,
+          stripeSubscriptionId,
+          shopId,
+          error: errorMessage
+        });
+
+        await db.query('DELETE FROM shop_subscriptions WHERE id = $1', [subscriptionId]);
+        await db.query('DELETE FROM stripe_subscriptions WHERE stripe_subscription_id = $1', [stripeSubscriptionId]);
+
+        return res.status(400).json({
+          success: false,
+          error: 'This subscription no longer exists in Stripe. The orphaned database entries have been cleaned up. Please create a new subscription.',
+          cleaned: true
+        });
+      }
+
       logger.error('Failed to check Stripe subscription status before resume', {
         subscriptionId: stripeSubscriptionId,
-        error: stripeCheckError instanceof Error ? stripeCheckError.message : 'Unknown error'
+        error: errorMessage
       });
       // Continue with resume attempt - let the actual resume call handle errors
     }
@@ -634,6 +682,77 @@ router.post('/subscriptions/:subscriptionId/sync', async (req: Request, res: Res
       shopId
     });
 
+    // First check if subscription exists and its status in Stripe
+    let stripeSubscription;
+    try {
+      stripeSubscription = await stripeService.getSubscription(stripeSubscriptionId);
+    } catch (stripeError) {
+      // Subscription not found in Stripe - clean up orphaned database entries
+      const errorMessage = stripeError instanceof Error ? stripeError.message : 'Unknown error';
+
+      if (errorMessage.includes('No such subscription') || errorMessage.includes('resource_missing')) {
+        logger.info('Subscription not found in Stripe during sync, cleaning up orphaned database entries', {
+          subscriptionId,
+          stripeSubscriptionId,
+          shopId,
+          error: errorMessage
+        });
+
+        // Delete from shop_subscriptions
+        await db.query('DELETE FROM shop_subscriptions WHERE id = $1', [subscriptionId]);
+
+        // Delete from stripe_subscriptions
+        await db.query('DELETE FROM stripe_subscriptions WHERE stripe_subscription_id = $1', [stripeSubscriptionId]);
+
+        logger.info('Cleaned up orphaned subscription entries from database during sync', {
+          subscriptionId,
+          stripeSubscriptionId
+        });
+
+        return res.json({
+          success: true,
+          message: 'Subscription no longer exists in Stripe. Orphaned database entries have been cleaned up.',
+          cleaned: true,
+          data: {
+            oldStatus: currentStatus,
+            newStatus: 'deleted'
+          }
+        });
+      }
+
+      throw stripeError;
+    }
+
+    // If subscription is fully canceled in Stripe, clean up the database entries
+    if (stripeSubscription.status === 'canceled') {
+      logger.info('Subscription is fully canceled in Stripe during sync, cleaning up database entries', {
+        subscriptionId,
+        stripeSubscriptionId,
+        shopId
+      });
+
+      // Delete from shop_subscriptions
+      await db.query('DELETE FROM shop_subscriptions WHERE id = $1', [subscriptionId]);
+
+      // Delete from stripe_subscriptions
+      await db.query('DELETE FROM stripe_subscriptions WHERE stripe_subscription_id = $1', [stripeSubscriptionId]);
+
+      logger.info('Cleaned up fully canceled subscription entries from database during sync', {
+        subscriptionId,
+        stripeSubscriptionId
+      });
+
+      return res.json({
+        success: true,
+        message: 'Subscription was fully canceled in Stripe. Database entries have been cleaned up.',
+        cleaned: true,
+        data: {
+          oldStatus: currentStatus,
+          newStatus: 'deleted'
+        }
+      });
+    }
+
     // Sync from Stripe - this will update stripe_subscriptions table
     const syncedSubscription = await subscriptionService.syncSubscriptionFromStripe(stripeSubscriptionId);
 
@@ -716,13 +835,67 @@ router.post('/subscriptions/:subscriptionId/reactivate', async (req: Request, re
     }
 
     // Check the actual Stripe subscription status
-    const stripeSubscription = await stripeService.getSubscription(stripeSubscriptionId);
+    let stripeSubscription;
+    try {
+      stripeSubscription = await stripeService.getSubscription(stripeSubscriptionId);
+    } catch (stripeError) {
+      // Subscription not found in Stripe - clean up orphaned database entries
+      const errorMessage = stripeError instanceof Error ? stripeError.message : 'Unknown error';
+
+      if (errorMessage.includes('No such subscription') || errorMessage.includes('resource_missing')) {
+        logger.info('Subscription not found in Stripe, cleaning up orphaned database entries', {
+          subscriptionId,
+          stripeSubscriptionId,
+          shopId,
+          error: errorMessage
+        });
+
+        // Delete from shop_subscriptions
+        await db.query('DELETE FROM shop_subscriptions WHERE id = $1', [subscriptionId]);
+
+        // Delete from stripe_subscriptions
+        await db.query('DELETE FROM stripe_subscriptions WHERE stripe_subscription_id = $1', [stripeSubscriptionId]);
+
+        logger.info('Cleaned up orphaned subscription entries from database', {
+          subscriptionId,
+          stripeSubscriptionId
+        });
+
+        return res.status(400).json({
+          success: false,
+          error: 'This subscription no longer exists in Stripe. The orphaned database entries have been cleaned up. Please create a new subscription.',
+          cleaned: true
+        });
+      }
+
+      // For other errors, throw to be handled by outer catch
+      throw stripeError;
+    }
 
     // If subscription is fully canceled in Stripe, we cannot reactivate
+    // Clean up the database entries since they're orphaned
     if (stripeSubscription.status === 'canceled') {
+      logger.info('Subscription is fully canceled in Stripe, cleaning up database entries', {
+        subscriptionId,
+        stripeSubscriptionId,
+        shopId
+      });
+
+      // Delete from shop_subscriptions
+      await db.query('DELETE FROM shop_subscriptions WHERE id = $1', [subscriptionId]);
+
+      // Delete from stripe_subscriptions
+      await db.query('DELETE FROM stripe_subscriptions WHERE stripe_subscription_id = $1', [stripeSubscriptionId]);
+
+      logger.info('Cleaned up orphaned subscription entries from database', {
+        subscriptionId,
+        stripeSubscriptionId
+      });
+
       return res.status(400).json({
         success: false,
-        error: 'This subscription has been fully canceled in Stripe and cannot be reactivated. Please create a new subscription.'
+        error: 'This subscription has been fully canceled in Stripe and cannot be reactivated. The orphaned database entries have been cleaned up. Please create a new subscription.',
+        cleaned: true
       });
     }
 

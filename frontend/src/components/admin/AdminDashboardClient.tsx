@@ -5,7 +5,6 @@ import { ConnectButton } from "thirdweb/react";
 import { createThirdwebClient } from "thirdweb";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
-import { Toaster } from "react-hot-toast";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { useAuth } from "@/hooks/useAuth";
 import { OverviewTab } from "@/components/admin/tabs/OverviewTab";
@@ -293,7 +292,6 @@ export default function AdminDashboardClient() {
       isSuperAdmin={isSuperAdmin}
       adminRole={adminRole}
     >
-      <Toaster position="top-right" />
       <div
         className="min-h-screen py-8 bg-[#0D0D0D]"
         style={{

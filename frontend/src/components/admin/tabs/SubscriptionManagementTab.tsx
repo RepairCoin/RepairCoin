@@ -226,9 +226,18 @@ export default function SubscriptionManagementTab() {
       setCancellationReason("");
       toast.success("Subscription cancelled successfully");
       await loadSubscriptions(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error cancelling subscription:", error);
-      toast.error("Failed to cancel subscription");
+      const responseData = error?.response?.data;
+      const errorMessage = responseData?.error || error?.message || "Failed to cancel subscription";
+
+      // Check if the subscription was cleaned up from the database
+      if (responseData?.cleaned) {
+        toast(errorMessage, { icon: '⚠️' });
+      } else {
+        toast.error(errorMessage);
+      }
+      await loadSubscriptions(true);
     } finally {
       setActionLoading(false);
     }
@@ -248,9 +257,15 @@ export default function SubscriptionManagementTab() {
       await loadSubscriptions(true);
     } catch (error: any) {
       console.error("Error pausing subscription:", error);
-      const errorMessage =
-        error?.response?.data?.error || error?.message || "Failed to pause subscription";
-      toast.error(errorMessage);
+      const responseData = error?.response?.data;
+      const errorMessage = responseData?.error || error?.message || "Failed to pause subscription";
+
+      // Check if the subscription was cleaned up from the database
+      if (responseData?.cleaned) {
+        toast(errorMessage, { icon: '⚠️' });
+      } else {
+        toast.error(errorMessage);
+      }
       await loadSubscriptions(true);
     } finally {
       setActionLoading(false);
@@ -268,6 +283,16 @@ export default function SubscriptionManagementTab() {
           `/admin/subscription/subscriptions/${selectedSubscription.id}/sync`
         );
         console.log("Sync result:", syncData);
+
+        // Check if subscription was cleaned up (deleted from DB because it no longer exists in Stripe)
+        // Note: apiClient interceptor returns response.data directly, so syncData is the unwrapped response
+        if ((syncData as any).cleaned || (syncData as any).data?.newStatus === "deleted") {
+          await loadSubscriptions();
+          setShowResumeModal(false);
+          setSelectedSubscription(null);
+          toast((syncData as any).message || "Subscription no longer exists in Stripe and has been removed from the system.", { icon: '⚠️' });
+          return;
+        }
 
         if (syncData.data?.newStatus === "active") {
           await loadSubscriptions();
@@ -289,9 +314,15 @@ export default function SubscriptionManagementTab() {
       await loadSubscriptions(true);
     } catch (error: any) {
       console.error("Error resuming subscription:", error);
-      const errorMessage =
-        error?.response?.data?.error || error?.message || "Failed to resume subscription";
-      toast.error(errorMessage);
+      const responseData = error?.response?.data;
+      const errorMessage = responseData?.error || error?.message || "Failed to resume subscription";
+
+      // Check if the subscription was cleaned up from the database
+      if (responseData?.cleaned) {
+        toast(errorMessage, { icon: '⚠️' });
+      } else {
+        toast.error(errorMessage);
+      }
       await loadSubscriptions(true);
     } finally {
       setActionLoading(false);
@@ -312,9 +343,15 @@ export default function SubscriptionManagementTab() {
       await loadSubscriptions(true);
     } catch (error: any) {
       console.error("Error reactivating subscription:", error);
-      const errorMessage =
-        error?.response?.data?.error || error?.message || "Failed to reactivate subscription";
-      toast.error(errorMessage);
+      const responseData = error?.response?.data;
+      const errorMessage = responseData?.error || error?.message || "Failed to reactivate subscription";
+
+      // Check if the subscription was cleaned up from the database
+      if (responseData?.cleaned) {
+        toast(errorMessage, { icon: '⚠️' });
+      } else {
+        toast.error(errorMessage);
+      }
       await loadSubscriptions(true);
     } finally {
       setActionLoading(false);
