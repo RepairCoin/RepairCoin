@@ -6,6 +6,8 @@ export interface CustomerData {
   address: string;
   email: string;
   name?: string;
+  first_name?: string;
+  last_name?: string;
   phone?: string;
   referralCode?: string;
   referralCount?: number;

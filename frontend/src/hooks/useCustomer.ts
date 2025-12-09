@@ -6,9 +6,12 @@ import { useActiveAccount } from "thirdweb/react";
 import { customerApi } from '../services/api/customer';
 import { showToast } from '../utils/toast';
 import { useCustomerStore, type CustomerData, type BalanceData, type TransactionHistory } from '@/stores/customerStore';
+import { useAuth } from './useAuth';
+import { useAuthStore } from '@/stores/authStore';
 
 interface RegistrationFormData {
-  name: string;
+  first_name: string;
+  last_name: string;
   email: string;
   referralCode: string;
 }
@@ -43,7 +46,8 @@ export const useCustomer = (): UseCustomerReturn => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const account = useActiveAccount();
-  
+  const { refreshProfile } = useAuth();
+  const {login} = useAuthStore()
   // Get data from Zustand store
   const {
     customerData,
@@ -58,7 +62,8 @@ export const useCustomer = (): UseCustomerReturn => {
   
   // Only keep minimal local state for registration form
   const [registrationFormData, setRegistrationFormData] = useState<RegistrationFormData>({
-    name: '',
+    first_name: '',
+    last_name: '',
     email: '',
     referralCode: ''
   });
@@ -113,7 +118,8 @@ export const useCustomer = (): UseCustomerReturn => {
     try {
       const registrationData = {
         walletAddress,
-        name: registrationFormData.name,
+        first_name: registrationFormData.first_name,
+        last_name: registrationFormData.last_name,
         email: registrationFormData.email,
         referralCode: registrationFormData.referralCode,
       };
@@ -128,13 +134,15 @@ export const useCustomer = (): UseCustomerReturn => {
 
         // Authenticate the customer to set cookies and create session
         console.log('Authenticating customer after registration...');
-        await refreshProfile();
+        
 
-        // Show redirect message
+        // Show redirect message 
         showToast.success('Redirecting to your dashboard...');
-
-        // Redirect to customer dashboard after authentication
-        setTimeout(() => router.push('/customer'), 1500);
+        login(walletAddress)
+        
+        await refreshProfile();
+        // // Redirect to home waiting for backend create a cookie before it route to customer page
+        router.push('/')
       } else {
         // Registration failed but no specific error from API
         throw new Error('Registration failed. Please try again.');

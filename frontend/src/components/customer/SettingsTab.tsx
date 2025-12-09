@@ -27,6 +27,8 @@ interface CustomerData {
   address: string;
   email: string;
   name?: string;
+  first_name?: string;
+  last_name?: string;
   phone?: string;
   referralCode?: string;
   notificationsEnabled?: boolean;
@@ -51,7 +53,8 @@ export function SettingsTab() {
   // Check if user is suspended
   const isSuspended = userProfile?.suspended || false;
   const [formData, setFormData] = useState({
-    name: "",
+    first_name: "",
+    last_name: "",
     email: "",
     phone: "",
     notificationsEnabled: true,
@@ -63,7 +66,8 @@ export function SettingsTab() {
   useEffect(() => {
     if (customerData) {
       setFormData({
-        name: customerData.name || "",
+        first_name: customerData.first_name || "",
+        last_name: customerData.last_name || "",
         email: customerData.email || "",
         phone: customerData.phone || "",
         notificationsEnabled: customerData.notificationsEnabled ?? true,
@@ -88,7 +92,8 @@ export function SettingsTab() {
       const updatedCustomer = await customerApi.updateProfile(
         account.address,
         {
-          name: formData.name,
+          first_name: formData.first_name,
+          last_name: formData.last_name,
           email: formData.email,
           phone: formData.phone,
         }
@@ -111,7 +116,8 @@ export function SettingsTab() {
 
   const handleCancelEdit = () => {
     setFormData({
-      name: customerData?.name || "",
+      first_name: customerData?.first_name || "",
+      last_name: customerData?.last_name || "",
       email: customerData?.email || "",
       phone: customerData?.phone || "",
       notificationsEnabled: customerData?.notificationsEnabled ?? true,
@@ -219,16 +225,32 @@ export function SettingsTab() {
             <div>
               <label className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
                 <User className="w-6 h-6 inline mr-1" />
-                Full Name
+                First Name
               </label>
               <input
                 type="text"
-                name="name"
-                value={formData.name}
+                name="first_name"
+                value={formData.first_name}
                 onChange={handleInputChange}
                 disabled={!isEditing}
                 className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter your name"
+                placeholder="Enter your first name"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
+                <User className="w-6 h-6 inline mr-1" />
+                Last Name
+              </label>
+              <input
+                type="text"
+                name="last_name"
+                value={formData.last_name}
+                onChange={handleInputChange}
+                disabled={!isEditing}
+                className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Enter your last name"
               />
             </div>
 

@@ -7,6 +7,8 @@ export type TierLevel = "BRONZE" | "SILVER" | "GOLD";
 export interface CustomerData {
   address: string;
   name?: string;
+  first_name?: string;
+  last_name?: string;
   email?: string;
   phone?: string;
   isActive: boolean;
@@ -332,19 +334,29 @@ export class TierManager {
   }
 
   // Create new customer data object
-  static createNewCustomer(address: string, name?: string, email?: string, phone?: string, fixflowCustomerId?: string): CustomerData {
+  static createNewCustomer(
+    address: string,
+    name?: string,
+    email?: string,
+    phone?: string,
+    fixflowCustomerId?: string,
+    first_name?: string,
+    last_name?: string
+  ): CustomerData {
     return {
       address: address.toLowerCase(),
       email,
       phone,
       name,
+      first_name,
+      last_name,
       lifetimeEarnings: 0,
       tier: "BRONZE",
       lastEarnedDate: new Date().toISOString(),
       joinDate: new Date().toISOString(),
       fixflowCustomerId,
       isActive: true,
-      referralCount: 0 
+      referralCount: 0
     };
   }
 

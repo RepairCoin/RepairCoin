@@ -12,6 +12,8 @@ import {
 export interface CustomerRegistrationData {
   walletAddress: string;
   name?: string;
+  first_name?: string;
+  last_name?: string;
   email?: string;
   referralCode?: string;
 }
