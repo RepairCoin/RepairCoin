@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Star, Loader2, MessageCircle, ThumbsUp } from 'lucide-react';
-import { servicesApi, Review } from '@/services/api/services';
-import { ShopService } from '@/services/api/services';
+import { servicesApi, ServiceReview, ShopService } from '@/services/api/services';
 import { toast } from 'react-hot-toast';
 
 interface ServiceReviewsViewProps {
@@ -12,7 +11,7 @@ interface ServiceReviewsViewProps {
 }
 
 export const ServiceReviewsView: React.FC<ServiceReviewsViewProps> = ({ serviceId, service }) => {
-  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviews, setReviews] = useState<ServiceReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -34,8 +33,10 @@ export const ServiceReviewsView: React.FC<ServiceReviewsViewProps> = ({ serviceI
         rating: selectedRating || undefined
       });
 
-      setReviews(response.data);
-      setTotalPages(response.pagination.totalPages);
+      if (response) {
+        setReviews(response.data);
+        setTotalPages(response.pagination.totalPages);
+      }
     } catch (error) {
       console.error('Error loading reviews:', error);
       toast.error('Failed to load reviews');
@@ -83,7 +84,7 @@ export const ServiceReviewsView: React.FC<ServiceReviewsViewProps> = ({ serviceI
   };
 
   const calculateAverageRating = () => {
-    if (reviews.length === 0) return 0;
+    if (reviews.length === 0) return '0.0';
     const sum = reviews.reduce((acc, review) => acc + review.rating, 0);
     return (sum / reviews.length).toFixed(1);
   };
