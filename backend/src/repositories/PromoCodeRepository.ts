@@ -385,4 +385,231 @@ export class PromoCodeRepository extends BaseRepository {
       updated_at: row.updated_at
     };
   }
+
+  /**
+   * Atomically validate and reserve a promo code usage.
+   * This prevents race conditions where multiple concurrent requests
+   * could use the same single-use promo code.
+   *
+   * Uses SELECT FOR UPDATE to lock the promo code row during validation,
+   * ensuring only one request can reserve the code at a time.
+   *
+   * @returns Object with validation result and reserved usage info
+   */
+  async validateAndReserveAtomic(
+    code: string,
+    shopId: string,
+    customerAddress: string,
+    baseReward: number
+  ): Promise<{
+    isValid: boolean;
+    errorMessage?: string;
+    promoCodeId?: number;
+    bonusType?: 'fixed' | 'percentage';
+    bonusValue?: number;
+    maxBonus?: number;
+    bonusAmount: number;
+    reservationId?: number;
+  }> {
+    const client = await this.pool.connect();
+    const normalizedCode = code.toUpperCase().trim();
+    const normalizedAddress = customerAddress.toLowerCase().trim();
+
+    try {
+      await client.query('BEGIN');
+
+      // Step 1: Lock and fetch promo code with FOR UPDATE to prevent concurrent access
+      const promoResult = await client.query(`
+        SELECT id, code, shop_id, bonus_type, bonus_value, max_bonus,
+               start_date, end_date, total_usage_limit, per_customer_limit,
+               times_used, is_active
+        FROM promo_codes
+        WHERE UPPER(code) = $1 AND shop_id = $2
+        FOR UPDATE
+      `, [normalizedCode, shopId]);
+
+      if (promoResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return {
+          isValid: false,
+          errorMessage: 'Invalid promo code',
+          bonusAmount: 0
+        };
+      }
+
+      const promo = promoResult.rows[0];
+
+      // Step 2: Validate promo code conditions
+      if (!promo.is_active) {
+        await client.query('ROLLBACK');
+        return {
+          isValid: false,
+          errorMessage: 'Promo code is not active',
+          promoCodeId: promo.id,
+          bonusAmount: 0
+        };
+      }
+
+      const now = new Date();
+      if (now < new Date(promo.start_date)) {
+        await client.query('ROLLBACK');
+        return {
+          isValid: false,
+          errorMessage: 'Promo code not yet active',
+          promoCodeId: promo.id,
+          bonusAmount: 0
+        };
+      }
+
+      if (now > new Date(promo.end_date)) {
+        await client.query('ROLLBACK');
+        return {
+          isValid: false,
+          errorMessage: 'Promo code has expired',
+          promoCodeId: promo.id,
+          bonusAmount: 0
+        };
+      }
+
+      // Step 3: Check total usage limit
+      if (promo.total_usage_limit !== null && promo.times_used >= promo.total_usage_limit) {
+        await client.query('ROLLBACK');
+        return {
+          isValid: false,
+          errorMessage: 'Promo code usage limit reached',
+          promoCodeId: promo.id,
+          bonusAmount: 0
+        };
+      }
+
+      // Step 4: Check per-customer usage limit
+      if (promo.per_customer_limit !== null) {
+        const customerUsageResult = await client.query(`
+          SELECT COUNT(*) as usage_count
+          FROM promo_code_uses
+          WHERE promo_code_id = $1 AND customer_address = $2
+        `, [promo.id, normalizedAddress]);
+
+        const customerUsageCount = parseInt(customerUsageResult.rows[0].usage_count) || 0;
+        if (customerUsageCount >= promo.per_customer_limit) {
+          await client.query('ROLLBACK');
+          return {
+            isValid: false,
+            errorMessage: 'You have already used this promo code',
+            promoCodeId: promo.id,
+            bonusAmount: 0
+          };
+        }
+      }
+
+      // Step 5: Calculate bonus amount
+      let bonusAmount = 0;
+      const bonusValue = parseFloat(promo.bonus_value) || 0;
+
+      if (promo.bonus_type === 'fixed') {
+        bonusAmount = bonusValue;
+      } else if (promo.bonus_type === 'percentage') {
+        bonusAmount = (baseReward * bonusValue) / 100;
+        // Apply max bonus if specified
+        if (promo.max_bonus && bonusAmount > parseFloat(promo.max_bonus)) {
+          bonusAmount = parseFloat(promo.max_bonus);
+        }
+      }
+
+      // Step 6: Reserve the usage by incrementing times_used and recording in promo_code_uses
+      // This atomically prevents other concurrent requests from using the code
+      await client.query(`
+        UPDATE promo_codes
+        SET times_used = times_used + 1,
+            total_bonus_issued = total_bonus_issued + $2,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+      `, [promo.id, bonusAmount]);
+
+      // Step 7: Record the usage
+      const useResult = await client.query(`
+        INSERT INTO promo_code_uses (
+          promo_code_id, customer_address, shop_id,
+          base_reward, bonus_amount, total_reward
+        ) VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id
+      `, [
+        promo.id,
+        normalizedAddress,
+        shopId,
+        baseReward,
+        bonusAmount,
+        baseReward + bonusAmount
+      ]);
+
+      const reservationId = useResult.rows[0].id;
+
+      // All steps successful - commit transaction
+      await client.query('COMMIT');
+
+      logger.info('Promo code validated and reserved atomically', {
+        code: normalizedCode,
+        shopId,
+        customerAddress: normalizedAddress,
+        promoCodeId: promo.id,
+        bonusAmount,
+        reservationId
+      });
+
+      return {
+        isValid: true,
+        promoCodeId: promo.id,
+        bonusType: promo.bonus_type as 'fixed' | 'percentage',
+        bonusValue: bonusValue,
+        maxBonus: promo.max_bonus ? parseFloat(promo.max_bonus) : undefined,
+        bonusAmount,
+        reservationId
+      };
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      logger.error('Atomic promo code validation failed:', error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Rollback a reserved promo code usage if the reward issuance fails.
+   * This decrements times_used and removes the promo_code_uses record.
+   */
+  async rollbackReservation(reservationId: number, promoCodeId: number, bonusAmount: number): Promise<void> {
+    const client = await this.pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // Remove the usage record
+      await client.query('DELETE FROM promo_code_uses WHERE id = $1', [reservationId]);
+
+      // Decrement the usage count and bonus issued
+      await client.query(`
+        UPDATE promo_codes
+        SET times_used = GREATEST(0, times_used - 1),
+            total_bonus_issued = GREATEST(0, total_bonus_issued - $2),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+      `, [promoCodeId, bonusAmount]);
+
+      await client.query('COMMIT');
+
+      logger.info('Promo code reservation rolled back', {
+        reservationId,
+        promoCodeId,
+        bonusAmount
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      logger.error('Failed to rollback promo code reservation:', error);
+      // Don't throw - this is a cleanup operation
+    } finally {
+      client.release();
+    }
+  }
 }

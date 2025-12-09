@@ -38,6 +38,7 @@ interface RedeemTabProps {
   shopData?: ShopData | null;
   isBlocked?: boolean;
   blockReason?: string;
+  shopRcnBalance?: number; // Shop's operational RCN balance
 }
 
 interface RedemptionTransaction {
@@ -80,6 +81,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   shopData,
   isBlocked = false,
   blockReason = "This action is currently blocked",
+  shopRcnBalance = 0,
 }) => {
   const [flow, setFlow] = useState<RedemptionFlow>("approval");
 
@@ -1473,6 +1475,16 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
 
               {/* Redemption Details */}
               <div className="px-6 py-4 space-y-4">
+                {/* Shop RCN Balance Display */}
+                <div className="bg-[#0D0D0D] rounded-xl p-3 border border-gray-700">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400 text-sm">Your Shop RCN</span>
+                    <span className={`font-bold ${shopRcnBalance > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      {shopRcnBalance.toFixed(2)} RCN
+                    </span>
+                  </div>
+                </div>
+
                 {selectedCustomer && (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
@@ -1500,7 +1512,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                        <span className="text-gray-300">Balance</span>
+                        <span className="text-gray-300">Customer Balance</span>
                       </div>
                       <span className="text-white font-semibold text-sm">
                         {loadingBalance ? (
@@ -1543,7 +1555,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                   </div>
                 </div>
 
-                {/* Insufficient Balance Warning */}
+                {/* Insufficient Customer Balance Warning */}
                 {selectedCustomer &&
                   redeemAmount > 0 &&
                   customerBalance !== null &&
@@ -1553,7 +1565,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                         <AlertCircle className="w-5 h-5 text-red-500 mr-3 flex-shrink-0" />
                         <div>
                           <h4 className="font-semibold text-red-400 mb-1">
-                            Insufficient Balance
+                            Customer Insufficient Balance
                           </h4>
                           <p className="text-sm text-red-300">
                             Customer has {customerBalance.toFixed(2)} RCN, but{" "}
@@ -1565,13 +1577,33 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                     </div>
                   )}
 
+                {/* Insufficient Shop RCN Balance Warning */}
+                {redeemAmount > 0 && shopRcnBalance < redeemAmount && (
+                  <div className="bg-orange-900 bg-opacity-20 border border-orange-500 rounded-xl p-4 mb-4">
+                    <div className="flex items-center">
+                      <AlertCircle className="w-5 h-5 text-orange-500 mr-3 flex-shrink-0" />
+                      <div>
+                        <h4 className="font-semibold text-orange-400 mb-1">
+                          Shop Insufficient RCN
+                        </h4>
+                        <p className="text-sm text-orange-300">
+                          Your shop has {shopRcnBalance.toFixed(2)} RCN, but{" "}
+                          {redeemAmount} RCN requested. Purchase more RCN to process this redemption.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Process Button */}
                 {(() => {
-                  const insufficientBalance =
+                  const insufficientCustomerBalance =
                     selectedCustomer &&
                     redeemAmount > 0 &&
                     customerBalance !== null &&
                     customerBalance < redeemAmount;
+                  const insufficientShopBalance =
+                    redeemAmount > 0 && shopRcnBalance < redeemAmount;
                   const isSuspended =
                     selectedCustomer &&
                     (selectedCustomer.isActive === false ||
@@ -1581,7 +1613,8 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                     !selectedCustomer ||
                     !redeemAmount ||
                     redeemAmount <= 0 ||
-                    insufficientBalance ||
+                    insufficientCustomerBalance ||
+                    insufficientShopBalance ||
                     loadingBalance ||
                     isSuspended;
 
@@ -1601,10 +1634,12 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                           ? `Please enter redemption amount (current: ${redeemAmount})`
                           : loadingBalance
                           ? "Loading customer balance..."
-                          : insufficientBalance
+                          : insufficientCustomerBalance
                           ? `Customer has insufficient balance (${
                               customerBalance?.toFixed(2) || 0
                             } RCN available)`
+                          : insufficientShopBalance
+                          ? `Shop has insufficient RCN (${shopRcnBalance.toFixed(2)} RCN available, need ${redeemAmount} RCN)`
                           : "Send request to customer's device for approval"
                       }
                     >

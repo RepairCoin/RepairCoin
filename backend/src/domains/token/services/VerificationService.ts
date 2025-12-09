@@ -60,6 +60,11 @@ export class VerificationService {
   }
   /**
    * Verify if a customer can redeem RCN at a specific shop
+   *
+   * Redemption Rules:
+   * - 100% of earned RCN can be redeemed at HOME SHOP (where customer earned most RCN)
+   * - 20% of earned RCN can be redeemed at ANY OTHER SHOP (cross-shop redemption)
+   * - Shop must have sufficient operational RCN balance to process redemption
    */
   async verifyRedemption(
     customerAddress: string,
@@ -96,26 +101,52 @@ export class VerificationService {
       // Determine if this is the customer's home shop (where they earn most RCN)
       const isHomeShop = await this.isCustomerHomeShop(customerAddress, shopId);
 
-      // No tier-based redemption limits - removed per new requirements
+      // Calculate maximum redeemable amount based on shop type
+      // - Home shop: 100% of available balance
+      // - Cross-shop: 20% of available balance
+      const CROSS_SHOP_REDEMPTION_PERCENTAGE = 0.20; // 20%
+      let maxRedeemable: number;
+      let crossShopLimit: number;
 
-      // Calculate maximum redeemable amount
-      // Customers can redeem their full balance at any shop
-      let maxRedeemable = availableBalance;
-      let crossShopLimit = 0; // No limit
-
-      // Check if requested amount can be redeemed
-      const canRedeem = requestedAmount <= maxRedeemable && requestedAmount > 0;
-
-      let message: string;
-      if (canRedeem) {
-        message = `Redemption approved for ${requestedAmount} RCN`;
-      } else if (requestedAmount > maxRedeemable) {
-        // Only balance limit applies now
-        message = `Insufficient balance. Available: ${availableBalance} RCN`;
-      } else if (requestedAmount <= 0) {
-        message = 'Invalid redemption amount';
+      if (isHomeShop) {
+        // Home shop: customer can redeem full balance
+        maxRedeemable = availableBalance;
+        crossShopLimit = availableBalance; // No limit at home shop
       } else {
-        message = 'Redemption not allowed';
+        // Cross-shop: customer can only redeem 20% of their balance
+        crossShopLimit = Math.floor(availableBalance * CROSS_SHOP_REDEMPTION_PERCENTAGE * 100) / 100;
+        maxRedeemable = crossShopLimit;
+      }
+
+      // Check if shop has enough operational RCN balance to process this redemption
+      const shopBalance = shop.purchasedRcnBalance || 0;
+      let shopBalanceSufficient = true;
+      let shopBalanceMessage = '';
+
+      if (shopBalance < requestedAmount) {
+        shopBalanceSufficient = false;
+        shopBalanceMessage = `Shop has insufficient RCN balance. Shop available: ${shopBalance} RCN`;
+      }
+
+      // Determine if redemption can proceed
+      let canRedeem = false;
+      let message: string;
+
+      if (requestedAmount <= 0) {
+        message = 'Invalid redemption amount';
+      } else if (!shopBalanceSufficient) {
+        message = shopBalanceMessage;
+      } else if (requestedAmount > availableBalance) {
+        message = `Insufficient balance. Your available: ${availableBalance} RCN`;
+      } else if (requestedAmount > maxRedeemable) {
+        if (isHomeShop) {
+          message = `Insufficient balance. Available: ${availableBalance} RCN`;
+        } else {
+          message = `Cross-shop limit exceeded. You can redeem up to ${crossShopLimit} RCN (20%) at this shop. Redeem full balance at your home shop.`;
+        }
+      } else {
+        canRedeem = true;
+        message = `Redemption approved for ${requestedAmount} RCN`;
       }
 
       logger.info('Redemption verification completed', {
@@ -125,7 +156,10 @@ export class VerificationService {
         canRedeem,
         availableBalance,
         maxRedeemable,
-        isHomeShop
+        isHomeShop,
+        crossShopLimit,
+        shopBalance,
+        shopBalanceSufficient
       });
 
       return {

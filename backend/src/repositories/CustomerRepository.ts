@@ -272,21 +272,22 @@ export class CustomerRepository extends BaseRepository {
   }
 
   async updateCustomerAfterEarning(
-    address: string, 
-    amount: number, 
+    address: string,
+    amount: number,
     newTier: TierLevel
   ): Promise<void> {
     try {
       const query = `
-        UPDATE customers 
-        SET 
+        UPDATE customers
+        SET
           lifetime_earnings = lifetime_earnings + $1,
+          current_rcn_balance = COALESCE(current_rcn_balance, 0) + $1,
           tier = $2,
           last_earned_date = NOW(),
           updated_at = NOW()
         WHERE address = $3
       `;
-      
+
       await this.pool.query(query, [amount, newTier, address.toLowerCase()]);
       logger.info('Customer earnings updated', { address, amount, newTier });
     } catch (error) {
@@ -301,13 +302,14 @@ export class CustomerRepository extends BaseRepository {
   ): Promise<void> {
     try {
       const query = `
-        UPDATE customers 
-        SET 
+        UPDATE customers
+        SET
           lifetime_earnings = GREATEST(0, COALESCE(lifetime_earnings, 0) + $1),
+          current_rcn_balance = GREATEST(0, COALESCE(current_rcn_balance, 0) + $1),
           updated_at = NOW()
         WHERE address = $2
       `;
-      
+
       await this.pool.query(query, [amount, address.toLowerCase()]);
       logger.info('Customer balance updated after transfer', { address, amount });
     } catch (error) {
