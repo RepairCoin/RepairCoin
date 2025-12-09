@@ -934,6 +934,7 @@ export default function ShopDashboardClient() {
               shopData={shopData}
               isBlocked={isBlocked}
               blockReason={getBlockReason()}
+              shopRcnBalance={shopData.purchasedRcnBalance || 0}
             />
           )}
 

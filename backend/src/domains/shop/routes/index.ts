@@ -10,6 +10,7 @@ import {
   transactionRepository,
   redemptionSessionRepository
 } from '../../../repositories';
+import { idempotencyRepository } from '../../../repositories/IdempotencyRepository';
 import { TokenMinter } from '../../../contracts/TokenMinter';
 import { TierManager } from '../../../contracts/TierManager';
 import { logger } from '../../../utils/logger';
@@ -18,6 +19,7 @@ import { RoleValidator } from '../../../utils/roleValidator';
 import { validateShopRoleConflict } from '../../../middleware/roleConflictValidator';
 import { ReferralService } from '../../../services/ReferralService';
 import { PromoCodeService } from '../../../services/PromoCodeService';
+import { PromoCodeRepository } from '../../../repositories/PromoCodeRepository';
 import rcgRoutes from './rcg';
 import { eventBus } from '../../../events/EventBus';
 
@@ -1274,14 +1276,29 @@ router.post('/:shopId/redeem',
         });
       }
 
-      // Update shop statistics (statistics update is still needed for shop analytics)
+      // Update shop statistics and credit shop's operational RCN balance
+      // When customer redeems RCN, the shop receives those tokens back into their balance
+      const previousShopBalance = shop.purchasedRcnBalance || 0;
+      const newShopBalance = previousShopBalance + amount;
+
       await shopRepository.updateShop(shopId, {
-        totalRedemptions: shop.totalRedemptions + amount,
+        totalRedemptions: (shop.totalRedemptions || 0) + amount,
+        purchasedRcnBalance: newShopBalance,
         lastActivity: new Date().toISOString()
       });
 
+      logger.info('Shop balance credited from redemption', {
+        shopId,
+        previousBalance: previousShopBalance,
+        creditedAmount: amount,
+        newBalance: newShopBalance
+      });
+
+      // Note: Customer is automatically added to shop's customer list via the redeem transaction
+      // The getShopCustomers query now includes customers who have earned OR redeemed at the shop
+
       // Customer balance is updated via the transaction record above
-      
+
       logger.info('Token redemption processed', {
         shopId,
         totalAmount: amount,
@@ -1545,7 +1562,32 @@ router.post('/:shopId/issue-reward',
     try {
       const { shopId } = req.params;
       const { customerAddress, repairAmount, skipTierBonus = false, customBaseReward, promoCode } = req.body;
-      
+
+      // Check for idempotency key to prevent duplicate rewards
+      const idempotencyKey = req.headers['x-idempotency-key'] as string | undefined;
+      if (idempotencyKey) {
+        const idempotencyCheck = await idempotencyRepository.checkIdempotencyKey(
+          idempotencyKey,
+          shopId,
+          req.body,
+          'issue-reward'
+        );
+
+        if (idempotencyCheck.exists) {
+          if (idempotencyCheck.hashMismatch) {
+            // Same idempotency key but different request body - this is an error
+            return res.status(422).json({
+              success: false,
+              error: 'Idempotency key already used with different request parameters'
+            });
+          }
+
+          // Return cached response (duplicate request)
+          logger.info('Returning cached idempotency response', { idempotencyKey, shopId });
+          return res.status(idempotencyCheck.response!.status).json(idempotencyCheck.response!.body);
+        }
+      }
+
       const shop = await shopRepository.getShop(shopId);
       if (!shop) {
         return res.status(404).json({
@@ -1648,36 +1690,49 @@ router.post('/:shopId/issue-reward',
       }
 
       // Calculate promo code bonus if provided
+      // Uses atomic validation + reservation to prevent race conditions (Bug #4 fix)
       let promoBonus = 0;
-      let promoCodeRecord = null;
+      let promoReservation: { promoCodeId: number; reservationId: number; bonusAmount: number } | null = null;
       if (promoCode && promoCode.trim()) {
         try {
-          const promoCodeService = new PromoCodeService();
-          
-          // Validate the promo code
-          const validation = await promoCodeService.validatePromoCode(promoCode.trim(), shopId, customerAddress);
-          if (validation.is_valid) {
-            promoCodeRecord = { id: validation.promo_code_id, bonus_type: validation.bonus_type, bonus_value: validation.bonus_value };
-            // Calculate bonus based on base reward + tier bonus
-            const rewardBeforePromo = skipTierBonus ? baseReward : baseReward + tierBonus;
-            const bonusResult = await promoCodeService.calculatePromoBonus(promoCode.trim(), shopId, customerAddress, rewardBeforePromo);
-            promoBonus = bonusResult.bonusAmount;
-            logger.info('Promo code applied', { 
-              promoCode: promoCode.trim(), 
-              promoBonus, 
-              customerAddress, 
-              shopId 
+          const promoCodeRepo = new PromoCodeRepository();
+
+          // Calculate base reward before promo for percentage calculations
+          const rewardBeforePromo = skipTierBonus ? baseReward : baseReward + tierBonus;
+
+          // ATOMIC: Validate AND reserve promo code in single transaction
+          // This prevents race conditions where concurrent requests could use the same single-use code
+          const atomicResult = await promoCodeRepo.validateAndReserveAtomic(
+            promoCode.trim(),
+            shopId,
+            customerAddress,
+            rewardBeforePromo
+          );
+
+          if (atomicResult.isValid) {
+            promoBonus = atomicResult.bonusAmount;
+            promoReservation = {
+              promoCodeId: atomicResult.promoCodeId!,
+              reservationId: atomicResult.reservationId!,
+              bonusAmount: atomicResult.bonusAmount
+            };
+            logger.info('Promo code validated and reserved atomically', {
+              promoCode: promoCode.trim(),
+              promoBonus,
+              reservationId: atomicResult.reservationId,
+              customerAddress,
+              shopId
             });
           } else {
-            logger.warn('Invalid promo code attempted', { 
-              promoCode: promoCode.trim(), 
-              reason: validation.error_message, 
-              customerAddress, 
-              shopId 
+            logger.warn('Invalid promo code attempted', {
+              promoCode: promoCode.trim(),
+              reason: atomicResult.errorMessage,
+              customerAddress,
+              shopId
             });
             return res.status(400).json({
               success: false,
-              error: `Invalid promo code: ${validation.error_message}`
+              error: `Invalid promo code: ${atomicResult.errorMessage}`
             });
           }
         } catch (promoError: any) {
@@ -1688,10 +1743,10 @@ router.post('/:shopId/issue-reward',
             shopId,
             customerAddress
           });
-          
+
           // Provide detailed error message
           const errorDetails = promoError.message || 'Unknown error during promo code validation';
-          
+
           return res.status(400).json({
             success: false,
             error: 'Failed to process promo code',
@@ -1706,8 +1761,12 @@ router.post('/:shopId/issue-reward',
 
       // No earning limits - customers can earn unlimited RCN
 
-      // Debug logging before atomic deduction
-      logger.info('Attempting atomic balance deduction:', {
+      // Calculate new tier after earning (needed for atomic operation)
+      const updatedLifetimeEarnings = customer.lifetimeEarnings + totalReward;
+      const newTier = getTierManager().calculateTier(updatedLifetimeEarnings);
+
+      // Debug logging before reward issuance
+      logger.info('Attempting reward issuance:', {
         shopId,
         totalReward,
         baseReward,
@@ -1716,70 +1775,18 @@ router.post('/:shopId/issue-reward',
         promoCode: promoCode || null
       });
 
-      // ATOMIC BALANCE CHECK AND DEDUCTION
-      // Use SELECT FOR UPDATE to prevent race conditions with concurrent requests
-      let balanceDeductionResult: { success: boolean; previousBalance: number; newBalance: number };
-      try {
-        balanceDeductionResult = await shopRepository.deductShopBalanceAtomic(
-          shopId,
-          totalReward,
-          totalReward // tokensIssued = totalReward
-        );
-
-        logger.info('Atomic balance deduction completed', {
-          shopId,
-          previousBalance: balanceDeductionResult.previousBalance,
-          newBalance: balanceDeductionResult.newBalance,
-          totalReward
-        });
-      } catch (deductionError: any) {
-        // Check if it's an insufficient balance error
-        if (deductionError.message && deductionError.message.includes('Insufficient balance')) {
-          logger.warn('Insufficient shop balance (atomic check)', {
-            shopId,
-            required: totalReward,
-            error: deductionError.message
-          });
-
-          // Extract available balance from error message if possible
-          const availableMatch = deductionError.message.match(/available (\d+\.?\d*)/);
-          const available = availableMatch ? parseFloat(availableMatch[1]) : 0;
-
-          return res.status(400).json({
-            success: false,
-            error: 'Insufficient shop RCN balance',
-            data: {
-              required: totalReward,
-              available: available,
-              baseReward,
-              tierBonus: skipTierBonus ? 0 : tierBonus,
-              promoBonus,
-              promoCode: promoCode || null
-            }
-          });
-        }
-
-        // Other database errors
-        logger.error('Failed to deduct shop balance:', deductionError);
-        return res.status(500).json({
-          success: false,
-          error: 'Failed to process reward - database error'
-        });
-      }
-
-      // Process the reward - Transfer tokens on-chain (balance already deducted)
+      // STEP 1: Process blockchain operations FIRST (before any DB changes)
+      // This way, if blockchain fails, we haven't modified any DB state
       let transactionHash = `offchain_${Date.now()}`;
       let onChainSuccess = false;
 
       try {
-        // Check if blockchain minting is enabled and attempt to mint
         const blockchainEnabled = process.env.ENABLE_BLOCKCHAIN_MINTING === 'true';
 
         if (blockchainEnabled) {
           try {
             const tokenMinter = getTokenMinter();
 
-            // First try to transfer from admin wallet
             logger.info('Attempting token transfer from admin wallet...', {
               customerAddress,
               amount: totalReward
@@ -1801,7 +1808,6 @@ router.post('/:shopId/issue-reward',
                 method: 'transfer'
               });
             } else {
-              // If transfer fails, try minting new tokens as fallback
               logger.warn('Transfer failed, attempting to mint new tokens...', {
                 transferError: transferResult.error
               });
@@ -1843,88 +1849,122 @@ router.post('/:shopId/issue-reward',
             amount: totalReward
           });
         }
-
-        logger.info('Shop balance already updated via atomic deduction', {
-          shopId,
-          previousBalance: balanceDeductionResult.previousBalance,
-          rewardIssued: totalReward,
-          newBalance: balanceDeductionResult.newBalance,
-          onChainTransfer: onChainSuccess
-        });
       } catch (blockchainError) {
-        // Blockchain operations failed but balance was already deducted
-        // This is acceptable - tokens are tracked in database even if on-chain fails
-        logger.error('Blockchain operation failed after balance deduction:', blockchainError);
+        // Blockchain operations failed - continue with off-chain tracking
+        logger.error('Blockchain operation failed:', blockchainError);
       }
 
-      // Calculate new tier after earning
-      const updatedLifetimeEarnings = customer.lifetimeEarnings + totalReward;
-      const newTier = getTierManager().calculateTier(updatedLifetimeEarnings);
-      
-      // Update customer earnings using the correct method
-      await customerRepository.updateCustomerAfterEarning(
-        customerAddress,
-        totalReward,
-        newTier
-      );
+      // STEP 2: ATOMIC DATABASE OPERATIONS
+      // All DB changes (shop balance deduction, customer credit, transaction record)
+      // happen in a single transaction - if any fails, ALL are rolled back
+      let atomicResult: {
+        success: boolean;
+        shopPreviousBalance: number;
+        shopNewBalance: number;
+        customerPreviousBalance: number;
+        customerNewBalance: number;
+        transactionId: string;
+      };
 
-      // Log transaction - wrap in try-catch to not fail the entire reward if logging fails
       try {
-        await transactionRepository.recordTransaction({
-          id: `${Date.now()}_${customerAddress}_${shopId}`,
-          type: 'mint',
-          customerAddress,
+        atomicResult = await shopRepository.issueRewardAtomic(
           shopId,
-          amount: totalReward,
-          reason: `Repair reward - $${repairAmount} repair`,
-          transactionHash: transactionHash,
-          timestamp: new Date().toISOString(),
-          status: 'confirmed',
-          metadata: {
+          customerAddress,
+          totalReward,
+          {
+            transactionHash,
             repairAmount,
             baseReward,
             tierBonus: skipTierBonus ? 0 : tierBonus,
             promoBonus,
-            promoCode: promoCode || null
+            promoCode: promoCode || null,
+            newTier
           }
-        });
-        logger.info('Transaction recorded successfully');
+        );
 
-        // Record promo code usage if promo code was used
-        if (promoCodeRecord && promoBonus > 0) {
+        logger.info('Atomic reward issuance completed', {
+          shopId,
+          customerAddress,
+          shopPreviousBalance: atomicResult.shopPreviousBalance,
+          shopNewBalance: atomicResult.shopNewBalance,
+          customerPreviousBalance: atomicResult.customerPreviousBalance,
+          customerNewBalance: atomicResult.customerNewBalance,
+          transactionId: atomicResult.transactionId,
+          totalReward,
+          onChainTransfer: onChainSuccess
+        });
+      } catch (atomicError: any) {
+        // Rollback promo code reservation if reward issuance failed
+        if (promoReservation) {
           try {
-            const promoCodeService = new PromoCodeService();
-            const rewardBeforePromo = skipTierBonus ? baseReward : baseReward + tierBonus;
-            
-            await promoCodeService.recordPromoCodeUse(
-              promoCodeRecord.id,
-              customerAddress,
-              shopId,
-              rewardBeforePromo,
-              promoBonus
+            const promoCodeRepo = new PromoCodeRepository();
+            await promoCodeRepo.rollbackReservation(
+              promoReservation.reservationId,
+              promoReservation.promoCodeId,
+              promoReservation.bonusAmount
             );
-            logger.info('Promo code usage recorded successfully', { 
-              promoCodeId: promoCodeRecord.id, 
-              customerAddress, 
-              promoBonus 
+            logger.info('Promo code reservation rolled back due to reward failure', {
+              reservationId: promoReservation.reservationId,
+              promoCodeId: promoReservation.promoCodeId
             });
-          } catch (promoRecordError) {
-            logger.error('Failed to record promo code usage:', promoRecordError);
-            // Don't fail the transaction, just log the error
+          } catch (rollbackError) {
+            logger.error('Failed to rollback promo code reservation:', rollbackError);
           }
         }
-      } catch (txError) {
-        // Log error but don't fail the reward since it was already processed
-        logger.error('Failed to record transaction in database:', txError);
-        logger.error('Transaction details that failed to record:', {
-          id: `${Date.now()}_${customerAddress}_${shopId}`,
-          transactionHash,
-          amount: totalReward
+
+        // Check if it's an insufficient balance error
+        if (atomicError.message && atomicError.message.includes('Insufficient balance')) {
+          logger.warn('Insufficient shop balance (atomic check)', {
+            shopId,
+            required: totalReward,
+            error: atomicError.message
+          });
+
+          const availableMatch = atomicError.message.match(/available (\d+\.?\d*)/);
+          const available = availableMatch ? parseFloat(availableMatch[1]) : 0;
+
+          return res.status(400).json({
+            success: false,
+            error: 'Insufficient shop RCN balance',
+            data: {
+              required: totalReward,
+              available: available,
+              baseReward,
+              tierBonus: skipTierBonus ? 0 : tierBonus,
+              promoBonus,
+              promoCode: promoCode || null
+            }
+          });
+        }
+
+        // Customer not found error
+        if (atomicError.message && atomicError.message.includes('Customer not found')) {
+          logger.error('Customer not found during atomic reward:', atomicError);
+          return res.status(404).json({
+            success: false,
+            error: 'Customer not found'
+          });
+        }
+
+        // Shop not found error
+        if (atomicError.message && atomicError.message.includes('Shop not found')) {
+          logger.error('Shop not found during atomic reward:', atomicError);
+          return res.status(404).json({
+            success: false,
+            error: 'Shop not found'
+          });
+        }
+
+        // Other database errors - ALL changes rolled back
+        logger.error('Atomic reward issuance failed - ALL changes rolled back:', atomicError);
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to process reward - database error (no changes made)'
         });
-        // Continue execution - the reward was still issued successfully
       }
 
-      // Tier update is already handled in updateCustomerAfterEarning
+      // Note: Promo code usage is now recorded atomically during validateAndReserveAtomic()
+      // No separate recordPromoCodeUse call needed (Bug #4 fix)
 
       // Check if this completes a referral (first repair for referred customer)
       let referralCompleted = false;
@@ -1982,7 +2022,7 @@ router.post('/:shopId/issue-reward',
         logger.error('Failed to emit reward_issued event:', eventError);
       }
 
-      res.json({
+      const successResponse = {
         success: true,
         data: {
           baseReward,
@@ -1992,15 +2032,29 @@ router.post('/:shopId/issue-reward',
           totalReward: totalReward,
           txHash: transactionHash,
           onChainTransfer: onChainSuccess,
-          customerNewBalance: customer.lifetimeEarnings + totalReward,
-          shopNewBalance: balanceDeductionResult.newBalance,
+          customerNewBalance: atomicResult.customerNewBalance,
+          shopNewBalance: atomicResult.shopNewBalance,
           referralCompleted,
           referralMessage,
           message: onChainSuccess
             ? `Successfully issued ${totalReward} RCN tokens to customer wallet`
             : `Reward recorded (${totalReward} RCN) - tokens will be distributed later`
         }
-      });
+      };
+
+      // Store idempotency response if key was provided
+      if (idempotencyKey) {
+        await idempotencyRepository.storeResponse(
+          idempotencyKey,
+          shopId,
+          req.body,
+          200,
+          successResponse,
+          'issue-reward'
+        );
+      }
+
+      res.json(successResponse);
 
     } catch (error: any) {
       logger.error('Issue reward error:', error);

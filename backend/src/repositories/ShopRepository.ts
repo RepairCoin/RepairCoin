@@ -899,6 +899,167 @@ export class ShopRepository extends BaseRepository {
     }
   }
 
+  /**
+   * Issue reward atomically - deducts shop balance, credits customer, and records transaction
+   * ALL in a single database transaction. If ANY step fails, ALL changes are rolled back.
+   *
+   * This prevents the bug where shop balance is deducted but customer doesn't receive credit.
+   *
+   * @param shopId - The shop issuing the reward
+   * @param customerAddress - The customer receiving the reward
+   * @param amount - The reward amount in RCN
+   * @param transactionData - Data for the transaction record
+   * @returns Object with success status, balances, and transaction ID
+   * @throws Error if any step fails (all changes rolled back)
+   */
+  async issueRewardAtomic(
+    shopId: string,
+    customerAddress: string,
+    amount: number,
+    transactionData: {
+      transactionHash: string;
+      repairAmount: number;
+      baseReward: number;
+      tierBonus: number;
+      promoBonus: number;
+      promoCode: string | null;
+      newTier: string;
+    }
+  ): Promise<{
+    success: boolean;
+    shopPreviousBalance: number;
+    shopNewBalance: number;
+    customerPreviousBalance: number;
+    customerNewBalance: number;
+    transactionId: string;
+  }> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Step 1: Lock shop row and check/deduct balance
+      const shopLockQuery = `
+        SELECT purchased_rcn_balance, total_tokens_issued
+        FROM shops
+        WHERE shop_id = $1
+        FOR UPDATE
+      `;
+      const shopResult = await client.query(shopLockQuery, [shopId]);
+
+      if (shopResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        throw new Error('Shop not found');
+      }
+
+      const shopPreviousBalance = parseFloat(shopResult.rows[0].purchased_rcn_balance || 0);
+
+      if (shopPreviousBalance < amount) {
+        await client.query('ROLLBACK');
+        throw new Error(`Insufficient balance: required ${amount}, available ${shopPreviousBalance}`);
+      }
+
+      // Deduct from shop balance
+      await client.query(`
+        UPDATE shops
+        SET purchased_rcn_balance = purchased_rcn_balance - $1,
+            total_tokens_issued = total_tokens_issued + $1,
+            last_activity = NOW(),
+            updated_at = NOW()
+        WHERE shop_id = $2
+      `, [amount, shopId]);
+
+      const shopNewBalance = shopPreviousBalance - amount;
+
+      // Step 2: Lock customer row and credit balance
+      const customerLockQuery = `
+        SELECT lifetime_earnings, tier
+        FROM customers
+        WHERE LOWER(address) = LOWER($1)
+        FOR UPDATE
+      `;
+      const customerResult = await client.query(customerLockQuery, [customerAddress]);
+
+      if (customerResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        throw new Error('Customer not found');
+      }
+
+      const customerPreviousBalance = parseFloat(customerResult.rows[0].lifetime_earnings || 0);
+      const customerNewBalance = customerPreviousBalance + amount;
+
+      // Update customer balance and tier (both lifetime_earnings AND current_rcn_balance)
+      await client.query(`
+        UPDATE customers
+        SET lifetime_earnings = lifetime_earnings + $1,
+            current_rcn_balance = COALESCE(current_rcn_balance, 0) + $1,
+            tier = $2,
+            last_earned_date = NOW(),
+            updated_at = NOW()
+        WHERE LOWER(address) = LOWER($3)
+      `, [amount, transactionData.newTier, customerAddress]);
+
+      // Step 3: Record transaction (matches TransactionRepository.recordTransaction format)
+      const transactionResult = await client.query(`
+        INSERT INTO transactions (
+          type, customer_address, shop_id, amount, reason,
+          transaction_hash, timestamp, status, metadata
+        ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8)
+        RETURNING id
+      `, [
+        'mint',
+        customerAddress.toLowerCase(),
+        shopId,
+        amount,
+        `Repair reward - $${transactionData.repairAmount} repair`,
+        transactionData.transactionHash,
+        'confirmed',
+        JSON.stringify({
+          repairAmount: transactionData.repairAmount,
+          baseReward: transactionData.baseReward,
+          tierBonus: transactionData.tierBonus,
+          promoBonus: transactionData.promoBonus,
+          promoCode: transactionData.promoCode
+        })
+      ]);
+
+      const transactionId = transactionResult.rows[0]?.id || `${Date.now()}_${customerAddress}_${shopId}`;
+
+      // All steps successful - commit transaction
+      await client.query('COMMIT');
+
+      logger.info('Atomic reward issuance successful', {
+        shopId,
+        customerAddress,
+        amount,
+        shopPreviousBalance,
+        shopNewBalance,
+        customerPreviousBalance,
+        customerNewBalance,
+        transactionId
+      });
+
+      return {
+        success: true,
+        shopPreviousBalance,
+        shopNewBalance,
+        customerPreviousBalance,
+        customerNewBalance,
+        transactionId
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      logger.error('Atomic reward issuance failed - ALL changes rolled back', {
+        error: error instanceof Error ? error.message : error,
+        shopId,
+        customerAddress,
+        amount
+      });
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async getShopPurchaseHistory(shopId: string, filters: {
     page: number;
     limit: number;
@@ -1111,7 +1272,7 @@ export class ShopRepository extends BaseRepository {
       const { page, limit, search } = options;
       const offset = this.getPaginationOffset(page, limit);
 
-      // Build query to get customers who have earned from this shop
+      // Build query to get customers who have interacted with this shop (earned OR redeemed)
       let whereClause = 'WHERE t.shop_id = $1';
       let params: any[] = [shopId];
       let paramCount = 1;
@@ -1122,12 +1283,12 @@ export class ShopRepository extends BaseRepository {
         params.push(`%${search}%`);
       }
 
-      // Get total count
+      // Get total count - include customers who earned (mint) OR redeemed at this shop
       const countQuery = `
         SELECT COUNT(DISTINCT t.customer_address) as count
         FROM transactions t
         LEFT JOIN customers c ON c.address = t.customer_address
-        ${whereClause} AND t.type = 'mint'
+        ${whereClause} AND t.type IN ('mint', 'redeem')
       `;
       const countResult = await this.pool.query(countQuery, params);
       const totalItems = parseInt(countResult.rows[0].count);
@@ -1138,12 +1299,14 @@ export class ShopRepository extends BaseRepository {
       paramCount++;
       params.push(offset);
 
+      // Include customers who earned (mint) OR redeemed at this shop
+      // For lifetime_earnings, only sum mint transactions (what they actually earned at this shop)
       const query = `
         SELECT
           t.customer_address as address,
           MAX(c.name) as name,
           COALESCE(MAX(c.tier), 'BRONZE') as tier,
-          SUM(t.amount) as lifetime_earnings,
+          SUM(CASE WHEN t.type = 'mint' THEN t.amount ELSE 0 END) as lifetime_earnings,
           MAX(t.timestamp) as last_transaction_date,
           COUNT(t.id) as total_transactions,
           BOOL_OR(c.is_active) as is_active,
@@ -1151,9 +1314,9 @@ export class ShopRepository extends BaseRepository {
           MAX(c.suspension_reason) as suspension_reason
         FROM transactions t
         LEFT JOIN customers c ON c.address = t.customer_address
-        ${whereClause} AND t.type = 'mint'
+        ${whereClause} AND t.type IN ('mint', 'redeem')
         GROUP BY t.customer_address
-        ORDER BY SUM(t.amount) DESC
+        ORDER BY SUM(CASE WHEN t.type = 'mint' THEN t.amount ELSE 0 END) DESC
         LIMIT $${paramCount - 1} OFFSET $${paramCount}
       `;
 

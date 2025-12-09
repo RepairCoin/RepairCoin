@@ -72,6 +72,12 @@ export class RedemptionSessionService {
       throw new Error('Shop not found or not active');
     }
 
+    // Validate shop has sufficient operational RCN balance to process this redemption
+    const shopBalance = shop.purchasedRcnBalance || 0;
+    if (shopBalance < amount) {
+      throw new Error(`Shop has insufficient RCN balance to process this redemption. Shop available: ${shopBalance} RCN, requested: ${amount} RCN`);
+    }
+
     // Check for existing pending sessions
     const existingSession = await redemptionSessionRepository.findPendingSessionForCustomer(customerAddress, shopId);
     if (existingSession) {
