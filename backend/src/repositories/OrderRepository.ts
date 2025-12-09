@@ -46,7 +46,8 @@ export interface CreateOrderParams {
   rcnDiscountUsd?: number;
   finalAmountUsd?: number;
   bookingDate?: Date;
-  bookingTime?: string;
+  bookingTimeSlot?: string;
+  bookingEndTime?: string;
   notes?: string;
 }
 
@@ -66,8 +67,8 @@ export class OrderRepository extends BaseRepository {
         INSERT INTO service_orders (
           order_id, service_id, customer_address, shop_id, total_amount,
           rcn_redeemed, rcn_discount_usd, final_amount_usd,
-          booking_date, booking_time, notes, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending')
+          booking_date, booking_time_slot, booking_end_time, notes, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'pending')
         RETURNING *
       `;
 
@@ -81,7 +82,8 @@ export class OrderRepository extends BaseRepository {
         params.rcnDiscountUsd || 0,
         params.finalAmountUsd || params.totalAmount,
         params.bookingDate || null,
-        params.bookingTime || null,
+        params.bookingTimeSlot || null,
+        params.bookingEndTime || null,
         params.notes || null
       ];
 
@@ -90,7 +92,9 @@ export class OrderRepository extends BaseRepository {
         orderId: params.orderId,
         serviceId: params.serviceId,
         rcnRedeemed: params.rcnRedeemed || 0,
-        discountUsd: params.rcnDiscountUsd || 0
+        discountUsd: params.rcnDiscountUsd || 0,
+        bookingDate: params.bookingDate,
+        bookingTimeSlot: params.bookingTimeSlot
       });
       return this.mapOrderRow(result.rows[0]);
     } catch (error) {

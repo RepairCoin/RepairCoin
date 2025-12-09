@@ -4,6 +4,7 @@ import { ServiceRepository } from '../../../repositories/ServiceRepository';
 import { StripeService } from '../../../services/StripeService';
 import { NotificationService } from '../../notification/services/NotificationService';
 import { RcnRedemptionService } from './RcnRedemptionService';
+import { AppointmentRepository } from '../../../repositories/AppointmentRepository';
 import { customerRepository, shopRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
@@ -40,6 +41,7 @@ export class PaymentService {
   private stripeService: StripeService;
   private notificationService: NotificationService;
   private rcnRedemptionService: RcnRedemptionService;
+  private appointmentRepository: AppointmentRepository;
 
   constructor(stripeService: StripeService) {
     this.orderRepository = new OrderRepository();
@@ -47,6 +49,7 @@ export class PaymentService {
     this.stripeService = stripeService;
     this.notificationService = new NotificationService();
     this.rcnRedemptionService = new RcnRedemptionService();
+    this.appointmentRepository = new AppointmentRepository();
   }
 
   /**
@@ -62,6 +65,46 @@ export class PaymentService {
 
       if (!service.active) {
         throw new Error('Service is not available for booking');
+      }
+
+      // Validate time slot availability if booking date and time provided
+      let bookingEndTime: string | undefined;
+      if (request.bookingDate && request.bookingTime) {
+        const dateStr = request.bookingDate.toISOString().split('T')[0];
+
+        // Get service duration
+        const serviceDuration = await this.appointmentRepository.getServiceDuration(request.serviceId);
+        const durationMinutes = serviceDuration?.durationMinutes || service.durationMinutes || 60;
+
+        // Calculate booking end time
+        const [hours, minutes] = request.bookingTime.split(':').map(Number);
+        const startTime = new Date();
+        startTime.setHours(hours, minutes, 0, 0);
+        const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
+        bookingEndTime = `${String(endTime.getHours()).padStart(2, '0')}:${String(endTime.getMinutes()).padStart(2, '0')}`;
+
+        // Get time slot configuration
+        const config = await this.appointmentRepository.getTimeSlotConfig(service.shopId);
+        if (!config) {
+          throw new Error('Shop has not configured appointment scheduling');
+        }
+
+        // Get booked slots for this date
+        const bookedSlots = await this.appointmentRepository.getBookedSlots(service.shopId, dateStr);
+        const bookedCount = bookedSlots.find(slot => slot.timeSlot === request.bookingTime)?.count || 0;
+
+        // Check if time slot is available
+        if (bookedCount >= config.maxConcurrentBookings) {
+          throw new Error(`Time slot ${request.bookingTime} is fully booked. Please select a different time.`);
+        }
+
+        logger.info('Time slot validated', {
+          shopId: service.shopId,
+          date: dateStr,
+          timeSlot: request.bookingTime,
+          bookedCount,
+          maxBookings: config.maxConcurrentBookings
+        });
       }
 
       let rcnRedeemed = 0;
@@ -102,7 +145,8 @@ export class PaymentService {
         rcnDiscountUsd,
         finalAmountUsd,
         bookingDate: request.bookingDate,
-        bookingTime: request.bookingTime,
+        bookingTimeSlot: request.bookingTime,
+        bookingEndTime,
         notes: request.notes
       };
 
