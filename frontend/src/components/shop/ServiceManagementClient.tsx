@@ -2,20 +2,21 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Edit, Settings, Calendar, Loader2 } from "lucide-react";
+import { ArrowLeft, Edit, Settings, Calendar, Loader2, Star } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { getServiceById, updateService, ShopService, UpdateServiceData } from "@/services/api/services";
 import { CreateServiceModal } from "@/components/shop/modals/CreateServiceModal";
 
-// Import the per-service components (we'll create these)
+// Import the per-service components
 import { ServiceAvailabilitySettings } from "@/components/shop/service/ServiceAvailabilitySettings";
 import { ServiceCalendarView } from "@/components/shop/service/ServiceCalendarView";
+import { ServiceReviewsView } from "@/components/shop/service/ServiceReviewsView";
 
 interface ServiceManagementClientProps {
   serviceId: string;
 }
 
-type TabType = 'overview' | 'availability' | 'calendar';
+type TabType = 'overview' | 'availability' | 'calendar' | 'reviews';
 
 export default function ServiceManagementClient({ serviceId }: ServiceManagementClientProps) {
   const router = useRouter();
@@ -28,7 +29,7 @@ export default function ServiceManagementClient({ serviceId }: ServiceManagement
   useEffect(() => {
     // Check URL params for tab
     const tab = searchParams.get('tab') as TabType;
-    if (tab && ['overview', 'availability', 'calendar'].includes(tab)) {
+    if (tab && ['overview', 'availability', 'calendar', 'reviews'].includes(tab)) {
       setActiveTab(tab);
     }
   }, [searchParams]);
@@ -178,6 +179,23 @@ export default function ServiceManagementClient({ serviceId }: ServiceManagement
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCC00]" />
             )}
           </button>
+
+          <button
+            onClick={() => handleTabChange('reviews')}
+            className={`px-6 py-3 font-semibold transition-colors relative ${
+              activeTab === 'reviews'
+                ? 'text-[#FFCC00]'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Star className="w-5 h-5" />
+              Reviews
+            </div>
+            {activeTab === 'reviews' && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCC00]" />
+            )}
+          </button>
         </div>
 
         {/* Tab Content */}
@@ -271,6 +289,10 @@ export default function ServiceManagementClient({ serviceId }: ServiceManagement
 
           {activeTab === 'calendar' && (
             <ServiceCalendarView serviceId={serviceId} service={service} />
+          )}
+
+          {activeTab === 'reviews' && (
+            <ServiceReviewsView serviceId={serviceId} service={service} />
           )}
         </div>
 
