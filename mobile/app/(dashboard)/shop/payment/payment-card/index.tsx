@@ -17,20 +17,37 @@ import { queryKeys } from "@/config/queryClient";
 import { useAuthStore } from "@/store/auth.store";
 import { useModalStore } from "@/store/common.store";
 
+type PaymentType = "subscription" | "token_purchase";
+
 export default function PaymentScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { account } = useAuthStore();
   const { setShowSubscriptionModal } = useModalStore();
-  const { clientSecret, subscriptionId } = useLocalSearchParams<{
+  const {
+    clientSecret,
+    subscriptionId,
+    purchaseId,
+    amount,
+    totalCost,
+    type = "subscription",
+  } = useLocalSearchParams<{
     clientSecret: string;
-    subscriptionId: string;
+    subscriptionId?: string;
+    purchaseId?: string;
+    amount?: string;
+    totalCost?: string;
+    type?: PaymentType;
   }>();
 
   const { confirmPayment } = useStripe();
   const [isLoading, setIsLoading] = useState(false);
   const [cardComplete, setCardComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isTokenPurchase = type === "token_purchase";
+  const displayAmount = totalCost ? parseFloat(totalCost).toFixed(2) : "500.00";
+  const tokenAmount = amount ? parseInt(amount) : 0;
 
   const handlePay = async () => {
     if (!clientSecret) {
@@ -61,7 +78,7 @@ export default function PaymentScreen() {
       }
 
       if (paymentIntent) {
-        // Invalidate shop queries to refetch updated subscription status
+        // Invalidate shop queries to refetch updated data
         if (account?.address) {
           await queryClient.invalidateQueries({
             queryKey: queryKeys.shopByWalletAddress(account.address),
@@ -71,11 +88,22 @@ export default function PaymentScreen() {
           });
         }
 
-        // Close subscription modal
-        setShowSubscriptionModal(false);
-
-        // Navigate to success screen
-        router.replace("/shop/payment/payment-success");
+        if (isTokenPurchase) {
+          // Token purchase success - navigate to success screen with params
+          router.replace({
+            pathname: "/shop/payment/payment-success",
+            params: {
+              type: "token_purchase",
+              amount: amount || "0",
+              purchaseId: purchaseId || "",
+              totalCost: totalCost || "0",
+            },
+          });
+        } else {
+          // Subscription success - close modal and navigate to success screen
+          setShowSubscriptionModal(false);
+          router.replace("/shop/payment/payment-success");
+        }
       }
     } catch (err: any) {
       const errorMessage = err.message || "Payment failed. Please try again.";
@@ -116,7 +144,9 @@ export default function PaymentScreen() {
               Complete Payment
             </Text>
             <Text className="text-gray-300 text-center mt-2 mb-8">
-              Enter your card details to activate your subscription
+              {isTokenPurchase
+                ? "Enter your card details to complete your purchase"
+                : "Enter your card details to activate your subscription"}
             </Text>
 
             {error && (
@@ -154,15 +184,24 @@ export default function PaymentScreen() {
             </View>
 
             <View className="mt-6 bg-gray-800/50 rounded-xl p-4">
-              <Text className="text-gray-400 text-sm">Subscription Details</Text>
+              <Text className="text-gray-400 text-sm">
+                {isTokenPurchase ? "Purchase Details" : "Subscription Details"}
+              </Text>
               <View className="flex-row justify-between mt-2">
-                <Text className="text-white">Monthly Subscription</Text>
-                <Text className="text-[#FFCC00] font-bold">$500.00/month</Text>
+                <Text className="text-white">
+                  {isTokenPurchase
+                    ? `${tokenAmount.toLocaleString()} RCN Tokens`
+                    : "Monthly Subscription"}
+                </Text>
+                <Text className="text-[#FFCC00] font-bold">
+                  ${displayAmount}
+                  {!isTokenPurchase && "/month"}
+                </Text>
               </View>
             </View>
 
             <PrimaryButton
-              title={isLoading ? "Processing..." : "Pay $500.00"}
+              title={isLoading ? "Processing..." : `Pay $${displayAmount}`}
               onPress={handlePay}
               disabled={!cardComplete || isLoading}
               loading={isLoading}

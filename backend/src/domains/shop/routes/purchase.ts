@@ -540,6 +540,175 @@ router.post('/stripe-checkout', requireActiveSubscription(), async (req: Request
  *       404:
  *         description: Purchase not found
  */
+/**
+ * @swagger
+ * /api/shops/purchase/stripe-payment-intent:
+ *   post:
+ *     summary: Create Stripe PaymentIntent for RCN purchase (Mobile native payment)
+ *     tags: [Shop Purchase]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - amount
+ *             properties:
+ *               amount:
+ *                 type: number
+ *                 minimum: 5
+ *                 description: Amount of RCN to purchase
+ *     responses:
+ *       200:
+ *         description: PaymentIntent created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     clientSecret:
+ *                       type: string
+ *                       description: PaymentIntent client secret for native mobile payment
+ *                     purchaseId:
+ *                       type: string
+ *                       description: Internal purchase ID
+ *                     amount:
+ *                       type: number
+ *                     totalCost:
+ *                       type: number
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Unauthorized
+ */
+router.post('/stripe-payment-intent', requireActiveSubscription(), async (req: Request, res: Response) => {
+  try {
+    const shopId = req.user?.shopId;
+    const { amount } = req.body;
+
+    if (!shopId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Shop ID not found in token'
+      });
+    }
+
+    // Stripe requires minimum $0.50, so at $0.10 per RCN, minimum is 5 RCN
+    if (!amount || amount < 5) {
+      return res.status(400).json({
+        success: false,
+        error: 'Minimum purchase amount is 5 RCN ($0.50 USD) due to payment processor requirements'
+      });
+    }
+
+    // Get shop details
+    const shop = await shopRepository.getShop(shopId);
+    if (!shop) {
+      throw new Error('Shop not found');
+    }
+
+    // Create purchase record first
+    const purchaseRequest: PurchaseRequest = {
+      shopId,
+      amount: Number(amount),
+      paymentMethod: 'credit_card',
+      paymentReference: 'stripe_payment_intent_pending'
+    };
+
+    const purchaseResult = await shopPurchaseService.purchaseRcn(purchaseRequest);
+
+    // Get or create Stripe customer
+    const stripeService = getStripeService();
+    const stripe = stripeService.getStripe();
+    const db = DatabaseService.getInstance();
+
+    let stripeCustomerId: string;
+    const customerQuery = `SELECT stripe_customer_id FROM stripe_customers WHERE shop_id = $1`;
+    const customerResult = await db.query(customerQuery, [shopId]);
+
+    if (customerResult.rows.length > 0) {
+      stripeCustomerId = customerResult.rows[0].stripe_customer_id;
+    } else {
+      // Create new Stripe customer
+      const customer = await stripeService.createCustomer({
+        email: shop.email,
+        name: shop.name,
+        shopId: shopId
+      });
+
+      // Save to database
+      await db.query(
+        `INSERT INTO stripe_customers (shop_id, stripe_customer_id, email, name)
+         VALUES ($1, $2, $3, $4)`,
+        [shopId, customer.id, shop.email, shop.name]
+      );
+
+      stripeCustomerId = customer.id;
+    }
+
+    // Calculate total cost in cents
+    const totalCostCents = Math.round(purchaseResult.totalCost * 100);
+
+    // Create PaymentIntent for native mobile payment
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: totalCostCents,
+      currency: 'usd',
+      customer: stripeCustomerId,
+      metadata: {
+        shopId: shopId,
+        purchaseId: purchaseResult.purchaseId,
+        amount: amount.toString(),
+        type: 'rcn_purchase',
+        platform: 'mobile'
+      },
+      automatic_payment_methods: {
+        enabled: true,
+        allow_redirects: 'never'
+      },
+      description: `Purchase ${amount} RCN tokens for ${shop.name}`
+    });
+
+    // Update purchase with payment intent ID
+    await db.query(
+      `UPDATE shop_rcn_purchases SET payment_reference = $1 WHERE id = $2`,
+      [paymentIntent.id, purchaseResult.purchaseId]
+    );
+
+    logger.info('Stripe PaymentIntent created for RCN purchase', {
+      shopId,
+      paymentIntentId: paymentIntent.id,
+      purchaseId: purchaseResult.purchaseId,
+      amount,
+      totalCost: purchaseResult.totalCost
+    });
+
+    res.json({
+      success: true,
+      data: {
+        clientSecret: paymentIntent.client_secret,
+        purchaseId: purchaseResult.purchaseId,
+        amount,
+        totalCost: purchaseResult.totalCost
+      }
+    });
+
+  } catch (error) {
+    logger.error('Error creating Stripe PaymentIntent for RCN purchase:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create payment intent'
+    });
+  }
+});
+
 router.post('/:purchaseId/cancel', async (req: Request, res: Response) => {
   try {
     const { purchaseId } = req.params;

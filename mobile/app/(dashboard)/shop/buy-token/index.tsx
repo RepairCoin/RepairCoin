@@ -7,31 +7,29 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  Linking,
   Pressable,
   Modal,
 } from "react-native";
-import {
-  AntDesign,
-  Feather,
-  Ionicons,
-  FontAwesome5,
-} from "@expo/vector-icons";
+import { AntDesign, Feather, Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
 import { router } from "expo-router";
 import { ThemedView } from "@/components/ui/ThemedView";
-import { useShopPurchase } from "@/hooks/useShopPurchase";
 import { useShop } from "@/hooks/shop/useShop";
 import { useAuthStore } from "@/store/auth.store";
 import SubscriptionModal from "@/components/shop/SubscriptionModal";
+import { usePurchase } from "@/hooks/purchase/usePurchase";
 
 export default function BuyToken() {
-  const { account } = useAuthStore();
+  const { account, userProfile } = useAuthStore();
   const { useGetShopByWalletAddress } = useShop();
-  const { data: shopData } = useGetShopByWalletAddress(account?.address || "");
+  const { useCreatePaymentIntent, usePurchaseAmount } = usePurchase();
 
+  const { data: shopData } = useGetShopByWalletAddress(account?.address || "");
   const {
-    // Amount management
+    mutateAsync: createPaymentIntentAsync,
+    isPending: isCreatingPaymentIntent,
+  } = useCreatePaymentIntent(userProfile?.shopId);
+  const {
     amount: purchaseAmount,
     setAmount: setPurchaseAmount,
     bonusAmount,
@@ -39,11 +37,7 @@ export default function BuyToken() {
     totalTokens,
     effectiveRate,
     isValidAmount,
-
-    // Create checkout
-    createCheckoutAsync,
-    isCreatingCheckout,
-  } = useShopPurchase();
+  } = usePurchaseAmount();
 
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [inputValue, setInputValue] = useState(purchaseAmount.toString());
@@ -54,7 +48,6 @@ export default function BuyToken() {
     shopData?.operational_status === "subscription_qualified" ||
     shopData?.operational_status === "rcg_qualified";
 
-  
   // Quick purchase amounts
   const quickAmounts = [10, 50, 100, 500, 1000, 5000];
 
@@ -75,11 +68,19 @@ export default function BuyToken() {
     }
 
     try {
-      const result = await createCheckoutAsync(purchaseAmount);
-      if (result && result.data?.checkoutUrl) {
-        // Open Stripe checkout in browser
-        // The deep link will automatically redirect back to the app
-        await Linking.openURL(result.data.checkoutUrl);
+      const result = await createPaymentIntentAsync(purchaseAmount);
+      if (result && result.data?.clientSecret) {
+        // Navigate to native payment card screen
+        router.push({
+          pathname: "/shop/payment/payment-card",
+          params: {
+            clientSecret: result.data.clientSecret,
+            purchaseId: result.data.purchaseId,
+            amount: result.data.amount.toString(),
+            totalCost: result.data.totalCost.toString(),
+            type: "token_purchase",
+          },
+        });
       }
     } catch (error) {
       // Error handling is done in the mutation hook
@@ -253,14 +254,14 @@ export default function BuyToken() {
         <View className="px-5 py-4">
           <TouchableOpacity
             onPress={handlePurchase}
-            disabled={isCreatingCheckout || !isValidAmount}
+            disabled={isCreatingPaymentIntent || !isValidAmount}
             className={`py-4 rounded-2xl flex-row items-center justify-center ${
-              isCreatingCheckout || !isValidAmount
+              isCreatingPaymentIntent || !isValidAmount
                 ? "bg-gray-800"
                 : "bg-[#FFCC00]"
             }`}
           >
-            {isCreatingCheckout ? (
+            {isCreatingPaymentIntent ? (
               <ActivityIndicator color="#000" />
             ) : (
               <>
@@ -283,7 +284,7 @@ export default function BuyToken() {
             )}
           </TouchableOpacity>
           <Text className="text-gray-500 text-center text-xs mt-2">
-            Secure checkout powered by Stripe
+            Secure payment powered by Stripe
           </Text>
         </View>
       </View>

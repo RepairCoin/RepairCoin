@@ -531,3 +531,29 @@ export interface CreateServiceRequest {
   active?: boolean;
 }
 
+export interface TokenPurchasePaymentIntentResponse {
+  data: {
+    clientSecret: string;
+    purchaseId: string;
+    amount: number;
+    totalCost: number;
+  };
+  success: boolean;
+  message?: string;
+}
+
+export const createTokenPurchasePaymentIntent = async (
+  amount: number
+): Promise<TokenPurchasePaymentIntentResponse> => {
+  try {
+    const response = await apiClient.post<TokenPurchasePaymentIntentResponse>(
+      "/shops/purchase/stripe-payment-intent",
+      { amount }
+    );
+    return response;
+  } catch (error: any) {
+    console.error("Failed to create token purchase payment intent:", error.message);
+    throw error;
+  }
+};
+

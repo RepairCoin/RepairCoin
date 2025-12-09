@@ -38,8 +38,11 @@ async function handleServicePaymentSuccess(event: Stripe.Event, paymentService: 
     } else if (paymentIntent.metadata?.type === 'subscription_payment') {
       // Handle mobile subscription payment
       await handleMobileSubscriptionPaymentSuccess(paymentIntent);
+    } else if (paymentIntent.metadata?.type === 'rcn_purchase') {
+      // Handle mobile RCN token purchase
+      await handleMobileRcnPurchaseSuccess(paymentIntent);
     } else {
-      logger.info('Payment intent is not for service booking or subscription, skipping', {
+      logger.info('Payment intent is not for service booking, subscription, or RCN purchase, skipping', {
         paymentIntentId: paymentIntent.id,
         type: paymentIntent.metadata?.type
       });
@@ -49,6 +52,85 @@ async function handleServicePaymentSuccess(event: Stripe.Event, paymentService: 
       paymentIntentId: paymentIntent.id,
       error: error instanceof Error ? error.message : 'Unknown error'
     });
+  }
+}
+
+/**
+ * Handle mobile RCN token purchase success
+ * This is called when a PaymentIntent with type='rcn_purchase' succeeds
+ */
+async function handleMobileRcnPurchaseSuccess(paymentIntent: Stripe.PaymentIntent) {
+  const { shopId, purchaseId, amount } = paymentIntent.metadata;
+
+  logger.info('Processing mobile RCN purchase payment success', {
+    paymentIntentId: paymentIntent.id,
+    shopId,
+    purchaseId,
+    amount
+  });
+
+  try {
+    // Complete the purchase - this credits the RCN tokens to the shop
+    await shopPurchaseService.completePurchase(purchaseId, paymentIntent.id);
+
+    logger.info('RCN purchase completed successfully via mobile payment', {
+      shopId,
+      purchaseId,
+      amount,
+      paymentIntentId: paymentIntent.id
+    });
+
+    // Publish event
+    eventBus.publish({
+      type: 'rcn.purchase.completed',
+      aggregateId: shopId,
+      timestamp: new Date(),
+      source: 'StripeWebhook',
+      version: 1,
+      data: {
+        shopId,
+        purchaseId,
+        amount: parseInt(amount),
+        paymentIntentId: paymentIntent.id,
+        platform: 'mobile'
+      }
+    });
+
+    // Send notification to shop
+    try {
+      const db = DatabaseService.getInstance();
+      const shopQuery = await db.query(
+        'SELECT wallet_address FROM shops WHERE shop_id = $1',
+        [shopId]
+      );
+
+      if (shopQuery.rows.length > 0 && shopQuery.rows[0].wallet_address) {
+        const notificationService = new NotificationService();
+        await notificationService.createNotification({
+          senderAddress: 'SYSTEM',
+          receiverAddress: shopQuery.rows[0].wallet_address,
+          notificationType: 'rcn_purchase_completed',
+          message: `Your purchase of ${amount} RCN tokens has been completed successfully.`,
+          metadata: {
+            purchaseId,
+            amount: parseInt(amount),
+            paymentIntentId: paymentIntent.id
+          }
+        });
+        logger.info('RCN purchase notification sent', { shopId, purchaseId });
+      }
+    } catch (notifError) {
+      logger.error('Failed to send RCN purchase notification:', notifError);
+    }
+
+  } catch (error) {
+    logger.error('Failed to process mobile RCN purchase payment', {
+      paymentIntentId: paymentIntent.id,
+      shopId,
+      purchaseId,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+    throw error;
   }
 }
 
