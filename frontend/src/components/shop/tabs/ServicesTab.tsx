@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import {
   Plus,
@@ -12,6 +13,8 @@ import {
   Clock,
   Tag,
   Image as ImageIcon,
+  Calendar,
+  Settings,
 } from "lucide-react";
 import {
   getAllServices,
@@ -25,7 +28,6 @@ import {
   SERVICE_CATEGORIES,
 } from "@/services/api/services";
 import { CreateServiceModal } from "@/components/shop/modals/CreateServiceModal";
-import { ShopServiceDetailsModal } from "@/components/shop/modals/ShopServiceDetailsModal";
 
 interface ShopData {
   subscriptionActive?: boolean;
@@ -39,12 +41,11 @@ interface ServicesTabProps {
 }
 
 export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) => {
+  const router = useRouter();
   const [services, setServices] = useState<ShopService[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingService, setEditingService] = useState<ShopService | null>(null);
   const [deletingService, setDeletingService] = useState<string | null>(null);
-  const [viewingService, setViewingService] = useState<ShopService | null>(null);
 
   useEffect(() => {
     loadServices();
@@ -80,18 +81,6 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
     }
   };
 
-  const handleEditService = async (serviceId: string, data: UpdateServiceData) => {
-    try {
-      await updateService(serviceId, data);
-      toast.success("Service updated successfully!");
-      setEditingService(null);
-      loadServices();
-    } catch (error) {
-      console.error("Error updating service:", error);
-      toast.error("Failed to update service");
-      throw error;
-    }
-  };
 
   const handleToggleActive = async (service: ShopService) => {
     try {
@@ -248,8 +237,7 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
               key={service.serviceId}
               className={`bg-[#1A1A1A] border ${
                 service.active ? "border-gray-800" : "border-gray-700 opacity-60"
-              } rounded-2xl p-6 hover:border-[#FFCC00]/30 transition-all duration-200 cursor-pointer`}
-              onClick={() => setViewingService(service)}
+              } rounded-2xl p-6 hover:border-[#FFCC00]/30 transition-all duration-200 flex flex-col`}
             >
               {/* Service Image */}
               {service.imageUrl ? (
@@ -345,29 +333,47 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
                 )}
               </div>
 
+              {/* Spacer to push actions to bottom */}
+              <div className="flex-1"></div>
+
               {/* Actions */}
-              <div className="flex gap-2 pt-4 border-t border-gray-800">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditingService(service);
-                  }}
-                  className="flex-1 flex items-center justify-center gap-2 bg-blue-600/20 text-blue-400 border border-blue-600/30 px-4 py-2 rounded-lg hover:bg-blue-600/30 transition-colors duration-200"
-                >
-                  <Edit className="w-4 h-4" />
-                  Edit
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteService(service.serviceId);
-                  }}
-                  disabled={deletingService === service.serviceId}
-                  className="flex-1 flex items-center justify-center gap-2 bg-red-600/20 text-red-400 border border-red-600/30 px-4 py-2 rounded-lg hover:bg-red-600/30 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  {deletingService === service.serviceId ? "Deleting..." : "Delete"}
-                </button>
+              <div className="space-y-2 pt-4 border-t border-gray-800 mt-auto">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => router.push(`/shop/services/${service.serviceId}`)}
+                    className="flex items-center justify-center gap-2 bg-blue-600/20 text-blue-400 border border-blue-600/30 px-3 py-2 rounded-lg hover:bg-blue-600/30 transition-colors duration-200 text-sm"
+                  >
+                    <Edit className="w-4 h-4" />
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => router.push(`/shop/services/${service.serviceId}?tab=availability`)}
+                    className="flex items-center justify-center gap-2 bg-purple-600/20 text-purple-400 border border-purple-600/30 px-3 py-2 rounded-lg hover:bg-purple-600/30 transition-colors duration-200 text-sm"
+                  >
+                    <Settings className="w-4 h-4" />
+                    Availability
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => router.push(`/shop/services/${service.serviceId}?tab=calendar`)}
+                    className="flex items-center justify-center gap-2 bg-[#FFCC00]/20 text-[#FFCC00] border border-[#FFCC00]/30 px-3 py-2 rounded-lg hover:bg-[#FFCC00]/30 transition-colors duration-200 text-sm"
+                  >
+                    <Calendar className="w-4 h-4" />
+                    Calendar
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteService(service.serviceId);
+                    }}
+                    disabled={deletingService === service.serviceId}
+                    className="flex items-center justify-center gap-2 bg-red-600/20 text-red-400 border border-red-600/30 px-3 py-2 rounded-lg hover:bg-red-600/30 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    {deletingService === service.serviceId ? "Deleting..." : "Delete"}
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -379,24 +385,6 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
         <CreateServiceModal
           onClose={() => setShowCreateModal(false)}
           onSubmit={handleCreateService}
-        />
-      )}
-
-      {/* Edit Service Modal */}
-      {editingService && (
-        <CreateServiceModal
-          onClose={() => setEditingService(null)}
-          onSubmit={(data) => handleEditService(editingService.serviceId, data)}
-          initialData={editingService}
-          isEditing
-        />
-      )}
-
-      {/* View Service Details Modal */}
-      {viewingService && (
-        <ShopServiceDetailsModal
-          service={viewingService}
-          onClose={() => setViewingService(null)}
         />
       )}
     </div>
