@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Clock, Save, Loader2, AlertCircle, Check } from 'lucide-react';
-import { appointmentsApi, ShopAvailability } from '@/services/api/appointments';
+import { Clock, Save, Loader2, AlertCircle, Check, Settings } from 'lucide-react';
+import { appointmentsApi, ShopAvailability, TimeSlotConfig } from '@/services/api/appointments';
 import { ShopService } from '@/services/api/services';
 import { toast } from 'react-hot-toast';
 
@@ -28,9 +28,11 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [shopAvailability, setShopAvailability] = useState<ShopAvailability[]>([]);
+  const [timeSlotConfig, setTimeSlotConfig] = useState<TimeSlotConfig | null>(null);
   const [customDuration, setCustomDuration] = useState<number>(service.durationMinutes || 60);
   const [durationSaved, setDurationSaved] = useState(false);
   const [editingDay, setEditingDay] = useState<number | null>(null);
+  const [configSaved, setConfigSaved] = useState(false);
   const [editingValues, setEditingValues] = useState<{
     openTime: string;
     closeTime: string;
@@ -45,6 +47,7 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
 
   useEffect(() => {
     loadShopAvailability();
+    loadTimeSlotConfig();
   }, [service.shopId]);
 
   const loadShopAvailability = async () => {
@@ -60,6 +63,16 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
     }
   };
 
+  const loadTimeSlotConfig = async () => {
+    try {
+      const config = await appointmentsApi.getTimeSlotConfig();
+      setTimeSlotConfig(config);
+    } catch (error) {
+      console.error('Error loading time slot config:', error);
+      toast.error('Failed to load time slot configuration');
+    }
+  };
+
   const handleSaveDuration = async () => {
     try {
       setSaving(true);
@@ -71,6 +84,31 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
     } catch (error) {
       console.error('Error updating service duration:', error);
       toast.error('Failed to update service duration');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveTimeSlotConfig = async () => {
+    if (!timeSlotConfig) return;
+
+    try {
+      setSaving(true);
+      await appointmentsApi.updateTimeSlotConfig({
+        bufferTimeMinutes: timeSlotConfig.bufferTimeMinutes,
+        maxConcurrentBookings: timeSlotConfig.maxConcurrentBookings,
+        bookingAdvanceDays: timeSlotConfig.bookingAdvanceDays,
+        minBookingHours: timeSlotConfig.minBookingHours,
+        allowWeekendBooking: timeSlotConfig.allowWeekendBooking
+      });
+      setConfigSaved(true);
+      toast.success('Time slot configuration updated successfully');
+
+      setTimeout(() => setConfigSaved(false), 2000);
+      loadTimeSlotConfig();
+    } catch (error) {
+      console.error('Error updating time slot config:', error);
+      toast.error('Failed to update time slot configuration');
     } finally {
       setSaving(false);
     }
@@ -172,6 +210,139 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
           </p>
         </div>
       </div>
+
+      {/* Time Slot Configuration */}
+      {timeSlotConfig && (
+        <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-6">
+          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+            <Settings className="w-6 h-6 text-[#FFCC00]" />
+            Time Slot Configuration
+          </h2>
+
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-blue-400 mt-0.5" />
+              <div className="text-sm text-gray-300">
+                <p className="font-semibold text-white mb-1">Booking Settings</p>
+                <p>Configure how customers can book appointments. Buffer time is added between appointments to allow for preparation and cleanup.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Buffer Time */}
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">
+                Buffer Time (minutes)
+              </label>
+              <input
+                type="number"
+                value={timeSlotConfig.bufferTimeMinutes}
+                onChange={(e) => setTimeSlotConfig({ ...timeSlotConfig, bufferTimeMinutes: parseInt(e.target.value) || 0 })}
+                min={0}
+                step={5}
+                className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                Time added between appointments (e.g., 0, 5, 10, 15 minutes)
+              </p>
+            </div>
+
+            {/* Max Concurrent Bookings */}
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">
+                Max Concurrent Bookings
+              </label>
+              <input
+                type="number"
+                value={timeSlotConfig.maxConcurrentBookings}
+                onChange={(e) => setTimeSlotConfig({ ...timeSlotConfig, maxConcurrentBookings: parseInt(e.target.value) || 1 })}
+                min={1}
+                max={10}
+                className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                How many appointments can overlap at the same time
+              </p>
+            </div>
+
+            {/* Booking Advance Days */}
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">
+                Booking Advance (days)
+              </label>
+              <input
+                type="number"
+                value={timeSlotConfig.bookingAdvanceDays}
+                onChange={(e) => setTimeSlotConfig({ ...timeSlotConfig, bookingAdvanceDays: parseInt(e.target.value) || 30 })}
+                min={1}
+                max={90}
+                className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                How far in advance customers can book (e.g., 30, 60, 90 days)
+              </p>
+            </div>
+
+            {/* Min Booking Hours */}
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">
+                Minimum Notice (hours)
+              </label>
+              <input
+                type="number"
+                value={timeSlotConfig.minBookingHours}
+                onChange={(e) => setTimeSlotConfig({ ...timeSlotConfig, minBookingHours: parseInt(e.target.value) || 2 })}
+                min={0}
+                max={48}
+                className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                Minimum hours before appointment can be booked (e.g., 2, 4, 24 hours)
+              </p>
+            </div>
+          </div>
+
+          {/* Weekend Booking Toggle */}
+          <div className="mt-6">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={timeSlotConfig.allowWeekendBooking}
+                onChange={(e) => setTimeSlotConfig({ ...timeSlotConfig, allowWeekendBooking: e.target.checked })}
+                className="w-5 h-5 rounded border-gray-600 text-[#FFCC00] focus:ring-[#FFCC00] focus:ring-offset-0 bg-[#1A1A1A]"
+              />
+              <span className="text-sm text-gray-300">Allow weekend bookings (Saturday & Sunday)</span>
+            </label>
+          </div>
+
+          {/* Save Button */}
+          <div className="mt-6 flex justify-end">
+            <button
+              onClick={handleSaveTimeSlotConfig}
+              disabled={saving}
+              className="px-6 py-3 bg-[#FFCC00] text-black rounded-lg font-semibold hover:bg-[#FFD700] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Saving...
+                </>
+              ) : configSaved ? (
+                <>
+                  <Check className="w-5 h-5" />
+                  Saved!
+                </>
+              ) : (
+                <>
+                  <Save className="w-5 h-5" />
+                  Save Configuration
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Shop-Wide Availability (Editable) */}
       <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-6">
