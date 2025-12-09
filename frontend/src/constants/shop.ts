@@ -20,3 +20,12 @@ export const SHOP_REGISTRATION_MESSAGES = {
   REGISTRATION_SUCCESS: 'Shop registration submitted successfully! Your application is pending approval.',
   REGISTRATION_FAILED: 'Failed to register shop',
 };
+
+export const DISABLE_CONTENT = {
+  // Account verification
+  VERIFY_ACCOUNT: "Awaiting admin verification before this feature can be used.",
+  // Active
+  INACTIVE_ACCOUNT: "This feature is not available for inactive accounts.",
+  // Active
+  UNSUBSCRIBE : "This feature requires an active account subscription."
+} as const;

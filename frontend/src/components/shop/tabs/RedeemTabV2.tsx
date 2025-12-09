@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Clock,
   CheckCircle,
@@ -23,8 +23,10 @@ import QrScanner from "qr-scanner";
 import toast from "react-hot-toast";
 import Tooltip from "../../ui/tooltip";
 import apiClient from "@/services/api/client";
-
-interface ShopData {
+import DisableMask from "@/components/status/DisableMask";
+import { ShopData as ShopDataImport } from "../ShopDashboardClient";
+import { DISABLE_CONTENT } from "@/constants/shop";
+interface ShopData extends Omit<ShopDataImport, "walletAddress">{
   walletAddress?: string;
 }
 
@@ -765,6 +767,18 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
     }
   };
 
+  const maskState = useMemo(() => {
+    if (!shopData) return;
+    const { verified, active, operational_status: os } = shopData;
+    const isOp = os === "rcg_qualified" || os === "subscription_qualified" || (!os && active && verified);
+    const msgs = [
+      !verified && DISABLE_CONTENT["VERIFY_ACCOUNT"],
+      !active && DISABLE_CONTENT["INACTIVE_ACCOUNT"],
+      !isOp && DISABLE_CONTENT["UNSUBSCRIBE"],
+    ].filter(Boolean);
+    return { disable: msgs.length > 0, content: msgs.join(" ") };
+  }, [shopData]);
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -893,143 +907,33 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                     }
                   />
                 </div>
-                <div className="space-y-4 px-4 md:px-8 py-4">
-                  <div>
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <input
-                          type="text"
-                          value={customerSearch}
-                          onChange={(e) => {
-                            setCustomerSearch(e.target.value);
-                            if (
-                              selectedCustomer &&
-                              !e.target.value.includes(
-                                selectedCustomer.address.slice(0, 6)
-                              )
-                            ) {
-                              setSelectedCustomer(null);
-                              setCustomerAddress("");
-                              setCustomerBalance(null);
-                            }
-                          }}
-                          placeholder="Type customer name or wallet address..."
-                          className="w-full px-4 py-3 bg-[#2F2F2F] text-white rounded-xl transition-all pl-10 pr-4 border-2 border-transparent focus:border-[#FFCC00]"
-                        />
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                        {loadingCustomers && (
-                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                            <svg
-                              className="animate-spin h-5 w-5 text-[#FFCC00]"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                            >
-                              <circle
-                                className="opacity-25"
-                                cx="12"
-                                cy="12"
-                                r="10"
-                                stroke="currentColor"
-                                strokeWidth="4"
-                              ></circle>
-                              <path
-                                className="opacity-75"
-                                fill="currentColor"
-                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                              ></path>
-                            </svg>
-                          </div>
-                        )}
-                      </div>
-
-                      <button
-                        onClick={startQRScanner}
-                        disabled={loadingCustomers}
-                        className="px-4 py-3 font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all bg-[#FFCC00] text-black hover:bg-[#FFD700] flex items-center justify-center gap-2 whitespace-nowrap"
-                        title="Scan customer's QR code"
-                      >
-                        <Camera className="w-5 h-5" />
-                        <span className="hidden sm:inline">Scan QR</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Search Results */}
-                  {customerSearch && !selectedCustomer && (
-                    <div className="bg-[#0D0D0D] rounded-xl border border-gray-700 max-h-64 overflow-y-auto">
-                      {filteredCustomers.length > 0 ? (
-                        <div>
-                          {filteredCustomers.map((customer) => (
-                            <button
-                              key={customer.address}
-                              onClick={() => {
-                                console.log(
-                                  "Customer button clicked:",
-                                  customer
-                                );
-                                handleCustomerSelect(customer);
-                                setCustomerSearch("");
-                              }}
-                              className={`w-full p-4 hover:bg-gray-800 transition-colors border-b border-gray-700 last:border-b-0 ${
-                                selectedCustomer?.address === customer.address
-                                  ? "bg-gray-800"
-                                  : ""
-                              }`}
-                            >
-                              <div className="flex justify-between items-center">
-                                <div className="text-left">
-                                  <p className="font-semibold text-white">
-                                    {customer.name || "Unnamed Customer"}
-                                  </p>
-                                  <p className="text-xs text-gray-400 font-mono">
-                                    {customer.address.slice(0, 6)}...
-                                    {customer.address.slice(-4)}
-                                  </p>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                  <div
-                                    className={`px-2 py-1 rounded-full text-xs font-bold ${getTierColor(
-                                      customer.tier
-                                    )}`}
-                                  >
-                                    {customer.tier}
-                                  </div>
-                                  <div className="text-right">
-                                    <p className="text-sm font-semibold text-white">
-                                      {customer.lifetime_earnings} RCN
-                                    </p>
-                                    <p className="text-xs text-gray-400">
-                                      Lifetime
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      ) : customerSearch.match(/^0x[a-fA-F0-9]{40}$/i) ? (
-                        // Check if entered address is shop's own wallet
-                        shopData?.walletAddress &&
-                        customerSearch.toLowerCase() ===
-                          shopData.walletAddress.toLowerCase() ? (
-                          <div className="p-4 bg-red-900/20 border border-red-500 rounded-xl">
-                            <div className="flex items-center gap-3">
-                              <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-                              <div>
-                                <p className="text-red-400 font-semibold text-sm">
-                                  Cannot Redeem From Own Wallet
-                                </p>
-                                <p className="text-red-300/70 text-xs mt-1">
-                                  You cannot process redemption from your own
-                                  wallet address. Please enter a customer&apos;s
-                                  wallet address.
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ) : checkingCustomerExists ? (
-                          <div className="p-4 text-center">
-                            <div className="flex items-center justify-center gap-2">
+                <DisableMask {...maskState} onClick={() => setShowOnboardingModal(true)}>
+                  <div className="space-y-4 px-4 md:px-8 py-4">
+                    <div>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <input
+                            type="text"
+                            value={customerSearch}
+                            onChange={(e) => {
+                              setCustomerSearch(e.target.value);
+                              if (
+                                selectedCustomer &&
+                                !e.target.value.includes(
+                                  selectedCustomer.address.slice(0, 6)
+                                )
+                              ) {
+                                setSelectedCustomer(null);
+                                setCustomerAddress("");
+                                setCustomerBalance(null);
+                              }
+                            }}
+                            placeholder="Type customer name or wallet address..."
+                            className="w-full px-4 py-3 bg-[#2F2F2F] text-white rounded-xl transition-all pl-10 pr-4 border-2 border-transparent focus:border-[#FFCC00]"
+                          />
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                          {loadingCustomers && (
+                            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                               <svg
                                 className="animate-spin h-5 w-5 text-[#FFCC00]"
                                 fill="none"
@@ -1049,175 +953,286 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                                 ></path>
                               </svg>
-                              <span className="text-gray-400 text-sm">
-                                Checking customer...
-                              </span>
                             </div>
-                          </div>
-                        ) : !customerExistsResult.checked ||
-                          !customerExistsResult.exists ? (
-                          <div className="p-4 bg-red-900/20 border border-red-500 rounded-xl">
-                            <div className="flex items-center gap-3">
-                              <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-                              <div>
-                                <p className="text-red-400 font-semibold text-sm">
-                                  Customer Not Registered
-                                </p>
-                                <p className="text-red-300/70 text-xs mt-1">
-                                  This wallet address is not registered.
-                                  Customer must register before redemption.
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => {
-                              // Use the customer data already fetched by checkCustomerExists
-                              const customerData =
-                                customerExistsResult.customerData;
+                          )}
+                        </div>
 
-                              if (customerData) {
-                                setSelectedCustomer({
-                                  address: customerSearch,
-                                  name:
-                                    customerData.name || "External Customer",
-                                  tier: customerData.tier || "UNKNOWN",
-                                  lifetime_earnings: 0,
-                                  total_transactions: 0,
-                                  isActive: customerData.active !== false,
-                                  suspended: customerData.active === false,
-                                  suspendedAt: customerData.suspendedAt,
-                                  suspensionReason:
-                                    customerData.suspensionReason,
-                                });
-                                setCustomerAddress(customerSearch);
-                                setCustomerSearch("");
+                        <button
+                          onClick={startQRScanner}
+                          disabled={loadingCustomers}
+                          className="px-4 py-3 font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all bg-[#FFCC00] text-black hover:bg-[#FFD700] flex items-center justify-center gap-2 whitespace-nowrap"
+                          title="Scan customer's QR code"
+                        >
+                          <Camera className="w-5 h-5" />
+                          <span className="hidden sm:inline">Scan QR</span>
+                        </button>
+                      </div>
+                    </div>
 
-                                // Check if customer is suspended and show error
-                                if (customerData.active === false) {
-                                  const errorMsg = `Cannot process redemption for suspended customer${
-                                    customerData.suspensionReason
-                                      ? ": " + customerData.suspensionReason
-                                      : ""
-                                  }`;
-                                  setError(errorMsg);
-                                  toast.error(errorMsg);
-                                }
-                              } else {
-                                // Fallback if data not available
-                                setCustomerAddress(customerSearch);
-                                setSelectedCustomer({
-                                  address: customerSearch,
-                                  name: "External Customer",
-                                  tier: "UNKNOWN",
-                                  lifetime_earnings: 0,
-                                  total_transactions: 0,
-                                });
-                                setCustomerSearch("");
-                              }
-                            }}
-                            className="w-full p-4 hover:bg-gray-800 transition-colors"
-                          >
-                            <div className="flex items-center justify-between">
+                    {/* Search Results */}
+                    {customerSearch && !selectedCustomer && (
+                      <div className="bg-[#0D0D0D] rounded-xl border border-gray-700 max-h-64 overflow-y-auto">
+                        {filteredCustomers.length > 0 ? (
+                          <div>
+                            {filteredCustomers.map((customer) => (
+                              <button
+                                key={customer.address}
+                                onClick={() => {
+                                  console.log(
+                                    "Customer button clicked:",
+                                    customer
+                                  );
+                                  handleCustomerSelect(customer);
+                                  setCustomerSearch("");
+                                }}
+                                className={`w-full p-4 hover:bg-gray-800 transition-colors border-b border-gray-700 last:border-b-0 ${
+                                  selectedCustomer?.address === customer.address
+                                    ? "bg-gray-800"
+                                    : ""
+                                }`}
+                              >
+                                <div className="flex justify-between items-center">
+                                  <div className="text-left">
+                                    <p className="font-semibold text-white">
+                                      {customer.name || "Unnamed Customer"}
+                                    </p>
+                                    <p className="text-xs text-gray-400 font-mono">
+                                      {customer.address.slice(0, 6)}...
+                                      {customer.address.slice(-4)}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-3">
+                                    <div
+                                      className={`px-2 py-1 rounded-full text-xs font-bold ${getTierColor(
+                                        customer.tier
+                                      )}`}
+                                    >
+                                      {customer.tier}
+                                    </div>
+                                    <div className="text-right">
+                                      <p className="text-sm font-semibold text-white">
+                                        {customer.lifetime_earnings} RCN
+                                      </p>
+                                      <p className="text-xs text-gray-400">
+                                        Lifetime
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        ) : customerSearch.match(/^0x[a-fA-F0-9]{40}$/i) ? (
+                          // Check if entered address is shop's own wallet
+                          shopData?.walletAddress &&
+                          customerSearch.toLowerCase() ===
+                            shopData.walletAddress.toLowerCase() ? (
+                            <div className="p-4 bg-red-900/20 border border-red-500 rounded-xl">
                               <div className="flex items-center gap-3">
-                                <Wallet className="w-5 h-5 text-[#FFCC00]" />
-                                <div className="text-left">
-                                  <p className="text-sm font-medium text-[#FFCC00]">
-                                    Use This Address
+                                <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+                                <div>
+                                  <p className="text-red-400 font-semibold text-sm">
+                                    Cannot Redeem From Own Wallet
                                   </p>
-                                  <p className="text-xs text-gray-400 font-mono">
-                                    {customerSearch.slice(0, 10)}...
-                                    {customerSearch.slice(-8)}
+                                  <p className="text-red-300/70 text-xs mt-1">
+                                    You cannot process redemption from your own
+                                    wallet address. Please enter a customer&apos;s
+                                    wallet address.
                                   </p>
                                 </div>
                               </div>
-                              <ChevronRight className="w-5 h-5 text-gray-400" />
                             </div>
-                          </button>
-                        )
-                      ) : (
-                        <div className="p-4 text-center text-gray-500">
-                          {customerSearch.length < 3
-                            ? "Keep typing to search..."
-                            : "No customers found"}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                          ) : checkingCustomerExists ? (
+                            <div className="p-4 text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                <svg
+                                  className="animate-spin h-5 w-5 text-[#FFCC00]"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <circle
+                                    className="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    strokeWidth="4"
+                                  ></circle>
+                                  <path
+                                    className="opacity-75"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                  ></path>
+                                </svg>
+                                <span className="text-gray-400 text-sm">
+                                  Checking customer...
+                                </span>
+                              </div>
+                            </div>
+                          ) : !customerExistsResult.checked ||
+                            !customerExistsResult.exists ? (
+                            <div className="p-4 bg-red-900/20 border border-red-500 rounded-xl">
+                              <div className="flex items-center gap-3">
+                                <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+                                <div>
+                                  <p className="text-red-400 font-semibold text-sm">
+                                    Customer Not Registered
+                                  </p>
+                                  <p className="text-red-300/70 text-xs mt-1">
+                                    This wallet address is not registered.
+                                    Customer must register before redemption.
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                // Use the customer data already fetched by checkCustomerExists
+                                const customerData =
+                                  customerExistsResult.customerData;
 
-                  {/* Selected Customer Display */}
-                  {selectedCustomer && (
-                    <div className="bg-gradient-to-r from-green-900/20 to-green-800/20 rounded-xl p-4 border-2 border-green-500">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <CheckCircle className="w-5 h-5 text-green-500" />
-                          <div className="flex items-center gap-4">
-                            <div
-                              className={`px-3 py-1 rounded-full text-xs font-bold ${getTierColor(
-                                selectedCustomer.tier
-                              )}`}
+                                if (customerData) {
+                                  setSelectedCustomer({
+                                    address: customerSearch,
+                                    name:
+                                      customerData.name || "External Customer",
+                                    tier: customerData.tier || "UNKNOWN",
+                                    lifetime_earnings: 0,
+                                    total_transactions: 0,
+                                    isActive: customerData.active !== false,
+                                    suspended: customerData.active === false,
+                                    suspendedAt: customerData.suspendedAt,
+                                    suspensionReason:
+                                      customerData.suspensionReason,
+                                  });
+                                  setCustomerAddress(customerSearch);
+                                  setCustomerSearch("");
+
+                                  // Check if customer is suspended and show error
+                                  if (customerData.active === false) {
+                                    const errorMsg = `Cannot process redemption for suspended customer${
+                                      customerData.suspensionReason
+                                        ? ": " + customerData.suspensionReason
+                                        : ""
+                                    }`;
+                                    setError(errorMsg);
+                                    toast.error(errorMsg);
+                                  }
+                                } else {
+                                  // Fallback if data not available
+                                  setCustomerAddress(customerSearch);
+                                  setSelectedCustomer({
+                                    address: customerSearch,
+                                    name: "External Customer",
+                                    tier: "UNKNOWN",
+                                    lifetime_earnings: 0,
+                                    total_transactions: 0,
+                                  });
+                                  setCustomerSearch("");
+                                }
+                              }}
+                              className="w-full p-4 hover:bg-gray-800 transition-colors"
                             >
-                              {selectedCustomer.tier} TIER
-                            </div>
-                            <div>
-                              <p className="font-semibold text-white">
-                                {selectedCustomer.name || "External Customer"}
-                              </p>
-                              <p className="text-xs text-gray-400 font-mono">
-                                {selectedCustomer.address.slice(0, 8)}...
-                                {selectedCustomer.address.slice(-6)}
-                              </p>
-                            </div>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <Wallet className="w-5 h-5 text-[#FFCC00]" />
+                                  <div className="text-left">
+                                    <p className="text-sm font-medium text-[#FFCC00]">
+                                      Use This Address
+                                    </p>
+                                    <p className="text-xs text-gray-400 font-mono">
+                                      {customerSearch.slice(0, 10)}...
+                                      {customerSearch.slice(-8)}
+                                    </p>
+                                  </div>
+                                </div>
+                                <ChevronRight className="w-5 h-5 text-gray-400" />
+                              </div>
+                            </button>
+                          )
+                        ) : (
+                          <div className="p-4 text-center text-gray-500">
+                            {customerSearch.length < 3
+                              ? "Keep typing to search..."
+                              : "No customers found"}
                           </div>
-                        </div>
-                        <button
-                          onClick={() => {
-                            setSelectedCustomer(null);
-                            setCustomerAddress("");
-                            setCustomerSearch("");
-                            setCustomerBalance(null);
-                          }}
-                          className="text-[#FFCC00] hover:text-yellow-400 text-sm font-medium px-3 py-1 rounded-lg border border-[#FFCC00] hover:bg-yellow-900/20"
-                        >
-                          Change
-                        </button>
+                        )}
                       </div>
+                    )}
 
-                      {/* Show suspension warning if customer is suspended */}
-                      {(selectedCustomer.isActive === false ||
-                        selectedCustomer.suspended) && (
-                        <div className="mt-4 bg-red-500/10 rounded-xl p-4 border border-red-500/30">
+                    {/* Selected Customer Display */}
+                    {selectedCustomer && (
+                      <div className="bg-gradient-to-r from-green-900/20 to-green-800/20 rounded-xl p-4 border-2 border-green-500">
+                        <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <svg
-                              className="w-5 h-5 text-red-400 flex-shrink-0"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                            <div>
-                              <p className="text-red-400 font-semibold text-sm">
-                                Customer Account Suspended
-                              </p>
-                              <p className="text-red-300/70 text-xs mt-1">
-                                {selectedCustomer.suspensionReason
-                                  ? `This customer's account has been suspended: ${selectedCustomer.suspensionReason}`
-                                  : "This customer's account has been suspended. Cannot process redemption for suspended customers."}
-                              </p>
+                            <CheckCircle className="w-5 h-5 text-green-500" />
+                            <div className="flex items-center gap-4">
+                              <div
+                                className={`px-3 py-1 rounded-full text-xs font-bold ${getTierColor(
+                                  selectedCustomer.tier
+                                )}`}
+                              >
+                                {selectedCustomer.tier} TIER
+                              </div>
+                              <div>
+                                <p className="font-semibold text-white">
+                                  {selectedCustomer.name || "External Customer"}
+                                </p>
+                                <p className="text-xs text-gray-400 font-mono">
+                                  {selectedCustomer.address.slice(0, 8)}...
+                                  {selectedCustomer.address.slice(-6)}
+                                </p>
+                              </div>
                             </div>
                           </div>
+                          <button
+                            onClick={() => {
+                              setSelectedCustomer(null);
+                              setCustomerAddress("");
+                              setCustomerSearch("");
+                              setCustomerBalance(null);
+                            }}
+                            className="text-[#FFCC00] hover:text-yellow-400 text-sm font-medium px-3 py-1 rounded-lg border border-[#FFCC00] hover:bg-yellow-900/20"
+                          >
+                            Change
+                          </button>
                         </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
 
+                        {/* Show suspension warning if customer is suspended */}
+                        {(selectedCustomer.isActive === false ||
+                          selectedCustomer.suspended) && (
+                          <div className="mt-4 bg-red-500/10 rounded-xl p-4 border border-red-500/30">
+                            <div className="flex items-center gap-3">
+                              <svg
+                                className="w-5 h-5 text-red-400 flex-shrink-0"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                              <div>
+                                <p className="text-red-400 font-semibold text-sm">
+                                  Customer Account Suspended
+                                </p>
+                                <p className="text-red-300/70 text-xs mt-1">
+                                  {selectedCustomer.suspensionReason
+                                    ? `This customer's account has been suspended: ${selectedCustomer.suspensionReason}`
+                                    : "This customer's account has been suspended. Cannot process redemption for suspended customers."}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </DisableMask>
+              </div>
               {/* Amount Input Card */}
               <div className="bg-[#212121] rounded-3xl">
                 <div
@@ -1234,6 +1249,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                     Step 2: Enter Redemption Amount
                   </p>
                 </div>
+                <DisableMask {...maskState} onClick={() => setShowOnboardingModal(true)}>
                 <div className="space-y-4 px-4 md:px-8 py-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-400 mb-2">
@@ -1269,6 +1285,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                     ))}
                   </div>
                 </div>
+                </DisableMask>
               </div>
             </>
           )}

@@ -44,7 +44,7 @@ const client = createThirdwebClient({
     "1969ac335e07ba13ad0f8d1a1de4f6ab",
 });
 
-interface ShopData {
+export interface ShopData {
   shopId: string;
   name: string;
   address: string;
