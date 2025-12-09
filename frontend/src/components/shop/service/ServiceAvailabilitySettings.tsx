@@ -30,6 +30,18 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
   const [shopAvailability, setShopAvailability] = useState<ShopAvailability[]>([]);
   const [customDuration, setCustomDuration] = useState<number>(service.durationMinutes || 60);
   const [durationSaved, setDurationSaved] = useState(false);
+  const [editingDay, setEditingDay] = useState<number | null>(null);
+  const [editingValues, setEditingValues] = useState<{
+    openTime: string;
+    closeTime: string;
+    breakStartTime: string;
+    breakEndTime: string;
+  }>({
+    openTime: '09:00',
+    closeTime: '18:00',
+    breakStartTime: '',
+    breakEndTime: ''
+  });
 
   useEffect(() => {
     loadShopAvailability();
@@ -62,6 +74,33 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleUpdateAvailability = async (dayOfWeek: number, data: Partial<ShopAvailability>) => {
+    try {
+      setSaving(true);
+      await appointmentsApi.updateShopAvailability({
+        dayOfWeek,
+        isOpen: data.isOpen ?? true,
+        openTime: data.openTime || undefined,
+        closeTime: data.closeTime || undefined,
+        breakStartTime: data.breakStartTime || undefined,
+        breakEndTime: data.breakEndTime || undefined
+      });
+
+      await loadShopAvailability();
+      setEditingDay(null);
+      toast.success('Operating hours updated successfully');
+    } catch (error) {
+      console.error('Error updating availability:', error);
+      toast.error('Failed to update operating hours');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const getAvailabilityForDay = (dayOfWeek: number): ShopAvailability | undefined => {
+    return shopAvailability.find(a => a.dayOfWeek === dayOfWeek);
   };
 
   if (loading) {
@@ -134,50 +173,161 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
         </div>
       </div>
 
-      {/* Shop-Wide Availability (Read-Only for Context) */}
+      {/* Shop-Wide Availability (Editable) */}
       <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-6">
         <h2 className="text-xl font-bold text-white mb-4">Shop Operating Hours</h2>
 
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
+        <div className="bg-[#FFCC00]/10 border border-[#FFCC00]/30 rounded-lg p-4 mb-6">
           <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-blue-400 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-[#FFCC00] mt-0.5" />
             <div className="text-sm text-gray-300">
-              <p className="font-semibold text-white mb-1">Reference Only</p>
-              <p>These are your shop's overall operating hours. This service will follow these hours. To change them, go to the shop-wide Availability Settings in the sidebar.</p>
+              <p className="font-semibold text-white mb-1">Shop-Wide Hours</p>
+              <p>These are your shop's overall operating hours. All services will follow these hours. Changes here affect all your services.</p>
             </div>
           </div>
         </div>
 
         <div className="space-y-3">
           {DAYS_OF_WEEK.map(day => {
-            const dayAvail = shopAvailability.find(a => a.dayOfWeek === day.value);
+            const dayAvail = getAvailabilityForDay(day.value);
+            const isEditing = editingDay === day.value;
+            const isOpen = dayAvail?.isOpen ?? true;
 
             return (
               <div key={day.value} className="bg-[#0D0D0D] border border-gray-800 rounded-lg p-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <span className="text-white font-semibold w-28">{day.label}</span>
-                    {dayAvail?.isOpen ? (
-                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30">
-                        Open
-                      </span>
-                    ) : (
-                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-500/20 text-gray-400 border border-gray-500/30">
-                        Closed
-                      </span>
-                    )}
+                    <span className="text-white font-semibold w-24">{day.label}</span>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isOpen}
+                        onChange={(e) => handleUpdateAvailability(day.value, { isOpen: e.target.checked })}
+                        disabled={saving}
+                        className="w-4 h-4 rounded border-gray-600 text-[#FFCC00] focus:ring-[#FFCC00] focus:ring-offset-0 bg-[#1A1A1A]"
+                      />
+                      <span className="text-sm text-gray-400">Open</span>
+                    </label>
                   </div>
-                  {dayAvail?.isOpen && dayAvail.openTime && dayAvail.closeTime && (
-                    <div className="text-sm text-gray-400">
-                      {dayAvail.openTime} - {dayAvail.closeTime}
-                      {dayAvail.breakStartTime && dayAvail.breakEndTime && (
-                        <span className="ml-2 text-xs">
-                          (Break: {dayAvail.breakStartTime} - {dayAvail.breakEndTime})
-                        </span>
-                      )}
-                    </div>
+                  {isOpen && (
+                    <button
+                      onClick={() => {
+                        if (isEditing) {
+                          setEditingDay(null);
+                        } else {
+                          setEditingDay(day.value);
+                          setEditingValues({
+                            openTime: dayAvail?.openTime || '09:00',
+                            closeTime: dayAvail?.closeTime || '18:00',
+                            breakStartTime: dayAvail?.breakStartTime || '',
+                            breakEndTime: dayAvail?.breakEndTime || ''
+                          });
+                        }
+                      }}
+                      disabled={saving}
+                      className="text-sm text-[#FFCC00] hover:text-[#FFD700] transition-colors disabled:opacity-50"
+                    >
+                      {isEditing ? 'Cancel' : 'Edit'}
+                    </button>
                   )}
                 </div>
+
+                {isOpen && (
+                  <>
+                    {isEditing ? (
+                      <div className="space-y-4">
+                        {/* Operating Hours */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs text-gray-400 mb-1">Open Time</label>
+                            <input
+                              type="time"
+                              value={editingValues.openTime}
+                              onChange={(e) => setEditingValues({ ...editingValues, openTime: e.target.value })}
+                              className="w-full px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-400 mb-1">Close Time</label>
+                            <input
+                              type="time"
+                              value={editingValues.closeTime}
+                              onChange={(e) => setEditingValues({ ...editingValues, closeTime: e.target.value })}
+                              className="w-full px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Break Times */}
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-2">Break Time (Optional)</label>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <input
+                                type="time"
+                                value={editingValues.breakStartTime}
+                                onChange={(e) => setEditingValues({ ...editingValues, breakStartTime: e.target.value })}
+                                placeholder="Start"
+                                className="w-full px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                              />
+                            </div>
+                            <div>
+                              <input
+                                type="time"
+                                value={editingValues.breakEndTime}
+                                onChange={(e) => setEditingValues({ ...editingValues, breakEndTime: e.target.value })}
+                                placeholder="End"
+                                className="w-full px-3 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Save Button */}
+                        <div className="flex justify-end">
+                          <button
+                            onClick={() => handleUpdateAvailability(day.value, {
+                              isOpen: true,
+                              openTime: editingValues.openTime,
+                              closeTime: editingValues.closeTime,
+                              breakStartTime: editingValues.breakStartTime || undefined,
+                              breakEndTime: editingValues.breakEndTime || undefined
+                            })}
+                            disabled={saving}
+                            className="px-4 py-2 bg-[#FFCC00] text-black rounded-lg font-semibold hover:bg-[#FFD700] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                          >
+                            {saving ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Saving...
+                              </>
+                            ) : (
+                              <>
+                                <Save className="w-4 h-4" />
+                                Save Changes
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      dayAvail && dayAvail.openTime && dayAvail.closeTime && (
+                        <div className="text-sm text-gray-400">
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-gray-500" />
+                            <span>{dayAvail.openTime} - {dayAvail.closeTime}</span>
+                          </div>
+                          {dayAvail.breakStartTime && dayAvail.breakEndTime && (
+                            <div className="flex items-center gap-2 mt-1 ml-6 text-xs">
+                              <span className="text-gray-500">Break:</span>
+                              <span>{dayAvail.breakStartTime} - {dayAvail.breakEndTime}</span>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    )}
+                  </>
+                )}
               </div>
             );
           })}
