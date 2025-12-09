@@ -795,23 +795,107 @@ export class ShopRepository extends BaseRepository {
   async updateShopRcnBalance(shopId: string, amount: number): Promise<void> {
     try {
       const query = `
-        UPDATE shops 
+        UPDATE shops
         SET purchased_rcn_balance = purchased_rcn_balance + $1,
             total_rcn_purchased = total_rcn_purchased + $1,
             last_purchase_date = CURRENT_TIMESTAMP,
             updated_at = CURRENT_TIMESTAMP
         WHERE shop_id = $2
       `;
-      
+
       await this.pool.query(query, [amount, shopId]);
-      
-      logger.info('Shop RCN balance updated:', { 
+
+      logger.info('Shop RCN balance updated:', {
         shopId,
         amountAdded: amount
       });
     } catch (error) {
       logger.error('Error updating shop RCN balance:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Atomically deduct balance from shop for issuing rewards
+   * Uses SELECT FOR UPDATE to prevent race conditions with concurrent requests
+   * @returns Object with success status, previous balance, and new balance
+   * @throws Error if insufficient balance or database error
+   */
+  async deductShopBalanceAtomic(
+    shopId: string,
+    amount: number,
+    additionalTokensIssued: number = 0
+  ): Promise<{ success: boolean; previousBalance: number; newBalance: number }> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Lock the row and get current balance atomically
+      const lockQuery = `
+        SELECT purchased_rcn_balance, total_tokens_issued
+        FROM shops
+        WHERE shop_id = $1
+        FOR UPDATE
+      `;
+      const lockResult = await client.query(lockQuery, [shopId]);
+
+      if (lockResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        throw new Error('Shop not found');
+      }
+
+      const currentBalance = parseFloat(lockResult.rows[0].purchased_rcn_balance || 0);
+      const currentTokensIssued = parseFloat(lockResult.rows[0].total_tokens_issued || 0);
+
+      // Check if sufficient balance
+      if (currentBalance < amount) {
+        await client.query('ROLLBACK');
+        logger.warn('Atomic balance deduction failed - insufficient balance', {
+          shopId,
+          required: amount,
+          available: currentBalance
+        });
+        throw new Error(`Insufficient balance: required ${amount}, available ${currentBalance}`);
+      }
+
+      // Deduct balance and update tokens issued atomically
+      const updateQuery = `
+        UPDATE shops
+        SET purchased_rcn_balance = purchased_rcn_balance - $1,
+            total_tokens_issued = total_tokens_issued + $2,
+            last_activity = NOW(),
+            updated_at = NOW()
+        WHERE shop_id = $3
+      `;
+      await client.query(updateQuery, [amount, additionalTokensIssued || amount, shopId]);
+
+      await client.query('COMMIT');
+
+      const newBalance = currentBalance - amount;
+
+      logger.info('Atomic balance deduction successful', {
+        shopId,
+        amountDeducted: amount,
+        tokensIssued: additionalTokensIssued || amount,
+        previousBalance: currentBalance,
+        newBalance
+      });
+
+      return {
+        success: true,
+        previousBalance: currentBalance,
+        newBalance
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      logger.error('Error in atomic balance deduction:', {
+        error: error instanceof Error ? error.message : error,
+        shopId,
+        amount
+      });
+      throw error;
+    } finally {
+      client.release();
     }
   }
 

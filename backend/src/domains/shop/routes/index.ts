@@ -1704,71 +1704,93 @@ router.post('/:shopId/issue-reward',
 
       const totalReward = skipTierBonus ? baseReward + promoBonus : baseReward + tierBonus + promoBonus;
 
-      // Check shop has sufficient purchased RCN balance (off-chain balance from database)
-      const shopBalance = shop.purchasedRcnBalance || 0;
-      
-      // Debug logging
-      logger.info('Balance check:', {
+      // No earning limits - customers can earn unlimited RCN
+
+      // Debug logging before atomic deduction
+      logger.info('Attempting atomic balance deduction:', {
         shopId,
-        shopBalance,
         totalReward,
         baseReward,
         tierBonus: skipTierBonus ? 0 : tierBonus,
         promoBonus,
-        promoCode: promoCode || null,
-        shopData: {
-          purchasedRcnBalance: shop.purchasedRcnBalance,
-          totalTokensIssued: shop.totalTokensIssued
-        }
+        promoCode: promoCode || null
       });
-      
-      if (shopBalance < totalReward) {
-        logger.warn('Insufficient shop balance', {
+
+      // ATOMIC BALANCE CHECK AND DEDUCTION
+      // Use SELECT FOR UPDATE to prevent race conditions with concurrent requests
+      let balanceDeductionResult: { success: boolean; previousBalance: number; newBalance: number };
+      try {
+        balanceDeductionResult = await shopRepository.deductShopBalanceAtomic(
           shopId,
-          required: totalReward,
-          available: shopBalance
+          totalReward,
+          totalReward // tokensIssued = totalReward
+        );
+
+        logger.info('Atomic balance deduction completed', {
+          shopId,
+          previousBalance: balanceDeductionResult.previousBalance,
+          newBalance: balanceDeductionResult.newBalance,
+          totalReward
         });
-        
-        return res.status(400).json({
-          success: false,
-          error: 'Insufficient shop RCN balance',
-          data: {
+      } catch (deductionError: any) {
+        // Check if it's an insufficient balance error
+        if (deductionError.message && deductionError.message.includes('Insufficient balance')) {
+          logger.warn('Insufficient shop balance (atomic check)', {
+            shopId,
             required: totalReward,
-            available: shopBalance,
-            baseReward,
-            tierBonus: skipTierBonus ? 0 : tierBonus,
-            promoBonus,
-            promoCode: promoCode || null
-          }
+            error: deductionError.message
+          });
+
+          // Extract available balance from error message if possible
+          const availableMatch = deductionError.message.match(/available (\d+\.?\d*)/);
+          const available = availableMatch ? parseFloat(availableMatch[1]) : 0;
+
+          return res.status(400).json({
+            success: false,
+            error: 'Insufficient shop RCN balance',
+            data: {
+              required: totalReward,
+              available: available,
+              baseReward,
+              tierBonus: skipTierBonus ? 0 : tierBonus,
+              promoBonus,
+              promoCode: promoCode || null
+            }
+          });
+        }
+
+        // Other database errors
+        logger.error('Failed to deduct shop balance:', deductionError);
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to process reward - database error'
         });
       }
 
-      // No earning limits - customers can earn unlimited RCN
-
-      // Process the reward - Transfer tokens on-chain AND deduct from shop's balance
+      // Process the reward - Transfer tokens on-chain (balance already deducted)
       let transactionHash = `offchain_${Date.now()}`;
       let onChainSuccess = false;
-      
+
       try {
         // Check if blockchain minting is enabled and attempt to mint
         const blockchainEnabled = process.env.ENABLE_BLOCKCHAIN_MINTING === 'true';
-        
+
         if (blockchainEnabled) {
           try {
             const tokenMinter = getTokenMinter();
-            
+
             // First try to transfer from admin wallet
             logger.info('Attempting token transfer from admin wallet...', {
               customerAddress,
               amount: totalReward
             });
-            
+
             const transferResult = await tokenMinter.transferTokens(
               customerAddress,
               totalReward,
               `Shop ${shop.name} reward - $${repairAmount} repair`
             );
-            
+
             if (transferResult.success && transferResult.transactionHash) {
               transactionHash = transferResult.transactionHash;
               onChainSuccess = true;
@@ -1783,13 +1805,13 @@ router.post('/:shopId/issue-reward',
               logger.warn('Transfer failed, attempting to mint new tokens...', {
                 transferError: transferResult.error
               });
-              
+
               const mintResult = await tokenMinter.adminMintTokens(
                 customerAddress,
                 totalReward,
                 `Shop ${shop.name} reward - $${repairAmount} repair (mint fallback)`
               );
-              
+
               if (mintResult.success && mintResult.transactionHash) {
                 transactionHash = mintResult.transactionHash;
                 onChainSuccess = true;
@@ -1821,26 +1843,18 @@ router.post('/:shopId/issue-reward',
             amount: totalReward
           });
         }
-        
-        // Update shop's balance and statistics atomically
-        await shopRepository.updateShop(shopId, {
-          purchasedRcnBalance: shopBalance - totalReward,
-          totalTokensIssued: (shop.totalTokensIssued || 0) + totalReward
-        });
-        
-        logger.info('Shop balance updated after issuing reward', {
+
+        logger.info('Shop balance already updated via atomic deduction', {
           shopId,
-          previousBalance: shopBalance,
+          previousBalance: balanceDeductionResult.previousBalance,
           rewardIssued: totalReward,
-          newBalance: shopBalance - totalReward,
+          newBalance: balanceDeductionResult.newBalance,
           onChainTransfer: onChainSuccess
         });
-      } catch (updateError) {
-        logger.error('Failed to update shop balance:', updateError);
-        return res.status(500).json({
-          success: false,
-          error: 'Failed to process reward'
-        });
+      } catch (blockchainError) {
+        // Blockchain operations failed but balance was already deducted
+        // This is acceptable - tokens are tracked in database even if on-chain fails
+        logger.error('Blockchain operation failed after balance deduction:', blockchainError);
       }
 
       // Calculate new tier after earning
@@ -1979,7 +1993,7 @@ router.post('/:shopId/issue-reward',
           txHash: transactionHash,
           onChainTransfer: onChainSuccess,
           customerNewBalance: customer.lifetimeEarnings + totalReward,
-          shopNewBalance: shopBalance - totalReward,
+          shopNewBalance: balanceDeductionResult.newBalance,
           referralCompleted,
           referralMessage,
           message: onChainSuccess
