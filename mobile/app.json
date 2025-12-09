@@ -50,6 +50,13 @@
             "minSdkVersion": 26
           }
         }
+      ],
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.repaircoin",
+          "enableGooglePay": true
+        }
       ]
     ],
     "experiments": {

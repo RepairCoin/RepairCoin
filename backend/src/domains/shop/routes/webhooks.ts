@@ -19,10 +19,11 @@ const router = Router();
 async function handleServicePaymentSuccess(event: Stripe.Event, paymentService: PaymentService) {
   const paymentIntent = event.data.object as Stripe.PaymentIntent;
 
-  logger.info('Processing service payment success webhook', {
+  logger.info('Processing payment_intent.succeeded webhook', {
     paymentIntentId: paymentIntent.id,
     amount: paymentIntent.amount,
-    status: paymentIntent.status
+    status: paymentIntent.status,
+    type: paymentIntent.metadata?.type
   });
 
   try {
@@ -34,17 +35,202 @@ async function handleServicePaymentSuccess(event: Stripe.Event, paymentService: 
         paymentIntentId: paymentIntent.id,
         orderId: paymentIntent.metadata?.orderId
       });
+    } else if (paymentIntent.metadata?.type === 'subscription_payment') {
+      // Handle mobile subscription payment
+      await handleMobileSubscriptionPaymentSuccess(paymentIntent);
     } else {
-      logger.info('Payment intent is not for service booking, skipping', {
+      logger.info('Payment intent is not for service booking or subscription, skipping', {
         paymentIntentId: paymentIntent.id,
         type: paymentIntent.metadata?.type
       });
     }
   } catch (error) {
-    logger.error('Failed to process service payment success', {
+    logger.error('Failed to process payment success', {
       paymentIntentId: paymentIntent.id,
       error: error instanceof Error ? error.message : 'Unknown error'
     });
+  }
+}
+
+/**
+ * Handle mobile subscription payment success
+ * This is called when a PaymentIntent with type='subscription_payment' succeeds
+ */
+async function handleMobileSubscriptionPaymentSuccess(paymentIntent: Stripe.PaymentIntent) {
+  const { shopId, subscriptionId, invoiceId } = paymentIntent.metadata;
+
+  logger.info('Processing mobile subscription payment success', {
+    paymentIntentId: paymentIntent.id,
+    shopId,
+    subscriptionId,
+    invoiceId
+  });
+
+  try {
+    const stripeService = getStripeService();
+    const stripe = stripeService.getStripe();
+    const subscriptionService = getSubscriptionService();
+
+    // 1. Attach the payment method to the customer for future payments
+    const paymentMethodId = paymentIntent.payment_method as string;
+    const customerId = paymentIntent.customer as string;
+
+    if (paymentMethodId && customerId) {
+      // Set as default payment method for customer
+      await stripe.customers.update(customerId, {
+        invoice_settings: {
+          default_payment_method: paymentMethodId
+        }
+      });
+
+      logger.info('Payment method set as default for customer', {
+        customerId,
+        paymentMethodId
+      });
+    }
+
+    // 2. Pay the invoice to activate the subscription
+    if (invoiceId) {
+      try {
+        const invoice = await stripe.invoices.pay(invoiceId, {
+          payment_method: paymentMethodId
+        });
+
+        logger.info('Invoice paid successfully', {
+          invoiceId,
+          invoiceStatus: invoice.status
+        });
+      } catch (invoiceError: any) {
+        // Invoice might already be paid or subscription might auto-activate
+        logger.warn('Could not pay invoice directly, checking subscription status', {
+          invoiceId,
+          error: invoiceError.message
+        });
+      }
+    }
+
+    // 3. Retrieve and update subscription status
+    if (subscriptionId) {
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+      logger.info('Subscription status after payment', {
+        subscriptionId,
+        status: subscription.status
+      });
+
+      // Update subscription in database
+      const db = DatabaseService.getInstance();
+
+      // Update stripe_subscriptions table
+      await db.query(
+        `UPDATE stripe_subscriptions
+         SET status = $1, updated_at = CURRENT_TIMESTAMP
+         WHERE stripe_subscription_id = $2`,
+        [subscription.status, subscriptionId]
+      );
+
+      // If subscription is now active, create/update shop_subscriptions record
+      if (subscription.status === 'active') {
+        const shopSubRepo = new ShopSubscriptionRepository();
+        const currentPeriodEnd = new Date((subscription as any).current_period_end * 1000);
+
+        // Check if shop_subscriptions record exists
+        const existingShopSub = await db.query(
+          'SELECT id FROM shop_subscriptions WHERE shop_id = $1',
+          [shopId]
+        );
+
+        if (existingShopSub.rows.length > 0) {
+          // Update existing record
+          await db.query(
+            `UPDATE shop_subscriptions
+             SET status = 'active',
+                 is_active = true,
+                 billing_reference = $1,
+                 next_payment_date = $2,
+                 last_payment_date = CURRENT_TIMESTAMP,
+                 activated_at = CURRENT_TIMESTAMP,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE shop_id = $3`,
+            [subscriptionId, currentPeriodEnd, shopId]
+          );
+        } else {
+          // Create new record
+          await shopSubRepo.createSubscription({
+            shopId: shopId,
+            status: 'active',
+            monthlyAmount: 500,
+            subscriptionType: 'standard',
+            billingMethod: 'credit_card',
+            billingReference: subscriptionId,
+            paymentsMade: 1,
+            totalPaid: 500,
+            nextPaymentDate: currentPeriodEnd,
+            lastPaymentDate: new Date(),
+            activatedAt: new Date(),
+            createdBy: `Mobile App Payment - ${paymentIntent.id}`,
+            notes: `Created via mobile app payment | PaymentIntent: ${paymentIntent.id}`
+          });
+        }
+
+        // Update shop operational status
+        await db.query(
+          `UPDATE shops
+           SET operational_status = 'subscription_qualified',
+               updated_at = CURRENT_TIMESTAMP
+           WHERE shop_id = $1`,
+          [shopId]
+        );
+
+        logger.info('Shop subscription activated via mobile payment', {
+          shopId,
+          subscriptionId,
+          paymentIntentId: paymentIntent.id
+        });
+
+        // Send notification
+        try {
+          const shopQuery = await db.query(
+            'SELECT wallet_address FROM shops WHERE shop_id = $1',
+            [shopId]
+          );
+
+          if (shopQuery.rows.length > 0 && shopQuery.rows[0].wallet_address) {
+            const notificationService = new NotificationService();
+            await notificationService.createSubscriptionApprovedNotification(
+              shopQuery.rows[0].wallet_address
+            );
+            logger.info('Subscription approval notification sent', { shopId, subscriptionId });
+          }
+        } catch (notifError) {
+          logger.error('Failed to send subscription approval notification:', notifError);
+        }
+      }
+    }
+
+    // Publish event
+    eventBus.publish({
+      type: 'subscription.mobile_payment.succeeded',
+      aggregateId: shopId,
+      timestamp: new Date(),
+      source: 'StripeWebhook',
+      version: 1,
+      data: {
+        shopId,
+        subscriptionId,
+        invoiceId,
+        paymentIntentId: paymentIntent.id
+      }
+    });
+
+  } catch (error) {
+    logger.error('Failed to process mobile subscription payment', {
+      paymentIntentId: paymentIntent.id,
+      shopId,
+      subscriptionId,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+    throw error;
   }
 }
 

@@ -7,7 +7,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  Linking,
   Alert,
   ActivityIndicator,
 } from "react-native";
@@ -35,6 +34,8 @@ type SubscriptionResponse = {
     message?: string;
     paymentUrl?: string;
     nextSteps?: string;
+    clientSecret?: string;
+    subscriptionId?: string;
   };
 };
 
@@ -95,13 +96,12 @@ export default function SubscriptionForm() {
         return;
       }
 
-      const result = await apiClient.post<SubscriptionResponse>("/shops/subscription/subscribe", {
-        billingMethod: "credit_card",
+      // Use the mobile-specific endpoint that returns clientSecret for native payment
+      const result = await apiClient.post<SubscriptionResponse>("/shops/subscription/subscribe-mobile", {
         billingEmail: formData.email,
         billingContact: formData.shopName,
         billingPhone: formData.phoneNumber,
         billingAddress: formData.shopAddress,
-        notes: "Monthly subscription enrollment via subscription form",
       });
 
       // Check if response is successful
@@ -109,26 +109,18 @@ export default function SubscriptionForm() {
         throw new Error(result.error || "Failed to create subscription");
       }
 
-      // Handle pending subscription resume
-      if (result.data?.isPendingResume) {
-        Alert.alert(
-          "Resuming Subscription",
-          result.data.message || "Resuming your pending subscription..."
-        );
-        // Redirect to payment page for pending subscriptions
-        if (result.data.paymentUrl) {
-          setTimeout(() => {
-            Linking.openURL(result.data!.paymentUrl!);
-          }, 2000);
-        }
-      } else if (result.data?.paymentUrl) {
-        // Handle payment redirect for new subscriptions
-        Alert.alert("Success", "Redirecting to secure payment...");
-        setTimeout(() => {
-          Linking.openURL(result.data!.paymentUrl!);
-        }, 1500);
+      // Handle native payment with clientSecret
+      if (result.data?.clientSecret) {
+        // Navigate to native payment screen with clientSecret
+        router.push({
+          pathname: "/shop/payment/payment-card",
+          params: {
+            clientSecret: result.data.clientSecret,
+            subscriptionId: result.data.subscriptionId || "",
+          },
+        });
       } else {
-        // Show success message
+        // Fallback: Show success message if no payment required
         Alert.alert(
           "Success",
           result.data?.nextSteps || result.data?.message || "Subscription created successfully!"

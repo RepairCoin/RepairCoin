@@ -14,11 +14,11 @@ import {
   MaterialIcons,
   Octicons,
 } from "@expo/vector-icons";
-import { router, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { useAuthStore } from "@/store/auth.store";
 import { Tier } from "@/utilities/GlobalTypes";
 import DetailCard from "@/components/ui/DetailCard";
-import { ShopData } from "@/services/ShopServices";
+import { ShopData } from "@/interfaces/shop.interface";
 
 interface TierInfo {
   color: [string, string];

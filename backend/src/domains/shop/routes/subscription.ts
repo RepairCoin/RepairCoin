@@ -609,6 +609,283 @@ router.post('/subscription/subscribe', async (req: Request, res: Response) => {
 
 /**
  * @swagger
+ * /api/shops/subscription/subscribe-mobile:
+ *   post:
+ *     summary: Subscribe to commitment program (Mobile - returns clientSecret for native payment)
+ *     tags: [Shop Subscriptions]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               billingEmail:
+ *                 type: string
+ *                 format: email
+ *               billingContact:
+ *                 type: string
+ *               billingPhone:
+ *                 type: string
+ *               billingAddress:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Subscription created with clientSecret for native payment
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     clientSecret:
+ *                       type: string
+ *                       description: PaymentIntent client secret for native mobile payment
+ *                     subscriptionId:
+ *                       type: string
+ *       400:
+ *         description: Bad request
+ *       401:
+ *         description: Unauthorized
+ */
+router.post('/subscription/subscribe-mobile', async (req: Request, res: Response) => {
+  try {
+    const shopId = req.user?.shopId;
+    const { billingEmail, billingContact } = req.body;
+
+    if (!shopId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Shop ID not found in token'
+      });
+    }
+
+    // Validate required fields
+    if (!billingEmail || !billingContact) {
+      return res.status(400).json({
+        success: false,
+        error: 'Billing email and contact name are required'
+      });
+    }
+
+    // Check if shop already has an active Stripe subscription
+    const subscriptionService = getSubscriptionService();
+    const existingSubscription = await subscriptionService.getActiveSubscription(shopId);
+
+    if (existingSubscription) {
+      return res.status(400).json({
+        success: false,
+        error: 'Shop already has an active subscription'
+      });
+    }
+
+    try {
+      const stripeService = getStripeService();
+      const stripe = stripeService.getStripe();
+
+      // Get shop details
+      const shop = await shopRepository.getShop(shopId);
+      if (!shop) {
+        throw new Error('Shop not found');
+      }
+
+      // Create or get Stripe customer
+      let stripeCustomer = await subscriptionService.getCustomerByShopId(shopId);
+
+      if (!stripeCustomer) {
+        // Create new Stripe customer
+        const customer = await stripeService.createCustomer({
+          email: billingEmail,
+          name: billingContact,
+          shopId: shopId
+        });
+
+        // Save to database
+        await DatabaseService.getInstance().getPool().query(
+          `INSERT INTO stripe_customers (shop_id, stripe_customer_id, email, name)
+           VALUES ($1, $2, $3, $4)`,
+          [shopId, customer.id, billingEmail, billingContact]
+        );
+
+        stripeCustomer = {
+          id: 0,
+          stripeCustomerId: customer.id,
+          shopId,
+          email: billingEmail,
+          name: billingContact,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+      }
+
+      // Cancel any existing incomplete subscriptions for this customer
+      const existingIncompleteSubscriptions = await stripe.subscriptions.list({
+        customer: stripeCustomer.stripeCustomerId,
+        status: 'incomplete',
+        limit: 10
+      });
+
+      for (const sub of existingIncompleteSubscriptions.data) {
+        logger.info('Cancelling incomplete subscription', { subscriptionId: sub.id });
+        await stripe.subscriptions.cancel(sub.id);
+      }
+
+      // Create subscription with payment_behavior: 'default_incomplete'
+      // This creates the subscription but requires payment confirmation
+      const subscription = await stripe.subscriptions.create({
+        customer: stripeCustomer.stripeCustomerId,
+        items: [{
+          price: process.env.STRIPE_MONTHLY_PRICE_ID
+        }],
+        payment_behavior: 'default_incomplete',
+        payment_settings: {
+          save_default_payment_method: 'on_subscription'
+        },
+        expand: ['latest_invoice.payment_intent'],
+        metadata: {
+          shopId: shopId,
+          environment: process.env.NODE_ENV || 'development',
+          platform: 'mobile'
+        },
+      });
+
+      // Get the invoice
+      const latestInvoice = subscription.latest_invoice as any;
+      const invoiceId = typeof latestInvoice === 'string' ? latestInvoice : latestInvoice?.id;
+
+      if (!invoiceId) {
+        logger.error('No invoice found for subscription', {
+          subscriptionId: subscription.id
+        });
+        throw new Error('No invoice found for subscription');
+      }
+
+      logger.info('Invoice found, creating PaymentIntent for invoice', {
+        invoiceId,
+        invoiceStatus: latestInvoice?.status,
+        amountDue: latestInvoice?.amount_due
+      });
+
+      // Create a PaymentIntent manually for the invoice amount
+      // Include invoice ID in metadata so webhook can pay the invoice after successful payment
+      const amountDue = latestInvoice?.amount_due || 50000; // Default to $500 in cents
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amountDue,
+        currency: 'usd',
+        customer: stripeCustomer.stripeCustomerId,
+        setup_future_usage: 'off_session', // Save the payment method for future use
+        metadata: {
+          shopId: shopId,
+          subscriptionId: subscription.id,
+          invoiceId: invoiceId,
+          platform: 'mobile',
+          type: 'subscription_payment' // Mark this for webhook handling
+        },
+        automatic_payment_methods: {
+          enabled: true,
+          allow_redirects: 'never'
+        },
+        description: `Subscription payment for shop ${shopId}`
+      });
+
+      const clientSecret = paymentIntent.client_secret;
+      const paymentIntentId = paymentIntent.id;
+
+      if (!clientSecret) {
+        logger.error('PaymentIntent created but no client_secret', {
+          paymentIntentId: paymentIntent.id
+        });
+        throw new Error('Failed to get payment intent client secret');
+      }
+
+      logger.info('PaymentIntent created successfully', {
+        paymentIntentId,
+        hasClientSecret: !!clientSecret,
+        status: paymentIntent.status,
+        invoiceId: invoiceId,
+        subscriptionId: subscription.id
+      });
+
+      // Save the pending subscription to database
+      await subscriptionService.createSubscriptionRecord({
+        shopId: shopId,
+        stripeCustomerId: stripeCustomer.stripeCustomerId,
+        stripeSubscriptionId: subscription.id,
+        stripePriceId: process.env.STRIPE_MONTHLY_PRICE_ID || '',
+        status: 'incomplete',
+        metadata: {
+          platform: 'mobile',
+          paymentIntentId: paymentIntentId
+        }
+      });
+
+      logger.info('Mobile subscription created with PaymentIntent', {
+        shopId,
+        subscriptionId: subscription.id,
+        paymentIntentId: paymentIntentId,
+        customerId: stripeCustomer.stripeCustomerId
+      });
+
+      res.json({
+        success: true,
+        data: {
+          clientSecret: clientSecret,
+          subscriptionId: subscription.id,
+          message: 'Complete payment to activate your subscription'
+        }
+      });
+
+    } catch (stripeError: any) {
+      logger.error('Stripe mobile subscription creation failed', {
+        error: stripeError instanceof Error ? stripeError.message : 'Unknown error',
+        shopId,
+        stack: stripeError instanceof Error ? stripeError.stack : undefined,
+        stripeCode: stripeError?.code,
+        stripeType: stripeError?.type,
+        stripeParam: stripeError?.param
+      });
+
+      if (stripeError instanceof Error) {
+        if (stripeError.message.includes('STRIPE_SECRET_KEY') ||
+            stripeError.message.includes('STRIPE_WEBHOOK_SECRET') ||
+            stripeError.message.includes('STRIPE_MONTHLY_PRICE_ID')) {
+          return res.status(503).json({
+            success: false,
+            error: 'Payment service is not properly configured. Please contact support.',
+            details: process.env.NODE_ENV === 'development' ? stripeError.message : undefined
+          });
+        }
+      }
+
+      // Return actual Stripe error for debugging
+      return res.status(500).json({
+        success: false,
+        error: stripeError?.message || 'Payment processing is temporarily unavailable. Please try again later.'
+      });
+    }
+
+  } catch (error) {
+    logger.error('Failed to create mobile subscription', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      shopId: req.user?.shopId
+    });
+
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create subscription'
+    });
+  }
+});
+
+/**
+ * @swagger
  * /api/shops/subscription/cancel:
  *   post:
  *     summary: Cancel shop subscription
