@@ -22,13 +22,13 @@ import { usePurchase } from "@/hooks/purchase/usePurchase";
 export default function BuyToken() {
   const { account, userProfile } = useAuthStore();
   const { useGetShopByWalletAddress } = useShop();
-  const { useCreatePaymentIntent, usePurchaseAmount } = usePurchase();
+  const { useCreateStripeCheckout, usePurchaseAmount } = usePurchase();
 
   const { data: shopData } = useGetShopByWalletAddress(account?.address || "");
   const {
-    mutateAsync: createPaymentIntentAsync,
-    isPending: isCreatingPaymentIntent,
-  } = useCreatePaymentIntent(userProfile?.shopId);
+    mutateAsync: createStripeCheckoutAsync,
+    isPending: isCreatingCheckout,
+  } = useCreateStripeCheckout(userProfile?.shopId);
   const {
     amount: purchaseAmount,
     setAmount: setPurchaseAmount,
@@ -68,20 +68,10 @@ export default function BuyToken() {
     }
 
     try {
-      const result = await createPaymentIntentAsync(purchaseAmount);
-      if (result && result.data?.clientSecret) {
-        // Navigate to native payment card screen
-        router.push({
-          pathname: "/shop/payment/payment-card",
-          params: {
-            clientSecret: result.data.clientSecret,
-            purchaseId: result.data.purchaseId,
-            amount: result.data.amount.toString(),
-            totalCost: result.data.totalCost.toString(),
-            type: "token_purchase",
-          },
-        });
-      }
+      // Create Stripe Checkout session and open in browser
+      // This avoids Apple's 30% IAP fee
+      await createStripeCheckoutAsync(purchaseAmount);
+      // The hook will automatically open the checkout URL in browser
     } catch (error) {
       // Error handling is done in the mutation hook
       console.error("Purchase initiation failed:", error);
@@ -236,10 +226,10 @@ export default function BuyToken() {
             </View>
             <View className="flex-1">
               <Text className="text-white font-semibold text-base">
-                Secure Checkout
+                Web Checkout
               </Text>
               <Text className="text-gray-400 text-xs mt-1">
-                Powered by Stripe • Card, Apple Pay, Google Pay
+                Opens browser for secure Stripe payment
               </Text>
             </View>
             <View className="bg-[#FFCC00]/20 rounded-full px-2 py-1">
@@ -254,14 +244,14 @@ export default function BuyToken() {
         <View className="px-5 py-4">
           <TouchableOpacity
             onPress={handlePurchase}
-            disabled={isCreatingPaymentIntent || !isValidAmount}
+            disabled={isCreatingCheckout || !isValidAmount}
             className={`py-4 rounded-2xl flex-row items-center justify-center ${
-              isCreatingPaymentIntent || !isValidAmount
+              isCreatingCheckout || !isValidAmount
                 ? "bg-gray-800"
                 : "bg-[#FFCC00]"
             }`}
           >
-            {isCreatingPaymentIntent ? (
+            {isCreatingCheckout ? (
               <ActivityIndicator color="#000" />
             ) : (
               <>
@@ -284,7 +274,7 @@ export default function BuyToken() {
             )}
           </TouchableOpacity>
           <Text className="text-gray-500 text-center text-xs mt-2">
-            Secure payment powered by Stripe
+            Opens secure checkout in your browser
           </Text>
         </View>
       </View>

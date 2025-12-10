@@ -15,6 +15,29 @@ class PurchaseApi {
       throw error;
     }
   }
+
+  /**
+   * Create a Stripe Checkout session for web-based payment
+   * This avoids Apple's 30% IAP fee by redirecting to web checkout
+   */
+  async createStripeCheckout(amount: number): Promise<{
+    data: {
+      checkoutUrl: string;
+      sessionId: string;
+      purchaseId: string;
+      amount: number;
+      totalCost: number;
+    };
+  }> {
+    try {
+      return await apiClient.post("/shops/purchase/stripe-checkout", {
+        amount,
+      });
+    } catch (error: any) {
+      console.error("Failed to create Stripe checkout session:", error.message);
+      throw error;
+    }
+  }
 }
 
 export const purchaseApi = new PurchaseApi();
