@@ -5,7 +5,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useRouter } from 'next/navigation';
 
 export default function DebugAuthPage() {
-  const { account, isAuthenticated, userRole } = useAuthStore();
+  const { account, isAuthenticated, userType } = useAuthStore();
   const [cookies, setCookies] = useState('');
   const router = useRouter();
 
@@ -31,8 +31,8 @@ export default function DebugAuthPage() {
               </div>
               <div className="flex gap-2">
                 <span className="font-semibold">User Role:</span>
-                <span className={userRole === 'shop' ? 'text-green-400' : 'text-yellow-400'}>
-                  {userRole || 'None'}
+                <span className={userType === 'shop' ? 'text-green-400' : 'text-yellow-400'}>
+                  {userType || 'None'}
                 </span>
               </div>
               <div className="flex gap-2">
@@ -73,7 +73,7 @@ export default function DebugAuthPage() {
                 <span className="text-gray-300">Must be authenticated</span>
               </div>
               <div className="flex items-center gap-3">
-                {userRole === 'shop' ? (
+                {userType === 'shop' ? (
                   <span className="text-green-400">✅</span>
                 ) : (
                   <span className="text-red-400">❌</span>
@@ -110,11 +110,11 @@ export default function DebugAuthPage() {
                 </div>
               )}
 
-              {isAuthenticated && userRole !== 'shop' && (
+              {isAuthenticated && userType !== 'shop' && (
                 <div className="bg-yellow-900/20 border border-yellow-500/50 rounded-lg p-4">
                   <p className="text-yellow-400 font-semibold mb-2">⚠️ Wrong Role</p>
                   <p className="text-gray-300 text-sm mb-3">
-                    You're logged in as a <span className="text-[#FFCC00]">{userRole}</span>, but shop pages require a shop account.
+                    You're logged in as a <span className="text-[#FFCC00]">{userType}</span>, but shop pages require a shop account.
                   </p>
                   <button
                     onClick={() => {
@@ -129,7 +129,7 @@ export default function DebugAuthPage() {
                 </div>
               )}
 
-              {isAuthenticated && userRole === 'shop' && (
+              {isAuthenticated && userType === 'shop' && (
                 <div className="bg-green-900/20 border border-green-500/50 rounded-lg p-4">
                   <p className="text-green-400 font-semibold mb-2">✅ All Good!</p>
                   <p className="text-gray-300 text-sm mb-3">
