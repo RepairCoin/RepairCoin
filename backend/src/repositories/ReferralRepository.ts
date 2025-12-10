@@ -440,37 +440,96 @@ export class ReferralRepository extends BaseRepository {
 
   async getHomeShop(customerAddress: string): Promise<string | null> {
     try {
+      logger.info('getHomeShop called', { customerAddress });
+
       // First check if home_shop_id is already set in customers table
       const customerQuery = `
-        SELECT home_shop_id 
-        FROM customers 
+        SELECT home_shop_id
+        FROM customers
         WHERE address = $1
       `;
-      
+
       const customerResult = await this.pool.query(customerQuery, [customerAddress.toLowerCase()]);
-      
+      logger.info('Customer home_shop_id check', {
+        customerAddress,
+        found: customerResult.rows.length > 0,
+        home_shop_id: customerResult.rows[0]?.home_shop_id || null
+      });
+
       if (customerResult.rows.length > 0 && customerResult.rows[0].home_shop_id) {
+        logger.info('Returning home_shop_id from customers table', {
+          homeShop: customerResult.rows[0].home_shop_id
+        });
         return customerResult.rows[0].home_shop_id;
       }
-      
-      // If not set, find the first shop where customer ever earned RCN
-      const query = `
-        SELECT source_shop_id
-        FROM customer_rcn_sources
-        WHERE customer_address = $1
-        AND source_shop_id IS NOT NULL
-        AND is_redeemable = true
+
+      // Try to query customer_rcn_sources table
+      let useTableFallback = false;
+      try {
+        const testQuery = await this.pool.query(
+          'SELECT 1 FROM customer_rcn_sources LIMIT 1'
+        );
+        logger.info('customer_rcn_sources table exists');
+      } catch (tableError: any) {
+        if (tableError.code === '42P01') { // Table does not exist
+          useTableFallback = true;
+          logger.info('customer_rcn_sources table does not exist, using fallback');
+        } else {
+          logger.error('Error checking customer_rcn_sources table:', tableError);
+          useTableFallback = true;
+        }
+      }
+
+      if (!useTableFallback) {
+        // If not set, find the first shop where customer ever earned RCN from customer_rcn_sources
+        const query = `
+          SELECT source_shop_id
+          FROM customer_rcn_sources
+          WHERE customer_address = $1
+          AND source_shop_id IS NOT NULL
+          AND is_redeemable = true
+          ORDER BY earned_at ASC
+          LIMIT 1
+        `;
+
+        const result = await this.pool.query(query, [customerAddress.toLowerCase()]);
+        logger.info('customer_rcn_sources query result', {
+          customerAddress,
+          rowCount: result.rows.length,
+          source_shop_id: result.rows[0]?.source_shop_id || null
+        });
+
+        if (result.rows.length > 0) {
+          return result.rows[0].source_shop_id;
+        }
+      }
+
+      // Fallback: find home shop from transactions table (first shop where customer earned RCN)
+      logger.info('Using transactions table fallback to find home shop', { customerAddress });
+      const transactionQuery = `
+        SELECT shop_id
+        FROM transactions
+        WHERE LOWER(customer_address) = LOWER($1)
+        AND type = 'mint'
+        AND status = 'confirmed'
+        AND shop_id IS NOT NULL
         ORDER BY created_at ASC
         LIMIT 1
       `;
-      
-      const result = await this.pool.query(query, [customerAddress.toLowerCase()]);
-      
-      if (result.rows.length === 0) {
-        return null;
+
+      const txResult = await this.pool.query(transactionQuery, [customerAddress]);
+      logger.info('transactions fallback query result', {
+        customerAddress,
+        rowCount: txResult.rows.length,
+        shop_id: txResult.rows[0]?.shop_id || null
+      });
+
+      if (txResult.rows.length > 0) {
+        return txResult.rows[0].shop_id;
       }
-      
-      return result.rows[0].source_shop_id;
+
+      logger.warn('No home shop found for customer', { customerAddress });
+      return null;
     } catch (error) {
       logger.error('Error getting home shop:', error);
       throw new Error('Failed to get home shop');
@@ -525,7 +584,7 @@ export class ReferralRepository extends BaseRepository {
         WHERE customer_address = $1
         AND source_shop_id IS NOT NULL
         AND is_redeemable = true
-        ORDER BY created_at ASC
+        ORDER BY earned_at ASC
         LIMIT 1
       `;
       

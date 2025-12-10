@@ -51,13 +51,31 @@ router.post('/create',
   validateNumeric('amount', 1, 1000),
   async (req: Request, res: Response) => {
     try {
-      const { customerAddress, shopId, amount } = req.body;
+      const { customerAddress, shopId, amount, validateOnly } = req.body;
 
       // Verify shop authorization
       if (req.user?.role === 'shop' && req.user.shopId !== shopId) {
         return res.status(403).json({
           success: false,
           error: 'Unauthorized to create sessions for other shops'
+        });
+      }
+
+      // If validateOnly is true, just validate without creating a session
+      if (validateOnly) {
+        const { verificationService } = await import('../services/VerificationService');
+        const verification = await verificationService.verifyRedemption(customerAddress, shopId, amount);
+
+        return res.json({
+          success: true,
+          data: {
+            canRedeem: verification.canRedeem,
+            message: verification.message,
+            isHomeShop: verification.isHomeShop,
+            maxRedeemable: verification.maxRedeemable,
+            crossShopLimit: verification.crossShopLimit,
+            availableBalance: verification.availableBalance
+          }
         });
       }
 

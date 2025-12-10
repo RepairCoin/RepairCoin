@@ -1,4 +1,5 @@
 import { BaseRepository } from './BaseRepository';
+import { PoolClient } from 'pg';
 import { logger } from '../utils/logger';
 
 export interface RedemptionSessionData {
@@ -142,44 +143,58 @@ export class RedemptionSessionRepository extends BaseRepository {
     }
   }
 
+  /**
+   * Update session status - supports optional PoolClient for atomic transactions
+   * @param sessionId Session ID to update
+   * @param status New status
+   * @param signature Optional signature (for 'approved' status)
+   * @param client Optional PoolClient for transaction support
+   */
   async updateSessionStatus(
-    sessionId: string, 
+    sessionId: string,
     status: 'approved' | 'rejected' | 'used' | 'expired',
-    signature?: string
+    signature?: string,
+    client?: PoolClient
   ): Promise<void> {
     try {
       let query: string;
       let values: any[];
-      
+
       switch (status) {
         case 'approved':
           query = `
-            UPDATE redemption_sessions 
+            UPDATE redemption_sessions
             SET status = $1, approved_at = NOW(), signature = $2
             WHERE session_id = $3
           `;
           values = [status, signature || null, sessionId];
           break;
-          
+
         case 'used':
           query = `
-            UPDATE redemption_sessions 
+            UPDATE redemption_sessions
             SET status = $1, used_at = NOW()
             WHERE session_id = $2
           `;
           values = [status, sessionId];
           break;
-          
+
         default:
           query = `
-            UPDATE redemption_sessions 
+            UPDATE redemption_sessions
             SET status = $1
             WHERE session_id = $2
           `;
           values = [status, sessionId];
       }
-      
-      await this.pool.query(query, values);
+
+      // Use provided client for transaction support, or fall back to pool
+      if (client) {
+        await client.query(query, values);
+      } else {
+        await this.pool.query(query, values);
+      }
+
       logger.info('Updated redemption session status', { sessionId, status });
     } catch (error) {
       logger.error('Error updating session status:', error);
