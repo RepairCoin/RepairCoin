@@ -48,9 +48,13 @@ export const ServiceCalendarView: React.FC<ServiceCalendarViewProps> = ({ servic
       // Filter bookings for this specific service only
       const serviceBookings = data.filter(booking => booking.serviceId === serviceId);
       setAllBookings(serviceBookings);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading bookings:', error);
-      toast.error('Failed to load bookings');
+      if (error.response?.status === 401) {
+        toast.error('Please log in as a shop owner to view bookings');
+      } else {
+        toast.error('Failed to load bookings');
+      }
     } finally {
       setLoading(false);
     }

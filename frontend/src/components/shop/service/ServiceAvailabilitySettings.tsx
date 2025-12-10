@@ -67,9 +67,13 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
     try {
       const config = await appointmentsApi.getTimeSlotConfig();
       setTimeSlotConfig(config);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading time slot config:', error);
-      toast.error('Failed to load time slot configuration');
+      if (error.response?.status === 401) {
+        toast.error('Please log in as a shop owner to manage settings');
+      } else {
+        toast.error('Failed to load time slot configuration');
+      }
     }
   };
 
