@@ -1,4 +1,5 @@
 import { BaseRepository, PaginatedResult } from './BaseRepository';
+import { PoolClient } from 'pg';
 import { logger } from '../utils/logger';
 
 interface ShopData {
@@ -185,7 +186,13 @@ export class ShopRepository extends BaseRepository {
     }
   }
 
-  async updateShop(shopId: string, updates: Partial<ShopData>): Promise<void> {
+  /**
+   * Update shop data - supports optional PoolClient for atomic transactions
+   * @param shopId Shop ID to update
+   * @param updates Partial shop data to update
+   * @param client Optional PoolClient for transaction support
+   */
+  async updateShop(shopId: string, updates: Partial<ShopData>, client?: PoolClient): Promise<void> {
     const fields: string[] = [];
     const values: any[] = [];
     let paramCount = 0;
@@ -242,7 +249,7 @@ export class ShopRepository extends BaseRepository {
         if (value !== undefined && fieldMappings[key]) {
           paramCount++;
           fields.push(`${fieldMappings[key]} = $${paramCount}`);
-          
+
           if (key === 'walletAddress' || key === 'reimbursementAddress') {
             values.push(value ? (value as string).toLowerCase() : null);
           } else {
@@ -259,13 +266,20 @@ export class ShopRepository extends BaseRepository {
       values.push(shopId);
 
       query = `
-        UPDATE shops 
+        UPDATE shops
         SET ${fields.join(', ')}, updated_at = NOW()
         WHERE shop_id = $${paramCount}
       `;
 
       logger.info('Executing shop update query:', { query, values, shopId });
-      await this.pool.query(query, values);
+
+      // Use provided client for transaction support, or fall back to pool
+      if (client) {
+        await client.query(query, values);
+      } else {
+        await this.pool.query(query, values);
+      }
+
       logger.info('Shop updated successfully', { shopId });
     } catch (error) {
       logger.error('Error updating shop:', {

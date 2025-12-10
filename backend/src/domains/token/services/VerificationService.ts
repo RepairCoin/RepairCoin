@@ -457,7 +457,21 @@ export class VerificationService {
   private async isCustomerHomeShop(customerAddress: string, shopId: string): Promise<boolean> {
     try {
       const homeShop = await this.referralRepository.getHomeShop(customerAddress);
-      return homeShop === shopId;
+
+      // Case-insensitive comparison for shop IDs
+      const isMatch = homeShop !== null && homeShop.toLowerCase() === shopId.toLowerCase();
+
+      logger.info('Home shop comparison:', {
+        customerAddress,
+        requestedShopId: shopId,
+        requestedShopIdLower: shopId.toLowerCase(),
+        storedHomeShop: homeShop,
+        storedHomeShopLower: homeShop?.toLowerCase() || null,
+        isMatch,
+        strictMatch: homeShop === shopId
+      });
+
+      return isMatch;
 
     } catch (error) {
       logger.error('Error determining home shop:', error);

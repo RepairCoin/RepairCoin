@@ -78,6 +78,13 @@ export class RedemptionSessionService {
       throw new Error(`Shop has insufficient RCN balance to process this redemption. Shop available: ${shopBalance} RCN, requested: ${amount} RCN`);
     }
 
+    // Validate cross-shop redemption limit (20% at non-home shops)
+    const { verificationService } = await import('./VerificationService');
+    const verification = await verificationService.verifyRedemption(customerAddress, shopId, amount);
+    if (!verification.canRedeem) {
+      throw new Error(verification.message);
+    }
+
     // Check for existing pending sessions
     const existingSession = await redemptionSessionRepository.findPendingSessionForCustomer(customerAddress, shopId);
     if (existingSession) {
@@ -422,7 +429,89 @@ export class RedemptionSessionService {
   }
 
   /**
+   * Validate a session without consuming it (for atomic transaction support)
+   * Returns the session if valid, throws error if invalid
+   */
+  async validateSessionOnly(sessionId: string, shopId: string, amount: number): Promise<RedemptionSession> {
+    logger.info('Validating session (without consuming)', {
+      sessionId,
+      shopId,
+      amount
+    });
+
+    const session = await redemptionSessionRepository.getSession(sessionId);
+    if (!session) {
+      logger.error('Session not found during validation', { sessionId });
+      throw new Error('Session not found');
+    }
+
+    logger.info('Session found with details', {
+      sessionId: session.sessionId,
+      status: session.status,
+      usedAt: session.usedAt,
+      expiresAt: session.expiresAt,
+      shopId: session.shopId,
+      customerAddress: session.customerAddress
+    });
+
+    // Verify shop matches
+    if (session.shopId !== shopId) {
+      logger.error('Shop mismatch', { sessionShop: session.shopId, requestedShop: shopId });
+      throw new Error('Session is for a different shop');
+    }
+
+    // Check status
+    if (session.status !== 'approved') {
+      logger.error('Session status invalid', {
+        currentStatus: session.status,
+        expectedStatus: 'approved',
+        sessionId
+      });
+      throw new Error(`Session is ${session.status}, not approved`);
+    }
+
+    // Check if already used
+    if (session.usedAt) {
+      logger.error('Session already used', {
+        sessionId,
+        usedAt: session.usedAt
+      });
+      throw new Error('Session has already been used');
+    }
+
+    // Check expiry
+    if (session.expiresAt < new Date()) {
+      logger.error('Session has expired', {
+        sessionId,
+        expiresAt: session.expiresAt,
+        now: new Date()
+      });
+      throw new Error('Session has expired');
+    }
+
+    // Check amount
+    if (amount > session.maxAmount) {
+      logger.error('Amount exceeds session limit', {
+        requestedAmount: amount,
+        maxAmount: session.maxAmount,
+        sessionId
+      });
+      throw new Error(`Requested amount ${amount} exceeds session limit ${session.maxAmount}`);
+    }
+
+    logger.info('Session validated successfully (not consumed yet)', {
+      sessionId,
+      shopId,
+      amount,
+      customerAddress: session.customerAddress
+    });
+
+    return session;
+  }
+
+  /**
    * Validate and consume a session for redemption
+   * @deprecated Use validateSessionOnly + atomic transaction instead for better reliability
    */
   async validateAndConsumeSession(sessionId: string, shopId: string, amount: number): Promise<RedemptionSession> {
     logger.info('Attempting to validate and consume session', {
@@ -454,7 +543,7 @@ export class RedemptionSessionService {
 
     // Check status
     if (session.status !== 'approved') {
-      logger.error('Session status invalid', { 
+      logger.error('Session status invalid', {
         currentStatus: session.status,
         expectedStatus: 'approved',
         sessionId
@@ -464,7 +553,7 @@ export class RedemptionSessionService {
 
     // Check if already used
     if (session.usedAt) {
-      logger.error('Session already used', { 
+      logger.error('Session already used', {
         sessionId,
         usedAt: session.usedAt
       });
@@ -495,7 +584,7 @@ export class RedemptionSessionService {
     // Mark as used in database
     logger.info('Marking session as used', { sessionId });
     await redemptionSessionRepository.updateSessionStatus(sessionId, 'used');
-    
+
     // Update local object
     session.status = 'used';
     session.usedAt = new Date();

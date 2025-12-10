@@ -22,6 +22,7 @@ import { PromoCodeService } from '../../../services/PromoCodeService';
 import { PromoCodeRepository } from '../../../repositories/PromoCodeRepository';
 import rcgRoutes from './rcg';
 import { eventBus } from '../../../events/EventBus';
+import { getSharedPool } from '../../../utils/database-pool';
 
 interface ShopData {
   shopId: string;
@@ -1131,14 +1132,14 @@ router.post('/:shopId/redeem',
         });
       }
 
-      // Validate and consume redemption session (required for all redemptions)
+      // STEP 1: Validate session ONLY (don't consume yet - we'll do that atomically)
       const { redemptionSessionService } = await import('../../token/services/RedemptionSessionService');
-      let consumedSession;
+      let validatedSession;
       try {
-        consumedSession = await redemptionSessionService.validateAndConsumeSession(sessionId, shopId, amount);
-        logger.info('Redemption session validated and consumed', {
+        validatedSession = await redemptionSessionService.validateSessionOnly(sessionId, shopId, amount);
+        logger.info('Redemption session validated (not consumed yet)', {
           sessionId,
-          customerAddress: consumedSession.customerAddress,
+          customerAddress: validatedSession.customerAddress,
           shopId,
           amount,
           processedBy: req.user?.address
@@ -1150,7 +1151,7 @@ router.post('/:shopId/redeem',
         });
       }
 
-      // Use centralized verification service to check if redemption is allowed
+      // STEP 2: Use centralized verification service to check if redemption is allowed
       // This prevents market-bought RCN from being redeemed at shops
       const { verificationService } = await import('../../token/services/VerificationService');
       const verification = await verificationService.verifyRedemption(
@@ -1172,22 +1173,23 @@ router.post('/:shopId/redeem',
         });
       }
 
-      // Now process the actual redemption with smart token prioritization
+      // STEP 3: Process blockchain operations BEFORE the atomic transaction
+      // (Blockchain operations can't be rolled back, so we do them first and handle failures gracefully)
       let amountFromBlockchain = 0;
       let amountFromDatabase = 0;
       let transactionHash = '';
       let burnSuccessful = false;
-      
+
       try {
         const blockchainEnabled = process.env.ENABLE_BLOCKCHAIN_MINTING === 'true';
         if (blockchainEnabled) {
           const onChainBalance = await getTokenMinter().getCustomerBalance(customerAddress);
-          
+
           if (onChainBalance && onChainBalance > 0) {
             // Calculate how much to burn from blockchain vs database
             amountFromBlockchain = Math.min(onChainBalance, amount);
             amountFromDatabase = amount - amountFromBlockchain;
-            
+
             // Burn available blockchain tokens
             const BURN_ADDRESS = '0x000000000000000000000000000000000000dEaD';
             const burnResult = await getTokenMinter().burnTokensFromCustomer(
@@ -1196,11 +1198,11 @@ router.post('/:shopId/redeem',
               BURN_ADDRESS,
               `Redemption at ${shop.name}`
             );
-            
+
             if (burnResult.success) {
               burnSuccessful = true;
               transactionHash = burnResult.transactionHash || '';
-              
+
               logger.info('Tokens burned from blockchain during redemption', {
                 customerAddress,
                 blockchainAmount: amountFromBlockchain,
@@ -1236,62 +1238,120 @@ router.post('/:shopId/redeem',
         amountFromDatabase = amount;
       }
 
-      // Only record database transaction if we're deducting from database balance
-      if (amountFromDatabase > 0) {
-        const transactionRecord = {
-          id: `redeem_${Date.now()}`,
-          type: 'redeem' as const,
-          customerAddress: customerAddress.toLowerCase(),
-          shopId,
-          amount: amountFromDatabase, // Only deduct the database portion
-          reason: `Redemption at ${shop.name}`,
-          transactionHash,
-          timestamp: new Date().toISOString(),
-          status: 'confirmed' as const,
-          metadata: {
-            repairAmount: amount,
-            referralId: undefined,
-            engagementType: 'redemption',
-            redemptionLocation: shop.name,
-            webhookId: `redeem_${Date.now()}`,
-            burnSuccessful,
-            notes: notes || undefined,
-            redemptionFlow: 'session-based',
-            customerPresent: customerPresent === true,
-            sessionId: sessionId,
-            amountFromBlockchain,
-            amountFromDatabase,
-            redemptionStrategy: amountFromBlockchain > 0 ? (amountFromDatabase > 0 ? 'hybrid' : 'blockchain_only') : 'database_only'
-          }
-        };
+      // STEP 4: ATOMIC TRANSACTION - Record transaction, update shop stats, and mark session as used
+      // All these operations happen together or none of them do
+      const pool = getSharedPool();
+      const dbClient = await pool.connect();
 
-        await transactionRepository.recordTransaction(transactionRecord);
-      } else {
-        // Pure blockchain redemption - no database transaction needed
-        logger.info('Pure blockchain redemption completed, no database transaction recorded', {
+      try {
+        await dbClient.query('BEGIN');
+
+        logger.info('Starting atomic redemption transaction', {
           sessionId,
           customerAddress,
+          shopId,
           amount,
-          transactionHash
+          amountFromDatabase,
+          amountFromBlockchain
         });
+
+        // 4a. Record the redemption transaction (if database deduction needed)
+        if (amountFromDatabase > 0) {
+          const transactionRecord = {
+            id: `redeem_${Date.now()}`,
+            type: 'redeem' as const,
+            customerAddress: customerAddress.toLowerCase(),
+            shopId,
+            amount: amountFromDatabase,
+            reason: `Redemption at ${shop.name}`,
+            transactionHash,
+            timestamp: new Date().toISOString(),
+            status: 'confirmed' as const,
+            metadata: {
+              repairAmount: amount,
+              referralId: undefined,
+              engagementType: 'redemption',
+              redemptionLocation: shop.name,
+              webhookId: `redeem_${Date.now()}`,
+              burnSuccessful,
+              notes: notes || undefined,
+              redemptionFlow: 'session-based',
+              customerPresent: customerPresent === true,
+              sessionId: sessionId,
+              amountFromBlockchain,
+              amountFromDatabase,
+              redemptionStrategy: amountFromBlockchain > 0 ? (amountFromDatabase > 0 ? 'hybrid' : 'blockchain_only') : 'database_only'
+            }
+          };
+
+          await transactionRepository.recordTransaction(transactionRecord, dbClient);
+          logger.info('Transaction recorded within atomic transaction', { sessionId });
+        }
+
+        // 4b. Update shop statistics
+        const previousShopBalance = shop.purchasedRcnBalance || 0;
+        const newShopBalance = previousShopBalance + amount;
+
+        await shopRepository.updateShop(shopId, {
+          totalRedemptions: (shop.totalRedemptions || 0) + amount,
+          purchasedRcnBalance: newShopBalance,
+          lastActivity: new Date().toISOString()
+        }, dbClient);
+
+        logger.info('Shop statistics updated within atomic transaction', {
+          shopId,
+          previousBalance: previousShopBalance,
+          newBalance: newShopBalance
+        });
+
+        // 4c. Mark session as used ONLY after transaction and stats are recorded
+        await redemptionSessionRepository.updateSessionStatus(sessionId, 'used', undefined, dbClient);
+        logger.info('Session marked as used within atomic transaction', { sessionId });
+
+        // COMMIT the transaction - all operations succeed together
+        await dbClient.query('COMMIT');
+
+        logger.info('Atomic redemption transaction committed successfully', {
+          sessionId,
+          customerAddress,
+          shopId,
+          amount
+        });
+
+      } catch (atomicError) {
+        // ROLLBACK - if any operation fails, none of them take effect
+        await dbClient.query('ROLLBACK');
+
+        logger.error('Atomic redemption transaction failed, rolling back', {
+          sessionId,
+          customerAddress,
+          shopId,
+          amount,
+          error: atomicError instanceof Error ? atomicError.message : 'Unknown error'
+        });
+
+        // Note: If blockchain burn succeeded but database failed, we log this critical situation
+        // The tokens are burned but not recorded - this needs manual reconciliation
+        if (burnSuccessful && amountFromBlockchain > 0) {
+          logger.error('CRITICAL: Blockchain burn succeeded but database transaction failed', {
+            sessionId,
+            customerAddress,
+            amountBurned: amountFromBlockchain,
+            transactionHash,
+            requiresManualReconciliation: true
+          });
+        }
+
+        throw atomicError;
+      } finally {
+        dbClient.release();
       }
-
-      // Update shop statistics and credit shop's operational RCN balance
-      // When customer redeems RCN, the shop receives those tokens back into their balance
-      const previousShopBalance = shop.purchasedRcnBalance || 0;
-      const newShopBalance = previousShopBalance + amount;
-
-      await shopRepository.updateShop(shopId, {
-        totalRedemptions: (shop.totalRedemptions || 0) + amount,
-        purchasedRcnBalance: newShopBalance,
-        lastActivity: new Date().toISOString()
-      });
 
       logger.info('Shop balance credited from redemption', {
         shopId,
-        previousBalance: previousShopBalance,
+        previousBalance: shop.purchasedRcnBalance || 0,
         creditedAmount: amount,
-        newBalance: newShopBalance
+        newBalance: (shop.purchasedRcnBalance || 0) + amount
       });
 
       // Note: Customer is automatically added to shop's customer list via the redeem transaction
