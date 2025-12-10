@@ -13,17 +13,30 @@ import { useLocalSearchParams, router } from "expo-router";
 import { Calendar, DateData } from "react-native-calendars";
 import { useService } from "@/hooks/service/useService";
 import { useBooking } from "@/hooks/booking/useBooking";
+import { useAppointment } from "@/hooks/appointment/useAppointment";
 
 export default function CompleteBooking() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { useGetService } = useService();
   const { useCreateBookingMutation } = useBooking();
+  const { useAvailableTimeSlotsQuery } = useAppointment();
   const { data: serviceData, isLoading, error } = useGetService(id!);
   const createBookingMutation = useCreateBookingMutation();
 
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [notes] = useState("");
+
+  // Fetch available time slots when date is selected
+  const {
+    data: timeSlots,
+    isLoading: isLoadingSlots,
+    error: slotsError,
+  } = useAvailableTimeSlotsQuery(
+    serviceData?.shopId || "",
+    id!,
+    selectedDate
+  );
 
   // Get today's date in YYYY-MM-DD format for calendar
   const today = useMemo(() => {
@@ -35,16 +48,6 @@ export default function CompleteBooking() {
     const date = new Date();
     date.setDate(date.getDate() + 30);
     return date.toISOString().split("T")[0];
-  }, []);
-
-  // Generate time slots (9 AM to 6 PM, 30-minute intervals)
-  const timeSlots = useMemo(() => {
-    const slots: string[] = [];
-    for (let hour = 9; hour < 18; hour++) {
-      slots.push(`${hour.toString().padStart(2, "0")}:00`);
-      slots.push(`${hour.toString().padStart(2, "0")}:30`);
-    }
-    return slots;
   }, []);
 
   const formatDateFull = (dateString: string) => {
@@ -195,35 +198,67 @@ export default function CompleteBooking() {
               <Text className="text-gray-400 text-sm mb-4">
                 {formatDateFull(selectedDate)}
               </Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                className="-mx-4"
-                contentContainerStyle={{ paddingHorizontal: 16 }}
-              >
-                {timeSlots.map((time, index) => {
-                  const isSelected = selectedTime === time;
-                  return (
-                    <TouchableOpacity
-                      key={index}
-                      onPress={() => setSelectedTime(time)}
-                      className={`mr-3 px-5 py-3 rounded-xl ${
-                        isSelected
-                          ? "bg-[#FFCC00]"
-                          : "bg-zinc-900 border border-zinc-800"
-                      }`}
-                    >
-                      <Text
-                        className={`text-sm font-semibold ${
-                          isSelected ? "text-black" : "text-white"
+
+              {isLoadingSlots ? (
+                <View className="py-8 items-center">
+                  <ActivityIndicator size="small" color="#FFCC00" />
+                  <Text className="text-gray-400 text-sm mt-2">
+                    Loading available times...
+                  </Text>
+                </View>
+              ) : slotsError ? (
+                <View className="py-8 items-center">
+                  <Feather name="alert-circle" size={24} color="#ef4444" />
+                  <Text className="text-gray-400 text-sm mt-2">
+                    Failed to load time slots
+                  </Text>
+                </View>
+              ) : timeSlots && timeSlots.length > 0 ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  className="-mx-4"
+                  contentContainerStyle={{ paddingHorizontal: 16 }}
+                >
+                  {timeSlots.map((slot, index) => {
+                    const isSelected = selectedTime === slot.time;
+                    const isAvailable = slot.available;
+                    return (
+                      <TouchableOpacity
+                        key={index}
+                        onPress={() => isAvailable && setSelectedTime(slot.time)}
+                        disabled={!isAvailable}
+                        className={`mr-3 px-5 py-3 rounded-xl ${
+                          isSelected
+                            ? "bg-[#FFCC00]"
+                            : isAvailable
+                            ? "bg-zinc-900 border border-zinc-800"
+                            : "bg-zinc-900/50 border border-zinc-800/50"
                         }`}
                       >
-                        {formatTime12Hour(time)}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+                        <Text
+                          className={`text-sm font-semibold ${
+                            isSelected
+                              ? "text-black"
+                              : isAvailable
+                              ? "text-white"
+                              : "text-gray-600"
+                          }`}
+                        >
+                          {formatTime12Hour(slot.time)}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              ) : (
+                <View className="py-8 items-center">
+                  <Ionicons name="calendar-outline" size={24} color="#666" />
+                  <Text className="text-gray-400 text-sm mt-2">
+                    No available times for this date
+                  </Text>
+                </View>
+              )}
             </View>
           )}
         </View>

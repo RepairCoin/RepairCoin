@@ -81,6 +81,17 @@ export const queryKeys = {
 
   // Booking related
   bookings: (filters?: BookingFilters) => [...queryKeys.all, 'bookings', filters] as const,
+
+  // Appointment related
+  appointments: () => [...queryKeys.all, 'appointments'] as const,
+  availableTimeSlots: (shopId: string, serviceId: string, date: string) =>
+    [...queryKeys.appointments(), 'timeSlots', shopId, serviceId, date] as const,
+  shopAvailability: (shopId: string) => [...queryKeys.appointments(), 'availability', shopId] as const,
+  timeSlotConfig: () => [...queryKeys.appointments(), 'config'] as const,
+  dateOverrides: (startDate?: string, endDate?: string) =>
+    [...queryKeys.appointments(), 'overrides', { startDate, endDate }] as const,
+  shopCalendar: (startDate: string, endDate: string) =>
+    [...queryKeys.appointments(), 'calendar', startDate, endDate] as const,
 } as const;
 
 export type QueryKeys = typeof queryKeys;
