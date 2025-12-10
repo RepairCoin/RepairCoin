@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
+import Image from 'next/image';
 
 // Dynamically import the 3D model component with no SSR
 const RepairCoin3DModel = dynamic(
@@ -23,9 +24,27 @@ const RepairCoin3DModel = dynamic(
 
 const WhatIsRepairCoin = React.memo(function WhatIsRepairCoin() {
   const [shouldLoad3D, setShouldLoad3D] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const sectionRef = useRef<HTMLDivElement>(null);
 
+  // Detect mobile devices to show static image instead of 3D model
   useEffect(() => {
+    const checkMobile = () => {
+      // Check screen width and also device capabilities
+      const isSmallScreen = window.innerWidth < 1024;
+      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      setIsMobile(isSmallScreen || isTouchDevice);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  useEffect(() => {
+    // Skip 3D loading on mobile
+    if (isMobile) return;
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -43,10 +62,10 @@ const WhatIsRepairCoin = React.memo(function WhatIsRepairCoin() {
     }
 
     return () => observer.disconnect();
-  }, []);
+  }, [isMobile]);
 
   return (
-    <section ref={sectionRef} className="relative bg-[#191919] w-full my-32">
+    <section ref={sectionRef} className="relative bg-[#191919] w-full my-4">
       <div className="max-w-7xl mx-auto px-4 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
           {/* Left Content */}
@@ -62,8 +81,21 @@ const WhatIsRepairCoin = React.memo(function WhatIsRepairCoin() {
             </p>
           </div>
 
-          {/* Right Content - 3D Coin Model (lazy loaded when in viewport) */}
-          {shouldLoad3D ? (
+          {/* Right Content - Static image on mobile, 3D model on desktop */}
+          {isMobile ? (
+            // Static image for mobile devices - much better performance
+            <div className="relative h-[300px] sm:h-[350px] flex items-center justify-center">
+              <div className="relative w-56 h-56 sm:w-72 sm:h-72">
+                <Image
+                  src="/img/landing/repaircoin-icon.png"
+                  alt="RepairCoin Token"
+                  fill
+                  className="object-contain drop-shadow-[0_0_30px_rgba(255,204,0,0.3)]"
+                  priority
+                />
+              </div>
+            </div>
+          ) : shouldLoad3D ? (
             <RepairCoin3DModel />
           ) : (
             <div className="relative h-[350px] lg:h-[500px] flex items-center justify-center">
