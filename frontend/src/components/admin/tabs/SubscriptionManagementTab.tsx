@@ -80,6 +80,14 @@ export default function SubscriptionManagementTab() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Force scrollbar to prevent layout shift when content changes
+  useEffect(() => {
+    document.documentElement.style.overflowY = 'scroll';
+    return () => {
+      document.documentElement.style.overflowY = '';
+    };
+  }, []);
+
   // Modal states
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
   const [showApproveModal, setShowApproveModal] = useState(false);
@@ -833,7 +841,7 @@ export default function SubscriptionManagementTab() {
           </div>
 
           {/* Filter Tabs */}
-          <div className="mt-4 -mx-4 md:-mx-6 px-4 md:px-6 overflow-x-auto scrollbar-hide">
+          <div className="mt-4 -mx-4 md:-mx-6 px-4 md:px-6 overflow-x-auto scrollbar-hide overflow-y-hidden">
             <Tabs value={filterStatus} onValueChange={setFilterStatus} className="w-full">
               <TabsList className="bg-[#1A1A1A] h-auto p-1 gap-0.5 sm:gap-1 rounded-lg inline-flex min-w-max sm:w-full sm:grid sm:grid-cols-6">
                 <TabsTrigger
