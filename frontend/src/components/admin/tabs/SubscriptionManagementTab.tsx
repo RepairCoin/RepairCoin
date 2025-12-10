@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardHeader } from "@/components/ui/DashboardHeader";
 import {
   CreditCard,
@@ -818,21 +819,8 @@ export default function SubscriptionManagementTab() {
               />
             </div>
 
-            {/* Filter and Sync */}
-            <div className="flex gap-2 sm:gap-3">
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-[#FFCC00] border border-gray-600 rounded-3xl text-black focus:outline-none focus:border-yellow-400 text-sm"
-              >
-                <option value="all">All Subscriptions</option>
-                <option value="active">Active</option>
-                <option value="pending">Pending</option>
-                <option value="paused">Paused</option>
-                <option value="overdue">Overdue</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-
+            {/* Filter Tabs and Sync */}
+            <div className="flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
               <button
                 onClick={handleSync}
                 disabled={syncing || loading}
@@ -842,6 +830,50 @@ export default function SubscriptionManagementTab() {
                 <span className="hidden sm:inline">{syncing ? "Syncing..." : "Sync Stripe"}</span>
               </button>
             </div>
+          </div>
+
+          {/* Filter Tabs */}
+          <div className="mt-4 -mx-4 md:-mx-6 px-4 md:px-6 overflow-x-auto scrollbar-hide">
+            <Tabs value={filterStatus} onValueChange={setFilterStatus} className="w-full">
+              <TabsList className="bg-[#1A1A1A] h-auto p-1 gap-0.5 sm:gap-1 rounded-lg inline-flex min-w-max sm:w-full sm:grid sm:grid-cols-6">
+                <TabsTrigger
+                  value="all"
+                  className="rounded-md data-[state=active]:bg-[#3D3D3D] data-[state=active]:text-white data-[state=active]:shadow-none bg-transparent text-gray-400 hover:text-gray-200 hover:bg-[#2A2A2A] text-xs sm:text-sm px-3 sm:px-4 py-2 transition-all whitespace-nowrap"
+                >
+                  All
+                </TabsTrigger>
+                <TabsTrigger
+                  value="active"
+                  className="rounded-md data-[state=active]:bg-[#3D3D3D] data-[state=active]:text-white data-[state=active]:shadow-none bg-transparent text-gray-400 hover:text-gray-200 hover:bg-[#2A2A2A] text-xs sm:text-sm px-3 sm:px-4 py-2 transition-all whitespace-nowrap"
+                >
+                  Active
+                </TabsTrigger>
+                <TabsTrigger
+                  value="pending"
+                  className="rounded-md data-[state=active]:bg-[#3D3D3D] data-[state=active]:text-white data-[state=active]:shadow-none bg-transparent text-gray-400 hover:text-gray-200 hover:bg-[#2A2A2A] text-xs sm:text-sm px-3 sm:px-4 py-2 transition-all whitespace-nowrap"
+                >
+                  Pending
+                </TabsTrigger>
+                <TabsTrigger
+                  value="paused"
+                  className="rounded-md data-[state=active]:bg-[#3D3D3D] data-[state=active]:text-white data-[state=active]:shadow-none bg-transparent text-gray-400 hover:text-gray-200 hover:bg-[#2A2A2A] text-xs sm:text-sm px-3 sm:px-4 py-2 transition-all whitespace-nowrap"
+                >
+                  Paused
+                </TabsTrigger>
+                <TabsTrigger
+                  value="overdue"
+                  className="rounded-md data-[state=active]:bg-[#3D3D3D] data-[state=active]:text-white data-[state=active]:shadow-none bg-transparent text-gray-400 hover:text-gray-200 hover:bg-[#2A2A2A] text-xs sm:text-sm px-3 sm:px-4 py-2 transition-all whitespace-nowrap"
+                >
+                  Overdue
+                </TabsTrigger>
+                <TabsTrigger
+                  value="cancelled"
+                  className="rounded-md data-[state=active]:bg-[#3D3D3D] data-[state=active]:text-white data-[state=active]:shadow-none bg-transparent text-gray-400 hover:text-gray-200 hover:bg-[#2A2A2A] text-xs sm:text-sm px-3 sm:px-4 py-2 transition-all whitespace-nowrap"
+                >
+                  Cancelled
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
         </div>
 
