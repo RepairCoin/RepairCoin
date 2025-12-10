@@ -424,4 +424,99 @@ export class AppointmentRepository extends BaseRepository {
       throw new Error('Failed to get shop calendar');
     }
   }
+
+  // ==================== CUSTOMER APPOINTMENTS ====================
+
+  async getCustomerAppointments(customerAddress: string, startDate: string, endDate: string): Promise<CalendarBooking[]> {
+    try {
+      const query = `
+        SELECT
+          so.order_id as "orderId",
+          so.shop_id as "shopId",
+          so.service_id as "serviceId",
+          so.service_name as "serviceName",
+          so.customer_address as "customerAddress",
+          c.name as "customerName",
+          so.booking_date as "bookingDate",
+          so.booking_time_slot as "bookingTimeSlot",
+          so.booking_end_time as "bookingEndTime",
+          so.status,
+          so.total_amount as "totalAmount",
+          so.notes,
+          so.created_at as "createdAt"
+        FROM service_orders so
+        LEFT JOIN customers c ON c.wallet_address = so.customer_address
+        WHERE so.customer_address = $1
+          AND so.booking_date >= $2
+          AND so.booking_date <= $3
+          AND so.booking_time_slot IS NOT NULL
+        ORDER BY so.booking_date, so.booking_time_slot
+      `;
+
+      const result = await this.pool.query(query, [customerAddress.toLowerCase(), startDate, endDate]);
+      return result.rows;
+    } catch (error) {
+      logger.error('Error getting customer appointments:', error);
+      throw new Error('Failed to get customer appointments');
+    }
+  }
+
+  async cancelAppointment(orderId: string, customerAddress: string): Promise<boolean> {
+    try {
+      // First, check if the order belongs to the customer and get booking details
+      const checkQuery = `
+        SELECT booking_date, booking_time_slot, status, customer_address
+        FROM service_orders
+        WHERE order_id = $1
+      `;
+
+      const checkResult = await this.pool.query(checkQuery, [orderId]);
+
+      if (checkResult.rows.length === 0) {
+        throw new Error('Order not found');
+      }
+
+      const order = checkResult.rows[0];
+
+      // Verify ownership
+      if (order.customer_address.toLowerCase() !== customerAddress.toLowerCase()) {
+        throw new Error('Unauthorized to cancel this appointment');
+      }
+
+      // Check if already cancelled
+      if (order.status === 'cancelled') {
+        throw new Error('Appointment is already cancelled');
+      }
+
+      // Check if completed
+      if (order.status === 'completed') {
+        throw new Error('Cannot cancel a completed appointment');
+      }
+
+      // Check 24-hour cancellation policy
+      if (order.booking_date && order.booking_time_slot) {
+        const bookingDateTime = new Date(`${order.booking_date} ${order.booking_time_slot}`);
+        const now = new Date();
+        const hoursUntil = (bookingDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+        if (hoursUntil < 24) {
+          throw new Error('Appointments must be cancelled at least 24 hours in advance');
+        }
+      }
+
+      // Cancel the appointment
+      const cancelQuery = `
+        UPDATE service_orders
+        SET status = 'cancelled', updated_at = NOW()
+        WHERE order_id = $1
+      `;
+
+      await this.pool.query(cancelQuery, [orderId]);
+
+      return true;
+    } catch (error) {
+      logger.error('Error cancelling appointment:', error);
+      throw error;
+    }
+  }
 }

@@ -182,5 +182,26 @@ export const appointmentsApi = {
       { durationMinutes },
       { withCredentials: true }
     );
+  },
+
+  // Customer: Get customer's appointments
+  async getCustomerAppointments(startDate: string, endDate: string): Promise<CalendarBooking[]> {
+    const response = await axios.get<{ success: boolean; data: CalendarBooking[] }>(
+      `${API_URL}/services/appointments/my-appointments`,
+      {
+        params: { startDate, endDate },
+        withCredentials: true
+      }
+    );
+    return response.data.data;
+  },
+
+  // Customer: Cancel appointment
+  async cancelAppointment(orderId: string): Promise<void> {
+    await axios.post(
+      `${API_URL}/services/appointments/cancel/${orderId}`,
+      {},
+      { withCredentials: true }
+    );
   }
 };

@@ -14,6 +14,7 @@ import { TokenGiftingTab } from "@/components/customer/TokenGiftingTab";
 import { SuspensionBanner } from "@/components/customer/SuspensionBanner";
 import { ServiceMarketplaceClient } from "@/components/customer/ServiceMarketplaceClient";
 import { ServiceOrdersTab } from "@/components/customer/ServiceOrdersTab";
+import { AppointmentsTab } from "@/components/customer/AppointmentsTab";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 
 const client = createThirdwebClient({
@@ -29,7 +30,7 @@ export default function CustomerDashboardClient() {
   const { isAuthenticated, userType, isLoading: authLoading, userProfile } = useAuthStore();
   const [authInitialized, setAuthInitialized] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    "overview" | "marketplace" | "orders" | "referrals" | "approvals" | "findshop" | "gifting" | "settings"
+    "overview" | "marketplace" | "orders" | "appointments" | "referrals" | "approvals" | "findshop" | "gifting" | "settings"
   >("overview");
 
   // Mark auth as initialized once authentication has been attempted
@@ -168,6 +169,9 @@ export default function CustomerDashboardClient() {
 
           {/* Orders Tab */}
           {activeTab === "orders" && <ServiceOrdersTab />}
+
+          {/* Appointments Tab */}
+          {activeTab === "appointments" && <AppointmentsTab />}
 
           {/* Referrals Tab */}
           {activeTab === "referrals" && <ReferralDashboard />}

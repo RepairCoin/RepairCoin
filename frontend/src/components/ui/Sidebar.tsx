@@ -28,6 +28,7 @@ import {
   BarChart3,
   UserPlus,
   CheckCircle,
+  Calendar,
 } from "lucide-react";
 import {
   IssueRewardsIcon,
@@ -173,6 +174,12 @@ const Sidebar: React.FC<SidebarProps> = ({
           href: "/customer?tab=orders",
           icon: <Receipt className="w-5 h-5" />,
           tabId: "orders",
+        },
+        {
+          title: "Appointments",
+          href: "/customer?tab=appointments",
+          icon: <Calendar className="w-5 h-5" />,
+          tabId: "appointments",
         },
         {
           title: "Referrals",

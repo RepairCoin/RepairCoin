@@ -349,4 +349,71 @@ export class AppointmentController {
       });
     }
   };
+
+  /**
+   * Get customer's appointments (Customer only)
+   * GET /api/services/appointments/my-appointments
+   */
+  getCustomerAppointments = async (req: Request, res: Response) => {
+    try {
+      const customerAddress = req.user?.address;
+      if (!customerAddress) {
+        return res.status(401).json({ success: false, error: 'Customer authentication required' });
+      }
+
+      const { startDate, endDate } = req.query;
+
+      if (!startDate || !endDate) {
+        return res.status(400).json({
+          success: false,
+          error: 'startDate and endDate are required'
+        });
+      }
+
+      const appointments = await this.appointmentRepo.getCustomerAppointments(
+        customerAddress,
+        startDate as string,
+        endDate as string
+      );
+
+      res.json({
+        success: true,
+        data: appointments
+      });
+    } catch (error: unknown) {
+      logger.error('Error in getCustomerAppointments controller:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get customer appointments'
+      });
+    }
+  };
+
+  /**
+   * Cancel appointment (Customer only)
+   * POST /api/services/appointments/cancel/:orderId
+   */
+  cancelCustomerAppointment = async (req: Request, res: Response) => {
+    try {
+      const customerAddress = req.user?.address;
+      if (!customerAddress) {
+        return res.status(401).json({ success: false, error: 'Customer authentication required' });
+      }
+
+      const { orderId } = req.params;
+
+      await this.appointmentRepo.cancelAppointment(orderId, customerAddress);
+
+      res.json({
+        success: true,
+        message: 'Appointment cancelled successfully'
+      });
+    } catch (error: unknown) {
+      logger.error('Error in cancelCustomerAppointment controller:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to cancel appointment'
+      });
+    }
+  };
 }

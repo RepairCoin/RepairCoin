@@ -1528,6 +1528,67 @@ export function initializeRoutes(stripe: StripeService): Router {
     appointmentController.updateServiceDuration
   );
 
+  /**
+   * @swagger
+   * /api/services/appointments/my-appointments:
+   *   get:
+   *     summary: Get customer's appointments (Customer only)
+   *     description: Get all appointments for authenticated customer
+   *     tags: [Appointments]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: startDate
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: date
+   *       - in: query
+   *         name: endDate
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: date
+   *     responses:
+   *       200:
+   *         description: List of customer appointments
+   */
+  router.get(
+    '/appointments/my-appointments',
+    authMiddleware,
+    requireRole(['customer']),
+    appointmentController.getCustomerAppointments
+  );
+
+  /**
+   * @swagger
+   * /api/services/appointments/cancel/:orderId:
+   *   post:
+   *     summary: Cancel appointment (Customer only)
+   *     description: Cancel an appointment (must be 24+ hours before booking time)
+   *     tags: [Appointments]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: orderId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Appointment cancelled
+   *       400:
+   *         description: Cannot cancel (too late or invalid status)
+   */
+  router.post(
+    '/appointments/cancel/:orderId',
+    authMiddleware,
+    requireRole(['customer']),
+    appointmentController.cancelCustomerAppointment
+  );
+
   return router;
 }
 
