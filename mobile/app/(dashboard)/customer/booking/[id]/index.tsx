@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import {
   View,
   Text,
@@ -6,26 +6,50 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { AntDesign, Feather, Ionicons } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useLocalSearchParams, router } from "expo-router";
-import { Calendar, DateData } from "react-native-calendars";
+import { DateData } from "react-native-calendars";
+import { useStripe } from "@stripe/stripe-react-native";
+import { useQueryClient } from "@tanstack/react-query";
 import { useService } from "@/hooks/service/useService";
 import { useBooking } from "@/hooks/booking/useBooking";
 import { useAppointment } from "@/hooks/appointment/useAppointment";
+import { useBalance } from "@/hooks/balance/useBalance";
+import { useAuthStore } from "@/store/auth.store";
+import { queryKeys } from "@/config/queryClient";
+import ScheduleScreen from "./ScheduleScreen";
+import DiscountScreen from "./DiscountScreen";
+import PaymentScreen from "./PaymentScreen";
+
+type BookingStep = "schedule" | "discount" | "payment";
 
 export default function CompleteBooking() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { userProfile } = useAuthStore();
+  const queryClient = useQueryClient();
   const { useGetService } = useService();
   const { useCreateBookingMutation } = useBooking();
   const { useAvailableTimeSlotsQuery } = useAppointment();
+  const { confirmPayment } = useStripe();
   const { data: serviceData, isLoading, error } = useGetService(id!);
+  const { data: balanceData } = useBalance(userProfile?.address || "");
   const createBookingMutation = useCreateBookingMutation();
 
+  const [currentStep, setCurrentStep] = useState<BookingStep>("schedule");
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [rcnToRedeem, setRcnToRedeem] = useState<string>("");
   const [notes] = useState("");
+
+  // Payment states
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [cardComplete, setCardComplete] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   // Fetch available time slots when date is selected
   const {
@@ -38,43 +62,33 @@ export default function CompleteBooking() {
     selectedDate
   );
 
-  // Get today's date in YYYY-MM-DD format for calendar
-  const today = useMemo(() => {
-    return new Date().toISOString().split("T")[0];
-  }, []);
+  // Calculate RCN values
+  // 1 RCN = $0.10 discount, max 20 RCN can be redeemed
+  const MAX_RCN_DISCOUNT = 20;
+  const RCN_TO_USD = 0.10;
+  const availableRcn = balanceData?.totalBalance || 0;
+  const rcnValue = parseFloat(rcnToRedeem) || 0;
+  const rcnDiscount = rcnValue * RCN_TO_USD;
+  const servicePrice = serviceData?.priceUsd || 0;
 
-  // Get max date (30 days from now)
-  const maxDate = useMemo(() => {
-    const date = new Date();
-    date.setDate(date.getDate() + 30);
-    return date.toISOString().split("T")[0];
-  }, []);
-
-  const formatDateFull = (dateString: string) => {
-    const date = new Date(dateString + "T00:00:00");
-    return date.toLocaleDateString("en-US", {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
+  // Max RCN is the minimum of: available balance, 20 RCN limit, or amount that equals service price
+  const maxRcnRedeemable = Math.min(
+    availableRcn,
+    MAX_RCN_DISCOUNT,
+    servicePrice / RCN_TO_USD
+  );
+  const finalPrice = Math.max(0, servicePrice - rcnDiscount);
 
   const handleDayPress = (day: DateData) => {
     setSelectedDate(day.dateString);
-    setSelectedTime(null); // Reset time when date changes
+    setSelectedTime(null);
   };
 
-  const formatTime12Hour = (time: string) => {
-    const [hours, minutes] = time.split(":");
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const hour12 = hour % 12 || 12;
-    return `${hour12}:${minutes} ${ampm}`;
+  const handleTimeSelect = (time: string) => {
+    setSelectedTime(time);
   };
 
-
-  const handleBookNow = async () => {
+  const handleContinueToDiscount = () => {
     if (!selectedDate || !selectedTime) {
       Alert.alert(
         "Select Appointment",
@@ -82,30 +96,151 @@ export default function CompleteBooking() {
       );
       return;
     }
+    setCurrentStep("discount");
+  };
 
+  const handleContinueToPayment = async () => {
     try {
-      await createBookingMutation.mutateAsync({
+      const response: any = await createBookingMutation.mutateAsync({
         serviceId: id!,
         bookingDate: selectedDate,
-        bookingTime: selectedTime,
+        bookingTime: selectedTime!,
+        rcnToRedeem: rcnValue > 0 ? rcnValue : undefined,
         notes: notes || undefined,
       });
 
-      Alert.alert(
-        "Booking Created",
-        "Your booking has been created successfully!",
-        [
-          {
-            text: "View Bookings",
-            onPress: () => router.replace("/customer/tabs/service/tabs/bookings" as any),
-          },
-        ]
-      );
+      if (response?.clientSecret) {
+        setClientSecret(response.clientSecret);
+        setCurrentStep("payment");
+      } else {
+        // If no payment required (free after discount), booking is complete
+        if (userProfile?.address) {
+          await queryClient.invalidateQueries({ queryKey: ["balance"] });
+          await queryClient.invalidateQueries({
+            queryKey: queryKeys.customerProfile(userProfile.address),
+          });
+          await queryClient.invalidateQueries({
+            queryKey: queryKeys.bookings(),
+          });
+        }
+
+        Alert.alert(
+          "Booking Created",
+          "Your booking has been created successfully!",
+          [
+            {
+              text: "View Bookings",
+              onPress: () => router.replace("/customer/tabs/service/tabs/bookings" as any),
+            },
+          ]
+        );
+      }
     } catch (err: any) {
       Alert.alert(
         "Booking Failed",
         err.message || "Failed to create booking. Please try again."
       );
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep === "payment") {
+      setCurrentStep("discount");
+      setPaymentError(null);
+    } else if (currentStep === "discount") {
+      setCurrentStep("schedule");
+    } else {
+      goBack();
+    }
+  };
+
+  const handleRcnChange = (value: string) => {
+    const numValue = parseFloat(value) || 0;
+    if (numValue > maxRcnRedeemable) {
+      setRcnToRedeem(maxRcnRedeemable.toString());
+    } else {
+      setRcnToRedeem(value);
+    }
+  };
+
+  const handleMaxRcn = () => {
+    setRcnToRedeem(maxRcnRedeemable.toFixed(2));
+  };
+
+  const handleCardChange = (complete: boolean) => {
+    setCardComplete(complete);
+    if (paymentError) setPaymentError(null);
+  };
+
+  const handleConfirmPayment = async () => {
+    if (!clientSecret) {
+      Alert.alert("Error", "Payment session not found. Please try again.");
+      return;
+    }
+
+    if (!cardComplete) {
+      Alert.alert("Error", "Please complete your card details.");
+      return;
+    }
+
+    try {
+      setIsProcessingPayment(true);
+      setPaymentError(null);
+
+      const { paymentIntent, error: stripeError } = await confirmPayment(
+        clientSecret,
+        {
+          paymentMethodType: "Card",
+        }
+      );
+
+      if (stripeError) {
+        setPaymentError(stripeError.message);
+        Alert.alert("Payment Failed", stripeError.message);
+        return;
+      }
+
+      if (paymentIntent) {
+        if (userProfile?.address) {
+          await queryClient.invalidateQueries({ queryKey: ["balance"] });
+          await queryClient.invalidateQueries({
+            queryKey: queryKeys.customerProfile(userProfile.address),
+          });
+          await queryClient.invalidateQueries({
+            queryKey: queryKeys.bookings(),
+          });
+        }
+
+        Alert.alert(
+          "Booking Confirmed",
+          "Your payment was successful and your booking is confirmed!",
+          [
+            {
+              text: "View Bookings",
+              onPress: () => router.replace("/customer/tabs/service/tabs/bookings" as any),
+            },
+          ]
+        );
+      }
+    } catch (err: any) {
+      const errorMessage = err.message || "Payment failed. Please try again.";
+      setPaymentError(errorMessage);
+      Alert.alert("Error", errorMessage);
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
+  const getStepTitle = () => {
+    switch (currentStep) {
+      case "schedule":
+        return "Select Schedule";
+      case "discount":
+        return "Apply Discount";
+      case "payment":
+        return "Payment";
+      default:
+        return "Complete Booking";
     }
   };
 
@@ -134,152 +269,113 @@ export default function CompleteBooking() {
   }
 
   return (
-    <View className="flex-1 bg-zinc-950">
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      className="flex-1 bg-zinc-950"
+    >
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View className="pt-16 px-4 pb-4">
           <View className="flex-row justify-between items-center">
-            <TouchableOpacity onPress={goBack}>
+            <TouchableOpacity onPress={handleBack}>
               <AntDesign name="left" color="white" size={18} />
             </TouchableOpacity>
             <Text className="text-white text-xl font-extrabold">
-              Complete Booking
+              {getStepTitle()}
             </Text>
             <View className="w-[25px]" />
           </View>
-        </View>
 
-        {/* Schedule Appointment Section */}
-        <View className="px-4 mb-6">
-          <Text className="text-white text-lg font-semibold mb-1">
-            Select Date
-          </Text>
-          <Text className="text-gray-400 text-sm mb-4">
-            Choose your preferred date to view available time
-          </Text>
-
-          {/* Calendar Date Selector */}
-          <View className="mb-4 bg-zinc-900 rounded-2xl overflow-hidden">
-            <Calendar
-              onDayPress={handleDayPress}
-              minDate={today}
-              maxDate={maxDate}
-              markedDates={{
-                [selectedDate]: {
-                  selected: true,
-                  selectedColor: "#FFCC00",
-                  selectedTextColor: "#000000",
-                },
-              }}
-              theme={{
-                backgroundColor: "#18181b",
-                calendarBackground: "#18181b",
-                textSectionTitleColor: "#9CA3AF",
-                selectedDayBackgroundColor: "#FFCC00",
-                selectedDayTextColor: "#000000",
-                todayTextColor: "#FFCC00",
-                dayTextColor: "#ffffff",
-                textDisabledColor: "#3f3f46",
-                arrowColor: "#FFCC00",
-                monthTextColor: "#ffffff",
-                textDayFontWeight: "500",
-                textMonthFontWeight: "bold",
-                textDayHeaderFontWeight: "500",
-              }}
-            />
-          </View>
-
-          {/* Time Selector */}
-          {selectedDate && (
-            <View className="mt-2">
-              <Text className="text-white text-lg font-semibold mb-1">
-                Select Time
-              </Text>
-              <Text className="text-gray-400 text-sm mb-4">
-                {formatDateFull(selectedDate)}
-              </Text>
-
-              {isLoadingSlots ? (
-                <View className="py-8 items-center">
-                  <ActivityIndicator size="small" color="#FFCC00" />
-                  <Text className="text-gray-400 text-sm mt-2">
-                    Loading available times...
-                  </Text>
-                </View>
-              ) : slotsError ? (
-                <View className="py-8 items-center">
-                  <Feather name="alert-circle" size={24} color="#ef4444" />
-                  <Text className="text-gray-400 text-sm mt-2">
-                    Failed to load time slots
-                  </Text>
-                </View>
-              ) : timeSlots && timeSlots.length > 0 ? (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  className="-mx-4"
-                  contentContainerStyle={{ paddingHorizontal: 16 }}
-                >
-                  {timeSlots.map((slot, index) => {
-                    const isSelected = selectedTime === slot.time;
-                    const isAvailable = slot.available;
-                    return (
-                      <TouchableOpacity
-                        key={index}
-                        onPress={() => isAvailable && setSelectedTime(slot.time)}
-                        disabled={!isAvailable}
-                        className={`mr-3 px-5 py-3 rounded-xl ${
-                          isSelected
-                            ? "bg-[#FFCC00]"
-                            : isAvailable
-                            ? "bg-zinc-900 border border-zinc-800"
-                            : "bg-zinc-900/50 border border-zinc-800/50"
-                        }`}
-                      >
-                        <Text
-                          className={`text-sm font-semibold ${
-                            isSelected
-                              ? "text-black"
-                              : isAvailable
-                              ? "text-white"
-                              : "text-gray-600"
-                          }`}
-                        >
-                          {formatTime12Hour(slot.time)}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              ) : (
-                <View className="py-8 items-center">
-                  <Ionicons name="calendar-outline" size={24} color="#666" />
-                  <Text className="text-gray-400 text-sm mt-2">
-                    No available times for this date
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
-        </View>
-
-        {/* Selected Appointment Summary */}
-        {selectedDate && selectedTime && (
-          <View className="mx-4 mb-6 p-4 bg-zinc-900 rounded-xl border border-[#FFCC00]/30">
+          {/* Step Indicator */}
+          <View className="flex-row items-center justify-center mt-4">
             <View className="flex-row items-center">
-              <View className="bg-[#FFCC00]/20 rounded-full p-2 mr-3">
-                <Ionicons name="calendar" size={20} color="#FFCC00" />
-              </View>
-              <View>
-                <Text className="text-white font-medium">
-                  {formatDateFull(selectedDate)}
+              <View
+                className={`w-8 h-8 rounded-full items-center justify-center ${
+                  currentStep === "schedule" ? "bg-[#FFCC00]" : "bg-zinc-700"
+                }`}
+              >
+                <Text
+                  className={`font-bold ${
+                    currentStep === "schedule" ? "text-black" : "text-white"
+                  }`}
+                >
+                  1
                 </Text>
-                <Text className="text-[#FFCC00] text-lg font-bold">
-                  {formatTime12Hour(selectedTime)}
+              </View>
+              <View className="w-8 h-1 bg-zinc-700 mx-1" />
+              <View
+                className={`w-8 h-8 rounded-full items-center justify-center ${
+                  currentStep === "discount" ? "bg-[#FFCC00]" : "bg-zinc-700"
+                }`}
+              >
+                <Text
+                  className={`font-bold ${
+                    currentStep === "discount" ? "text-black" : "text-white"
+                  }`}
+                >
+                  2
+                </Text>
+              </View>
+              <View className="w-8 h-1 bg-zinc-700 mx-1" />
+              <View
+                className={`w-8 h-8 rounded-full items-center justify-center ${
+                  currentStep === "payment" ? "bg-[#FFCC00]" : "bg-zinc-700"
+                }`}
+              >
+                <Text
+                  className={`font-bold ${
+                    currentStep === "payment" ? "text-black" : "text-white"
+                  }`}
+                >
+                  3
                 </Text>
               </View>
             </View>
           </View>
+        </View>
+
+        {/* Step Content */}
+        {currentStep === "schedule" && (
+          <ScheduleScreen
+            selectedDate={selectedDate}
+            selectedTime={selectedTime}
+            timeSlots={timeSlots}
+            isLoadingSlots={isLoadingSlots}
+            slotsError={slotsError}
+            onDateSelect={handleDayPress}
+            onTimeSelect={handleTimeSelect}
+          />
+        )}
+
+        {currentStep === "discount" && (
+          <DiscountScreen
+            selectedDate={selectedDate}
+            selectedTime={selectedTime!}
+            availableRcn={availableRcn}
+            rcnToRedeem={rcnToRedeem}
+            rcnValue={rcnValue}
+            rcnDiscount={rcnDiscount}
+            maxRcnRedeemable={maxRcnRedeemable}
+            maxRcnLimit={MAX_RCN_DISCOUNT}
+            servicePrice={servicePrice}
+            finalPrice={finalPrice}
+            onRcnChange={handleRcnChange}
+            onMaxRcn={handleMaxRcn}
+          />
+        )}
+
+        {currentStep === "payment" && (
+          <PaymentScreen
+            selectedDate={selectedDate}
+            selectedTime={selectedTime!}
+            serviceName={serviceData.serviceName}
+            servicePrice={servicePrice}
+            rcnValue={rcnValue}
+            rcnDiscount={rcnDiscount}
+            finalPrice={finalPrice}
+            paymentError={paymentError}
+            onCardChange={handleCardChange}
+          />
         )}
 
         {/* Spacer for bottom button */}
@@ -288,36 +384,86 @@ export default function CompleteBooking() {
 
       {/* Fixed Bottom Button */}
       <View className="absolute bottom-0 left-0 right-0 bg-zinc-950 px-4 py-4 border-t border-zinc-800">
-        <TouchableOpacity
-          onPress={handleBookNow}
-          disabled={!selectedDate || !selectedTime || createBookingMutation.isPending}
-          className={`rounded-xl py-4 items-center flex-row justify-center ${
-            selectedDate && selectedTime && !createBookingMutation.isPending
-              ? "bg-[#FFCC00]"
-              : "bg-zinc-800"
-          }`}
-          activeOpacity={0.8}
-        >
-          {createBookingMutation.isPending ? (
-            <ActivityIndicator size="small" color="#000" />
-          ) : (
-            <>
-              <Ionicons
-                name="calendar-outline"
-                size={20}
-                color={selectedDate && selectedTime ? "#000" : "#666"}
-              />
-              <Text
-                className={`text-lg font-bold ml-2 ${
-                  selectedDate && selectedTime ? "text-black" : "text-gray-600"
-                }`}
-              >
-                Book Now - ${serviceData.priceUsd}
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
+        {currentStep === "schedule" && (
+          <TouchableOpacity
+            onPress={handleContinueToDiscount}
+            disabled={!selectedDate || !selectedTime}
+            className={`rounded-xl py-4 items-center flex-row justify-center ${
+              selectedDate && selectedTime ? "bg-[#FFCC00]" : "bg-zinc-800"
+            }`}
+            activeOpacity={0.8}
+          >
+            <Text
+              className={`text-lg font-bold ${
+                selectedDate && selectedTime ? "text-black" : "text-gray-600"
+              }`}
+            >
+              Continue
+            </Text>
+            <AntDesign
+              name="right"
+              size={18}
+              color={selectedDate && selectedTime ? "#000" : "#666"}
+              style={{ marginLeft: 8 }}
+            />
+          </TouchableOpacity>
+        )}
+
+        {currentStep === "discount" && (
+          <TouchableOpacity
+            onPress={handleContinueToPayment}
+            disabled={createBookingMutation.isPending}
+            className={`rounded-xl py-4 items-center flex-row justify-center ${
+              !createBookingMutation.isPending ? "bg-[#FFCC00]" : "bg-zinc-800"
+            }`}
+            activeOpacity={0.8}
+          >
+            {createBookingMutation.isPending ? (
+              <ActivityIndicator size="small" color="#000" />
+            ) : (
+              <>
+                <Text className="text-lg font-bold text-black">Continue</Text>
+                <AntDesign
+                  name="right"
+                  size={18}
+                  color="#000"
+                  style={{ marginLeft: 8 }}
+                />
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+
+        {currentStep === "payment" && (
+          <TouchableOpacity
+            onPress={handleConfirmPayment}
+            disabled={!cardComplete || isProcessingPayment}
+            className={`rounded-xl py-4 items-center flex-row justify-center ${
+              cardComplete && !isProcessingPayment ? "bg-[#FFCC00]" : "bg-zinc-800"
+            }`}
+            activeOpacity={0.8}
+          >
+            {isProcessingPayment ? (
+              <ActivityIndicator size="small" color="#000" />
+            ) : (
+              <>
+                <Ionicons
+                  name="lock-closed"
+                  size={18}
+                  color={cardComplete ? "#000" : "#666"}
+                />
+                <Text
+                  className={`text-lg font-bold ml-2 ${
+                    cardComplete ? "text-black" : "text-gray-600"
+                  }`}
+                >
+                  Pay ${finalPrice.toFixed(2)}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }

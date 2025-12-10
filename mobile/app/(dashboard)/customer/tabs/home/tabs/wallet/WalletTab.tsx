@@ -150,7 +150,7 @@ export default function WalletTab() {
     useGetAllServicesQuery();
 
   const totalBalance = (customerData?.customer?.lifetimeEarnings || 0) - (customerData?.customer?.totalRedemptions || 0);
-
+  console.log("customerDatacustomerData: ", customerData)
   const tokenData = {
     tier: (customerData?.customer?.tier as Tier) || "BRONZE",
     balance: totalBalance,
