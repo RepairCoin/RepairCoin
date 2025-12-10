@@ -11,6 +11,7 @@ import QRCode from "qrcode";
 import Tooltip from "../ui/tooltip";
 import apiClient from '@/services/api/client';
 import { useAuthStore } from "@/stores/authStore";
+import { useCustomerStore } from "@/stores/customerStore";
 import { SuspendedActionModal } from "./SuspendedActionModal";
 
 interface RedemptionSession {
@@ -27,7 +28,7 @@ export function RedemptionApprovals() {
   const account = useActiveAccount();
   const wallet = useActiveWallet();
   const { userProfile } = useAuthStore();
-  const { balanceData } = useCustomer();
+  const { balanceData, fetchCustomerData } = useCustomer();
   const [sessions, setSessions] = useState<RedemptionSession[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -198,11 +199,38 @@ By signing this message, I approve the redemption of ${session.maxAmount} RCN to
         }
       );
 
-      toast.success("Redemption approved! Your balance has been updated.", {
+      toast.success("Redemption approved! Shop is processing your request...", {
         id: "approval-process",
         duration: 4000
       });
+
       await loadSessions();
+
+      // Poll for balance update - shop processes redemption after approval
+      // Keep checking until balance changes or max attempts reached
+      const initialBalance = balanceData?.availableBalance || 0;
+      let attempts = 0;
+      const maxAttempts = 10; // 10 attempts over ~10 seconds
+
+      const pollForBalanceUpdate = async () => {
+        attempts++;
+        await fetchCustomerData(true);
+
+        // Check if balance changed
+        const newBalance = useCustomerStore.getState().balanceData?.availableBalance || 0;
+        if (newBalance !== initialBalance || attempts >= maxAttempts) {
+          if (newBalance !== initialBalance) {
+            toast.success(`Balance updated: ${newBalance} RCN`, { duration: 3000 });
+          }
+          return;
+        }
+
+        // Keep polling
+        setTimeout(pollForBalanceUpdate, 1000);
+      };
+
+      // Start polling after a short delay (give shop time to process)
+      setTimeout(pollForBalanceUpdate, 1500);
     } catch (error) {
       console.error("Approval process error:", error);
       toast.error("Failed to complete redemption process", { id: "approval-process" });
