@@ -54,3 +54,4 @@ export interface UpdateServiceData {
 }
 
 export interface ServiceResponse extends BaseResponse<ServiceData[]> {}
+export interface ServiceDetailResponse extends BaseResponse<ServiceData> {}

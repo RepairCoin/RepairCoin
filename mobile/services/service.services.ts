@@ -5,6 +5,7 @@ import {
   ServiceData,
   UpdateServiceData,
   ServiceFilters,
+  ServiceDetailResponse,
 } from "../interfaces/service.interface";
 import { apiClient } from "@/utilities/axios";
 
@@ -34,9 +35,9 @@ class ServiceApi {
     }
   }
 
-  async getService(serviceId: string): Promise<ServiceResponse> {
+  async getService(serviceId: string): Promise<ServiceDetailResponse> {
     try {
-      return await apiClient.get<ServiceResponse>(`/services/${serviceId}`);
+      return await apiClient.get<ServiceDetailResponse>(`/services/${serviceId}`);
     } catch (error: any) {
       console.error("Failed to get service detail:", error.message);
       throw error;

@@ -47,11 +47,7 @@ export default function ServiceDetail() {
   };
 
   const handleBookNow = () => {
-    console.log("Book Now")
-    // router.push({
-    //   pathname: "/customer/checkout",
-    //   params: { serviceId: id },
-    // });
+    router.push(`/customer/booking/${id}`);
   };
 
   if (isLoading) {

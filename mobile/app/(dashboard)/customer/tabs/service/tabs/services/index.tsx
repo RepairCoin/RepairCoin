@@ -111,7 +111,7 @@ export default function ServicesTab() {
         <View className="flex-1 flex-row items-center bg-zinc-800 rounded-full px-4 py-3">
           <Feather name="search" size={20} color="#9CA3AF" />
           <TextInput
-            className="flex-1 text-white ml-3"
+            className="flex-1 text-white ml-3 text-left"
             placeholder="Search services..."
             placeholderTextColor="#6B7280"
             value={searchQuery}

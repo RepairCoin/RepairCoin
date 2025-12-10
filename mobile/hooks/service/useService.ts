@@ -3,7 +3,13 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/auth.store";
 import { queryKeys } from "@/config/queryClient";
 import { serviceApi } from "@/services/service.services";
-import { CreateServiceRequest, ServiceFilters, ServiceResponse, UpdateServiceData } from "@/interfaces/service.interface";
+import {
+  CreateServiceRequest,
+  ServiceFilters,
+  ServiceResponse,
+  UpdateServiceData,
+  ServiceDetailResponse
+} from "@/interfaces/service.interface";
 
 export function useService() {
   const useGetAllServicesQuery = (filters?: ServiceFilters) => {
@@ -17,14 +23,20 @@ export function useService() {
     });
   };
 
-  const useShopServicesQuery = (options?: { page?: number; limit?: number }) => {
+  const useShopServicesQuery = (options?: {
+    page?: number;
+    limit?: number;
+  }) => {
     const { userProfile } = useAuthStore();
     const shopId = userProfile?.shopId;
 
     return useQuery({
       queryKey: queryKeys.shopServices(shopId!, options),
       queryFn: async () => {
-        const response: ServiceResponse = await serviceApi.getShopServices(shopId!, options);
+        const response: ServiceResponse = await serviceApi.getShopServices(
+          shopId!,
+          options
+        );
         return response.data;
       },
       enabled: !!shopId,
@@ -36,12 +48,13 @@ export function useService() {
     return useQuery({
       queryKey: queryKeys.service(serviceId),
       queryFn: async () => {
-        const response: ServiceResponse = await serviceApi.getService(serviceId);
+        const response: ServiceDetailResponse =
+          await serviceApi.getService(serviceId);
         return response.data;
       },
       staleTime: 5 * 60 * 1000, // 5 minutes
     });
-  }
+  };
 
   const useCreateService = () => {
     return useMutation({
