@@ -2,13 +2,7 @@ import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getCustomerInfo,
-  getShopPromoCodes,
-  validatePromoCode,
   issueReward,
-  updatePromoCodeStatus,
-  createPromoCode,
-  CustomerInfo,
-  PromoCode,
   RewardRequest,
   CreatePromoCodeRequest,
 } from "@/services/ShopServices";
@@ -16,6 +10,7 @@ import { useAuthStore } from "@/store/auth.store";
 import { queryKeys } from "@/config/queryClient";
 import { Alert } from "react-native";
 import { router } from "expo-router";
+import { shopApi } from "@/services/shop.services";
 
 // Query keys
 const QUERY_KEYS = {
@@ -201,22 +196,22 @@ export function usePromoCodeManager(
           customerAddress,
         });
 
-        if (result.success && result.data.is_valid) {
+        if (result.success && result.data?.is_valid) {
           const rewardBeforePromo = baseReward + tierBonus;
           let bonusAmount = 0;
 
-          if (result.data.bonus_type === "fixed") {
-            bonusAmount = parseFloat(result.data.bonus_value || "0") || 0;
-          } else if (result.data.bonus_type === "percentage") {
+          if (result.data?.bonus_type === "fixed") {
+            bonusAmount = parseFloat(result.data?.bonus_value || "0") || 0;
+          } else if (result.data?.bonus_type === "percentage") {
             bonusAmount =
               (rewardBeforePromo *
-                (parseFloat(result.data.bonus_value || "0") || 0)) /
+                (parseFloat(result.data?.bonus_value || "0") || 0)) /
               100;
           }
 
           // Apply max_bonus cap if it exists
-          if (result.data.max_bonus) {
-            const maxBonus = parseFloat(result.data.max_bonus);
+          if (result.data?.max_bonus) {
+            const maxBonus = parseFloat(result.data?.max_bonus);
             if (!isNaN(maxBonus) && bonusAmount > maxBonus) {
               bonusAmount = maxBonus;
             }
@@ -325,7 +320,7 @@ export function useShopPromoCodes() {
       if (!shopId) {
         throw new Error("No shop ID found");
       }
-      return getShopPromoCodes(shopId);
+      return shopApi.getShopPromoCodes(shopId);
     },
     enabled: !!shopId,
     select: (data) => data.data || [],
@@ -349,7 +344,7 @@ export function useValidatePromoCode() {
       if (!shopId) {
         throw new Error("Shop ID not found");
       }
-      return validatePromoCode(shopId, {
+      return shopApi.validatePromoCode(shopId, {
         code: code.trim(),
         customer_address: customerAddress,
       });
@@ -376,7 +371,7 @@ export function useUpdatePromoCodeStatus() {
       if (!shopId) {
         throw new Error("Shop ID not found");
       }
-      return updatePromoCodeStatus(shopId, promoCodeId, isActive);
+      return shopApi.updatePromoCodeStatus(shopId, promoCodeId, isActive);
     },
     onSuccess: (_, variables) => {
       // Invalidate promo codes list to refresh
@@ -414,7 +409,7 @@ export function useCreatePromoCode() {
       if (!shopId) {
         throw new Error("Shop ID not found");
       }
-      return createPromoCode(shopId, promoCodeData);
+      return shopApi.createPromoCode(shopId, promoCodeData);
     },
     onSuccess: () => {
       Alert.alert(

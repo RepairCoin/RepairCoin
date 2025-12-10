@@ -5,14 +5,14 @@ import {
   createRedemptionSession,
   checkRedemptionSessionStatus,
   cancelRedemptionSession,
-  processRedemption,
   getCustomerInfo,
-  getCustomerBalance,
   RedemptionSession,
   CreateRedemptionSessionRequest,
   ProcessRedemptionRequest,
 } from "@/services/ShopServices";
 import { queryKeys } from "@/config/queryClient";
+import { balanceApi } from "@/services/balance.services";
+import { shopApi } from "@/services/shop.services";
 
 export interface CustomerData {
   address: string;
@@ -54,7 +54,7 @@ export function useCustomerLookup() {
     try {
       const [customerResponse, balanceResponse] = await Promise.all([
         getCustomerInfo(address),
-        getCustomerBalance(address),
+        balanceApi.getCustomerBalance(address)
       ]);
 
       if (customerResponse && balanceResponse) {
@@ -209,7 +209,7 @@ export function useSessionPolling(
     };
 
     try {
-      const response = await processRedemption(shopId, request);
+      const response = await shopApi.processRedemption(shopId, request);
       onRedemptionComplete?.(response.data);
 
       // Invalidate relevant queries

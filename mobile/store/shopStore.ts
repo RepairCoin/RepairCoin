@@ -6,7 +6,6 @@ import {
   ShopRole,
 } from "../utilities/GlobalTypes";
 import { 
-  listShops, 
   createStripeCheckout,
 } from "@/services/ShopServices";
 
@@ -46,7 +45,6 @@ interface ShopState {
   setPurchaseAmount: (amount: number) => void;
   setPurchasing: (purchasing: boolean) => void;
 
-  fetchListShops: () => Promise<void>;
   initiatePurchase: () => Promise<{ checkoutUrl: string; sessionId: string; purchaseId: string } | null>;
 }
 
@@ -66,43 +64,6 @@ export const useShopStore = create<ShopState>()(
 
     setPurchasing: (purchasing) => {
       set({ purchasing }, false, "setPurchasing");
-    },
-
-    fetchListShops: async () => {
-      try {
-        const res = await listShops();
-        // Map ShopData to shopData format
-        const mappedShops: shopData[] = res.data.shops.map((shop: any) => ({
-          shopId: shop.shopId,
-          companyName: shop.name || shop.companyName,
-          ownerName: `${shop.firstName || ''} ${shop.lastName || ''}`.trim() || shop.ownerName || '',
-          address: shop.address,
-          reimbursementAddress: shop.address, // Using same as address for now
-          email: shop.email,
-          phone: shop.phone,
-          website: shop.website || '',
-          role: 'SHOP' as ShopRole,
-          companySize: shop.companySize as CompanySize,
-          monthlyRevenue: shop.monthlyRevenue as MonthlyRevenue,
-          referralBy: shop.referral || '',
-          streetAddress: shop.location?.state || '',
-          city: shop.location?.city || '',
-          country: shop.country || '',
-          isVerified: shop.verified || false,
-          isActive: shop.active || false,
-          isCrossShopEnabled: shop.crossShopEnabled || false,
-          rcnBalance: 0, // This would need to come from another endpoint
-          totalIssuedRewards: 0, // This would need to come from another endpoint
-          joinDate: new Date(shop.joinDate),
-        }));
-        
-        get().setShopsData({
-          shops: mappedShops,
-          count: res.data.count
-        });
-      } catch (error) {
-        console.error("An error occured:", error);
-      }
     },
 
     initiatePurchase: async () => {

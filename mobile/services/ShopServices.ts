@@ -251,30 +251,6 @@ export interface UpdateServiceData {
   active?: boolean;
 }
 
-export const listShops = async (): Promise<ShopResponse> => {
-  try {
-    return await apiClient.get<ShopResponse>("/shops");
-  } catch (error: any) {
-    console.error("Failed to list shops:", error.message);
-    throw error;
-  }
-};
-
-export const updateShopDetails = async (
-  shopId: string,
-  shopData: ShopData
-): Promise<UpdateShopData> => {
-  try {
-    return await apiClient.put<UpdateShopData>(
-      `/shops/${shopId}/details`,
-      shopData
-    );
-  } catch (error: any) {
-    console.error("Failed to update shop details:", error.message);
-    throw error;
-  }
-};
-
 export const createStripeCheckout = async (
   amount: number
 ): Promise<PurchaseTokenResponse> => {
@@ -330,65 +306,6 @@ export const getShopTransactions = async (
     return await apiClient.get(`/shops/purchase/history/${shopId}`);
   } catch (error: any) {
     console.error("Failed to get shop transactions:", error.message);
-    throw error;
-  }
-};
-
-export const getShopPromoCodes = async (
-  shopId: string
-): Promise<{ data: PromoCode[]; success: boolean }> => {
-  try {
-    return await apiClient.get(`/shops/${shopId}/promo-codes`);
-  } catch (error: any) {
-    console.error("Failed to get shop promo codes:", error.message);
-    throw error;
-  }
-};
-
-export const validatePromoCode = async (
-  shopId: string,
-  request: PromoValidationRequest
-): Promise<PromoValidationResponse> => {
-  try {
-    return await apiClient.post(
-      `/shops/${shopId}/promo-codes/validate`,
-      request
-    );
-  } catch (error: any) {
-    console.error("Failed to validate promo code:", error.message);
-    throw error;
-  }
-};
-
-export const updatePromoCodeStatus = async (
-  shopId: string,
-  promoCodeId: string,
-  isActive: boolean
-): Promise<{ success: boolean; message?: string; data?: any }> => {
-  try {
-    if (!isActive) {
-      // Use DELETE endpoint to deactivate
-      return await apiClient.delete(`/shops/${shopId}/promo-codes/${promoCodeId}`);
-    } else {
-      // Use PUT endpoint to reactivate by updating is_active flag
-      return await apiClient.put(`/shops/${shopId}/promo-codes/${promoCodeId}`, {
-        is_active: true
-      });
-    }
-  } catch (error: any) {
-    console.error("Failed to update promo code status:", error.message);
-    throw error;
-  }
-};
-
-export const createPromoCode = async (
-  shopId: string,
-  promoCodeData: CreatePromoCodeRequest
-): Promise<{ success: boolean; data: PromoCode }> => {
-  try {
-    return await apiClient.post(`/shops/${shopId}/promo-codes`, promoCodeData);
-  } catch (error: any) {
-    console.error("Failed to create promo code:", error.message);
     throw error;
   }
 };
@@ -497,29 +414,6 @@ export const cancelRedemptionSession = async (
   }
 };
 
-export const processRedemption = async (
-  shopId: string,
-  request: ProcessRedemptionRequest
-): Promise<ProcessRedemptionResponse> => {
-  try {
-    return await apiClient.post(`/shops/${shopId}/redeem`, request);
-  } catch (error: any) {
-    console.error("Failed to process redemption:", error.message);
-    throw error;
-  }
-};
-
-export const getCustomerBalance = async (
-  customerAddress: string
-): Promise<CustomerBalanceResponse> => {
-  try {
-    return await apiClient.get(`/customers/balance/${customerAddress}`);
-  } catch (error: any) {
-    console.error("Failed to get customer balance:", error.message);
-    throw error;
-  }
-};
-
 export interface CreateServiceRequest {
   serviceName: string;
   description?: string;
@@ -541,19 +435,4 @@ export interface TokenPurchasePaymentIntentResponse {
   success: boolean;
   message?: string;
 }
-
-export const createTokenPurchasePaymentIntent = async (
-  amount: number
-): Promise<TokenPurchasePaymentIntentResponse> => {
-  try {
-    const response = await apiClient.post<TokenPurchasePaymentIntentResponse>(
-      "/shops/purchase/stripe-payment-intent",
-      { amount }
-    );
-    return response;
-  } catch (error: any) {
-    console.error("Failed to create token purchase payment intent:", error.message);
-    throw error;
-  }
-};
 
