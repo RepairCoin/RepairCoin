@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import {
   HomeIcon,
   Wallet,
@@ -8,16 +8,16 @@ import {
   Activity,
   Banknote,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   BookOpenCheck,
   CreditCard,
-  FileSearch,
   Info,
   HelpCircle,
 } from "lucide-react";
 import { useRCGBalance } from "@/hooks/useRCGBalance";
 import { formatRCGBalance } from "@/lib/utils";
 import { ProfitChart } from "@/components/shop/ProfitChart";
-import { toast } from "react-hot-toast";
 
 interface ShopData {
   shopId: string;
@@ -60,8 +60,6 @@ interface OverviewTabProps {
 export const OverviewTab: React.FC<OverviewTabProps> = ({
   shopData,
   purchases,
-  onRefreshData,
-  authToken,
 }) => {
   const { rcgInfo } = useRCGBalance(shopData?.shopId);
 
@@ -69,93 +67,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const [filter, setFilter] = useState<
     "all" | "completed" | "pending" | "failed"
   >("all");
-  const [continuingPayment, setContinuingPayment] = useState<string | null>(null);
-  const [cancellingPayment, setCancellingPayment] = useState<string | null>(null);
-  const [showMenu, setShowMenu] = useState<string | null>(null);
 
   // Filter purchases based on selected filter
   const filteredPurchases = purchases.filter((purchase) => {
     if (filter === "all") return true;
     return purchase.status === filter;
   });
-
-  // Handle continue payment
-  const handleContinuePayment = useCallback(async (purchaseId: string) => {
-    if (!authToken) {
-      toast.error('Authentication required');
-      return;
-    }
-
-    setContinuingPayment(purchaseId);
-    setShowMenu(null);
-
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/purchase/${purchaseId}/continue`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        // Redirect to Stripe checkout
-        window.location.href = result.data.paymentUrl;
-      } else {
-        toast.error(result.error || 'Failed to continue payment');
-      }
-    } catch (error) {
-      console.error('Error continuing payment:', error);
-      toast.error('Failed to continue payment');
-    } finally {
-      setContinuingPayment(null);
-    }
-  }, [authToken]);
-
-  // Handle cancel payment
-  const handleCancelPayment = useCallback(async (purchaseId: string) => {
-    if (!authToken) {
-      toast.error('Authentication required');
-      return;
-    }
-
-    setCancellingPayment(purchaseId);
-    setShowMenu(null);
-
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/purchase/${purchaseId}/cancel`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        toast.success('Purchase cancelled successfully');
-        // Refresh the data to show updated status
-        if (onRefreshData) {
-          onRefreshData();
-        }
-      } else {
-        toast.error(result.error || 'Failed to cancel payment');
-      }
-    } catch (error) {
-      console.error('Error cancelling payment:', error);
-      toast.error('Failed to cancel payment');
-    } finally {
-      setCancellingPayment(null);
-    }
-  }, [authToken, onRefreshData]);
-
-  // Handle toggle menu
-  const handleToggleMenu = useCallback((purchaseId: string) => {
-    setShowMenu(showMenu === purchaseId ? null : purchaseId);
-  }, [showMenu]);
 
   // Calculate running balances for purchases
   const purchasesWithBalance = React.useMemo(() => {
@@ -191,18 +108,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         return {
           ...purchase,
           runningBalance: balanceAfterPurchase,
-          onContinuePayment: handleContinuePayment,
-          onCancelPayment: handleCancelPayment,
-          onToggleMenu: handleToggleMenu,
-          continuingPayment: continuingPayment,
-          cancellingPayment: cancellingPayment,
-          showMenu: showMenu,
         };
       }
     );
 
     return purchasesWithRunningBalance;
-  }, [purchases, filteredPurchases, shopData?.purchasedRcnBalance, handleContinuePayment, handleCancelPayment, handleToggleMenu, continuingPayment, cancellingPayment, showMenu]);
+  }, [purchases, filteredPurchases, shopData?.purchasedRcnBalance]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -219,22 +130,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [showFilterDropdown]);
-
-  // Close menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (!target.closest(".actions-menu-container") && showMenu) {
-        setShowMenu(null);
-      }
-    };
-
-    if (showMenu) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () =>
-        document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [showMenu]);
 
   if (!shopData) {
     return (
@@ -313,23 +208,19 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           <ProfitChart shopId={shopData.shopId} />
         </div>
 
-        {/* Bottom Section: Shop Status + Recent Credit Purchases */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          {/* Shop Status Card */}
-          <div className="lg:col-span-5">
-            <ShopStatusCard shopData={shopData} />
-          </div>
+        {/* Recent Credit Purchases - Full Width Table */}
+        <RecentPurchasesTable
+          purchases={purchasesWithBalance}
+          filter={filter}
+          showFilterDropdown={showFilterDropdown}
+          setShowFilterDropdown={setShowFilterDropdown}
+          setFilter={setFilter}
+        />
 
-          {/* Recent Credit Purchases */}
-          <div className="lg:col-span-7">
-            <RecentPurchasesCard
-              purchases={purchasesWithBalance.slice(0, 3)}
-              filter={filter}
-              showFilterDropdown={showFilterDropdown}
-              setShowFilterDropdown={setShowFilterDropdown}
-              setFilter={setFilter}
-            />
-          </div>
+        {/* Bottom Section: Shop Status */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Shop Status Card */}
+          <ShopStatusCard shopData={shopData} />
         </div>
       </div>
     </div>
@@ -490,29 +381,61 @@ const StatusRowNew: React.FC<{
   );
 };
 
-// Recent Purchases Card Component
-interface RecentPurchasesCardProps {
-  purchases: Array<PurchaseHistory & { runningBalance?: number }>;
+// Recent Purchases Table Component with full columns and pagination
+interface RecentPurchasesTableProps {
+  purchases: Array<PurchaseHistory & {
+    runningBalance?: number;
+  }>;
   filter: "all" | "completed" | "pending" | "failed";
   showFilterDropdown: boolean;
   setShowFilterDropdown: (show: boolean) => void;
   setFilter: (filter: "all" | "completed" | "pending" | "failed") => void;
 }
 
-const RecentPurchasesCard: React.FC<RecentPurchasesCardProps> = ({
+const RecentPurchasesTable: React.FC<RecentPurchasesTableProps> = ({
   purchases,
   filter,
   showFilterDropdown,
   setShowFilterDropdown,
   setFilter,
 }) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+
+  // Calculate pagination
+  const totalPages = Math.ceil(purchases.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentPurchases = purchases.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter]);
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "completed":
+      case "minted":
+        return { text: "completed", className: "text-green-400" };
+      case "pending":
+        return { text: "pending", className: "text-yellow-400" };
+      case "cancelled":
+        return { text: "cancelled", className: "text-red-400" };
+      case "failed":
+        return { text: "failed", className: "text-red-400" };
+      default:
+        return { text: status, className: "text-gray-400" };
+    }
+  };
+
   return (
-    <div className="bg-[#101010] rounded-[20px] p-6 h-full">
+    <div className="bg-[#101010] rounded-[20px] p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <CreditCard className="w-6 h-6 text-[#FFCC00]" />
-          <h3 className="text-[#FFCC00] text-base font-medium">
+          <h3 className="text-[#FFCC00] text-lg font-medium">
             Recent Credit Purchases
           </h3>
         </div>
@@ -521,7 +444,7 @@ const RecentPurchasesCard: React.FC<RecentPurchasesCardProps> = ({
         <div className="relative filter-dropdown-container">
           <button
             onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-            className="px-3 py-1.5 bg-white border border-[#dde2e4] rounded-md transition-colors flex items-center gap-1 text-sm"
+            className="px-4 py-2 bg-white border border-[#dde2e4] rounded-lg transition-colors flex items-center gap-2 text-sm"
           >
             <span className="text-[#252c32] font-medium capitalize">
               {filter === "all" ? "All" : filter}
@@ -564,65 +487,110 @@ const RecentPurchasesCard: React.FC<RecentPurchasesCardProps> = ({
         </div>
       </div>
 
-      {/* Purchase List */}
-      <div className="space-y-0">
-        {purchases.length > 0 ? (
-          purchases.map((purchase, index) => (
-            <PurchaseListItem
-              key={purchase.id}
-              purchase={purchase}
-              isLast={index === purchases.length - 1}
-            />
-          ))
-        ) : (
-          <div className="text-center py-8 text-gray-500">
-            No purchases yet
-          </div>
-        )}
+      {/* Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-[#303236]">
+              <th className="text-left py-3 px-4 text-[#FFCC00] font-medium text-sm">DATE</th>
+              <th className="text-left py-3 px-4 text-[#FFCC00] font-medium text-sm">CREDITS</th>
+              <th className="text-left py-3 px-4 text-[#FFCC00] font-medium text-sm">COST</th>
+              <th className="text-left py-3 px-4 text-[#FFCC00] font-medium text-sm">PAYMENT METHOD</th>
+              <th className="text-left py-3 px-4 text-[#FFCC00] font-medium text-sm">STATUS</th>
+              <th className="text-left py-3 px-4 text-[#FFCC00] font-medium text-sm">BALANCE</th>
+            </tr>
+          </thead>
+          <tbody>
+            {currentPurchases.length > 0 ? (
+              currentPurchases.map((purchase) => {
+                const statusBadge = getStatusBadge(purchase.status);
+                const formattedDate = new Date(purchase.createdAt).toLocaleDateString("en-US", {
+                  month: "2-digit",
+                  day: "2-digit",
+                  year: "numeric",
+                });
+                const formattedTime = new Date(purchase.createdAt).toLocaleTimeString("en-US", {
+                  hour: "numeric",
+                  minute: "2-digit",
+                  second: "2-digit",
+                  hour12: true,
+                });
+
+                return (
+                  <tr key={purchase.id} className="border-b border-[#303236] hover:bg-[#1a1a1a]">
+                    <td className="py-4 px-4">
+                      <div className="text-white text-sm">{formattedDate}</div>
+                      <div className="text-gray-500 text-xs">{formattedTime}</div>
+                    </td>
+                    <td className="py-4 px-4">
+                      <span className="text-[#FFCC00] font-medium">{purchase.amount}</span>
+                      <span className="text-[#FFCC00] ml-1">RCN</span>
+                    </td>
+                    <td className="py-4 px-4 text-white">
+                      ${purchase.totalCost?.toFixed(2) || "0.00"}
+                    </td>
+                    <td className="py-4 px-4 text-white uppercase text-sm">
+                      {purchase.paymentMethod?.replace(/_/g, "_") || "N/A"}
+                    </td>
+                    <td className="py-4 px-4">
+                      <span className={`${statusBadge.className} text-sm`}>
+                        {statusBadge.text}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4">
+                      <span className="text-[#FFCC00] font-medium">
+                        {purchase.runningBalance?.toLocaleString() || "0"}
+                      </span>
+                      <span className="text-[#FFCC00] ml-1">RCN</span>
+                    </td>
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td colSpan={6} className="py-12 text-center text-gray-500">
+                  No purchases found
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
-    </div>
-  );
-};
 
-// Purchase List Item Component
-const PurchaseListItem: React.FC<{
-  purchase: PurchaseHistory & { runningBalance?: number };
-  isLast: boolean;
-}> = ({ purchase, isLast }) => {
-  const formattedDate = new Date(purchase.createdAt).toLocaleDateString("en-US", {
-    month: "long",
-    day: "2-digit",
-    year: "numeric",
-    timeZone: "America/Chicago",
-  });
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-6">
+          <button
+            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+            className="p-2 rounded-lg border border-[#303236] text-gray-400 hover:text-white hover:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
 
-  // Generate a reference ID based on purchase ID
-  const referenceId = `RCN-${String(purchase.id).padStart(10, "0")}`;
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+            <button
+              key={page}
+              onClick={() => setCurrentPage(page)}
+              className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
+                currentPage === page
+                  ? "bg-[#FFCC00] text-[#101010]"
+                  : "border border-[#303236] text-gray-400 hover:text-white hover:border-gray-500"
+              }`}
+            >
+              {page}
+            </button>
+          ))}
 
-  return (
-    <div
-      className={`flex justify-between items-center py-4 ${
-        !isLast ? "border-b border-[#303236]" : ""
-      }`}
-    >
-      {/* Left side - Date and Reference */}
-      <div>
-        <p className="text-white text-sm font-medium">{formattedDate}</p>
-        <p className="text-[#999] text-xs mt-0.5">{referenceId}</p>
-      </div>
-
-      {/* Right side - Amount and Cost */}
-      <div className="flex items-center gap-3">
-        <div className="text-right">
-          <p className="text-white text-sm font-medium">{purchase.amount} RCN</p>
-          <p className="text-white text-sm font-medium">
-            ${purchase.totalCost?.toFixed(0) || "0"}
-          </p>
+          <button
+            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+            className="p-2 rounded-lg border border-[#303236] text-gray-400 hover:text-white hover:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
-        <button className="text-white hover:text-gray-300 transition-colors">
-          <FileSearch className="w-6 h-6" />
-        </button>
-      </div>
+      )}
     </div>
   );
 };

@@ -2,20 +2,17 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
+  LineChart,
+  Line,
+  Legend,
+  ReferenceLine,
   Tooltip,
   ResponsiveContainer,
-  BarChart,
-  Bar,
-  ComposedChart,
-  Legend,
-  ReferenceLine
 } from 'recharts';
-import { Calendar, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Calendar } from 'lucide-react';
 import apiClient from '@/services/api/client';
 
 interface ProfitData {
@@ -34,8 +31,6 @@ interface ProfitMetrics {
   totalCosts: number;
   averageProfitMargin: number;
   profitTrend: 'up' | 'down' | 'flat';
-  bestDay: { date: string; profit: number };
-  worstDay: { date: string; profit: number };
 }
 
 interface ProfitChartProps {
@@ -52,18 +47,7 @@ interface CachedData {
 const CACHE_DURATION = 2 * 60 * 1000;
 
 /**
- * ProfitChart Component - Optimized for Performance
- *
- * Performance Optimizations:
- * 1. API Caching: Fetches 5 years of data once and caches it for 2 minutes
- * 2. Client-side Filtering: Time range switches (daily/monthly/yearly) filter cached data instantly
- * 3. Memoization:
- *    - useCallback: All functions are memoized to prevent recreation on re-renders
- *    - useMemo: Expensive calculations (data processing, metrics) only run when dependencies change
- * 4. Smart Re-rendering: Only fetches from API when shopId or authToken changes
- * 5. Separate Effects: Data fetching and time range filtering are decoupled
- *
- * This approach eliminates redundant API calls and provides instant switching between time ranges.
+ * ProfitChart Component - Full featured profit analysis
  */
 export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
   const [profitData, setProfitData] = useState<ProfitData[]>([]);
@@ -72,19 +56,17 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Cache for API responses - persists across time range changes
+  // Cache for API responses
   const dataCache = useRef<Map<string, CachedData>>(new Map());
-  // Store raw data for all time ranges
   const [rawTransactions, setRawTransactions] = useState<any[]>([]);
   const [rawPurchases, setRawPurchases] = useState<any[]>([]);
 
-  // Memoized function to fetch data from API with caching
+  // Fetch data from API with caching
   const fetchProfitData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Check cache first
       const cacheKey = shopId;
       const cached = dataCache.current.get(cacheKey);
       const now = Date.now();
@@ -93,33 +75,27 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
       let purchasesArray: any[];
 
       if (cached && (now - cached.timestamp) < CACHE_DURATION) {
-        // Use cached data
         transactionsArray = cached.transactions;
         purchasesArray = cached.purchases;
       } else {
-        // Fetch fresh data - get maximum range (5 years) to cover all time ranges
         const endDate = new Date();
         const startDate = new Date();
-        startDate.setFullYear(endDate.getFullYear() - 5); // Last 5 years
+        startDate.setFullYear(endDate.getFullYear() - 5);
 
-        // Fetch shop transactions and purchases data (cookies sent automatically)
         const [transactions, purchases] = await Promise.all([
           apiClient.get(`/shops/${shopId}/transactions?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`).catch(() => ({ data: [] })),
           apiClient.get(`/shops/${shopId}/purchases?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`).catch(() => ({ data: { items: [] } }))
         ]);
 
-        // Process data into profit metrics
         transactionsArray = Array.isArray(transactions.data) ? transactions.data :
-                                  Array.isArray(transactions.data?.transactions) ? transactions.data.transactions :
-                                  Array.isArray(transactions) ? transactions : [];
+          Array.isArray(transactions.data?.transactions) ? transactions.data.transactions :
+          Array.isArray(transactions) ? transactions : [];
 
         purchasesArray = Array.isArray(purchases.data?.items) ? purchases.data.items :
-                              Array.isArray(purchases.data?.purchases) ? purchases.data.purchases :
-                              Array.isArray(purchases.data) ? purchases.data :
-                              Array.isArray(purchases) ? purchases : [];
+          Array.isArray(purchases.data?.purchases) ? purchases.data.purchases :
+          Array.isArray(purchases.data) ? purchases.data :
+          Array.isArray(purchases) ? purchases : [];
 
-
-        // Cache the raw data
         dataCache.current.set(cacheKey, {
           transactions: transactionsArray,
           purchases: purchasesArray,
@@ -127,7 +103,6 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
         });
       }
 
-      // Store raw data in state for time range filtering
       setRawTransactions(transactionsArray);
       setRawPurchases(purchasesArray);
 
@@ -139,15 +114,14 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
     }
   }, [shopId]);
 
-  // Memoized helper functions
   const formatDateByRange = useCallback((date: Date, range: 'day' | 'month' | 'year'): string => {
     switch (range) {
       case 'day':
-        return date.toISOString().split('T')[0]; // YYYY-MM-DD
+        return date.toISOString().split('T')[0];
       case 'month':
-        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       case 'year':
-        return String(date.getFullYear()); // YYYY
+        return String(date.getFullYear());
     }
   }, []);
 
@@ -163,22 +137,16 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
       rcnIssued: number;
     }>();
 
-    // Ensure we have arrays to work with
     const safeTransactions = Array.isArray(transactions) ? transactions : [];
     const safePurchases = Array.isArray(purchases) ? purchases : [];
 
-
-    // Process purchases (costs)
     safePurchases.forEach((purchase: any) => {
-      if (purchase.status === 'completed' || !purchase.status) { // Some purchases might not have status
+      if (purchase.status === 'completed' || !purchase.status) {
         const date = formatDateByRange(new Date(purchase.created_at || purchase.createdAt), range);
         const existing = dataMap.get(date) || { revenue: 0, costs: 0, rcnPurchased: 0, rcnIssued: 0 };
-        
-        // Extract cost from different possible field names
         const purchaseCost = parseFloat(purchase.total_cost || purchase.totalCost || 0);
         const purchaseAmount = parseFloat(purchase.amount || 0);
-        
-        
+
         dataMap.set(date, {
           ...existing,
           costs: existing.costs + purchaseCost,
@@ -187,25 +155,21 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
       }
     });
 
-    // Process token issuance (revenue from repairs)
     safeTransactions.forEach((transaction: any) => {
       if (transaction.type === 'reward' || transaction.type === 'mint') {
         const date = formatDateByRange(new Date(transaction.createdAt || transaction.timestamp), range);
         const existing = dataMap.get(date) || { revenue: 0, costs: 0, rcnPurchased: 0, rcnIssued: 0 };
-        
-        // Use actual repair amount if available, otherwise estimate
+
         let repairRevenue = 0;
         if (transaction.metadata?.repairAmount) {
           repairRevenue = transaction.metadata.repairAmount;
         } else if (transaction.repairAmount) {
           repairRevenue = transaction.repairAmount;
         } else {
-          // Estimate based on RCN reward amount (typical $50-150 repairs earn 5-15 RCN)
           const rcnAmount = parseFloat(transaction.amount || 0);
-          repairRevenue = rcnAmount * 10; // Conservative estimate: $10 repair per 1 RCN
+          repairRevenue = rcnAmount * 10;
         }
-        
-        
+
         dataMap.set(date, {
           ...existing,
           revenue: existing.revenue + repairRevenue,
@@ -214,7 +178,6 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
       }
     });
 
-    // Convert to array and calculate profit
     const result = Array.from(dataMap.entries())
       .map(([date, data]) => ({
         date,
@@ -226,65 +189,9 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
         profitMargin: data.revenue > 0 ? ((data.revenue - data.costs) / data.revenue) * 100 : 0
       }))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    
 
     return result;
   }, [formatDateByRange]);
-
-  // Sample data generation - COMMENTED OUT to show empty state for new shops
-  // const generateSampleData = (range: 'day' | 'month' | 'year'): ProfitData[] => {
-  //   const sampleData: ProfitData[] = [];
-  //   const endDate = new Date();
-  //   let periods = 0;
-  //
-  //   switch (range) {
-  //     case 'day':
-  //       periods = 30; // Last 30 days
-  //       break;
-  //     case 'month':
-  //       periods = 12; // Last 12 months
-  //       break;
-  //     case 'year':
-  //       periods = 5; // Last 5 years
-  //       break;
-  //   }
-  //
-  //   for (let i = periods - 1; i >= 0; i--) {
-  //     const date = new Date(endDate);
-  //
-  //     switch (range) {
-  //       case 'day':
-  //         date.setDate(date.getDate() - i);
-  //         break;
-  //       case 'month':
-  //         date.setMonth(date.getMonth() - i);
-  //         break;
-  //       case 'year':
-  //         date.setFullYear(date.getFullYear() - i);
-  //         break;
-  //     }
-  //
-  //     // Generate realistic sample data
-  //     const baseRevenue = 800 + Math.random() * 400; // $800-1200 per period
-  //     const baseCosts = 200 + Math.random() * 100;   // $200-300 per period
-  //     const revenue = Math.round(baseRevenue * 100) / 100;
-  //     const costs = Math.round(baseCosts * 100) / 100;
-  //     const profit = revenue - costs;
-  //     const profitMargin = (profit / revenue) * 100;
-  //
-  //     sampleData.push({
-  //       date: formatDateByRange(date, range),
-  //       revenue,
-  //       costs,
-  //       profit,
-  //       rcnPurchased: Math.round(costs / 0.08), // Assuming $0.08 per RCN
-  //       rcnIssued: Math.round(revenue / 10), // Assuming ~$10 repair per RCN
-  //       profitMargin
-  //     });
-  //   }
-  //
-  //   return sampleData;
-  // };
 
   const calculateMetrics = useCallback((data: ProfitData[]): ProfitMetrics => {
     if (data.length === 0) {
@@ -294,8 +201,6 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
         totalCosts: 0,
         averageProfitMargin: 0,
         profitTrend: 'flat',
-        bestDay: { date: '', profit: 0 },
-        worstDay: { date: '', profit: 0 }
       };
     }
 
@@ -304,25 +209,16 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
     const totalCosts = data.reduce((sum, item) => sum + item.costs, 0);
     const averageProfitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
-    // Calculate trend
     const midPoint = Math.floor(data.length / 2);
     const firstHalf = data.slice(0, midPoint);
     const secondHalf = data.slice(midPoint);
-    
-    const firstHalfAvg = firstHalf.reduce((sum, item) => sum + item.profit, 0) / firstHalf.length;
-    const secondHalfAvg = secondHalf.reduce((sum, item) => sum + item.profit, 0) / secondHalf.length;
-    
+
+    const firstHalfAvg = firstHalf.length > 0 ? firstHalf.reduce((sum, item) => sum + item.profit, 0) / firstHalf.length : 0;
+    const secondHalfAvg = secondHalf.length > 0 ? secondHalf.reduce((sum, item) => sum + item.profit, 0) / secondHalf.length : 0;
+
     let profitTrend: 'up' | 'down' | 'flat' = 'flat';
     if (secondHalfAvg > firstHalfAvg * 1.05) profitTrend = 'up';
     else if (secondHalfAvg < firstHalfAvg * 0.95) profitTrend = 'down';
-
-    const bestDay = data.reduce((best, current) => 
-      current.profit > best.profit ? current : best
-    );
-    
-    const worstDay = data.reduce((worst, current) => 
-      current.profit < worst.profit ? current : worst
-    );
 
     return {
       totalProfit,
@@ -330,25 +226,20 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
       totalCosts,
       averageProfitMargin,
       profitTrend,
-      bestDay: { date: bestDay.date, profit: bestDay.profit },
-      worstDay: { date: worstDay.date, profit: worstDay.profit }
     };
   }, []);
 
-  // Fetch data on mount or when shopId changes
   useEffect(() => {
     if (shopId) {
       fetchProfitData();
     }
   }, [shopId, fetchProfitData]);
 
-  // Filter and process data when timeRange or raw data changes
   const filteredProfitData = useMemo(() => {
     if (rawTransactions.length === 0 && rawPurchases.length === 0) {
       return [];
     }
 
-    // Filter data based on current time range
     const endDate = new Date();
     const startDate = new Date();
 
@@ -364,7 +255,6 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
         break;
     }
 
-    // Filter transactions and purchases within range
     const filteredTransactions = rawTransactions.filter((t: any) => {
       const date = new Date(t.createdAt || t.timestamp);
       return date >= startDate && date <= endDate;
@@ -378,12 +268,10 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
     return processRawDataToProfit(filteredTransactions, filteredPurchases, timeRange);
   }, [rawTransactions, rawPurchases, timeRange, processRawDataToProfit]);
 
-  // Calculate metrics when filtered data changes
   const calculatedMetrics = useMemo(() => {
     return filteredProfitData.length > 0 ? calculateMetrics(filteredProfitData) : null;
   }, [filteredProfitData, calculateMetrics]);
 
-  // Update state when memoized values change
   useEffect(() => {
     setProfitData(filteredProfitData);
     setMetrics(calculatedMetrics);
@@ -391,7 +279,7 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
 
   const formatCurrency = useCallback((value: number) => `$${value.toFixed(2)}`, []);
 
-  const formatXAxis = useCallback((value: string) => {
+  const formatXAxisLabel = useCallback((value: string) => {
     switch (timeRange) {
       case 'day':
         return new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -408,7 +296,7 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 shadow-lg">
-          <p className="text-gray-300 font-medium mb-2">{formatXAxis(label)}</p>
+          <p className="text-gray-300 font-medium mb-2">{formatXAxisLabel(label)}</p>
           {payload.map((entry: any, index: number) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
               {entry.name}: {entry.name.includes('Margin') ? `${entry.value.toFixed(1)}%` : formatCurrency(entry.value)}
@@ -418,14 +306,19 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
       );
     }
     return null;
-  }, [formatXAxis, formatCurrency]);
+  }, [formatXAxisLabel, formatCurrency]);
 
   if (loading) {
     return (
-      <div className="bg-[#212121] rounded-3xl p-6">
+      <div className="bg-[#101010] rounded-[20px] p-6">
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-700 rounded mb-4"></div>
-          <div className="h-64 bg-gray-700 rounded"></div>
+          <div className="h-8 bg-gray-700 rounded w-48 mb-4"></div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-20 bg-gray-700 rounded-lg"></div>
+            ))}
+          </div>
+          <div className="h-[300px] bg-gray-700 rounded"></div>
         </div>
       </div>
     );
@@ -433,11 +326,11 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
 
   if (error) {
     return (
-      <div className="bg-[#212121] rounded-3xl p-6">
+      <div className="bg-[#101010] rounded-[20px] p-6">
         <div className="text-center text-red-400">
           <p className="text-lg font-semibold mb-2">Error Loading Profit Data</p>
           <p className="text-sm">{error}</p>
-          <button 
+          <button
             onClick={fetchProfitData}
             className="mt-4 px-4 py-2 bg-yellow-500 text-black rounded-lg hover:bg-yellow-600"
           >
@@ -449,31 +342,24 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
   }
 
   return (
-    <div className="bg-[#212121] rounded-3xl">
-      {/* Header with Time Range Selector */}
-      <div 
-        className="w-full flex justify-between items-center gap-2 px-6 py-4 text-white rounded-t-3xl"
-        style={{
-          backgroundImage: `url('/img/cust-ref-widget3.png')`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-        }}
-      >
+    <div className="bg-[#101010] rounded-[20px] overflow-hidden">
+      {/* Header */}
+      <div className="flex justify-between items-center px-6 py-4">
         <div className="flex items-center gap-2">
-          <TrendingUp className="w-6 h-6 text-gray-900" />
-          <h3 className="text-lg font-semibold text-gray-900">Profit Analysis</h3>
+          <TrendingUp className="w-5 h-5 text-[#FFCC00]" />
+          <h3 className="text-[#FFCC00] text-base font-medium">Profit Analysis</h3>
         </div>
-        
-        <div className="flex gap-1 bg-[#101010] rounded-lg p-1">
+
+        {/* Time Range Selector */}
+        <div className="flex bg-[#1e1f22] rounded-lg p-1">
           {(['day', 'month', 'year'] as const).map((range) => (
             <button
               key={range}
               onClick={() => setTimeRange(range)}
-              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
                 timeRange === range
-                  ? 'bg-yellow-500 text-black'
-                  : 'text-gray-300 hover:text-white'
+                  ? 'bg-[#FFCC00] text-[#101010]'
+                  : 'text-gray-400 hover:text-white'
               }`}
             >
               {range === 'day' ? 'Daily' : range === 'month' ? 'Monthly' : 'Yearly'}
@@ -484,9 +370,9 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
 
       {/* Metrics Cards */}
       {metrics && (
-        <div className="px-6 pt-6 pb-4">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div className="bg-[#2a2a2a] rounded-lg p-4">
+        <div className="px-6 pb-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-[#1e1f22] rounded-lg p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-gray-400">Total Profit</p>
@@ -504,21 +390,21 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
               </div>
             </div>
 
-            <div className="bg-[#2a2a2a] rounded-lg p-4">
+            <div className="bg-[#1e1f22] rounded-lg p-4">
               <p className="text-xs text-gray-400">Revenue</p>
               <p className="text-lg font-bold text-blue-400">
                 {formatCurrency(metrics.totalRevenue)}
               </p>
             </div>
 
-            <div className="bg-[#2a2a2a] rounded-lg p-4">
+            <div className="bg-[#1e1f22] rounded-lg p-4">
               <p className="text-xs text-gray-400">Costs</p>
               <p className="text-lg font-bold text-orange-400">
                 {formatCurrency(metrics.totalCosts)}
               </p>
             </div>
 
-            <div className="bg-[#2a2a2a] rounded-lg p-4">
+            <div className="bg-[#1e1f22] rounded-lg p-4">
               <p className="text-xs text-gray-400">Profit Margin</p>
               <p className={`text-lg font-bold ${metrics.averageProfitMargin >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                 {metrics.averageProfitMargin.toFixed(1)}%
@@ -532,8 +418,8 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
       <div className="px-6 pb-6">
         {profitData.length > 0 ? (
           <div className="space-y-6">
-            {/* Profit & Loss Line Chart */}
-            <div className="bg-[#2a2a2a] rounded-lg p-4">
+            {/* Main Area Chart - Profit & Loss Over Time */}
+            <div className="bg-[#1e1f22] rounded-lg p-4">
               <div className="flex justify-between items-center mb-4">
                 <h4 className="text-white font-medium">Profit & Loss Over Time</h4>
                 <div className="flex items-center gap-4 text-sm">
@@ -550,41 +436,37 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={profitData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis 
-                    dataKey="date" 
+                  <XAxis
+                    dataKey="date"
                     axisLine={false}
                     tickLine={false}
                     tick={{ fontSize: 12, fill: '#9CA3AF' }}
-                    tickFormatter={formatXAxis}
+                    tickFormatter={formatXAxisLabel}
                   />
-                  <YAxis 
+                  <YAxis
                     axisLine={false}
                     tickLine={false}
                     tick={{ fontSize: 12, fill: '#9CA3AF' }}
                     tickFormatter={formatCurrency}
                   />
                   <Tooltip content={<CustomTooltip />} />
-                  {/* Zero reference line */}
                   <ReferenceLine y={0} stroke="#6B7280" strokeDasharray="5 5" strokeWidth={1} />
-                  
-                  {/* Profit/Loss line - dots show green for profit, red for loss */}
-                  <Line 
-                    type="monotone" 
+                  <Line
+                    type="monotone"
                     dataKey="profit"
-                    stroke="#6B7280"  // Neutral gray line
+                    stroke="#6B7280"
                     strokeWidth={2}
                     name="Profit/Loss"
                     dot={(props: any) => {
                       const { cx, cy, payload } = props;
                       const isProfit = payload.profit >= 0;
                       const color = isProfit ? '#10B981' : '#EF4444';
-                      const size = isProfit ? 6 : 6; // Same size for both
                       return (
                         <circle
                           key={`${cx}-${cy}-${payload.date}`}
                           cx={cx}
                           cy={cy}
-                          r={size}
+                          r={6}
                           fill={color}
                           stroke="#ffffff"
                           strokeWidth={2}
@@ -598,83 +480,86 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
             </div>
 
             {/* Revenue vs Costs Chart */}
-            <div className="bg-[#2a2a2a] rounded-lg p-4">
+            <div className="bg-[#1e1f22] rounded-lg p-4">
               <h4 className="text-white font-medium mb-4">Revenue vs Costs</h4>
               <ResponsiveContainer width="100%" height={250}>
                 <LineChart data={profitData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis 
-                    dataKey="date" 
+                  <XAxis
+                    dataKey="date"
                     axisLine={false}
                     tickLine={false}
                     tick={{ fontSize: 12, fill: '#9CA3AF' }}
-                    tickFormatter={formatXAxis}
+                    tickFormatter={formatXAxisLabel}
                   />
-                  <YAxis 
+                  <YAxis
                     axisLine={false}
                     tickLine={false}
                     tick={{ fontSize: 12, fill: '#9CA3AF' }}
                     tickFormatter={formatCurrency}
                   />
                   <Tooltip content={<CustomTooltip />} />
-                  <Legend />
-                  <Line 
-                    type="monotone" 
-                    dataKey="revenue" 
-                    stroke="#3B82F6" 
+                  <Legend
+                    wrapperStyle={{ paddingTop: '10px' }}
+                    formatter={(value) => <span className="text-gray-300">{value}</span>}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="#3B82F6"
                     strokeWidth={2}
                     name="Revenue"
-                    dot={{ fill: '#3B82F6', strokeWidth: 2, r: 3 }}
+                    dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
                   />
-                  <Line 
-                    type="monotone" 
-                    dataKey="costs" 
-                    stroke="#F59E0B" 
+                  <Line
+                    type="monotone"
+                    dataKey="costs"
+                    stroke="#F59E0B"
                     strokeWidth={2}
                     name="Costs"
-                    dot={{ fill: '#F59E0B', strokeWidth: 2, r: 3 }}
+                    dot={{ fill: '#F59E0B', strokeWidth: 2, r: 4 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
             </div>
 
             {/* Profit Margin Trend */}
-            <div className="bg-[#2a2a2a] rounded-lg p-4">
+            <div className="bg-[#1e1f22] rounded-lg p-4">
               <h4 className="text-white font-medium mb-4">Profit Margin Trend</h4>
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart data={profitData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis 
-                    dataKey="date" 
+                  <XAxis
+                    dataKey="date"
                     axisLine={false}
                     tickLine={false}
                     tick={{ fontSize: 12, fill: '#9CA3AF' }}
-                    tickFormatter={formatXAxis}
+                    tickFormatter={formatXAxisLabel}
                   />
-                  <YAxis 
+                  <YAxis
                     axisLine={false}
                     tickLine={false}
                     tick={{ fontSize: 12, fill: '#9CA3AF' }}
                     tickFormatter={(value) => `${value}%`}
                   />
                   <Tooltip content={<CustomTooltip />} />
-                  <Line 
-                    type="monotone" 
-                    dataKey="profitMargin" 
-                    stroke="#8B5CF6" 
+                  <Line
+                    type="monotone"
+                    dataKey="profitMargin"
+                    stroke="#8B5CF6"
                     strokeWidth={2}
                     name="Profit Margin"
-                    dot={{ fill: '#8B5CF6', strokeWidth: 2, r: 3 }}
+                    dot={{ fill: '#8B5CF6', strokeWidth: 2, r: 4 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
             </div>
           </div>
         ) : (
-          <div className="text-center py-12">
-            <Calendar className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+          <div className="h-[300px] flex flex-col items-center justify-center text-center">
+            <Calendar className="w-12 h-12 text-gray-600 mb-4" />
             <p className="text-gray-400 text-lg">No profit data available</p>
-            <p className="text-gray-500 text-sm">Start issuing rewards to see your profit analysis</p>
+            <p className="text-gray-500 text-sm mt-1">Start issuing rewards to see your profit analysis</p>
           </div>
         )}
       </div>
