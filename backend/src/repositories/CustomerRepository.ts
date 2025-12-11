@@ -598,31 +598,42 @@ export class CustomerRepository extends BaseRepository {
   } | null> {
     try {
       const query = `
-        SELECT 
+        SELECT
           current_rcn_balance,
           pending_mint_balance,
           lifetime_earnings,
           total_redemptions,
           last_blockchain_sync,
+          -- Calculate available balance dynamically to ensure accuracy:
+          -- available = lifetime_earnings - total_redemptions - pending_mint_balance
+          GREATEST(0, COALESCE(lifetime_earnings, 0) - COALESCE(total_redemptions, 0) - COALESCE(pending_mint_balance, 0)) as calculated_available_balance,
           (current_rcn_balance + COALESCE(pending_mint_balance, 0)) as total_balance,
           ABS(current_rcn_balance - (lifetime_earnings - COALESCE(total_redemptions, 0))) < 0.00000001 as balance_synced
-        FROM customers 
+        FROM customers
         WHERE address = $1
       `;
-      
+
       const result = await this.pool.query(query, [address.toLowerCase()]);
-      
+
       if (result.rows.length === 0) {
         return null;
       }
-      
+
       const row = result.rows[0];
+      const pendingMintBalance = parseFloat(row.pending_mint_balance || '0');
+      const lifetimeEarnings = parseFloat(row.lifetime_earnings || '0');
+      const totalRedemptions = parseFloat(row.total_redemptions || '0');
+
+      // Use calculated available balance (earnings - redemptions - pending mint)
+      // This ensures consistency even if current_rcn_balance is out of sync
+      const calculatedAvailableBalance = parseFloat(row.calculated_available_balance || '0');
+
       return {
-        databaseBalance: parseFloat(row.current_rcn_balance || '0'),
-        pendingMintBalance: parseFloat(row.pending_mint_balance || '0'),
-        totalBalance: parseFloat(row.total_balance || '0'),
-        lifetimeEarnings: parseFloat(row.lifetime_earnings || '0'),
-        totalRedemptions: parseFloat(row.total_redemptions || '0'),
+        databaseBalance: calculatedAvailableBalance,
+        pendingMintBalance: pendingMintBalance,
+        totalBalance: lifetimeEarnings - totalRedemptions, // Total tokens customer owns (available + pending)
+        lifetimeEarnings: lifetimeEarnings,
+        totalRedemptions: totalRedemptions,
         lastBlockchainSync: row.last_blockchain_sync ? new Date(row.last_blockchain_sync).toISOString() : null,
         balanceSynced: row.balance_synced
       };

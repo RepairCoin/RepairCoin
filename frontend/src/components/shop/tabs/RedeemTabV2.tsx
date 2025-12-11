@@ -421,11 +421,11 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
 
       if (response.success) {
         const result = response;
-        // Use availableBalance for redemption (lifetime earnings - total redeemed)
-        // This is the actual amount that can be redeemed
-        const lifetimeEarnings = result.data?.lifetimeEarnings || 0;
-        const totalRedemptions = result.data?.totalRedemptions || 0;
-        const availableBalance = lifetimeEarnings - totalRedemptions;
+        // Use databaseBalance from backend - this already accounts for:
+        // - lifetime earnings
+        // - total redemptions
+        // - pending mint balance (tokens queued for blockchain minting)
+        const availableBalance = result.data?.databaseBalance || 0;
         setCustomerBalance(availableBalance);
       } else {
         console.warn("Could not fetch customer balance:", response.status);
@@ -1216,6 +1216,10 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                                       customerData.suspensionReason,
                                   });
                                   setCustomerAddress(customerSearch);
+
+                                  // Fetch customer balance for external customers
+                                  fetchCustomerBalance(customerSearch);
+
                                   setCustomerSearch("");
 
                                   // Check if customer is suspended and show error
@@ -1238,6 +1242,10 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                                     lifetime_earnings: 0,
                                     total_transactions: 0,
                                   });
+
+                                  // Fetch customer balance for external customers
+                                  fetchCustomerBalance(customerSearch);
+
                                   setCustomerSearch("");
                                 }
                               }}
