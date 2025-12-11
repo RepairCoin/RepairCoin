@@ -29,6 +29,7 @@ export interface BalanceData {
   availableBalance: number;
   lifetimeEarned: number;
   totalRedeemed: number;
+  pendingMintBalance?: number;
   earningHistory?: {
     fromRepairs: number;
     fromReferrals: number;

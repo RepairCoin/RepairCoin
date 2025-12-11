@@ -496,11 +496,12 @@ export class TransactionRepository extends BaseRepository {
 
       // Add type filter if provided
       if (filters.type) {
-        paramCount++;
         if (filters.type === 'rewards') {
           whereClause += ` AND t.type = 'mint'`;
         } else if (filters.type === 'redemptions') {
-          whereClause += ` AND t.type = 'redeem'`;
+          // Filter by type='redeem' OR by reason starting with 'Redemption'
+          // This handles both new transactions with proper type and legacy transactions
+          whereClause += ` AND (t.type = 'redeem' OR t.reason ILIKE 'Redemption%')`;
         } else if (filters.type === 'failed') {
           whereClause += ` AND t.status = 'failed'`;
         }

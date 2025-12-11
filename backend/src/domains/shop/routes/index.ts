@@ -1255,38 +1255,36 @@ router.post('/:shopId/redeem',
           amountFromBlockchain
         });
 
-        // 4a. Record the redemption transaction (if database deduction needed)
-        if (amountFromDatabase > 0) {
-          const transactionRecord = {
-            id: `redeem_${Date.now()}`,
-            type: 'redeem' as const,
-            customerAddress: customerAddress.toLowerCase(),
-            shopId,
-            amount: amountFromDatabase,
-            reason: `Redemption at ${shop.name}`,
-            transactionHash,
-            timestamp: new Date().toISOString(),
-            status: 'confirmed' as const,
-            metadata: {
-              repairAmount: amount,
-              referralId: undefined,
-              engagementType: 'redemption',
-              redemptionLocation: shop.name,
-              webhookId: `redeem_${Date.now()}`,
-              burnSuccessful,
-              notes: notes || undefined,
-              redemptionFlow: 'session-based',
-              customerPresent: customerPresent === true,
-              sessionId: sessionId,
-              amountFromBlockchain,
-              amountFromDatabase,
-              redemptionStrategy: amountFromBlockchain > 0 ? (amountFromDatabase > 0 ? 'hybrid' : 'blockchain_only') : 'database_only'
-            }
-          };
+        // 4a. Record the redemption transaction (ALWAYS record for history, regardless of source)
+        const transactionRecord = {
+          id: `redeem_${Date.now()}`,
+          type: 'redeem' as const,
+          customerAddress: customerAddress.toLowerCase(),
+          shopId,
+          amount: amount, // Record the TOTAL amount redeemed (for history purposes)
+          reason: `Redemption at ${shop.name}`,
+          transactionHash,
+          timestamp: new Date().toISOString(),
+          status: 'confirmed' as const,
+          metadata: {
+            repairAmount: amount,
+            referralId: undefined,
+            engagementType: 'redemption',
+            redemptionLocation: shop.name,
+            webhookId: `redeem_${Date.now()}`,
+            burnSuccessful,
+            notes: notes || undefined,
+            redemptionFlow: 'session-based',
+            customerPresent: customerPresent === true,
+            sessionId: sessionId,
+            amountFromBlockchain,
+            amountFromDatabase,
+            redemptionStrategy: amountFromBlockchain > 0 ? (amountFromDatabase > 0 ? 'hybrid' : 'blockchain_only') : 'database_only'
+          }
+        };
 
-          await transactionRepository.recordTransaction(transactionRecord, dbClient);
-          logger.info('Transaction recorded within atomic transaction', { sessionId });
-        }
+        await transactionRepository.recordTransaction(transactionRecord, dbClient);
+        logger.info('Transaction recorded within atomic transaction', { sessionId, totalAmount: amount });
 
         // 4b. Update shop statistics
         const previousShopBalance = shop.purchasedRcnBalance || 0;
