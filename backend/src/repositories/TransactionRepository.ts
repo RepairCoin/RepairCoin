@@ -617,4 +617,173 @@ export class TransactionRepository extends BaseRepository {
   async query(sql: string, params?: any[]) {
     return this.pool.query(sql, params);
   }
+
+  /**
+   * Create a pending transaction to record intent BEFORE blockchain operations.
+   * This enables recovery if database fails after blockchain burn.
+   * @param transaction The transaction record with status='pending'
+   * @param client Optional PoolClient for transaction support
+   * @returns The created transaction with its database ID
+   */
+  async createPendingTransaction(
+    transaction: Omit<TransactionRecord, 'id' | 'createdAt'>,
+    client?: PoolClient
+  ): Promise<TransactionRecord> {
+    try {
+      const query = `
+        INSERT INTO transactions (
+          type, customer_address, shop_id, amount, reason,
+          transaction_hash, block_number, timestamp, status, metadata
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING *
+      `;
+
+      const values = [
+        transaction.type,
+        transaction.customerAddress.toLowerCase(),
+        transaction.shopId,
+        transaction.amount,
+        transaction.reason,
+        transaction.transactionHash || null,
+        transaction.blockNumber || null,
+        transaction.timestamp,
+        'pending', // Always start as pending
+        JSON.stringify(transaction.metadata || {})
+      ];
+
+      const result = client
+        ? await client.query(query, values)
+        : await this.pool.query(query, values);
+
+      const createdTransaction = this.mapToTransactionRecord(result.rows[0]);
+      logger.info('Pending transaction created', {
+        id: createdTransaction.id,
+        type: createdTransaction.type,
+        amount: createdTransaction.amount
+      });
+
+      return createdTransaction;
+    } catch (error) {
+      logger.error('Error creating pending transaction:', error);
+      throw new Error('Failed to create pending transaction');
+    }
+  }
+
+  /**
+   * Confirm a pending transaction after blockchain operation succeeds.
+   * @param id The transaction ID to confirm
+   * @param updates Additional fields to update (e.g., transactionHash)
+   * @param client Optional PoolClient for transaction support
+   */
+  async confirmTransaction(
+    id: string | number,
+    updates: {
+      transactionHash?: string;
+      blockNumber?: number;
+      metadata?: TransactionMetadata;
+    },
+    client?: PoolClient
+  ): Promise<void> {
+    try {
+      let query = `
+        UPDATE transactions
+        SET status = 'confirmed', updated_at = NOW()
+      `;
+      const params: any[] = [];
+      let paramCount = 0;
+
+      if (updates.transactionHash) {
+        paramCount++;
+        query += `, transaction_hash = $${paramCount}`;
+        params.push(updates.transactionHash);
+      }
+
+      if (updates.blockNumber !== undefined) {
+        paramCount++;
+        query += `, block_number = $${paramCount}`;
+        params.push(updates.blockNumber);
+      }
+
+      if (updates.metadata) {
+        paramCount++;
+        query += `, metadata = metadata || $${paramCount}::jsonb`;
+        params.push(JSON.stringify(updates.metadata));
+      }
+
+      paramCount++;
+      query += ` WHERE id = $${paramCount}`;
+      params.push(id);
+
+      if (client) {
+        await client.query(query, params);
+      } else {
+        await this.pool.query(query, params);
+      }
+
+      logger.info('Transaction confirmed', { id, transactionHash: updates.transactionHash });
+    } catch (error) {
+      logger.error('Error confirming transaction:', error);
+      throw new Error('Failed to confirm transaction');
+    }
+  }
+
+  /**
+   * Mark a pending transaction as failed.
+   * @param id The transaction ID to mark as failed
+   * @param errorMessage The error message to record
+   * @param client Optional PoolClient for transaction support
+   */
+  async failTransaction(
+    id: string | number,
+    errorMessage: string,
+    client?: PoolClient
+  ): Promise<void> {
+    try {
+      const query = `
+        UPDATE transactions
+        SET status = 'failed',
+            updated_at = NOW(),
+            metadata = metadata || $1::jsonb
+        WHERE id = $2
+      `;
+
+      const metadata = JSON.stringify({
+        failureReason: errorMessage,
+        failedAt: new Date().toISOString()
+      });
+
+      if (client) {
+        await client.query(query, [metadata, id]);
+      } else {
+        await this.pool.query(query, [metadata, id]);
+      }
+
+      logger.info('Transaction marked as failed', { id, errorMessage });
+    } catch (error) {
+      logger.error('Error failing transaction:', error);
+      throw new Error('Failed to mark transaction as failed');
+    }
+  }
+
+  /**
+   * Get all pending transactions that need reconciliation.
+   * Used by admin to find blockchain burns that weren't properly recorded.
+   */
+  async getPendingReconciliationTransactions(): Promise<TransactionRecord[]> {
+    try {
+      const query = `
+        SELECT * FROM transactions
+        WHERE status = 'pending'
+        AND type = 'redeem'
+        AND metadata->>'requiresReconciliation' = 'true'
+        ORDER BY timestamp ASC
+      `;
+
+      const result = await this.pool.query(query);
+      return result.rows.map(row => this.mapToTransactionRecord(row));
+    } catch (error) {
+      logger.error('Error getting pending reconciliation transactions:', error);
+      throw new Error('Failed to get pending reconciliation transactions');
+    }
+  }
 }
