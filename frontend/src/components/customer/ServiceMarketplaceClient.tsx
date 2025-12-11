@@ -10,9 +10,14 @@ import { ServiceFilters, FilterState } from "./ServiceFilters";
 import { ServiceDetailsModal } from "./ServiceDetailsModal";
 import { ServiceCheckoutModal } from "./ServiceCheckoutModal";
 import { ShopMapView } from "./ShopMapView";
+import { AutocompleteSearch } from "./AutocompleteSearch";
+import { RecentlyViewedServices } from "./RecentlyViewedServices";
+import { TrendingServices } from "./TrendingServices";
+import { useAuthStore } from "@/stores/authStore";
 
 export const ServiceMarketplaceClient: React.FC = () => {
   const router = useRouter();
+  const { userType } = useAuthStore();
   const [services, setServices] = useState<ShopServiceWithShopInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<FilterState>({});
@@ -22,6 +27,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
   const [hasMore, setHasMore] = useState(true);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "map">("grid");
+  const [refreshKey, setRefreshKey] = useState(0); // For refreshing recently viewed
 
   useEffect(() => {
     loadServices();
@@ -99,8 +105,25 @@ export const ServiceMarketplaceClient: React.FC = () => {
     setPage(1);
   };
 
-  const handleViewDetails = (service: ShopServiceWithShopInfo) => {
+  const handleViewDetails = async (service: ShopServiceWithShopInfo) => {
     setSelectedService(service);
+    // Track recently viewed (only for customers)
+    if (userType === 'customer') {
+      await servicesApi.trackRecentlyViewed(service.serviceId);
+      setRefreshKey(prev => prev + 1); // Refresh recently viewed section
+    }
+  };
+
+  const handleAutocompleteSelect = async (serviceId: string) => {
+    try {
+      const service = await servicesApi.getServiceById(serviceId);
+      if (service) {
+        handleViewDetails(service);
+      }
+    } catch (error) {
+      console.error("Error loading service:", error);
+      toast.error("Failed to load service details");
+    }
   };
 
   const handleBook = (service: ShopServiceWithShopInfo) => {
@@ -126,7 +149,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <ShoppingBag className="w-8 h-8 text-[#FFCC00]" />
               <h1 className="text-4xl font-bold text-white">Service Marketplace</h1>
@@ -175,7 +198,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
               </button>
             </div>
           </div>
-          <p className="text-gray-400 text-lg">
+          <p className="text-gray-400 text-lg mb-6">
             {showFavoritesOnly
               ? "Your favorited services"
               : viewMode === "map"
@@ -184,7 +207,37 @@ export const ServiceMarketplaceClient: React.FC = () => {
               ? `Browsing services from ${services.find(s => s.shopId === filters.shopId)?.shopName || "shop"}`
               : "Discover and book services from local businesses"}
           </p>
+
+          {/* Autocomplete Search Bar */}
+          {!showFavoritesOnly && viewMode === "grid" && !filters.shopId && (
+            <div className="max-w-2xl">
+              <AutocompleteSearch
+                onSelectService={handleAutocompleteSelect}
+                placeholder="Search for services or shops..."
+              />
+            </div>
+          )}
         </div>
+
+        {/* Trending Services - Show only on initial load without filters */}
+        {!loading && page === 1 && !showFavoritesOnly && viewMode === "grid" && !filters.search && !filters.category && !filters.shopId && (
+          <TrendingServices
+            onBook={handleBook}
+            onViewDetails={handleViewDetails}
+            limit={6}
+            days={7}
+          />
+        )}
+
+        {/* Recently Viewed - Show only for customers */}
+        {userType === 'customer' && !showFavoritesOnly && viewMode === "grid" && !filters.shopId && (
+          <RecentlyViewedServices
+            key={refreshKey}
+            onBook={handleBook}
+            onViewDetails={handleViewDetails}
+            limit={6}
+          />
+        )}
 
         {/* Active Shop Filter */}
         {viewMode === "grid" && filters.shopId && !showFavoritesOnly && (
@@ -316,6 +369,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
           service={selectedService}
           onClose={() => setSelectedService(null)}
           onBook={handleBook}
+          onViewDetails={handleViewDetails}
         />
       )}
 

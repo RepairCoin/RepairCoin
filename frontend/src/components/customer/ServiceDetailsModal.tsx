@@ -8,20 +8,29 @@ import { StarRating } from "./StarRating";
 import { FavoriteButton } from "./FavoriteButton";
 import { ShareButton } from "./ShareButton";
 import { ReviewList } from "./ReviewList";
+import { SimilarServices } from "./SimilarServices";
 
 interface ServiceDetailsModalProps {
   service: ShopServiceWithShopInfo;
   onClose: () => void;
   onBook: (service: ShopServiceWithShopInfo) => void;
+  onViewDetails?: (service: ShopServiceWithShopInfo) => void;
 }
 
 export const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({
   service,
   onClose,
   onBook,
+  onViewDetails,
 }) => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"details" | "reviews">("details");
+
+  const handleViewSimilar = (similarService: ShopServiceWithShopInfo) => {
+    if (onViewDetails) {
+      onViewDetails(similarService);
+    }
+  };
 
   const getCategoryLabel = (category?: string) => {
     if (!category) return "Other";
@@ -288,6 +297,16 @@ export const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({
             <div>
               <ReviewList serviceId={service.serviceId} />
             </div>
+          )}
+
+          {/* Similar Services Section */}
+          {activeTab === "details" && (
+            <SimilarServices
+              serviceId={service.serviceId}
+              onBook={onBook}
+              onViewDetails={handleViewSimilar}
+              limit={6}
+            />
           )}
         </div>
       </div>
