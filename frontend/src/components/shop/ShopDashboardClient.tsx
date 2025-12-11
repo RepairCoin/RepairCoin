@@ -576,7 +576,7 @@ export default function ShopDashboardClient() {
   // Error state (shop not found)
   if (error && !shopData && !existingApplication.hasApplication) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] py-32">
+      <div className="min-h-screen flex items-center justify-center bg-[#1e1f22] py-32">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
           <div className="text-center">
             <div className="text-red-500 text-4xl mb-4">🚫</div>
@@ -606,7 +606,7 @@ export default function ShopDashboardClient() {
   // Loading state - while auth is initializing
   if (!authInitialized || authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] py-32">
+      <div className="min-h-screen flex items-center justify-center bg-[#1e1f22] py-32">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFCC00] mx-auto mb-4"></div>
@@ -625,7 +625,7 @@ export default function ShopDashboardClient() {
   // Not connected state
   if (!account) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] py-32">
+      <div className="min-h-screen flex items-center justify-center bg-[#1e1f22] py-32">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
           <div className="text-center">
             <div className="text-6xl mb-6">🏪</div>
@@ -654,7 +654,7 @@ export default function ShopDashboardClient() {
     loading
   ) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] py-32">
+      <div className="min-h-screen flex items-center justify-center bg-[#1e1f22] py-32">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
           <div className="text-center">
             <div className="text-blue-500 text-4xl mb-4">⏳</div>
@@ -679,7 +679,7 @@ export default function ShopDashboardClient() {
     error
   ) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] py-32">
+      <div className="min-h-screen flex items-center justify-center bg-[#1e1f22] py-32">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
           <div className="text-center">
             <div className="text-red-500 text-4xl mb-4">⚠️</div>
@@ -710,7 +710,7 @@ export default function ShopDashboardClient() {
     existingApplication.status !== "verified"
   ) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] py-32">
+      <div className="min-h-screen flex items-center justify-center bg-[#1e1f22] py-32">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
           <div className="text-center">
             <div className="text-yellow-500 text-4xl mb-4">⏳</div>
@@ -784,15 +784,7 @@ export default function ShopDashboardClient() {
       activeTab={activeTab}
       onTabChange={handleTabChange}
     >
-      <div
-        className="min-h-screen py-8 bg-[#0D0D0D]"
-        style={{
-          backgroundImage: `url('/img/dashboard-bg.png')`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-        }}
-      >
+      <div className="min-h-screen py-8">
         <div className="max-w-screen-2xl w-[96%] mx-auto">
           {/* Warning Banner for Non-Operational Shops */}
           {/* Only show when shop data is loaded (not during loading state) */}

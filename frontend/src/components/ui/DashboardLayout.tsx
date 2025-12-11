@@ -67,7 +67,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#0D0D0D]">
+    <div className="min-h-screen bg-[#1e1f22]">
       {renderSidebar()}
 
       {/* Notification Bell - Absolute Position (only for customers and shops) */}
