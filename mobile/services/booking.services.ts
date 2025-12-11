@@ -59,11 +59,50 @@ class BookingApi {
     }
   }
 
+  /**
+   * Confirm payment after Stripe Checkout completion
+   * This updates order status and processes RCN redemption
+   */
+  async confirmCheckoutPayment(sessionId: string): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      const response = await apiClient.post("/services/orders/confirm", { paymentIntentId: sessionId });
+      return { success: true, data: response };
+    } catch (error: any) {
+      console.error("Failed to confirm checkout payment:", error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
   async createPaymentIntent(data: BookingFormData) {
     try {
       return await apiClient.post("/services/orders/create-payment-intent", data);
     } catch (error: any) {
       console.error("Failed to create payment intent:", error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a Stripe Checkout session for web-based booking payment
+   * This avoids Apple's 30% IAP fee by redirecting to browser
+   */
+  async createStripeCheckout(data: BookingFormData): Promise<{
+    data: {
+      orderId: string;
+      checkoutUrl: string;
+      sessionId: string;
+      amount: number;
+      currency: string;
+      totalAmount?: number;
+      rcnRedeemed?: number;
+      rcnDiscountUsd?: number;
+      finalAmount?: number;
+    };
+  }> {
+    try {
+      return await apiClient.post("/services/orders/stripe-checkout", data);
+    } catch (error: any) {
+      console.error("Failed to create Stripe checkout session:", error.message);
       throw error;
     }
   }

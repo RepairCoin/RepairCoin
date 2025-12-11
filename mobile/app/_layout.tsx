@@ -10,14 +10,12 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { ToastProvider } from "react-native-toast-notifications";
 
 import { ErrorBoundaryProvider } from "../providers/ErrorBoundaryProvider";
-import { StripeProvider } from "../providers/StripeProvider";
 import { queryClient } from "../config/queryClient";
 import DevTools from "../components/ui/ReactQueryDevtools";
 import "../global.css";
 import "react-native-get-random-values";
 
 SplashScreen.preventAutoHideAsync();
-
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -41,25 +39,25 @@ export default function RootLayout() {
         <SafeAreaProvider>
           <QueryClientProvider client={queryClient}>
             <ThirdwebProvider>
-              <StripeProvider>
-                <BottomSheetModalProvider>
-                  <ToastProvider>
-                    <StatusBar
-                      barStyle={Platform.OS === 'ios' ? 'light-content' : 'default'}
-                      backgroundColor="transparent"
-                      translucent
-                    />
-                    <Stack
-                      screenOptions={{
-                        headerShown: false,
-                        animation: 'slide_from_right',
-                        gestureEnabled: true,
-                      }}
-                    />
-                    <DevTools />
-                  </ToastProvider>
-                </BottomSheetModalProvider>
-              </StripeProvider>
+              <BottomSheetModalProvider>
+                <ToastProvider>
+                  <StatusBar
+                    barStyle={
+                      Platform.OS === "ios" ? "light-content" : "default"
+                    }
+                    backgroundColor="transparent"
+                    translucent
+                  />
+                  <Stack
+                    screenOptions={{
+                      headerShown: false,
+                      animation: "slide_from_right",
+                      gestureEnabled: true,
+                    }}
+                  />
+                  <DevTools />
+                </ToastProvider>
+              </BottomSheetModalProvider>
             </ThirdwebProvider>
           </QueryClientProvider>
         </SafeAreaProvider>

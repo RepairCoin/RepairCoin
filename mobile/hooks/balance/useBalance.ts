@@ -4,9 +4,9 @@ import { balanceApi } from "@/services/balance.services";
 
 export const useBalance = (walletAddress: string) => {
   return useQuery({
-    queryKey: ["balance"],
+    queryKey: queryKeys.tokenBalance(walletAddress),
     queryFn: async () => {
-      const response: any = await balanceApi.getCustomerBalance (walletAddress);
+      const response: any = await balanceApi.getCustomerBalance(walletAddress);
       return response.data;
     },
     staleTime: 10 * 60 * 1000, // 10 minutes

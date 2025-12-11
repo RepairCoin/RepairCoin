@@ -1,4 +1,4 @@
-import { Pressable, ScrollView, Text, View, Switch } from "react-native";
+import { Pressable, ScrollView, Text, View, ActivityIndicator } from "react-native";
 import {
   AntDesign,
   Entypo,
@@ -10,6 +10,7 @@ import * as Clipboard from "expo-clipboard";
 import { router } from "expo-router";
 import { useAuthStore } from "@/store/auth.store";
 import { useCustomer } from "@/hooks/customer/useCustomer";
+import { useAuth } from "@/hooks/auth/useAuth";
 
 type CopyableFieldProps = {
   value: string;
@@ -54,9 +55,11 @@ const CopyableField = ({
 };
 
 export default function Account() {
-  const { logout } = useAuthStore((state) => state);
   const { account } = useAuthStore();
   const { useGetCustomerByWalletAddress } = useCustomer();
+  const { useLogout } = useAuth();
+  const { logout, isLoggingOut } = useLogout();
+
   // Use the token balance hook
   const { data: customerData } = useGetCustomerByWalletAddress(account?.address);
 
@@ -116,22 +119,27 @@ export default function Account() {
         <View className="p-4 bg-[#212121] rounded-xl mt-4">
           <Pressable
             onPress={handleLogout}
-            className="flex-row justify-between items-center"
+            disabled={isLoggingOut}
+            className={`flex-row justify-between items-center ${isLoggingOut ? "opacity-50" : ""}`}
           >
             <View className="flex-row items-center">
               <View className="rounded-full bg-[#FBCDCD] w-12 h-12 items-center justify-center">
-                <MaterialIcons name="logout" color="#E74C4C" size={18} />
+                {isLoggingOut ? (
+                  <ActivityIndicator size="small" color="#E74C4C" />
+                ) : (
+                  <MaterialIcons name="logout" color="#E74C4C" size={18} />
+                )}
               </View>
               <View className="px-4 gap-2">
                 <Text className="text-white text-xl font-semibold">
-                  Log Out
+                  {isLoggingOut ? "Logging Out..." : "Log Out"}
                 </Text>
                 <Text className="text-white/50 text-sm">
-                  Surely log out an account
+                  {isLoggingOut ? "Clearing all data..." : "Surely log out an account"}
                 </Text>
               </View>
             </View>
-            <AntDesign name="right" color="#fff" size={18} />
+            {!isLoggingOut && <AntDesign name="right" color="#fff" size={18} />}
           </Pressable>
         </View>
       </ScrollView>

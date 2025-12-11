@@ -61,6 +61,46 @@ export class OrderController {
   };
 
   /**
+   * Create Stripe Checkout session for web-based service booking (Customer)
+   * POST /api/services/orders/stripe-checkout
+   * This avoids Apple's 30% IAP fee by redirecting to browser
+   */
+  createStripeCheckout = async (req: Request, res: Response) => {
+    try {
+      const customerAddress = req.user?.address;
+      if (!customerAddress) {
+        return res.status(401).json({ success: false, error: 'Customer authentication required' });
+      }
+
+      const { serviceId, bookingDate, bookingTime, rcnToRedeem, notes } = req.body;
+
+      if (!serviceId) {
+        return res.status(400).json({ success: false, error: 'Service ID is required' });
+      }
+
+      const result = await this.paymentService.createStripeCheckout({
+        serviceId,
+        customerAddress,
+        bookingDate: bookingDate ? new Date(bookingDate) : undefined,
+        bookingTime,
+        rcnToRedeem: rcnToRedeem ? parseFloat(rcnToRedeem) : undefined,
+        notes
+      });
+
+      res.status(201).json({
+        success: true,
+        data: result
+      });
+    } catch (error: unknown) {
+      logger.error('Error in createStripeCheckout controller:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create checkout session'
+      });
+    }
+  };
+
+  /**
    * Confirm payment (optional, webhooks handle most cases)
    * POST /api/services/orders/confirm
    */

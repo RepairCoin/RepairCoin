@@ -13,8 +13,6 @@ export function StripeProvider({ children }: StripeProviderProps) {
     return <>{children}</>;
   }
 
-  console.log("STRIPE_PUBLISHABLE_KEY: ", STRIPE_PUBLISHABLE_KEY)
-
   return (
     <StripeNativeProvider
       publishableKey={STRIPE_PUBLISHABLE_KEY}

@@ -455,6 +455,66 @@ export function initializeRoutes(stripe: StripeService): Router {
 
   /**
    * @swagger
+   * /api/services/orders/stripe-checkout:
+   *   post:
+   *     summary: Create Stripe Checkout session for service booking (Customer only)
+   *     description: Creates a Stripe Checkout session for web-based payment. Opens browser for payment to avoid Apple IAP fees.
+   *     tags: [Service Orders]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - serviceId
+   *             properties:
+   *               serviceId:
+   *                 type: string
+   *               bookingDate:
+   *                 type: string
+   *                 format: date-time
+   *               bookingTime:
+   *                 type: string
+   *               rcnToRedeem:
+   *                 type: number
+   *               notes:
+   *                 type: string
+   *     responses:
+   *       201:
+   *         description: Checkout session created
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     orderId:
+   *                       type: string
+   *                     checkoutUrl:
+   *                       type: string
+   *                     sessionId:
+   *                       type: string
+   *                     amount:
+   *                       type: number
+   *                     currency:
+   *                       type: string
+   */
+  router.post(
+    '/orders/stripe-checkout',
+    authMiddleware,
+    requireRole(['customer']),
+    orderController.createStripeCheckout
+  );
+
+  /**
+   * @swagger
    * /api/services/orders/confirm:
    *   post:
    *     summary: Confirm payment (optional - webhooks handle most cases)

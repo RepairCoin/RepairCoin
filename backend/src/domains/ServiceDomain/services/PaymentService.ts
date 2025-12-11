@@ -31,6 +31,19 @@ export interface CreatePaymentIntentResponse {
   customerRcnBalance?: number;
 }
 
+export interface CreateStripeCheckoutResponse {
+  orderId: string;
+  checkoutUrl: string;
+  sessionId: string;
+  amount: number;
+  currency: string;
+  totalAmount?: number;
+  rcnRedeemed?: number;
+  rcnDiscountUsd?: number;
+  finalAmount?: number;
+  customerRcnBalance?: number;
+}
+
 export interface ConfirmPaymentRequest {
   paymentIntentId: string;
 }
@@ -198,6 +211,169 @@ export class PaymentService {
       };
     } catch (error) {
       logger.error('Error creating payment intent:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a Stripe Checkout session for web-based payment
+   * This avoids Apple's 30% IAP fee by redirecting to browser
+   */
+  async createStripeCheckout(request: CreatePaymentIntentRequest): Promise<CreateStripeCheckoutResponse> {
+    try {
+      // Get service details
+      const service = await this.serviceRepository.getServiceById(request.serviceId);
+      if (!service) {
+        throw new Error('Service not found');
+      }
+
+      if (!service.active) {
+        throw new Error('Service is not available for booking');
+      }
+
+      // Validate time slot availability if booking date and time provided
+      let bookingEndTime: string | undefined;
+      if (request.bookingDate && request.bookingTime) {
+        const dateStr = request.bookingDate.toISOString().split('T')[0];
+
+        // Get service duration
+        const serviceDuration = await this.appointmentRepository.getServiceDuration(request.serviceId);
+        const durationMinutes = serviceDuration?.durationMinutes || service.durationMinutes || 60;
+
+        // Calculate booking end time
+        const [hours, minutes] = request.bookingTime.split(':').map(Number);
+        const startTime = new Date();
+        startTime.setHours(hours, minutes, 0, 0);
+        const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
+        bookingEndTime = `${String(endTime.getHours()).padStart(2, '0')}:${String(endTime.getMinutes()).padStart(2, '0')}`;
+
+        // Get time slot configuration
+        const config = await this.appointmentRepository.getTimeSlotConfig(service.shopId);
+        if (!config) {
+          throw new Error('Shop has not configured appointment scheduling');
+        }
+
+        // Get booked slots for this date
+        const bookedSlots = await this.appointmentRepository.getBookedSlots(service.shopId, dateStr);
+        const bookedCount = bookedSlots.find(slot => slot.timeSlot === request.bookingTime)?.count || 0;
+
+        // Check if time slot is available
+        if (bookedCount >= config.maxConcurrentBookings) {
+          throw new Error(`Time slot ${request.bookingTime} is fully booked. Please select a different time.`);
+        }
+      }
+
+      let rcnRedeemed = 0;
+      let rcnDiscountUsd = 0;
+      let finalAmountUsd = service.priceUsd;
+      let customerRcnBalance = 0;
+
+      // Handle RCN redemption if requested
+      if (request.rcnToRedeem && request.rcnToRedeem > 0) {
+        const redemption = await this.rcnRedemptionService.calculateRedemption({
+          customerAddress: request.customerAddress,
+          servicePriceUsd: service.priceUsd,
+          shopId: service.shopId,
+          rcnToRedeem: request.rcnToRedeem
+        });
+
+        if (!redemption.isValid) {
+          throw new Error(redemption.error || 'Invalid RCN redemption');
+        }
+
+        rcnRedeemed = redemption.rcnRedeemed;
+        rcnDiscountUsd = redemption.rcnDiscountUsd;
+        finalAmountUsd = redemption.finalAmountUsd;
+        customerRcnBalance = redemption.remainingBalance;
+      }
+
+      // Generate order ID
+      const orderId = `ord_${uuidv4()}`;
+
+      // Create order in database with pending status
+      const orderParams: CreateOrderParams = {
+        orderId,
+        serviceId: request.serviceId,
+        customerAddress: request.customerAddress,
+        shopId: service.shopId,
+        totalAmount: service.priceUsd,
+        rcnRedeemed,
+        rcnDiscountUsd,
+        finalAmountUsd,
+        bookingDate: request.bookingDate,
+        bookingTimeSlot: request.bookingTime,
+        bookingEndTime,
+        notes: request.notes
+      };
+
+      const order = await this.orderRepository.createOrder(orderParams);
+
+      // Get shop details for customer info
+      const shop = await shopRepository.getShop(service.shopId);
+
+      // Create Stripe Checkout session
+      const stripe = this.stripeService.getStripe();
+      const amountInCents = Math.round(finalAmountUsd * 100);
+
+      // Set redirect URLs - use deep links for mobile
+      const successUrl = `khalid2025://customer/booking/booking-success?order_id=${orderId}`;
+      const cancelUrl = `khalid2025://customer/booking/booking-cancel?order_id=${orderId}`;
+
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [{
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: service.serviceName,
+              description: `Booking at ${shop?.name || 'Shop'}${rcnRedeemed > 0 ? ` (${rcnRedeemed} RCN discount applied)` : ''}`
+            },
+            unit_amount: amountInCents,
+          },
+          quantity: 1,
+        }],
+        mode: 'payment',
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        metadata: {
+          orderId: order.orderId,
+          serviceId: service.serviceId,
+          shopId: service.shopId,
+          customerAddress: request.customerAddress,
+          totalAmount: service.priceUsd.toString(),
+          rcnRedeemed: rcnRedeemed.toString(),
+          rcnDiscountUsd: rcnDiscountUsd.toString(),
+          type: 'service_booking'
+        }
+      });
+
+      // Update order with checkout session ID
+      await this.orderRepository.updatePaymentIntent(orderId, session.id);
+
+      logger.info('Stripe checkout session created for service booking', {
+        orderId,
+        serviceId: service.serviceId,
+        sessionId: session.id,
+        totalAmount: service.priceUsd,
+        rcnRedeemed,
+        rcnDiscountUsd,
+        finalAmount: finalAmountUsd
+      });
+
+      return {
+        orderId: order.orderId,
+        checkoutUrl: session.url!,
+        sessionId: session.id,
+        amount: finalAmountUsd,
+        currency: 'usd',
+        totalAmount: service.priceUsd,
+        rcnRedeemed,
+        rcnDiscountUsd,
+        finalAmount: finalAmountUsd,
+        customerRcnBalance
+      };
+    } catch (error) {
+      logger.error('Error creating Stripe checkout session:', error);
       throw error;
     }
   }
