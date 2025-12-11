@@ -1,19 +1,27 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useActiveAccount } from "thirdweb/react";
+import { useState, useEffect, useMemo } from "react";
+import { useActiveAccount, useIsAutoConnecting, ConnectButton } from "thirdweb/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { toast } from "react-hot-toast";
 import DashboardLayout from "@/components/ui/DashboardLayout";
-import { Users, Plus, Settings, TrendingUp } from "lucide-react";
+import { Users, Plus, TrendingUp, ChevronDown, UserPlus, Home, ChevronRight } from "lucide-react";
 import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
 import CreateGroupModal from "./CreateGroupModal";
 import GroupCard from "./GroupCard";
 import JoinGroupModal from "./JoinGroupModal";
+import apiClient from "@/services/api/client";
+import { useAuthStore } from "@/stores/authStore";
+import { client } from "@/utils/thirdweb";
+
+type SortOption = "members" | "name" | "recent";
 
 export default function AffiliateShopGroupsClient() {
   const account = useActiveAccount();
+  const isAutoConnecting = useIsAutoConnecting();
   const router = useRouter();
+  const { authInitialized, isAuthenticated, userType, isLoading: authLoading } = useAuthStore();
 
   const [myGroups, setMyGroups] = useState<shopGroupsAPI.AffiliateShopGroup[]>([]);
   const [allGroups, setAllGroups] = useState<shopGroupsAPI.AffiliateShopGroup[]>([]);
@@ -23,50 +31,57 @@ export default function AffiliateShopGroupsClient() {
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [subscriptionActive, setSubscriptionActive] = useState<boolean>(false);
   const [checkingSubscription, setCheckingSubscription] = useState(true);
+  const [shopId, setShopId] = useState<string>("");
+  const [sortBy, setSortBy] = useState<SortOption>("members");
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
 
   useEffect(() => {
-    console.log("🔍 AffiliateShopGroupsClient - account:", account?.address);
-    if (account?.address) {
+    // Wait for auth to initialize before loading data
+    if (!authInitialized) {
+      return;
+    }
+
+    // Only load data if we have an authenticated shop user
+    if (account?.address && isAuthenticated && userType === 'shop') {
       loadData();
       checkSubscription();
-    } else {
-      console.log("❌ No account address, setting loading to false");
+    } else if (authInitialized) {
+      // Auth is initialized but user is not authenticated as shop
       setLoading(false);
+      setCheckingSubscription(false);
     }
-  }, [account?.address]);
+  }, [account?.address, authInitialized, isAuthenticated, userType]);
 
   const checkSubscription = async () => {
     try {
       setCheckingSubscription(true);
-      console.log("🔍 Checking subscription status...");
 
-      // Try to get shop profile from localStorage first
-      const shopAuthToken = localStorage.getItem('shopAuthToken');
-      if (!shopAuthToken) {
-        console.log("❌ No shop auth token found");
-        setSubscriptionActive(false);
-        return;
-      }
+      // Use apiClient which handles auth via cookies
+      // apiClient returns response.data directly (interceptor unwraps it)
+      const result = await apiClient.get(`/shops/wallet/${account?.address}`) as { success: boolean; data?: { subscriptionActive?: boolean; shopId?: string; operational_status?: string } };
 
-      // Get shop ID from wallet address
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/shops/wallet/${account?.address}`, {
-        headers: {
-          Authorization: `Bearer ${shopAuthToken}`,
-        },
-      });
+      console.log('📋 [ShopGroups] Subscription check result:', result);
 
-      if (response.ok) {
-        const result = await response.json();
-        console.log("📦 Shop data:", result);
-        const isActive = result.data?.subscriptionActive || result.subscriptionActive || false;
-        console.log(`✅ Subscription active: ${isActive}`);
+      if (result.success && result.data) {
+        // Check both subscriptionActive flag AND operational_status
+        // operational_status can be 'subscription_qualified' or 'rcg_qualified'
+        const isActive = result.data.subscriptionActive ||
+          result.data.operational_status === 'subscription_qualified' ||
+          result.data.operational_status === 'rcg_qualified';
+
+        console.log('📋 [ShopGroups] Subscription active:', isActive, {
+          subscriptionActive: result.data.subscriptionActive,
+          operational_status: result.data.operational_status
+        });
+
         setSubscriptionActive(isActive);
+        setShopId(result.data.shopId || "");
       } else {
-        console.log("❌ Failed to fetch shop data:", response.status);
         setSubscriptionActive(false);
       }
-    } catch (error) {
-      console.error("❌ Error checking subscription:", error);
+    } catch (error: unknown) {
+      // Silently handle errors - this is expected when shop doesn't exist or auth fails
+      console.log("Could not check subscription status:", error instanceof Error ? error.message : 'Unknown error');
       setSubscriptionActive(false);
     } finally {
       setCheckingSubscription(false);
@@ -80,15 +95,46 @@ export default function AffiliateShopGroupsClient() {
         shopGroupsAPI.getMyGroups(),
         shopGroupsAPI.getAllGroups(),
       ]);
-      setMyGroups(myGroupsData);
-      setAllGroups(allGroupsData);
+      setMyGroups(Array.isArray(myGroupsData) ? myGroupsData : []);
+      setAllGroups(Array.isArray(allGroupsData) ? allGroupsData : []);
     } catch (error) {
       console.error("Error loading groups:", error);
       toast.error("Failed to load shop groups");
+      setMyGroups([]);
+      setAllGroups([]);
     } finally {
       setLoading(false);
     }
   };
+
+  // Sort groups based on selected option
+  const sortedMyGroups = useMemo(() => {
+    const groups = [...myGroups];
+    switch (sortBy) {
+      case "members":
+        return groups.sort((a, b) => (b.memberCount || 0) - (a.memberCount || 0));
+      case "name":
+        return groups.sort((a, b) => a.groupName.localeCompare(b.groupName));
+      case "recent":
+        return groups.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      default:
+        return groups;
+    }
+  }, [myGroups, sortBy]);
+
+  const sortedAllGroups = useMemo(() => {
+    const groups = [...allGroups];
+    switch (sortBy) {
+      case "members":
+        return groups.sort((a, b) => (b.memberCount || 0) - (a.memberCount || 0));
+      case "name":
+        return groups.sort((a, b) => a.groupName.localeCompare(b.groupName));
+      case "recent":
+        return groups.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      default:
+        return groups;
+    }
+  }, [allGroups, sortBy]);
 
   const handleCreateGroup = async (data: shopGroupsAPI.CreateGroupData) => {
     try {
@@ -120,26 +166,90 @@ export default function AffiliateShopGroupsClient() {
     router.push(`/shop/groups/${groupId}`);
   };
 
-  if (!account?.address) {
+  const getSortLabel = (option: SortOption) => {
+    switch (option) {
+      case "members":
+        return "Members";
+      case "name":
+        return "Name";
+      case "recent":
+        return "Recent";
+      default:
+        return "Members";
+    }
+  };
+
+  // Check if current shop is leader of a group
+  const isGroupLeader = (group: shopGroupsAPI.AffiliateShopGroup) => {
+    return group.creatorShopId === shopId;
+  };
+
+  // Check if current shop is member of a group
+  const isGroupMember = (groupId: string) => {
+    return myGroups.some(g => g.groupId === groupId);
+  };
+
+  // Show loading state while auth is initializing or wallet is auto-connecting
+  if (!authInitialized || authLoading || isAutoConnecting) {
     return (
-      <DashboardLayout
-        title="Shop Groups"
-        subtitle="Connect your wallet to manage shop groups"
-      >
-        <div className="text-center py-12">
-          <p className="text-gray-400">Please connect your wallet to continue</p>
+      <div className="min-h-screen flex items-center justify-center bg-[#1e1f22] py-32">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFCC00] mx-auto mb-4"></div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">Initializing...</h3>
+            <p className="text-gray-600">Checking your authentication status</p>
+          </div>
         </div>
-      </DashboardLayout>
+      </div>
+    );
+  }
+
+  // Not connected state
+  if (!account) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#1e1f22] py-32">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+          <div className="text-center">
+            <div className="text-6xl mb-6">🏪</div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">Affiliate Groups</h1>
+            <p className="text-gray-600 mb-8">Connect your shop wallet to access affiliate groups</p>
+            <ConnectButton client={client} theme="light" connectModal={{ size: "wide" }} />
+          </div>
+        </div>
+      </div>
     );
   }
 
   return (
     <>
-      <DashboardLayout
-        title="Shop Groups"
-        subtitle="Create and manage shop coalitions with custom tokens"
-      >
-        {/* Subscription Warning */}
+      <DashboardLayout userRole="shop">
+        <div className="p-6">
+          {/* Breadcrumb and Header */}
+          <div className="mb-6">
+            {/* Breadcrumb */}
+            <nav className="flex items-center gap-2 text-sm mb-2">
+              <Link href="/shop" className="text-gray-400 hover:text-white transition-colors">
+                <Home className="w-4 h-4" />
+              </Link>
+              <ChevronRight className="w-4 h-4 text-gray-500" />
+              <Link href="/shop/groups" className="flex items-center gap-1.5 text-white hover:text-[#FFCC00] transition-colors">
+                <Users className="w-4 h-4" />
+                <span>Affiliate Groups</span>
+              </Link>
+              {activeTab === "discover" && (
+                <>
+                  <ChevronRight className="w-4 h-4 text-gray-500" />
+                  <span className="text-[#FFCC00]">Discover Groups</span>
+                </>
+              )}
+            </nav>
+            {/* Subtitle */}
+            <p className="text-gray-400 text-sm">
+              Browse, track, and grow your affiliate communities effortlessly.
+            </p>
+          </div>
+
+          {/* Subscription Warning */}
         {!checkingSubscription && !subscriptionActive && (
           <div className="mb-6 bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
             <div className="flex items-start gap-3">
@@ -164,60 +274,100 @@ export default function AffiliateShopGroupsClient() {
           </div>
         )}
 
-        {/* Header Actions */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-          {/* Tabs */}
-          <div className="flex gap-2">
+        {/* Header with Tabs and Actions */}
+        <div className="mb-6 flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center border-y border-[#303236] py-4">
+          {/* Tab Bar */}
+          <div className="bg-[#1e1f22] p-1 rounded-md flex gap-2">
             <button
               onClick={() => setActiveTab("my-groups")}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`px-4 py-2.5 rounded font-medium text-base transition-colors ${
                 activeTab === "my-groups"
-                  ? "bg-[#FFCC00] text-black"
-                  : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                  ? "bg-[#FFCC00] text-[#101010]"
+                  : "bg-[#dae0e7] text-[#101010] hover:bg-[#c8cdd3]"
               }`}
             >
               My Groups ({myGroups.length})
             </button>
             <button
               onClick={() => setActiveTab("discover")}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`px-4 py-2.5 rounded font-medium text-base transition-colors ${
                 activeTab === "discover"
-                  ? "bg-[#FFCC00] text-black"
-                  : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                  ? "bg-[#FFCC00] text-[#101010]"
+                  : "bg-[#dae0e7] text-[#101010] hover:bg-[#c8cdd3]"
               }`}
             >
               Discover Groups ({allGroups.length})
             </button>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-2">
+          {/* Action Buttons and Sort */}
+          <div className="flex items-center gap-3">
+            {/* Join Group Button */}
             <button
               onClick={() => subscriptionActive && setShowJoinModal(true)}
               disabled={!subscriptionActive}
-              className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md border transition-colors ${
                 subscriptionActive
-                  ? "bg-gray-800 text-white hover:bg-gray-700"
-                  : "bg-gray-700 text-gray-500 cursor-not-allowed opacity-50"
+                  ? "bg-white border-[#dde2e4] text-[#101010] hover:bg-gray-50"
+                  : "bg-gray-200 border-gray-300 text-gray-500 cursor-not-allowed opacity-50"
               }`}
               title={!subscriptionActive ? "Active subscription required" : ""}
             >
-              <Users className="w-4 h-4" />
-              Join Group
+              <UserPlus className="w-5 h-5" />
+              <span className="text-sm font-medium">Join Group</span>
             </button>
+
+            {/* Create Group Button */}
             <button
               onClick={() => subscriptionActive && setShowCreateModal(true)}
               disabled={!subscriptionActive}
-              className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 font-medium ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md border transition-colors ${
                 subscriptionActive
-                  ? "bg-[#FFCC00] text-black hover:bg-[#FFD700]"
-                  : "bg-gray-700 text-gray-500 cursor-not-allowed opacity-50"
+                  ? "bg-white border-[#dde2e4] text-[#101010] hover:bg-gray-50"
+                  : "bg-gray-200 border-gray-300 text-gray-500 cursor-not-allowed opacity-50"
               }`}
               title={!subscriptionActive ? "Active subscription required" : ""}
             >
-              <Plus className="w-4 h-4" />
-              Create Group
+              <Plus className="w-5 h-5" />
+              <span className="text-sm font-medium">Create Group</span>
             </button>
+
+            {/* Sort Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowSortDropdown(!showSortDropdown)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-md border bg-white border-[#dde2e4] text-[#101010] hover:bg-gray-50 transition-colors"
+              >
+                <span className="text-xs text-[#535353]">Sort by</span>
+                <span className="text-sm font-medium">{getSortLabel(sortBy)}</span>
+                <ChevronDown className="w-5 h-5" />
+              </button>
+
+              {showSortDropdown && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowSortDropdown(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-1 w-32 bg-white border border-[#dde2e4] rounded-md shadow-lg z-20">
+                    {(["members", "name", "recent"] as SortOption[]).map((option) => (
+                      <button
+                        key={option}
+                        onClick={() => {
+                          setSortBy(option);
+                          setShowSortDropdown(false);
+                        }}
+                        className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                          sortBy === option ? "text-[#FFCC00] font-medium" : "text-[#101010]"
+                        }`}
+                      >
+                        {getSortLabel(option)}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -230,8 +380,8 @@ export default function AffiliateShopGroupsClient() {
         ) : (
           <div>
             {activeTab === "my-groups" ? (
-              myGroups.length === 0 ? (
-                <div className="text-center py-12 bg-gray-800/50 rounded-lg">
+              sortedMyGroups.length === 0 ? (
+                <div className="text-center py-12 bg-[#101010] rounded-lg">
                   <Users className="w-16 h-16 text-gray-600 mx-auto mb-4" />
                   <h3 className="text-xl font-bold text-white mb-2">No Groups Yet</h3>
                   <p className="text-gray-400 mb-6">
@@ -265,20 +415,21 @@ export default function AffiliateShopGroupsClient() {
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {myGroups.map((group) => (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {sortedMyGroups.map((group) => (
                     <GroupCard
                       key={group.groupId}
                       group={group}
                       onClick={() => handleGroupClick(group.groupId)}
                       showMemberBadge
+                      isLeader={isGroupLeader(group)}
                     />
                   ))}
                 </div>
               )
             ) : (
-              allGroups.length === 0 ? (
-                <div className="text-center py-12 bg-gray-800/50 rounded-lg">
+              sortedAllGroups.length === 0 ? (
+                <div className="text-center py-12 bg-[#101010] rounded-lg">
                   <TrendingUp className="w-16 h-16 text-gray-600 mx-auto mb-4" />
                   <h3 className="text-xl font-bold text-white mb-2">No Groups Available</h3>
                   <p className="text-gray-400">
@@ -286,12 +437,16 @@ export default function AffiliateShopGroupsClient() {
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {allGroups.map((group) => (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {sortedAllGroups.map((group) => (
                     <GroupCard
                       key={group.groupId}
                       group={group}
                       onClick={() => handleGroupClick(group.groupId)}
+                      showMemberBadge={isGroupMember(group.groupId)}
+                      isLeader={isGroupLeader(group)}
+                      isDiscoverTab={!isGroupMember(group.groupId)}
+                      onJoinClick={() => subscriptionActive && setShowJoinModal(true)}
                     />
                   ))}
                 </div>
@@ -299,6 +454,7 @@ export default function AffiliateShopGroupsClient() {
             )}
           </div>
         )}
+        </div>
       </DashboardLayout>
 
       {/* Modals */}

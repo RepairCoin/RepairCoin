@@ -113,7 +113,12 @@ export function useSidebar({
 
   const isItemActive = useCallback(
     (item: SidebarItem) => {
-      return item.tabId ? activeTab === item.tabId : pathname === item.href;
+      // First check if pathname matches the href (for direct page routes like /shop/groups)
+      if (pathname === item.href || pathname.startsWith(item.href + '/')) {
+        return true;
+      }
+      // Then check tabId for tab-based navigation
+      return item.tabId ? activeTab === item.tabId : false;
     },
     [activeTab, pathname]
   );

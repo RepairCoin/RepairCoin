@@ -249,7 +249,15 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
                       {section.items.map((item) => {
                         const isActive = isItemActive(item);
 
+                        // Check if this is a direct page route (not a tab route)
+                        const isDirectPageRoute = !item.href.includes('?tab=');
+
                         const handleClick = (e: React.MouseEvent) => {
+                          // For direct page routes, let the Link navigate normally
+                          if (isDirectPageRoute) {
+                            return;
+                          }
+                          // For tab routes, prevent default and use onTabChange
                           if (item.tabId && onTabChange) {
                             e.preventDefault();
                             onTabChange(item.tabId);
@@ -278,7 +286,15 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
               section.items.map((item) => {
                 const isActive = isItemActive(item);
 
+                // Check if this is a direct page route (not a tab route)
+                const isDirectPageRoute = !item.href.includes('?tab=');
+
                 const handleClick = (e: React.MouseEvent) => {
+                  // For direct page routes, let the Link navigate normally
+                  if (isDirectPageRoute) {
+                    return;
+                  }
+                  // For tab routes, prevent default and use onTabChange
                   if (item.tabId && onTabChange) {
                     e.preventDefault();
                     onTabChange(item.tabId);

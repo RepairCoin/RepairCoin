@@ -1,18 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { toast } from "react-hot-toast";
-import { Users, Plus } from "lucide-react";
+import { Users, Plus, ChevronDown, UserPlus, Home, ChevronRight } from "lucide-react";
 import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
 import CreateGroupModal from "../groups/CreateGroupModal";
 import GroupCard from "../groups/GroupCard";
 import JoinGroupModal from "../groups/JoinGroupModal";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface GroupsTabProps {
   shopId: string;
   subscriptionActive?: boolean;
 }
+
+type SortOption = "members" | "name" | "recent";
 
 export function GroupsTab({ shopId, subscriptionActive = false }: GroupsTabProps) {
   const router = useRouter();
@@ -22,13 +25,8 @@ export function GroupsTab({ shopId, subscriptionActive = false }: GroupsTabProps
   const [activeSubTab, setActiveSubTab] = useState<"my-groups" | "discover">("my-groups");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
-
-  console.log('🔐 [GroupsTab] Subscription Status:', {
-    shopId,
-    subscriptionActive,
-    subscriptionActiveType: typeof subscriptionActive,
-    willShowWarning: !subscriptionActive
-  });
+  const [sortBy, setSortBy] = useState<SortOption>("members");
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -37,35 +35,14 @@ export function GroupsTab({ shopId, subscriptionActive = false }: GroupsTabProps
   const loadData = async () => {
     try {
       setLoading(true);
-      console.log('🔍 [GroupsTab] Starting to load groups data...');
-
       const [myGroupsData, allGroupsData] = await Promise.all([
         shopGroupsAPI.getMyGroups(),
         shopGroupsAPI.getAllGroups(),
       ]);
-
-      console.log('✅ [GroupsTab] API responses received:', {
-        myGroupsData,
-        allGroupsData,
-        myGroupsIsArray: Array.isArray(myGroupsData),
-        allGroupsIsArray: Array.isArray(allGroupsData),
-        myGroupsLength: Array.isArray(myGroupsData) ? myGroupsData.length : 'not array',
-        allGroupsLength: Array.isArray(allGroupsData) ? allGroupsData.length : 'not array'
-      });
-
-      // Ensure data is always an array
       setMyGroups(Array.isArray(myGroupsData) ? myGroupsData : []);
       setAllGroups(Array.isArray(allGroupsData) ? allGroupsData : []);
-
-      console.log('✅ [GroupsTab] Groups state updated successfully');
     } catch (error) {
-      console.error("❌ [GroupsTab] Error loading groups:", error);
-      console.error("Error details:", {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        response: (error as any)?.response,
-        status: (error as any)?.response?.status,
-        data: (error as any)?.response?.data
-      });
+      console.error("Error loading groups:", error);
       toast.error("Failed to load shop groups");
       setMyGroups([]);
       setAllGroups([]);
@@ -73,6 +50,35 @@ export function GroupsTab({ shopId, subscriptionActive = false }: GroupsTabProps
       setLoading(false);
     }
   };
+
+  // Sort groups based on selected option
+  const sortedMyGroups = useMemo(() => {
+    const groups = [...myGroups];
+    switch (sortBy) {
+      case "members":
+        return groups.sort((a, b) => (b.memberCount || 0) - (a.memberCount || 0));
+      case "name":
+        return groups.sort((a, b) => a.groupName.localeCompare(b.groupName));
+      case "recent":
+        return groups.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      default:
+        return groups;
+    }
+  }, [myGroups, sortBy]);
+
+  const sortedAllGroups = useMemo(() => {
+    const groups = [...allGroups];
+    switch (sortBy) {
+      case "members":
+        return groups.sort((a, b) => (b.memberCount || 0) - (a.memberCount || 0));
+      case "name":
+        return groups.sort((a, b) => a.groupName.localeCompare(b.groupName));
+      case "recent":
+        return groups.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      default:
+        return groups;
+    }
+  }, [allGroups, sortBy]);
 
   const handleCreateGroup = async (data: shopGroupsAPI.CreateGroupData) => {
     try {
@@ -104,9 +110,57 @@ export function GroupsTab({ shopId, subscriptionActive = false }: GroupsTabProps
     router.push(`/shop/groups/${groupId}`);
   };
 
+  const getSortLabel = (option: SortOption) => {
+    switch (option) {
+      case "members":
+        return "Members";
+      case "name":
+        return "Name";
+      case "recent":
+        return "Recent";
+      default:
+        return "Members";
+    }
+  };
+
+  // Check if current shop is leader of a group
+  const isGroupLeader = (group: shopGroupsAPI.ShopGroup) => {
+    return group.creatorShopId === shopId;
+  };
+
+  // Check if current shop is member of a group
+  const isGroupMember = (groupId: string) => {
+    return myGroups.some(g => g.groupId === groupId);
+  };
+
   return (
     <>
       <div className="space-y-6">
+        {/* Breadcrumb and Header */}
+        <div>
+          {/* Breadcrumb */}
+          <nav className="flex items-center gap-2 text-sm mb-2">
+            <Link href="/shop" className="text-gray-400 hover:text-white transition-colors">
+              <Home className="w-4 h-4" />
+            </Link>
+            <ChevronRight className="w-4 h-4 text-gray-500" />
+            <Link href="/shop/groups" className="flex items-center gap-1.5 text-white hover:text-[#FFCC00] transition-colors">
+              <Users className="w-4 h-4" />
+              <span>Affiliate Groups</span>
+            </Link>
+            {activeSubTab === "discover" && (
+              <>
+                <ChevronRight className="w-4 h-4 text-gray-500" />
+                <span className="text-[#FFCC00]">Discover Groups</span>
+              </>
+            )}
+          </nav>
+          {/* Subtitle */}
+          <p className="text-gray-400 text-sm">
+            Browse, track, and grow your affiliate communities effortlessly.
+          </p>
+        </div>
+
         {/* Subscription Warning */}
         {!subscriptionActive && (
           <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
@@ -132,60 +186,100 @@ export function GroupsTab({ shopId, subscriptionActive = false }: GroupsTabProps
           </div>
         )}
 
-        {/* Header with Actions */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-          {/* Sub-Tabs */}
-          <div className="flex gap-2">
+        {/* Header with Tabs and Actions */}
+        <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center border-y border-[#303236] py-4">
+          {/* Tab Bar */}
+          <div className="bg-[#1e1f22] p-1 rounded-md flex gap-2">
             <button
               onClick={() => setActiveSubTab("my-groups")}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`px-4 py-2.5 rounded font-medium text-base transition-colors ${
                 activeSubTab === "my-groups"
-                  ? "bg-[#FFCC00] text-black"
-                  : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                  ? "bg-[#FFCC00] text-[#101010]"
+                  : "bg-[#dae0e7] text-[#101010] hover:bg-[#c8cdd3]"
               }`}
             >
               My Groups ({myGroups.length})
             </button>
             <button
               onClick={() => setActiveSubTab("discover")}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`px-4 py-2.5 rounded font-medium text-base transition-colors ${
                 activeSubTab === "discover"
-                  ? "bg-[#FFCC00] text-black"
-                  : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                  ? "bg-[#FFCC00] text-[#101010]"
+                  : "bg-[#dae0e7] text-[#101010] hover:bg-[#c8cdd3]"
               }`}
             >
               Discover Groups ({allGroups.length})
             </button>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-2">
+          {/* Action Buttons and Sort */}
+          <div className="flex items-center gap-3">
+            {/* Join Group Button */}
             <button
               onClick={() => subscriptionActive && setShowJoinModal(true)}
               disabled={!subscriptionActive}
-              className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md border transition-colors ${
                 subscriptionActive
-                  ? "bg-gray-800 text-white hover:bg-gray-700"
-                  : "bg-gray-700 text-gray-500 cursor-not-allowed opacity-50"
+                  ? "bg-white border-[#dde2e4] text-[#101010] hover:bg-gray-50"
+                  : "bg-gray-200 border-gray-300 text-gray-500 cursor-not-allowed opacity-50"
               }`}
               title={!subscriptionActive ? "Active subscription required" : ""}
             >
-              <Users className="w-4 h-4" />
-              Join Group
+              <UserPlus className="w-5 h-5" />
+              <span className="text-sm font-medium">Join Group</span>
             </button>
+
+            {/* Create Group Button */}
             <button
               onClick={() => subscriptionActive && setShowCreateModal(true)}
               disabled={!subscriptionActive}
-              className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 font-medium ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md border transition-colors ${
                 subscriptionActive
-                  ? "bg-[#FFCC00] text-black hover:bg-[#FFD700]"
-                  : "bg-gray-700 text-gray-500 cursor-not-allowed opacity-50"
+                  ? "bg-white border-[#dde2e4] text-[#101010] hover:bg-gray-50"
+                  : "bg-gray-200 border-gray-300 text-gray-500 cursor-not-allowed opacity-50"
               }`}
               title={!subscriptionActive ? "Active subscription required" : ""}
             >
-              <Plus className="w-4 h-4" />
-              Create Group
+              <Plus className="w-5 h-5" />
+              <span className="text-sm font-medium">Create Group</span>
             </button>
+
+            {/* Sort Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowSortDropdown(!showSortDropdown)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-md border bg-white border-[#dde2e4] text-[#101010] hover:bg-gray-50 transition-colors"
+              >
+                <span className="text-xs text-[#535353]">Sort by</span>
+                <span className="text-sm font-medium">{getSortLabel(sortBy)}</span>
+                <ChevronDown className="w-5 h-5" />
+              </button>
+
+              {showSortDropdown && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowSortDropdown(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-1 w-32 bg-white border border-[#dde2e4] rounded-md shadow-lg z-20">
+                    {(["members", "name", "recent"] as SortOption[]).map((option) => (
+                      <button
+                        key={option}
+                        onClick={() => {
+                          setSortBy(option);
+                          setShowSortDropdown(false);
+                        }}
+                        className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                          sortBy === option ? "text-[#FFCC00] font-medium" : "text-[#101010]"
+                        }`}
+                      >
+                        {getSortLabel(option)}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -198,8 +292,8 @@ export function GroupsTab({ shopId, subscriptionActive = false }: GroupsTabProps
         ) : (
           <div>
             {activeSubTab === "my-groups" ? (
-              myGroups.length === 0 ? (
-                <div className="text-center py-12 bg-gray-800/50 rounded-lg">
+              sortedMyGroups.length === 0 ? (
+                <div className="text-center py-12 bg-[#101010] rounded-lg">
                   <Users className="w-16 h-16 text-gray-600 mx-auto mb-4" />
                   <h3 className="text-xl font-bold text-white mb-2">No Groups Yet</h3>
                   <p className="text-gray-400 mb-6">
@@ -233,20 +327,21 @@ export function GroupsTab({ shopId, subscriptionActive = false }: GroupsTabProps
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {myGroups.map((group) => (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {sortedMyGroups.map((group) => (
                     <GroupCard
                       key={group.groupId}
                       group={group}
                       onClick={() => handleGroupClick(group.groupId)}
                       showMemberBadge
+                      isLeader={isGroupLeader(group)}
                     />
                   ))}
                 </div>
               )
             ) : (
-              allGroups.length === 0 ? (
-                <div className="text-center py-12 bg-gray-800/50 rounded-lg">
+              sortedAllGroups.length === 0 ? (
+                <div className="text-center py-12 bg-[#101010] rounded-lg">
                   <Users className="w-16 h-16 text-gray-600 mx-auto mb-4" />
                   <h3 className="text-xl font-bold text-white mb-2">No Groups Available</h3>
                   <p className="text-gray-400">
@@ -254,12 +349,16 @@ export function GroupsTab({ shopId, subscriptionActive = false }: GroupsTabProps
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {allGroups.map((group) => (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {sortedAllGroups.map((group) => (
                     <GroupCard
                       key={group.groupId}
                       group={group}
                       onClick={() => handleGroupClick(group.groupId)}
+                      showMemberBadge={isGroupMember(group.groupId)}
+                      isLeader={isGroupLeader(group)}
+                      isDiscoverTab={!isGroupMember(group.groupId)}
+                      onJoinClick={() => subscriptionActive && setShowJoinModal(true)}
                     />
                   ))}
                 </div>
