@@ -125,7 +125,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   // Transaction history states
   const [transactions, setTransactions] = useState<RedemptionTransaction[]>([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
+  const [showHistory, setShowHistory] = useState(true);
 
   // QR Scanner states
   const [showQRScanner, setShowQRScanner] = useState(false);
@@ -329,9 +329,13 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
         `/shops/${shopId}/transactions?type=redemptions&limit=20`
       );
 
+      console.log("[RedeemTabV2] Redemption history response:", response);
+
       if (response.success) {
         const result = response;
         const redemptions = result.data?.transactions || [];
+
+        console.log("[RedeemTabV2] Redemptions found:", redemptions.length, redemptions);
 
         const transformedTransactions = redemptions.map((tx: any) => ({
           id: tx.id,
@@ -344,9 +348,11 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
         }));
 
         setTransactions(transformedTransactions);
+      } else {
+        console.log("[RedeemTabV2] Response not successful:", response);
       }
     } catch (err) {
-      console.error("Error loading redemption history:", err);
+      console.error("[RedeemTabV2] Error loading redemption history:", err);
     } finally {
       setLoadingTransactions(false);
     }
@@ -1582,7 +1588,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                   <div className="flex items-center justify-between">
                     <span className="text-gray-400 text-sm">Your Shop RCN</span>
                     <span className={`font-bold ${shopRcnBalance > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {shopRcnBalance.toFixed(2)} RCN
+                      {Math.floor(shopRcnBalance)} RCN
                     </span>
                   </div>
                 </div>
@@ -1627,7 +1633,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                                 : "text-red-400"
                             }
                           >
-                            {customerBalance.toFixed(2)} RCN
+                            {Math.floor(customerBalance)} RCN
                           </span>
                         ) : (
                           <span className="text-gray-400">Unknown</span>
@@ -1652,7 +1658,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                   <div className="bg-[#0D0D0D] rounded-xl p-3 text-center">
                     <span className="text-gray-400 text-sm">USD Value: </span>
                     <span className="text-white font-bold">
-                      ${redeemAmount || 0}.00
+                      ${((redeemAmount || 0) * 0.10).toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -1670,7 +1676,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                             Customer Insufficient Balance
                           </h4>
                           <p className="text-sm text-red-300">
-                            Customer has {customerBalance.toFixed(2)} RCN, but{" "}
+                            Customer has {Math.floor(customerBalance)} RCN, but{" "}
                             {redeemAmount} RCN requested.
                             {loadingBalance && " (Checking balance...)"}
                           </p>
@@ -1689,7 +1695,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                           Shop Insufficient RCN
                         </h4>
                         <p className="text-sm text-orange-300">
-                          Your shop has {shopRcnBalance.toFixed(2)} RCN, but{" "}
+                          Your shop has {Math.floor(shopRcnBalance)} RCN, but{" "}
                           {redeemAmount} RCN requested. Purchase more RCN to process this redemption.
                         </p>
                       </div>
@@ -1712,7 +1718,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                           </h4>
                           <p className="text-sm text-purple-300">
                             This is not the customer's home shop. Maximum redeemable here is{" "}
-                            <span className="font-bold">{crossShopInfo.crossShopLimit.toFixed(2)} RCN</span> (20% of balance).
+                            <span className="font-bold">{Math.floor(crossShopInfo.crossShopLimit)} RCN</span> (20% of balance).
                             Customer can redeem full balance at their home shop.
                           </p>
                         </div>
@@ -1769,12 +1775,12 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                           ? "Loading customer balance..."
                           : insufficientCustomerBalance
                           ? `Customer has insufficient balance (${
-                              customerBalance?.toFixed(2) || 0
+                              Math.floor(customerBalance || 0)
                             } RCN available)`
                           : insufficientShopBalance
-                          ? `Shop has insufficient RCN (${shopRcnBalance.toFixed(2)} RCN available, need ${redeemAmount} RCN)`
+                          ? `Shop has insufficient RCN (${Math.floor(shopRcnBalance)} RCN available, need ${redeemAmount} RCN)`
                           : crossShopLimitExceeded
-                          ? `Cross-shop limit: Max ${crossShopInfo?.crossShopLimit.toFixed(2)} RCN (20%) at this shop`
+                          ? `Cross-shop limit: Max ${Math.floor(crossShopInfo?.crossShopLimit || 0)} RCN (20%) at this shop`
                           : "Send request to customer's device for approval"
                       }
                     >

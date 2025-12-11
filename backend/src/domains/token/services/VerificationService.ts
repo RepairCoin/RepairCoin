@@ -16,6 +16,7 @@ export interface BalanceInfo {
   availableBalance: number;
   lifetimeEarned: number;
   totalRedeemed: number;
+  pendingMintBalance: number;
   earningHistory: {
     fromRepairs: number;
     fromReferrals: number;
@@ -223,6 +224,7 @@ export class VerificationService {
       // Use the customer's lifetime earnings as available balance
       // All RCN is redeemable regardless of how it was obtained
       const availableBalance = currentBalance;
+      const pendingMintBalance = customer.pendingMintBalance || 0;
 
       // Get earning breakdown by type with safe access
       const earningHistory = {
@@ -236,6 +238,7 @@ export class VerificationService {
         availableBalance,
         lifetimeEarned: rcnBreakdown.earned || 0,
         totalRedeemed,
+        pendingMintBalance,
         earningHistory
       };
 
@@ -246,6 +249,7 @@ export class VerificationService {
         availableBalance: 0,
         lifetimeEarned: 0,
         totalRedeemed: 0,
+        pendingMintBalance: 0,
         earningHistory: {
           fromRepairs: 0,
           fromReferrals: 0,
@@ -368,18 +372,19 @@ export class VerificationService {
 
   /**
    * Calculate customer's available balance
-   * Returns lifetime earnings minus total redemptions
+   * Returns lifetime earnings minus total redemptions minus pending mint balance
    */
   private async calculateAvailableBalance(customerAddress: string): Promise<number> {
     try {
-      // Get customer's lifetime earnings
+      // Get customer's lifetime earnings and pending mint balance
       const customer = await customerRepository.getCustomer(customerAddress);
       if (!customer) {
         return 0;
       }
-      
+
       const lifetimeEarnings = customer.lifetimeEarnings || 0;
-      
+      const pendingMintBalance = customer.pendingMintBalance || 0;
+
       // Get total redemptions from transactions
       let totalRedeemed = 0;
       try {
@@ -392,9 +397,9 @@ export class VerificationService {
       } catch (error) {
         logger.warn('Failed to get redemption history for balance calculation', error);
       }
-      
-      // Available balance = lifetime earnings - total redeemed
-      return Math.max(0, lifetimeEarnings - totalRedeemed);
+
+      // Available balance = lifetime earnings - total redeemed - pending mint (queued for blockchain)
+      return Math.max(0, lifetimeEarnings - totalRedeemed - pendingMintBalance);
 
     } catch (error) {
       logger.error('Error calculating available balance:', error);
