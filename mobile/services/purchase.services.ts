@@ -32,6 +32,7 @@ class PurchaseApi {
     try {
       return await apiClient.post("/shops/purchase/stripe-checkout", {
         amount,
+        platform: "mobile", // Tell backend to use deep links for redirect
       });
     } catch (error: any) {
       console.error("Failed to create Stripe checkout session:", error.message);

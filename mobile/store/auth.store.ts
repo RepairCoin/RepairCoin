@@ -105,7 +105,7 @@ export const useAuthStore = create<AuthState>()(
 
           // Clear SecureStore (this is what Zustand persist uses)
           try {
-            const keys = ['auth-store', 'repairCoin_authData', 'repairCoin_authToken', 'repairCoin_userType', 'repairCoin_walletAddress'];
+            const keys = ['auth-store', 'repairCoin_authData', 'repairCoin_authToken', 'repairCoin_userType', 'repairCoin_walletAddress', 'payment-session-storage'];
             await Promise.all(keys.map(key => SecureStore.deleteItemAsync(key)));
             console.log("[Auth] SecureStore cleared");
           } catch (error) {

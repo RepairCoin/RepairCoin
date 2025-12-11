@@ -315,9 +315,9 @@ export class PaymentService {
       const stripe = this.stripeService.getStripe();
       const amountInCents = Math.round(finalAmountUsd * 100);
 
-      // Set redirect URLs - use deep links for mobile
-      const successUrl = `khalid2025://customer/booking/booking-success?order_id=${orderId}`;
-      const cancelUrl = `khalid2025://customer/booking/booking-cancel?order_id=${orderId}`;
+      // Set redirect URLs - use deep links for mobile (shared payment success screen)
+      const successUrl = `khalid2025://shared/payment-sucess?order_id=${orderId}`;
+      const cancelUrl = `khalid2025://shared/payment-cancel?order_id=${orderId}`;
 
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],

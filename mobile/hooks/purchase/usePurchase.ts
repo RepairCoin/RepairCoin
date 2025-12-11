@@ -2,6 +2,7 @@ import { purchaseApi } from "@/services/purchase.services";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { Alert, Linking } from "react-native";
+import { usePaymentStore } from "@/store/payment.store";
 
 export function usePurchase() {
   // Hook for creating PaymentIntent (mobile - native card payment)
@@ -16,11 +17,8 @@ export function usePurchase() {
         }
         return purchaseApi.createTokenPurchasePaymentIntent(amount);
       },
-      onSuccess: (data) => {
-        console.log(
-          "Payment intent created successfully:",
-          data.data.purchaseId
-        );
+      onSuccess: () => {
+        // Payment intent created successfully
       },
       onError: (error: any) => {
         console.error("Failed to create payment intent:", error);
@@ -91,10 +89,17 @@ export function usePurchase() {
         return purchaseApi.createStripeCheckout(amount);
       },
       onSuccess: async (data) => {
-        console.log(
-          "Stripe checkout session created:",
-          data.data.purchaseId
-        );
+        // Store the session data so we can validate on success screen
+        usePaymentStore.getState().setActiveSession({
+          type: "token_purchase",
+          orderId: data.data.purchaseId,
+          sessionId: data.data.sessionId,
+          tokenAmount: data.data.amount,
+          totalCost: data.data.totalCost,
+        });
+
+        // Small delay to ensure persist middleware writes to AsyncStorage
+        await new Promise(resolve => setTimeout(resolve, 300));
 
         // Open the Stripe checkout URL in the browser
         const checkoutUrl = data.data.checkoutUrl;
@@ -103,6 +108,7 @@ export function usePurchase() {
           if (canOpen) {
             await Linking.openURL(checkoutUrl);
           } else {
+            usePaymentStore.getState().clearSession();
             Alert.alert(
               "Unable to Open Browser",
               "Please try again or contact support.",

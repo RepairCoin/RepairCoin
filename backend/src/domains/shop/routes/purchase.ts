@@ -430,21 +430,34 @@ router.post('/stripe-checkout', requireActiveSubscription(), async (req: Request
 
     // Detect if request is from mobile app
     const userAgent = req.headers['user-agent'] || '';
-    const isMobileApp = userAgent.includes('Expo') || userAgent.includes('okhttp') || req.query.platform === 'mobile';
-    
+    const isMobileApp = userAgent.includes('Expo') ||
+                        userAgent.includes('okhttp') ||
+                        userAgent.includes('CFNetwork') ||
+                        req.query.platform === 'mobile' ||
+                        req.body.platform === 'mobile';
+
     // Set appropriate redirect URLs based on platform
     let successUrl: string;
     let cancelUrl: string;
-    
+
     if (isMobileApp) {
-      // Use deep links for mobile app
-      successUrl = `khalid2025://shop/purchase-success?purchase_id=${purchaseResult.purchaseId}&amount=${amount}`;
-      cancelUrl = `khalid2025://shop/purchase-cancelled`;
+      // Use deep links for mobile app (shared payment success screen)
+      successUrl = `khalid2025://shared/payment-sucess?order_id=${purchaseResult.purchaseId}`;
+      cancelUrl = `khalid2025://shared/payment-cancel?order_id=${purchaseResult.purchaseId}`;
     } else {
       // Use web URLs for web platform
       successUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/shop?tab=purchase&payment=success&purchase_id=${purchaseResult.purchaseId}`;
       cancelUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/shop?tab=purchase&payment=cancelled`;
     }
+
+    logger.info('Redirect URLs:', {
+      shopId,
+      purchaseId: purchaseResult.purchaseId,
+      amount,
+      totalCost: purchaseResult.totalCost,
+      successUrl,
+      cancelUrl
+    });
 
     // Create Stripe checkout session
     const stripe = stripeService.getStripe();

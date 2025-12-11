@@ -7,7 +7,7 @@ import {
   BookingResponse,
 } from "@/interfaces/booking.interfaces";
 import { Alert, Linking } from "react-native";
-import { useBookingStore } from "@/store/booking.store";
+import { usePaymentStore } from "@/store/payment.store";
 
 export function useBooking() {
   const useShopBookingQuery = (filters?: BookingFilters) => {
@@ -53,11 +53,16 @@ export function useBooking() {
       onSuccess: async (response) => {
         const orderId = response.data.orderId;
         const sessionId = response.data.sessionId;
-        console.log("Stripe checkout session created for booking:", { orderId, sessionId });
 
-        // Store the order_id and session_id so we can validate and confirm on success screen
+        // Store the session data so we can validate and confirm on success screen
         // This prevents stale navigation and enables payment confirmation
-        useBookingStore.getState().setActiveCheckout(orderId, sessionId);
+        usePaymentStore.getState().setActiveSession({
+          type: "service_booking",
+          orderId,
+          sessionId,
+          amount: response.data.amount,
+          rcnRedeemed: response.data.rcnRedeemed,
+        });
 
         // Open the Stripe checkout URL in the browser
         const checkoutUrl = response.data.checkoutUrl;
@@ -67,7 +72,7 @@ export function useBooking() {
             await Linking.openURL(checkoutUrl);
           } else {
             // Clear the session since we couldn't open the browser
-            useBookingStore.getState().clearSession();
+            usePaymentStore.getState().clearSession();
             Alert.alert(
               "Unable to Open Browser",
               "Please try again or contact support.",
