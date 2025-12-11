@@ -102,6 +102,12 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   const [showingAllCustomers, setShowingAllCustomers] = useState(false);
   const [customerBalance, setCustomerBalance] = useState<number | null>(null);
   const [loadingBalance, setLoadingBalance] = useState(false);
+  const [crossShopInfo, setCrossShopInfo] = useState<{
+    isHomeShop: boolean;
+    maxRedeemable: number;
+    crossShopLimit: number;
+  } | null>(null);
+  const [validatingRedemption, setValidatingRedemption] = useState(false);
   const [checkingCustomerExists, setCheckingCustomerExists] = useState(false);
   const [customerExistsResult, setCustomerExistsResult] = useState<{
     exists: boolean;
@@ -127,6 +133,20 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   const [cameraLoading, setCameraLoading] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // Proactively refresh auth token on mount to ensure fast API responses
+  useEffect(() => {
+    const refreshToken = async () => {
+      try {
+        await apiClient.post('/auth/refresh');
+        console.log('Token refreshed proactively on page load');
+      } catch (err) {
+        // Ignore errors - token might already be valid
+        console.log('Token refresh not needed or failed:', err);
+      }
+    };
+    refreshToken();
+  }, []);
+
   // Load shop customers and check for pending sessions on mount
   useEffect(() => {
     loadShopCustomers();
@@ -142,6 +162,80 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
 
     return () => clearInterval(interval);
   }, [shopId]);
+
+  // Validate redemption in real-time when amount changes (with debounce)
+  // This pre-validates before the user clicks the button
+  // Uses the same endpoint as the button click but with validateOnly flag
+  useEffect(() => {
+    // Clear crossShopInfo when no customer selected
+    if (!selectedCustomer?.address || !shopId) {
+      setCrossShopInfo(null);
+      setError(null);  // Clear error when no customer
+      return;
+    }
+
+    // Clear error and skip validation if no amount entered yet
+    if (!redeemAmount || redeemAmount <= 0) {
+      setError(null);  // Clear error when amount is cleared
+      setValidatingRedemption(false);
+      return;
+    }
+
+    // Set validating immediately to disable button while checking
+    setValidatingRedemption(true);
+
+    // Short debounce to batch rapid typing, but keep it fast
+    const timeoutId = setTimeout(async () => {
+      try {
+        console.log("Pre-validating redemption:", selectedCustomer.address, shopId, redeemAmount);
+
+        // Use the same endpoint as button click, but with validateOnly flag
+        const verifyResponse = await apiClient.post(`/tokens/redemption-session/create`, {
+          customerAddress: selectedCustomer.address,
+          shopId: shopId,
+          amount: redeemAmount,
+          validateOnly: true  // Just validate, don't create session
+        });
+
+        console.log("Pre-validation response:", verifyResponse);
+
+        // apiClient returns response.data directly, so check the structure
+        const data = verifyResponse?.data || verifyResponse;
+
+        if (data) {
+          // Update crossShopInfo for display purposes
+          if (data.isHomeShop !== undefined) {
+            setCrossShopInfo({
+              isHomeShop: data.isHomeShop,
+              maxRedeemable: data.maxRedeemable || 0,
+              crossShopLimit: data.crossShopLimit || 0
+            });
+          }
+
+          // Update customerBalance with the correct availableBalance from backend
+          // This is more accurate than the separate balance fetch
+          if (data.availableBalance !== undefined) {
+            setCustomerBalance(data.availableBalance);
+          }
+
+          // Don't show red error banner for validation errors - the warning boxes handle them
+          // Cross-shop limit -> purple warning box
+          // Insufficient balance -> red/yellow warning boxes already in UI
+          // Just clear any existing error
+          setError(null);
+        }
+      } catch (err: any) {
+        console.error("Pre-validation error:", err);
+        // Log the actual error for debugging
+        console.error("Error details:", err?.response?.data || err?.message);
+        // Don't set error on network failures - let the button click handle it
+      } finally {
+        setValidatingRedemption(false);
+      }
+    }, 150); // 150ms debounce - fast but still batches rapid typing
+
+    return () => clearTimeout(timeoutId);
+  }, [selectedCustomer?.address, shopId, redeemAmount]);
 
   const loadShopCustomers = async () => {
     setLoadingCustomers(true);
@@ -232,7 +326,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
     setLoadingTransactions(true);
     try {
       const response = await apiClient.get(
-        `/shops/${shopId}/transactions?type=redeem&limit=20`
+        `/shops/${shopId}/transactions?type=redemptions&limit=20`
       );
 
       if (response.success) {
@@ -244,7 +338,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
           customerAddress: tx.customerAddress,
           customerName: tx.customerName || "Unknown Customer",
           amount: tx.amount,
-          timestamp: tx.timestamp,
+          timestamp: tx.createdAt || tx.timestamp,
           status: tx.status || "confirmed",
           transactionHash: tx.transactionHash,
         }));
@@ -315,13 +409,18 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
 
   const fetchCustomerBalance = async (address: string) => {
     setLoadingBalance(true);
+    setCrossShopInfo(null);
     try {
       const response = await apiClient.get(`/customers/balance/${address}`);
 
       if (response.success) {
         const result = response;
-        const balance = result.data?.totalBalance || 0;
-        setCustomerBalance(balance);
+        // Use availableBalance for redemption (lifetime earnings - total redeemed)
+        // This is the actual amount that can be redeemed
+        const lifetimeEarnings = result.data?.lifetimeEarnings || 0;
+        const totalRedemptions = result.data?.totalRedemptions || 0;
+        const availableBalance = lifetimeEarnings - totalRedemptions;
+        setCustomerBalance(availableBalance);
       } else {
         console.warn("Could not fetch customer balance:", response.status);
         setCustomerBalance(0);
@@ -620,6 +719,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
       setSessionStatus("idle");
       setCustomerSearch("");
       setCustomerBalance(null);
+      setCrossShopInfo(null);
 
       await loadRedemptionHistory();
       await checkForPendingSessions();
@@ -928,6 +1028,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                                 setSelectedCustomer(null);
                                 setCustomerAddress("");
                                 setCustomerBalance(null);
+                                setCrossShopInfo(null);
                               }
                             }}
                             placeholder="Type customer name or wallet address..."
@@ -1194,6 +1295,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                               setCustomerAddress("");
                               setCustomerSearch("");
                               setCustomerBalance(null);
+                              setCrossShopInfo(null);
                             }}
                             className="text-[#FFCC00] hover:text-yellow-400 text-sm font-medium px-3 py-1 rounded-lg border border-[#FFCC00] hover:bg-yellow-900/20"
                           >
@@ -1595,6 +1697,29 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                   </div>
                 )}
 
+                {/* Cross-Shop Redemption Limit Warning */}
+                {selectedCustomer &&
+                  redeemAmount > 0 &&
+                  crossShopInfo &&
+                  !crossShopInfo.isHomeShop &&
+                  redeemAmount > crossShopInfo.crossShopLimit && (
+                    <div className="bg-purple-900 bg-opacity-20 border border-purple-500 rounded-xl p-4 mb-4">
+                      <div className="flex items-center">
+                        <AlertCircle className="w-5 h-5 text-purple-500 mr-3 flex-shrink-0" />
+                        <div>
+                          <h4 className="font-semibold text-purple-400 mb-1">
+                            Cross-Shop Limit Exceeded
+                          </h4>
+                          <p className="text-sm text-purple-300">
+                            This is not the customer's home shop. Maximum redeemable here is{" "}
+                            <span className="font-bold">{crossShopInfo.crossShopLimit.toFixed(2)} RCN</span> (20% of balance).
+                            Customer can redeem full balance at their home shop.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                 {/* Process Button */}
                 {(() => {
                   const insufficientCustomerBalance =
@@ -1604,6 +1729,12 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                     customerBalance < redeemAmount;
                   const insufficientShopBalance =
                     redeemAmount > 0 && shopRcnBalance < redeemAmount;
+                  const crossShopLimitExceeded =
+                    selectedCustomer &&
+                    redeemAmount > 0 &&
+                    crossShopInfo &&
+                    !crossShopInfo.isHomeShop &&
+                    redeemAmount > crossShopInfo.crossShopLimit;
                   const isSuspended =
                     selectedCustomer &&
                     (selectedCustomer.isActive === false ||
@@ -1615,7 +1746,9 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                     redeemAmount <= 0 ||
                     insufficientCustomerBalance ||
                     insufficientShopBalance ||
+                    crossShopLimitExceeded ||
                     loadingBalance ||
+                    validatingRedemption ||
                     isSuspended;
 
                   return (
@@ -1640,6 +1773,8 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                             } RCN available)`
                           : insufficientShopBalance
                           ? `Shop has insufficient RCN (${shopRcnBalance.toFixed(2)} RCN available, need ${redeemAmount} RCN)`
+                          : crossShopLimitExceeded
+                          ? `Cross-shop limit: Max ${crossShopInfo?.crossShopLimit.toFixed(2)} RCN (20%) at this shop`
                           : "Send request to customer's device for approval"
                       }
                     >

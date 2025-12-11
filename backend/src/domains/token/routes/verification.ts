@@ -373,4 +373,115 @@ router.post('/verify-batch',
   }
 );
 
+/**
+ * @swagger
+ * /api/tokens/debug-home-shop/{customerAddress}/{shopId}:
+ *   get:
+ *     summary: Debug home shop detection
+ *     description: Returns detailed info about home shop detection for debugging
+ *     tags: [Token Verification]
+ *     parameters:
+ *       - in: path
+ *         name: customerAddress
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: shopId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Debug information
+ */
+router.get('/debug-home-shop/:customerAddress/:shopId',
+  async (req: Request, res: Response) => {
+    try {
+      const { customerAddress, shopId } = req.params;
+
+      // Import pool directly for debug queries
+      const { getSharedPool } = await import('../../../utils/database-pool');
+      const pool = getSharedPool();
+
+      // Check customers table
+      const customerQuery = await pool.query(
+        'SELECT home_shop_id FROM customers WHERE address = $1',
+        [customerAddress.toLowerCase()]
+      );
+
+      // Check customer_rcn_sources table
+      let rcnSourcesResult = null;
+      let rcnSourcesError = null;
+      try {
+        rcnSourcesResult = await pool.query(
+          `SELECT source_shop_id, source_type, amount, earned_at
+           FROM customer_rcn_sources
+           WHERE customer_address = $1
+           ORDER BY earned_at ASC`,
+          [customerAddress.toLowerCase()]
+        );
+      } catch (e: any) {
+        rcnSourcesError = e.message;
+      }
+
+      // Check transactions table
+      const transactionsQuery = await pool.query(
+        `SELECT shop_id, type, amount, created_at
+         FROM transactions
+         WHERE LOWER(customer_address) = LOWER($1)
+         AND type = 'mint'
+         AND status = 'confirmed'
+         ORDER BY created_at ASC
+         LIMIT 10`,
+        [customerAddress]
+      );
+
+      // Get shop info
+      const shopQuery = await pool.query(
+        'SELECT shop_id, name FROM shops WHERE shop_id = $1',
+        [shopId]
+      );
+
+      res.json({
+        success: true,
+        debug: {
+          inputCustomerAddress: customerAddress,
+          inputShopId: shopId,
+          customerTable: {
+            found: customerQuery.rows.length > 0,
+            home_shop_id: customerQuery.rows[0]?.home_shop_id || null
+          },
+          rcnSourcesTable: {
+            error: rcnSourcesError,
+            rowCount: rcnSourcesResult?.rows.length || 0,
+            rows: rcnSourcesResult?.rows || []
+          },
+          transactionsTable: {
+            rowCount: transactionsQuery.rows.length,
+            rows: transactionsQuery.rows
+          },
+          shopInfo: {
+            found: shopQuery.rows.length > 0,
+            shop_id: shopQuery.rows[0]?.shop_id || null,
+            name: shopQuery.rows[0]?.name || null
+          },
+          comparison: {
+            homeShopFromCustomers: customerQuery.rows[0]?.home_shop_id || null,
+            firstMintShopId: transactionsQuery.rows[0]?.shop_id || null,
+            requestedShopId: shopId,
+            wouldMatch: (customerQuery.rows[0]?.home_shop_id || transactionsQuery.rows[0]?.shop_id) === shopId
+          }
+        }
+      });
+    } catch (error) {
+      logger.error('Debug home shop error:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Debug failed'
+      });
+    }
+  }
+);
+
 export default router;

@@ -196,7 +196,7 @@ export default function CustomerRegisterClient() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full sm:w-1/2 lg:w-1/3 bg-[#FFCC00] text-black py-3.5 sm:py-4 px-6 rounded-xl font-semibold text-sm sm:text-base text-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-yellow-400 active:scale-[0.98] transition-all shadow-lg shadow-yellow-500/20"
+                className="w-full sm:w-1/2 lg:w-1/3 bg-[#FFCC00] text-black py-3.5 sm:py-4 px-6 rounded-full font-semibold text-sm sm:text-base text-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-yellow-400 active:scale-[0.98] transition-all shadow-lg shadow-yellow-500/20"
               >
                 {loading ? (
                   <div className="flex items-center justify-center gap-2">

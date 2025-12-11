@@ -1,4 +1,5 @@
 import { BaseRepository, PaginatedResult } from './BaseRepository';
+import { PoolClient } from 'pg';
 import { logger } from '../utils/logger';
 
 export interface TransactionMetadata {
@@ -67,7 +68,12 @@ export interface TransactionFilters {
 }
 
 export class TransactionRepository extends BaseRepository {
-  async recordTransaction(transaction: TransactionRecord): Promise<void> {
+  /**
+   * Record a transaction - supports optional PoolClient for atomic transactions
+   * @param transaction The transaction record to insert
+   * @param client Optional PoolClient for transaction support
+   */
+  async recordTransaction(transaction: TransactionRecord, client?: PoolClient): Promise<void> {
     try {
       const query = `
         INSERT INTO transactions (
@@ -75,8 +81,8 @@ export class TransactionRepository extends BaseRepository {
           transaction_hash, block_number, timestamp, status, metadata
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       `;
-      
-      await this.pool.query(query, [
+
+      const values = [
         transaction.type,
         transaction.customerAddress.toLowerCase(),
         transaction.shopId,
@@ -87,12 +93,19 @@ export class TransactionRepository extends BaseRepository {
         transaction.timestamp,
         transaction.status,
         JSON.stringify(transaction.metadata || {})
-      ]);
-      
-      logger.info('Transaction recorded', { 
-        id: transaction.id, 
+      ];
+
+      // Use provided client for transaction support, or fall back to pool
+      if (client) {
+        await client.query(query, values);
+      } else {
+        await this.pool.query(query, values);
+      }
+
+      logger.info('Transaction recorded', {
+        id: transaction.id,
         type: transaction.type,
-        amount: transaction.amount 
+        amount: transaction.amount
       });
     } catch (error) {
       logger.error('Error recording transaction:', error);
