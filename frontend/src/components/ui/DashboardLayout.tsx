@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import Sidebar from "./Sidebar";
+import { CustomerSidebar, ShopSidebar, AdminSidebar } from "./sidebar";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { useNotifications } from "@/hooks/useNotifications";
 
@@ -38,19 +38,37 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     setIsSidebarCollapsed(collapsed);
   };
 
+  // Render the appropriate sidebar based on user role
+  const renderSidebar = () => {
+    const commonProps = {
+      isOpen: isSidebarOpen,
+      onToggle: toggleSidebar,
+      activeTab,
+      onTabChange,
+      onCollapseChange: handleCollapseChange,
+    };
+
+    switch (userRole) {
+      case "admin":
+        return (
+          <AdminSidebar
+            {...commonProps}
+            activeSubTab={activeSubTab}
+            isSuperAdmin={isSuperAdmin}
+            adminRole={adminRole}
+          />
+        );
+      case "shop":
+        return <ShopSidebar {...commonProps} />;
+      case "customer":
+      default:
+        return <CustomerSidebar {...commonProps} />;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0D0D0D]">
-      <Sidebar
-        isOpen={isSidebarOpen}
-        onToggle={toggleSidebar}
-        userRole={userRole}
-        activeTab={activeTab}
-        activeSubTab={activeSubTab}
-        onTabChange={onTabChange}
-        onCollapseChange={handleCollapseChange}
-        isSuperAdmin={isSuperAdmin}
-        adminRole={adminRole}
-      />
+      {renderSidebar()}
 
       {/* Notification Bell - Absolute Position (only for customers and shops) */}
       {userRole !== "admin" && (
