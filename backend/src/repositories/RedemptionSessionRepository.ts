@@ -274,18 +274,112 @@ export class RedemptionSessionRepository extends BaseRepository {
   async getShopPendingSessions(shopId: string): Promise<RedemptionSessionData[]> {
     try {
       const query = `
-        SELECT * FROM redemption_sessions 
-        WHERE shop_id = $1 
+        SELECT * FROM redemption_sessions
+        WHERE shop_id = $1
         AND status = 'pending'
         AND expires_at > NOW()
         ORDER BY created_at DESC
       `;
-      
+
       const result = await this.pool.query(query, [shopId]);
       return result.rows.map(row => this.mapRowToSession(row));
     } catch (error) {
       logger.error('Error getting shop pending sessions:', error);
       throw new Error('Failed to get shop pending sessions');
+    }
+  }
+
+  /**
+   * Count recent sessions created for a specific shop and customer within a time window
+   * Used for rate limiting to prevent DoS attacks
+   * @param shopId Shop ID
+   * @param customerAddress Customer wallet address
+   * @param minutes Time window in minutes
+   * @returns Count of sessions created within the time window
+   */
+  async countRecentSessionsByShopForCustomer(
+    shopId: string,
+    customerAddress: string,
+    minutes: number
+  ): Promise<number> {
+    try {
+      const query = `
+        SELECT COUNT(*) as count
+        FROM redemption_sessions
+        WHERE shop_id = $1
+        AND customer_address = $2
+        AND created_at > NOW() - INTERVAL '1 minute' * $3
+      `;
+
+      const result = await this.pool.query(query, [
+        shopId,
+        customerAddress.toLowerCase(),
+        minutes
+      ]);
+
+      return parseInt(result.rows[0].count, 10);
+    } catch (error) {
+      logger.error('Error counting recent sessions for rate limiting:', {
+        shopId,
+        customerAddress,
+        minutes,
+        error
+      });
+      throw new Error('Failed to count recent sessions');
+    }
+  }
+
+  /**
+   * Atomically consume a session for redemption
+   * Uses a single UPDATE query with all validation conditions to prevent TOCTOU vulnerabilities
+   * @param sessionId Session ID to consume
+   * @param shopId Shop ID (must match session)
+   * @param amount Amount to redeem (must not exceed maxAmount)
+   * @returns The consumed session data, or null if validation failed
+   */
+  async atomicConsumeSession(
+    sessionId: string,
+    shopId: string,
+    amount: number
+  ): Promise<RedemptionSessionData | null> {
+    try {
+      // Single atomic UPDATE with all validation conditions
+      // This prevents TOCTOU race conditions by checking expiry AT THE MOMENT of update
+      const query = `
+        UPDATE redemption_sessions
+        SET status = 'used',
+            used_at = NOW()
+        WHERE session_id = $1
+          AND shop_id = $2
+          AND status = 'approved'
+          AND expires_at > NOW()
+          AND used_at IS NULL
+          AND max_amount >= $3
+        RETURNING *
+      `;
+
+      const result = await this.pool.query(query, [sessionId, shopId, amount]);
+
+      if (result.rowCount === 0) {
+        // No rows updated - validation failed
+        return null;
+      }
+
+      logger.info('Session atomically consumed', {
+        sessionId,
+        shopId,
+        amount
+      });
+
+      return this.mapRowToSession(result.rows[0]);
+    } catch (error) {
+      logger.error('Error atomically consuming session:', {
+        sessionId,
+        shopId,
+        amount,
+        error
+      });
+      throw new Error('Failed to consume session atomically');
     }
   }
 

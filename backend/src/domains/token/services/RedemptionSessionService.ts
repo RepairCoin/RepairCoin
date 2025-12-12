@@ -2,6 +2,7 @@
 import crypto from 'crypto';
 import { hashMessage, keccak256 } from 'thirdweb/utils';
 import { getAddress } from 'thirdweb';
+import { recoverMessageAddress } from 'viem';
 import { logger } from '../../../utils/logger';
 import { customerRepository, shopRepository, redemptionSessionRepository } from '../../../repositories';
 import { eventBus } from '../../../events/EventBus';
@@ -89,6 +90,27 @@ export class RedemptionSessionService {
     const existingSession = await redemptionSessionRepository.findPendingSessionForCustomer(customerAddress, shopId);
     if (existingSession) {
       throw new Error('A pending redemption session already exists');
+    }
+
+    // Rate limiting: Prevent DoS by limiting session creation frequency
+    const RATE_LIMIT_WINDOW_MINUTES = 5;
+    const MAX_SESSIONS_PER_WINDOW = 5;
+
+    const recentSessionCount = await redemptionSessionRepository.countRecentSessionsByShopForCustomer(
+      shopId,
+      customerAddress,
+      RATE_LIMIT_WINDOW_MINUTES
+    );
+
+    if (recentSessionCount >= MAX_SESSIONS_PER_WINDOW) {
+      logger.warn('Rate limit exceeded for session creation', {
+        customerAddress,
+        shopId,
+        recentSessionCount,
+        limit: MAX_SESSIONS_PER_WINDOW,
+        windowMinutes: RATE_LIMIT_WINDOW_MINUTES
+      });
+      throw new Error(`Rate limit exceeded. Maximum ${MAX_SESSIONS_PER_WINDOW} sessions per ${RATE_LIMIT_WINDOW_MINUTES} minutes.`);
     }
 
     // Create new session
@@ -511,22 +533,41 @@ export class RedemptionSessionService {
 
   /**
    * Validate and consume a session for redemption
-   * @deprecated Use validateSessionOnly + atomic transaction instead for better reliability
+   * Uses atomic database operation to prevent TOCTOU race conditions
+   * The expiry check is performed atomically with the consumption in a single UPDATE query
    */
   async validateAndConsumeSession(sessionId: string, shopId: string, amount: number): Promise<RedemptionSession> {
-    logger.info('Attempting to validate and consume session', {
+    logger.info('Attempting to validate and consume session atomically', {
       sessionId,
       shopId,
       amount
     });
 
+    // Try atomic consumption first - this validates AND consumes in a single operation
+    // Prevents TOCTOU race condition where session could expire between check and consumption
+    const consumedSession = await redemptionSessionRepository.atomicConsumeSession(sessionId, shopId, amount);
+
+    if (consumedSession) {
+      // Success - session was atomically validated and consumed
+      logger.info('Redemption session consumed successfully (atomic)', {
+        sessionId,
+        shopId,
+        amount,
+        customerAddress: consumedSession.customerAddress
+      });
+
+      return consumedSession;
+    }
+
+    // Atomic consumption failed - fetch session to determine specific error
     const session = await redemptionSessionRepository.getSession(sessionId);
+
     if (!session) {
       logger.error('Session not found during validation', { sessionId });
       throw new Error('Session not found');
     }
 
-    logger.info('Session found with details', {
+    logger.info('Session found but atomic consumption failed, determining reason', {
       sessionId: session.sessionId,
       status: session.status,
       usedAt: session.usedAt,
@@ -535,13 +576,12 @@ export class RedemptionSessionService {
       customerAddress: session.customerAddress
     });
 
-    // Verify shop matches
+    // Determine specific error reason
     if (session.shopId !== shopId) {
       logger.error('Shop mismatch', { sessionShop: session.shopId, requestedShop: shopId });
       throw new Error('Session is for a different shop');
     }
 
-    // Check status
     if (session.status !== 'approved') {
       logger.error('Session status invalid', {
         currentStatus: session.status,
@@ -551,7 +591,6 @@ export class RedemptionSessionService {
       throw new Error(`Session is ${session.status}, not approved`);
     }
 
-    // Check if already used
     if (session.usedAt) {
       logger.error('Session already used', {
         sessionId,
@@ -560,9 +599,7 @@ export class RedemptionSessionService {
       throw new Error('Session has already been used');
     }
 
-    // Check expiry
     if (session.expiresAt < new Date()) {
-      session.status = 'expired';
       logger.error('Session has expired', {
         sessionId,
         expiresAt: session.expiresAt,
@@ -571,7 +608,6 @@ export class RedemptionSessionService {
       throw new Error('Session has expired');
     }
 
-    // Check amount
     if (amount > session.maxAmount) {
       logger.error('Amount exceeds session limit', {
         requestedAmount: amount,
@@ -581,22 +617,13 @@ export class RedemptionSessionService {
       throw new Error(`Requested amount ${amount} exceeds session limit ${session.maxAmount}`);
     }
 
-    // Mark as used in database
-    logger.info('Marking session as used', { sessionId });
-    await redemptionSessionRepository.updateSessionStatus(sessionId, 'used');
-
-    // Update local object
-    session.status = 'used';
-    session.usedAt = new Date();
-
-    logger.info('Redemption session consumed successfully', {
+    // If we get here, there may have been a race condition or transient error
+    logger.error('Session validation failed for unknown reason', {
       sessionId,
       shopId,
-      amount,
-      customerAddress: session.customerAddress
+      amount
     });
-
-    return session;
+    throw new Error('Session validation failed');
   }
 
   /**
@@ -783,55 +810,71 @@ export class RedemptionSessionService {
 
   /**
    * Verify customer signature for redemption session approval
-   * Simplified approach - validates signature format and logs for security audit
+   * Uses ECDSA recovery to cryptographically verify the signature against the customer's wallet address
    */
   private async verifySignature(session: RedemptionSession, signatureHex: string): Promise<boolean> {
     try {
+      // Validate signature format first
       if (!signatureHex || signatureHex.length < 130) {
-        logger.error('Invalid signature format', { 
-          signature: signatureHex?.substring(0, 20) + '...',
-          sessionId: session.sessionId 
+        logger.error('Invalid signature format - too short', {
+          signatureLength: signatureHex?.length || 0,
+          sessionId: session.sessionId
         });
         return false;
       }
 
-      // Create the message that should have been signed
-      const message = this.createSignatureMessage(session);
-      
-      // Basic validation: ensure signature has proper format
+      // Ensure proper 0x prefix
       const signature = signatureHex.startsWith('0x') ? signatureHex : '0x' + signatureHex;
       const sigNoPrefix = signature.slice(2);
-      
-      // Validate signature length (130 chars = 65 bytes)
+
+      // Validate signature length (130 chars = 65 bytes for ECDSA signature)
       if (sigNoPrefix.length !== 130) {
-        logger.error('Invalid signature length', { 
+        logger.error('Invalid signature length', {
           expectedLength: 130,
           actualLength: sigNoPrefix.length,
-          sessionId: session.sessionId 
+          sessionId: session.sessionId
         });
         return false;
       }
-      
+
       // Validate signature is valid hex
       if (!/^[0-9a-fA-F]+$/.test(sigNoPrefix)) {
-        logger.error('Invalid signature format - not valid hex', { 
-          sessionId: session.sessionId 
+        logger.error('Invalid signature format - not valid hex', {
+          sessionId: session.sessionId
         });
         return false;
       }
-      
-      // For now, we'll accept valid format signatures and log them for security audit
-      // In a production environment, you would implement full ECDSA recovery here
-      logger.info('Signature validation successful (format check)', {
+
+      // Create the standardized message that should have been signed
+      const message = this.createSignatureMessage(session);
+
+      // Recover the address that signed this message using ECDSA recovery
+      const recoveredAddress = await recoverMessageAddress({
+        message,
+        signature: signature as `0x${string}`
+      });
+
+      // Verify recovered address matches the customer's address
+      const isValid = recoveredAddress.toLowerCase() === session.customerAddress.toLowerCase();
+
+      if (!isValid) {
+        logger.error('Signature verification failed - address mismatch', {
+          sessionId: session.sessionId,
+          expectedAddress: session.customerAddress.toLowerCase(),
+          recoveredAddress: recoveredAddress.toLowerCase()
+        });
+        return false;
+      }
+
+      logger.info('Signature verification successful', {
         sessionId: session.sessionId,
         customerAddress: session.customerAddress.toLowerCase(),
-        messageHash: hashMessage(message).slice(0, 10) + '...',
-        signaturePrefix: signature.substring(0, 10) + '...',
-        note: 'Using simplified validation - consider implementing full ECDSA recovery for production'
+        recoveredAddress: recoveredAddress.toLowerCase(),
+        messageHash: hashMessage(message).slice(0, 10) + '...'
       });
-      
+
       return true;
-      
+
     } catch (error) {
       logger.error('Signature verification failed with error', {
         error: error instanceof Error ? error.message : 'Unknown error',
