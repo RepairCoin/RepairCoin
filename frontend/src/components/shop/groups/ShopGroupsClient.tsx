@@ -223,23 +223,23 @@ export default function AffiliateShopGroupsClient() {
   return (
     <>
       <DashboardLayout userRole="shop">
-        <div className="p-6">
+        <div className="px-12 py-8">
           {/* Breadcrumb and Header */}
-          <div className="mb-6">
+          <div className="mb-8">
             {/* Breadcrumb */}
-            <nav className="flex items-center gap-2 text-sm mb-2">
+            <nav className="flex items-center gap-3 text-base mb-3">
               <Link href="/shop" className="text-gray-400 hover:text-white transition-colors">
-                <Home className="w-4 h-4" />
+                <Home className="w-5 h-5" />
               </Link>
-              <ChevronRight className="w-4 h-4 text-gray-500" />
-              <Link href="/shop/groups" className="flex items-center gap-1.5 text-white hover:text-[#FFCC00] transition-colors">
-                <Users className="w-4 h-4" />
+              <ChevronRight className="w-5 h-5 text-gray-500" />
+              <Link href="/shop/groups" className="flex items-center gap-2 text-[#FFCC00] hover:text-[#FFD700] transition-colors font-medium">
+                <Users className="w-5 h-5" />
                 <span>Affiliate Groups</span>
               </Link>
               {activeTab === "discover" && (
                 <>
-                  <ChevronRight className="w-4 h-4 text-gray-500" />
-                  <span className="text-[#FFCC00]">Discover Groups</span>
+                  <ChevronRight className="w-5 h-5 text-gray-500" />
+                  <span className="text-[#FFCC00] font-medium">Discover Groups</span>
                 </>
               )}
             </nav>

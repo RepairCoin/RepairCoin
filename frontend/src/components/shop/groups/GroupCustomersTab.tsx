@@ -55,7 +55,7 @@ export default function GroupCustomersTab({ groupId }: GroupCustomersTabProps) {
 
   if (loading && customers.length === 0) {
     return (
-      <div className="bg-gradient-to-br from-gray-900/90 to-gray-800/90 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-8">
+      <div className="bg-[#101010] rounded-xl p-6">
         <div className="text-center py-12">
           <div className="relative mx-auto w-12 h-12">
             <div className="w-12 h-12 border-4 border-gray-800 border-t-[#FFCC00] rounded-full animate-spin"></div>
@@ -68,16 +68,14 @@ export default function GroupCustomersTab({ groupId }: GroupCustomersTabProps) {
   }
 
   return (
-    <div className="bg-gradient-to-br from-gray-900/90 to-gray-800/90 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-8">
+    <div className="bg-[#101010] rounded-xl p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#FFCC00]/10 rounded-lg">
-            <Users className="w-6 h-6 text-[#FFCC00]" />
-          </div>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+        <div className="flex items-center gap-2">
+          <Users className="w-5 h-5 text-[#FFCC00]" />
           <div>
-            <h3 className="text-2xl font-bold text-white">Customers</h3>
-            <p className="text-sm text-gray-400 mt-1">
+            <h3 className="text-[#FFCC00] font-semibold">Customers</h3>
+            <p className="text-sm text-gray-400">
               {totalCustomers} {totalCustomers === 1 ? "customer" : "customers"} with {group?.customTokenSymbol || "custom token"} activity
             </p>
           </div>
@@ -85,24 +83,22 @@ export default function GroupCustomersTab({ groupId }: GroupCustomersTabProps) {
 
         {/* Search */}
         <div className="relative w-full sm:w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
             placeholder="Search customers..."
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-gray-800/50 border border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#FFCC00]/50 focus:border-[#FFCC00]/50 transition-all"
+            className="w-full pl-10 pr-4 py-2 bg-[#1e1f22] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#FFCC00]/50 focus:border-[#FFCC00]/50 transition-all text-sm"
           />
         </div>
       </div>
 
       {/* Customers List */}
       {customers.length === 0 ? (
-        <div className="text-center py-16">
-          <div className="inline-flex p-4 bg-gray-800/50 rounded-full mb-4">
-            <Users className="w-12 h-12 text-gray-600" />
-          </div>
-          <p className="text-gray-400 text-lg font-medium">
+        <div className="text-center py-12">
+          <Users className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+          <p className="text-gray-400 font-medium">
             {searchQuery ? "No customers found" : "No customers yet"}
           </p>
           <p className="text-gray-500 text-sm mt-2">
@@ -113,98 +109,70 @@ export default function GroupCustomersTab({ groupId }: GroupCustomersTabProps) {
         </div>
       ) : (
         <>
-          {/* Table Header */}
-          <div className="hidden md:grid md:grid-cols-12 gap-4 px-6 py-3 mb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-            <div className="col-span-4">Customer</div>
-            <div className="col-span-2 text-right">Token Balance</div>
-            <div className="col-span-3 text-right">Lifetime Earned</div>
-            <div className="col-span-3 text-right">Lifetime Redeemed</div>
-          </div>
-
-          {/* Customers Grid */}
-          <div className="grid gap-3">
-            {customers.map((customer) => (
-              <div
-                key={customer.customerAddress}
-                className="group relative bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm rounded-xl p-5 border border-gray-700/50 hover:border-[#FFCC00]/30 transition-all duration-300"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-[#FFCC00]/0 to-[#FFCC00]/0 group-hover:from-[#FFCC00]/5 group-hover:to-transparent rounded-xl transition-all duration-300"></div>
-
-                <div className="relative md:grid md:grid-cols-12 gap-4 items-center">
-                  {/* Customer Info */}
-                  <div className="col-span-4 flex items-center gap-3 mb-3 md:mb-0">
-                    <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-[#FFCC00]/20 to-[#FFCC00]/10 flex items-center justify-center">
-                      <Wallet className="w-5 h-5 text-[#FFCC00]" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-white truncate">
-                        {customer.customerName || "Unknown"}
-                      </p>
-                      <p className="text-xs text-gray-400 truncate font-mono">
-                        {customer.customerAddress.slice(0, 6)}...{customer.customerAddress.slice(-4)}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Stats - Mobile */}
-                  <div className="md:hidden grid grid-cols-3 gap-3">
-                    <div className="bg-gray-900/50 rounded-lg p-3">
-                      <p className="text-xs text-gray-400 mb-1">Balance</p>
-                      <p className="font-bold text-white">
-                        {customer.balance.toLocaleString()} <span className="text-[#FFCC00] text-xs">{group?.customTokenSymbol}</span>
-                      </p>
-                    </div>
-                    <div className="bg-gray-900/50 rounded-lg p-3">
-                      <p className="text-xs text-gray-400 mb-1">Earned</p>
-                      <p className="font-bold text-green-400">
-                        {customer.lifetimeEarned.toLocaleString()} <span className="text-green-300 text-xs">{group?.customTokenSymbol}</span>
-                      </p>
-                    </div>
-                    <div className="bg-gray-900/50 rounded-lg p-3">
-                      <p className="text-xs text-gray-400 mb-1">Redeemed</p>
-                      <p className="font-bold text-blue-400">
-                        {customer.lifetimeRedeemed.toLocaleString()} <span className="text-blue-300 text-xs">{group?.customTokenSymbol}</span>
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Stats - Desktop */}
-                  <div className="hidden md:block col-span-2 text-right">
-                    <p className="font-bold text-lg text-white">
-                      {customer.balance.toLocaleString()} <span className="text-[#FFCC00] text-sm font-semibold">{group?.customTokenSymbol}</span>
-                    </p>
-                  </div>
-
-                  <div className="hidden md:flex col-span-3 justify-end items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-green-400 flex-shrink-0" />
-                    <p className="font-bold text-lg text-green-400">
-                      {customer.lifetimeEarned.toLocaleString()} <span className="text-green-300 text-sm font-semibold">{group?.customTokenSymbol}</span>
-                    </p>
-                  </div>
-
-                  <div className="hidden md:flex col-span-3 justify-end items-center gap-2">
-                    <TrendingDown className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                    <p className="font-bold text-lg text-blue-400">
-                      {customer.lifetimeRedeemed.toLocaleString()} <span className="text-blue-300 text-sm font-semibold">{group?.customTokenSymbol}</span>
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-800">
+                  <th className="text-left py-3 px-4 text-gray-400 font-medium text-sm">Customer</th>
+                  <th className="text-center py-3 px-4 text-gray-400 font-medium text-sm">Balance</th>
+                  <th className="text-center py-3 px-4 text-gray-400 font-medium text-sm">Earned</th>
+                  <th className="text-center py-3 px-4 text-gray-400 font-medium text-sm">Redeemed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {customers.map((customer) => (
+                  <tr
+                    key={customer.customerAddress}
+                    className="border-b border-gray-800/50 hover:bg-[#1e1f22]/50"
+                  >
+                    <td className="py-4 px-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-[#1e1f22] flex items-center justify-center">
+                          <Wallet className="w-4 h-4 text-[#FFCC00]" />
+                        </div>
+                        <div>
+                          <p className="text-white font-medium">{customer.customerName || "Unknown"}</p>
+                          <p className="text-gray-500 text-xs font-mono">
+                            {customer.customerAddress.slice(0, 6)}...{customer.customerAddress.slice(-4)}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-4 px-4 text-center">
+                      <span className="text-white font-semibold">{customer.balance.toLocaleString()}</span>
+                      <span className="text-[#FFCC00] text-xs ml-1">{group?.customTokenSymbol}</span>
+                    </td>
+                    <td className="py-4 px-4 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <TrendingUp className="w-3 h-3 text-green-400" />
+                        <span className="text-green-400 font-semibold">{customer.lifetimeEarned.toLocaleString()}</span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-4 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <TrendingDown className="w-3 h-3 text-blue-400" />
+                        <span className="text-blue-400 font-semibold">{customer.lifetimeRedeemed.toLocaleString()}</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-8">
+            <div className="flex items-center justify-center gap-2 mt-6 pt-4 border-t border-gray-800">
               <button
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1 || loading}
-                className="px-4 py-2 bg-gray-800/50 text-white rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-800 transition-all duration-200 border border-gray-700/50"
+                className="px-3 py-1.5 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Previous
               </button>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                   let pageNum;
                   if (totalPages <= 5) {
@@ -222,10 +190,10 @@ export default function GroupCustomersTab({ groupId }: GroupCustomersTabProps) {
                       key={pageNum}
                       onClick={() => setCurrentPage(pageNum)}
                       disabled={loading}
-                      className={`w-10 h-10 rounded-xl font-semibold transition-all duration-200 ${
+                      className={`w-8 h-8 rounded-lg text-sm font-medium transition-all duration-200 ${
                         currentPage === pageNum
-                          ? "bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black shadow-lg shadow-[#FFCC00]/20"
-                          : "bg-gray-800/50 text-gray-400 hover:text-white hover:bg-gray-800 border border-gray-700/50"
+                          ? "bg-[#1e1f22] text-white border border-gray-600"
+                          : "text-gray-400 hover:text-white"
                       }`}
                     >
                       {pageNum}
@@ -237,7 +205,7 @@ export default function GroupCustomersTab({ groupId }: GroupCustomersTabProps) {
               <button
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages || loading}
-                className="px-4 py-2 bg-gray-800/50 text-white rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-800 transition-all duration-200 border border-gray-700/50"
+                className="px-3 py-1.5 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Next
               </button>

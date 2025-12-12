@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Users, ChevronLeft, ChevronRight } from "lucide-react";
 import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
 
 interface MemberActivityStatsProps {
@@ -12,6 +13,8 @@ export default function MemberActivityStats({ groupId }: MemberActivityStatsProp
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"issued" | "redeemed" | "net" | "transactions">("issued");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     loadStats();
@@ -54,16 +57,22 @@ export default function MemberActivityStats({ groupId }: MemberActivityStatsProp
     }
   });
 
+  // Pagination
+  const totalPages = Math.ceil(sortedStats.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedStats = sortedStats.slice(startIndex, startIndex + itemsPerPage);
+
   if (loading) {
     return (
-      <div className="bg-[#1A1A1A] rounded-lg p-6">
-        <div className="animate-pulse">
-          <div className="h-6 bg-gray-700 rounded w-1/4 mb-4"></div>
-          <div className="space-y-3">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-16 bg-gray-700 rounded"></div>
-            ))}
-          </div>
+      <div className="bg-[#101010] rounded-[20px] p-6">
+        <div className="flex items-center gap-2 mb-6">
+          <Users className="w-5 h-5 text-[#FFCC00]" />
+          <h3 className="text-[#FFCC00] font-semibold">Member Activity</h3>
+        </div>
+        <div className="space-y-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-16 bg-[#1e1f22] rounded-xl animate-pulse"></div>
+          ))}
         </div>
       </div>
     );
@@ -71,13 +80,16 @@ export default function MemberActivityStats({ groupId }: MemberActivityStatsProp
 
   if (error) {
     return (
-      <div className="bg-[#1A1A1A] rounded-lg p-6">
-        <h3 className="text-2xl font-bold text-white mb-4">👥 Member Activity</h3>
-        <div className="bg-red-900/20 border border-red-700 rounded-lg p-4">
+      <div className="bg-[#101010] rounded-[20px] p-6">
+        <div className="flex items-center gap-2 mb-6">
+          <Users className="w-5 h-5 text-[#FFCC00]" />
+          <h3 className="text-[#FFCC00] font-semibold">Member Activity</h3>
+        </div>
+        <div className="bg-red-900/20 border border-red-700/50 rounded-xl p-4">
           <p className="text-red-400">{error}</p>
           <button
             onClick={loadStats}
-            className="mt-3 px-4 py-2 bg-red-700 hover:bg-red-600 text-white rounded transition-colors"
+            className="mt-3 px-4 py-2 bg-red-700 hover:bg-red-600 text-white rounded-lg transition-colors"
           >
             Try Again
           </button>
@@ -88,60 +100,75 @@ export default function MemberActivityStats({ groupId }: MemberActivityStatsProp
 
   if (stats.length === 0) {
     return (
-      <div className="bg-[#1A1A1A] rounded-lg p-6">
-        <h3 className="text-2xl font-bold text-white mb-4">👥 Member Activity</h3>
-        <p className="text-gray-400">No member activity data available yet</p>
+      <div className="bg-[#101010] rounded-[20px] p-6">
+        <div className="flex items-center gap-2 mb-6">
+          <Users className="w-5 h-5 text-[#FFCC00]" />
+          <h3 className="text-[#FFCC00] font-semibold">Member Activity</h3>
+        </div>
+        <div className="text-center py-12">
+          <Users className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+          <p className="text-gray-400">No member activity data available yet</p>
+        </div>
       </div>
     );
   }
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "Never";
-    return new Date(dateString).toLocaleDateString();
+    return new Date(dateString).toLocaleDateString("en-US", {
+      month: "numeric",
+      day: "numeric",
+      year: "numeric",
+    });
   };
 
   return (
-    <div className="bg-[#1A1A1A] rounded-lg p-6">
+    <div className="bg-[#101010] rounded-[20px] p-6">
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-2xl font-bold text-white">👥 Member Activity</h3>
+        <div className="flex items-center gap-2">
+          <Users className="w-5 h-5 text-[#FFCC00]" />
+          <h3 className="text-[#FFCC00] font-semibold">Member Activity</h3>
+        </div>
 
+        {/* Sort Tabs */}
         <div className="flex gap-2">
           <button
-            onClick={() => setSortBy("issued")}
-            className={`px-3 py-1 rounded text-sm ${
+            onClick={() => { setSortBy("issued"); setCurrentPage(1); }}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
               sortBy === "issued"
-                ? "bg-[#FFCC00] text-black font-semibold"
-                : "bg-[#0D0D0D] text-gray-400 hover:text-white"
+                ? "bg-[#FFCC00] text-[#101010]"
+                : "bg-[#1e1f22] text-white hover:bg-[#2a2b2f]"
             }`}
           >
             Issued
           </button>
           <button
-            onClick={() => setSortBy("redeemed")}
-            className={`px-3 py-1 rounded text-sm ${
+            onClick={() => { setSortBy("redeemed"); setCurrentPage(1); }}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
               sortBy === "redeemed"
-                ? "bg-[#FFCC00] text-black font-semibold"
-                : "bg-[#0D0D0D] text-gray-400 hover:text-white"
+                ? "bg-[#FFCC00] text-[#101010]"
+                : "bg-[#1e1f22] text-white hover:bg-[#2a2b2f]"
             }`}
           >
             Redeemed
           </button>
           <button
-            onClick={() => setSortBy("net")}
-            className={`px-3 py-1 rounded text-sm ${
+            onClick={() => { setSortBy("net"); setCurrentPage(1); }}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
               sortBy === "net"
-                ? "bg-[#FFCC00] text-black font-semibold"
-                : "bg-[#0D0D0D] text-gray-400 hover:text-white"
+                ? "bg-[#FFCC00] text-[#101010]"
+                : "bg-[#1e1f22] text-white hover:bg-[#2a2b2f]"
             }`}
           >
             Net
           </button>
           <button
-            onClick={() => setSortBy("transactions")}
-            className={`px-3 py-1 rounded text-sm ${
+            onClick={() => { setSortBy("transactions"); setCurrentPage(1); }}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
               sortBy === "transactions"
-                ? "bg-[#FFCC00] text-black font-semibold"
-                : "bg-[#0D0D0D] text-gray-400 hover:text-white"
+                ? "bg-[#FFCC00] text-[#101010]"
+                : "bg-[#1e1f22] text-white hover:bg-[#2a2b2f]"
             }`}
           >
             Activity
@@ -149,114 +176,99 @@ export default function MemberActivityStats({ groupId }: MemberActivityStatsProp
         </div>
       </div>
 
+      {/* Table */}
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-800">
-              <th className="text-left text-gray-400 font-semibold py-3 px-4">Rank</th>
-              <th className="text-left text-gray-400 font-semibold py-3 px-4">Shop</th>
-              <th className="text-right text-gray-400 font-semibold py-3 px-4">Issued</th>
-              <th className="text-right text-gray-400 font-semibold py-3 px-4">Redeemed</th>
-              <th className="text-right text-gray-400 font-semibold py-3 px-4">Net</th>
-              <th className="text-right text-gray-400 font-semibold py-3 px-4">Txns</th>
-              <th className="text-right text-gray-400 font-semibold py-3 px-4">Customers</th>
-              <th className="text-right text-gray-400 font-semibold py-3 px-4">Last Activity</th>
+              <th className="text-left py-3 px-4 text-gray-400 font-medium text-sm w-16">Rank</th>
+              <th className="text-left py-3 px-4 text-gray-400 font-medium text-sm">Shop</th>
+              <th className="text-center py-3 px-4 text-gray-400 font-medium text-sm">Issued</th>
+              <th className="text-center py-3 px-4 text-gray-400 font-medium text-sm">Redeemed</th>
+              <th className="text-center py-3 px-4 text-gray-400 font-medium text-sm">Net</th>
+              <th className="text-center py-3 px-4 text-gray-400 font-medium text-sm">Transactions</th>
+              <th className="text-center py-3 px-4 text-gray-400 font-medium text-sm">Customers</th>
+              <th className="text-right py-3 px-4 text-gray-400 font-medium text-sm">Last Activity</th>
             </tr>
           </thead>
           <tbody>
-            {sortedStats.map((stat, index) => (
-              <tr
-                key={stat.shopId}
-                className="border-b border-gray-800 hover:bg-[#0D0D0D] transition-colors"
-              >
-                <td className="py-4 px-4">
-                  {index === 0 && (
-                    <span className="text-2xl">🥇</span>
-                  )}
-                  {index === 1 && (
-                    <span className="text-2xl">🥈</span>
-                  )}
-                  {index === 2 && (
-                    <span className="text-2xl">🥉</span>
-                  )}
-                  {index > 2 && (
-                    <span className="text-gray-500 font-mono">#{index + 1}</span>
-                  )}
-                </td>
-                <td className="py-4 px-4">
-                  <div>
-                    <div className="text-white font-semibold">{stat.shopName}</div>
-                    <div className="text-xs text-gray-500 font-mono">{stat.shopId}</div>
-                  </div>
-                </td>
-                <td className="py-4 px-4 text-right">
-                  <span className="text-green-400 font-semibold">
+            {paginatedStats.map((stat, index) => {
+              const rank = startIndex + index + 1;
+              return (
+                <tr
+                  key={stat.shopId}
+                  className="border-b border-gray-800/50 hover:bg-[#1e1f22]/50"
+                >
+                  <td className="py-4 px-4 text-white font-medium">{rank}</td>
+                  <td className="py-4 px-4">
+                    <div>
+                      <p className="text-white font-medium">{stat.shopName}</p>
+                      <p className="text-gray-500 text-sm truncate max-w-[200px]">{stat.shopId}</p>
+                    </div>
+                  </td>
+                  <td className="py-4 px-4 text-center text-white">
                     {stat.tokensIssued.toLocaleString()}
-                  </span>
-                </td>
-                <td className="py-4 px-4 text-right">
-                  <span className="text-blue-400 font-semibold">
+                  </td>
+                  <td className="py-4 px-4 text-center text-white">
                     {stat.tokensRedeemed.toLocaleString()}
-                  </span>
-                </td>
-                <td className="py-4 px-4 text-right">
-                  <span
-                    className={`font-semibold ${
-                      stat.netContribution > 0
-                        ? "text-green-400"
-                        : stat.netContribution < 0
-                        ? "text-red-400"
-                        : "text-gray-400"
-                    }`}
-                  >
-                    {stat.netContribution > 0 && "+"}
+                  </td>
+                  <td className="py-4 px-4 text-center text-white">
                     {stat.netContribution.toLocaleString()}
-                  </span>
-                </td>
-                <td className="py-4 px-4 text-right">
-                  <span className="text-white">{stat.transactionCount}</span>
-                </td>
-                <td className="py-4 px-4 text-right">
-                  <span className="text-purple-400">{stat.uniqueCustomers}</span>
-                </td>
-                <td className="py-4 px-4 text-right">
-                  <span className="text-gray-400 text-sm">
+                  </td>
+                  <td className="py-4 px-4 text-center text-white">
+                    {stat.transactionCount}
+                  </td>
+                  <td className="py-4 px-4 text-center text-white">
+                    {stat.uniqueCustomers}
+                  </td>
+                  <td className="py-4 px-4 text-right text-white">
                     {formatDate(stat.lastActivity)}
-                  </span>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
-      {/* Summary */}
-      <div className="mt-6 p-4 bg-[#0D0D0D] rounded-lg border border-gray-800">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div>
-            <div className="text-gray-400 text-sm mb-1">Total Members</div>
-            <div className="text-white text-xl font-bold">{stats.length}</div>
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-6 pt-4 border-t border-gray-800">
+          <button
+            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            disabled={currentPage === 1}
+            className="flex items-center gap-1 px-3 py-1.5 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Previous
+          </button>
+
+          <div className="flex items-center gap-1">
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`w-8 h-8 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  currentPage === page
+                    ? "bg-[#1e1f22] text-white border border-gray-600"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                {page}
+              </button>
+            ))}
           </div>
-          <div>
-            <div className="text-gray-400 text-sm mb-1">Total Issued</div>
-            <div className="text-green-400 text-xl font-bold">
-              {stats.reduce((sum, s) => sum + s.tokensIssued, 0).toLocaleString()}
-            </div>
-          </div>
-          <div>
-            <div className="text-gray-400 text-sm mb-1">Total Redeemed</div>
-            <div className="text-blue-400 text-xl font-bold">
-              {stats.reduce((sum, s) => sum + s.tokensRedeemed, 0).toLocaleString()}
-            </div>
-          </div>
-          <div>
-            <div className="text-gray-400 text-sm mb-1">Total Transactions</div>
-            <div className="text-white text-xl font-bold">
-              {stats.reduce((sum, s) => sum + s.transactionCount, 0).toLocaleString()}
-            </div>
-          </div>
+
+          <button
+            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+            disabled={currentPage === totalPages}
+            className="flex items-center gap-1 px-3 py-1.5 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Next
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
-      </div>
+      )}
     </div>
   );
 }

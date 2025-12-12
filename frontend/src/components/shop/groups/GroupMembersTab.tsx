@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
-import { Users, Check, X, Trash2, Shield, User, Crown, Sparkles } from "lucide-react";
+import { Users, Check, X, Crown, Mail, ChevronLeft, ChevronRight } from "lucide-react";
 import * as shopGroupsAPI from "../../../services/api/affiliateShopGroups";
 
 interface GroupMembersTabProps {
@@ -14,9 +14,12 @@ export default function GroupMembersTab({ groupId, currentShopId }: GroupMembers
   const [members, setMembers] = useState<shopGroupsAPI.AffiliateShopGroupMember[]>([]);
   const [pendingMembers, setPendingMembers] = useState<shopGroupsAPI.AffiliateShopGroupMember[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeFilter, setActiveFilter] = useState<"all" | "pending">("all");
+  const [activeFilter, setActiveFilter] = useState<"active" | "pending">("active");
   const [memberToRemove, setMemberToRemove] = useState<shopGroupsAPI.AffiliateShopGroupMember | null>(null);
   const [isCurrentUserAdmin, setIsCurrentUserAdmin] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [viewingApplication, setViewingApplication] = useState<shopGroupsAPI.AffiliateShopGroupMember | null>(null);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     loadMembers();
@@ -87,11 +90,10 @@ export default function GroupMembersTab({ groupId, currentShopId }: GroupMembers
 
   if (loading) {
     return (
-      <div className="bg-gradient-to-br from-gray-900/90 to-gray-800/90 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-8">
+      <div className="bg-[#101010] rounded-[20px] p-8">
         <div className="text-center py-12">
           <div className="relative mx-auto w-12 h-12">
             <div className="w-12 h-12 border-4 border-gray-800 border-t-[#FFCC00] rounded-full animate-spin"></div>
-            <Sparkles className="w-5 h-5 text-[#FFCC00] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
           </div>
           <p className="mt-6 text-gray-400 font-medium">Loading members...</p>
         </div>
@@ -99,7 +101,7 @@ export default function GroupMembersTab({ groupId, currentShopId }: GroupMembers
     );
   }
 
-  const displayMembers = activeFilter === "all" ? members : pendingMembers;
+  const displayMembers = activeFilter === "active" ? members : pendingMembers;
 
   // Sort to show current user's shop first, then admins
   const sortedMembers = [...displayMembers].sort((a, b) => {
@@ -115,214 +117,311 @@ export default function GroupMembersTab({ groupId, currentShopId }: GroupMembers
     return 0;
   });
 
+  // Pagination
+  const totalPages = Math.ceil(sortedMembers.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedMembers = sortedMembers.slice(startIndex, startIndex + itemsPerPage);
+
   return (
-    <div className="bg-gradient-to-br from-gray-900/90 to-gray-800/90 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-8">
+    <div className="bg-[#101010] rounded-[20px] p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#FFCC00]/10 rounded-lg">
-            <Users className="w-6 h-6 text-[#FFCC00]" />
-          </div>
-          <div>
-            <h3 className="text-2xl font-bold text-white">Group Members</h3>
-            <p className="text-sm text-gray-400 mt-1">
-              {members.length} active • {pendingMembers.length} pending
-            </p>
-          </div>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-2">
+          <Users className="w-5 h-5 text-[#FFCC00]" />
+          <h3 className="text-[#FFCC00] font-semibold">Group Members</h3>
         </div>
 
         {/* Filter Buttons */}
         <div className="flex gap-2">
           <button
-            onClick={() => setActiveFilter("all")}
-            className={`relative px-5 py-2.5 rounded-xl font-semibold transition-all duration-200 ${
-              activeFilter === "all"
-                ? "bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black shadow-lg shadow-[#FFCC00]/20"
-                : "bg-gray-800/50 text-gray-400 hover:text-white hover:bg-gray-800 border border-gray-700/50"
+            onClick={() => { setActiveFilter("active"); setCurrentPage(1); }}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+              activeFilter === "active"
+                ? "bg-[#FFCC00] text-[#101010]"
+                : "bg-[#1e1f22] text-white hover:bg-[#2a2b2f]"
             }`}
           >
-            <span className="text-sm">Active ({members.length})</span>
+            Active ({members.length})
           </button>
           <button
-            onClick={() => setActiveFilter("pending")}
-            className={`relative px-5 py-2.5 rounded-xl font-semibold transition-all duration-200 ${
+            onClick={() => { setActiveFilter("pending"); setCurrentPage(1); }}
+            className={`relative px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
               activeFilter === "pending"
-                ? "bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black shadow-lg shadow-[#FFCC00]/20"
-                : "bg-gray-800/50 text-gray-400 hover:text-white hover:bg-gray-800 border border-gray-700/50"
+                ? "bg-[#FFCC00] text-[#101010]"
+                : "bg-[#1e1f22] text-white hover:bg-[#2a2b2f]"
             }`}
           >
-            <span className="text-sm">Pending ({pendingMembers.length})</span>
+            Pending ({pendingMembers.length})
             {pendingMembers.length > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-              </span>
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full"></span>
             )}
           </button>
         </div>
       </div>
 
-      {/* Members List */}
+      {/* Table */}
       {!Array.isArray(sortedMembers) || sortedMembers.length === 0 ? (
         <div className="text-center py-16">
-          <div className="inline-flex p-4 bg-gray-800/50 rounded-full mb-4">
-            <Users className="w-12 h-12 text-gray-600" />
-          </div>
+          <Users className="w-12 h-12 text-gray-600 mx-auto mb-4" />
           <p className="text-gray-400 text-lg font-medium">
-            {activeFilter === "all" ? "No active members yet" : "No pending requests"}
+            {activeFilter === "active" ? "No active members yet" : "No pending requests"}
           </p>
           <p className="text-gray-500 text-sm mt-2">
-            {activeFilter === "all"
+            {activeFilter === "active"
               ? "Invite people to join your group"
               : "Member requests will appear here"}
           </p>
         </div>
       ) : (
-        <div className="grid gap-3">
-          {sortedMembers.map((member) => {
-            const isCurrentUser = member.shopId === currentShopId;
-            return (
-            <div
-              key={member.shopId}
-              className={`group relative bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm rounded-xl p-5 border transition-all duration-300 ${
-                isCurrentUser
-                  ? "border-[#FFCC00]/50 shadow-lg shadow-[#FFCC00]/10"
-                  : "border-gray-700/50 hover:border-[#FFCC00]/30"
-              }`}
-            >
-              <div className={`absolute inset-0 bg-gradient-to-br rounded-xl transition-all duration-300 ${
-                isCurrentUser
-                  ? "from-[#FFCC00]/10 to-[#FFCC00]/5"
-                  : "from-[#FFCC00]/0 to-[#FFCC00]/0 group-hover:from-[#FFCC00]/5 group-hover:to-transparent"
-              }`}></div>
-
-              <div className="relative flex items-center justify-between gap-4">
-                {/* Member Info */}
-                <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <div className={`relative flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center ${
-                    member.role === "admin"
-                      ? "bg-gradient-to-br from-[#FFCC00]/20 to-[#FFCC00]/10"
-                      : "bg-gray-700/50"
-                  }`}>
-                    {member.role === "admin" ? (
-                      <Crown className="w-6 h-6 text-[#FFCC00]" />
-                    ) : (
-                      <User className="w-6 h-6 text-gray-400" />
-                    )}
-                    {member.role === "admin" && (
-                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-[#FFCC00] rounded-full border-2 border-gray-900"></div>
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="font-semibold text-white truncate">
-                        {member.shopName || member.shopId}
-                      </p>
-                      {member.role === "admin" && (
-                        <span className="flex-shrink-0 px-2.5 py-0.5 bg-gradient-to-r from-[#FFCC00]/20 to-[#FFD700]/20 border border-[#FFCC00]/30 text-[#FFCC00] text-xs font-bold rounded-full uppercase tracking-wide">
-                          Admin
-                        </span>
+        <>
+          {/* Table Header */}
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-800">
+                  <th className="text-left py-3 px-4 text-gray-400 font-medium text-sm w-12">#</th>
+                  <th className="text-left py-3 px-4 text-gray-400 font-medium text-sm">Shop</th>
+                  {activeFilter === "active" ? (
+                    <>
+                      <th className="text-left py-3 px-4 text-gray-400 font-medium text-sm">Rank</th>
+                      <th className="text-center py-3 px-4 text-gray-400 font-medium text-sm">RCN Allocated</th>
+                      <th className="text-center py-3 px-4 text-gray-400 font-medium text-sm">RCN Used</th>
+                      <th className="text-center py-3 px-4 text-gray-400 font-medium text-sm">RCN Available</th>
+                    </>
+                  ) : (
+                    <>
+                      <th className="text-left py-3 px-4 text-gray-400 font-medium text-sm">Date Applied</th>
+                      <th className="text-center py-3 px-4 text-gray-400 font-medium text-sm">View Application</th>
+                      {isCurrentUserAdmin && (
+                        <th className="text-center py-3 px-4 text-gray-400 font-medium text-sm">Action</th>
                       )}
-                      {isCurrentUser && (
-                        <span className="flex-shrink-0 px-2.5 py-0.5 bg-gradient-to-r from-blue-500/20 to-blue-600/20 border border-blue-400/30 text-blue-300 text-xs font-bold rounded-full uppercase tracking-wide">
-                          You
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-400">
-                      {member.status === "pending" ? (
-                        <span className="flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-pulse"></span>
-                          Pending approval
-                        </span>
-                      ) : (
-                        <>Joined {new Date(member.joinedAt).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}</>
-                      )}
-                    </p>
-                    {member.status === "pending" && member.requestMessage && (
-                      <p className="text-sm text-gray-500 mt-2 italic line-clamp-2 bg-gray-900/50 px-3 py-1.5 rounded-lg">
-                        "{member.requestMessage}"
-                      </p>
-                    )}
+                    </>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedMembers.map((member, index) => {
+                  const isCurrentUser = member.shopId === currentShopId;
+                  const rowNumber = startIndex + index + 1;
 
-                    {/* RCN Allocation - Only show for active members */}
-                    {member.status === "active" && (
-                      <div className="mt-3 flex items-center gap-4 text-xs">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-gray-500">RCN Allocated:</span>
-                          <span className="font-semibold text-[#FFCC00]">
+                  return (
+                    <tr key={member.shopId} className="border-b border-gray-800/50 hover:bg-[#1e1f22]/50">
+                      <td className="py-4 px-4 text-white font-medium">{rowNumber}</td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-2">
+                          <div>
+                            <p className="text-white font-medium flex items-center gap-2">
+                              {member.shopName || member.shopId}
+                              {member.role === "admin" && (
+                                <Crown className="w-4 h-4 text-[#FFCC00]" />
+                              )}
+                            </p>
+                            <p className="text-gray-500 text-sm">
+                              {activeFilter === "active"
+                                ? `Joined ${new Date(member.joinedAt).toLocaleDateString("en-US", {
+                                    month: "numeric",
+                                    day: "numeric",
+                                    year: "numeric",
+                                  })}`
+                                : ""}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+
+                      {activeFilter === "active" ? (
+                        <>
+                          <td className="py-4 px-4">
+                            <div className="flex items-center gap-2">
+                              {member.role === "admin" ? (
+                                <span className="px-3 py-1 bg-[#FFCC00] text-[#101010] text-xs font-semibold rounded-lg">
+                                  Admin
+                                </span>
+                              ) : (
+                                <span className="px-3 py-1 bg-[#1e1f22] text-white text-xs font-semibold rounded-lg border border-gray-700">
+                                  Member
+                                </span>
+                              )}
+                              {isCurrentUser && (
+                                <span className="px-3 py-1 bg-[#FFCC00] text-[#101010] text-xs font-semibold rounded-lg">
+                                  You
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-4 px-4 text-center text-white">
                             {member.allocatedRcn?.toLocaleString() || 0}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-gray-500">Used:</span>
-                          <span className="font-semibold text-blue-400">
+                          </td>
+                          <td className="py-4 px-4 text-center text-white">
                             {member.usedRcn?.toLocaleString() || 0}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-gray-500">Available:</span>
-                          <span className="font-semibold text-green-400">
+                          </td>
+                          <td className="py-4 px-4 text-center text-white">
                             {member.availableRcn?.toLocaleString() || 0}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="py-4 px-4 text-white">
+                            {new Date(member.joinedAt).toLocaleDateString("en-US", {
+                              month: "numeric",
+                              day: "numeric",
+                              year: "numeric",
+                            })}
+                          </td>
+                          <td className="py-4 px-4 text-center">
+                            <button
+                              onClick={() => setViewingApplication(member)}
+                              className="inline-flex items-center gap-1.5 text-[#FFCC00] hover:text-[#FFD700] text-sm font-medium"
+                            >
+                              <Mail className="w-4 h-4" />
+                              View Application
+                            </button>
+                          </td>
+                          {isCurrentUserAdmin && (
+                            <td className="py-4 px-4">
+                              <div className="flex items-center justify-center gap-2">
+                                <button
+                                  onClick={() => handleApproveMember(member.shopId)}
+                                  className="px-4 py-1.5 bg-[#FFCC00] hover:bg-[#FFD700] text-[#101010] text-sm font-semibold rounded-lg transition-all duration-200"
+                                >
+                                  Accept
+                                </button>
+                                <button
+                                  onClick={() => handleRejectMember(member.shopId)}
+                                  className="px-4 py-1.5 bg-[#1e1f22] hover:bg-[#2a2b2f] text-white text-sm font-semibold rounded-lg border border-gray-700 transition-all duration-200"
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            </td>
+                          )}
+                        </>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
-                {/* Actions - Only show for admins */}
-                {isCurrentUserAdmin && (
-                  <div className="flex gap-2 flex-shrink-0">
-                    {member.status === "pending" ? (
-                      <>
-                        <button
-                          onClick={() => handleApproveMember(member.shopId)}
-                          className="p-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white rounded-xl transition-all duration-200 shadow-lg shadow-green-600/20 hover:shadow-green-500/40"
-                          title="Approve member"
-                        >
-                          <Check className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => handleRejectMember(member.shopId)}
-                          className="p-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-xl transition-all duration-200 shadow-lg shadow-red-600/20 hover:shadow-red-500/40"
-                          title="Reject request"
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                      </>
-                    ) : (
-                      member.role !== "admin" && (
-                        <button
-                          onClick={() => setMemberToRemove(member)}
-                          className="p-3 bg-red-600/10 hover:bg-gradient-to-r hover:from-red-600 hover:to-red-700 text-red-400 hover:text-white border border-red-600/30 hover:border-transparent rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-red-600/20"
-                          title="Remove member"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      )
-                    )}
-                  </div>
-                )}
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-6 pt-4 border-t border-gray-800">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="flex items-center gap-1 px-3 py-1.5 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Previous
+              </button>
+
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      currentPage === page
+                        ? "bg-[#1e1f22] text-white border border-gray-600"
+                        : "text-gray-400 hover:text-white"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="flex items-center gap-1 px-3 py-1.5 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* View Application Modal */}
+      {viewingApplication && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#101010] rounded-2xl border border-gray-800 max-w-md w-full p-6 shadow-2xl">
+            <div className="flex items-start gap-4 mb-6">
+              <div className="flex-shrink-0 p-3 bg-[#FFCC00]/10 rounded-xl">
+                <Mail className="w-6 h-6 text-[#FFCC00]" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-white mb-1">Application Details</h3>
+                <p className="text-gray-400 text-sm">
+                  {viewingApplication.shopName || viewingApplication.shopId}
+                </p>
               </div>
             </div>
-          );
-          })}
+
+            <div className="space-y-4 mb-6">
+              <div className="bg-[#1e1f22] rounded-lg p-4">
+                <p className="text-sm text-gray-400 mb-1">Applied on</p>
+                <p className="text-white font-medium">
+                  {new Date(viewingApplication.joinedAt).toLocaleDateString("en-US", {
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </p>
+              </div>
+
+              {viewingApplication.requestMessage && (
+                <div className="bg-[#1e1f22] rounded-lg p-4">
+                  <p className="text-sm text-gray-400 mb-1">Message</p>
+                  <p className="text-white">&quot;{viewingApplication.requestMessage}&quot;</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setViewingApplication(null)}
+                className="flex-1 px-6 py-3 bg-[#1e1f22] hover:bg-[#2a2b2f] text-white font-semibold rounded-xl transition-all duration-200 border border-gray-700"
+              >
+                Close
+              </button>
+              {isCurrentUserAdmin && (
+                <>
+                  <button
+                    onClick={() => {
+                      handleApproveMember(viewingApplication.shopId);
+                      setViewingApplication(null);
+                    }}
+                    className="flex-1 px-6 py-3 bg-[#FFCC00] hover:bg-[#FFD700] text-[#101010] font-semibold rounded-xl transition-all duration-200"
+                  >
+                    Accept
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleRejectMember(viewingApplication.shopId);
+                      setViewingApplication(null);
+                    }}
+                    className="px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl transition-all duration-200"
+                  >
+                    Reject
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
       {/* Remove Member Modal */}
       {memberToRemove && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl border border-gray-700/50 max-w-md w-full p-6 shadow-2xl">
+          <div className="bg-[#101010] rounded-2xl border border-gray-800 max-w-md w-full p-6 shadow-2xl">
             <div className="flex items-start gap-4 mb-6">
               <div className="flex-shrink-0 p-3 bg-red-500/20 rounded-xl">
-                <Trash2 className="w-6 h-6 text-red-400" />
+                <X className="w-6 h-6 text-red-400" />
               </div>
               <div className="flex-1">
                 <h3 className="text-xl font-bold text-white mb-2">Remove Member?</h3>
@@ -339,13 +438,13 @@ export default function GroupMembersTab({ groupId, currentShopId }: GroupMembers
             <div className="flex gap-3">
               <button
                 onClick={() => setMemberToRemove(null)}
-                className="flex-1 px-6 py-3 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-xl transition-all duration-200 border border-gray-700"
+                className="flex-1 px-6 py-3 bg-[#1e1f22] hover:bg-[#2a2b2f] text-white font-semibold rounded-xl transition-all duration-200 border border-gray-700"
               >
                 Cancel
               </button>
               <button
                 onClick={handleRemoveMember}
-                className="flex-1 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-red-600/20"
+                className="flex-1 px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl transition-all duration-200"
               >
                 Remove
               </button>
