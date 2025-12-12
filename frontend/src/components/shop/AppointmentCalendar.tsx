@@ -222,7 +222,7 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ servic
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4 mb-6">
         {['pending', 'confirmed', 'completed', 'cancelled'].map(status => {
-          const count = bookings.filter(b => b.status === status).length;
+          const count = allBookings.filter(b => b.status === status).length;
           const colors = STATUS_COLORS[status as keyof typeof STATUS_COLORS];
           return (
             <div key={status} className={`bg-[#1A1A1A] border ${colors.border} rounded-lg p-4`}>
