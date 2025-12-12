@@ -456,13 +456,35 @@ export class PaymentService {
 
   /**
    * Handle successful payment (called by webhook or confirmation endpoint)
+   * Supports both payment intent IDs (pi_xxx) and checkout session IDs (cs_xxx)
    */
-  async handlePaymentSuccess(paymentIntentId: string): Promise<ServiceOrder> {
+  async handlePaymentSuccess(paymentIntentOrSessionId: string): Promise<ServiceOrder> {
     try {
-      // Find order by payment intent ID
-      const order = await this.orderRepository.getOrderByPaymentIntent(paymentIntentId);
+      // Find order by payment intent ID (or checkout session ID)
+      let order = await this.orderRepository.getOrderByPaymentIntent(paymentIntentOrSessionId);
+
+      // If not found and it's a checkout session, verify with Stripe and get the actual payment status
+      if (!order && paymentIntentOrSessionId.startsWith('cs_')) {
+        // It's a checkout session ID - verify the session is paid
+        const stripe = this.stripeService.getStripe();
+        const session = await stripe.checkout.sessions.retrieve(paymentIntentOrSessionId);
+
+        if (session.payment_status !== 'paid') {
+          throw new Error('Checkout session payment not completed');
+        }
+
+        // The order should be stored with the session ID
+        order = await this.orderRepository.getOrderByPaymentIntent(paymentIntentOrSessionId);
+      }
+
       if (!order) {
-        throw new Error('Order not found for payment intent');
+        throw new Error('Order not found for payment');
+      }
+
+      // If order is already paid, return it (avoid duplicate processing)
+      if (order.status === 'paid' || order.status === 'completed') {
+        logger.info('Order already processed', { orderId: order.orderId, status: order.status });
+        return order;
       }
 
       // Process RCN redemption if any
@@ -495,7 +517,7 @@ export class PaymentService {
 
       logger.info('Payment confirmed for service order', {
         orderId: order.orderId,
-        paymentIntentId,
+        paymentIntentOrSessionId,
         totalAmount: order.totalAmount,
         finalAmount: order.finalAmountUsd,
         rcnDiscount: order.rcnDiscountUsd

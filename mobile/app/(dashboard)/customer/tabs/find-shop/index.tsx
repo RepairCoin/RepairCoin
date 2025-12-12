@@ -352,31 +352,6 @@ export default function FindShop() {
             </Pressable>
           </View>
         </View>
-
-        {/* Search Bar */}
-        <View className="flex-row items-center bg-zinc-800 rounded-full px-4 py-3">
-          <Feather name="search" size={20} color="#9CA3AF" />
-          <TextInput
-            className="flex-1 text-white ml-3"
-            placeholder="Search shops..."
-            placeholderTextColor="#6B7280"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery.length > 0 && (
-            <Pressable onPress={() => setSearchQuery("")}>
-              <Feather name="x-circle" size={20} color="#9CA3AF" />
-            </Pressable>
-          )}
-        </View>
-
-        {/* Results count */}
-        {searchQuery.length > 0 && (
-          <Text className="text-gray-400 text-sm mt-2">
-            {filteredShops.length} shop{filteredShops.length !== 1 ? "s" : ""}{" "}
-            found
-          </Text>
-        )}
       </View>
 
       {/* Loading State */}
@@ -442,7 +417,7 @@ export default function FindShop() {
           {/* Center on user location button */}
           <Pressable
             onPress={centerOnUserLocation}
-            className="absolute right-4 bottom-32 bg-zinc-900 w-12 h-12 rounded-full items-center justify-center border border-zinc-700"
+            className="absolute right-4 bottom-12 bg-zinc-900 w-12 h-12 rounded-full items-center justify-center border border-zinc-700"
           >
             <Ionicons name="locate" size={24} color="#FFCC00" />
           </Pressable>
@@ -464,6 +439,33 @@ export default function FindShop() {
           keyExtractor={(item) => item.shopId}
           renderItem={renderShopCard}
           contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+          ListHeaderComponent={
+            <View className="mb-4">
+              {/* Search Bar */}
+              <View className="flex-row items-center bg-zinc-800 rounded-full px-4 py-3">
+                <Feather name="search" size={20} color="#9CA3AF" />
+                <TextInput
+                  className="flex-1 text-white ml-3"
+                  placeholder="Search shops..."
+                  placeholderTextColor="#6B7280"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+                {searchQuery.length > 0 && (
+                  <Pressable onPress={() => setSearchQuery("")}>
+                    <Feather name="x-circle" size={20} color="#9CA3AF" />
+                  </Pressable>
+                )}
+              </View>
+
+              {/* Results count */}
+              {searchQuery.length > 0 && (
+                <Text className="text-gray-400 text-sm mt-2">
+                  {filteredShops.length} shop{filteredShops.length !== 1 ? "s" : ""} found
+                </Text>
+              )}
+            </View>
+          }
           ListEmptyComponent={
             <View className="flex-1 items-center justify-center pt-20">
               <Ionicons name="storefront-outline" size={64} color="#666" />
