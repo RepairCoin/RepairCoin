@@ -102,8 +102,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         prev.filter((id) => id !== "shops-management")
       );
     }
-    // If activeTab changes and it's not "services" or "bookings" or "service-analytics", collapse the service subtab
-    if (activeTab && activeTab !== "services" && activeTab !== "bookings" && activeTab !== "service-analytics") {
+    // If activeTab changes and it's not "services" or "bookings" or "service-analytics" or "appointments", collapse the service subtab
+    if (activeTab && activeTab !== "services" && activeTab !== "bookings" && activeTab !== "service-analytics" && activeTab !== "appointments") {
       setExpandedItems((prev) => prev.filter((id) => id !== "service"));
     }
     // Auto-expand customers when it becomes active
@@ -117,9 +117,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     ) {
       setExpandedItems((prev) => [...prev, "shops-management"]);
     }
-    // Auto-expand service when services or bookings or service-analytics becomes active
+    // Auto-expand service when services or bookings or service-analytics or appointments becomes active
     if (
-      (activeTab === "services" || activeTab === "bookings" || activeTab === "service-analytics") &&
+      (activeTab === "services" || activeTab === "bookings" || activeTab === "service-analytics" || activeTab === "appointments") &&
       !expandedItems.includes("service")
     ) {
       setExpandedItems((prev) => [...prev, "service"]);
@@ -245,6 +245,12 @@ const Sidebar: React.FC<SidebarProps> = ({
               href: "/shop?tab=service-analytics",
               icon: <BarChart3 className="w-4 h-4" />,
               tabId: "service-analytics",
+            },
+            {
+              title: "Appointments",
+              href: "/shop?tab=appointments",
+              icon: <Calendar className="w-4 h-4" />,
+              tabId: "appointments",
             },
           ],
         },
@@ -486,12 +492,18 @@ const Sidebar: React.FC<SidebarProps> = ({
             icon: <Receipt className="w-5 h-5" />,
             tabId: "bookings",
           },
-             {
-              title: "Analytics",
-              href: "/shop?tab=service-analytics",
-              icon: <BarChart3 className="w-4 h-4" />,
-              tabId: "service-analytics",
-            },
+          {
+            title: "Analytics",
+            href: "/shop?tab=service-analytics",
+            icon: <BarChart3 className="w-5 h-5" />,
+            tabId: "service-analytics",
+          },
+          {
+            title: "Appointments",
+            href: "/shop?tab=appointments",
+            icon: <Calendar className="w-5 h-5" />,
+            tabId: "appointments",
+          },
         ],
       },
       {
