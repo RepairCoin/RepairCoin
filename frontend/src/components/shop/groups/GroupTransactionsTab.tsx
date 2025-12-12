@@ -68,13 +68,13 @@ export default function GroupTransactionsTab({
   };
 
   return (
-    <div className="bg-gray-800 rounded-lg p-6">
+    <div className="bg-[#101010] rounded-xl p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-xl font-bold text-white flex items-center gap-2">
-          <History className="w-6 h-6" />
-          Transaction History
-        </h3>
+        <div className="flex items-center gap-2">
+          <History className="w-5 h-5 text-[#FFCC00]" />
+          <h3 className="text-[#FFCC00] font-semibold">Transaction History</h3>
+        </div>
 
         {/* Filter */}
         <div className="flex gap-2">
@@ -83,10 +83,10 @@ export default function GroupTransactionsTab({
               setFilterType("all");
               setPage(1);
             }}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               filterType === "all"
-                ? "bg-[#FFCC00] text-black"
-                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                ? "bg-[#FFCC00] text-[#101010]"
+                : "bg-[#1e1f22] text-white hover:bg-[#2a2b2f]"
             }`}
           >
             All
@@ -96,10 +96,10 @@ export default function GroupTransactionsTab({
               setFilterType("earn");
               setPage(1);
             }}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               filterType === "earn"
                 ? "bg-green-600 text-white"
-                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                : "bg-[#1e1f22] text-white hover:bg-[#2a2b2f]"
             }`}
           >
             Issued
@@ -109,10 +109,10 @@ export default function GroupTransactionsTab({
               setFilterType("redeem");
               setPage(1);
             }}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               filterType === "redeem"
                 ? "bg-orange-600 text-white"
-                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                : "bg-[#1e1f22] text-white hover:bg-[#2a2b2f]"
             }`}
           >
             Redeemed
@@ -122,13 +122,13 @@ export default function GroupTransactionsTab({
 
       {/* Transactions List */}
       {loading ? (
-        <div className="text-center py-8">
+        <div className="text-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FFCC00] mx-auto"></div>
           <p className="mt-4 text-gray-400">Loading transactions...</p>
         </div>
       ) : transactions.length === 0 ? (
-        <div className="text-center py-8">
-          <History className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+        <div className="text-center py-12">
+          <History className="w-12 h-12 text-gray-600 mx-auto mb-4" />
           <p className="text-gray-400">No transactions yet</p>
         </div>
       ) : (
@@ -137,34 +137,34 @@ export default function GroupTransactionsTab({
             {transactions.map((tx) => (
               <div
                 key={tx.id}
-                className="bg-gray-900 rounded-lg p-4 hover:bg-gray-850 transition-colors"
+                className="bg-[#1e1f22] rounded-lg p-4 hover:bg-[#2a2b2f] transition-colors"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     {/* Type and Amount */}
                     <div className="flex items-center gap-3 mb-2">
                       {tx.type === "earn" ? (
-                        <div className="w-10 h-10 bg-green-600/20 rounded-full flex items-center justify-center">
-                          <TrendingUp className="w-5 h-5 text-green-500" />
+                        <div className="w-8 h-8 bg-green-600/20 rounded-lg flex items-center justify-center">
+                          <TrendingUp className="w-4 h-4 text-green-500" />
                         </div>
                       ) : (
-                        <div className="w-10 h-10 bg-orange-600/20 rounded-full flex items-center justify-center">
-                          <TrendingDown className="w-5 h-5 text-orange-500" />
+                        <div className="w-8 h-8 bg-orange-600/20 rounded-lg flex items-center justify-center">
+                          <TrendingDown className="w-4 h-4 text-orange-500" />
                         </div>
                       )}
                       <div>
-                        <p className="font-bold text-white">
+                        <p className="font-semibold text-white">
                           {tx.type === "earn" ? "+" : "-"}
                           {tx.amount} {tokenSymbol}
                         </p>
-                        <p className="text-sm text-gray-400">
+                        <p className="text-xs text-gray-400">
                           {tx.type === "earn" ? "Issued" : "Redeemed"}
                         </p>
                       </div>
                     </div>
 
                     {/* Details */}
-                    <div className="ml-13 space-y-1">
+                    <div className="ml-11 space-y-1">
                       <p className="text-sm text-gray-300">
                         <span className="text-gray-500">Customer:</span>{" "}
                         {formatAddress(tx.customerAddress)}
@@ -194,24 +194,24 @@ export default function GroupTransactionsTab({
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-700">
+            <div className="flex items-center justify-center gap-4 mt-6 pt-4 border-t border-gray-800">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-1 px-3 py-1.5 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" />
                 Previous
               </button>
 
-              <span className="text-gray-400">
+              <span className="text-gray-400 text-sm">
                 Page {page} of {totalPages}
               </span>
 
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-1 px-3 py-1.5 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Next
                 <ChevronRight className="w-4 h-4" />
