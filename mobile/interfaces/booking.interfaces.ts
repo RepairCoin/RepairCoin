@@ -24,6 +24,7 @@ export interface BookingData {
   serviceDescription: string | null;
   serviceCategory: string;
   serviceDuration: number;
+  serviceImageUrl: string | null;
   customerAddress: string;
   customerName: string | null;
   status: BookingStatus;
