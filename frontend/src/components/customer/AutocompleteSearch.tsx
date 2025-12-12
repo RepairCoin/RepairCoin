@@ -45,7 +45,6 @@ export const AutocompleteSearch: React.FC<AutocompleteSearchProps> = ({
       searchTimeoutRef.current = setTimeout(async () => {
         try {
           const results = await autocompleteSearch(query);
-          console.log('Autocomplete results:', results); // Debug log
           setSuggestions(results);
           setLoading(false);
           setShowDropdown(results.length > 0); // Only show if there are results
@@ -133,7 +132,7 @@ export const AutocompleteSearch: React.FC<AutocompleteSearchProps> = ({
 
       {/* Dropdown Suggestions */}
       {showDropdown && suggestions.length > 0 && (
-        <div className="absolute z-[9999] w-full mt-2 bg-[#1A1A1A] border border-gray-800 rounded-xl shadow-2xl max-h-96 overflow-y-auto">
+        <div className="absolute z-[9999] w-full mt-2 bg-[#1A1A1A] border border-gray-800 rounded-xl shadow-2xl max-h-96 overflow-y-auto" style={{ position: 'absolute', top: '100%', left: 0, right: 0 }}>
           {suggestions.map((suggestion, index) => (
             <button
               key={suggestion.serviceId}
@@ -187,7 +186,7 @@ export const AutocompleteSearch: React.FC<AutocompleteSearchProps> = ({
 
       {/* No Results */}
       {showDropdown && !loading && query.length >= 2 && suggestions.length === 0 && (
-        <div className="absolute z-[9999] w-full mt-2 bg-[#1A1A1A] border border-gray-800 rounded-xl shadow-2xl p-4">
+        <div className="absolute z-[9999] w-full mt-2 bg-[#1A1A1A] border border-gray-800 rounded-xl shadow-2xl p-4" style={{ position: 'absolute', top: '100%', left: 0, right: 0 }}>
           <p className="text-gray-400 text-center text-sm">
             No services found for "{query}"
           </p>

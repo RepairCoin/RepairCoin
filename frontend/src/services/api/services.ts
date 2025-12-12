@@ -663,7 +663,8 @@ export const autocompleteSearch = async (query: string): Promise<AutocompleteSug
     const response = await apiClient.get<{ success: boolean; data: AutocompleteSuggestion[] }>(
       `/services/discovery/autocomplete?q=${encodeURIComponent(query)}`
     );
-    return response.data?.data || [];
+    // API client interceptor already unwraps response.data, so we access .data directly
+    return (response as { success: boolean; data: AutocompleteSuggestion[] }).data || [];
   } catch (error) {
     console.error('Error in autocomplete search:', error);
     return [];
@@ -692,7 +693,7 @@ export const getRecentlyViewed = async (limit?: number): Promise<ShopServiceWith
     const response = await apiClient.get<{ success: boolean; data: ShopServiceWithShopInfo[] }>(
       `/services/discovery/recently-viewed${queryString}`
     );
-    return response.data?.data || [];
+    return (response as { success: boolean; data: ShopServiceWithShopInfo[] }).data || [];
   } catch (error) {
     console.error('Error getting recently viewed:', error);
     return [];
@@ -711,7 +712,7 @@ export const getSimilarServices = async (
     const response = await apiClient.get<{ success: boolean; data: ShopServiceWithShopInfo[] }>(
       `/services/discovery/similar/${serviceId}${queryString}`
     );
-    return response.data?.data || [];
+    return (response as { success: boolean; data: ShopServiceWithShopInfo[] }).data || [];
   } catch (error) {
     console.error('Error getting similar services:', error);
     return [];
@@ -732,7 +733,7 @@ export const getTrendingServices = async (options?: {
       data: ShopServiceWithShopInfo[];
       meta?: { period: string };
     }>(`/services/discovery/trending${queryString}`);
-    return response.data?.data || [];
+    return (response as { success: boolean; data: ShopServiceWithShopInfo[] }).data || [];
   } catch (error) {
     console.error('Error getting trending services:', error);
     return [];

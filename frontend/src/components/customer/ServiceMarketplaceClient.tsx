@@ -208,29 +208,21 @@ export const ServiceMarketplaceClient: React.FC = () => {
           </p>
         </div>
 
-        {/* Trending Services - Show only on initial load without filters */}
-        {!loading && page === 1 && !showFavoritesOnly && viewMode === "grid" && !filters.search && !filters.category && !filters.shopId && (
-          <TrendingServices
-            onBook={handleBook}
-            onViewDetails={handleViewDetails}
-            limit={6}
-            days={7}
-          />
-        )}
-
-        {/* Recently Viewed - Show only for customers */}
-        {userType === 'customer' && !showFavoritesOnly && viewMode === "grid" && !filters.shopId && (
-          <RecentlyViewedServices
-            key={refreshKey}
-            onBook={handleBook}
-            onViewDetails={handleViewDetails}
-            limit={6}
-          />
+        {/* Filters - Show at the top, hide when showing favorites or map view */}
+        {!showFavoritesOnly && viewMode === "grid" && (
+          <div className="mb-8">
+            <ServiceFilters
+              filters={filters}
+              onFilterChange={handleFilterChange}
+              onReset={handleResetFilters}
+              onSelectService={handleAutocompleteSelect}
+            />
+          </div>
         )}
 
         {/* Active Shop Filter */}
         {viewMode === "grid" && filters.shopId && !showFavoritesOnly && (
-          <div className="mb-6 flex items-center gap-3 bg-[#1A1A1A] border border-gray-800 rounded-xl p-4">
+          <div className="mb-8 flex items-center gap-3 bg-[#1A1A1A] border border-gray-800 rounded-xl p-4">
             <div className="flex-1">
               <p className="text-sm text-gray-400 mb-1">Viewing shop:</p>
               <p className="text-white font-semibold">
@@ -249,14 +241,42 @@ export const ServiceMarketplaceClient: React.FC = () => {
           </div>
         )}
 
-        {/* Filters - Hide when showing favorites, map view, or viewing specific shop */}
-        {!showFavoritesOnly && viewMode === "grid" && !filters.shopId && (
-          <div className="mb-8">
-            <ServiceFilters
-              filters={filters}
-              onFilterChange={handleFilterChange}
-              onReset={handleResetFilters}
-              onSelectService={handleAutocompleteSelect}
+        {/* Trending Now Section */}
+        {!loading && page === 1 && !showFavoritesOnly && viewMode === "grid" && !filters.search && !filters.category && !filters.shopId && (
+          <div className="mb-10">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-800 to-transparent"></div>
+              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                <span className="text-[#FFCC00]">🔥</span>
+                Trending Now
+              </h2>
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-800 to-transparent"></div>
+            </div>
+            <TrendingServices
+              onBook={handleBook}
+              onViewDetails={handleViewDetails}
+              limit={6}
+              days={7}
+            />
+          </div>
+        )}
+
+        {/* Recently Viewed Section */}
+        {userType === 'customer' && !showFavoritesOnly && viewMode === "grid" && !filters.shopId && (
+          <div className="mb-10">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-800 to-transparent"></div>
+              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                <span className="text-[#FFCC00]">👀</span>
+                Recently Viewed
+              </h2>
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-800 to-transparent"></div>
+            </div>
+            <RecentlyViewedServices
+              key={refreshKey}
+              onBook={handleBook}
+              onViewDetails={handleViewDetails}
+              limit={6}
             />
           </div>
         )}
@@ -274,6 +294,20 @@ export const ServiceMarketplaceClient: React.FC = () => {
             }}
           />
         ) : null}
+
+        {/* All Services Section */}
+        {viewMode === "grid" && (
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-800 to-transparent"></div>
+              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                <span className="text-[#FFCC00]">🏪</span>
+                {showFavoritesOnly ? "Your Favorites" : filters.shopId ? "Shop Services" : "All Services"}
+              </h2>
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-800 to-transparent"></div>
+            </div>
+          </div>
+        )}
 
         {/* Services Grid */}
         {viewMode === "grid" && loading && page === 1 ? (
