@@ -105,21 +105,18 @@ export default function PaymentSuccess() {
             if (!result.success) {
               setConfirmError(result.error || "Failed to confirm payment");
             } else {
-              // Invalidate booking queries
-              await queryClient.invalidateQueries({ queryKey: ["bookings"] });
-              await queryClient.invalidateQueries({ queryKey: ["customerBalance"] });
+              // Invalidate booking queries - must match the full query key structure
+              await queryClient.invalidateQueries({ queryKey: ["repaircoin", "bookings"] });
+              // Invalidate customer-related queries for RCN balance updates
+              await queryClient.invalidateQueries({ queryKey: ["repaircoin", "customers"] });
             }
           } else if (session.type === "token_purchase") {
             // Token purchase is confirmed via webhook, but we refresh data
-            await queryClient.invalidateQueries({ queryKey: ["shopByWalletAddress"] });
-            await queryClient.invalidateQueries({ queryKey: ["shopTokens"] });
-            await queryClient.invalidateQueries({ queryKey: ["shopPurchases"] });
-            await queryClient.invalidateQueries({ queryKey: ["tokenBalance"] });
+            await queryClient.invalidateQueries({ queryKey: ["repaircoin", "shops"] });
+            await queryClient.invalidateQueries({ queryKey: ["repaircoin", "tokens"] });
           } else if (session.type === "subscription") {
             // Subscription is confirmed via webhook, but we refresh data
-            await queryClient.invalidateQueries({ queryKey: ["shopByWalletAddress"] });
-            await queryClient.invalidateQueries({ queryKey: ["shop"] });
-            await queryClient.invalidateQueries({ queryKey: ["shops"] });
+            await queryClient.invalidateQueries({ queryKey: ["repaircoin", "shops"] });
           }
 
           startAnimations();
@@ -247,7 +244,7 @@ export default function PaymentSuccess() {
         )}
 
         {/* RCN Redeemed Info */}
-        {sessionData?.rcnRedeemed && sessionData.rcnRedeemed > 0 && (
+        {sessionData?.rcnRedeemed != null && sessionData.rcnRedeemed > 0 && (
           <View className="w-full bg-[#FFCC00]/10 rounded-2xl p-4 mb-6 border border-[#FFCC00]/30">
             <View className="flex-row items-center justify-center">
               <FontAwesome5 name="coins" size={20} color="#FFCC00" />
