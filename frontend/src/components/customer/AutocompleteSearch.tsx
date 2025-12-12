@@ -43,11 +43,18 @@ export const AutocompleteSearch: React.FC<AutocompleteSearchProps> = ({
     if (query.trim().length >= 2) {
       setLoading(true);
       searchTimeoutRef.current = setTimeout(async () => {
-        const results = await autocompleteSearch(query);
-        setSuggestions(results);
-        setLoading(false);
-        setShowDropdown(true);
-        setHighlightedIndex(-1);
+        try {
+          const results = await autocompleteSearch(query);
+          console.log('Autocomplete results:', results); // Debug log
+          setSuggestions(results);
+          setLoading(false);
+          setShowDropdown(results.length > 0); // Only show if there are results
+          setHighlightedIndex(-1);
+        } catch (error) {
+          console.error('Autocomplete error:', error);
+          setLoading(false);
+          setShowDropdown(false);
+        }
       }, 300);
     } else {
       setSuggestions([]);
@@ -126,7 +133,7 @@ export const AutocompleteSearch: React.FC<AutocompleteSearchProps> = ({
 
       {/* Dropdown Suggestions */}
       {showDropdown && suggestions.length > 0 && (
-        <div className="absolute z-50 w-full mt-2 bg-[#1A1A1A] border border-gray-800 rounded-xl shadow-2xl max-h-96 overflow-y-auto">
+        <div className="absolute z-[9999] w-full mt-2 bg-[#1A1A1A] border border-gray-800 rounded-xl shadow-2xl max-h-96 overflow-y-auto">
           {suggestions.map((suggestion, index) => (
             <button
               key={suggestion.serviceId}
@@ -180,7 +187,7 @@ export const AutocompleteSearch: React.FC<AutocompleteSearchProps> = ({
 
       {/* No Results */}
       {showDropdown && !loading && query.length >= 2 && suggestions.length === 0 && (
-        <div className="absolute z-50 w-full mt-2 bg-[#1A1A1A] border border-gray-800 rounded-xl shadow-2xl p-4">
+        <div className="absolute z-[9999] w-full mt-2 bg-[#1A1A1A] border border-gray-800 rounded-xl shadow-2xl p-4">
           <p className="text-gray-400 text-center text-sm">
             No services found for "{query}"
           </p>
