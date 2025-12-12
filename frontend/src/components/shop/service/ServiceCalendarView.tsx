@@ -140,7 +140,11 @@ export const ServiceCalendarView: React.FC<ServiceCalendarViewProps> = ({ servic
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day);
       const dateStr = formatDateLocal(date);
-      const dayBookings = allBookings.filter(b => b.bookingDate === dateStr);
+      // Extract just the date part from bookingDate (might be "2025-12-17T00:00:00.000Z" or "2025-12-17")
+      const dayBookings = allBookings.filter(b => {
+        const bookingDateOnly = b.bookingDate.split('T')[0];
+        return bookingDateOnly === dateStr;
+      });
 
       if (dayBookings.length > 0) {
         console.log(`📅 Found ${dayBookings.length} booking(s) for ${dateStr}:`, dayBookings);
