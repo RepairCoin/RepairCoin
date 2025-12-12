@@ -1,11 +1,13 @@
 "use client";
 
 import React from "react";
-import { DollarSign, Clock, MapPin, Image as ImageIcon } from "lucide-react";
+import { DollarSign, Clock, MapPin, Image as ImageIcon, Coins } from "lucide-react";
 import { ShopServiceWithShopInfo, SERVICE_CATEGORIES } from "@/services/api/services";
 import { FavoriteButton } from "./FavoriteButton";
 import { ShareButton } from "./ShareButton";
 import { StarRating } from "./StarRating";
+import { calculateTotalRcn } from "@/utils/rcnCalculator";
+import { useCustomerStore } from "@/stores/customerStore";
 
 interface ServiceCardProps {
   service: ShopServiceWithShopInfo;
@@ -19,12 +21,17 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
   onViewDetails,
 }) => {
   const [imageError, setImageError] = React.useState(false);
+  const { customerData } = useCustomerStore();
 
   const getCategoryLabel = (category?: string) => {
     if (!category) return "Other";
     const cat = SERVICE_CATEGORIES.find((c) => c.value === category);
     return cat?.label || category;
   };
+
+  // Calculate RCN earnings for this service
+  const customerTier = customerData?.tier || 'BRONZE';
+  const { totalRcn, tierBonus, qualifies } = calculateTotalRcn(service.priceUsd, customerTier);
 
   // Validate if the imageUrl is a valid web image URL
   const isValidImageUrl = (url: string | null | undefined): boolean => {
@@ -98,11 +105,27 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
               <h3 className="text-lg font-bold text-white mb-1 line-clamp-1">
                 {service.serviceName}
               </h3>
-              {service.category && (
-                <span className="inline-block text-xs bg-[#FFCC00]/10 border border-[#FFCC00]/30 text-[#FFCC00] px-2 py-1 rounded-full">
-                  {getCategoryLabel(service.category)}
-                </span>
-              )}
+              <div className="flex items-center gap-2 flex-wrap">
+                {service.category && (
+                  <span className="inline-block text-xs bg-[#FFCC00]/10 border border-[#FFCC00]/30 text-[#FFCC00] px-2 py-1 rounded-full">
+                    {getCategoryLabel(service.category)}
+                  </span>
+                )}
+                {/* RCN Earning Badge */}
+                {qualifies && (
+                  <div className="flex items-center gap-1.5 bg-gradient-to-r from-[#FFCC00]/20 to-[#FFD700]/20 border border-[#FFCC00]/40 text-[#FFCC00] px-3 py-1 rounded-full">
+                    <Coins className="w-3.5 h-3.5" />
+                    <span className="text-xs font-bold">
+                      Earn {totalRcn} RCN
+                      {tierBonus > 0 && (
+                        <span className="text-[10px] ml-1 opacity-90">
+                          (+{tierBonus} {customerTier})
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

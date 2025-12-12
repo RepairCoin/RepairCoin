@@ -38,10 +38,19 @@ export class OrderController {
         return res.status(400).json({ success: false, error: 'Service ID is required' });
       }
 
+      // Validate that appointment date and time are provided
+      if (!bookingDate) {
+        return res.status(400).json({ success: false, error: 'Booking date is required. Please select an appointment date.' });
+      }
+
+      if (!bookingTime) {
+        return res.status(400).json({ success: false, error: 'Booking time is required. Please select an appointment time slot.' });
+      }
+
       const result = await this.paymentService.createPaymentIntent({
         serviceId,
         customerAddress,
-        bookingDate: bookingDate ? new Date(bookingDate) : undefined,
+        bookingDate: new Date(bookingDate),
         bookingTime,
         rcnToRedeem: rcnToRedeem ? parseFloat(rcnToRedeem) : undefined,
         notes

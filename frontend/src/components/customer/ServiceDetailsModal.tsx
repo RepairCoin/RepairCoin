@@ -2,13 +2,15 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, DollarSign, Clock, MapPin, Phone, Mail, Image as ImageIcon, Tag, Store } from "lucide-react";
+import { X, DollarSign, Clock, MapPin, Phone, Mail, Image as ImageIcon, Tag, Store, Coins, TrendingUp } from "lucide-react";
 import { ShopServiceWithShopInfo, SERVICE_CATEGORIES } from "@/services/api/services";
 import { StarRating } from "./StarRating";
 import { FavoriteButton } from "./FavoriteButton";
 import { ShareButton } from "./ShareButton";
 import { ReviewList } from "./ReviewList";
 import { SimilarServices } from "./SimilarServices";
+import { calculateTotalRcn } from "@/utils/rcnCalculator";
+import { useCustomerStore } from "@/stores/customerStore";
 
 interface ServiceDetailsModalProps {
   service: ShopServiceWithShopInfo;
@@ -25,6 +27,7 @@ export const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({
 }) => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"details" | "reviews">("details");
+  const { customerData } = useCustomerStore();
 
   const handleViewSimilar = (similarService: ShopServiceWithShopInfo) => {
     if (onViewDetails) {
@@ -37,6 +40,10 @@ export const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({
     const cat = SERVICE_CATEGORIES.find((c) => c.value === category);
     return cat?.label || category;
   };
+
+  // Calculate RCN earnings for this service
+  const customerTier = customerData?.tier || 'BRONZE';
+  const { baseRcn, tierBonus, totalRcn, qualifies } = calculateTotalRcn(service.priceUsd, customerTier);
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -146,6 +153,42 @@ export const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({
                     </div>
                   )}
                 </div>
+
+                {/* RCN Earning Section */}
+                {qualifies && (
+                  <div className="bg-gradient-to-r from-[#FFCC00]/20 to-[#FFD700]/20 border border-[#FFCC00]/40 rounded-lg p-4 mb-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Coins className="w-5 h-5 text-[#FFCC00]" />
+                      <h4 className="text-sm font-bold text-white">RCN Rewards</h4>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-300">Base Reward</span>
+                        <span className="text-lg font-bold text-[#FFCC00]">{baseRcn} RCN</span>
+                      </div>
+
+                      {tierBonus > 0 && (
+                        <div className="flex items-center justify-between border-t border-[#FFCC00]/20 pt-2">
+                          <div className="flex items-center gap-1">
+                            <TrendingUp className="w-4 h-4 text-green-400" />
+                            <span className="text-sm text-gray-300">{customerTier} Tier Bonus</span>
+                          </div>
+                          <span className="text-lg font-bold text-green-400">+{tierBonus} RCN</span>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between border-t border-[#FFCC00]/20 pt-2 mt-2">
+                        <span className="text-base font-semibold text-white">Total Earnings</span>
+                        <span className="text-2xl font-bold text-[#FFCC00]">{totalRcn} RCN</span>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-gray-400 mt-3">
+                      Earned when service is completed • 1 RCN = $0.10 USD value
+                    </p>
+                  </div>
+                )}
 
                 {service.description && (
                   <div>

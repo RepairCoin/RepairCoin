@@ -334,11 +334,17 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
 
               {/* Appointment Scheduling Section */}
               {!paymentInitialized && (
-                <div className="bg-[#0D0D0D] border border-gray-800 rounded-xl p-5 mb-6">
-                  <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                <div className="bg-[#0D0D0D] border border-[#FFCC00]/30 rounded-xl p-5 mb-6">
+                  <h3 className="text-sm font-semibold text-white mb-1 flex items-center gap-2">
                     <Calendar className="w-5 h-5 text-[#FFCC00]" />
                     Schedule Your Appointment
+                    <span className="text-xs bg-[#FFCC00]/20 text-[#FFCC00] px-2 py-0.5 rounded-full ml-auto">
+                      Required
+                    </span>
                   </h3>
+                  <p className="text-xs text-gray-400 mb-4">
+                    Select a date and time for your service appointment
+                  </p>
 
                   {/* Date Picker */}
                   <div className="mb-6">
@@ -466,11 +472,26 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
                 </div>
               )}
 
+              {/* Appointment Required Notice */}
+              {!paymentInitialized && (!bookingDate || !bookingTimeSlot) && (
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 mb-6">
+                  <div className="flex items-start gap-3">
+                    <Calendar className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold text-blue-400">Appointment Required</p>
+                      <p className="text-sm text-gray-400 mt-1">
+                        Please select a date and time slot for your appointment before proceeding to payment.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Proceed to Payment Button */}
               {!paymentInitialized && (
                 <button
                   onClick={handleInitializePayment}
-                  disabled={loading}
+                  disabled={loading || !bookingDate || !bookingTimeSlot}
                   className="w-full bg-gradient-to-r from-[#FFCC00] to-[#FFD700] text-black font-bold text-lg px-6 py-4 rounded-xl hover:from-[#FFD700] hover:to-[#FFCC00] transition-all duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none mb-6"
                 >
                   {loading ? "Preparing..." : `Proceed to Payment - $${finalAmount.toFixed(2)}`}
