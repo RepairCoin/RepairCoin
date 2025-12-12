@@ -25,7 +25,7 @@ class ShopApi {
 
   async updateShopDetails(
     shopId: string,
-    shopData: ShopData
+    shopData: ShopFormData
   ): Promise<{ message: string; success: boolean }> {
     try {
       return await apiClient.put<{ message: string; success: boolean }>(

@@ -1,6 +1,14 @@
 import { BaseResponse } from "./base.interface";
 import { CustomerData } from "./customer.interface";
 
+export interface LocationData {
+  city: string;
+  state: string;
+  zipCode: string;
+  lat: string;
+  lng: string;
+}
+
 export interface ShopFormData {
   // Shop Information
   shopId: string;
@@ -32,39 +40,34 @@ export interface ShopFormData {
   fixflowShopId: string;
 
   // Location (for mapping)
-  location: {
-    city: string;
-    state: string;
-    zipCode: string;
-    lat: string;
-    lng: string;
-  };
+  location: LocationData;
 
   // Terms and Conditions
   acceptTerms: boolean;
 }
 
 export interface ShopData {
+  acceptTerms: boolean;
   active: boolean;
   address: string;
+  category: string;
+  companySize: string;
+  country: string;
   crossShopEnabled: boolean;
   email: string;
   facebook: string;
+  firstName: string;
   instagram: string;
   joinDate: string;
+  lastName: string;
+  location: LocationData;
+  monthlyRevenue: string;
   name: string;
-  operational_status: string;
   phone: string;
-  purchasedRcnBalance: number;
-  rcg_balance: number;
-  rcg_tier: string;
+  referral: string;
   shopId: string;
-  totalRcnPurchased: number;
-  totalRedemptions: number;
-  totalTokensIssued: number;
   twitter: string;
   verified: boolean;
-  walletAddress: string;
   website: string;
 }
 

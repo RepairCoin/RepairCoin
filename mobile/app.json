@@ -11,9 +11,12 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.mobile",
+      "bundleIdentifier": "com.khalid2025.repaircoin",
       "runtimeVersion": "1.0.0",
-      "appleTeamId": "BAN25WZ5LK"
+      "appleTeamId": "BAN25WZ5LK",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "This app uses your location to find nearby shops."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,10 +24,11 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.mobile",
+      "package": "com.khalid2025.repaircoin",
       "runtimeVersion": {
         "policy": "appVersion"
-      }
+      },
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
     },
     "web": {
       "bundler": "metro",
@@ -52,10 +56,10 @@
         }
       ],
       [
-        "@stripe/stripe-react-native",
+        "expo-location",
         {
-          "merchantIdentifier": "merchant.com.repaircoin",
-          "enableGooglePay": true
+          "locationAlwaysAndWhenInUsePermission": "Allow this app to access your location.",
+          "locationWhenInUsePermission": "Allow this app to access your location while using the app."
         }
       ]
     ],

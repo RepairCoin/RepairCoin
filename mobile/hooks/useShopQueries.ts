@@ -7,7 +7,7 @@ import {
   PurchaseHistoryResponse,
 } from "@/services/ShopServices";
 import { shopApi } from "@/services/shop.services";
-import { ShopResponse } from "@/interfaces/shop.interface";
+import { ShopFormData, ShopResponse } from "@/interfaces/shop.interface";
 
 export const useShops = () => {
   return useQuery({
@@ -22,7 +22,7 @@ export const useShops = () => {
 
 export const useUpdateShopDetails = (address: string) => {
   return useMutation({
-    mutationFn: async ({ shopId, shopData }: { shopId: string; shopData: ShopData }) => {
+    mutationFn: async ({ shopId, shopData }: { shopId: string; shopData: ShopFormData }) => {
       const response: UpdateShopData = await shopApi.updateShopDetails(shopId, shopData);
       return response;
     },
