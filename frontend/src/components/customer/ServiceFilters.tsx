@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, X, MapPin, DollarSign, ChevronDown, ChevronUp } from "lucide-react";
+import { X, MapPin, DollarSign, ChevronDown, ChevronUp } from "lucide-react";
 import { SERVICE_CATEGORIES, ServiceCategory } from "@/services/api/services";
+import { AutocompleteSearch } from "./AutocompleteSearch";
 
 export type SortOption = 'newest' | 'price_asc' | 'price_desc' | 'rating_desc' | 'oldest';
 
@@ -22,22 +23,20 @@ interface ServiceFiltersProps {
   filters: FilterState;
   onFilterChange: (filters: FilterState) => void;
   onReset: () => void;
+  onSelectService?: (serviceId: string) => void;
 }
 
 export const ServiceFilters: React.FC<ServiceFiltersProps> = ({
   filters,
   onFilterChange,
   onReset,
+  onSelectService,
 }) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [priceRange, setPriceRange] = useState<[number, number]>([
     filters.minPrice || 0,
     filters.maxPrice || 500
   ]);
-
-  const handleSearchChange = (value: string) => {
-    onFilterChange({ ...filters, search: value });
-  };
 
   const handleCategoryChange = (value: string) => {
     onFilterChange({
@@ -86,15 +85,11 @@ export const ServiceFilters: React.FC<ServiceFiltersProps> = ({
     <div className="flex flex-col gap-4">
       {/* Main Filter Row */}
       <div className="flex flex-col sm:flex-row gap-3">
-        {/* Search Bar */}
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
-          <input
-            type="text"
-            value={filters.search || ""}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Search services..."
-            className="w-full bg-[#1A1A1A] border border-gray-800 rounded-lg pl-10 pr-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#FFCC00]/50 transition-colors"
+        {/* Autocomplete Search */}
+        <div className="flex-1">
+          <AutocompleteSearch
+            onSelectService={onSelectService || (() => {})}
+            placeholder="Search services or shops..."
           />
         </div>
 

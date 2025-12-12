@@ -10,7 +10,6 @@ import { ServiceFilters, FilterState } from "./ServiceFilters";
 import { ServiceDetailsModal } from "./ServiceDetailsModal";
 import { ServiceCheckoutModal } from "./ServiceCheckoutModal";
 import { ShopMapView } from "./ShopMapView";
-import { AutocompleteSearch } from "./AutocompleteSearch";
 import { RecentlyViewedServices } from "./RecentlyViewedServices";
 import { TrendingServices } from "./TrendingServices";
 import { useAuthStore } from "@/stores/authStore";
@@ -198,7 +197,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
               </button>
             </div>
           </div>
-          <p className="text-gray-400 text-lg mb-6">
+          <p className="text-gray-400 text-lg">
             {showFavoritesOnly
               ? "Your favorited services"
               : viewMode === "map"
@@ -207,16 +206,6 @@ export const ServiceMarketplaceClient: React.FC = () => {
               ? `Browsing services from ${services.find(s => s.shopId === filters.shopId)?.shopName || "shop"}`
               : "Discover and book services from local businesses"}
           </p>
-
-          {/* Autocomplete Search Bar */}
-          {!showFavoritesOnly && viewMode === "grid" && !filters.shopId && (
-            <div className="max-w-2xl">
-              <AutocompleteSearch
-                onSelectService={handleAutocompleteSelect}
-                placeholder="Search for services or shops..."
-              />
-            </div>
-          )}
         </div>
 
         {/* Trending Services - Show only on initial load without filters */}
@@ -267,6 +256,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
               filters={filters}
               onFilterChange={handleFilterChange}
               onReset={handleResetFilters}
+              onSelectService={handleAutocompleteSelect}
             />
           </div>
         )}
