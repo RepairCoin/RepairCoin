@@ -107,7 +107,7 @@ export default function ServicesTab() {
   return (
     <React.Fragment>
       {/* Search Input with Filter Button */}
-      <View className="flex-row items-center gap-2 mb-4">
+      <View className="flex-row items-center gap-2">
         <View className="flex-1 flex-row items-center bg-zinc-800 rounded-full px-4 py-3">
           <Feather name="search" size={20} color="#9CA3AF" />
           <TextInput

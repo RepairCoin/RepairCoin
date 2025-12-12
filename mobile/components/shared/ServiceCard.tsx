@@ -23,6 +23,7 @@ interface ServiceCardProps {
   showMenu?: boolean;
   menuPosition?: "image" | "footer";
   onMenuPress?: () => void;
+  variant?: "grid" | "list";
 }
 
 export default function ServiceCard({
@@ -40,6 +41,7 @@ export default function ServiceCard({
   showMenu,
   menuPosition = "image",
   onMenuPress,
+  variant = "grid",
 }: ServiceCardProps) {
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "Not scheduled";
@@ -51,6 +53,82 @@ export default function ServiceCard({
     });
   };
 
+  // List View Layout
+  if (variant === "list") {
+    return (
+      <View className="mx-4 my-2">
+        <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
+          <View className="bg-gray-900 rounded-xl overflow-hidden flex-row">
+            {/* Image */}
+            <View className="relative">
+              {imageUrl ? (
+                <Image
+                  source={{ uri: imageUrl }}
+                  className="w-24 h-24"
+                  resizeMode="cover"
+                />
+              ) : (
+                <View className="w-24 h-24 bg-gray-800 items-center justify-center">
+                  <Ionicons name="image-outline" size={24} color="#6B7280" />
+                </View>
+              )}
+            </View>
+
+            {/* Content */}
+            <View className="flex-1 p-3 justify-between">
+              <View>
+                <View className="flex-row items-center justify-between mb-1">
+                  <Text className="text-xs text-gray-500 uppercase tracking-wide">
+                    {category}
+                  </Text>
+                  {status && (
+                    <View className={`px-2 py-0.5 rounded-full ${status.bgColor}`}>
+                      <Text className={`text-xs font-medium capitalize ${status.textColor}`}>
+                        {status.label}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <Text className="text-white text-base font-semibold" numberOfLines={1}>
+                  {title}
+                </Text>
+              </View>
+
+              <View className="flex-row items-center justify-between mt-2">
+                <Text className="text-[#FFCC00] font-bold text-lg">${price}</Text>
+                <View className="flex-row items-center">
+                  {duration !== undefined ? (
+                    <>
+                      <Ionicons name="time-outline" size={14} color="#9CA3AF" />
+                      <Text className="text-gray-400 text-xs ml-1">{duration} min</Text>
+                    </>
+                  ) : date !== undefined ? (
+                    <>
+                      <Ionicons name="calendar-outline" size={14} color="#9CA3AF" />
+                      <Text className="text-gray-400 text-xs ml-1">{formatDate(date)}</Text>
+                    </>
+                  ) : null}
+                </View>
+              </View>
+            </View>
+
+            {/* Menu Button */}
+            {showMenu && (
+              <TouchableOpacity
+                onPress={onMenuPress}
+                className="p-3 justify-center"
+                activeOpacity={0.7}
+              >
+                <Ionicons name="ellipsis-vertical" size={18} color="#9CA3AF" />
+              </TouchableOpacity>
+            )}
+          </View>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Grid View Layout (default)
   return (
     <View className="flex-1 mx-2 my-2">
       <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
