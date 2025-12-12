@@ -8,6 +8,7 @@ import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-
 import { loadStripe, StripeElementsOptions } from "@stripe/stripe-js";
 import { useCustomerStore } from "@/stores/customerStore";
 import { TimeSlotPicker } from "./TimeSlotPicker";
+import { DateAvailabilityPicker } from "./DateAvailabilityPicker";
 
 // Initialize Stripe
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "");
@@ -341,18 +342,13 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
 
                   {/* Date Picker */}
                   <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-400 mb-2">
-                      Select Date
-                    </label>
-                    <input
-                      type="date"
-                      value={bookingDate ? bookingDate.toISOString().split('T')[0] : ''}
-                      onChange={(e) => {
-                        setBookingDate(e.target.value ? new Date(e.target.value) : null);
+                    <DateAvailabilityPicker
+                      shopId={service.shopId}
+                      selectedDate={bookingDate}
+                      onDateSelect={(date) => {
+                        setBookingDate(date);
                         setBookingTimeSlot(null); // Reset time slot when date changes
                       }}
-                      min={new Date().toISOString().split('T')[0]}
-                      className="w-full px-4 py-3 bg-[#1A1A1A] border border-gray-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                     />
                   </div>
 

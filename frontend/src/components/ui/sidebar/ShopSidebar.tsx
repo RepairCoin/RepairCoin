@@ -18,6 +18,7 @@ import {
   MegaphoneIcon,
   GlobeIcon,
   MapPinnedIcon,
+  Calendar,
 } from "lucide-react";
 import {
   IssueRewardsIcon,
@@ -96,8 +97,14 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
         {
           title: "Analytics",
           href: "/shop?tab=service-analytics",
-          icon: <BarChart3 className="w-4 h-4" />,
+          icon: <BarChart3 className="w-5 h-5" />,
           tabId: "service-analytics",
+        },
+        {
+          title: "Appointments",
+          href: "/shop?tab=appointments",
+          icon: <Calendar className="w-5 h-5" />,
+          tabId: "appointments",
         },
       ],
     },

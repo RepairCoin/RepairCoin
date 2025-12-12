@@ -47,7 +47,7 @@ export interface PurchaseResponse {
  */
 export class ShopPurchaseService {
   private static readonly MINIMUM_PURCHASE = 5; // 5 RCN minimum ($0.50 USD) due to Stripe requirements
-  private static readonly MAXIMUM_PURCHASE = 10000; // 10,000 RCN maximum per transaction
+  private static readonly MAXIMUM_PURCHASE = 100000; // 100,000 RCN maximum per transaction
   
   private rcgReader: RCGTokenReader;
 

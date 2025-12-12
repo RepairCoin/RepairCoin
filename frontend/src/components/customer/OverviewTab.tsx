@@ -351,6 +351,25 @@ export const OverviewTab: React.FC = () => {
       {/* Shop Group Tokens Card */}
       <GroupBalancesCard />
 
+      {/* Pending Mint Balance Alert */}
+      {balanceData && (balanceData.pendingMintBalance || 0) > 0 && (
+        <div className="bg-[#212121] border border-yellow-500/30 rounded-xl sm:rounded-2xl p-4 sm:p-6 mb-6 sm:mb-8">
+          <div className="flex items-center gap-3">
+            <div className="bg-yellow-500/20 p-3 rounded-full">
+              <Loader2 className="w-6 h-6 text-yellow-500 animate-spin" />
+            </div>
+            <div className="flex-1">
+              <p className="text-yellow-500 font-semibold text-sm sm:text-base">
+                Pending Mint: {balanceData.pendingMintBalance} RCN
+              </p>
+              <p className="text-gray-400 text-xs sm:text-sm">
+                These tokens are queued for minting to your blockchain wallet. They will appear in your wallet once the transaction is processed.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Mint to Wallet Section */}
       {balanceData && balanceData.availableBalance > 0 && (
         <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl mb-6 sm:mb-8">

@@ -6,6 +6,7 @@ import { FavoriteController } from './controllers/FavoriteController';
 import { ReviewController } from './controllers/ReviewController';
 import { AnalyticsController } from './controllers/AnalyticsController';
 import { AppointmentController } from './controllers/AppointmentController';
+import { DiscoveryController } from './controllers/DiscoveryController';
 import { PaymentService } from './services/PaymentService';
 import { authMiddleware, optionalAuthMiddleware, requireRole } from '../../middleware/auth';
 import { StripeService } from '../../services/StripeService';
@@ -21,6 +22,7 @@ export function initializeRoutes(stripe: StripeService): Router {
   const reviewController = new ReviewController();
   const analyticsController = new AnalyticsController();
   const appointmentController = new AppointmentController();
+  const discoveryController = new DiscoveryController();
 
   // ==================== SERVICE MANAGEMENT ROUTES ====================
 
@@ -1587,6 +1589,176 @@ export function initializeRoutes(stripe: StripeService): Router {
     authMiddleware,
     requireRole(['customer']),
     appointmentController.cancelCustomerAppointment
+  );
+
+  // ==================== DISCOVERY & SEARCH ROUTES ====================
+
+  /**
+   * @swagger
+   * /api/services/discovery/autocomplete:
+   *   get:
+   *     summary: Autocomplete search suggestions
+   *     description: Get autocomplete suggestions for service and shop names (Public)
+   *     tags: [Discovery]
+   *     parameters:
+   *       - in: query
+   *         name: q
+   *         required: true
+   *         schema:
+   *           type: string
+   *           minLength: 2
+   *         description: Search query (minimum 2 characters)
+   *     responses:
+   *       200:
+   *         description: Autocomplete suggestions
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                 data:
+   *                   type: array
+   *                   items:
+   *                     type: object
+   *                     properties:
+   *                       serviceId:
+   *                         type: string
+   *                       serviceName:
+   *                         type: string
+   *                       category:
+   *                         type: string
+   *                       priceUsd:
+   *                         type: number
+   *                       imageUrl:
+   *                         type: string
+   *                       shopId:
+   *                         type: string
+   *                       shopName:
+   *                         type: string
+   *                       location:
+   *                         type: string
+   */
+  router.get(
+    '/discovery/autocomplete',
+    discoveryController.autocompleteSearch
+  );
+
+  /**
+   * @swagger
+   * /api/services/discovery/recently-viewed:
+   *   post:
+   *     summary: Track recently viewed service (Customer only)
+   *     description: Record that a customer viewed a service
+   *     tags: [Discovery]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - serviceId
+   *             properties:
+   *               serviceId:
+   *                 type: string
+   *     responses:
+   *       200:
+   *         description: View tracked successfully
+   */
+  router.post(
+    '/discovery/recently-viewed',
+    authMiddleware,
+    requireRole(['customer']),
+    discoveryController.trackRecentlyViewed
+  );
+
+  /**
+   * @swagger
+   * /api/services/discovery/recently-viewed:
+   *   get:
+   *     summary: Get recently viewed services (Customer only)
+   *     description: Get list of services the customer recently viewed
+   *     tags: [Discovery]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: limit
+   *         schema:
+   *           type: integer
+   *           default: 12
+   *           maximum: 50
+   *     responses:
+   *       200:
+   *         description: Recently viewed services
+   */
+  router.get(
+    '/discovery/recently-viewed',
+    authMiddleware,
+    requireRole(['customer']),
+    discoveryController.getRecentlyViewed
+  );
+
+  /**
+   * @swagger
+   * /api/services/discovery/similar/{serviceId}:
+   *   get:
+   *     summary: Get similar services
+   *     description: Get services similar to the specified service (Public)
+   *     tags: [Discovery]
+   *     parameters:
+   *       - in: path
+   *         name: serviceId
+   *         required: true
+   *         schema:
+   *           type: string
+   *       - in: query
+   *         name: limit
+   *         schema:
+   *           type: integer
+   *           default: 6
+   *           maximum: 20
+   *     responses:
+   *       200:
+   *         description: Similar services
+   */
+  router.get(
+    '/discovery/similar/:serviceId',
+    discoveryController.getSimilarServices
+  );
+
+  /**
+   * @swagger
+   * /api/services/discovery/trending:
+   *   get:
+   *     summary: Get trending services
+   *     description: Get services with most bookings in recent period (Public)
+   *     tags: [Discovery]
+   *     parameters:
+   *       - in: query
+   *         name: limit
+   *         schema:
+   *           type: integer
+   *           default: 12
+   *           maximum: 50
+   *       - in: query
+   *         name: days
+   *         schema:
+   *           type: integer
+   *           default: 7
+   *           maximum: 30
+   *         description: Number of days to look back
+   *     responses:
+   *       200:
+   *         description: Trending services
+   */
+  router.get(
+    '/discovery/trending',
+    discoveryController.getTrendingServices
   );
 
   return router;

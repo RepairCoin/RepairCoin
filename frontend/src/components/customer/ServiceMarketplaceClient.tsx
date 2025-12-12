@@ -10,9 +10,13 @@ import { ServiceFilters, FilterState } from "./ServiceFilters";
 import { ServiceDetailsModal } from "./ServiceDetailsModal";
 import { ServiceCheckoutModal } from "./ServiceCheckoutModal";
 import { ShopMapView } from "./ShopMapView";
+import { RecentlyViewedServices } from "./RecentlyViewedServices";
+import { TrendingServices } from "./TrendingServices";
+import { useAuthStore } from "@/stores/authStore";
 
 export const ServiceMarketplaceClient: React.FC = () => {
   const router = useRouter();
+  const { userType } = useAuthStore();
   const [services, setServices] = useState<ShopServiceWithShopInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<FilterState>({});
@@ -22,6 +26,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
   const [hasMore, setHasMore] = useState(true);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "map">("grid");
+  const [refreshKey, setRefreshKey] = useState(0); // For refreshing recently viewed
 
   useEffect(() => {
     loadServices();
@@ -99,8 +104,25 @@ export const ServiceMarketplaceClient: React.FC = () => {
     setPage(1);
   };
 
-  const handleViewDetails = (service: ShopServiceWithShopInfo) => {
+  const handleViewDetails = async (service: ShopServiceWithShopInfo) => {
     setSelectedService(service);
+    // Track recently viewed (only for customers)
+    if (userType === 'customer') {
+      await servicesApi.trackRecentlyViewed(service.serviceId);
+      setRefreshKey(prev => prev + 1); // Refresh recently viewed section
+    }
+  };
+
+  const handleAutocompleteSelect = async (serviceId: string) => {
+    try {
+      const service = await servicesApi.getServiceById(serviceId);
+      if (service) {
+        handleViewDetails(service);
+      }
+    } catch (error) {
+      console.error("Error loading service:", error);
+      toast.error("Failed to load service details");
+    }
   };
 
   const handleBook = (service: ShopServiceWithShopInfo) => {
@@ -126,7 +148,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <ShoppingBag className="w-8 h-8 text-[#FFCC00]" />
               <h1 className="text-4xl font-bold text-white">Service Marketplace</h1>
@@ -186,9 +208,21 @@ export const ServiceMarketplaceClient: React.FC = () => {
           </p>
         </div>
 
+        {/* Filters - Show at the top, hide when showing favorites or map view */}
+        {!showFavoritesOnly && viewMode === "grid" && (
+          <div className="mb-8">
+            <ServiceFilters
+              filters={filters}
+              onFilterChange={handleFilterChange}
+              onReset={handleResetFilters}
+              onSelectService={handleAutocompleteSelect}
+            />
+          </div>
+        )}
+
         {/* Active Shop Filter */}
         {viewMode === "grid" && filters.shopId && !showFavoritesOnly && (
-          <div className="mb-6 flex items-center gap-3 bg-[#1A1A1A] border border-gray-800 rounded-xl p-4">
+          <div className="mb-8 flex items-center gap-3 bg-[#1A1A1A] border border-gray-800 rounded-xl p-4">
             <div className="flex-1">
               <p className="text-sm text-gray-400 mb-1">Viewing shop:</p>
               <p className="text-white font-semibold">
@@ -207,13 +241,42 @@ export const ServiceMarketplaceClient: React.FC = () => {
           </div>
         )}
 
-        {/* Filters - Hide when showing favorites, map view, or viewing specific shop */}
-        {!showFavoritesOnly && viewMode === "grid" && !filters.shopId && (
-          <div className="mb-8">
-            <ServiceFilters
-              filters={filters}
-              onFilterChange={handleFilterChange}
-              onReset={handleResetFilters}
+        {/* Trending Now Section */}
+        {!loading && page === 1 && !showFavoritesOnly && viewMode === "grid" && !filters.search && !filters.category && !filters.shopId && (
+          <div className="mb-10">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-800 to-transparent"></div>
+              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                <span className="text-[#FFCC00]">🔥</span>
+                Trending Now
+              </h2>
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-800 to-transparent"></div>
+            </div>
+            <TrendingServices
+              onBook={handleBook}
+              onViewDetails={handleViewDetails}
+              limit={6}
+              days={7}
+            />
+          </div>
+        )}
+
+        {/* Recently Viewed Section */}
+        {userType === 'customer' && !showFavoritesOnly && viewMode === "grid" && !filters.shopId && (
+          <div className="mb-10">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-800 to-transparent"></div>
+              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                <span className="text-[#FFCC00]">👀</span>
+                Recently Viewed
+              </h2>
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-800 to-transparent"></div>
+            </div>
+            <RecentlyViewedServices
+              key={refreshKey}
+              onBook={handleBook}
+              onViewDetails={handleViewDetails}
+              limit={6}
             />
           </div>
         )}
@@ -231,6 +294,20 @@ export const ServiceMarketplaceClient: React.FC = () => {
             }}
           />
         ) : null}
+
+        {/* All Services Section */}
+        {viewMode === "grid" && (
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-800 to-transparent"></div>
+              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                <span className="text-[#FFCC00]">🏪</span>
+                {showFavoritesOnly ? "Your Favorites" : filters.shopId ? "Shop Services" : "All Services"}
+              </h2>
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-800 to-transparent"></div>
+            </div>
+          </div>
+        )}
 
         {/* Services Grid */}
         {viewMode === "grid" && loading && page === 1 ? (
@@ -316,6 +393,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
           service={selectedService}
           onClose={() => setSelectedService(null)}
           onBook={handleBook}
+          onViewDetails={handleViewDetails}
         />
       )}
 

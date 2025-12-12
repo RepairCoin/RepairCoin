@@ -639,6 +639,107 @@ export const canReviewOrder = async (orderId: string): Promise<{
   }
 };
 
+// ==================== DISCOVERY & SEARCH APIs ====================
+
+export interface AutocompleteSuggestion {
+  serviceId: string;
+  serviceName: string;
+  category?: ServiceCategory;
+  priceUsd: number;
+  imageUrl?: string;
+  shopId: string;
+  shopName: string;
+  location?: string;
+}
+
+/**
+ * Get autocomplete search suggestions
+ */
+export const autocompleteSearch = async (query: string): Promise<AutocompleteSuggestion[]> => {
+  try {
+    if (!query || query.length < 2) {
+      return [];
+    }
+    const response = await apiClient.get<{ success: boolean; data: AutocompleteSuggestion[] }>(
+      `/services/discovery/autocomplete?q=${encodeURIComponent(query)}`
+    );
+    // API client interceptor already unwraps response.data, so we access .data directly
+    return (response as { success: boolean; data: AutocompleteSuggestion[] }).data || [];
+  } catch (error) {
+    console.error('Error in autocomplete search:', error);
+    return [];
+  }
+};
+
+/**
+ * Track that a service was viewed
+ */
+export const trackRecentlyViewed = async (serviceId: string): Promise<boolean> => {
+  try {
+    await apiClient.post('/services/discovery/recently-viewed', { serviceId });
+    return true;
+  } catch (error) {
+    console.error('Error tracking recently viewed:', error);
+    return false;
+  }
+};
+
+/**
+ * Get recently viewed services
+ */
+export const getRecentlyViewed = async (limit?: number): Promise<ShopServiceWithShopInfo[]> => {
+  try {
+    const queryString = limit ? `?limit=${limit}` : '';
+    const response = await apiClient.get<{ success: boolean; data: ShopServiceWithShopInfo[] }>(
+      `/services/discovery/recently-viewed${queryString}`
+    );
+    return (response as { success: boolean; data: ShopServiceWithShopInfo[] }).data || [];
+  } catch (error) {
+    console.error('Error getting recently viewed:', error);
+    return [];
+  }
+};
+
+/**
+ * Get similar services
+ */
+export const getSimilarServices = async (
+  serviceId: string,
+  limit?: number
+): Promise<ShopServiceWithShopInfo[]> => {
+  try {
+    const queryString = limit ? `?limit=${limit}` : '';
+    const response = await apiClient.get<{ success: boolean; data: ShopServiceWithShopInfo[] }>(
+      `/services/discovery/similar/${serviceId}${queryString}`
+    );
+    return (response as { success: boolean; data: ShopServiceWithShopInfo[] }).data || [];
+  } catch (error) {
+    console.error('Error getting similar services:', error);
+    return [];
+  }
+};
+
+/**
+ * Get trending services
+ */
+export const getTrendingServices = async (options?: {
+  limit?: number;
+  days?: number;
+}): Promise<ShopServiceWithShopInfo[]> => {
+  try {
+    const queryString = options ? buildQueryString(options as Record<string, unknown>) : '';
+    const response = await apiClient.get<{
+      success: boolean;
+      data: ShopServiceWithShopInfo[];
+      meta?: { period: string };
+    }>(`/services/discovery/trending${queryString}`);
+    return (response as { success: boolean; data: ShopServiceWithShopInfo[] }).data || [];
+  } catch (error) {
+    console.error('Error getting trending services:', error);
+    return [];
+  }
+};
+
 // ==================== CONVENIENCE NAMESPACE EXPORT ====================
 
 export const servicesApi = {
@@ -676,6 +777,13 @@ export const servicesApi = {
   markReviewHelpful,
   deleteReview,
   canReviewOrder,
+
+  // Discovery & Search
+  autocompleteSearch,
+  trackRecentlyViewed,
+  getRecentlyViewed,
+  getSimilarServices,
+  getTrendingServices,
 } as const;
 
 // ==================== SERVICE CATEGORIES CONSTANT ====================

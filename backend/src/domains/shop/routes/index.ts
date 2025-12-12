@@ -1173,12 +1173,13 @@ router.post('/:shopId/redeem',
         });
       }
 
-      // STEP 3: Process blockchain operations BEFORE the atomic transaction
-      // (Blockchain operations can't be rolled back, so we do them first and handle failures gracefully)
+      // STEP 3: Process blockchain operations with intent recording for atomicity
+      // We record intent BEFORE blockchain burn so that if DB fails after burn, we can recover
       let amountFromBlockchain = 0;
       let amountFromDatabase = 0;
       let transactionHash = '';
       let burnSuccessful = false;
+      let pendingTransactionId: string | number | null = null;
 
       try {
         const blockchainEnabled = process.env.ENABLE_BLOCKCHAIN_MINTING === 'true';
@@ -1190,7 +1191,36 @@ router.post('/:shopId/redeem',
             amountFromBlockchain = Math.min(onChainBalance, amount);
             amountFromDatabase = amount - amountFromBlockchain;
 
-            // Burn available blockchain tokens
+            // CRITICAL: Record intent BEFORE blockchain burn
+            // This ensures we have a record even if DB fails after burn
+            const pendingTx = await transactionRepository.createPendingTransaction({
+              type: 'redeem' as const,
+              customerAddress: customerAddress.toLowerCase(),
+              shopId,
+              amount: amountFromBlockchain,
+              reason: `Blockchain redemption at ${shop.name}`,
+              timestamp: new Date().toISOString(),
+              status: 'pending' as const,
+              metadata: {
+                sessionId,
+                redemptionLocation: shop.name,
+                engagementType: 'blockchain_redemption',
+                amountFromBlockchain,
+                amountFromDatabase,
+                requiresReconciliation: true, // Flag for recovery if DB fails
+                burnAttemptedAt: new Date().toISOString()
+              }
+            });
+            pendingTransactionId = pendingTx.id!;
+
+            logger.info('Pending blockchain burn transaction recorded', {
+              transactionId: pendingTransactionId,
+              customerAddress,
+              amountFromBlockchain,
+              sessionId
+            });
+
+            // Now attempt blockchain burn
             const BURN_ADDRESS = '0x000000000000000000000000000000000000dEaD';
             const burnResult = await getTokenMinter().burnTokensFromCustomer(
               customerAddress,
@@ -1203,7 +1233,18 @@ router.post('/:shopId/redeem',
               burnSuccessful = true;
               transactionHash = burnResult.transactionHash || '';
 
+              // Update pending transaction with burn result
+              await transactionRepository.confirmTransaction(pendingTransactionId, {
+                transactionHash,
+                metadata: {
+                  burnSuccessful: true,
+                  burnCompletedAt: new Date().toISOString(),
+                  requiresReconciliation: false // Burn succeeded, clear flag
+                }
+              });
+
               logger.info('Tokens burned from blockchain during redemption', {
+                transactionId: pendingTransactionId,
                 customerAddress,
                 blockchainAmount: amountFromBlockchain,
                 databaseAmount: amountFromDatabase,
@@ -1211,9 +1252,14 @@ router.post('/:shopId/redeem',
                 transactionHash
               });
             } else {
-              // Burn failed, deduct full amount from database
+              // Burn failed, mark transaction as failed and fall back to database
+              await transactionRepository.failTransaction(
+                pendingTransactionId,
+                'Blockchain burn failed, falling back to database deduction'
+              );
               amountFromBlockchain = 0;
               amountFromDatabase = amount;
+              pendingTransactionId = null; // Clear so we don't try to update it later
               logger.warn('Blockchain burn failed, falling back to database deduction', {
                 customerAddress,
                 amount
@@ -1233,9 +1279,24 @@ router.post('/:shopId/redeem',
           amountFromDatabase = amount;
         }
       } catch (burnError) {
+        // If we recorded a pending transaction, mark it as failed
+        if (pendingTransactionId) {
+          try {
+            await transactionRepository.failTransaction(
+              pendingTransactionId,
+              burnError instanceof Error ? burnError.message : 'Unknown blockchain error'
+            );
+          } catch (failError) {
+            logger.error('Failed to mark pending transaction as failed', {
+              transactionId: pendingTransactionId,
+              error: failError
+            });
+          }
+        }
         logger.error('Token burn error during redemption, using database balance', burnError);
         amountFromBlockchain = 0;
         amountFromDatabase = amount;
+        pendingTransactionId = null;
       }
 
       // STEP 4: ATOMIC TRANSACTION - Record transaction, update shop stats, and mark session as used
@@ -1255,38 +1316,36 @@ router.post('/:shopId/redeem',
           amountFromBlockchain
         });
 
-        // 4a. Record the redemption transaction (if database deduction needed)
-        if (amountFromDatabase > 0) {
-          const transactionRecord = {
-            id: `redeem_${Date.now()}`,
-            type: 'redeem' as const,
-            customerAddress: customerAddress.toLowerCase(),
-            shopId,
-            amount: amountFromDatabase,
-            reason: `Redemption at ${shop.name}`,
-            transactionHash,
-            timestamp: new Date().toISOString(),
-            status: 'confirmed' as const,
-            metadata: {
-              repairAmount: amount,
-              referralId: undefined,
-              engagementType: 'redemption',
-              redemptionLocation: shop.name,
-              webhookId: `redeem_${Date.now()}`,
-              burnSuccessful,
-              notes: notes || undefined,
-              redemptionFlow: 'session-based',
-              customerPresent: customerPresent === true,
-              sessionId: sessionId,
-              amountFromBlockchain,
-              amountFromDatabase,
-              redemptionStrategy: amountFromBlockchain > 0 ? (amountFromDatabase > 0 ? 'hybrid' : 'blockchain_only') : 'database_only'
-            }
-          };
+        // 4a. Record the redemption transaction (ALWAYS record for history, regardless of source)
+        const transactionRecord = {
+          id: `redeem_${Date.now()}`,
+          type: 'redeem' as const,
+          customerAddress: customerAddress.toLowerCase(),
+          shopId,
+          amount: amount, // Record the TOTAL amount redeemed (for history purposes)
+          reason: `Redemption at ${shop.name}`,
+          transactionHash,
+          timestamp: new Date().toISOString(),
+          status: 'confirmed' as const,
+          metadata: {
+            repairAmount: amount,
+            referralId: undefined,
+            engagementType: 'redemption',
+            redemptionLocation: shop.name,
+            webhookId: `redeem_${Date.now()}`,
+            burnSuccessful,
+            notes: notes || undefined,
+            redemptionFlow: 'session-based',
+            customerPresent: customerPresent === true,
+            sessionId: sessionId,
+            amountFromBlockchain,
+            amountFromDatabase,
+            redemptionStrategy: amountFromBlockchain > 0 ? (amountFromDatabase > 0 ? 'hybrid' : 'blockchain_only') : 'database_only'
+          }
+        };
 
-          await transactionRepository.recordTransaction(transactionRecord, dbClient);
-          logger.info('Transaction recorded within atomic transaction', { sessionId });
-        }
+        await transactionRepository.recordTransaction(transactionRecord, dbClient);
+        logger.info('Transaction recorded within atomic transaction', { sessionId, totalAmount: amount });
 
         // 4b. Update shop statistics
         const previousShopBalance = shop.purchasedRcnBalance || 0;
@@ -1330,16 +1389,42 @@ router.post('/:shopId/redeem',
           error: atomicError instanceof Error ? atomicError.message : 'Unknown error'
         });
 
-        // Note: If blockchain burn succeeded but database failed, we log this critical situation
-        // The tokens are burned but not recorded - this needs manual reconciliation
-        if (burnSuccessful && amountFromBlockchain > 0) {
+        // If blockchain burn succeeded but database failed, update the pending transaction
+        // to mark it as requiring reconciliation (the burn is already recorded there)
+        if (burnSuccessful && amountFromBlockchain > 0 && pendingTransactionId) {
           logger.error('CRITICAL: Blockchain burn succeeded but database transaction failed', {
             sessionId,
             customerAddress,
             amountBurned: amountFromBlockchain,
             transactionHash,
-            requiresManualReconciliation: true
+            pendingTransactionId,
+            recoveryAction: 'Transaction already recorded as pending with requiresReconciliation flag'
           });
+
+          // Update the pending transaction to indicate DB failure
+          // This allows admin to reconcile later
+          try {
+            await transactionRepository.confirmTransaction(pendingTransactionId, {
+              transactionHash,
+              metadata: {
+                burnSuccessful: true,
+                requiresReconciliation: true,
+                dbFailedAt: new Date().toISOString(),
+                dbFailureReason: atomicError instanceof Error ? atomicError.message : 'Unknown error',
+                shopStatsPending: true,
+                sessionMarkPending: true
+              }
+            });
+            logger.info('Pending transaction updated with reconciliation data', {
+              pendingTransactionId,
+              transactionHash
+            });
+          } catch (updateError) {
+            logger.error('Failed to update pending transaction for reconciliation', {
+              pendingTransactionId,
+              error: updateError
+            });
+          }
         }
 
         throw atomicError;

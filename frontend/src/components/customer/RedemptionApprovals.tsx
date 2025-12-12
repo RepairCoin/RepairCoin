@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useActiveAccount, useActiveWallet } from "thirdweb/react";
-import { CheckCircle, XCircle, Clock, Info, QrCode, Download, X, Check } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Info, QrCode, Download, X, Check, Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { DataTable, type Column } from "../ui/DataTable";
 import { DashboardHeader } from "../ui/DashboardHeader";
@@ -378,14 +378,9 @@ By signing this message, I approve the redemption of ${session.maxAmount} RCN to
 
   if (loading) {
     return (
-      <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
-          <div className="space-y-4">
-            <div className="h-24 bg-gray-200 rounded"></div>
-            <div className="h-24 bg-gray-200 rounded"></div>
-          </div>
-        </div>
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-[#FFCC00]" />
+        <span className="ml-3 text-gray-400">Loading approvals...</span>
       </div>
     );
   }
@@ -399,13 +394,13 @@ By signing this message, I approve the redemption of ${session.maxAmount} RCN to
       />
 
       {/* Info Alert About Off-Chain Tokens */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+      <div className="bg-blue-900/20 border border-blue-500 rounded-xl p-4">
         <div className="flex items-start">
-          <div className="text-blue-600 mr-3">ℹ️</div>
+          <div className="text-blue-400 mr-3">ℹ️</div>
           <div className="flex-1">
-            <p className="text-sm text-blue-800">
-              <strong>How RepairCoin Works:</strong> Your RCN tokens are tracked securely in our system. 
-              When you approve a redemption, the shop can process your request and provide the service. 
+            <p className="text-sm text-blue-300">
+              <strong className="text-blue-200">How RepairCoin Works:</strong> Your RCN tokens are tracked securely in our system.
+              When you approve a redemption, the shop can process your request and provide the service.
               Tokens are not stored in your crypto wallet.
             </p>
           </div>
@@ -413,10 +408,10 @@ By signing this message, I approve the redemption of ${session.maxAmount} RCN to
       </div>
       {/* Pending Approvals Alert */}
       {pendingCount > 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+        <div className="bg-yellow-900/20 border border-yellow-500 rounded-xl p-4">
           <div className="flex items-center">
-            <Clock className="w-5 h-5 text-yellow-600 mr-3" />
-            <p className="text-sm md:text-base text-yellow-800 font-medium">
+            <Clock className="w-5 h-5 text-yellow-500 mr-3" />
+            <p className="text-sm md:text-base text-yellow-400 font-medium">
               You have {pendingCount} pending redemption request
               {pendingCount > 1 ? "s" : ""}
             </p>

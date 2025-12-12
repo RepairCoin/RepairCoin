@@ -47,6 +47,13 @@ export const ServiceCalendarView: React.FC<ServiceCalendarViewProps> = ({ servic
 
       // Filter bookings for this specific service only
       const serviceBookings = data.filter(booking => booking.serviceId === serviceId);
+      console.log('📅 Service Calendar - All Bookings:', serviceBookings);
+      console.log('📅 Booking dates:', serviceBookings.map(b => ({
+        orderId: b.orderId,
+        bookingDate: b.bookingDate,
+        status: b.status,
+        time: b.bookingTimeSlot
+      })));
       setAllBookings(serviceBookings);
     } catch (error: any) {
       console.error('Error loading bookings:', error);
@@ -86,13 +93,22 @@ export const ServiceCalendarView: React.FC<ServiceCalendarViewProps> = ({ servic
   };
 
   const isToday = (dateStr: string): boolean => {
-    const today = new Date().toISOString().split('T')[0];
-    return dateStr === today;
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    return dateStr === todayStr;
   };
 
   const isCurrentMonth = (dateStr: string): boolean => {
     const date = new Date(dateStr);
     return date.getMonth() === currentDate.getMonth() && date.getFullYear() === currentDate.getFullYear();
+  };
+
+  // Helper function to format date as YYYY-MM-DD without timezone conversion
+  const formatDateLocal = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   const getMonthDays = () => {
@@ -115,7 +131,7 @@ export const ServiceCalendarView: React.FC<ServiceCalendarViewProps> = ({ servic
       const day = prevMonthDays - i;
       const date = new Date(year, month - 1, day);
       days.push({
-        date: date.toISOString().split('T')[0],
+        date: formatDateLocal(date),
         bookings: []
       });
     }
@@ -123,8 +139,12 @@ export const ServiceCalendarView: React.FC<ServiceCalendarViewProps> = ({ servic
     // Current month days
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day);
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = formatDateLocal(date);
       const dayBookings = allBookings.filter(b => b.bookingDate === dateStr);
+
+      if (dayBookings.length > 0) {
+        console.log(`📅 Found ${dayBookings.length} booking(s) for ${dateStr}:`, dayBookings);
+      }
 
       days.push({
         date: dateStr,
@@ -137,7 +157,7 @@ export const ServiceCalendarView: React.FC<ServiceCalendarViewProps> = ({ servic
     for (let day = 1; day <= remainingDays; day++) {
       const date = new Date(year, month + 1, day);
       days.push({
-        date: date.toISOString().split('T')[0],
+        date: formatDateLocal(date),
         bookings: []
       });
     }
