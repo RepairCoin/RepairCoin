@@ -17,18 +17,24 @@ const STATUS_COLORS = {
   'in-progress': { bg: 'bg-purple-500/20', text: 'text-purple-400', border: 'border-purple-500/30' },
   completed: { bg: 'bg-green-500/20', text: 'text-green-400', border: 'border-green-500/30' },
   cancelled: { bg: 'bg-red-500/20', text: 'text-red-400', border: 'border-red-500/30' },
-  refunded: { bg: 'bg-gray-500/20', text: 'text-gray-400', border: 'border-gray-500/30' }
+  refunded: { bg: 'bg-gray-500/20', text: 'text-gray-400', border: 'border-gray-500/30' },
+  paid: { bg: 'bg-green-500/20', text: 'text-green-400', border: 'border-green-500/30' }
 };
 
-export const AppointmentCalendar: React.FC = () => {
+interface AppointmentCalendarProps {
+  serviceId?: string;
+  serviceName?: string;
+}
+
+export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ serviceId, serviceName }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [bookings, setBookings] = useState<CalendarBooking[]>([]);
+  const [allBookings, setAllBookings] = useState<CalendarBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedBooking, setSelectedBooking] = useState<CalendarBooking | null>(null);
 
   useEffect(() => {
     loadBookings();
-  }, [currentDate]);
+  }, [currentDate, serviceId]);
 
   const loadBookings = async () => {
     try {
@@ -44,10 +50,20 @@ export const AppointmentCalendar: React.FC = () => {
       const endDate = lastDay.toISOString().split('T')[0];
 
       const data = await appointmentsApi.getShopCalendar(startDate, endDate);
-      setBookings(data);
-    } catch (error) {
+
+      // Filter by serviceId if provided
+      const filteredBookings = serviceId
+        ? data.filter(booking => booking.serviceId === serviceId)
+        : data;
+
+      setAllBookings(filteredBookings);
+    } catch (error: any) {
       console.error('Error loading calendar:', error);
-      toast.error('Failed to load calendar bookings');
+      if (error.response?.status === 401) {
+        toast.error('Please log in as a shop owner to view bookings');
+      } else {
+        toast.error('Failed to load calendar bookings');
+      }
     } finally {
       setLoading(false);
     }
@@ -110,7 +126,7 @@ export const AppointmentCalendar: React.FC = () => {
       const date = new Date(year, month, day);
       const dateStr = formatDateLocal(date);
       // Extract just the date part from bookingDate (might be "2025-12-17T00:00:00.000Z" or "2025-12-17")
-      const dayBookings = bookings.filter(b => {
+      const dayBookings = allBookings.filter(b => {
         const bookingDateOnly = b.bookingDate.split('T')[0];
         return bookingDateOnly === dateStr;
       });
@@ -161,8 +177,16 @@ export const AppointmentCalendar: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-1">Appointment Calendar</h1>
-          <p className="text-gray-400">View and manage your bookings</p>
+          <h1 className="text-2xl font-bold text-white mb-1">
+            {serviceName ? 'Service Bookings' : 'Appointment Calendar'}
+          </h1>
+          <p className="text-gray-400">
+            {serviceName ? (
+              <>Showing bookings for <span className="text-[#FFCC00]">{serviceName}</span></>
+            ) : (
+              'View and manage your bookings'
+            )}
+          </p>
         </div>
 
         <div className="flex items-center gap-3">
