@@ -55,7 +55,7 @@ export const AutocompleteSearch: React.FC<AutocompleteSearchProps> = ({
           setLoading(false);
           setShowDropdown(false);
         }
-      }, 300);
+      }, 150); // Reduced from 300ms to 150ms for snappier response
     } else {
       setSuggestions([]);
       setShowDropdown(false);
