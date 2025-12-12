@@ -24,7 +24,7 @@ export class DiscoveryController {
 
       // Search in both service names and shop names
       const query = `
-        SELECT DISTINCT
+        SELECT
           s.service_id,
           s.service_name,
           s.category,
@@ -40,14 +40,14 @@ export class DiscoveryController {
           AND sh.active = true
           AND (
             LOWER(s.service_name) LIKE $1
-            OR LOWER(s.description) LIKE $1
+            OR LOWER(COALESCE(s.description, '')) LIKE $1
             OR LOWER(sh.name) LIKE $1
-            OR $2 = ANY(s.tags)
+            OR (s.tags IS NOT NULL AND $2 = ANY(s.tags))
           )
         ORDER BY
           CASE
-            WHEN LOWER(s.service_name) LIKE $3 THEN 1
-            WHEN LOWER(sh.name) LIKE $3 THEN 2
+            WHEN LOWER(s.service_name) LIKE $2 THEN 1
+            WHEN LOWER(sh.name) LIKE $2 THEN 2
             ELSE 3
           END,
           s.average_rating DESC NULLS LAST
@@ -56,7 +56,6 @@ export class DiscoveryController {
 
       const result = await pool.query(query, [
         `%${searchTerm}%`,
-        searchTerm,
         `${searchTerm}%`
       ]);
 
