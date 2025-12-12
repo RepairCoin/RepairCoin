@@ -69,6 +69,14 @@ export const AppointmentCalendar: React.FC = () => {
     setCurrentDate(new Date());
   };
 
+  // Helper function to format date as YYYY-MM-DD without timezone conversion
+  const formatDateLocal = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const getMonthDays = (): DayBookings[] => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -92,7 +100,7 @@ export const AppointmentCalendar: React.FC = () => {
       const day = prevMonthDays - i;
       const date = new Date(year, month - 1, day);
       days.push({
-        date: date.toISOString().split('T')[0],
+        date: formatDateLocal(date),
         bookings: []
       });
     }
@@ -100,8 +108,12 @@ export const AppointmentCalendar: React.FC = () => {
     // Add current month's days
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day);
-      const dateStr = date.toISOString().split('T')[0];
-      const dayBookings = bookings.filter(b => b.bookingDate === dateStr);
+      const dateStr = formatDateLocal(date);
+      // Extract just the date part from bookingDate (might be "2025-12-17T00:00:00.000Z" or "2025-12-17")
+      const dayBookings = bookings.filter(b => {
+        const bookingDateOnly = b.bookingDate.split('T')[0];
+        return bookingDateOnly === dateStr;
+      });
 
       days.push({
         date: dateStr,
@@ -114,7 +126,7 @@ export const AppointmentCalendar: React.FC = () => {
     for (let day = 1; day <= remainingDays; day++) {
       const date = new Date(year, month + 1, day);
       days.push({
-        date: date.toISOString().split('T')[0],
+        date: formatDateLocal(date),
         bookings: []
       });
     }
@@ -132,8 +144,9 @@ export const AppointmentCalendar: React.FC = () => {
   };
 
   const isToday = (dateStr: string): boolean => {
-    const today = new Date().toISOString().split('T')[0];
-    return dateStr === today;
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    return dateStr === todayStr;
   };
 
   const isCurrentMonth = (dateStr: string): boolean => {
