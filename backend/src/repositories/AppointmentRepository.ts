@@ -447,9 +447,10 @@ export class AppointmentRepository extends BaseRepository {
         FROM service_orders so
         LEFT JOIN customers c ON c.wallet_address = so.customer_address
         WHERE so.customer_address = $1
-          AND so.booking_date >= $2
-          AND so.booking_date <= $3
+          AND so.booking_date IS NOT NULL
           AND so.booking_time_slot IS NOT NULL
+          AND DATE(so.booking_date) >= DATE($2)
+          AND DATE(so.booking_date) <= DATE($3)
         ORDER BY so.booking_date, so.booking_time_slot
       `;
 
