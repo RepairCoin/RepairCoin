@@ -38,6 +38,18 @@ export function useShop() {
     });
   };
 
+  const useGetShopById = (shopId: string) => {
+    return useQuery({
+      queryKey: queryKeys.shop(shopId),
+      queryFn: async () => {
+        const response: ShopByWalletAddressResponse = await shopApi.getShopById(shopId);
+        return response.data;
+      },
+      enabled: !!shopId,
+      staleTime: 10 * 60 * 1000, // 10 minutes
+    });
+  };
+
   const useGetShopCustomers = (shopId: string) => {
     return useQuery({
       queryKey: queryKeys.shopCustomers(shopId),
@@ -76,6 +88,7 @@ export function useShop() {
   return {
     useRegisterShop,
     useGetShopByWalletAddress,
+    useGetShopById,
     useGetShopCustomers,
     useShopCustomerGrowth,
     useShopPromoCodes,

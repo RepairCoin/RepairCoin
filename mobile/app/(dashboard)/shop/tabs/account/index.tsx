@@ -99,7 +99,7 @@ export default function Account() {
             </Text>
           </View>
           <Pressable
-            onPress={() => router.push("/shop/profile")}
+            onPress={() => router.push("/shop/profile/edit-profile")}
             className="bg-white p-2 max-h-12 w-24 rounded-lg flex-row justify-center items-center"
           >
             <Feather name="edit" color="#000" size={14} />

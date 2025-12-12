@@ -43,14 +43,7 @@ export default function EditShopProfilePage() {
     try {
       await updateShopMutation.mutateAsync({
         shopId: shopData.shopId,
-        shopData: {
-          ...shopFormData,
-          active: shopData.active,
-          crossShopEnabled: shopData.crossShopEnabled,
-          verified: shopData.verified,
-          joinDate: shopData.joinDate,
-          operational_status: shopData.operational_status,
-        },
+        shopData: shopFormData as any,
       });
       Alert.alert("Success", "Shop details updated successfully", [
         { text: "OK", onPress: () => goBack() },

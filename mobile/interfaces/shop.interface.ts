@@ -63,11 +63,19 @@ export interface ShopData {
   location: LocationData;
   monthlyRevenue: string;
   name: string;
+  operational_status: string;
   phone: string;
+  purchasedRcnBalance: number;
+  rcg_balance: number;
+  rcg_tier: string;
   referral: string;
   shopId: string;
+  totalRcnPurchased: number;
+  totalRedemptions: number;
+  totalTokensIssued: number;
   twitter: string;
   verified: boolean;
+  walletAddress: string;
   website: string;
 }
 

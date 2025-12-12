@@ -50,6 +50,12 @@ export default function ServiceDetail() {
     router.push(`/customer/booking/${id}`);
   };
 
+  const handleViewShop = () => {
+    if (serviceData?.shopId) {
+      router.push(`/shared/profile/view-profile/${serviceData.shopId}`);
+    }
+  };
+
   if (isLoading) {
     return (
       <View className="flex-1 bg-zinc-950 items-center justify-center">
@@ -250,18 +256,28 @@ export default function ServiceDetail() {
         </View>
       </ScrollView>
 
-      {/* Fixed Bottom Button */}
-      {serviceData.active && (
-        <View className="absolute bottom-0 left-0 right-0 bg-zinc-950 px-4 py-4 border-t border-gray-800">
+      {/* Fixed Bottom Buttons */}
+      <View className="absolute bottom-0 left-0 right-0 bg-zinc-950 px-4 py-4 border-t border-gray-800 pb-8">
+        <View className="flex-row gap-3">
           <TouchableOpacity
-            onPress={handleBookNow}
-            className="bg-[#FFCC00] rounded-xl py-4 items-center"
+            onPress={handleViewShop}
+            className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl py-4 items-center flex-row justify-center"
             activeOpacity={0.8}
           >
-            <Text className="text-black text-lg font-bold">Book Now</Text>
+            <Ionicons name="storefront-outline" size={20} color="#FFCC00" />
+            <Text className="text-white text-lg font-bold ml-2">View Shop</Text>
           </TouchableOpacity>
+          {serviceData.active && (
+            <TouchableOpacity
+              onPress={handleBookNow}
+              className="flex-1 bg-[#FFCC00] rounded-xl py-4 items-center"
+              activeOpacity={0.8}
+            >
+              <Text className="text-black text-lg font-bold">Book Now</Text>
+            </TouchableOpacity>
+          )}
         </View>
-      )}
+      </View>
     </View>
   );
 }

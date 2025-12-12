@@ -47,6 +47,17 @@ class ShopApi {
     }
   }
 
+  async getShopById(shopId: string): Promise<ShopByWalletAddressResponse> {
+    try {
+      return await apiClient.get<ShopByWalletAddressResponse>(
+        `/shops/${shopId}`
+      );
+    } catch (error: any) {
+      console.error("Failed to get shop by ID:", error.message);
+      throw error;
+    }
+  }
+
   async getShopByWalletAddress(
     walletAddress: string
   ): Promise<ShopByWalletAddressResponse> {
