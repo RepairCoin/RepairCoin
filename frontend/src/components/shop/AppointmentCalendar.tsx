@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Loader2, Clock, MapPin, User, DollarSign } from 'lucide-react';
 import { appointmentsApi, CalendarBooking } from '@/services/api/appointments';
 import { toast } from 'react-hot-toast';
+import { useRouter } from 'next/navigation';
 
 interface DayBookings {
   date: string;
@@ -27,6 +28,7 @@ interface AppointmentCalendarProps {
 }
 
 export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ serviceId, serviceName }) => {
+  const router = useRouter();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [allBookings, setAllBookings] = useState<CalendarBooking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -291,14 +293,17 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ servic
                         return (
                           <button
                             key={booking.orderId}
-                            onClick={() => setSelectedBooking(booking)}
+                            onClick={() => {
+                              // Navigate to the service calendar page
+                              router.push(`/shop/services/${booking.serviceId}?tab=calendar`);
+                            }}
                             className={`w-full text-left px-2 py-1 rounded ${colors.bg} ${colors.text} border ${colors.border} text-xs hover:opacity-80 transition-opacity`}
                           >
                             <div className="font-medium truncate">
                               {booking.bookingTimeSlot ? formatTime(booking.bookingTimeSlot) : 'No time'}
                             </div>
-                            <div className="truncate opacity-90">
-                              {booking.serviceName}
+                            <div className="truncate opacity-90 font-semibold">
+                              {booking.customerName || 'Customer'}
                             </div>
                           </button>
                         );
