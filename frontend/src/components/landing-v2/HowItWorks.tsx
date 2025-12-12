@@ -29,7 +29,7 @@ export default function HowItWorks() {
   const { openWelcomeModal } = useModalStore();
 
   return (
-    <section className="relative bg-[#191919] w-full py-16 lg:py-20">
+    <section className="relative bg-[#191919] w-full pb-16 pt-12 lg:pb-20 lg:pt-12">
       <div className="max-w-7xl mx-auto px-4 lg:px-8">
         {/* Section Header */}
         <div className="mb-8 lg:mb-12">

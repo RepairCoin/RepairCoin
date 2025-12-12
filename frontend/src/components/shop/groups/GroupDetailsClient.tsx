@@ -116,7 +116,7 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
 
   if (loading || !group) {
     return (
-      <DashboardLayout title="Loading..." subtitle="">
+      <DashboardLayout userRole="shop" title="Loading..." subtitle="">
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
             <div className="relative">
@@ -131,7 +131,7 @@ export default function GroupDetailsClient({ groupId }: GroupDetailsClientProps)
   }
 
   return (
-    <DashboardLayout title="" subtitle="">
+    <DashboardLayout userRole="shop" title="" subtitle="">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {/* Back Button */}
         <button
