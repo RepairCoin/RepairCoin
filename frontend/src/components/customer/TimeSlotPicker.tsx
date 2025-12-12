@@ -40,10 +40,7 @@ export const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
       const dateStr = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD
       const slots = await appointmentsApi.getAvailableTimeSlots(shopId, serviceId, dateStr);
       setTimeSlots(slots);
-
-      if (slots.length === 0) {
-        toast.error('No available time slots for this date');
-      }
+      // UI message already shows "No available time slots" - no need for toast
     } catch (error) {
       console.error('Error loading time slots:', error);
       toast.error('Failed to load available time slots');
