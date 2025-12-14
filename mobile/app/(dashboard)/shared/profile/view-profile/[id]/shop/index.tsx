@@ -1,12 +1,14 @@
-import { Linking, View, ScrollView, Text } from "react-native";
-import { AppHeader } from "@/components/ui/AppHeader";
-import { TabButtons } from "@/components/ui/TabButtons";
+import { useState } from "react";
+import { View, ScrollView, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useShop } from "@/hooks/shop/useShop";
-import { useState } from "react";
 import ReviewsTab from "./tabs/ReviewsTab";
 import DetailsTab from "./tabs/DetailsTab";
 import ServicesTab from "./tabs/ServicesTab";
+import { handleLink } from "@/utilities/helper/linking";
+import { formatDate } from "@/utilities/helper/format";
+import { AppHeader } from "@/components/ui/AppHeader";
+import { TabButtons } from "@/components/ui/TabButtons";
 
 const SHOP_TABS = [
   { key: "services", label: "Services" },
@@ -18,44 +20,6 @@ export default function ViewShopProfile({ id }: { id: string }) {
   const { useGetShopById } = useShop();
   const { data: shopData } = useGetShopById(id);
   const [activeTab, setActiveTab] = useState("services");
-
-  const handleCall = (phone?: string) => {
-    if (phone) {
-      Linking.openURL(`tel:${phone}`);
-    }
-  };
-
-  const handleEmail = (email?: string) => {
-    if (email) {
-      Linking.openURL(`mailto:${email}`);
-    }
-  };
-
-  const handleWebsite = (website?: string) => {
-    if (website) {
-      const url = website.startsWith("http") ? website : `https://${website}`;
-      Linking.openURL(url);
-    }
-  };
-
-  const handleSocial = (url?: string, platform?: string) => {
-    if (url) {
-      const fullUrl = url.startsWith("http")
-        ? url
-        : `https://${platform}.com/${url}`;
-      Linking.openURL(fullUrl);
-    }
-  };
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
 
   return (
     <View className="flex-1 bg-zinc-950">
@@ -98,10 +62,7 @@ export default function ViewShopProfile({ id }: { id: string }) {
         {activeTab === "details" && (
           <DetailsTab
             shopData={shopData}
-            handleCall={handleCall}
-            handleEmail={handleEmail}
-            handleWebsite={handleWebsite}
-            handleSocial={handleSocial}
+            handleLink={handleLink}
             formatDate={formatDate}
           />
         )}

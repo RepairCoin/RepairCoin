@@ -1,22 +1,17 @@
-import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { LinkType } from "@/utilities/helper/linking";
 
 interface DetailsTabProps {
   shopData: any;
-  handleCall: (phone?: string) => void;
-  handleEmail: (email?: string) => void;
-  handleWebsite: (website?: string) => void;
-  handleSocial: (url?: string, platform?: string) => void;
+  handleLink: (type: LinkType, value?: string, platform?: string) => void;
   formatDate: (dateString?: string) => string;
 }
 
 export default function DetailsTab({
   shopData,
-  handleCall,
-  handleEmail,
-  handleWebsite,
-  handleSocial,
+  handleLink,
   formatDate,
 }: DetailsTabProps) {
   return (
@@ -43,7 +38,7 @@ export default function DetailsTab({
         {/* Phone */}
         {shopData?.phone && (
           <TouchableOpacity
-            onPress={() => handleCall(shopData.phone)}
+            onPress={() => handleLink("call", shopData.phone)}
             className="flex-row items-center bg-zinc-900 rounded-xl p-4 mb-3"
           >
             <View className="bg-zinc-800 rounded-full p-2 mr-3">
@@ -60,7 +55,7 @@ export default function DetailsTab({
         {/* Email */}
         {shopData?.email && (
           <TouchableOpacity
-            onPress={() => handleEmail(shopData.email)}
+            onPress={() => handleLink("email", shopData.email)}
             className="flex-row items-center bg-zinc-900 rounded-xl p-4 mb-3"
           >
             <View className="bg-zinc-800 rounded-full p-2 mr-3">
@@ -77,7 +72,7 @@ export default function DetailsTab({
         {/* Website */}
         {shopData?.website && (
           <TouchableOpacity
-            onPress={() => handleWebsite(shopData.website)}
+            onPress={() => handleLink("website", shopData.website)}
             className="flex-row items-center bg-zinc-900 rounded-xl p-4 mb-3"
           >
             <View className="bg-zinc-800 rounded-full p-2 mr-3">
@@ -103,7 +98,7 @@ export default function DetailsTab({
           <View className="flex-row gap-3">
             {shopData?.facebook && (
               <TouchableOpacity
-                onPress={() => handleSocial(shopData.facebook, "facebook")}
+                onPress={() => handleLink("social", shopData.facebook, "facebook")}
                 className="flex-1 bg-zinc-900 rounded-xl p-4 items-center"
               >
                 <Ionicons name="logo-facebook" size={28} color="#1877F2" />
@@ -112,7 +107,7 @@ export default function DetailsTab({
             )}
             {shopData?.twitter && (
               <TouchableOpacity
-                onPress={() => handleSocial(shopData.twitter, "twitter")}
+                onPress={() => handleLink("social", shopData.twitter, "twitter")}
                 className="flex-1 bg-zinc-900 rounded-xl p-4 items-center"
               >
                 <Ionicons name="logo-twitter" size={28} color="#1DA1F2" />
@@ -121,7 +116,7 @@ export default function DetailsTab({
             )}
             {shopData?.instagram && (
               <TouchableOpacity
-                onPress={() => handleSocial(shopData.instagram, "instagram")}
+                onPress={() => handleLink("social", shopData.instagram, "instagram")}
                 className="flex-1 bg-zinc-900 rounded-xl p-4 items-center"
               >
                 <Ionicons name="logo-instagram" size={28} color="#E4405F" />
