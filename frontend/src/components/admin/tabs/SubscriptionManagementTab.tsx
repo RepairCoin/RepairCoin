@@ -3,9 +3,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardHeader } from "@/components/ui/DashboardHeader";
+import { FilterTabs } from "@/components/ui/FilterTabs";
 import {
   CreditCard,
   DollarSign,
@@ -841,48 +840,19 @@ export default function SubscriptionManagementTab() {
           </div>
 
           {/* Filter Tabs */}
-          <div className="mt-4 -mx-4 md:-mx-6 px-4 md:px-6 overflow-x-auto scrollbar-hide overflow-y-hidden">
-            <Tabs value={filterStatus} onValueChange={setFilterStatus} className="w-full">
-              <TabsList className="bg-[#1A1A1A] h-auto p-1 gap-0.5 sm:gap-1 rounded-lg inline-flex min-w-max sm:w-full sm:grid sm:grid-cols-6">
-                <TabsTrigger
-                  value="all"
-                  className="rounded-md data-[state=active]:bg-[#3D3D3D] data-[state=active]:text-white data-[state=active]:shadow-none bg-transparent text-gray-400 hover:text-gray-200 hover:bg-[#2A2A2A] text-xs sm:text-sm px-3 sm:px-4 py-2 transition-all whitespace-nowrap"
-                >
-                  All
-                </TabsTrigger>
-                <TabsTrigger
-                  value="active"
-                  className="rounded-md data-[state=active]:bg-[#3D3D3D] data-[state=active]:text-white data-[state=active]:shadow-none bg-transparent text-gray-400 hover:text-gray-200 hover:bg-[#2A2A2A] text-xs sm:text-sm px-3 sm:px-4 py-2 transition-all whitespace-nowrap"
-                >
-                  Active
-                </TabsTrigger>
-                <TabsTrigger
-                  value="pending"
-                  className="rounded-md data-[state=active]:bg-[#3D3D3D] data-[state=active]:text-white data-[state=active]:shadow-none bg-transparent text-gray-400 hover:text-gray-200 hover:bg-[#2A2A2A] text-xs sm:text-sm px-3 sm:px-4 py-2 transition-all whitespace-nowrap"
-                >
-                  Pending
-                </TabsTrigger>
-                <TabsTrigger
-                  value="paused"
-                  className="rounded-md data-[state=active]:bg-[#3D3D3D] data-[state=active]:text-white data-[state=active]:shadow-none bg-transparent text-gray-400 hover:text-gray-200 hover:bg-[#2A2A2A] text-xs sm:text-sm px-3 sm:px-4 py-2 transition-all whitespace-nowrap"
-                >
-                  Paused
-                </TabsTrigger>
-                <TabsTrigger
-                  value="overdue"
-                  className="rounded-md data-[state=active]:bg-[#3D3D3D] data-[state=active]:text-white data-[state=active]:shadow-none bg-transparent text-gray-400 hover:text-gray-200 hover:bg-[#2A2A2A] text-xs sm:text-sm px-3 sm:px-4 py-2 transition-all whitespace-nowrap"
-                >
-                  Overdue
-                </TabsTrigger>
-                <TabsTrigger
-                  value="cancelled"
-                  className="rounded-md data-[state=active]:bg-[#3D3D3D] data-[state=active]:text-white data-[state=active]:shadow-none bg-transparent text-gray-400 hover:text-gray-200 hover:bg-[#2A2A2A] text-xs sm:text-sm px-3 sm:px-4 py-2 transition-all whitespace-nowrap"
-                >
-                  Cancelled
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
+          <FilterTabs
+            tabs={[
+              { value: "all", label: "All" },
+              { value: "active", label: "Active" },
+              { value: "pending", label: "Pending" },
+              { value: "paused", label: "Paused" },
+              { value: "overdue", label: "Overdue" },
+              { value: "cancelled", label: "Cancelled" },
+            ]}
+            activeTab={filterStatus}
+            onTabChange={setFilterStatus}
+            className="mt-4"
+          />
         </div>
 
         {/* Table */}
