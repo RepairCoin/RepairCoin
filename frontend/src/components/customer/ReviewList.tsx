@@ -38,11 +38,20 @@ export const ReviewList: React.FC<ReviewListProps> = ({
   const [hasMore, setHasMore] = useState(false);
   const [filterRating, setFilterRating] = useState<number | undefined>(undefined);
   const [expandedReviews, setExpandedReviews] = useState<Set<string>>(new Set());
-  const { user } = useAuthStore();
+  const [votedReviews, setVotedReviews] = useState<Set<string>>(new Set());
+  const [votingInProgress, setVotingInProgress] = useState<Set<string>>(new Set());
+  const { isAuthenticated } = useAuthStore();
 
   useEffect(() => {
     fetchReviews();
   }, [serviceId, filterRating, page]);
+
+  // Check user's existing votes when reviews are loaded
+  useEffect(() => {
+    if (isAuthenticated && reviews.length > 0) {
+      checkUserVotes();
+    }
+  }, [reviews, isAuthenticated]);
 
   const fetchReviews = async () => {
     try {
@@ -59,7 +68,9 @@ export const ReviewList: React.FC<ReviewListProps> = ({
         } else {
           setReviews((prev) => [...prev, ...(response.data || [])]);
         }
-        setHasMore(response.pagination?.hasMore || false);
+        // Check if there are more pages based on current page vs total pages
+        const pagination = response.pagination;
+        setHasMore(pagination ? pagination.page < pagination.totalPages : false);
       }
     } catch (error) {
       console.error("Error fetching reviews:", error);
@@ -69,20 +80,64 @@ export const ReviewList: React.FC<ReviewListProps> = ({
     }
   };
 
-  const handleMarkHelpful = async (reviewId: string) => {
+  const checkUserVotes = async () => {
     try {
-      await servicesApi.markReviewHelpful(reviewId);
-      // Update local state
-      setReviews((prev) =>
-        prev.map((review) =>
-          review.reviewId === reviewId
-            ? { ...review, helpfulCount: review.helpfulCount + 1 }
-            : review
-        )
-      );
-      toast.success("Thanks for your feedback!");
+      const reviewIds = reviews.map((r) => r.reviewId);
+      const votedIds = await servicesApi.checkUserReviewVotes(reviewIds);
+      setVotedReviews(new Set(votedIds));
     } catch (error) {
-      console.error("Error marking review helpful:", error);
+      console.error("Error checking user votes:", error);
+    }
+  };
+
+  const handleToggleHelpful = async (reviewId: string) => {
+    if (!isAuthenticated) {
+      toast.error("Please log in to vote");
+      return;
+    }
+
+    // Prevent double-clicking
+    if (votingInProgress.has(reviewId)) {
+      return;
+    }
+
+    try {
+      setVotingInProgress((prev) => new Set(prev).add(reviewId));
+
+      const result = await servicesApi.toggleReviewHelpful(reviewId);
+
+      if (result) {
+        // Update voted state
+        setVotedReviews((prev) => {
+          const newSet = new Set(prev);
+          if (result.voted) {
+            newSet.add(reviewId);
+          } else {
+            newSet.delete(reviewId);
+          }
+          return newSet;
+        });
+
+        // Update helpful count in reviews
+        setReviews((prev) =>
+          prev.map((review) =>
+            review.reviewId === reviewId
+              ? { ...review, helpfulCount: result.helpfulCount }
+              : review
+          )
+        );
+
+        toast.success(result.voted ? "Marked as helpful!" : "Vote removed");
+      }
+    } catch (error) {
+      console.error("Error toggling helpful vote:", error);
+      toast.error("Failed to update vote");
+    } finally {
+      setVotingInProgress((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(reviewId);
+        return newSet;
+      });
     }
   };
 
@@ -254,10 +309,19 @@ export const ReviewList: React.FC<ReviewListProps> = ({
                 {/* Actions */}
                 <div className="flex items-center gap-4 mt-4 pt-3 border-t border-gray-700">
                   <button
-                    onClick={() => handleMarkHelpful(review.reviewId)}
-                    className="flex items-center gap-2 text-sm text-gray-400 hover:text-[#FFCC00] transition-colors"
+                    onClick={() => handleToggleHelpful(review.reviewId)}
+                    disabled={votingInProgress.has(review.reviewId)}
+                    className={`flex items-center gap-2 text-sm transition-colors ${
+                      votedReviews.has(review.reviewId)
+                        ? "text-[#FFCC00] font-medium"
+                        : "text-gray-400 hover:text-[#FFCC00]"
+                    } ${votingInProgress.has(review.reviewId) ? "opacity-50 cursor-not-allowed" : ""}`}
                   >
-                    <ThumbsUp className="w-4 h-4" />
+                    <ThumbsUp
+                      className={`w-4 h-4 ${
+                        votedReviews.has(review.reviewId) ? "fill-[#FFCC00]" : ""
+                      }`}
+                    />
                     <span>Helpful ({review.helpfulCount})</span>
                   </button>
                 </div>

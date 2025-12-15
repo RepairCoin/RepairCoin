@@ -928,9 +928,11 @@ export function initializeRoutes(stripe: StripeService): Router {
    * @swagger
    * /api/services/reviews/{reviewId}/helpful:
    *   post:
-   *     summary: Mark review as helpful (Public)
-   *     description: Increment helpful count for a review
+   *     summary: Toggle helpful vote for a review (Authenticated)
+   *     description: Toggle helpful vote - one vote per account. Returns new vote state and count.
    *     tags: [Reviews]
+   *     security:
+   *       - bearerAuth: []
    *     parameters:
    *       - in: path
    *         name: reviewId
@@ -939,11 +941,56 @@ export function initializeRoutes(stripe: StripeService): Router {
    *           type: string
    *     responses:
    *       200:
-   *         description: Review marked as helpful
+   *         description: Vote toggled successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     voted:
+   *                       type: boolean
+   *                     helpfulCount:
+   *                       type: integer
    */
   router.post(
     '/reviews/:reviewId/helpful',
+    authMiddleware,
     reviewController.markHelpful
+  );
+
+  /**
+   * @swagger
+   * /api/services/reviews/check-votes:
+   *   post:
+   *     summary: Check if user has voted on reviews (Authenticated)
+   *     description: Returns which reviews the current user has voted as helpful
+   *     tags: [Reviews]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               reviewIds:
+   *                 type: array
+   *                 items:
+   *                   type: string
+   *     responses:
+   *       200:
+   *         description: User votes retrieved
+   */
+  router.post(
+    '/reviews/check-votes',
+    authMiddleware,
+    reviewController.checkUserVotes
   );
 
   /**

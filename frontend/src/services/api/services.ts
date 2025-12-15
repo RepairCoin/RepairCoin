@@ -593,17 +593,41 @@ export const addShopResponse = async (reviewId: string, response: string): Promi
 };
 
 /**
- * Mark review as helpful
+ * Toggle helpful vote for a review (unique per account)
+ * Returns the new vote state and updated count
  */
-export const markReviewHelpful = async (reviewId: string): Promise<boolean> => {
+export const toggleReviewHelpful = async (reviewId: string): Promise<{ voted: boolean; helpfulCount: number } | null> => {
   try {
-    await apiClient.post(`/services/reviews/${reviewId}/helpful`);
-    return true;
+    // Note: apiClient interceptor already extracts response.data
+    const response = await apiClient.post<{ success: boolean; data: { voted: boolean; helpfulCount: number } }>(
+      `/services/reviews/${reviewId}/helpful`
+    ) as unknown as { success: boolean; data: { voted: boolean; helpfulCount: number } };
+    return response?.data || null;
   } catch (error) {
-    console.error('Error marking review helpful:', error);
-    return false;
+    console.error('Error toggling review helpful:', error);
+    return null;
   }
 };
+
+/**
+ * Check which reviews the current user has voted as helpful
+ */
+export const checkUserReviewVotes = async (reviewIds: string[]): Promise<string[]> => {
+  try {
+    // Note: apiClient interceptor already extracts response.data
+    const response = await apiClient.post<{ success: boolean; data: { votedReviewIds: string[] } }>(
+      '/services/reviews/check-votes',
+      { reviewIds }
+    ) as unknown as { success: boolean; data: { votedReviewIds: string[] } };
+    return response?.data?.votedReviewIds || [];
+  } catch (error) {
+    console.error('Error checking user votes:', error);
+    return [];
+  }
+};
+
+// Keep the old function name as alias for backwards compatibility
+export const markReviewHelpful = toggleReviewHelpful;
 
 /**
  * Delete a review
@@ -774,7 +798,9 @@ export const servicesApi = {
   getShopReviews,
   updateReview,
   addShopResponse,
-  markReviewHelpful,
+  toggleReviewHelpful,
+  checkUserReviewVotes,
+  markReviewHelpful, // backwards compatibility alias
   deleteReview,
   canReviewOrder,
 

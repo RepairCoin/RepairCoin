@@ -281,23 +281,76 @@ export class ReviewController {
   }
 
   /**
-   * Mark review as helpful
+   * Toggle helpful vote for a review (unique per account)
    * POST /api/services/reviews/:reviewId/helpful
    */
   async markHelpful(req: Request, res: Response): Promise<void> {
     try {
       const { reviewId } = req.params;
+      const voterAddress = req.user?.address;
 
-      await reviewRepository.markHelpful(reviewId);
+      if (!voterAddress) {
+        res.status(401).json({ error: 'Unauthorized - must be logged in to vote' });
+        return;
+      }
+
+      // Verify review exists
+      const review = await reviewRepository.getReviewById(reviewId);
+      if (!review) {
+        res.status(404).json({ error: 'Review not found' });
+        return;
+      }
+
+      // Toggle the vote
+      const result = await reviewRepository.toggleHelpfulVote(reviewId, voterAddress);
 
       res.json({
         success: true,
-        message: 'Review marked as helpful'
+        data: {
+          voted: result.voted,
+          helpfulCount: result.helpfulCount
+        },
+        message: result.voted ? 'Review marked as helpful' : 'Helpful vote removed'
       });
     } catch (error) {
-      logger.error('Error marking review helpful:', error);
+      logger.error('Error toggling helpful vote:', error);
       res.status(500).json({
-        error: 'Failed to mark review as helpful'
+        error: 'Failed to update helpful vote'
+      });
+    }
+  }
+
+  /**
+   * Check if current user has voted on reviews
+   * POST /api/services/reviews/check-votes
+   */
+  async checkUserVotes(req: Request, res: Response): Promise<void> {
+    try {
+      const { reviewIds } = req.body;
+      const voterAddress = req.user?.address;
+
+      if (!voterAddress) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      if (!Array.isArray(reviewIds)) {
+        res.status(400).json({ error: 'reviewIds must be an array' });
+        return;
+      }
+
+      const votedReviewIds = await reviewRepository.getUserVotesForReviews(reviewIds, voterAddress);
+
+      res.json({
+        success: true,
+        data: {
+          votedReviewIds: Array.from(votedReviewIds)
+        }
+      });
+    } catch (error) {
+      logger.error('Error checking user votes:', error);
+      res.status(500).json({
+        error: 'Failed to check votes'
       });
     }
   }
