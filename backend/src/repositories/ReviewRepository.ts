@@ -398,20 +398,90 @@ export class ReviewRepository extends BaseRepository {
   }
 
   /**
-   * Increment helpful count
+   * Toggle helpful vote for a review (unique per user)
+   * Returns the new vote state and updated count
    */
-  async markHelpful(reviewId: string): Promise<void> {
+  async toggleHelpfulVote(reviewId: string, voterAddress: string): Promise<{ voted: boolean; helpfulCount: number }> {
+    try {
+      const normalizedAddress = voterAddress.toLowerCase();
+
+      // Check if user already voted
+      const checkQuery = `
+        SELECT id FROM review_helpful_votes
+        WHERE review_id = $1 AND voter_address = $2
+      `;
+      const existingVote = await this.pool.query(checkQuery, [reviewId, normalizedAddress]);
+
+      let voted: boolean;
+
+      if (existingVote.rows.length > 0) {
+        // Remove vote (unvote)
+        const deleteQuery = `
+          DELETE FROM review_helpful_votes
+          WHERE review_id = $1 AND voter_address = $2
+        `;
+        await this.pool.query(deleteQuery, [reviewId, normalizedAddress]);
+        voted = false;
+        logger.info('Review helpful vote removed', { reviewId, voterAddress: normalizedAddress });
+      } else {
+        // Add vote
+        const insertQuery = `
+          INSERT INTO review_helpful_votes (review_id, voter_address)
+          VALUES ($1, $2)
+        `;
+        await this.pool.query(insertQuery, [reviewId, normalizedAddress]);
+        voted = true;
+        logger.info('Review marked helpful', { reviewId, voterAddress: normalizedAddress });
+      }
+
+      // Get updated count (trigger updates this, but fetch to return)
+      const countQuery = `
+        SELECT helpful_count FROM service_reviews WHERE review_id = $1
+      `;
+      const countResult = await this.pool.query(countQuery, [reviewId]);
+      const helpfulCount = countResult.rows[0]?.helpful_count || 0;
+
+      return { voted, helpfulCount };
+    } catch (error) {
+      logger.error('Error toggling helpful vote:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if user has voted on a review
+   */
+  async hasUserVoted(reviewId: string, voterAddress: string): Promise<boolean> {
     try {
       const query = `
-        UPDATE service_reviews
-        SET helpful_count = helpful_count + 1
-        WHERE review_id = $1
+        SELECT id FROM review_helpful_votes
+        WHERE review_id = $1 AND voter_address = $2
       `;
-
-      await this.pool.query(query, [reviewId]);
-      logger.info('Review marked helpful', { reviewId });
+      const result = await this.pool.query(query, [reviewId, voterAddress.toLowerCase()]);
+      return result.rows.length > 0;
     } catch (error) {
-      logger.error('Error marking review helpful:', error);
+      logger.error('Error checking user vote:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get user's votes for multiple reviews (batch check)
+   */
+  async getUserVotesForReviews(reviewIds: string[], voterAddress: string): Promise<Set<string>> {
+    try {
+      if (reviewIds.length === 0) {
+        return new Set();
+      }
+
+      const query = `
+        SELECT review_id FROM review_helpful_votes
+        WHERE review_id = ANY($1) AND voter_address = $2
+      `;
+      const result = await this.pool.query(query, [reviewIds, voterAddress.toLowerCase()]);
+      return new Set(result.rows.map(row => row.review_id));
+    } catch (error) {
+      logger.error('Error getting user votes:', error);
       throw error;
     }
   }
