@@ -23,7 +23,7 @@ import QrScanner from "qr-scanner";
 import toast from "react-hot-toast";
 import Tooltip from "../../ui/tooltip";
 import apiClient from "@/services/api/client";
-import DisableMask from "@/components/status/DisableMask";
+import ToggleDisableWrapper from "@/components/status/ToggleDisableWrapper";
 import { ShopData as ShopDataImport } from "../ShopDashboardClient";
 import { DISABLE_CONTENT } from "@/constants/shop";
 interface ShopData extends Omit<ShopDataImport, "walletAddress">{
@@ -883,8 +883,8 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
       !verified && DISABLE_CONTENT["VERIFY_ACCOUNT"],
       !active && DISABLE_CONTENT["INACTIVE_ACCOUNT"],
       !isOp && DISABLE_CONTENT["UNSUBSCRIBE"],
-    ].filter(Boolean);
-    return { disable: msgs.length > 0, content: msgs.join(" ") };
+    ].filter(Boolean) as string[];
+    return { disable: msgs.length > 0, content: msgs, variant: "restricted" as const, title: "Action Required" };
   }, [shopData]);
 
   return (
@@ -1015,9 +1015,9 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                     }
                   />
                 </div>
-                <DisableMask {...maskState} onClick={() => setShowOnboardingModal(true)}>
                   <div className="space-y-4 px-4 md:px-8 py-4">
-                    <div>
+                    <ToggleDisableWrapper {...maskState} onClick={() => setShowOnboardingModal(true)}>
+                    <div>  
                       <div className="flex gap-2">
                         <div className="relative flex-1">
                           <input
@@ -1077,7 +1077,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                         </button>
                       </div>
                     </div>
-
+                    </ToggleDisableWrapper>
                     {/* Search Results */}
                     {customerSearch && !selectedCustomer && (
                       <div className="bg-[#0D0D0D] rounded-xl border border-gray-700 max-h-64 overflow-y-auto">
@@ -1347,9 +1347,11 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                           </div>
                         )}
                       </div>
+                      
                     )}
+                    
                   </div>
-                </DisableMask>
+                  
               </div>
               {/* Amount Input Card */}
               <div className="bg-[#212121] rounded-3xl">
@@ -1367,8 +1369,8 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                     Step 2: Enter Redemption Amount
                   </p>
                 </div>
-                <DisableMask {...maskState} onClick={() => setShowOnboardingModal(true)}>
                 <div className="space-y-4 px-4 md:px-8 py-4">
+                  <ToggleDisableWrapper {...maskState} onClick={() => setShowOnboardingModal(true)}>
                   <div>
                     <label className="block text-sm font-medium text-gray-400 mb-2">
                       Customer wants to redeem (RCN)
@@ -1402,8 +1404,8 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                       </button>
                     ))}
                   </div>
+                  </ToggleDisableWrapper>
                 </div>
-                </DisableMask>
               </div>
             </>
           )}
