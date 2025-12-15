@@ -30,6 +30,7 @@ import { MarketingDomain } from './domains/MarketingDomain';
 import { eventBus } from './events/EventBus';
 import { monitoringService } from './services/MonitoringService';
 import { cleanupService } from './services/CleanupService';
+import { appointmentReminderService } from './services/AppointmentReminderService';
 import { StartupValidationService } from './services/StartupValidationService';
 import { startSubscriptionEnforcement, stopSubscriptionEnforcement } from './services/SubscriptionEnforcementService';
 
@@ -439,6 +440,7 @@ class RepairCoinApp {
       eventBus.clear();
       monitoringService.stopMonitoring();
       cleanupService.stopScheduledCleanup();
+      appointmentReminderService.stopScheduledReminders();
       stopSubscriptionEnforcement();
 
       // Common cleanup
@@ -579,6 +581,10 @@ class RepairCoinApp {
           enableTransactionArchiving: false
         });
         logger.info('🧹 Cleanup service scheduled (daily, webhook cleanup only)');
+
+        // Start appointment reminder service - runs every 2 hours
+        appointmentReminderService.scheduleReminders(2);
+        logger.info('📅 Appointment reminder service scheduled (every 2 hours)');
 
         // Schedule platform statistics refresh every 5 minutes
         setInterval(async () => {

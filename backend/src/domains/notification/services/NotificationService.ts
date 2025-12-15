@@ -18,6 +18,9 @@ export interface NotificationMessageTemplates {
   service_order_completed: (data: { shopName: string; serviceName: string; rcnEarned: number }) => string;
   service_payment_failed: (data: { serviceName: string; reason: string }) => string;
   service_order_cancelled: (data: { serviceName: string; refundStatus?: string }) => string;
+  appointment_reminder: (data: { shopName: string; serviceName: string; bookingTime: string }) => string;
+  booking_confirmed: (data: { shopName: string; serviceName: string; bookingDate: string; bookingTime: string }) => string;
+  upcoming_appointment: (data: { customerName: string; serviceName: string; bookingTime: string }) => string;
 }
 
 export class NotificationService {
@@ -74,7 +77,16 @@ export class NotificationService {
         `Payment failed for ${data.serviceName}: ${data.reason}`,
 
       service_order_cancelled: (data) =>
-        `Your ${data.serviceName} booking has been cancelled${data.refundStatus ? '. ' + data.refundStatus : '.'}`
+        `Your ${data.serviceName} booking has been cancelled${data.refundStatus ? '. ' + data.refundStatus : '.'}`,
+
+      appointment_reminder: (data) =>
+        `Reminder: You have an appointment tomorrow at ${data.shopName} for ${data.serviceName} at ${data.bookingTime}`,
+
+      booking_confirmed: (data) =>
+        `Your appointment for ${data.serviceName} at ${data.shopName} has been confirmed for ${data.bookingDate} at ${data.bookingTime}`,
+
+      upcoming_appointment: (data) =>
+        `Upcoming appointment tomorrow: ${data.customerName} - ${data.serviceName} at ${data.bookingTime}`
     };
   }
 

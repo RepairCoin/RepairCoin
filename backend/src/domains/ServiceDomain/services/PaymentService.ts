@@ -447,6 +447,16 @@ export class PaymentService {
         // Don't fail the payment if notification fails
       }
 
+      // Send booking confirmation to customer (email + in-app notification)
+      try {
+        const { appointmentReminderService } = await import('../../../services/AppointmentReminderService');
+        await appointmentReminderService.sendBookingConfirmation(order.orderId);
+        logger.info('Booking confirmation sent to customer', { orderId: order.orderId });
+      } catch (confirmError) {
+        logger.error('Failed to send booking confirmation:', confirmError);
+        // Don't fail the payment if confirmation fails
+      }
+
       return updatedOrder;
     } catch (error) {
       logger.error('Error handling payment success:', error);
