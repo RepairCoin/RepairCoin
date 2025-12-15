@@ -62,11 +62,11 @@ export class AppointmentReminderService {
           c.email as "customerEmail",
           c.name as "customerName",
           so.shop_id as "shopId",
-          s.company_name as "shopName",
+          s.name as "shopName",
           s.email as "shopEmail",
           ss.service_name as "serviceName",
           so.booking_date as "bookingDate",
-          so.booking_time_slot as "bookingTimeSlot",
+          so.booking_time as "bookingTimeSlot",
           so.total_amount as "totalAmount"
         FROM service_orders so
         JOIN customers c ON c.wallet_address = so.customer_address
@@ -74,15 +74,15 @@ export class AppointmentReminderService {
         JOIN shop_services ss ON ss.service_id = so.service_id
         WHERE so.status IN ('paid', 'confirmed')
           AND so.booking_date IS NOT NULL
-          AND so.booking_time_slot IS NOT NULL
+          AND so.booking_time IS NOT NULL
           AND so.reminder_sent IS NOT TRUE
           AND (
             -- Appointments 23-25 hours from now (gives 2-hour window for scheduler)
-            so.booking_date + so.booking_time_slot::time
+            so.booking_date + so.booking_time::time
             BETWEEN NOW() + INTERVAL '23 hours'
             AND NOW() + INTERVAL '25 hours'
           )
-        ORDER BY so.booking_date, so.booking_time_slot
+        ORDER BY so.booking_date, so.booking_time
       `;
 
       const result = await this.orderRepository['pool'].query(query);
