@@ -9,6 +9,7 @@ import {
   DateOverridesResponse,
   DateOverrideDetailResponse,
   CalendarBookingsResponse,
+  MyAppointmentsResponse,
   UpdateAvailabilityRequest,
   CreateDateOverrideRequest,
   TimeSlotConfig,
@@ -123,6 +124,25 @@ class AppointmentApi {
       return await apiClient.put(`/services/${serviceId}/duration`, { durationMinutes });
     } catch (error: any) {
       console.error("Failed to update service duration:", error.message);
+      throw error;
+    }
+  }
+
+  async getMyAppointments(startDate: string, endDate: string): Promise<MyAppointmentsResponse> {
+    try {
+      const queryString = buildQueryString({ startDate, endDate });
+      return await apiClient.get(`/services/appointments/my-appointments${queryString}`);
+    } catch (error: any) {
+      console.error("Failed to get my appointments:", error.message);
+      throw error;
+    }
+  }
+
+  async cancelAppointment(orderId: string): Promise<{ success: boolean; message?: string }> {
+    try {
+      return await apiClient.post(`/services/appointments/cancel/${orderId}`);
+    } catch (error: any) {
+      console.error("Failed to cancel appointment:", error.message);
       throw error;
     }
   }

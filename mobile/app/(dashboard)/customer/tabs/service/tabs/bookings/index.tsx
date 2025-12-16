@@ -5,212 +5,543 @@ import {
   ActivityIndicator,
   FlatList,
   RefreshControl,
-  TextInput,
+  Image,
+  Modal,
+  Alert,
 } from "react-native";
-import React from "react";
-import { useBooking } from "@/hooks/booking/useBooking";
-import { BookingData, BookingStatus } from "@/interfaces/booking.interfaces";
+import React, { useMemo, useState, useCallback } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import ServiceCard from "@/components/shared/ServiceCard";
+import { useAppointment } from "@/hooks/appointment/useAppointment";
+import { MyAppointment } from "@/interfaces/appointment.interface";
+import { router } from "expo-router";
 
-type ViewMode = "grid" | "list";
+type FilterTab = "upcoming" | "past" | "all";
 
-const getStatusStyle = (status: BookingStatus) => {
-  switch (status) {
+// Calculate date range: 30 days ago to 90 days in the future
+const getDateRange = () => {
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - 30);
+  const endDate = new Date();
+  endDate.setDate(endDate.getDate() + 90);
+  return {
+    startDate: startDate.toISOString().split("T")[0],
+    endDate: endDate.toISOString().split("T")[0],
+  };
+};
+
+const getStatusConfig = (status: string) => {
+  switch (status.toLowerCase()) {
     case "pending":
-      return { bgColor: "bg-yellow-900/30", textColor: "text-yellow-500" };
+      return {
+        bgColor: "bg-yellow-500/20",
+        textColor: "text-yellow-500",
+        icon: "time-outline" as const,
+      };
     case "paid":
-      return { bgColor: "bg-blue-900/30", textColor: "text-blue-500" };
+    case "confirmed":
+      return {
+        bgColor: "bg-blue-500/20",
+        textColor: "text-blue-500",
+        icon: "checkmark-circle-outline" as const,
+      };
     case "completed":
-      return { bgColor: "bg-green-900/30", textColor: "text-green-500" };
+      return {
+        bgColor: "bg-green-500/20",
+        textColor: "text-green-500",
+        icon: "checkmark-done-outline" as const,
+      };
     case "cancelled":
-      return { bgColor: "bg-red-900/30", textColor: "text-red-500" };
-    case "refunded":
-      return { bgColor: "bg-gray-900/30", textColor: "text-gray-500" };
+      return {
+        bgColor: "bg-red-500/20",
+        textColor: "text-red-500",
+        icon: "close-circle-outline" as const,
+      };
     default:
-      return { bgColor: "bg-gray-900/30", textColor: "text-gray-500" };
+      return {
+        bgColor: "bg-gray-500/20",
+        textColor: "text-gray-500",
+        icon: "ellipse-outline" as const,
+      };
   }
 };
 
-function ListHeader({
-  viewMode,
-  onToggle,
-  searchQuery,
-  onSearchChange,
-}: {
-  viewMode: ViewMode;
-  onToggle: (mode: ViewMode) => void;
-  searchQuery: string;
-  onSearchChange: (query: string) => void;
-}) {
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString);
+  return {
+    day: date.toLocaleDateString("en-US", { weekday: "short" }),
+    date: date.getDate(),
+    month: date.toLocaleDateString("en-US", { month: "short" }),
+    year: date.getFullYear(),
+  };
+};
+
+const formatTime = (timeString: string | null) => {
+  if (!timeString) return "TBD";
+  // Handle both "HH:mm" and "HH:mm:ss" formats
+  const [hours, minutes] = timeString.split(":");
+  const hour = parseInt(hours, 10);
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:${minutes} ${ampm}`;
+};
+
+interface AppointmentCardProps {
+  appointment: MyAppointment;
+  onPress: () => void;
+  onCancel: () => void;
+}
+
+// Check if appointment can be cancelled (24+ hours before + not already cancelled/completed)
+const canCancelAppointment = (appointment: MyAppointment) => {
+  const now = new Date();
+  const bookingDateTime = new Date(appointment.bookingDate);
+
+  // If there's a time slot, include it in the calculation
+  if (appointment.bookingTimeSlot) {
+    const [hours, minutes] = appointment.bookingTimeSlot.split(":");
+    bookingDateTime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+  }
+
+  // Calculate hours until appointment
+  const hoursUntilAppointment = (bookingDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+  const status = appointment.status.toLowerCase();
+  const isCancellable = status === "pending" || status === "confirmed" || status === "paid";
+  const isMoreThan24Hours = hoursUntilAppointment >= 24;
+
+  return isCancellable && isMoreThan24Hours;
+};
+
+function AppointmentCard({ appointment, onPress, onCancel }: AppointmentCardProps) {
+  const statusConfig = getStatusConfig(appointment.status);
+  const dateInfo = formatDate(appointment.bookingDate);
+  const isUpcoming = new Date(appointment.bookingDate) >= new Date();
+  const showCancelButton = canCancelAppointment(appointment);
+
   return (
-    <View className="mb-2">
-      <View className="flex-row items-center gap-2">
-        {/* Search Input */}
-        <View className="flex-1 flex-row items-center bg-zinc-800 rounded-full px-3 py-3.5">
-          <Ionicons name="search-outline" size={18} color="#9CA3AF" />
-          <TextInput
-            className="flex-1 text-white ml-2"
-            placeholder="Search bookings..."
-            placeholderTextColor="#6B7280"
-            value={searchQuery}
-            onChangeText={onSearchChange}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => onSearchChange("")}>
-              <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.7}
+      className="bg-zinc-900 rounded-2xl mb-3 overflow-hidden"
+    >
+      <View className="flex-row">
+        {/* Date Column */}
+        <View
+          className={`w-20 items-center justify-center py-4 ${isUpcoming ? "bg-[#FFCC00]" : "bg-zinc-800"}`}
+        >
+          <Text
+            className={`text-xs font-medium ${isUpcoming ? "text-black/60" : "text-gray-400"}`}
+          >
+            {dateInfo.day}
+          </Text>
+          <Text
+            className={`text-2xl font-bold ${isUpcoming ? "text-black" : "text-white"}`}
+          >
+            {dateInfo.date}
+          </Text>
+          <Text
+            className={`text-xs font-medium ${isUpcoming ? "text-black/60" : "text-gray-400"}`}
+          >
+            {dateInfo.month}
+          </Text>
+        </View>
+
+        {/* Content */}
+        <View className="flex-1 p-4">
+          {/* Status Badge */}
+          <View className="flex-row items-center justify-between mb-2">
+            <View
+              className={`flex-row items-center px-2 py-1 rounded-full ${statusConfig.bgColor}`}
+            >
+              <Ionicons
+                name={statusConfig.icon}
+                size={12}
+                color={
+                  statusConfig.textColor === "text-yellow-500"
+                    ? "#EAB308"
+                    : statusConfig.textColor === "text-blue-500"
+                      ? "#3B82F6"
+                      : statusConfig.textColor === "text-green-500"
+                        ? "#22C55E"
+                        : statusConfig.textColor === "text-red-500"
+                          ? "#EF4444"
+                          : "#6B7280"
+                }
+              />
+              <Text
+                className={`text-xs font-medium ml-1 capitalize ${statusConfig.textColor}`}
+              >
+                {appointment.status}
+              </Text>
+            </View>
+            <Text className="text-[#FFCC00] font-bold">
+              ${appointment.totalAmount}
+            </Text>
+          </View>
+
+          {/* Service Name */}
+          <Text className="text-white text-base font-semibold mb-1" numberOfLines={1}>
+            {appointment.serviceName}
+          </Text>
+
+          {/* Time */}
+          <View className="flex-row items-center">
+            <Ionicons name="time-outline" size={14} color="#FFCC00" />
+            <Text className="text-white text-sm ml-1">
+              {formatTime(appointment.bookingTimeSlot)}
+              {appointment.bookingEndTime &&
+                ` - ${formatTime(appointment.bookingEndTime)}`}
+            </Text>
+          </View>
+
+          {/* Cancel Button */}
+          {showCancelButton && (
+            <TouchableOpacity
+              onPress={(e) => {
+                e.stopPropagation();
+                onCancel();
+              }}
+              className="mt-3 flex-row items-center justify-center py-2 rounded-lg bg-red-500/20"
+            >
+              <Ionicons name="close-circle-outline" size={16} color="#EF4444" />
+              <Text className="text-red-500 text-sm font-medium ml-1">
+                Cancel Appointment
+              </Text>
             </TouchableOpacity>
           )}
         </View>
 
-        {/* View Toggle */}
-        <View className="flex-row bg-zinc-800 rounded-lg p-1">
-          <TouchableOpacity
-            onPress={() => onToggle("grid")}
-            className={`px-3 py-2.5 rounded-md ${viewMode === "grid" ? "bg-[#FFCC00]" : ""}`}
-          >
-            <Ionicons
-              name="grid-outline"
-              size={18}
-              color={viewMode === "grid" ? "#000" : "#9CA3AF"}
+        {/* Service Image */}
+        {appointment.serviceImage && (
+          <View className="w-24 h-full">
+            <Image
+              source={{ uri: appointment.serviceImage }}
+              className="w-full h-full"
+              resizeMode="cover"
             />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => onToggle("list")}
-            className={`px-3 py-2.5 rounded-md ${viewMode === "list" ? "bg-[#FFCC00]" : ""}`}
-          >
-            <Ionicons
-              name="list-outline"
-              size={18}
-              color={viewMode === "list" ? "#000" : "#9CA3AF"}
-            />
-          </TouchableOpacity>
-        </View>
+          </View>
+        )}
       </View>
+    </TouchableOpacity>
+  );
+}
+
+function FilterTabs({
+  activeTab,
+  onTabChange,
+  counts,
+}: {
+  activeTab: FilterTab;
+  onTabChange: (tab: FilterTab) => void;
+  counts: { upcoming: number; past: number; all: number };
+}) {
+  const tabs: { key: FilterTab; label: string }[] = [
+    { key: "upcoming", label: "Upcoming" },
+    { key: "past", label: "Past" },
+    { key: "all", label: "All" },
+  ];
+
+  return (
+    <View className="flex-row bg-zinc-900 rounded-xl p-1 mb-4">
+      {tabs.map((tab) => (
+        <TouchableOpacity
+          key={tab.key}
+          onPress={() => onTabChange(tab.key)}
+          className={`flex-1 py-2.5 rounded-lg ${activeTab === tab.key ? "bg-[#FFCC00]" : ""}`}
+        >
+          <Text
+            className={`text-center text-sm font-medium ${activeTab === tab.key ? "text-black" : "text-gray-400"}`}
+          >
+            {tab.label} ({counts[tab.key]})
+          </Text>
+        </TouchableOpacity>
+      ))}
     </View>
   );
 }
 
 export default function BookingsTab() {
-  const { useCustomerBookingQuery } = useBooking();
-  const { data: bookingsData, isLoading, error, refetch } = useCustomerBookingQuery();
+  const { useMyAppointmentsQuery, useCancelAppointmentMutation } = useAppointment();
+  const { startDate, endDate } = getDateRange();
 
-  const [refreshing, setRefreshing] = React.useState(false);
-  const [viewMode, setViewMode] = React.useState<ViewMode>("grid");
-  const [searchQuery, setSearchQuery] = React.useState("");
+  const {
+    data: appointmentData,
+    isLoading,
+    error,
+    refetch,
+  } = useMyAppointmentsQuery(startDate, endDate);
 
-  // Filter bookings based on search query
-  const filteredBookings = React.useMemo(() => {
-    if (!bookingsData || !searchQuery.trim()) return bookingsData || [];
+  const cancelMutation = useCancelAppointmentMutation();
 
-    const query = searchQuery.toLowerCase();
-    return bookingsData.filter(
-      (booking) =>
-        booking.serviceName.toLowerCase().includes(query) ||
-        booking.serviceCategory.toLowerCase().includes(query) ||
-        booking.status.toLowerCase().includes(query)
+  const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<FilterTab>("upcoming");
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<MyAppointment | null>(null);
+
+  // Filter and sort appointments
+  const { filteredAppointments, counts } = useMemo(() => {
+    if (!appointmentData) {
+      return {
+        filteredAppointments: [],
+        counts: { upcoming: 0, past: 0, all: 0 },
+      };
+    }
+
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    const upcoming = appointmentData.filter(
+      (apt) => new Date(apt.bookingDate) >= now
     );
-  }, [bookingsData, searchQuery]);
+    const past = appointmentData.filter(
+      (apt) => new Date(apt.bookingDate) < now
+    );
 
-  const handleRefresh = async () => {
+    // Sort upcoming by date ascending, past by date descending
+    upcoming.sort(
+      (a, b) =>
+        new Date(a.bookingDate).getTime() - new Date(b.bookingDate).getTime()
+    );
+    past.sort(
+      (a, b) =>
+        new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime()
+    );
+
+    const counts = {
+      upcoming: upcoming.length,
+      past: past.length,
+      all: appointmentData.length,
+    };
+
+    let filtered: MyAppointment[];
+    switch (activeTab) {
+      case "upcoming":
+        filtered = upcoming;
+        break;
+      case "past":
+        filtered = past;
+        break;
+      default:
+        filtered = [...upcoming, ...past];
+    }
+
+    return { filteredAppointments: filtered, counts };
+  }, [appointmentData, activeTab]);
+
+  const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await refetch();
     setRefreshing(false);
+  }, [refetch]);
+
+  const handleAppointmentPress = (appointment: MyAppointment) => {
+    router.push(`/customer/service/${appointment.serviceId}`);
   };
 
-  const handleBookingPress = (item: BookingData) => {
-    // TODO: Navigate to booking detail
-    console.log("Booking pressed:", item.orderId);
+  const handleCancelPress = (appointment: MyAppointment) => {
+    setSelectedAppointment(appointment);
+    setCancelModalVisible(true);
   };
 
-  const renderBookingItem = ({ item }: { item: BookingData }) => {
-    const statusStyle = getStatusStyle(item.status);
+  const handleConfirmCancel = () => {
+    if (!selectedAppointment) return;
 
-    return (
-      <ServiceCard
-        imageUrl={item.serviceImageUrl}
-        category={item.serviceCategory}
-        title={item.serviceName}
-        description={item.serviceDescription}
-        price={item.totalAmount}
-        date={item.bookingDate}
-        status={{
-          label: item.status,
-          bgColor: statusStyle.bgColor,
-          textColor: statusStyle.textColor,
-        }}
-        statusPosition="image"
-        onPress={() => handleBookingPress(item)}
-        variant={viewMode}
-      />
-    );
+    cancelMutation.mutate(selectedAppointment.orderId, {
+      onSuccess: () => {
+        setCancelModalVisible(false);
+        setSelectedAppointment(null);
+        Alert.alert("Success", "Your appointment has been cancelled.");
+      },
+      onError: (error: any) => {
+        Alert.alert(
+          "Error",
+          error?.message || "Failed to cancel appointment. Please try again."
+        );
+      },
+    });
   };
 
-  const EmptyComponent = (
+  const renderAppointment = ({ item }: { item: MyAppointment }) => (
+    <AppointmentCard
+      appointment={item}
+      onPress={() => handleAppointmentPress(item)}
+      onCancel={() => handleCancelPress(item)}
+    />
+  );
+
+  const EmptyComponent = () => (
     <View className="flex-1 justify-center items-center pt-20">
-      <Ionicons name="calendar-outline" size={64} color="#666" />
-      <Text className="text-gray-400 text-center mt-4">No bookings yet</Text>
-      <Text className="text-gray-500 text-sm text-center mt-2">
-        Your bookings will appear here
+      <View className="bg-zinc-900 rounded-full p-6 mb-4">
+        <Ionicons name="calendar-outline" size={48} color="#FFCC00" />
+      </View>
+      <Text className="text-white text-lg font-semibold mt-2">
+        {activeTab === "upcoming"
+          ? "No upcoming appointments"
+          : activeTab === "past"
+            ? "No past appointments"
+            : "No appointments yet"}
+      </Text>
+      <Text className="text-gray-500 text-sm text-center mt-2 px-8">
+        {activeTab === "upcoming"
+          ? "Book a service to see your appointments here"
+          : "Your appointment history will appear here"}
       </Text>
     </View>
   );
 
+  if (isLoading) {
+    return (
+      <View className="flex-1 justify-center items-center">
+        <ActivityIndicator size="large" color="#FFCC00" />
+        <Text className="text-gray-400 mt-4">Loading appointments...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View className="flex-1 justify-center items-center px-4">
+        <View className="bg-red-500/20 rounded-full p-4 mb-4">
+          <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
+        </View>
+        <Text className="text-white text-lg font-semibold">
+          Failed to load appointments
+        </Text>
+        <Text className="text-gray-500 text-sm text-center mt-2">
+          Please check your connection and try again
+        </Text>
+        <TouchableOpacity
+          onPress={() => refetch()}
+          className="mt-4 bg-[#FFCC00] px-6 py-3 rounded-xl"
+        >
+          <Text className="text-black font-semibold">Try Again</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View className="flex-1">
-      {/* Sticky Header */}
-      <ListHeader
-        viewMode={viewMode}
-        onToggle={setViewMode}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
+      {/* Filter Tabs */}
+      <FilterTabs
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        counts={counts}
       />
 
-      {isLoading ? (
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#FFCC00" />
+      {/* Appointments List */}
+      <FlatList
+        data={filteredAppointments}
+        keyExtractor={(item) => item.orderId}
+        renderItem={renderAppointment}
+        contentContainerStyle={{
+          paddingBottom: 100,
+          flexGrow: filteredAppointments.length === 0 ? 1 : undefined,
+        }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor="#FFCC00"
+            colors={["#FFCC00"]}
+          />
+        }
+        ListEmptyComponent={EmptyComponent}
+        showsVerticalScrollIndicator={false}
+      />
+
+      {/* Cancel Confirmation Modal */}
+      <Modal
+        visible={cancelModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCancelModalVisible(false)}
+      >
+        <View className="flex-1 bg-black/70 justify-center items-center px-6">
+          <View className="bg-zinc-900 rounded-2xl p-6 w-full max-w-sm">
+            {/* Icon */}
+            <View className="items-center mb-4">
+              <View className="bg-red-500/20 rounded-full p-4">
+                <Ionicons name="alert-circle-outline" size={40} color="#EF4444" />
+              </View>
+            </View>
+
+            {/* Title */}
+            <Text className="text-white text-xl font-bold text-center mb-2">
+              Cancel Appointment?
+            </Text>
+
+            {/* Description */}
+            <Text className="text-gray-400 text-center mb-2">
+              Are you sure you want to cancel your appointment for{" "}
+              <Text className="text-white font-semibold">
+                {selectedAppointment?.serviceName}
+              </Text>
+              ?
+            </Text>
+
+            {/* Policy Note */}
+            <View className="flex-row items-center justify-center mb-4">
+              <Ionicons name="information-circle-outline" size={14} color="#FFCC00" />
+              <Text className="text-yellow-500 text-xs ml-1">
+                Cancellation is only available 24+ hours before the appointment
+              </Text>
+            </View>
+
+            {/* Appointment Details */}
+            {selectedAppointment && (
+              <View className="bg-zinc-800 rounded-xl p-3 mb-6">
+                <View className="flex-row items-center mb-2">
+                  <Ionicons name="calendar-outline" size={16} color="#9CA3AF" />
+                  <Text className="text-gray-300 text-sm ml-2">
+                    {formatDate(selectedAppointment.bookingDate).month}{" "}
+                    {formatDate(selectedAppointment.bookingDate).date},{" "}
+                    {formatDate(selectedAppointment.bookingDate).year}
+                  </Text>
+                </View>
+                <View className="flex-row items-center">
+                  <Ionicons name="time-outline" size={16} color="#9CA3AF" />
+                  <Text className="text-gray-300 text-sm ml-2">
+                    {formatTime(selectedAppointment.bookingTimeSlot)}
+                    {selectedAppointment.bookingEndTime &&
+                      ` - ${formatTime(selectedAppointment.bookingEndTime)}`}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Buttons */}
+            <View className="flex-row gap-3">
+              <TouchableOpacity
+                onPress={() => {
+                  setCancelModalVisible(false);
+                  setSelectedAppointment(null);
+                }}
+                className="flex-1 py-3 rounded-xl bg-zinc-800"
+                disabled={cancelMutation.isPending}
+              >
+                <Text className="text-white text-center font-semibold">
+                  Keep It
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleConfirmCancel}
+                disabled={cancelMutation.isPending}
+                className="flex-1 py-3 rounded-xl bg-red-500"
+              >
+                {cancelMutation.isPending ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text className="text-white text-center font-semibold">
+                    Yes, Cancel
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
-      ) : error ? (
-        <View className="flex-1 justify-center items-center">
-          <Text className="text-red-500">Failed to load bookings</Text>
-          <TouchableOpacity onPress={() => refetch()} className="mt-2">
-            <Text className="text-[#FFCC00]">Try Again</Text>
-          </TouchableOpacity>
-        </View>
-      ) : viewMode === "grid" ? (
-        <FlatList
-          data={filteredBookings}
-          keyExtractor={(item, index) => `${item.orderId}-${index}`}
-          renderItem={renderBookingItem}
-          numColumns={2}
-          key="grid"
-          contentContainerStyle={{ paddingBottom: 100 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor="#FFCC00"
-            />
-          }
-          ListEmptyComponent={EmptyComponent}
-        />
-      ) : (
-        <FlatList
-          data={filteredBookings}
-          keyExtractor={(item, index) => `${item.orderId}-${index}`}
-          renderItem={renderBookingItem}
-          key="list"
-          contentContainerStyle={{ paddingBottom: 100 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor="#FFCC00"
-            />
-          }
-          ListEmptyComponent={EmptyComponent}
-        />
-      )}
+      </Modal>
     </View>
   );
 }
