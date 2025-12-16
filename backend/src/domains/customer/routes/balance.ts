@@ -341,6 +341,121 @@ router.post("/:address/queue-mint", async (req, res) => {
 
 /**
  * @swagger
+ * /api/customers/balance/{address}/instant-mint:
+ *   post:
+ *     summary: Instantly mint RCN tokens to customer's blockchain wallet
+ *     description: |
+ *       Deducts tokens from customer's database balance and immediately mints them
+ *       to their blockchain wallet. This bypasses the queue-and-approve workflow.
+ *       Gas fees are paid by the platform wallet.
+ *     tags: [Customer Balance]
+ *     parameters:
+ *       - in: path
+ *         name: address
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Customer wallet address (0x...)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - amount
+ *             properties:
+ *               amount:
+ *                 type: number
+ *                 description: Amount of RCN to mint (max 10,000)
+ *                 minimum: 0.01
+ *                 maximum: 10000
+ *     responses:
+ *       200:
+ *         description: Tokens minted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     transactionHash:
+ *                       type: string
+ *                       description: Blockchain transaction hash
+ *                     amount:
+ *                       type: number
+ *                       description: Amount minted
+ *                     customerAddress:
+ *                       type: string
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Invalid request or insufficient balance
+ *       500:
+ *         description: Blockchain mint failed
+ */
+router.post("/:address/instant-mint", async (req, res) => {
+  try {
+    const { address } = req.params;
+    const { amount } = req.body;
+
+    // Validate address format
+    if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid wallet address format",
+      });
+    }
+
+    // Validate amount
+    if (!amount || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid amount. Must be greater than zero.",
+      });
+    }
+
+    if (amount > 10000) {
+      return res.status(400).json({
+        success: false,
+        error: "Amount exceeds maximum limit of 10,000 RCN per transaction.",
+      });
+    }
+
+    // Execute instant mint
+    const result = await customerBalanceService.instantMint(address, amount);
+
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        error: result.error || "Instant mint failed",
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        transactionHash: result.transactionHash,
+        amount: result.amount,
+        customerAddress: address,
+      },
+      message: `Successfully minted ${amount} RCN to wallet`,
+    });
+  } catch (error) {
+    logger.error("Error during instant mint:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to mint tokens to wallet",
+    });
+  }
+});
+
+/**
+ * @swagger
  * /api/customers/balance/{address}/sync:
  *   post:
  *     summary: Sync customer balance with transaction history

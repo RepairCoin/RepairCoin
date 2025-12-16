@@ -750,6 +750,34 @@ export class CustomerRepository extends BaseRepository {
   }
 
   /**
+   * Cancel pending mint and return tokens to available balance (rollback operation)
+   */
+  async cancelPendingMint(address: string, amount: number): Promise<void> {
+    try {
+      const query = `
+        UPDATE customers
+        SET
+          current_rcn_balance = COALESCE(current_rcn_balance, 0) + $1,
+          pending_mint_balance = GREATEST(0, COALESCE(pending_mint_balance, 0) - $1),
+          updated_at = NOW()
+        WHERE address = $2
+        AND COALESCE(pending_mint_balance, 0) >= $1
+      `;
+
+      const result = await this.pool.query(query, [amount, address.toLowerCase()]);
+
+      if (result.rowCount === 0) {
+        throw new Error('Insufficient pending balance or customer not found');
+      }
+
+      logger.info('Pending mint cancelled and balance restored', { address, amount });
+    } catch (error) {
+      logger.error('Error cancelling pending mint:', error);
+      throw new Error('Failed to cancel pending mint');
+    }
+  }
+
+  /**
    * Get customers with pending mint balances (for batch processing)
    */
   async getCustomersWithPendingMints(limit: number = 100): Promise<Array<{

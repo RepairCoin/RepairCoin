@@ -1,7 +1,8 @@
 // domains/customer/services/CustomerBalanceService.ts
-import { customerRepository } from '../../../repositories';
+import { customerRepository, transactionRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
 import { TierLevel } from '../../../contracts/TierManager';
+import { TokenMinter } from '../../../contracts/TokenMinter';
 
 export interface CustomerBalanceInfo {
   address: string;
@@ -22,6 +23,13 @@ export interface MintRequest {
   requestedAt: string;
 }
 
+export interface InstantMintResult {
+  success: boolean;
+  transactionHash?: string;
+  amount?: number;
+  error?: string;
+}
+
 /**
  * Customer Balance Service
  * 
@@ -29,6 +37,17 @@ export interface MintRequest {
  * Handles real-time balance tracking, mint-to-wallet queuing, and balance synchronization.
  */
 export class CustomerBalanceService {
+  private tokenMinter: TokenMinter | null = null;
+
+  /**
+   * Get TokenMinter instance (lazy initialization)
+   */
+  private getTokenMinter(): TokenMinter {
+    if (!this.tokenMinter) {
+      this.tokenMinter = new TokenMinter();
+    }
+    return this.tokenMinter;
+  }
 
   /**
    * Get comprehensive balance information for a customer
@@ -265,6 +284,115 @@ export class CustomerBalanceService {
       return {
         valid: false,
         reason: 'Validation failed due to system error'
+      };
+    }
+  }
+
+  /**
+   * Instant mint: Deduct from database balance and mint directly to blockchain
+   * This bypasses the queue and mints tokens immediately to the customer's wallet
+   */
+  async instantMint(address: string, amount: number): Promise<InstantMintResult> {
+    try {
+      // Step 1: Validate the mint request
+      const validation = await this.validateMintRequest(address, amount);
+      if (!validation.valid) {
+        return {
+          success: false,
+          error: validation.reason || 'Validation failed'
+        };
+      }
+
+      // Step 2: Deduct from database balance (atomic operation)
+      // This uses the same method as queue-mint but we'll process immediately
+      await customerRepository.queueForMinting(address, amount);
+
+      logger.info('Instant mint: Deducted from database balance', {
+        address,
+        amount
+      });
+
+      // Step 3: Mint tokens to blockchain
+      const tokenMinter = this.getTokenMinter();
+      const mintResult = await tokenMinter.adminMintTokens(
+        address,
+        amount,
+        'Customer instant mint to wallet'
+      );
+
+      if (!mintResult.success) {
+        // Rollback: Return tokens to database balance
+        // We need to reverse the queueForMinting operation
+        logger.error('Instant mint: Blockchain mint failed, attempting rollback', {
+          address,
+          amount,
+          error: mintResult.error || mintResult.message
+        });
+
+        try {
+          // Reverse the pending balance back to available balance
+          await customerRepository.cancelPendingMint(address, amount);
+          logger.info('Instant mint: Rollback successful', { address, amount });
+        } catch (rollbackError) {
+          logger.error('Instant mint: Rollback failed! Manual intervention required', {
+            address,
+            amount,
+            rollbackError
+          });
+        }
+
+        return {
+          success: false,
+          error: mintResult.error || mintResult.message || 'Blockchain mint failed'
+        };
+      }
+
+      // Step 4: Complete the mint (clear pending balance and update sync time)
+      await customerRepository.completeMint(address, amount, mintResult.transactionHash || '');
+
+      // Step 5: Record the mint transaction for balance tracking
+      try {
+        await transactionRepository.recordTransaction({
+          type: 'mint' as any,
+          customerAddress: address,
+          shopId: null,
+          amount: amount,
+          reason: 'Customer instant mint to wallet',
+          transactionHash: mintResult.transactionHash || null,
+          blockNumber: null,
+          timestamp: new Date().toISOString(),
+          status: 'confirmed',
+          metadata: {
+            mintType: 'instant_mint',
+            source: 'customer_dashboard'
+          }
+        });
+      } catch (txError) {
+        // Log but don't fail - the blockchain mint already succeeded
+        logger.error('Failed to record mint transaction, but mint succeeded', {
+          address,
+          amount,
+          transactionHash: mintResult.transactionHash,
+          error: txError
+        });
+      }
+
+      logger.info('Instant mint completed successfully', {
+        address,
+        amount,
+        transactionHash: mintResult.transactionHash
+      });
+
+      return {
+        success: true,
+        transactionHash: mintResult.transactionHash,
+        amount
+      };
+    } catch (error) {
+      logger.error('Error during instant mint:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error during instant mint'
       };
     }
   }
