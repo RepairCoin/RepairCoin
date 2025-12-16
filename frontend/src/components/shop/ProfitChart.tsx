@@ -344,19 +344,19 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
   return (
     <div className="bg-[#101010] rounded-[20px] overflow-hidden">
       {/* Header */}
-      <div className="flex justify-between items-center px-6 py-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 px-4 sm:px-6 py-4">
         <div className="flex items-center gap-2">
           <TrendingUp className="w-5 h-5 text-[#FFCC00]" />
           <h3 className="text-[#FFCC00] text-base font-medium">Profit Analysis</h3>
         </div>
 
         {/* Time Range Selector */}
-        <div className="flex bg-[#1e1f22] rounded-lg p-1">
+        <div className="flex bg-[#1e1f22] rounded-lg p-1 w-full sm:w-auto">
           {(['day', 'month', 'year'] as const).map((range) => (
             <button
               key={range}
               onClick={() => setTimeRange(range)}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              className={`flex-1 sm:flex-none px-3 sm:px-4 py-1.5 rounded-md text-xs sm:text-sm font-medium transition-colors ${
                 timeRange === range
                   ? 'bg-[#FFCC00] text-[#101010]'
                   : 'text-gray-400 hover:text-white'
@@ -370,43 +370,43 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
 
       {/* Metrics Cards */}
       {metrics && (
-        <div className="px-6 pb-4">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-[#1e1f22] rounded-lg p-4">
+        <div className="px-4 sm:px-6 pb-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+            <div className="bg-[#1e1f22] rounded-lg p-3 sm:p-4">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-400">Total Profit</p>
-                  <p className={`text-lg font-bold ${metrics.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] sm:text-xs text-gray-400">Total Profit</p>
+                  <p className={`text-sm sm:text-lg font-bold ${metrics.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {formatCurrency(metrics.totalProfit)}
                   </p>
                 </div>
                 {metrics.profitTrend === 'up' ? (
-                  <TrendingUp className="w-5 h-5 text-green-400" />
+                  <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-400 flex-shrink-0 ml-1" />
                 ) : metrics.profitTrend === 'down' ? (
-                  <TrendingDown className="w-5 h-5 text-red-400" />
+                  <TrendingDown className="w-4 h-4 sm:w-5 sm:h-5 text-red-400 flex-shrink-0 ml-1" />
                 ) : (
-                  <DollarSign className="w-5 h-5 text-gray-400" />
+                  <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0 ml-1" />
                 )}
               </div>
             </div>
 
-            <div className="bg-[#1e1f22] rounded-lg p-4">
-              <p className="text-xs text-gray-400">Revenue</p>
-              <p className="text-lg font-bold text-blue-400">
+            <div className="bg-[#1e1f22] rounded-lg p-3 sm:p-4">
+              <p className="text-[10px] sm:text-xs text-gray-400">Revenue</p>
+              <p className="text-sm sm:text-lg font-bold text-blue-400">
                 {formatCurrency(metrics.totalRevenue)}
               </p>
             </div>
 
-            <div className="bg-[#1e1f22] rounded-lg p-4">
-              <p className="text-xs text-gray-400">Costs</p>
-              <p className="text-lg font-bold text-orange-400">
+            <div className="bg-[#1e1f22] rounded-lg p-3 sm:p-4">
+              <p className="text-[10px] sm:text-xs text-gray-400">Costs</p>
+              <p className="text-sm sm:text-lg font-bold text-orange-400">
                 {formatCurrency(metrics.totalCosts)}
               </p>
             </div>
 
-            <div className="bg-[#1e1f22] rounded-lg p-4">
-              <p className="text-xs text-gray-400">Profit Margin</p>
-              <p className={`text-lg font-bold ${metrics.averageProfitMargin >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+            <div className="bg-[#1e1f22] rounded-lg p-3 sm:p-4">
+              <p className="text-[10px] sm:text-xs text-gray-400">Profit Margin</p>
+              <p className={`text-sm sm:text-lg font-bold ${metrics.averageProfitMargin >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                 {metrics.averageProfitMargin.toFixed(1)}%
               </p>
             </div>
@@ -415,20 +415,20 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
       )}
 
       {/* Charts */}
-      <div className="px-6 pb-6">
+      <div className="px-4 sm:px-6 pb-6">
         {profitData.length > 0 ? (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Main Area Chart - Profit & Loss Over Time */}
-            <div className="bg-[#1e1f22] rounded-lg p-4">
-              <div className="flex justify-between items-center mb-4">
-                <h4 className="text-white font-medium">Profit & Loss Over Time</h4>
-                <div className="flex items-center gap-4 text-sm">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+            <div className="bg-[#1e1f22] rounded-lg p-3 sm:p-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
+                <h4 className="text-white text-sm sm:text-base font-medium">Profit & Loss Over Time</h4>
+                <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm">
+                  <div className="flex items-center gap-1 sm:gap-2">
+                    <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-green-500"></div>
                     <span className="text-gray-300">Profit</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                  <div className="flex items-center gap-1 sm:gap-2">
+                    <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-red-500"></div>
                     <span className="text-gray-300">Loss</span>
                   </div>
                 </div>
@@ -480,8 +480,8 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
             </div>
 
             {/* Revenue vs Costs Chart */}
-            <div className="bg-[#1e1f22] rounded-lg p-4">
-              <h4 className="text-white font-medium mb-4">Revenue vs Costs</h4>
+            <div className="bg-[#1e1f22] rounded-lg p-3 sm:p-4">
+              <h4 className="text-white text-sm sm:text-base font-medium mb-4">Revenue vs Costs</h4>
               <ResponsiveContainer width="100%" height={250}>
                 <LineChart data={profitData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -524,8 +524,8 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({ shopId }) => {
             </div>
 
             {/* Profit Margin Trend */}
-            <div className="bg-[#1e1f22] rounded-lg p-4">
-              <h4 className="text-white font-medium mb-4">Profit Margin Trend</h4>
+            <div className="bg-[#1e1f22] rounded-lg p-3 sm:p-4">
+              <h4 className="text-white text-sm sm:text-base font-medium mb-4">Profit Margin Trend</h4>
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart data={profitData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
