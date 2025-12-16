@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { MapPin } from "lucide-react";
+import { MapPin, MapPinned, Pencil, Info, Loader2, Home, ChevronRight } from "lucide-react";
 import toast from "react-hot-toast";
-import { LocationPickerWrapper } from "../../maps/LocationPickerWrapper";
 import apiClient from '@/services/api/client';
+import { LocationPickerWrapper } from "../../maps/LocationPickerWrapper";
 
 interface ShopData {
   walletAddress: string;
@@ -49,14 +49,6 @@ export const ShopLocationTab: React.FC<ShopLocationTabProps> = ({
     }
   }, [shopData]);
 
-  const handleLocationInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { value } = e.target;
-    setLocationFormData((prev) => ({
-      ...prev,
-      address: value,
-    }));
-  };
-
   const handleLocationMapSelect = (location: {
     latitude: number;
     longitude: number;
@@ -81,7 +73,7 @@ export const ShopLocationTab: React.FC<ShopLocationTabProps> = ({
   const handleSaveLocation = async () => {
     setLoadingLocationUpdate(true);
     try {
-      const data = await apiClient.put(
+      const data = await apiClient.put<{ message?: string }>(
         `/shops/${shopId}/details`,
         {
           address: locationFormData.address,
@@ -92,7 +84,7 @@ export const ShopLocationTab: React.FC<ShopLocationTabProps> = ({
         }
       );
 
-      toast.success(data.message || "Location updated successfully!");
+      toast.success((data as { message?: string })?.message || "Location updated successfully!");
       setIsEditingLocation(false);
       onLocationUpdate();
     } catch (error) {
@@ -117,78 +109,91 @@ export const ShopLocationTab: React.FC<ShopLocationTabProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
-        <div
-          className="w-full flex justify-between items-center px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
-          style={{
-            backgroundImage: `url('/img/cust-ref-widget3.png')`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-          }}
-        >
-          <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
-            Pinpoint Your Shop Location
-          </p>
+      {/* Breadcrumb Navigation */}
+      <div className="border-b border-[#303236] pb-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Home className="w-5 h-5 text-white" />
+          <ChevronRight className="w-4 h-4 text-gray-400" />
+          <MapPinned className="w-5 h-5 text-[#FFCC00]" />
+          <span className="text-base font-medium text-[#FFCC00]">Shop Location</span>
+        </div>
+        <p className="text-sm text-[#ddd]">
+          Set your shop&apos;s location for accurate delivery and customer navigation
+        </p>
+      </div>
+
+      <div className="bg-[#101010] rounded-xl overflow-hidden">
+        {/* Header with Edit Location button */}
+        <div className="flex justify-between items-center px-6 py-4 border-b border-[#303236]">
+          <div className="flex items-center gap-3">
+            <MapPin className="w-6 h-6 text-[#FFCC00]" />
+            <h3 className="text-lg font-semibold text-[#FFCC00]">Pin Your Shop Location</h3>
+          </div>
+
           {!isEditingLocation ? (
             <button
               onClick={() => setIsEditingLocation(true)}
-              className="text-xs sm:text-sm px-4 py-2 bg-black text-white rounded-3xl font-medium hover:bg-gray-900 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-[#FFCC00] text-black text-sm font-medium rounded-md hover:bg-yellow-400 transition-colors"
             >
+              <Pencil className="w-4 h-4" />
               Edit Location
             </button>
           ) : (
             <div className="flex gap-2">
               <button
                 onClick={handleCancelLocationEdit}
-                className="text-xs sm:text-sm px-4 py-2 bg-black text-white rounded-3xl font-medium hover:bg-gray-900 transition-colors"
+                className="px-4 py-2 bg-[#303236] text-white text-sm font-medium rounded-md hover:bg-[#404040] transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveLocation}
                 disabled={loadingLocationUpdate}
-                className="text-xs sm:text-sm px-4 py-2 bg-black text-white rounded-3xl font-medium hover:bg-gray-900 transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 bg-[#FFCC00] text-black text-sm font-medium rounded-md hover:bg-yellow-400 transition-colors disabled:opacity-50"
               >
-                {loadingLocationUpdate ? "Saving..." : "Save Location"}
+                {loadingLocationUpdate ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Location"
+                )}
               </button>
             </div>
           )}
         </div>
 
-        <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
-          {/* Address Input */}
-          <div className="mb-6">
-            <label className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
-              <MapPin className="w-6 h-6 inline mr-1" />
-              Shop Address
-            </label>
-            <input
-              type="text"
-              value={locationFormData.address}
-              onChange={handleLocationInputChange}
-              disabled={!isEditingLocation}
-              className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
-              placeholder="123 Main St, City, State ZIP"
-            />
+        <div className="p-6 space-y-6">
+          {/* Current Shop Address Section */}
+          <div>
+            <p className="text-sm font-semibold text-white mb-2">Current Shop Address</p>
+            <div className="bg-white border border-[#e2e8f0] rounded px-3 py-2 shadow-sm">
+              <p className="text-sm text-[#101010] font-medium">
+                {locationFormData.address || "No address set"}
+              </p>
+            </div>
 
-            {/* Current coordinates display */}
+            {/* Coordinates display */}
             {locationFormData.location.lat && locationFormData.location.lng && (
-              <div className="mt-2 text-xs text-gray-400">
-                Coordinates: {locationFormData.location.lat.toFixed(6)},{" "}
-                {locationFormData.location.lng.toFixed(6)}
-              </div>
+              <p className="text-sm font-semibold text-white mt-3">
+                Coordinates: {locationFormData.location.lat.toFixed(6)}, {locationFormData.location.lng.toFixed(6)}
+              </p>
             )}
           </div>
 
-          {/* Map Section */}
-          <div className="bg-[#2F2F2F] rounded-xl p-4">
-            <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-[#FFCC00]" />
-              {isEditingLocation ? "Click on the map to update your location" : "Your Shop Location"}
-            </h4>
+          {/* Divider */}
+          <div className="border-t border-[#303236]" />
 
-            <div className={!isEditingLocation ? "pointer-events-none opacity-70" : ""}>
+          {/* Update Your Shop Location Section */}
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <MapPinned className="w-6 h-6 text-[#FFCC00]" />
+              <h3 className="text-base font-semibold text-[#FFCC00]">Update Your Shop Location</h3>
+            </div>
+
+            {/* Location Picker with Map */}
+            <div className={!isEditingLocation ? "pointer-events-none opacity-60" : ""}>
               <LocationPickerWrapper
                 initialLocation={
                   locationFormData.location.lat && locationFormData.location.lng
@@ -200,22 +205,30 @@ export const ShopLocationTab: React.FC<ShopLocationTabProps> = ({
                     : undefined
                 }
                 onLocationSelect={handleLocationMapSelect}
-                height="450px"
+                height="458px"
               />
             </div>
           </div>
 
-          {/* Help Text */}
-          <div className="mt-6 bg-blue-900/20 border border-blue-700 rounded-xl p-4">
-            <h4 className="text-sm font-semibold text-blue-400 mb-1">
-              📍 How to Use
-            </h4>
-            <p className="text-sm text-blue-300">
-              Click &ldquo;Edit Location&rdquo; to update your shop&rsquo;s address and location.
-              You can either type your address directly or click on the map to pinpoint
-              your exact location. The address will be automatically filled when you
-              select a location on the map.
+          {/* Selected Location Coordinates */}
+          {locationFormData.location.lat && locationFormData.location.lng && (
+            <p className="text-sm font-semibold">
+              <span className="text-[#FFCC00]">Selected Location Coordinates:</span>
+              <span className="text-white"> {locationFormData.location.lat.toFixed(6)}, {locationFormData.location.lng.toFixed(6)}</span>
             </p>
+          )}
+
+          {/* Help/Alert Section */}
+          <div className="bg-[#191919] border border-[#e2e8f0] rounded-lg p-4 flex gap-3">
+            <div className="flex-shrink-0 pt-0.5">
+              <Info className="w-4 h-4 text-gray-400" />
+            </div>
+            <div>
+              <p className="text-base font-semibold text-white mb-1">How to Update your Location</p>
+              <p className="text-sm text-white">
+                Click <span className="text-[#FFCC00] font-bold">&quot;Edit Location&quot;</span> to update your shop&apos;s address and location. You can either type your address directly or click on the map to pinpoint your exact location. The address will be automatically filled when you select a location on the map.
+              </p>
+            </div>
           </div>
         </div>
       </div>

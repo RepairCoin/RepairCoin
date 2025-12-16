@@ -317,12 +317,22 @@ router.get('/wallet/:address',
         });
       }
 
+      // Construct proper location object with coordinates
+      const locationData = {
+        lat: shop.locationLat,
+        lng: shop.locationLng,
+        city: shop.locationCity,
+        state: shop.locationState,
+        zipCode: shop.locationZipCode
+      };
+
       // Different data based on user role
       let shopData;
       if (req.user?.role === 'admin' || (req.user?.role === 'shop' && req.user.shopId === shop.shopId)) {
         // Full data for admin or shop owner
         shopData = {
           ...shop,
+          location: locationData,
           subscriptionStatus
         };
       } else {
@@ -337,7 +347,7 @@ router.get('/wallet/:address',
           verified: shop.verified,
           active: shop.active,
           crossShopEnabled: shop.crossShopEnabled,
-          location: shop.location,
+          location: locationData,
           joinDate: shop.joinDate,
           // Include balance information for display
           purchasedRcnBalance: shop.purchasedRcnBalance,

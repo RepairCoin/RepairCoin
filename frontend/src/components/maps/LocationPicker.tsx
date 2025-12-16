@@ -90,10 +90,18 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
   // Ensure component only renders on client side
   useEffect(() => {
     setIsClient(true);
-    
-    // Initialize marker position after client-side hydration
+  }, []);
+
+  // Update center and marker when initialLocation changes
+  useEffect(() => {
     if (initialLocation && typeof window !== "undefined") {
       setMarkerPosition(new LatLng(initialLocation.latitude, initialLocation.longitude));
+      setCenter([initialLocation.latitude, initialLocation.longitude]);
+
+      // If map is already rendered, fly to the new location
+      if (mapRef.current) {
+        mapRef.current.flyTo([initialLocation.latitude, initialLocation.longitude], 13);
+      }
     }
   }, [initialLocation]);
 
