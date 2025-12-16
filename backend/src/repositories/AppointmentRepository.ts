@@ -369,15 +369,15 @@ export class AppointmentRepository extends BaseRepository {
     try {
       const query = `
         SELECT
-          booking_time_slot as "timeSlot",
+          booking_time as "timeSlot",
           COUNT(*) as count
         FROM service_orders
         WHERE shop_id = $1
           AND booking_date = $2
-          AND booking_time_slot IS NOT NULL
+          AND booking_time IS NOT NULL
           AND status NOT IN ('cancelled', 'refunded')
-        GROUP BY booking_time_slot
-        ORDER BY booking_time_slot
+        GROUP BY booking_time
+        ORDER BY booking_time
       `;
 
       const result = await this.pool.query(query, [shopId, date]);
@@ -404,7 +404,7 @@ export class AppointmentRepository extends BaseRepository {
           customer_address as "customerAddress",
           customer_name as "customerName",
           booking_date as "bookingDate",
-          booking_time_slot as "bookingTimeSlot",
+          booking_time as "bookingTimeSlot",
           booking_end_time as "bookingEndTime",
           status,
           total_amount as "totalAmount",
@@ -414,7 +414,7 @@ export class AppointmentRepository extends BaseRepository {
         WHERE shop_id = $1
           AND booking_date >= $2
           AND booking_date <= $3
-        ORDER BY booking_date, booking_time_slot
+        ORDER BY booking_date, booking_time
       `;
 
       const result = await this.pool.query(query, [shopId, startDate, endDate]);
@@ -438,7 +438,7 @@ export class AppointmentRepository extends BaseRepository {
           so.customer_address as "customerAddress",
           c.name as "customerName",
           so.booking_date as "bookingDate",
-          so.booking_time_slot as "bookingTimeSlot",
+          so.booking_time as "bookingTimeSlot",
           so.booking_end_time as "bookingEndTime",
           so.status,
           so.total_amount as "totalAmount",
@@ -448,10 +448,10 @@ export class AppointmentRepository extends BaseRepository {
         LEFT JOIN customers c ON c.wallet_address = so.customer_address
         WHERE so.customer_address = $1
           AND so.booking_date IS NOT NULL
-          AND so.booking_time_slot IS NOT NULL
+          AND so.booking_time IS NOT NULL
           AND DATE(so.booking_date) >= DATE($2)
           AND DATE(so.booking_date) <= DATE($3)
-        ORDER BY so.booking_date, so.booking_time_slot
+        ORDER BY so.booking_date, so.booking_time
       `;
 
       const result = await this.pool.query(query, [customerAddress.toLowerCase(), startDate, endDate]);
@@ -466,7 +466,7 @@ export class AppointmentRepository extends BaseRepository {
     try {
       // First, check if the order belongs to the customer and get booking details
       const checkQuery = `
-        SELECT booking_date, booking_time_slot, status, customer_address
+        SELECT booking_date, booking_time, status, customer_address
         FROM service_orders
         WHERE order_id = $1
       `;
@@ -495,8 +495,8 @@ export class AppointmentRepository extends BaseRepository {
       }
 
       // Check 24-hour cancellation policy
-      if (order.booking_date && order.booking_time_slot) {
-        const bookingDateTime = new Date(`${order.booking_date} ${order.booking_time_slot}`);
+      if (order.booking_date && order.booking_time) {
+        const bookingDateTime = new Date(`${order.booking_date} ${order.booking_time}`);
         const now = new Date();
         const hoursUntil = (bookingDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
 
