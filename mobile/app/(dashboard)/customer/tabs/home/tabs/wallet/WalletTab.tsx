@@ -205,7 +205,11 @@ export default function WalletTab() {
   };
 
   const handleViewAllServices = () => {
-    router.push("/(dashboard)/customer/tabs/service");
+    router.push("/customer/tabs/service");
+  };
+
+  const handleViewAllTrendingServices = () => {
+    router.push("/customer/service/trending");
   };
 
   // Early return for missing data
@@ -310,7 +314,7 @@ export default function WalletTab() {
           {/* Header */}
           <View className="flex-row justify-between items-center mb-4">
             <Text className="text-white text-xl font-bold">Trending</Text>
-            <TouchableOpacity onPress={handleViewAllServices}>
+            <TouchableOpacity onPress={handleViewAllTrendingServices}>
               <Text className="text-[#FFCC00] text-sm font-semibold">
                 View All
               </Text>
@@ -342,6 +346,7 @@ export default function WalletTab() {
                       price={item.priceUsd}
                       duration={item.durationMinutes}
                       onPress={() => handleServicePress(item)}
+                      showTrendingBadge
                     />
                   </View>
                 ))}

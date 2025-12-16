@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   View,
   Text,
@@ -6,7 +7,11 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Linking,
+  Share,
+  Modal,
+  Pressable,
 } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import { Ionicons, Feather, MaterialIcons } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useLocalSearchParams, router } from "expo-router";
@@ -17,6 +22,72 @@ export default function ServiceDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { useGetService } = useService();
   const { data: serviceData, isLoading, error } = useGetService(id!);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  // Generate share URL and message
+  const getShareUrl = () => {
+    // Replace with your actual deep link or web URL
+    return `https://repaircoin.app/service/${id}`;
+  };
+
+  const getShareMessage = () => {
+    if (!serviceData) return "";
+    return `Check out ${serviceData.serviceName} at ${serviceData.shopName} - $${serviceData.priceUsd}`;
+  };
+
+  // Share handlers
+  const handleCopyLink = async () => {
+    await Clipboard.setStringAsync(getShareUrl());
+    setCopySuccess(true);
+    setTimeout(() => {
+      setCopySuccess(false);
+      setShowShareModal(false);
+    }, 1500);
+  };
+
+  const handleShareWhatsApp = async () => {
+    const message = `${getShareMessage()}\n${getShareUrl()}`;
+    const url = `whatsapp://send?text=${encodeURIComponent(message)}`;
+    const canOpen = await Linking.canOpenURL(url);
+    if (canOpen) {
+      await Linking.openURL(url);
+    }
+    setShowShareModal(false);
+  };
+
+  const handleShareTwitter = async () => {
+    const message = getShareMessage();
+    const url = `twitter://post?message=${encodeURIComponent(message)}&url=${encodeURIComponent(getShareUrl())}`;
+    const webUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}&url=${encodeURIComponent(getShareUrl())}`;
+
+    const canOpen = await Linking.canOpenURL(url);
+    if (canOpen) {
+      await Linking.openURL(url);
+    } else {
+      await Linking.openURL(webUrl);
+    }
+    setShowShareModal(false);
+  };
+
+  const handleShareFacebook = async () => {
+    const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(getShareUrl())}`;
+    await Linking.openURL(url);
+    setShowShareModal(false);
+  };
+
+  const handleNativeShare = async () => {
+    try {
+      await Share.share({
+        message: `${getShareMessage()}\n${getShareUrl()}`,
+        url: getShareUrl(),
+        title: serviceData?.serviceName || "Check out this service",
+      });
+    } catch (error) {
+      console.error("Error sharing:", error);
+    }
+    setShowShareModal(false);
+  };
 
   const getCategoryLabel = (category?: string) => {
     if (!category) return "Other";
@@ -32,18 +103,6 @@ export default function ServiceDetail() {
       day: "numeric",
       year: "numeric",
     });
-  };
-
-  const handleCall = () => {
-    if (serviceData?.shopPhone) {
-      Linking.openURL(`tel:${serviceData.shopPhone}`);
-    }
-  };
-
-  const handleEmail = () => {
-    if (serviceData?.shopEmail) {
-      Linking.openURL(`mailto:${serviceData.shopEmail}`);
-    }
   };
 
   const handleBookNow = () => {
@@ -105,16 +164,13 @@ export default function ServiceDetail() {
             <Ionicons name="arrow-back" color="white" size={24} />
           </TouchableOpacity>
 
-          {/* Status Badge */}
-          <View
-            className={`absolute top-14 right-4 px-3 py-1 rounded-full ${
-              serviceData.active ? "bg-green-500" : "bg-gray-600"
-            }`}
+          {/* Share Button */}
+          <TouchableOpacity
+            onPress={() => setShowShareModal(true)}
+            className="absolute top-14 right-4 bg-black/50 rounded-full p-2"
           >
-            <Text className="text-white text-sm font-medium">
-              {serviceData.active ? "Available" : "Unavailable"}
-            </Text>
-          </View>
+            <Ionicons name="share-social-outline" color="white" size={22} />
+          </TouchableOpacity>
         </View>
 
         {/* Content */}
@@ -124,12 +180,6 @@ export default function ServiceDetail() {
             <View className="bg-gray-800 px-3 py-1 rounded-full">
               <Text className="text-gray-400 text-xs uppercase">
                 {getCategoryLabel(serviceData.category)}
-              </Text>
-            </View>
-            <View className="flex-row items-center">
-              <Ionicons name="time-outline" size={16} color="#9CA3AF" />
-              <Text className="text-gray-400 text-sm ml-1">
-                {serviceData.durationMinutes} min
               </Text>
             </View>
           </View>
@@ -164,7 +214,11 @@ export default function ServiceDetail() {
             {serviceData.shopName && (
               <View className="flex-row items-center mb-3">
                 <View className="bg-gray-800 rounded-full p-2 mr-3">
-                  <Ionicons name="storefront-outline" size={20} color="#FFCC00" />
+                  <Ionicons
+                    name="storefront-outline"
+                    size={20}
+                    color="#FFCC00"
+                  />
                 </View>
                 <View className="flex-1">
                   <Text className="text-gray-500 text-xs">Shop Name</Text>
@@ -192,10 +246,7 @@ export default function ServiceDetail() {
 
             {/* Shop Phone */}
             {serviceData.shopPhone && (
-              <TouchableOpacity
-                onPress={handleCall}
-                className="flex-row items-center mb-3"
-              >
+              <View className="flex-row items-center mb-3">
                 <View className="bg-gray-800 rounded-full p-2 mr-3">
                   <Ionicons name="call-outline" size={20} color="#FFCC00" />
                 </View>
@@ -205,16 +256,12 @@ export default function ServiceDetail() {
                     {serviceData.shopPhone}
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color="#666" />
-              </TouchableOpacity>
+              </View>
             )}
 
             {/* Shop Email */}
             {serviceData.shopEmail && (
-              <TouchableOpacity
-                onPress={handleEmail}
-                className="flex-row items-center mb-3"
-              >
+              <View className="flex-row items-center mb-3">
                 <View className="bg-gray-800 rounded-full p-2 mr-3">
                   <Ionicons name="mail-outline" size={20} color="#FFCC00" />
                 </View>
@@ -224,8 +271,7 @@ export default function ServiceDetail() {
                     {serviceData.shopEmail}
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color="#666" />
-              </TouchableOpacity>
+              </View>
             )}
           </View>
 
@@ -278,6 +324,100 @@ export default function ServiceDetail() {
           )}
         </View>
       </View>
+
+      {/* Share Modal */}
+      <Modal
+        visible={showShareModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowShareModal(false)}
+      >
+        <Pressable
+          className="flex-1 bg-black/60 justify-end"
+          onPress={() => setShowShareModal(false)}
+        >
+          <Pressable
+            className="bg-zinc-900 rounded-t-3xl px-4 pt-6 pb-10"
+            onPress={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <View className="flex-row items-center justify-between mb-6">
+              <Text className="text-white text-xl font-bold">
+                Share Service
+              </Text>
+              <TouchableOpacity onPress={() => setShowShareModal(false)}>
+                <Ionicons name="close" size={24} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Share Options */}
+            <View className="flex-row justify-around mb-6">
+              {/* Copy Link */}
+              <TouchableOpacity
+                onPress={handleCopyLink}
+                className="items-center"
+              >
+                <View
+                  className={`w-14 h-14 rounded-full items-center justify-center ${copySuccess ? "bg-green-500" : "bg-zinc-800"}`}
+                >
+                  <Ionicons
+                    name={copySuccess ? "checkmark" : "link"}
+                    size={24}
+                    color="white"
+                  />
+                </View>
+                <Text className="text-gray-400 text-xs mt-2">
+                  {copySuccess ? "Copied!" : "Copy Link"}
+                </Text>
+              </TouchableOpacity>
+
+              {/* WhatsApp */}
+              <TouchableOpacity
+                onPress={handleShareWhatsApp}
+                className="items-center"
+              >
+                <View className="w-14 h-14 bg-[#25D366] rounded-full items-center justify-center">
+                  <Ionicons name="logo-whatsapp" size={24} color="white" />
+                </View>
+                <Text className="text-gray-400 text-xs mt-2">WhatsApp</Text>
+              </TouchableOpacity>
+
+              {/* Twitter/X */}
+              <TouchableOpacity
+                onPress={handleShareTwitter}
+                className="items-center"
+              >
+                <View className="w-14 h-14 bg-black rounded-full items-center justify-center border border-zinc-700">
+                  <Ionicons name="logo-twitter" size={24} color="white" />
+                </View>
+                <Text className="text-gray-400 text-xs mt-2">Twitter</Text>
+              </TouchableOpacity>
+
+              {/* Facebook */}
+              <TouchableOpacity
+                onPress={handleShareFacebook}
+                className="items-center"
+              >
+                <View className="w-14 h-14 bg-[#1877F2] rounded-full items-center justify-center">
+                  <Ionicons name="logo-facebook" size={24} color="white" />
+                </View>
+                <Text className="text-gray-400 text-xs mt-2">Facebook</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* More Options Button */}
+            <TouchableOpacity
+              onPress={handleNativeShare}
+              className="bg-zinc-800 rounded-xl py-4 items-center flex-row justify-center"
+            >
+              <Ionicons name="ellipsis-horizontal" size={20} color="#FFCC00" />
+              <Text className="text-white text-base font-semibold ml-2">
+                More Options
+              </Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }

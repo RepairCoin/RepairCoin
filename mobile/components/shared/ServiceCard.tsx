@@ -1,5 +1,5 @@
 import { Text, View, TouchableOpacity, Image } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
 interface ServiceCardProps {
   imageUrl?: string | null;
@@ -24,6 +24,7 @@ interface ServiceCardProps {
   menuPosition?: "image" | "footer";
   onMenuPress?: () => void;
   variant?: "grid" | "list";
+  showTrendingBadge?: boolean;
 }
 
 export default function ServiceCard({
@@ -42,6 +43,7 @@ export default function ServiceCard({
   menuPosition = "image",
   onMenuPress,
   variant = "grid",
+  showTrendingBadge = false,
 }: ServiceCardProps) {
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "Not scheduled";
@@ -70,6 +72,17 @@ export default function ServiceCard({
               ) : (
                 <View className="w-24 h-24 bg-gray-800 items-center justify-center">
                   <Ionicons name="image-outline" size={24} color="#6B7280" />
+                </View>
+              )}
+              {showTrendingBadge && (
+                <View
+                  className="absolute top-1 left-1 flex-row items-center px-1.5 py-0.5 rounded-full"
+                  style={{ backgroundColor: "#FF6B35" }}
+                >
+                  <MaterialCommunityIcons name="fire" size={10} color="white" />
+                  <Text className="text-white text-[10px] font-semibold ml-0.5">
+                    Trending
+                  </Text>
                 </View>
               )}
             </View>
@@ -177,6 +190,17 @@ export default function ServiceCard({
                   </Text>
                 </View>
               )}
+              {showTrendingBadge && (
+                <View
+                  className="absolute top-2 left-2 flex-row items-center px-2 py-1 rounded-full"
+                  style={{ backgroundColor: "#FF6B35" }}
+                >
+                  <MaterialCommunityIcons name="fire" size={12} color="white" />
+                  <Text className="text-white text-xs font-semibold ml-1">
+                    Trending
+                  </Text>
+                </View>
+              )}
             </View>
           )}
 
@@ -212,33 +236,6 @@ export default function ServiceCard({
 
             <View className="border-t border-gray-800 pt-3 flex-row items-center justify-between">
               <Text className="text-[#FFCC00] font-bold text-lg">${price}</Text>
-              {showMenu && menuPosition === "footer" ? (
-                <TouchableOpacity onPress={onMenuPress}>
-                  <Ionicons name="ellipsis-vertical" size={20} color="#9CA3AF" />
-                </TouchableOpacity>
-              ) : (
-                <View className="flex-row items-center">
-                  {duration !== undefined ? (
-                    <>
-                      <Ionicons name="time-outline" size={14} color="#9CA3AF" />
-                      <Text className="text-gray-400 text-xs ml-1">
-                        {duration} min
-                      </Text>
-                    </>
-                  ) : date !== undefined ? (
-                    <>
-                      <Ionicons
-                        name="calendar-outline"
-                        size={14}
-                        color="#9CA3AF"
-                      />
-                      <Text className="text-gray-400 text-xs ml-1">
-                        {formatDate(date)}
-                      </Text>
-                    </>
-                  ) : null}
-                </View>
-              )}
             </View>
           </View>
         </View>
