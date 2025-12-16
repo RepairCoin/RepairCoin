@@ -418,7 +418,12 @@ export class AppointmentRepository extends BaseRepository {
       `;
 
       const result = await this.pool.query(query, [shopId, startDate, endDate]);
-      return result.rows;
+
+      // Convert totalAmount from string to number
+      return result.rows.map(row => ({
+        ...row,
+        totalAmount: parseFloat(row.totalAmount)
+      }));
     } catch (error) {
       logger.error('Error getting shop calendar:', error);
       throw new Error('Failed to get shop calendar');
@@ -456,7 +461,12 @@ export class AppointmentRepository extends BaseRepository {
       `;
 
       const result = await this.pool.query(query, [customerAddress.toLowerCase(), startDate, endDate]);
-      return result.rows;
+
+      // Convert totalAmount from string to number
+      return result.rows.map(row => ({
+        ...row,
+        totalAmount: parseFloat(row.totalAmount)
+      }));
     } catch (error) {
       logger.error('Error getting customer appointments:', error);
       throw new Error('Failed to get customer appointments');
