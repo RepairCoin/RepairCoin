@@ -12,12 +12,6 @@ import { Alert } from "react-native";
 import { router } from "expo-router";
 import { shopApi } from "@/services/shop.services";
 
-// Query keys
-const QUERY_KEYS = {
-  customerInfo: (address: string) => ["customer-info", address],
-  shopPromoCodes: (shopId: string) => ["shop-promo-codes", shopId],
-} as const;
-
 // Tier bonuses constants
 const TIER_BONUSES = {
   BRONZE: 0,
@@ -38,7 +32,7 @@ export type RepairType = "minor" | "small" | "large" | "custom";
 // Hook for fetching customer info
 export function useCustomerInfo(walletAddress: string) {
   return useQuery({
-    queryKey: QUERY_KEYS.customerInfo(walletAddress),
+    queryKey: queryKeys.customerInfo(walletAddress),
     queryFn: () => getCustomerInfo(walletAddress),
     enabled: !!walletAddress && walletAddress.length === 42,
     select: (data) => data.data.customer,
@@ -77,7 +71,7 @@ export function useIssueReward(resetInputs?: () => void) {
       // Invalidate customer info to refresh their earnings
       if (variables.customerAddress) {
         queryClient.invalidateQueries({
-          queryKey: QUERY_KEYS.customerInfo(variables.customerAddress),
+          queryKey: queryKeys.customerInfo(variables.customerAddress),
         });
       }
 
@@ -315,7 +309,7 @@ export function useShopPromoCodes() {
   const shopId = useAuthStore((state) => state.userProfile?.shopId);
 
   return useQuery({
-    queryKey: QUERY_KEYS.shopPromoCodes(shopId || ""),
+    queryKey: queryKeys.shopPromoCodes(shopId || ""),
     queryFn: () => {
       if (!shopId) {
         throw new Error("No shop ID found");
@@ -377,7 +371,7 @@ export function useUpdatePromoCodeStatus() {
       // Invalidate promo codes list to refresh
       if (shopId) {
         queryClient.invalidateQueries({
-          queryKey: QUERY_KEYS.shopPromoCodes(shopId),
+          queryKey: queryKeys.shopPromoCodes(shopId),
         });
 
         Alert.alert(
@@ -426,7 +420,7 @@ export function useCreatePromoCode() {
       // Invalidate promo codes list to refresh
       if (shopId) {
         queryClient.invalidateQueries({
-          queryKey: QUERY_KEYS.shopPromoCodes(shopId),
+          queryKey: queryKeys.shopPromoCodes(shopId),
         });
       }
     },

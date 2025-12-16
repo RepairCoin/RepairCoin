@@ -1,8 +1,9 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/auth.store";
-import { 
+import { queryKeys } from "@/config/queryClient";
+import {
   approvalRedemptionSession,
-  fetchMyRedemptionSessions, 
+  fetchMyRedemptionSessions,
   fetchTokenBalance,
   rejectRedemptionSession,
   RedemptionSessionsResponse
@@ -67,39 +68,10 @@ export interface ApprovalRequest {
   transactionHash?: string;
 }
 
-// Query Keys
-const QUERY_KEYS = {
-  BALANCE: (address: string) => ["token", "balance", address],
-  TRANSACTIONS: (address: string, limit?: number, offset?: number) => [
-    "token",
-    "transactions",
-    address,
-    { limit, offset },
-  ],
-  STATS: ["token", "stats"],
-  PRICE: ["token", "price"],
-  ELIGIBILITY: (address: string, shopId: string, amount: number) => [
-    "token",
-    "eligibility",
-    address,
-    shopId,
-    amount,
-  ],
-  EARNING_OPPORTUNITIES: (address: string) => ["token", "earning", address],
-  TRANSACTION_DETAILS: (hash: string) => ["token", "transaction", hash],
-  GAS_ESTIMATE: (type: string, amount: number) => [
-    "token",
-    "gas",
-    type,
-    amount,
-  ],
-  REDEMPTION_SESSIONS: (address: string) => ["token", "redemption-sessions", address],
-};
-
 // Hook: Fetch Token Balance
 export const useTokenBalance = (walletAddress?: string) => {
   return useQuery<BalanceData | null>({
-    queryKey: QUERY_KEYS.BALANCE(walletAddress || ""),
+    queryKey: queryKeys.tokenBalance(walletAddress || ""),
     queryFn: async () => {
       const data = await fetchTokenBalance(walletAddress!);
       if (data) {
@@ -144,9 +116,9 @@ export const useTokenBalance = (walletAddress?: string) => {
 export const useRedemptionSessions = () => {
   const { userProfile } = useAuthStore();
   const walletAddress = userProfile?.address;
-  
+
   return useQuery<RedemptionSessionsResponse>({
-    queryKey: QUERY_KEYS.REDEMPTION_SESSIONS(walletAddress || ""),
+    queryKey: queryKeys.redemptionSessions(walletAddress || ""),
     queryFn: async () => {
       const response: RedemptionSessionsResponse = await fetchMyRedemptionSessions();
       return response;

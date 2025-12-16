@@ -35,6 +35,16 @@ class ServiceApi {
     }
   }
 
+  async getTrendingServices(options?: { limit?: number; days?: number }): Promise<any> {
+    try {
+      const queryString = options ? buildQueryString(options) : "";
+      return await apiClient.get<any>(`/services/discovery/trending${queryString}`);
+    } catch (error: any) {
+      console.error("Failed to get trending services:", error.message);
+      throw error;
+    }
+  }
+
   async getService(serviceId: string): Promise<ServiceDetailResponse> {
     try {
       return await apiClient.get<ServiceDetailResponse>(`/services/${serviceId}`);

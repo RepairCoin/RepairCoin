@@ -35,8 +35,8 @@ export const queryClient = createQueryClient();
 
 export const queryKeys = {
   all: ['repaircoin'] as const,
-  
-  // Customer related (primary focus)
+
+  // Customer related
   customers: () => [...queryKeys.all, 'customers'] as const,
   customer: (walletAddress: string) => [...queryKeys.customers(), walletAddress] as const,
   customerProfile: (walletAddress: string) => [...queryKeys.customer(walletAddress), 'profile'] as const,
@@ -45,42 +45,59 @@ export const queryKeys = {
   customerTier: (walletAddress: string) => [...queryKeys.customer(walletAddress), 'tier'] as const,
   customerReferrals: (walletAddress: string) => [...queryKeys.customer(walletAddress), 'referrals'] as const,
   earningHistory: (walletAddress: string) => [...queryKeys.customer(walletAddress), 'earningHistory'] as const,
-  
-  // Shop related (for future development)
+  customerInfo: (walletAddress: string) => [...queryKeys.customer(walletAddress), 'info'] as const,
+
+  // Shop related
   shops: () => [...queryKeys.all, 'shops'] as const,
-  shopByWalletAddress: (walletAddress: string) => [...queryKeys.shops(), walletAddress] as const,
-  shop: (id: string) => [...queryKeys.shops(), id] as const,
+  shopList: () => [...queryKeys.shops(), 'list'] as const,
+  shopByWalletAddress: (walletAddress: string) => [...queryKeys.shops(), 'wallet', walletAddress] as const,
+  shop: (id: string) => [...queryKeys.shops(), 'detail', id] as const,
   shopProfile: (id: string) => [...queryKeys.shop(id), 'profile'] as const,
   shopTransactions: (id: string) => [...queryKeys.shop(id), 'transactions'] as const,
   shopCustomerGrowth: (id: string) => [...queryKeys.shop(id), 'customerGrowth'] as const,
   shopCustomers: (id: string) => [...queryKeys.shop(id), 'customers'] as const,
-  shopPromoCodes: (shopId: string) => [...queryKeys.shop(shopId), 'promoCodes'] as const,
+  shopPromoCodes: (shopId: string) => [...queryKeys.shops(), 'promoCodes', shopId] as const,
   nearbyShops: (coordinates: { lat: number; lng: number }) =>
     [...queryKeys.shops(), 'nearby', coordinates] as const,
 
   // Redemption related
   redemptions: () => [...queryKeys.all, 'redemptions'] as const,
   redemptionSession: (sessionId: string) => [...queryKeys.redemptions(), 'session', sessionId] as const,
-  redemptionSessions: (shopId: string) => [...queryKeys.redemptions(), 'sessions', shopId] as const,
-  
+  redemptionSessions: (walletAddress: string) => [...queryKeys.redemptions(), 'sessions', walletAddress] as const,
+
   // Token related
   tokens: () => [...queryKeys.all, 'tokens'] as const,
   tokenBalance: (address: string) => [...queryKeys.tokens(), 'balance', address] as const,
-  tokenPrice: (symbol: string) => [...queryKeys.tokens(), 'price', symbol] as const,
+  tokenTransactions: (address: string, options?: { limit?: number; offset?: number }) =>
+    [...queryKeys.tokens(), 'transactions', address, options] as const,
+  tokenStats: () => [...queryKeys.tokens(), 'stats'] as const,
+  tokenPrice: () => [...queryKeys.tokens(), 'price'] as const,
+  tokenEligibility: (address: string, shopId: string, amount: number) =>
+    [...queryKeys.tokens(), 'eligibility', address, shopId, amount] as const,
+  tokenEarningOpportunities: (address: string) => [...queryKeys.tokens(), 'earning', address] as const,
+  tokenTransactionDetails: (hash: string) => [...queryKeys.tokens(), 'transaction', hash] as const,
+  tokenGasEstimate: (type: string, amount: number) => [...queryKeys.tokens(), 'gas', type, amount] as const,
   rcnBalance: (address: string) => [...queryKeys.tokens(), 'rcn', address] as const,
-  
-  // Auth related (customer and shop only)
+
+  // Auth related
   auth: () => [...queryKeys.all, 'auth'] as const,
   authUser: () => [...queryKeys.auth(), 'user'] as const,
   authSession: () => [...queryKeys.auth(), 'session'] as const,
 
   // Service related
   services: () => [...queryKeys.all, 'services'] as const,
-  shopServices: (shopId: string, options?: { page?: number; limit?: number }) => [...queryKeys.services(), shopId, options] as const,
-  service: (id: string) => [...queryKeys.services(), id] as const,
+  serviceList: (filters?: { category?: string; shopId?: string }) =>
+    [...queryKeys.services(), 'list', filters] as const,
+  serviceTrending: (options?: { limit?: number; days?: number }) =>
+    [...queryKeys.services(), 'trending', options] as const,
+  shopServices: (shopId: string, options?: { page?: number; limit?: number }) =>
+    [...queryKeys.services(), 'shop', shopId, options] as const,
+  service: (id: string) => [...queryKeys.services(), 'detail', id] as const,
 
   // Booking related
-  bookings: (filters?: BookingFilters) => [...queryKeys.all, 'bookings', filters] as const,
+  bookings: () => [...queryKeys.all, 'bookings'] as const,
+  shopBookings: (filters?: BookingFilters) => [...queryKeys.bookings(), 'shop', filters] as const,
+  customerBookings: (filters?: BookingFilters) => [...queryKeys.bookings(), 'customer', filters] as const,
 
   // Appointment related
   appointments: () => [...queryKeys.all, 'appointments'] as const,
