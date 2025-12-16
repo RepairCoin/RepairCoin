@@ -14,7 +14,7 @@ import {
 export function useService() {
   const useGetAllServicesQuery = (filters?: ServiceFilters) => {
     return useQuery({
-      queryKey: queryKeys.services(),
+      queryKey: queryKeys.serviceList(filters),
       queryFn: async () => {
         const response: ServiceResponse = await serviceApi.getAll(filters);
         return response.data;
@@ -108,10 +108,26 @@ export function useService() {
     });
   };
 
+  const useGetTrendingServices = (options?: {
+    limit?: number;
+    days?: number;
+  }) => {
+    return useQuery({
+      queryKey: queryKeys.serviceTrending(options),
+      queryFn: async () => {
+        const response: any =
+          await serviceApi.getTrendingServices(options);
+        return response.data;
+      },
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    });
+  }
+
   return {
     useGetAllServicesQuery,
     useShopServicesQuery,
     useGetService,
+    useGetTrendingServices,
     useCreateService,
     useUpdateService,
     useDeleteService,

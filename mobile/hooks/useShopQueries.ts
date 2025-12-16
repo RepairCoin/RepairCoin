@@ -11,7 +11,7 @@ import { ShopFormData, ShopResponse } from "@/interfaces/shop.interface";
 
 export const useShops = () => {
   return useQuery({
-    queryKey: queryKeys.shops(),
+    queryKey: queryKeys.shopList(),
     queryFn: async () => {
       const response: ShopResponse = await shopApi.listShops();
       return response.data;

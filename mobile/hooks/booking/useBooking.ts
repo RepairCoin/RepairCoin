@@ -12,7 +12,7 @@ import { usePaymentStore } from "@/store/payment.store";
 export function useBooking() {
   const useShopBookingQuery = (filters?: BookingFilters) => {
     return useQuery({
-      queryKey: queryKeys.bookings(filters),
+      queryKey: queryKeys.shopBookings(filters),
       queryFn: async () => {
         const response: BookingResponse =
           await bookingApi.getShopBookings(filters);
@@ -24,7 +24,7 @@ export function useBooking() {
 
   const useCustomerBookingQuery = (filters?: BookingFilters) => {
     return useQuery({
-      queryKey: queryKeys.bookings(filters),
+      queryKey: queryKeys.customerBookings(filters),
       queryFn: async () => {
         const response: BookingResponse =
           await bookingApi.getCustomerBookings(filters);

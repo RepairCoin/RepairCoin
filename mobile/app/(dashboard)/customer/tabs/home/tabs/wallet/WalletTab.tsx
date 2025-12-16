@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -6,11 +6,10 @@ import {
   Image,
   ActivityIndicator,
   TouchableOpacity,
+  ScrollView,
+  RefreshControl,
 } from "react-native";
-import {
-  Entypo,
-  SimpleLineIcons,
-} from "@expo/vector-icons";
+import { Entypo, SimpleLineIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -22,7 +21,6 @@ import { useService } from "@/hooks/service/useService";
 import { useAuthStore } from "@/store/auth.store";
 
 import ServiceCard from "@/components/shared/ServiceCard";
-
 
 interface TierInfo {
   color: [string, string];
@@ -135,6 +133,7 @@ const BalanceCard: React.FC<{
 export default function WalletTab() {
   const { account } = useAuthStore();
   const { useGetCustomerByWalletAddress } = useCustomer();
+  const { useGetAllServicesQuery, useGetTrendingServices } = useService();
 
   // Use the token balance hook
   const {
@@ -145,11 +144,33 @@ export default function WalletTab() {
   } = useGetCustomerByWalletAddress(account?.address);
 
   // Get services
-  const { useGetAllServicesQuery } = useService();
-  const { data: servicesData, isLoading: servicesLoading } =
-    useGetAllServicesQuery();
+  const {
+    data: servicesData,
+    isLoading: servicesLoading,
+    refetch: refetchServices,
+  } = useGetAllServicesQuery();
 
-  const totalBalance = (customerData?.customer?.lifetimeEarnings || 0) - (customerData?.customer?.totalRedemptions || 0);
+  const {
+    data: trendingData,
+    isLoading: trendingLoading,
+    refetch: refetchTrending,
+  } = useGetTrendingServices({ limit: 4, days: 7 });
+
+  // Pull-to-refresh state
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([refetch(), refetchServices(), refetchTrending()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetch, refetchServices, refetchTrending]);
+
+  const totalBalance =
+    (customerData?.customer?.lifetimeEarnings || 0) -
+    (customerData?.customer?.totalRedemptions || 0);
 
   const tokenData = {
     tier: (customerData?.customer?.tier as Tier) || "BRONZE",
@@ -158,17 +179,19 @@ export default function WalletTab() {
     totalEarned: customerData?.customer?.lifetimeEarnings,
   };
 
-  // Get latest 2 active services (sorted by createdAt descending)
+  // Get latest 4 active services (sorted by createdAt descending)
   const displayedServices = useMemo(() => {
     if (!servicesData || !Array.isArray(servicesData)) {
       return [];
     }
-    const activeServices = servicesData.filter((service: ServiceData) => service.active);
+    const activeServices = servicesData.filter(
+      (service: ServiceData) => service.active
+    );
     const sortedServices = [...activeServices].sort(
       (a: ServiceData, b: ServiceData) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-    return sortedServices.slice(0, 2);
+    return sortedServices.slice(0, 4);
   }, [servicesData]);
 
   const getCategoryLabel = (category?: string) => {
@@ -209,57 +232,133 @@ export default function WalletTab() {
   }
 
   return (
-    <View className="mt-4 flex-1">
-      {/* Balance Card */}
-      <BalanceCard
-        balance={tokenData.balance}
-        tier={tokenData.tier}
-        isLoading={isLoading}
-      />
+    <View className="mt-4 h-full">
+      <ScrollView
+        className="mb-44 h-full"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#FFCC00"
+            colors={["#FFCC00"]}
+          />
+        }
+      >
+        {/* Balance Card */}
+        <BalanceCard
+          balance={tokenData.balance}
+          tier={tokenData.tier}
+          isLoading={isLoading}
+        />
 
-      {/* Choose Service Section */}
-      <View className="mt-5">
-        {/* Header */}
-        <View className="flex-row justify-between items-center mb-4">
-          <Text className="text-white text-xl font-bold">Services</Text>
-          <TouchableOpacity onPress={handleViewAllServices}>
-            <Text className="text-[#FFCC00] text-sm font-semibold">
-              View All
-            </Text>
-          </TouchableOpacity>
+        {/* Choose Service Section */}
+        <View className="mt-5">
+          {/* Header */}
+          <View className="flex-row justify-between items-center mb-4">
+            <Text className="text-white text-xl font-bold">Services</Text>
+            <TouchableOpacity onPress={handleViewAllServices}>
+              <Text className="text-[#FFCC00] text-sm font-semibold">
+                View All
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Service Cards - Horizontal Slider */}
+          {servicesLoading ? (
+            <View className="justify-center items-center py-10">
+              <ActivityIndicator size="large" color="#FFCC00" />
+            </View>
+          ) : displayedServices.length > 0 ? (
+            <View style={{ marginHorizontal: -16 }}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: 16 }}
+                decelerationRate="fast"
+                snapToInterval={172}
+                snapToAlignment="start"
+              >
+                {displayedServices.map((item: ServiceData) => (
+                  <View key={item.serviceId} style={{ width: 180, marginRight: -2 }}>
+                    <ServiceCard
+                      imageUrl={item.imageUrl}
+                      category={getCategoryLabel(item.category)}
+                      title={item.serviceName}
+                      description={item.description}
+                      price={item.priceUsd}
+                      duration={item.durationMinutes}
+                      onPress={() => handleServicePress(item)}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          ) : (
+            <View className="items-center py-10">
+              <Text className="text-gray-400 text-center">
+                No services available
+              </Text>
+              <Text className="text-gray-500 text-sm text-center mt-2">
+                Check back later for new services
+              </Text>
+            </View>
+          )}
         </View>
 
-        {/* Service Cards */}
-        {servicesLoading ? (
-          <View className="justify-center items-center py-10">
-            <ActivityIndicator size="large" color="#FFCC00" />
+        {/* Trending Services Section */}
+        <View className="mt-5">
+          {/* Header */}
+          <View className="flex-row justify-between items-center mb-4">
+            <Text className="text-white text-xl font-bold">Trending</Text>
+            <TouchableOpacity onPress={handleViewAllServices}>
+              <Text className="text-[#FFCC00] text-sm font-semibold">
+                View All
+              </Text>
+            </TouchableOpacity>
           </View>
-        ) : displayedServices.length > 0 ? (
-          <View className="flex-row" style={{ marginHorizontal: -8 }}>
-            {displayedServices.map((item: ServiceData) => (
-              <ServiceCard
-                key={item.serviceId}
-                imageUrl={item.imageUrl}
-                category={getCategoryLabel(item.category)}
-                title={item.serviceName}
-                description={item.description}
-                price={item.priceUsd}
-                duration={item.durationMinutes}
-                onPress={() => handleServicePress(item)}
-              />
-            ))}
-          </View>
-        ) : (
-          <View className="items-center py-10">
-            <Text className="text-gray-400 text-center">
-              No services available
-            </Text>
-            <Text className="text-gray-500 text-sm text-center mt-2">
-              Check back later for new services
-            </Text>
-          </View>
-        )}
-      </View>
+
+          {/* Trending Cards - Horizontal Slider */}
+          {trendingLoading ? (
+            <View className="justify-center items-center py-10">
+              <ActivityIndicator size="large" color="#FFCC00" />
+            </View>
+          ) : trendingData && trendingData.length > 0 ? (
+            <View style={{ marginHorizontal: -16 }}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: 16 }}
+                decelerationRate="fast"
+                snapToInterval={172}
+                snapToAlignment="start"
+              >
+                {trendingData.map((item: ServiceData) => (
+                  <View key={item.serviceId} style={{ width: 180, marginRight: -2 }}>
+                    <ServiceCard
+                      imageUrl={item.imageUrl}
+                      category={getCategoryLabel(item.category)}
+                      title={item.serviceName}
+                      description={item.description}
+                      price={item.priceUsd}
+                      duration={item.durationMinutes}
+                      onPress={() => handleServicePress(item)}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          ) : (
+            <View className="items-center py-10">
+              <Text className="text-gray-400 text-center">
+                No trending services
+              </Text>
+              <Text className="text-gray-500 text-sm text-center mt-2">
+                Check back later for trending services
+              </Text>
+            </View>
+          )}
+        </View>
+      </ScrollView>
     </View>
   );
 }
