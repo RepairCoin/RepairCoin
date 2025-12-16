@@ -77,6 +77,24 @@ export interface CreateDateOverrideRequest {
   reason?: string;
 }
 
+export interface MyAppointment {
+  orderId: string;
+  shopId: string;
+  shopName: string;
+  shopAddress: string | null;
+  shopPhone: string | null;
+  serviceId: string;
+  serviceName: string;
+  serviceImage: string | null;
+  bookingDate: string;
+  bookingTimeSlot: string | null;
+  bookingEndTime: string | null;
+  status: string;
+  totalAmount: number;
+  notes: string | null;
+  createdAt: string;
+}
+
 export interface TimeSlotsResponse extends BaseResponse<TimeSlot[]> {}
 export interface ShopAvailabilityResponse extends BaseResponse<ShopAvailability[]> {}
 export interface ShopAvailabilityDetailResponse extends BaseResponse<ShopAvailability> {}
@@ -85,3 +103,4 @@ export interface TimeSlotConfigDetailResponse extends BaseResponse<TimeSlotConfi
 export interface DateOverridesResponse extends BaseResponse<DateOverride[]> {}
 export interface DateOverrideDetailResponse extends BaseResponse<DateOverride> {}
 export interface CalendarBookingsResponse extends BaseResponse<CalendarBooking[]> {}
+export interface MyAppointmentsResponse extends BaseResponse<MyAppointment[]> {}

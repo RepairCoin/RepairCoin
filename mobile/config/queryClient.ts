@@ -109,6 +109,8 @@ export const queryKeys = {
     [...queryKeys.appointments(), 'overrides', { startDate, endDate }] as const,
   shopCalendar: (startDate: string, endDate: string) =>
     [...queryKeys.appointments(), 'calendar', startDate, endDate] as const,
+  myAppointments: (startDate: string, endDate: string) =>
+    [...queryKeys.appointments(), 'my', startDate, endDate] as const,
 } as const;
 
 export type QueryKeys = typeof queryKeys;

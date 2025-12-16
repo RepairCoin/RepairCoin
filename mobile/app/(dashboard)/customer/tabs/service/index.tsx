@@ -9,8 +9,8 @@ import React from "react";
 import ServicesTab from "./tabs/services";
 import BookingsTab from "./tabs/bookings";
 
-type ServiceTab = "Services" | "Booking";
-const serviceTabs: ServiceTab[] = ["Services", "Booking"];
+type ServiceTab = "Services" | "My Booking";
+const serviceTabs: ServiceTab[] = ["Services", "My Booking"];
 
 export default function Service() {
   const [activeTab, setActiveTab] = useState<ServiceTab>("Services");
@@ -38,7 +38,7 @@ export default function Service() {
           ))}
         </View>
         {activeTab === "Services" && <ServicesTab />}
-        {activeTab === "Booking" && <BookingsTab />}
+        {activeTab === "My Booking" && <BookingsTab />}
       </View>
     </ThemedView>
   );

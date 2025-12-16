@@ -7,6 +7,7 @@ import {
   TimeSlotConfig,
   DateOverride,
   CalendarBooking,
+  MyAppointment,
   UpdateAvailabilityRequest,
   CreateDateOverrideRequest,
 } from "@/interfaces/appointment.interface";
@@ -85,6 +86,19 @@ export function useAppointment() {
     });
   };
 
+  // Query: Get my appointments (customer)
+  const useMyAppointmentsQuery = (startDate: string, endDate: string) => {
+    return useQuery({
+      queryKey: queryKeys.myAppointments(startDate, endDate),
+      queryFn: async () => {
+        const response = await appointmentApi.getMyAppointments(startDate, endDate);
+        return response.data as MyAppointment[];
+      },
+      enabled: !!startDate && !!endDate,
+      staleTime: 2 * 60 * 1000, // 2 minutes
+    });
+  };
+
   // Mutation: Update shop availability
   const useUpdateShopAvailabilityMutation = () => {
     return useMutation({
@@ -154,6 +168,18 @@ export function useAppointment() {
     });
   };
 
+  // Mutation: Cancel appointment
+  const useCancelAppointmentMutation = () => {
+    return useMutation({
+      mutationFn: async (orderId: string) => {
+        return await appointmentApi.cancelAppointment(orderId);
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.appointments() });
+      },
+    });
+  };
+
   return {
     // Queries
     useAvailableTimeSlotsQuery,
@@ -161,11 +187,13 @@ export function useAppointment() {
     useTimeSlotConfigQuery,
     useDateOverridesQuery,
     useShopCalendarQuery,
+    useMyAppointmentsQuery,
     // Mutations
     useUpdateShopAvailabilityMutation,
     useUpdateTimeSlotConfigMutation,
     useCreateDateOverrideMutation,
     useDeleteDateOverrideMutation,
     useUpdateServiceDurationMutation,
+    useCancelAppointmentMutation,
   };
 }
