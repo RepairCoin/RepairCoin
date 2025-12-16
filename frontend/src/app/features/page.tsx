@@ -17,7 +17,11 @@ import {
   Building2,
   UserCheck,
   DollarSign,
-  Activity
+  Activity,
+  Calendar,
+  Bell,
+  Star,
+  Share2
 } from "lucide-react";
 import Image from "next/image";
 
@@ -96,6 +100,54 @@ export default function FeaturesPage() {
         "Gold: +5 bonus tokens per transaction",
         "Priority support and exclusive offers"
       ]
+    },
+    {
+      icon: <ShoppingBag className="w-6 h-6" />,
+      title: "Service Marketplace",
+      description: "Browse and book services from verified shops",
+      details: [
+        "Browse services with filters and search",
+        "See RCN earning potential on each service",
+        "Favorite services for quick access",
+        "Share services via WhatsApp, Twitter, Facebook",
+        "Read reviews and ratings from other customers"
+      ]
+    },
+    {
+      icon: <Calendar className="w-6 h-6" />,
+      title: "Appointment Scheduling",
+      description: "Book services with date and time selection",
+      details: [
+        "Select preferred date and time slot",
+        "Real-time availability based on shop hours",
+        "Booking confirmation email immediately after payment",
+        "24-hour reminder email before appointment",
+        "View all your appointments in one place"
+      ]
+    },
+    {
+      icon: <Bell className="w-6 h-6" />,
+      title: "Smart Notifications",
+      description: "Stay informed with automated alerts",
+      details: [
+        "Email confirmations when you book services",
+        "Reminder emails 24 hours before appointments",
+        "In-app notifications for bookings and rewards",
+        "Transaction receipts and history",
+        "Important updates and announcements"
+      ]
+    },
+    {
+      icon: <Star className="w-6 h-6" />,
+      title: "Reviews & Ratings",
+      description: "Share your experience and help others",
+      details: [
+        "Rate completed services 1-5 stars",
+        "Write detailed reviews with photos",
+        "Filter services by rating",
+        "See shop responses to reviews",
+        "Helpful voting on useful reviews"
+      ]
     }
   ];
 
@@ -153,6 +205,42 @@ export default function FeaturesPage() {
         "Customer referral incentives",
         "Social media integration",
         "Review management system"
+      ]
+    },
+    {
+      icon: <Store className="w-6 h-6" />,
+      title: "Service Marketplace",
+      description: "Manage your service offerings and bookings",
+      details: [
+        "Create and manage service listings",
+        "Upload service images to DigitalOcean Spaces",
+        "Set pricing, duration, and categories",
+        "Track bookings and service analytics",
+        "View and respond to customer reviews"
+      ]
+    },
+    {
+      icon: <Calendar className="w-6 h-6" />,
+      title: "Appointment Management",
+      description: "Full control over scheduling and availability",
+      details: [
+        "Set operating hours for each day with break times",
+        "Configure slot duration and buffer time",
+        "Manage concurrent booking limits",
+        "Add date overrides for holidays and special hours",
+        "Monthly calendar view of all appointments"
+      ]
+    },
+    {
+      icon: <Bell className="w-6 h-6" />,
+      title: "Automated Notifications",
+      description: "Keep customers and staff informed automatically",
+      details: [
+        "Customers receive booking confirmations instantly",
+        "24-hour appointment reminders sent automatically",
+        "Get notified when new bookings arrive",
+        "Alerts for upcoming appointments",
+        "All notifications handled without manual work"
       ]
     }
   ];

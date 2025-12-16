@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { DollarSign, Clock, MapPin, Image as ImageIcon, Coins } from "lucide-react";
+import { DollarSign, Clock, MapPin, Image as ImageIcon, Coins, Plus } from "lucide-react";
 import { ShopServiceWithShopInfo, SERVICE_CATEGORIES } from "@/services/api/services";
 import { FavoriteButton } from "./FavoriteButton";
 import { ShareButton } from "./ShareButton";
@@ -31,7 +31,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
 
   // Calculate RCN earnings for this service
   const customerTier = customerData?.tier || 'BRONZE';
-  const { totalRcn, tierBonus, qualifies } = calculateTotalRcn(service.priceUsd, customerTier);
+  const { baseRcn, totalRcn, tierBonus, qualifies } = calculateTotalRcn(service.priceUsd, customerTier);
 
   // Validate if the imageUrl is a valid web image URL
   const isValidImageUrl = (url: string | null | undefined): boolean => {
@@ -84,8 +84,8 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
           />
         </div>
 
-        {/* Share Button - Bottom Right */}
-        <div className="absolute bottom-3 right-3 z-10">
+        {/* Share Button - Top Right (below favorite) */}
+        <div className="absolute top-14 right-3 z-10">
           <ShareButton
             serviceId={service.serviceId}
             serviceName={service.serviceName}
@@ -94,6 +94,25 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
             className="ring-2 ring-white/20"
           />
         </div>
+
+        {/* RCN Earning Badge - Bottom Right */}
+        {qualifies && (
+          <div className="absolute bottom-3 right-3 z-10 group/rcn">
+            <div className="flex items-center gap-0.5 bg-gradient-to-r from-[#FFCC00]/95 to-[#FFD700]/95 backdrop-blur-sm border border-[#FFCC00]/60 text-black px-2.5 py-1 rounded-full shadow-lg hover:scale-105 transition-transform duration-200 cursor-help">
+              <Plus className="w-3 h-3" />
+              <span className="text-xs font-bold">
+                {totalRcn}
+              </span>
+              <Coins className="w-3 h-3 ml-0.5" />
+            </div>
+            {/* Tooltip on hover */}
+            {tierBonus > 0 && (
+              <div className="absolute bottom-full right-0 mb-2 px-2 py-1 bg-black/90 text-white text-[10px] rounded whitespace-nowrap opacity-0 group-hover/rcn:opacity-100 transition-opacity duration-200 pointer-events-none">
+                Base: {baseRcn} + {customerTier} Bonus: {tierBonus}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="p-5 flex flex-col flex-grow">
@@ -105,27 +124,11 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
               <h3 className="text-lg font-bold text-white mb-1 line-clamp-1">
                 {service.serviceName}
               </h3>
-              <div className="flex items-center gap-2 flex-wrap">
-                {service.category && (
-                  <span className="inline-block text-xs bg-[#FFCC00]/10 border border-[#FFCC00]/30 text-[#FFCC00] px-2 py-1 rounded-full">
-                    {getCategoryLabel(service.category)}
-                  </span>
-                )}
-                {/* RCN Earning Badge */}
-                {qualifies && (
-                  <div className="flex items-center gap-1.5 bg-gradient-to-r from-[#FFCC00]/20 to-[#FFD700]/20 border border-[#FFCC00]/40 text-[#FFCC00] px-3 py-1 rounded-full">
-                    <Coins className="w-3.5 h-3.5" />
-                    <span className="text-xs font-bold">
-                      Earn {totalRcn} RCN
-                      {tierBonus > 0 && (
-                        <span className="text-[10px] ml-1 opacity-90">
-                          (+{tierBonus} {customerTier})
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                )}
-              </div>
+              {service.category && (
+                <span className="inline-block text-xs bg-[#FFCC00]/10 border border-[#FFCC00]/30 text-[#FFCC00] px-2 py-1 rounded-full">
+                  {getCategoryLabel(service.category)}
+                </span>
+              )}
             </div>
           </div>
 

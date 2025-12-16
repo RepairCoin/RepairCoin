@@ -12,7 +12,7 @@ const options = {
       version: '3.0.0',
       description: `
         RepairCoin v3.0 loyalty token system API with dual-token model (RCN utility + RCG governance).
-        
+
         This API enables:
         - Customer registration and management with tier system
         - Token minting for repairs and referrals (unlimited supply with burn mechanism)
@@ -23,7 +23,17 @@ const options = {
         - Emergency freeze system for security incident response
         - Webhook processing for external integrations
         - Redemption sessions for secure customer-approved transactions
-        
+        - Service marketplace with booking, reviews, and ratings
+        - Appointment scheduling with automated reminders and notifications
+
+        **New Features:**
+        - **Service Marketplace**: Customers can browse, favorite, share, and book services from verified shops
+        - **Appointment System**: Complete scheduling with date/time selection, availability management, and calendar views
+        - **Automated Reminders**: Email and in-app notifications sent 24 hours before appointments to reduce no-shows
+        - **Booking Confirmations**: Immediate confirmation emails sent after successful payment with booking details
+        - **Reviews & Ratings**: Customers can review completed services; shops can respond
+        - **RCN Earning Display**: Service cards show earning potential with tier bonuses
+
         **Security Features:**
         The platform includes a comprehensive emergency freeze system that allows administrators to immediately halt critical operations during security incidents. This system provides component-level control, complete audit trails, and automated administrator alerts.
       `,

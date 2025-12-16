@@ -348,3 +348,52 @@ stripe listen --forward-to localhost:4000/api/shops/webhooks/stripe
     - Click bookings to view full details modal
     - Stats showing booking counts by status
   - Added "Appointments" section to shop sidebar navigation
+
+### Appointment Reminders & Notifications System (December 15, 2024)
+- **Backend Service (AppointmentReminderService.ts - 496 lines)**
+  - Automated scheduler running every 2 hours checking for upcoming appointments
+  - SQL query finds appointments 23-25 hours before scheduled time (2-hour window)
+  - Professional HTML email templates for reminders and confirmations
+  - State tracking with `reminder_sent` column to prevent duplicates
+  - Graceful error handling that doesn't block payment processing
+- **Customer Communications**
+  - Immediate booking confirmation email after successful payment
+  - 24-hour advance reminder email before appointment
+  - In-app notifications for confirmations and reminders
+  - Email shows booking details, shop info, RCN savings, and appointment time
+  - Reminder email includes tip to arrive early and cancellation policy
+- **Shop Notifications**
+  - In-app notifications when new bookings are received
+  - Alerts 24 hours before upcoming appointments
+  - Shows customer name, service, and appointment time
+  - Helps shops prepare for scheduled appointments
+- **Integration**
+  - Extended NotificationService with 3 new notification types
+  - PaymentService sends confirmation immediately after payment success
+  - App.ts initializes scheduler on startup with graceful shutdown
+  - Non-blocking error handling ensures payment flow continues
+- **Impact**
+  - Reduces no-shows with professional reminder system
+  - Improves customer experience with timely communications
+  - Better shop preparation with advance notifications
+  - Fully automated - zero manual intervention required
+
+### RCN Earning Display Improvements (December 15, 2024)
+- **Service Card Enhancements**
+  - Moved RCN earning badge from header to bottom-right of service image
+  - Consistent positioning across all cards regardless of title length
+  - Compact design with Plus icon (+ 30 🪙) showing earning potential
+  - Gold gradient badge with backdrop blur for visibility
+  - Hover effect with scale animation for interactivity
+- **Visual Design**
+  - Plus icon clearly communicates "you will earn this"
+  - Coin icon reinforces it's a currency reward
+  - Smaller, cleaner badge that doesn't distract from service info
+  - Tier bonus breakdown shown on hover tooltip
+  - Shadow effect for depth and professional appearance
+- **Layout Optimization**
+  - Favorite button: Top right of image
+  - Share button: Top right below favorite
+  - RCN badge: Bottom right of image
+  - Fixed text overflow issues with long service titles
+  - Removed duplicate badge from header area
