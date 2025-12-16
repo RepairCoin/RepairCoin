@@ -396,7 +396,7 @@ export default function PromoCodesTab({ shopId }: PromoCodesTabProps) {
           </button>
         </div>
 
-        {error && (
+        {error && !showCreateForm && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
             {error}
           </div>
@@ -423,6 +423,12 @@ export default function PromoCodesTab({ shopId }: PromoCodesTabProps) {
               </h3>
 
               <form onSubmit={handleCreatePromoCode} className="space-y-4">
+                {error && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                    {error}
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">

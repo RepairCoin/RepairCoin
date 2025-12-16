@@ -267,22 +267,24 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
         console.log("Promo validation result:", result);
         if (result.success && result.data.is_valid) {
           // Calculate bonus based on validation result
+          // Round to 2 decimal places to avoid floating point precision issues
           const rewardBeforePromo = baseReward + tierBonus;
           let bonusAmount = 0;
 
           if (result.data.bonus_type === "fixed") {
-            bonusAmount = parseFloat(result.data.bonus_value) || 0;
+            bonusAmount = Math.round((parseFloat(result.data.bonus_value) || 0) * 100) / 100;
           } else if (result.data.bonus_type === "percentage") {
-            bonusAmount =
+            bonusAmount = Math.round(
               (rewardBeforePromo * (parseFloat(result.data.bonus_value) || 0)) /
-              100;
+              100 * 100
+            ) / 100;
           }
 
           // Apply max_bonus cap if it exists
           if (result.data.max_bonus) {
             const maxBonus = parseFloat(result.data.max_bonus);
             if (!isNaN(maxBonus) && bonusAmount > maxBonus) {
-              bonusAmount = maxBonus;
+              bonusAmount = Math.round(maxBonus * 100) / 100;
             }
           }
 
