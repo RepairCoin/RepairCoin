@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { MapPin, MapPinned, Pencil, Info, Loader2, Home, ChevronRight } from "lucide-react";
+import { MapPin, MapPinned, Pencil, Info, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import apiClient from '@/services/api/client';
 import { LocationPickerWrapper } from "../../maps/LocationPickerWrapper";
@@ -109,19 +109,6 @@ export const ShopLocationTab: React.FC<ShopLocationTabProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb Navigation */}
-      <div className="border-b border-[#303236] pb-4">
-        <div className="flex items-center gap-2 mb-2">
-          <Home className="w-5 h-5 text-white" />
-          <ChevronRight className="w-4 h-4 text-gray-400" />
-          <MapPinned className="w-5 h-5 text-[#FFCC00]" />
-          <span className="text-base font-medium text-[#FFCC00]">Shop Location</span>
-        </div>
-        <p className="text-sm text-[#ddd]">
-          Set your shop&apos;s location for accurate delivery and customer navigation
-        </p>
-      </div>
-
       <div className="bg-[#101010] rounded-xl overflow-hidden">
         {/* Header with Edit Location button */}
         <div className="flex justify-between items-center px-6 py-4 border-b border-[#303236]">
