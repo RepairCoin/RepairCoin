@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { toast } from "react-hot-toast";
 import { X } from "lucide-react";
+import { CountryPhoneInput } from "../../ui/CountryPhoneInput";
 
 interface AddShopModalProps {
   isOpen: boolean;
@@ -266,14 +267,13 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Phone <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="tel"
-                    name="phone"
+                  <CountryPhoneInput
                     value={formData.phone}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
+                    onChange={(phone) =>
+                      setFormData((prev) => ({ ...prev, phone }))
+                    }
                     disabled={loading}
+                    placeholder="Enter phone number"
                   />
                 </div>
               </div>

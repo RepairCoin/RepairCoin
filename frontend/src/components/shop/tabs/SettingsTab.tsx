@@ -5,6 +5,7 @@ import { SubscriptionManagement } from "../SubscriptionManagement";
 import { Store, Mail, Phone, MapPin, Globe, Clock, User } from "lucide-react";
 import toast from "react-hot-toast";
 import { LocationPickerWrapper } from "../../maps/LocationPickerWrapper";
+import { CountryPhoneInput } from "../../ui/CountryPhoneInput";
 import apiClient from '@/services/api/client';
 
 interface ShopData {
@@ -290,14 +291,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     <Phone className="w-6 h-6 inline mr-1" />
                     Phone Number
                   </label>
-                  <input
-                    type="tel"
-                    name="phone"
+                  <CountryPhoneInput
                     value={shopFormData.phone}
-                    onChange={handleShopInputChange}
+                    onChange={(phone) =>
+                      setShopFormData((prev) => ({ ...prev, phone }))
+                    }
                     disabled={!isEditingShop}
-                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
-                    placeholder="+1 (555) 123-4567"
+                    placeholder="Enter phone number"
                   />
                 </div>
 

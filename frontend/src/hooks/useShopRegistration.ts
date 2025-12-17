@@ -213,6 +213,13 @@ export const useShopRegistration = () => {
     }));
   }, []);
 
+  const handlePhoneChange = useCallback((phone: string) => {
+    setFormData(prev => ({
+      ...prev,
+      phone,
+    }));
+  }, []);
+
   const resetForm = useCallback(() => {
     setFormData(initialShopFormData);
     setError(null);
@@ -228,9 +235,10 @@ export const useShopRegistration = () => {
     checkingApplication,
     existingApplication,
     account,
-    
+
     // Actions
     handleInputChange,
+    handlePhoneChange,
     handleLocationSelect,
     handleSubmit,
     resetForm,

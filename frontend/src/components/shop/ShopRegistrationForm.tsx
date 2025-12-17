@@ -5,6 +5,7 @@ import { FormField } from "@/components/forms/FormField";
 import { ShopRegistrationFormData } from "@/types/shop";
 import { LocationPickerWrapper } from "@/components/maps/LocationPickerWrapper";
 import { MapPin } from "lucide-react";
+import { CountryPhoneInput } from "../ui/CountryPhoneInput";
 
 interface ShopRegistrationFormProps {
   formData: ShopRegistrationFormData;
@@ -13,6 +14,7 @@ interface ShopRegistrationFormProps {
   onChange: (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => void;
+  onPhoneChange?: (phone: string) => void;
   onLocationSelect?: (location: { latitude: number; longitude: number; address?: string }) => void;
 }
 
@@ -21,6 +23,7 @@ export const ShopRegistrationForm: React.FC<ShopRegistrationFormProps> = ({
   loading,
   onSubmit,
   onChange,
+  onPhoneChange,
   onLocationSelect,
 }) => {
   const [showLocationPicker, setShowLocationPicker] = useState(false);
@@ -82,15 +85,17 @@ export const ShopRegistrationForm: React.FC<ShopRegistrationFormProps> = ({
             placeholder="john@example.com"
             required
           />
-          <FormField
-            label="Phone"
-            name="phone"
-            type="tel"
-            value={formData.phone}
-            onChange={onChange}
-            placeholder="+1 (555) 123-4567"
-            required
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Phone <span className="text-red-500">*</span>
+            </label>
+            <CountryPhoneInput
+              value={formData.phone}
+              onChange={(phone) => onPhoneChange?.(phone)}
+              disabled={loading}
+              placeholder="Enter phone number"
+            />
+          </div>
         </div>
       </div>
 
