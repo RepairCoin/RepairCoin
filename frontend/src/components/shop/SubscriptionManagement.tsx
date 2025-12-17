@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import apiClient from "@/services/api/client";
+import { CountryPhoneInput } from "../ui/CountryPhoneInput";
 
 interface Subscription {
   id?: number;
@@ -869,7 +870,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
                       billingContact: e.target.value,
                     })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFCC00]"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                   placeholder="John Doe"
                   required
                 />
@@ -892,7 +893,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
                       billingEmail: e.target.value,
                     })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFCC00]"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                   placeholder="billing@example.com"
                   required
                 />
@@ -905,18 +906,15 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
                 >
                   Phone Number
                 </label>
-                <input
-                  type="tel"
-                  id="billingPhone"
+                <CountryPhoneInput
                   value={billingForm.billingPhone}
-                  onChange={(e) =>
+                  onChange={(phone) =>
                     setBillingForm({
                       ...billingForm,
-                      billingPhone: e.target.value,
+                      billingPhone: phone,
                     })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFCC00]"
-                  placeholder="+1 (555) 123-4567"
+                  placeholder="Enter phone number"
                 />
               </div>
 

@@ -31,7 +31,7 @@ export const FormField: React.FC<FormFieldProps> = ({
 }) => {
   const inputClassName = `w-full px-4 py-3 rounded-xl bg-gray-100 border ${
     error ? "border-red-500" : "border-gray-300"
-  } focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent transition duration-200`;
+  } focus:outline-none focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent transition duration-200`;
 
   return (
     <div className="mb-4">
@@ -49,7 +49,7 @@ export const FormField: React.FC<FormFieldProps> = ({
           value={value as string}
           onChange={onChange}
           disabled={disabled}
-          className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
           required={required}
         >
           {children}
@@ -77,7 +77,7 @@ export const FormField: React.FC<FormFieldProps> = ({
           onChange={onChange}
           placeholder={placeholder}
           disabled={disabled}
-          className={`w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+          className={`w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
           required={required}
         />
       )}
