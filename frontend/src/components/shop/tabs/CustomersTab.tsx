@@ -3,42 +3,20 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import apiClient from "@/services/api/client";
-import { StatCard } from "@/components/ui/StatCard";
-import { DataTable, Column } from "@/components/ui/DataTable";
 import {
   Users,
   Search,
-  Filter,
-  TrendingUp,
-  Award,
-  Calendar,
-  Star,
-  Wallet,
-  Activity,
-  ChevronDown,
-  ChevronUp,
   UserCheck,
-  Clock,
-  Zap,
-  Target,
-  Trophy,
-  Sparkles,
-  ArrowUpRight,
-  ArrowDownRight,
-  Gift,
-  Crown,
-  Shield,
-  DollarSign,
-  Hash,
-  Mail,
-  Phone,
-  MapPin,
-  MoreVertical,
-  Eye,
-  Send,
-  ChevronRight,
+  Coins,
+  UserSearch,
 } from "lucide-react";
-import { WalletIcon, LookupIcon } from "../../icon/index";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Customer {
   address: string;
@@ -67,9 +45,46 @@ interface GrowthStats {
   periodLabel: string;
 }
 
-export const CustomersTab: React.FC<CustomersTabProps> = ({
-  shopId,
-}) => {
+// Stat Card Component matching Figma design
+const CustomerStatCard: React.FC<{
+  title: string;
+  value: string | number;
+  icon: React.ReactNode;
+  suffix?: string;
+}> = ({ title, value, icon, suffix }) => (
+  <div className="bg-[#101010] rounded-[20px] p-5 h-[97px] flex items-center gap-4">
+    <div className="w-[34px] h-[34px] rounded-full bg-[#FFCC00] flex items-center justify-center flex-shrink-0">
+      {icon}
+    </div>
+    <div className="flex flex-col">
+      <p className="text-sm font-medium text-white tracking-[-0.28px] leading-6">
+        {title}
+      </p>
+      <p className="text-2xl font-bold text-white tracking-[-0.48px] leading-8">
+        {value}{suffix && ` ${suffix}`}
+      </p>
+    </div>
+  </div>
+);
+
+// Tier Badge Component
+const TierBadge: React.FC<{ tier: "BRONZE" | "SILVER" | "GOLD" }> = ({ tier }) => {
+  const tierStyles = {
+    GOLD: "bg-[#FFCC00] text-[#101010]",
+    SILVER: "bg-[#E8E8E8] text-[#101010]",
+    BRONZE: "bg-[#CE8946] text-[#101010]",
+  };
+
+  return (
+    <span
+      className={`inline-flex items-center justify-center px-4 py-1 rounded-[10px] text-sm font-semibold w-[90px] ${tierStyles[tier]}`}
+    >
+      {tier}
+    </span>
+  );
+};
+
+export const CustomersTab: React.FC<CustomersTabProps> = ({ shopId }) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -79,74 +94,8 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
   const [sortBy, setSortBy] = useState<"recent" | "earnings" | "transactions">(
     "recent"
   );
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
-    null
-  );
   const [growthStats, setGrowthStats] = useState<GrowthStats | null>(null);
-  const [growthPeriod, setGrowthPeriod] = useState<"7d" | "30d" | "90d">("7d");
-
-  // Define columns for DataTable
-  const customerColumns: Column<Customer>[] = [
-    {
-      key: "customer",
-      header: "Customer",
-      sortable: true,
-      accessor: (customer) => (
-        <div className="flex items-center gap-3">
-          <div>
-            <p className="font-semibold text-white">
-              {customer.name || "Anonymous"}
-            </p>
-            <p className="text-xs text-gray-400 font-mono">
-              {formatAddress(customer.address)}
-            </p>
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "tier",
-      header: "Tier",
-      sortable: true,
-      accessor: (customer) => (
-        <span
-          className={`inline-flex items-center justify-center w-20 px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r ${getTierColor(
-            customer.tier
-          )} text-white`}
-        >
-          {customer.tier}
-        </span>
-      ),
-    },
-    {
-      key: "lifetimeEarnings",
-      header: "Lifetime RCN",
-      sortable: true,
-      accessor: (customer) => (
-        <div className="flex items-center gap-2">
-          <p className="font-semibold text-[#FFCC00]">
-            {customer.lifetimeEarnings}
-          </p>
-          <span className="text-xs text-gray-400">RCN</span>
-        </div>
-      ),
-    },
-    {
-      key: "totalTransactions",
-      header: "Transactions",
-      sortable: true,
-      accessor: (customer) => (
-        <div className="flex items-center gap-2">
-          <p className="font-semibold text-white">
-            {customer.totalTransactions}
-          </p>
-          {customer.isRegular && (
-            <Star className="w-4 h-4 text-green-400" />
-          )}
-        </div>
-      ),
-    },
-  ];
+  const [growthPeriod] = useState<"7d" | "30d" | "90d">("7d");
 
   useEffect(() => {
     loadCustomers();
@@ -163,7 +112,6 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
     setLoading(true);
 
     try {
-      // Use apiClient with automatic cookie authentication
       const result = await apiClient.get(`/shops/${shopId}/customers?limit=100`);
 
       const customerData = result.data?.customers || [];
@@ -198,8 +146,9 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
 
   const loadGrowthStats = async () => {
     try {
-      // Use apiClient with automatic cookie authentication
-      const result = await apiClient.get(`/shops/${shopId}/customer-growth?period=${growthPeriod}`);
+      const result = await apiClient.get(
+        `/shops/${shopId}/customer-growth?period=${growthPeriod}`
+      );
       setGrowthStats(result.data);
     } catch (error) {
       console.error("Error loading growth stats:", error);
@@ -230,65 +179,8 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
       }
     });
 
-  const getTierColor = (tier: string) => {
-    switch (tier) {
-      case "GOLD":
-        return "from-yellow-500 to-yellow-600";
-      case "SILVER":
-        return "from-gray-400 to-gray-500";
-      case "BRONZE":
-        return "from-orange-500 to-orange-600";
-      default:
-        return "from-gray-400 to-gray-500";
-    }
-  };
-
-  const getTierIcon = (tier: string) => {
-    switch (tier) {
-      case "GOLD":
-        return <Crown className="w-4 h-4" />;
-      case "SILVER":
-        return <Shield className="w-4 h-4" />;
-      case "BRONZE":
-        return <Award className="w-4 h-4" />;
-      default:
-        return <Award className="w-4 h-4" />;
-    }
-  };
-
   const formatAddress = (address: string) => {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
-
-  const getActivityStatus = (lastDate?: string) => {
-    if (!lastDate)
-      return { status: "inactive", label: "Never", color: "text-gray-500" };
-
-    const daysSince = Math.floor(
-      (Date.now() - new Date(lastDate).getTime()) / (1000 * 60 * 60 * 24)
-    );
-
-    if (daysSince === 0)
-      return { status: "active", label: "Today", color: "text-green-400" };
-    if (daysSince === 1)
-      return { status: "active", label: "Yesterday", color: "text-green-400" };
-    if (daysSince <= 7)
-      return {
-        status: "recent",
-        label: `${daysSince} days ago`,
-        color: "text-yellow-400",
-      };
-    if (daysSince <= 30)
-      return {
-        status: "moderate",
-        label: `${Math.floor(daysSince / 7)} weeks ago`,
-        color: "text-orange-400",
-      };
-    return {
-      status: "inactive",
-      label: `${Math.floor(daysSince / 30)} months ago`,
-      color: "text-gray-500",
-    };
+    return `${address.slice(0, 8)}...${address.slice(-6)}`;
   };
 
   // Calculate statistics
@@ -298,12 +190,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
   );
   const avgEarningsPerCustomer =
     customers.length > 0 ? Math.round(totalEarnings / customers.length) : 0;
-  const totalTransactions = customers.reduce(
-    (sum, c) => sum + c.totalTransactions,
-    0
-  );
   const regularCustomers = customers.filter((c) => c.isRegular).length;
-  const goldCustomers = customers.filter((c) => c.tier === "GOLD").length;
   const activeThisWeek = customers.filter((c) => {
     const lastTransaction = new Date(c.lastTransactionDate || 0);
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -311,102 +198,106 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
   }).length;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard
+    <div className="space-y-6">
+      {/* Stats Overview - 4 cards in a row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <CustomerStatCard
           title="Total Customers"
           value={growthStats?.totalCustomers || customers.length}
-          subtitle="All registered customers"
-          icon={<WalletIcon />}
+          icon={<Users className="w-5 h-5 text-[#101010]" />}
         />
-
-        <StatCard
+        <CustomerStatCard
           title="Regular Customers"
           value={growthStats?.regularCustomers || regularCustomers}
-          subtitle="Repeat customers"
-          icon={<WalletIcon />}
+          icon={<Users className="w-5 h-5 text-[#101010]" />}
         />
-
-        <StatCard
-          title="Avg. RCN per Customer"
-          value={
-            growthStats?.averageEarningsPerCustomer || avgEarningsPerCustomer
-          }
-          subtitle="Average earnings"
-          icon={<WalletIcon />}
+        <CustomerStatCard
+          title="Avg RCN per Customer"
+          value={growthStats?.averageEarningsPerCustomer || avgEarningsPerCustomer}
+          icon={<Coins className="w-5 h-5 text-[#101010]" />}
+          suffix="RCN"
         />
-
-        <StatCard
+        <CustomerStatCard
           title="Active This Week"
           value={growthStats?.activeCustomers || activeThisWeek}
-          subtitle="Recent activity"
-          icon={<WalletIcon />}
+          icon={<UserCheck className="w-5 h-5 text-[#101010]" />}
         />
       </div>
 
-      {/* Combined Customer Display Container */}
-      <div className="bg-[#212121] rounded-3xl">
-        <div
-          className="w-full flex gap-2 px-4 md:px-8 py-4 text-white rounded-t-3xl"
-          style={{
-            backgroundImage: `url('/img/cust-ref-widget3.png')`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-          }}
-        >
-          <LookupIcon width={24} height={24} color={"black"} />
-          <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
-            Find Customer
-          </p>
+      {/* Find Customer Container */}
+      <div className="bg-[#101010] rounded-[20px] overflow-hidden">
+        {/* Header */}
+        <div className="px-7 py-6 border-b border-[#303236]">
+          <div className="flex items-center gap-3">
+            <UserSearch className="w-6 h-6 text-[#FFCC00]" />
+            <h2 className="text-base font-semibold text-[#FFCC00]">
+              Find Customer
+            </h2>
+          </div>
         </div>
+
         {/* Search and Filters */}
-        <div className="p-6 border-b border-gray-700">
+        <div className="px-7 py-5 border-b border-[#303236]">
           <div className="flex flex-col lg:flex-row gap-4">
+            {/* Search Input */}
             <div className="flex-1 relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                <Search className="w-5 h-5 text-[#979797]" />
+              </div>
               <input
                 type="text"
-                placeholder="Search customers by name or wallet..."
+                placeholder="Search customer by name or wallet address..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-3 bg-[#2F2F2F] text-white rounded-xl transition-all pl-10"
+                className="w-full h-[35px] pl-10 pr-4 bg-white border border-[#E2E8F0] rounded text-sm text-[#101010] placeholder:text-[#979797] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent shadow-sm"
               />
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             </div>
 
+            {/* Filters */}
             <div className="flex gap-3">
-              <div className="relative">
-                <select
-                  value={tierFilter}
-                  onChange={(e) => setTierFilter(e.target.value as any)}
-                  className="appearance-none px-4 py-3 pr-10 bg-[#FFCC00] border border-gray-700 text-black rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent cursor-pointer"
-                >
-                  <option value="all">All Tiers</option>
-                  <option value="BRONZE">Bronze Tier</option>
-                  <option value="SILVER">Silver Tier</option>
-                  <option value="GOLD">Gold Tier</option>
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-black w-4 h-4 pointer-events-none" />
-              </div>
+              <Select
+                value={tierFilter}
+                onValueChange={(value) => setTierFilter(value as any)}
+              >
+                <SelectTrigger className="w-[112px] h-[35px] bg-white border-[#CBD5E1] rounded-lg text-sm">
+                  <SelectValue placeholder="All Tiers" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Tiers</SelectItem>
+                  <SelectItem value="BRONZE">Bronze</SelectItem>
+                  <SelectItem value="SILVER">Silver</SelectItem>
+                  <SelectItem value="GOLD">Gold</SelectItem>
+                </SelectContent>
+              </Select>
 
-              <div className="relative">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
-                  className="appearance-none px-4 py-3 pr-10 bg-[#FFCC00] border border-gray-700 text-black rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent cursor-pointer"
-                >
-                  <option value="recent">Most Recent</option>
-                  <option value="earnings">Highest Earnings</option>
-                  <option value="transactions">Most Active</option>
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-black w-4 h-4 pointer-events-none" />
-              </div>
+              <Select
+                value={sortBy}
+                onValueChange={(value) => setSortBy(value as any)}
+              >
+                <SelectTrigger className="w-[200px] h-[35px] bg-white border-[#CBD5E1] rounded-lg text-sm">
+                  <SelectValue placeholder="Most Recent" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recent">Most Recent</SelectItem>
+                  <SelectItem value="earnings">Highest Earnings</SelectItem>
+                  <SelectItem value="transactions">Most Active</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>
 
-        {/* Customers Display */}
+        {/* Table Header */}
+        <div className="bg-black px-7 py-4">
+          <div className="grid grid-cols-4 gap-4">
+            <p className="text-sm font-semibold text-white">CUSTOMER</p>
+            <p className="text-sm font-semibold text-white">TIER</p>
+            <p className="text-sm font-semibold text-white">LIFETIME RCN</p>
+            <p className="text-sm font-semibold text-white">TRANSACTIONS</p>
+          </div>
+        </div>
+
+        {/* Table Content */}
         {loading ? (
           <div className="p-12">
             <div className="flex flex-col items-center justify-center">
@@ -424,27 +315,52 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                 No customers found
               </h3>
               <p className="text-gray-400">
-                Try adjusting your search or filters
+                {searchTerm || tierFilter !== "all"
+                  ? "Try adjusting your search or filters"
+                  : "Your customers will appear here once they start transacting"}
               </p>
             </div>
           </div>
         ) : (
-          <DataTable
-            data={filteredCustomers}
-            columns={customerColumns}
-            keyExtractor={(customer) => customer.address}
-            onRowClick={(customer) => setSelectedCustomer(customer)}
-            emptyMessage="No customers found"
-            emptyIcon={
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-800 rounded-full mb-4">
-                <Search className="w-10 h-10 text-gray-600" />
+          <div className="divide-y divide-[rgba(229,234,238,0.55)]">
+            {filteredCustomers.map((customer) => (
+              <div
+                key={customer.address}
+                className="px-7 py-4 hover:bg-[#1a1a1a] transition-colors"
+              >
+                <div className="grid grid-cols-4 gap-4 items-center">
+                  {/* Customer Info */}
+                  <div className="flex flex-col">
+                    <p className="text-sm font-semibold text-white">
+                      {customer.name || "John Doe"}
+                    </p>
+                    <p className="text-sm font-medium text-white/55">
+                      {formatAddress(customer.address)}
+                    </p>
+                  </div>
+
+                  {/* Tier Badge */}
+                  <div>
+                    <TierBadge tier={customer.tier} />
+                  </div>
+
+                  {/* Lifetime RCN */}
+                  <div>
+                    <p className="text-sm font-semibold text-white">
+                      {customer.lifetimeEarnings} RCN
+                    </p>
+                  </div>
+
+                  {/* Transactions */}
+                  <div>
+                    <p className="text-sm font-semibold text-white">
+                      {customer.totalTransactions}
+                    </p>
+                  </div>
+                </div>
               </div>
-            }
-            loading={loading}
-            showPagination={true}
-            itemsPerPage={10}
-            className="p-6"
-          />
+            ))}
+          </div>
         )}
       </div>
     </div>

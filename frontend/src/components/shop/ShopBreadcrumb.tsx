@@ -81,7 +81,7 @@ const TAB_CONFIG: Record<string, {
   customers: {
     title: "Customers",
     icon: <UsersIcon className="w-5 h-5" />,
-    description: "View and manage your customer base",
+    description: "Your complete overview of customers, their tiers, and lifetime RCN performance.",
   },
   lookup: {
     title: "Customer Lookup",
