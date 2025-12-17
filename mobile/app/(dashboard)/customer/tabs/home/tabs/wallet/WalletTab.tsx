@@ -183,7 +183,7 @@ const BalanceCard: React.FC<{
 export default function WalletTab() {
   const { account } = useAuthStore();
   const { useGetCustomerByWalletAddress } = useCustomer();
-  const { useGetAllServicesQuery, useGetTrendingServices } = useService();
+  const { useGetAllServicesQuery, useGetTrendingServices, useGetFavorites } = useService();
 
   // Use the token balance hook
   const {
@@ -206,17 +206,26 @@ export default function WalletTab() {
     refetch: refetchTrending,
   } = useGetTrendingServices({ limit: 4, days: 7 });
 
+  // Fetch favorites for heart icon
+  const { data: favoritesData, refetch: refetchFavorites } = useGetFavorites();
+
+  // Create a Set of favorited service IDs for O(1) lookup
+  const favoritedIds = useMemo(() => {
+    if (!favoritesData) return new Set<string>();
+    return new Set(favoritesData.map((s: ServiceData) => s.serviceId));
+  }, [favoritesData]);
+
   // Pull-to-refresh state
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([refetch(), refetchServices(), refetchTrending()]);
+      await Promise.all([refetch(), refetchServices(), refetchTrending(), refetchFavorites()]);
     } finally {
       setRefreshing(false);
     }
-  }, [refetch, refetchServices, refetchTrending]);
+  }, [refetch, refetchServices, refetchTrending, refetchFavorites]);
 
   const totalBalance =
     (customerData?.customer?.lifetimeEarnings || 0) -
@@ -345,6 +354,9 @@ export default function WalletTab() {
                       price={item.priceUsd}
                       duration={item.durationMinutes}
                       onPress={() => handleServicePress(item)}
+                      showFavoriteButton
+                      serviceId={item.serviceId}
+                      isFavorited={favoritedIds.has(item.serviceId)}
                     />
                   </View>
                 ))}
@@ -403,6 +415,9 @@ export default function WalletTab() {
                       duration={item.durationMinutes}
                       onPress={() => handleServicePress(item)}
                       showTrendingBadge
+                      showFavoriteButton
+                      serviceId={item.serviceId}
+                      isFavorited={favoritedIds.has(item.serviceId)}
                     />
                   </View>
                 ))}

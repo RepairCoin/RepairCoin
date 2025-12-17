@@ -21,13 +21,23 @@ import ServiceCard from "@/components/shared/ServiceCard";
 type StatusFilter = "all" | "available" | "unavailable";
 
 export default function ServicesTab() {
-  const { useGetAllServicesQuery } = useService();
+  const { useGetAllServicesQuery, useGetFavorites } = useService();
   const {
     data: servicesData,
     isLoading,
+    isFetching,
     error,
     refetch,
   } = useGetAllServicesQuery();
+
+  // Fetch all favorites once to avoid N API calls
+  const { data: favoritesData } = useGetFavorites();
+
+  // Create a Set of favorited service IDs for O(1) lookup
+  const favoritedIds = useMemo(() => {
+    if (!favoritesData) return new Set<string>();
+    return new Set(favoritesData.map((s: ServiceData) => s.serviceId));
+  }, [favoritesData]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -101,6 +111,9 @@ export default function ServicesTab() {
       price={item.priceUsd}
       duration={item.durationMinutes}
       onPress={() => handleServicePress(item)}
+      showFavoriteButton
+      serviceId={item.serviceId}
+      isFavorited={favoritedIds.has(item.serviceId)}
     />
   );
 
@@ -181,7 +194,7 @@ export default function ServicesTab() {
         </Text>
       )}
 
-      {isLoading ? (
+      {isLoading && !servicesData ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#FFCC00" />
         </View>
@@ -201,7 +214,7 @@ export default function ServicesTab() {
           contentContainerStyle={{ paddingBottom: 100 }}
           refreshControl={
             <RefreshControl
-              refreshing={isLoading}
+              refreshing={isFetching}
               onRefresh={handleRefresh}
               tintColor="#FFCC00"
             />

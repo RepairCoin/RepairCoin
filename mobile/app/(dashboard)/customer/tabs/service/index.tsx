@@ -8,12 +8,24 @@ import { useState } from "react";
 import React from "react";
 import ServicesTab from "./tabs/services";
 import BookingsTab from "./tabs/bookings";
+import FavoritesTab from "./tabs/favorites";
 
-type ServiceTab = "Services" | "My Booking";
-const serviceTabs: ServiceTab[] = ["Services", "My Booking"];
+type ServiceTab = "Services" | "Favorites" | "Bookings";
+const serviceTabs: ServiceTab[] = ["Services", "Favorites", "Bookings"];
 
 export default function Service() {
   const [activeTab, setActiveTab] = useState<ServiceTab>("Services");
+
+  const getTabStyle = (tab: ServiceTab, index: number) => {
+    const isActive = activeTab === tab;
+    let roundedClass = "";
+    if (index === 0) roundedClass = "rounded-l-xl";
+    else if (index === serviceTabs.length - 1) roundedClass = "rounded-r-xl";
+
+    return `flex-1 items-center justify-center ${
+      isActive ? "bg-[#FFCC00]" : "bg-[#121212]"
+    } ${roundedClass}`;
+  };
 
   return (
     <ThemedView className="w-full h-full">
@@ -23,9 +35,7 @@ export default function Service() {
             <Pressable
               key={i}
               onPress={() => setActiveTab(tab)}
-              className={`flex-1 items-center justify-center ${
-                activeTab === tab ? "bg-[#FFCC00]" : "bg-[#121212]"
-              } ${i === 0 ? "rounded-l-xl" : "rounded-r-xl"}`}
+              className={getTabStyle(tab, i)}
             >
               <Text
                 className={`text-base font-bold ${
@@ -38,7 +48,8 @@ export default function Service() {
           ))}
         </View>
         {activeTab === "Services" && <ServicesTab />}
-        {activeTab === "My Booking" && <BookingsTab />}
+        {activeTab === "Favorites" && <FavoritesTab />}
+        {activeTab === "Bookings" && <BookingsTab />}
       </View>
     </ThemedView>
   );
