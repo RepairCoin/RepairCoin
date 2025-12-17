@@ -38,41 +38,45 @@ export const CountryPhoneInput: React.FC<CountryPhoneInputProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // Track the previous value to detect external changes
+  const prevValueRef = useRef<string | null>(null);
+
   // Load countries on mount
   useEffect(() => {
     const loadCountries = async () => {
       setIsLoading(true);
       const data = await fetchCountries();
       setCountries(data);
-
-      // Parse initial value
-      if (value && data.length > 0) {
-        const parsed = parsePhoneString(value, data);
-        setSelectedCountry(parsed.country || findCountryByCode("US", data) || data[0]);
-        setLocalNumber(parsed.localNumber);
-      } else if (data.length > 0) {
-        // Default to US
-        setSelectedCountry(findCountryByCode("US", data) || data[0]);
-      }
-
       setIsLoading(false);
     };
 
     loadCountries();
   }, []);
 
-  // Parse value changes from parent
+  // Parse value when countries load or value changes from parent
   useEffect(() => {
-    if (countries.length > 0 && value) {
-      const parsed = parsePhoneString(value, countries);
-      if (parsed.country && parsed.country.code !== selectedCountry?.code) {
-        setSelectedCountry(parsed.country);
-      }
-      if (parsed.localNumber !== localNumber) {
+    if (countries.length === 0) return;
+
+    // Only parse if:
+    // 1. This is the first time (prevValueRef.current is null), OR
+    // 2. The value changed externally (different from what we'd generate)
+    const shouldParse = prevValueRef.current === null ||
+      (value !== prevValueRef.current && value !== formatPhoneForStorage(selectedCountry?.dialCode || "", localNumber));
+
+    if (shouldParse) {
+      if (value) {
+        const parsed = parsePhoneString(value, countries);
+        setSelectedCountry(parsed.country || findCountryByCode("US", countries) || countries[0]);
         setLocalNumber(parsed.localNumber);
+        prevValueRef.current = value;
+      } else {
+        // Default to US when no value
+        setSelectedCountry(findCountryByCode("US", countries) || countries[0]);
+        setLocalNumber("");
+        prevValueRef.current = "";
       }
     }
-  }, [value, countries]);
+  }, [countries, value, selectedCountry, localNumber]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
