@@ -56,7 +56,7 @@ export default function ViewShopProfile({ id }: { id: string }) {
         />
 
         {/* Services Tab Content */}
-        {activeTab === "services" && (<ServicesTab/>)}
+        {activeTab === "services" && (<ServicesTab shopId={id} />)}
 
         {/* Details Tab Content */}
         {activeTab === "details" && (

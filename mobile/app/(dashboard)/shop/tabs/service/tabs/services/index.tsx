@@ -17,6 +17,7 @@ import { Ionicons, Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { SERVICE_CATEGORIES } from "@/constants/service-categories";
 import ServiceCard from "@/components/shared/ServiceCard";
+import { useAuthStore } from "@/store/auth.store";
 
 type StatusFilter = "all" | "active" | "inactive";
 
@@ -27,13 +28,15 @@ export default function ServicesTab({
   setActionModalVisible: (visible: boolean) => void;
   setSelectedService: (service: ServiceData) => void;
 }) {
+  const { userProfile } = useAuthStore();
+  const shopId = userProfile?.shopId;
   const { useShopServicesQuery } = useService();
   const {
     data: servicesData,
     isLoading,
     error,
     refetch,
-  } = useShopServicesQuery();
+  } = useShopServicesQuery({ shopId, page: 1, limit: 10 });
 
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");

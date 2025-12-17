@@ -1,6 +1,5 @@
 import { Alert } from "react-native";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useAuthStore } from "@/store/auth.store";
 import { queryKeys } from "@/config/queryClient";
 import { serviceApi } from "@/services/service.services";
 import {
@@ -23,23 +22,15 @@ export function useService() {
     });
   };
 
-  const useShopServicesQuery = (options?: {
-    page?: number;
-    limit?: number;
-  }) => {
-    const { userProfile } = useAuthStore();
-    const shopId = userProfile?.shopId;
-
+  const useShopServicesQuery = (filters: ServiceFilters) => {
+    const shopId = filters.shopId ?? "";
     return useQuery({
-      queryKey: queryKeys.shopServices(shopId!, options),
+      queryKey: queryKeys.shopServices({ shopId, page: filters.page, limit: filters.limit }),
       queryFn: async () => {
-        const response: ServiceResponse = await serviceApi.getShopServices(
-          shopId!,
-          options
-        );
+        const response: ServiceResponse = await serviceApi.getShopServices(shopId, { page: filters.page, limit: filters.limit });
         return response.data;
       },
-      enabled: !!shopId,
+      enabled: !!filters.shopId,
       staleTime: 5 * 60 * 1000, // 5 minutes
     });
   };
