@@ -90,8 +90,8 @@ export const queryKeys = {
     [...queryKeys.services(), 'list', filters] as const,
   serviceTrending: (options?: { limit?: number; days?: number }) =>
     [...queryKeys.services(), 'trending', options] as const,
-  shopServices: (shopId: string, options?: { page?: number; limit?: number }) =>
-    [...queryKeys.services(), 'shop', shopId, options] as const,
+  shopServices: (filters: { shopId: string; page?: number; limit?: number }) =>
+    [...queryKeys.services(), 'shop', filters.shopId, filters] as const,
   service: (id: string) => [...queryKeys.services(), 'detail', id] as const,
 
   // Booking related
