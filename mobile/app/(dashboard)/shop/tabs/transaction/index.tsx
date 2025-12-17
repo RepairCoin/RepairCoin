@@ -7,18 +7,67 @@ import {
   ActivityIndicator,
   Pressable,
   TextInput,
+  TouchableOpacity,
+  ScrollView,
 } from "react-native";
 import { ThemedView } from "@/components/ui/ThemedView";
 import { useAuthStore } from "@/store/auth.store";
 import { useShopTransactions } from "@/hooks";
 import TransactionHistoryCard from "@/components/common/TransactionHistoryCard";
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import { PurchaseHistory } from "@/services/ShopServices";
+
+// Filter types
+type StatusFilter = "all" | "pending" | "completed" | "failed";
+type DateFilter = "all" | "today" | "week" | "month";
+
+const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "pending", label: "Pending" },
+  { id: "completed", label: "Completed" },
+  { id: "failed", label: "Failed" },
+];
+
+const DATE_FILTERS: { id: DateFilter; label: string }[] = [
+  { id: "all", label: "All Time" },
+  { id: "today", label: "Today" },
+  { id: "week", label: "This Week" },
+  { id: "month", label: "This Month" },
+];
+
+// Filter chip component
+const FilterChip = ({
+  label,
+  isActive,
+  onPress,
+}: {
+  label: string;
+  isActive: boolean;
+  onPress: () => void;
+}) => (
+  <TouchableOpacity
+    onPress={onPress}
+    className={`px-4 py-2 rounded-full mr-2 ${
+      isActive ? "bg-[#FFCC00]" : "bg-zinc-800"
+    }`}
+    activeOpacity={0.7}
+  >
+    <Text
+      className={`text-sm font-medium ${
+        isActive ? "text-black" : "text-gray-400"
+      }`}
+    >
+      {label}
+    </Text>
+  </TouchableOpacity>
+);
 
 export default function TransactionHistory() {
   const { userProfile } = useAuthStore((state) => state);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
 
   const {
     data: transactions,
@@ -31,32 +80,85 @@ export default function TransactionHistory() {
     return transactions?.purchases || [];
   }, [transactions]);
 
+  // Filter transactions based on status, date, and search
   const filteredTransactions = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return transactionHistoryData;
+    if (!transactionHistoryData) return [];
+
+    let filtered = transactionHistoryData;
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((tx) => {
+        const date = new Date(tx.createdAt).toLocaleDateString();
+        if (date.toLowerCase().includes(query)) return true;
+        if (tx.amount.toString().includes(query)) return true;
+        if (tx.totalCost?.toString().includes(query)) return true;
+        if (tx.paymentMethod?.toLowerCase().includes(query)) return true;
+        if (tx.status?.toLowerCase().includes(query)) return true;
+        return false;
+      });
     }
 
-    const query = searchQuery.toLowerCase();
-    return transactionHistoryData.filter((tx) => {
-      // Search by date
-      const date = new Date(tx.createdAt).toLocaleDateString();
-      if (date.toLowerCase().includes(query)) return true;
+    // Filter by status
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((tx) => {
+        const status = tx.status?.toLowerCase();
+        switch (statusFilter) {
+          case "pending":
+            return status === "pending";
+          case "completed":
+            return status === "completed" || status === "success";
+          case "failed":
+            return status === "failed" || status === "cancelled";
+          default:
+            return true;
+        }
+      });
+    }
 
-      // Search by amount
-      if (tx.amount.toString().includes(query)) return true;
+    // Filter by date
+    if (dateFilter !== "all") {
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startOfWeek = new Date(startOfDay);
+      startOfWeek.setDate(startOfDay.getDate() - startOfDay.getDay());
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      // Search by total cost
-      if (tx.totalCost?.toString().includes(query)) return true;
+      filtered = filtered.filter((tx) => {
+        const txDate = new Date(tx.createdAt);
+        switch (dateFilter) {
+          case "today":
+            return txDate >= startOfDay;
+          case "week":
+            return txDate >= startOfWeek;
+          case "month":
+            return txDate >= startOfMonth;
+          default:
+            return true;
+        }
+      });
+    }
 
-      // Search by payment method
-      if (tx.paymentMethod?.toLowerCase().includes(query)) return true;
+    return filtered;
+  }, [transactionHistoryData, searchQuery, statusFilter, dateFilter]);
 
-      // Search by status
-      if (tx.status?.toLowerCase().includes(query)) return true;
-
-      return false;
-    });
-  }, [transactionHistoryData, searchQuery]);
+  // Calculate summary stats
+  const stats = useMemo(() => {
+    const allTransactions = transactionHistoryData || [];
+    const completedTx = allTransactions.filter(
+      (tx) => tx.status?.toLowerCase() === "completed" || tx.status?.toLowerCase() === "success"
+    );
+    const totalRcnPurchased = completedTx.reduce((sum, tx) => sum + tx.amount, 0);
+    const totalSpent = completedTx.reduce((sum, tx) => sum + (tx.totalCost || 0), 0);
+    const pendingTx = allTransactions.filter((tx) => tx.status?.toLowerCase() === "pending");
+    return {
+      totalRcnPurchased,
+      totalSpent,
+      totalTransactions: allTransactions.length,
+      pendingCount: pendingTx.length,
+    };
+  }, [transactionHistoryData]);
 
   const handleRefresh = useCallback(async () => {
     try {
@@ -114,13 +216,15 @@ export default function TransactionHistory() {
     }
 
     return (
-      <View className="items-center justify-center py-20">
+      <View className="items-center justify-center py-12">
         <Feather name="inbox" size={48} color="#666" />
         <Text className="text-gray-400 text-lg font-semibold mt-4">
-          No transactions yet
+          No transactions found
         </Text>
-        <Text className="text-gray-500 text-sm mt-2 text-center px-4">
-          Your RCN purchase history will appear here
+        <Text className="text-gray-500 text-sm mt-1 text-center px-4">
+          {statusFilter !== "all" || dateFilter !== "all"
+            ? "Try adjusting your filters"
+            : "Your RCN purchase history will appear here"}
         </Text>
       </View>
     );
@@ -128,66 +232,87 @@ export default function TransactionHistory() {
 
   return (
     <ThemedView className="flex-1">
-      <View className="pt-20 px-4">
+      <View className="pt-16 px-4 pb-2">
+        <Text className="text-white text-2xl font-bold mb-4">
+          Purchase History
+        </Text>
         {/* Search Input */}
-        <View className="flex-row items-center bg-zinc-800 rounded-full px-4 py-3 mb-4">
-          <Feather name="search" size={20} color="#9CA3AF" />
+        <View className="flex-row items-center bg-zinc-900 rounded-xl px-4 mb-4">
+          <Feather name="search" size={20} color="#666" />
           <TextInput
-            className="flex-1 text-white ml-3 text-left"
-            placeholder="Search by date, amount, status..."
-            placeholderTextColor="#6B7280"
+            className="flex-1 text-white ml-2 py-3"
+            placeholder="Search transactions..."
+            placeholderTextColor="#666"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
           {searchQuery.length > 0 && (
-            <Pressable onPress={() => setSearchQuery("")}>
-              <Feather name="x-circle" size={20} color="#9CA3AF" />
-            </Pressable>
+            <TouchableOpacity onPress={() => setSearchQuery("")}>
+              <Ionicons name="close-circle" size={20} color="#666" />
+            </TouchableOpacity>
           )}
         </View>
 
-        {/* Filter Buttons */}
-        <View className="flex-row gap-4 rounded-full p-1 mb-4">
-          <Pressable className="flex-1 py-2 rounded-full bg-[#FFCC00]">
-            <Text className="text-center font-semibold text-black">Date</Text>
-          </Pressable>
-          <Pressable className="flex-1 py-2 rounded-full bg-[#FFCC00]">
-            <Text className="text-center font-semibold text-black">
-              Transaction
-            </Text>
-          </Pressable>
-          <Pressable className="flex-1 py-2 rounded-full bg-[#FFCC00]">
-            <Text className="text-center font-semibold text-black">Amount</Text>
-          </Pressable>
-        </View>
-
-        {/* Results count when searching */}
-        {searchQuery.length > 0 && (
-          <Text className="text-gray-400 text-sm mb-2">
-            {filteredTransactions.length} result
-            {filteredTransactions.length !== 1 ? "s" : ""} found
-          </Text>
-        )}
-
-        <FlatList
-          data={filteredTransactions}
-          renderItem={renderTransaction}
-          keyExtractor={(item) =>
-            item.id?.toString() || Math.random().toString()
-          }
-          ListEmptyComponent={renderEmptyComponent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor="#FFCC00"
-              colors={["#FFCC00"]}
+        {/* Status Filters */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="mb-3"
+        >
+          {STATUS_FILTERS.map((filter) => (
+            <FilterChip
+              key={filter.id}
+              label={filter.label}
+              isActive={statusFilter === filter.id}
+              onPress={() => setStatusFilter(filter.id)}
             />
-          }
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 100 }}
-        />
+          ))}
+        </ScrollView>
+
+        {/* Date Filters */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="mb-2"
+        >
+          {DATE_FILTERS.map((filter) => (
+            <FilterChip
+              key={filter.id}
+              label={filter.label}
+              isActive={dateFilter === filter.id}
+              onPress={() => setDateFilter(filter.id)}
+            />
+          ))}
+        </ScrollView>
       </View>
+
+      {/* Results count */}
+      <View className="px-4 pb-2">
+        <Text className="text-gray-500 text-sm">
+          {filteredTransactions.length} transaction{filteredTransactions.length !== 1 ? "s" : ""}
+        </Text>
+      </View>
+
+      {/* Transaction List */}
+      <FlatList
+        className="px-4"
+        data={transactionsLoading || transactionsError ? [] : filteredTransactions}
+        renderItem={renderTransaction}
+        keyExtractor={(item) =>
+          item.id?.toString() || Math.random().toString()
+        }
+        ListEmptyComponent={renderEmptyComponent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor="#FFCC00"
+            colors={["#FFCC00"]}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 100 }}
+      />
     </ThemedView>
   );
 }

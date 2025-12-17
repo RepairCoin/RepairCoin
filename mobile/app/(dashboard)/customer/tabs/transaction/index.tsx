@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -6,28 +6,75 @@ import {
   Pressable,
   FlatList,
   RefreshControl,
+  TouchableOpacity,
+  ScrollView,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/auth.store";
 import TransactionHistoryCard from "@/components/common/TransactionHistoryCard";
-import TransactionHistoryFilterModal from "@/components/customer/TransactionHistoryFilterModal";
 import { useCustomer } from "@/hooks/customer/useCustomer";
 import { TransactionData } from "@/interfaces/customer.interface";
+
+// Filter types
+type TransactionFilter = "all" | "earned" | "redeemed" | "gifts";
+type DateFilter = "all" | "today" | "week" | "month";
+
+const TRANSACTION_FILTERS: { id: TransactionFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "earned", label: "Earned" },
+  { id: "redeemed", label: "Redeemed" },
+  { id: "gifts", label: "Gifts" },
+];
+
+const DATE_FILTERS: { id: DateFilter; label: string }[] = [
+  { id: "all", label: "All Time" },
+  { id: "today", label: "Today" },
+  { id: "week", label: "This Week" },
+  { id: "month", label: "This Month" },
+];
+
+// Filter chip component
+const FilterChip = ({
+  label,
+  isActive,
+  onPress,
+}: {
+  label: string;
+  isActive: boolean;
+  onPress: () => void;
+}) => (
+  <TouchableOpacity
+    onPress={onPress}
+    className={`px-4 py-2 rounded-full mr-2 ${
+      isActive ? "bg-[#FFCC00]" : "bg-zinc-800"
+    }`}
+    activeOpacity={0.7}
+  >
+    <Text
+      className={`text-sm font-medium ${
+        isActive ? "text-black" : "text-gray-400"
+      }`}
+    >
+      {label}
+    </Text>
+  </TouchableOpacity>
+);
 
 export default function TransactionHistory() {
   const { useGetTransactionsByWalletAddress } = useCustomer();
   const { account } = useAuthStore((state) => state);
 
   const [searchString, setSearchString] = useState<string>("");
-  const [filterModalVisible, setFilterModalVisible] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [transactionFilter, setTransactionFilter] = useState<TransactionFilter>("all");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
 
   const {
     data: transactionData,
     isLoading,
     error,
     refetch,
-  } = useGetTransactionsByWalletAddress(account?.address, 10);
+  } = useGetTransactionsByWalletAddress(account?.address, 50);
 
   const handleRefresh = useCallback(async () => {
     try {
@@ -38,50 +85,149 @@ export default function TransactionHistory() {
     }
   }, [refetch]);
 
+  // Filter transactions based on type and date
+  const filteredTransactions = useMemo(() => {
+    if (!transactionData?.transactions) return [];
+
+    let filtered = transactionData.transactions;
+
+    // Filter by search string
+    if (searchString) {
+      filtered = filtered.filter(
+        (t: TransactionData) =>
+          t.shopName?.toLowerCase().includes(searchString.toLowerCase()) ||
+          t.type?.toLowerCase().includes(searchString.toLowerCase()) ||
+          t.description?.toLowerCase().includes(searchString.toLowerCase())
+      );
+    }
+
+    // Filter by transaction type
+    if (transactionFilter !== "all") {
+      filtered = filtered.filter((t: TransactionData) => {
+        const type = t.type?.toLowerCase();
+        switch (transactionFilter) {
+          case "earned":
+            return ["earned", "bonus", "referral", "tier_bonus"].includes(type);
+          case "redeemed":
+            return ["redeemed", "redemption"].includes(type);
+          case "gifts":
+            return ["transfer_in", "transfer_out", "gift"].includes(type);
+          default:
+            return true;
+        }
+      });
+    }
+
+    // Filter by date
+    if (dateFilter !== "all") {
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startOfWeek = new Date(startOfDay);
+      startOfWeek.setDate(startOfDay.getDate() - startOfDay.getDay());
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      filtered = filtered.filter((t: TransactionData) => {
+        const txDate = new Date(t.createdAt);
+        switch (dateFilter) {
+          case "today":
+            return txDate >= startOfDay;
+          case "week":
+            return txDate >= startOfWeek;
+          case "month":
+            return txDate >= startOfMonth;
+          default:
+            return true;
+        }
+      });
+    }
+
+    return filtered;
+  }, [transactionData, searchString, transactionFilter, dateFilter]);
+
+  // Calculate summary stats
+  const stats = useMemo(() => {
+    const transactions = transactionData?.transactions || [];
+    const earned = transactions
+      .filter((t: TransactionData) =>
+        ["earned", "bonus", "referral", "tier_bonus", "transfer_in"].includes(t.type?.toLowerCase())
+      )
+      .reduce((sum: number, t: TransactionData) => sum + t.amount, 0);
+    const redeemed = transactions
+      .filter((t: TransactionData) =>
+        ["redeemed", "redemption", "transfer_out"].includes(t.type?.toLowerCase())
+      )
+      .reduce((sum: number, t: TransactionData) => sum + Math.abs(t.amount), 0);
+    return { earned, redeemed, total: transactions.length };
+  }, [transactionData]);
+
   return (
     <View className="w-full h-full bg-zinc-950">
-      <View className="pt-20 px-4 gap-4">
-        <View className="flex-row justify-between items-center">
-          <Text className="text-white text-xl font-semibold">
-            Transaction History
-          </Text>
-          <View className="w-[25px]" />
+      {/* Header */}
+      <View className="pt-16 px-4 pb-2">
+        <Text className="text-white text-2xl font-bold mb-4">
+          Transaction History
+        </Text>
+        {/* Search Bar */}
+        <View className="flex-row px-4 bg-zinc-900 rounded-xl items-center mb-4">
+          <Feather name="search" color="#666" size={20} />
+          <TextInput
+            placeholder="Search transactions..."
+            placeholderTextColor="#666"
+            value={searchString}
+            onChangeText={setSearchString}
+            className="flex-1 text-white ml-2 py-3"
+          />
+          {searchString.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchString("")}>
+              <Ionicons name="close-circle" color="#666" size={20} />
+            </TouchableOpacity>
+          )}
         </View>
-        <View className="flex-row justify-between">
-          <View className="flex-row px-4 border-2 border-[#666] rounded-full items-center w-full">
-            <Feather name="search" color="#666" size={20} />
-            <TextInput
-              placeholder="Search Here"
-              placeholderTextColor="#666"
-              value={searchString}
-              onChangeText={setSearchString}
-              keyboardType="email-address"
-              className="color-[#666] ml-2 w-full py-2"
+
+        {/* Transaction Type Filters */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="mb-3"
+        >
+          {TRANSACTION_FILTERS.map((filter) => (
+            <FilterChip
+              key={filter.id}
+              label={filter.label}
+              isActive={transactionFilter === filter.id}
+              onPress={() => setTransactionFilter(filter.id)}
             />
-          </View>
-          {/* Filter Feature */}
-          {/* <Pressable
-            onPress={() => setFilterModalVisible(true)}
-            className="flex-row px-6 border-2 border-[#666] rounded-full items-center"
-          >
-            <FontAwesome name="sliders" color="#666" size={20} />
-          </Pressable> */}
-        </View>
+          ))}
+        </ScrollView>
+
+        {/* Date Filters */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="mb-2"
+        >
+          {DATE_FILTERS.map((filter) => (
+            <FilterChip
+              key={filter.id}
+              label={filter.label}
+              isActive={dateFilter === filter.id}
+              onPress={() => setDateFilter(filter.id)}
+            />
+          ))}
+        </ScrollView>
       </View>
 
+      {/* Results count */}
+      <View className="px-4 pb-2">
+        <Text className="text-gray-500 text-sm">
+          {filteredTransactions.length} transaction{filteredTransactions.length !== 1 ? "s" : ""}
+        </Text>
+      </View>
+
+      {/* Transaction List */}
       <FlatList
-        className="px-4 mt-4"
-        data={
-          isLoading || error
-            ? [] // FlatList still needs a data array
-            : transactionData?.transactions?.filter(
-                (transaction: TransactionData) =>
-                  !searchString ||
-                  transaction.shopName
-                    ?.toLowerCase()
-                    .includes(searchString.toLowerCase())
-              ) || []
-        }
+        className="px-4"
+        data={isLoading || error ? [] : filteredTransactions}
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
           <TransactionHistoryCard
@@ -95,27 +241,35 @@ export default function TransactionHistory() {
         )}
         ListEmptyComponent={
           isLoading ? (
-            <View className="items-center justify-center py-8">
-              <Text className="text-white text-lg">
+            <View className="items-center justify-center py-12">
+              <Feather name="loader" color="#FFCC00" size={32} />
+              <Text className="text-gray-400 text-lg mt-4">
                 Loading transactions...
               </Text>
             </View>
           ) : error ? (
-            <View className="items-center justify-center py-8">
-              <Text className="text-red-500 text-lg">
+            <View className="items-center justify-center py-12">
+              <Feather name="alert-circle" color="#EF4444" size={32} />
+              <Text className="text-red-400 text-lg mt-4">
                 Failed to load transactions
               </Text>
               <Pressable
                 onPress={() => refetch()}
-                className="mt-4 px-6 py-3 bg-[#FFCC00] rounded-lg"
+                className="mt-4 px-6 py-3 bg-[#FFCC00] rounded-xl"
               >
                 <Text className="text-black font-semibold">Retry</Text>
               </Pressable>
             </View>
           ) : (
-            <View className="items-center justify-center py-8">
-              <Text className="text-gray-400 text-lg">
+            <View className="items-center justify-center py-12">
+              <Feather name="inbox" color="#666" size={48} />
+              <Text className="text-gray-400 text-lg mt-4">
                 No transactions found
+              </Text>
+              <Text className="text-gray-500 text-sm mt-1">
+                {transactionFilter !== "all" || dateFilter !== "all"
+                  ? "Try adjusting your filters"
+                  : "Your transactions will appear here"}
               </Text>
             </View>
           )
@@ -124,14 +278,11 @@ export default function TransactionHistory() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor="#FFCC00" // spinner color for iOS
-            colors={["#FFCC00"]} // spinner color for Android
+            tintColor="#FFCC00"
+            colors={["#FFCC00"]}
           />
         }
-      />
-      <TransactionHistoryFilterModal
-        visible={filterModalVisible}
-        requestClose={() => setFilterModalVisible(false)}
+        contentContainerStyle={{ paddingBottom: 100 }}
       />
     </View>
   );
