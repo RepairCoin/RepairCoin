@@ -1,9 +1,8 @@
 "use client";
 
-import { LookupIcon } from "@/components/icon";
 import React, { useState, useRef, useEffect } from "react";
 import QrScanner from "qr-scanner";
-import { Camera, X, ScanLine } from "lucide-react";
+import { Camera, X, ScanLine, Search } from "lucide-react";
 import toast from "react-hot-toast";
 
 interface CustomerData {
@@ -16,6 +15,8 @@ interface CustomerData {
   lastEarnedDate?: string;
   homeShopId?: string;
   earningsByShop: { [shopId: string]: number };
+  marketBalance?: number;
+  totalBalance?: number;
 }
 
 interface CustomerLookupTabProps {
@@ -88,6 +89,8 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
         lastEarnedDate: customerInfo?.lastEarnedDate,
         homeShopId: earnedData.data.homeShopId,
         earningsByShop,
+        marketBalance: 0,
+        totalBalance: earnedData.data.availableBalance,
       });
     } catch (err) {
       console.error("Lookup error:", err);
@@ -99,22 +102,8 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
     }
   };
 
-  const getTierColor = (tier: string) => {
-    switch (tier) {
-      case "BRONZE":
-        return "bg-orange-100 text-orange-800";
-      case "SILVER":
-        return "bg-gray-100 text-gray-800";
-      case "GOLD":
-        return "bg-yellow-100 text-yellow-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
   const getMaxRedeemable = () => {
     if (!customerData) return 0;
-    // No cross-shop restrictions - customers can redeem full balance at any shop
     return customerData.availableBalance;
   };
 
@@ -125,16 +114,12 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
         const scanner = new QrScanner(
           videoRef.current,
           (result) => {
-            // QR code detected
             const scannedText = result.data;
-
-            // Check if it's a valid Ethereum address (0x followed by 40 hex characters)
             const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
             if (ethAddressRegex.test(scannedText)) {
               setSearchAddress(scannedText);
               stopQRScanner();
               toast.success("Wallet address scanned successfully!");
-              // Auto-lookup the customer
               setTimeout(() => {
                 lookupCustomer();
               }, 500);
@@ -167,7 +152,6 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
     setShowQRScanner(false);
   };
 
-  // Cleanup scanner on unmount
   useEffect(() => {
     return () => {
       if (qrScanner) {
@@ -178,115 +162,93 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
   }, [qrScanner]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      {/* Combined Search and Customer Details Section */}
-      <div className="bg-[#212121] rounded-3xl">
-        <div
-          className="w-full flex gap-2 px-4 md:px-8 py-4 text-white rounded-t-3xl"
-          style={{
-            backgroundImage: `url('/img/cust-ref-widget3.png')`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-          }}
-        >
-          <LookupIcon width={24} height={24} color={"black"} />
-          <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
-            Find Customer
-          </p>
+    <div className="space-y-6">
+      {/* Find Customer Container */}
+      <div className="bg-[#101010] rounded-[20px] overflow-hidden">
+        {/* Header */}
+        <div className="px-7 py-6 border-b border-[#303236]">
+          <div className="flex items-center gap-3">
+            <Search className="w-6 h-6 text-[#FFCC00]" />
+            <h2 className="text-base font-semibold text-[#FFCC00]">
+              Find Customer
+            </h2>
+          </div>
         </div>
 
-        {/* Search Input */}
-        <div className="flex flex-col sm:flex-row gap-4 px-4 md:px-8 py-6 border-gray-700">
-          <div className="w-full flex items-center gap-2">
+        {/* Search and Buttons */}
+        <div className="px-7 py-5 border-b border-[#303236]">
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* Search Input */}
             <div className="flex-1 relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                <Search className="w-5 h-5 text-[#979797]" />
+              </div>
               <input
                 type="text"
                 value={searchAddress}
                 onChange={(e) => setSearchAddress(e.target.value)}
-                placeholder="Enter customer name or wallet address (0x...)"
+                placeholder="Enter customer name or wallet address..."
                 onKeyPress={(e) => e.key === "Enter" && lookupCustomer()}
-                className="w-full px-4 py-3 bg-[#2F2F2F] text-white rounded-xl transition-all pl-10 pr-4"
+                className="w-full h-[35px] pl-10 pr-4 bg-white border border-[#E2E8F0] rounded text-sm text-[#101010] placeholder:text-[#979797] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent shadow-sm"
               />
-              <svg
-                className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                />
-              </svg>
             </div>
 
-            <button
-              onClick={startQRScanner}
-              disabled={loading}
-              className="px-4 py-3 bg-[#FFCC00] text-black hover:bg-[#FFD700] font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 whitespace-nowrap"
-              title="Scan customer's QR code"
-            >
-              <Camera className="w-5 h-5" />
-              <span className="hidden sm:inline">Scan QR</span>
-            </button>
-          </div>
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              {/* Scan QR Button */}
+              <button
+                onClick={startQRScanner}
+                disabled={loading}
+                className="h-[32px] px-3 bg-[#00B2FF] text-[#101010] font-medium rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 text-sm"
+              >
+                <Camera className="w-5 h-5" />
+                <span>Scan QR</span>
+              </button>
 
-          <button
-            onClick={lookupCustomer}
-            disabled={loading || !searchAddress}
-            className="px-8 py-3 bg-[#FFCC00] text-black font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow-lg hover:shadow-yellow-500/25 transform hover:scale-105 flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <>
-                <svg
-                  className="animate-spin h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-                Searching...
-              </>
-            ) : (
-              <>
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-                Search
-              </>
-            )}
-          </button>
+              {/* Search Button */}
+              <button
+                onClick={lookupCustomer}
+                disabled={loading || !searchAddress}
+                className="h-[32px] px-3 bg-[#FFCC00] text-black font-medium rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 text-sm"
+              >
+                {loading ? (
+                  <>
+                    <svg
+                      className="animate-spin h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    <span>Searching...</span>
+                  </>
+                ) : (
+                  <>
+                    <Search className="w-5 h-5" />
+                    <span>Search</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Error Display */}
         {error && (
-          <div className="px-4 md:px-8 py-4 border-b border-gray-700">
-            <div className="bg-red-900 bg-opacity-20 border border-red-500 rounded-xl p-4">
+          <div className="px-7 py-4">
+            <div className="bg-red-900/20 border border-red-500 rounded-xl p-4">
               <div className="flex items-center">
                 <svg
                   className="w-5 h-5 text-red-500 mr-3"
@@ -305,16 +267,41 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
           </div>
         )}
 
+        {/* Empty State - shown when no search has been performed */}
+        {!customerData && !error && !loading && (
+          <div className="px-7 py-16">
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-800 rounded-full mb-4">
+                <Search className="w-10 h-10 text-gray-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-white mb-2">
+                Search for a customer
+              </h3>
+              <p className="text-gray-400">
+                Enter a customer name or wallet address to view their RCN balance and history
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Loading State */}
+        {loading && (
+          <div className="px-7 py-16">
+            <div className="flex flex-col items-center justify-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFCC00] mb-4"></div>
+              <p className="text-gray-400">Searching for customer...</p>
+            </div>
+          </div>
+        )}
+
         {/* Customer Details */}
-        {customerData && (
+        {customerData && !loading && (
           <div className="p-6 animate-fadeIn">
             {/* Quick Summary Card */}
             <div className="bg-gradient-to-r from-[#FFCC00] to-[#FFA500] rounded-2xl p-6 mb-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-black text-opacity-70 text-sm">
-                    Customer Status
-                  </p>
+                  <p className="text-black/70 text-sm">Customer Status</p>
                   <h3 className="text-2xl font-bold text-black mb-1">
                     {customerData.name || "Anonymous Customer"}
                   </h3>
@@ -322,20 +309,19 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
                     <div
                       className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${
                         customerData.tier === "GOLD"
-                          ? "bg-black bg-opacity-20 text-black"
+                          ? "bg-black/20 text-black"
                           : customerData.tier === "SILVER"
-                          ? "bg-white bg-opacity-30 text-black"
-                          : "bg-orange-900 bg-opacity-30 text-black"
+                          ? "bg-white/30 text-black"
+                          : "bg-orange-900/30 text-black"
                       }`}
                     >
-                      {customerData.tier === "GOLD" && "👑"} {customerData.tier}{" "}
-                      TIER
+                      {customerData.tier === "GOLD" && "👑"} {customerData.tier} TIER
                     </div>
                     <span
                       className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${
                         customerData.isActive
-                          ? "bg-green-900 bg-opacity-30 text-black"
-                          : "bg-red-900 bg-opacity-30 text-black"
+                          ? "bg-green-900/30 text-black"
+                          : "bg-red-900/30 text-black"
                       }`}
                     >
                       {customerData.isActive ? "✓ Active" : "✗ Suspended"}
@@ -343,9 +329,7 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-black text-opacity-70 text-sm">
-                    Max Redeemable
-                  </p>
+                  <p className="text-black/70 text-sm">Max Redeemable</p>
                   <p className="text-3xl font-bold text-black">
                     {getMaxRedeemable()} RCN
                   </p>
@@ -370,15 +354,11 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
                         fill="#FFCC00"
                       />
                     </svg>
-                    <h3 className="text-lg font-semibold text-white">
-                      Profile
-                    </h3>
+                    <h3 className="text-lg font-semibold text-white">Profile</h3>
                   </div>
                   <div className="space-y-4">
                     <div>
-                      <p className="text-gray-400 text-xs mb-1">
-                        Wallet Address
-                      </p>
+                      <p className="text-gray-400 text-xs mb-1">Wallet Address</p>
                       <div className="flex items-center gap-2">
                         <code className="text-white text-sm font-mono bg-[#0D0D0D] px-2 py-1 rounded">
                           {customerData.address.slice(0, 6)}...
@@ -408,9 +388,7 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
                     </div>
 
                     <div>
-                      <p className="text-gray-400 text-xs mb-1">
-                        Lifetime Earnings
-                      </p>
+                      <p className="text-gray-400 text-xs mb-1">Lifetime Earnings</p>
                       <p className="text-2xl font-bold text-[#FFCC00]">
                         {customerData.lifetimeEarnings} RCN
                       </p>
@@ -418,17 +396,16 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
 
                     {customerData.lastEarnedDate && (
                       <div>
-                        <p className="text-gray-400 text-xs mb-1">
-                          Last Activity
-                        </p>
+                        <p className="text-gray-400 text-xs mb-1">Last Activity</p>
                         <p className="text-white text-sm">
-                          {new Date(
-                            customerData.lastEarnedDate
-                          ).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
+                          {new Date(customerData.lastEarnedDate).toLocaleDateString(
+                            "en-US",
+                            {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            }
+                          )}
                         </p>
                       </div>
                     )}
@@ -503,9 +480,7 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
                             }`}
                           >
                             <p className="text-xs font-medium">Max</p>
-                            <p className="text-sm font-bold">
-                              {getMaxRedeemable()}
-                            </p>
+                            <p className="text-sm font-bold">{getMaxRedeemable()}</p>
                           </div>
                         </div>
                       </div>
@@ -530,22 +505,18 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
                         fill="#FFCC00"
                       />
                     </svg>
-                    <h3 className="text-lg font-semibold text-white">
-                      Balances
-                    </h3>
+                    <h3 className="text-lg font-semibold text-white">Balances</h3>
                   </div>
 
                   <div className="space-y-4">
                     {/* Earned Balance */}
-                    <div className="p-3 bg-green-900 bg-opacity-20 rounded-lg border border-green-500 border-opacity-30">
+                    <div className="p-3 bg-green-900/20 rounded-lg border border-green-500/30">
                       <div className="flex justify-between items-start">
                         <div>
                           <p className="text-green-400 text-xs font-medium">
                             Earned Balance
                           </p>
-                          <p className="text-gray-400 text-xs mt-1">
-                            Redeemable
-                          </p>
+                          <p className="text-gray-400 text-xs mt-1">Redeemable</p>
                         </div>
                         <p className="text-green-400 text-xl font-bold">
                           {customerData.availableBalance}
@@ -554,18 +525,16 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
                     </div>
 
                     {/* Market Balance */}
-                    <div className="p-3 bg-red-900 bg-opacity-20 rounded-lg border border-red-500 border-opacity-30">
+                    <div className="p-3 bg-red-900/20 rounded-lg border border-red-500/30">
                       <div className="flex justify-between items-start">
                         <div>
                           <p className="text-red-400 text-xs font-medium">
                             Market Balance
                           </p>
-                          <p className="text-gray-400 text-xs mt-1">
-                            Not redeemable
-                          </p>
+                          <p className="text-gray-400 text-xs mt-1">Not redeemable</p>
                         </div>
                         <p className="text-red-400 text-xl font-bold">
-                          {customerData.marketBalance}
+                          {customerData.marketBalance || 0}
                         </p>
                       </div>
                     </div>
@@ -580,7 +549,7 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
                           <p className="text-gray-400 text-xs">On blockchain</p>
                         </div>
                         <p className="text-[#FFCC00] text-2xl font-bold">
-                          {customerData.totalBalance}
+                          {customerData.totalBalance || customerData.availableBalance}
                         </p>
                       </div>
                     </div>
@@ -613,7 +582,7 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
                   {Object.keys(customerData.earningsByShop).length > 0 ? (
                     <div className="space-y-2 max-h-64 overflow-y-auto">
                       {Object.entries(customerData.earningsByShop)
-                        .sort(([, a], [, b]) => b - a)
+                        .sort(([, a], [, b]) => (b as number) - (a as number))
                         .map(([shop, amount], index) => (
                           <div
                             key={shop}
@@ -639,12 +608,12 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
                                 </p>
                                 <div className="flex gap-1 mt-1">
                                   {shop === shopId && (
-                                    <span className="text-xs bg-blue-900 bg-opacity-30 text-blue-400 px-2 py-0.5 rounded">
+                                    <span className="text-xs bg-blue-900/30 text-blue-400 px-2 py-0.5 rounded">
                                       Your Shop
                                     </span>
                                   )}
                                   {shop === customerData.homeShopId && (
-                                    <span className="text-xs bg-green-900 bg-opacity-30 text-green-400 px-2 py-0.5 rounded">
+                                    <span className="text-xs bg-green-900/30 text-green-400 px-2 py-0.5 rounded">
                                       Home
                                     </span>
                                   )}
@@ -652,9 +621,7 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
                               </div>
                             </div>
                             <div className="text-right">
-                              <p className="text-[#FFCC00] font-bold">
-                                {amount}
-                              </p>
+                              <p className="text-[#FFCC00] font-bold">{amount as number}</p>
                               <p className="text-gray-500 text-xs">RCN</p>
                             </div>
                           </div>
@@ -675,9 +642,7 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
                           d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
                         />
                       </svg>
-                      <p className="text-gray-500 text-sm">
-                        No earning history
-                      </p>
+                      <p className="text-gray-500 text-sm">No earning history</p>
                     </div>
                   )}
                 </div>
@@ -689,7 +654,7 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
 
       {/* QR Scanner Modal */}
       {showQRScanner && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
           <div className="bg-[#212121] rounded-2xl max-w-md w-full mx-4">
             <div className="flex justify-between items-center p-6 border-b border-gray-700">
               <h3 className="text-xl font-semibold text-white flex items-center gap-2">
@@ -737,61 +702,6 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
           </div>
         </div>
       )}
-    </div>
-  );
-};
-
-interface InfoRowProps {
-  label: string;
-  value: string;
-  mono?: boolean;
-}
-
-const InfoRow: React.FC<InfoRowProps> = ({ label, value, mono }) => {
-  return (
-    <div className="flex justify-between items-center">
-      <span className="text-gray-100">{label}</span>
-      <span
-        className={`font-medium text-gray-400 ${
-          mono ? "font-mono text-sm" : ""
-        }`}
-      >
-        {mono && value.length > 20
-          ? `${value.slice(0, 6)}...${value.slice(-4)}`
-          : value}
-      </span>
-    </div>
-  );
-};
-
-interface BalanceRowProps {
-  label: string;
-  value: number;
-  subtext: string;
-  color: "green" | "red" | "blue";
-}
-
-const BalanceRow: React.FC<BalanceRowProps> = ({
-  label,
-  value,
-  subtext,
-  color,
-}) => {
-  const colorClasses = {
-    green: "text-green-600",
-    red: "text-red-600",
-    blue: "text-blue-600",
-  };
-
-  return (
-    <div className="flex justify-between items-start">
-      <div>
-        <p className="text-gray-100">{label}</p>
-        <p className="text-xs text-gray-400">{subtext}</p>
-      </div>
-      <p className={`font-semibold text-lg ${colorClasses[color]}`}>
-        {value} RCN
-      </p>
     </div>
   );
 };

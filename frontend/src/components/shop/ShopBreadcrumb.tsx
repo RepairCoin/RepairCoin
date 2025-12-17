@@ -84,9 +84,9 @@ const TAB_CONFIG: Record<string, {
     description: "Your complete overview of customers, their tiers, and lifetime RCN performance.",
   },
   lookup: {
-    title: "Customer Lookup",
+    title: "Lookup",
     icon: <Search className="w-5 h-5" />,
-    description: "Search and find customer information",
+    description: "Look up customers to view their RCN balance, history, and activity.",
   },
   "promo-codes": {
     title: "Promo Codes",
