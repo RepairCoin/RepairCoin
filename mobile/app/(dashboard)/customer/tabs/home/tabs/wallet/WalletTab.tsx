@@ -9,7 +9,12 @@ import {
   ScrollView,
   RefreshControl,
 } from "react-native";
-import { Entypo, SimpleLineIcons } from "@expo/vector-icons";
+import {
+  Entypo,
+  SimpleLineIcons,
+  MaterialIcons,
+  Ionicons,
+} from "@expo/vector-icons";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -57,8 +62,8 @@ const BalanceCard: React.FC<{
   const tierInfo = TIER_CONFIG[tier];
 
   return (
-    <View className="h-40">
-      <View className="w-full h-full bg-[#FFCC00] rounded-3xl flex-row overflow-hidden relative">
+    <View className="h-70 rounded-3xl bg-[#FFFFFF]">
+      <View className="w-full h-40 bg-[#FFCC00] rounded-3xl flex-row overflow-hidden relative">
         {/* Decorative Circle */}
         <View
           className="w-[300px] h-[300px] border-[48px] border-[rgba(102,83,7,0.13)] rounded-full absolute"
@@ -124,6 +129,51 @@ const BalanceCard: React.FC<{
               </View>
             </LinearGradient>
           </View>
+        </View>
+      </View>
+      {/* Quick Actions inside card - 2x2 Grid */}
+      <View className="py-4 px-6">
+        <View className="flex-row justify-around items-center mb-4">
+          <TouchableOpacity
+            onPress={() => router.push("/customer/gift-token")}
+            className="items-center"
+            activeOpacity={0.7}
+          >
+            <View className="bg-white border border-gray-200 rounded-full p-3 mb-2 shadow-sm">
+              <MaterialIcons name="card-giftcard" size={24} color="#000" />
+            </View>
+            <Text className="text-black text-xs font-medium">Gift Token</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push("/customer/qrcode")}
+            className="items-center"
+            activeOpacity={0.7}
+          >
+            <View className="bg-white border border-gray-200 rounded-full p-3 mb-2 shadow-sm">
+              <Ionicons name="qr-code-outline" size={24} color="#000" />
+            </View>
+            <Text className="text-black text-xs font-medium">QR Code</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push("/customer/tier-info")}
+            className="items-center"
+            activeOpacity={0.7}
+          >
+            <View className="bg-white border border-gray-200 rounded-full p-3 mb-2 shadow-sm">
+              <Ionicons name="ribbon-outline" size={24} color="#000" />
+            </View>
+            <Text className="text-black text-xs font-medium">Tier Info</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push("/customer/redeem")}
+            className="items-center"
+            activeOpacity={0.7}
+          >
+            <View className="bg-white border border-gray-200 rounded-full p-3 mb-2 shadow-sm">
+              <Ionicons name="wallet-outline" size={24} color="#000" />
+            </View>
+            <Text className="text-black text-xs font-medium">Redeem</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -283,7 +333,10 @@ export default function WalletTab() {
                 snapToAlignment="start"
               >
                 {displayedServices.map((item: ServiceData) => (
-                  <View key={item.serviceId} style={{ width: 180, marginRight: -2 }}>
+                  <View
+                    key={item.serviceId}
+                    style={{ width: 180, marginRight: -2 }}
+                  >
                     <ServiceCard
                       imageUrl={item.imageUrl}
                       category={getCategoryLabel(item.category)}
@@ -337,7 +390,10 @@ export default function WalletTab() {
                 snapToAlignment="start"
               >
                 {trendingData.map((item: ServiceData) => (
-                  <View key={item.serviceId} style={{ width: 180, marginRight: -2 }}>
+                  <View
+                    key={item.serviceId}
+                    style={{ width: 180, marginRight: -2 }}
+                  >
                     <ServiceCard
                       imageUrl={item.imageUrl}
                       category={getCategoryLabel(item.category)}

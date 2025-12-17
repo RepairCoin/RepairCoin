@@ -1,4 +1,4 @@
-import { Entypo, Octicons, MaterialIcons, Feather } from "@expo/vector-icons";
+import { Entypo, Octicons, MaterialIcons, Feather, Ionicons } from "@expo/vector-icons";
 import { View, Text } from "react-native";
 
 type CustomerTransactionProps = {
@@ -22,11 +22,69 @@ type ShopTransactionProps = {
 
 type Props = CustomerTransactionProps | ShopTransactionProps;
 
+// Transaction type configuration
+const getTransactionConfig = (type: string) => {
+  const lowerType = type?.toLowerCase() || "";
+
+  // Gift/Transfer types
+  if (lowerType === "transfer_in" || lowerType === "gift_received") {
+    return {
+      isPositive: true,
+      bgColor: "bg-purple-100",
+      iconColor: "#9333EA",
+      icon: <MaterialIcons name="card-giftcard" color="#9333EA" size={18} />,
+      label: "Gift Received",
+    };
+  }
+  if (lowerType === "transfer_out" || lowerType === "gift_sent") {
+    return {
+      isPositive: false,
+      bgColor: "bg-purple-100",
+      iconColor: "#9333EA",
+      icon: <Ionicons name="gift-outline" color="#9333EA" size={18} />,
+      label: "Gift Sent",
+    };
+  }
+
+  // Earned types
+  if (["earned", "bonus", "referral", "tier_bonus"].includes(lowerType)) {
+    return {
+      isPositive: true,
+      bgColor: "bg-[#DDF6E2]",
+      iconColor: "#1A9D5B",
+      icon: <Entypo name="check" color="#1A9D5B" size={18} />,
+      label: lowerType === "referral" ? "Referral Bonus" :
+             lowerType === "tier_bonus" ? "Tier Bonus" :
+             lowerType === "bonus" ? "Bonus" : "Earned",
+    };
+  }
+
+  // Redeemed types
+  if (["redeemed", "redemption"].includes(lowerType)) {
+    return {
+      isPositive: false,
+      bgColor: "bg-[#F6C8C8]",
+      iconColor: "#E34C4C",
+      icon: <Octicons name="x" color="#E34C4C" size={18} />,
+      label: "Redeemed",
+    };
+  }
+
+  // Default
+  return {
+    isPositive: true,
+    bgColor: "bg-gray-200",
+    iconColor: "#666",
+    icon: <Feather name="activity" color="#666" size={18} />,
+    label: type || "Transaction",
+  };
+};
+
 export default function TransactionHistoryCard(props: Props) {
   const formattedDate = (date: string) => {
-    return new Date(date).toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
+    return new Date(date).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
@@ -34,33 +92,29 @@ export default function TransactionHistoryCard(props: Props) {
   };
 
   if (props.variant === "customer") {
-    const isEarned = props.type === "earned" || props.type === "bonus" || props.type === "referral" || props.type === "tier_bonus";
-    
+    const config = getTransactionConfig(props.type);
+
     return (
-      <View className="bg-white w-full py-2 px-4 rounded-full flex-row items-center my-2">
+      <View className="bg-zinc-900 w-full py-3 px-4 rounded-xl flex-row items-center my-1.5">
         <View
-          className={`w-10 h-10 ${isEarned ? "bg-[#DDF6E2]" : "bg-[#F6C8C8]"} rounded-full items-center justify-center`}
+          className={`w-10 h-10 ${config.bgColor} rounded-full items-center justify-center`}
         >
-          {isEarned ? (
-            <Entypo name="check" color="#1A9D5B" size={18} />
-          ) : (
-            <Octicons name="x" color="#E34C4C" size={18} />
-          )}
+          {config.icon}
         </View>
-        <View className="flex-1 px-2">
-          <View className="flex-row justify-between">
-            <Text className="text-black text-xl font-extrabold" numberOfLines={1}>
+        <View className="flex-1 px-3">
+          <View className="flex-row justify-between items-center">
+            <Text className="text-white text-base font-bold flex-1 mr-2" numberOfLines={1}>
               {props.shopName || "RepairCoin"}
             </Text>
-            <Text className="text-black text-xl font-extrabold">
-              {isEarned ? "+" : "-"}{props.amount} RCN
+            <Text className={`text-base font-bold ${config.isPositive ? "text-green-400" : "text-red-400"}`}>
+              {config.isPositive ? "+" : "-"}{Math.abs(props.amount)} RCN
             </Text>
           </View>
-          <View className="flex-row justify-between">
-            <Text className="text-[#666] text-base font-semibold" numberOfLines={1}>
-              {props.type}
+          <View className="flex-row justify-between items-center mt-1">
+            <Text className="text-gray-400 text-sm" numberOfLines={1}>
+              {config.label}
             </Text>
-            <Text className="text-[#666] text-base font-semibold">
+            <Text className="text-gray-500 text-xs">
               {formattedDate(props.createdAt)}
             </Text>
           </View>

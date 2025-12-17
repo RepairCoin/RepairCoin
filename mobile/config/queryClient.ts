@@ -99,6 +99,13 @@ export const queryKeys = {
   shopBookings: (filters?: BookingFilters) => [...queryKeys.bookings(), 'shop', filters] as const,
   customerBookings: (filters?: BookingFilters) => [...queryKeys.bookings(), 'customer', filters] as const,
 
+  // Gift Token / Transfer related
+  transfers: () => [...queryKeys.all, 'transfers'] as const,
+  transferHistory: (address: string, options?: { limit?: number; offset?: number }) =>
+    [...queryKeys.transfers(), 'history', address, options] as const,
+  transferValidation: (fromAddress: string, toAddress: string, amount: number) =>
+    [...queryKeys.transfers(), 'validate', fromAddress, toAddress, amount] as const,
+
   // Appointment related
   appointments: () => [...queryKeys.all, 'appointments'] as const,
   availableTimeSlots: (shopId: string, serviceId: string, date: string) =>

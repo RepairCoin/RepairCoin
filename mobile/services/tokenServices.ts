@@ -87,4 +87,113 @@ export const rejectRedemptionSession = async (
     console.error("Failed to reject redemption session:", error);
     throw error;
   }
+};
+
+// Gift Token / Transfer Interfaces
+export interface GiftTokenRequest {
+  fromAddress: string;
+  toAddress: string;
+  amount: number;
+  message?: string;
+  transactionHash: string;
+}
+
+export interface GiftTokenData {
+  transferId: string;
+  fromAddress: string;
+  toAddress: string;
+  amount: number;
+  message?: string;
+  transactionHash: string;
+  timestamp: string;
+  recipientWasNew: boolean;
+}
+
+export interface GiftTokenResponse {
+  data: GiftTokenData;
+  success: boolean;
+}
+
+export interface ValidateTransferRequest {
+  fromAddress: string;
+  toAddress: string;
+  amount: number;
+}
+
+export interface ValidateTransferData {
+  valid: boolean;
+  message: string;
+  senderBalance?: number;
+  recipientExists?: boolean;
+}
+
+export interface ValidateTransferResponse {
+  data: ValidateTransferData;
+  success: boolean;
+}
+
+export interface TransferRecord {
+  id: string;
+  type: "transfer_in" | "transfer_out";
+  amount: number;
+  direction: "sent" | "received";
+  otherParty: string;
+  message?: string;
+  transactionHash: string;
+  timestamp: string;
+  status: string;
+}
+
+export interface TransferHistoryData {
+  transfers: TransferRecord[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface TransferHistoryResponse {
+  data: TransferHistoryData;
+  success: boolean;
+}
+
+// Gift Token / Transfer Functions
+export const transferToken = async (
+  payload: GiftTokenRequest
+): Promise<GiftTokenResponse> => {
+  try {
+    return await apiClient.post<GiftTokenResponse>("/tokens/transfer", payload);
+  } catch (error: any) {
+    console.error("Failed to transfer token:", error.message);
+    throw error;
+  }
+};
+
+export const validateTransfer = async (
+  payload: ValidateTransferRequest
+): Promise<ValidateTransferResponse> => {
+  try {
+    return await apiClient.post<ValidateTransferResponse>("/tokens/validate-transfer", payload);
+  } catch (error: any) {
+    console.error("Failed to validate transfer:", error.message);
+    throw error;
+  }
+};
+
+export const getTransferHistory = async (
+  address: string,
+  options?: { limit?: number; offset?: number }
+): Promise<TransferHistoryResponse> => {
+  try {
+    const params = new URLSearchParams();
+    if (options?.limit) params.append("limit", options.limit.toString());
+    if (options?.offset) params.append("offset", options.offset.toString());
+
+    const queryString = params.toString() ? `?${params.toString()}` : "";
+    return await apiClient.get<TransferHistoryResponse>(
+      `/tokens/transfer-history/${address}${queryString}`
+    );
+  } catch (error: any) {
+    console.error("Failed to get transfer history:", error.message);
+    throw error;
+  }
 };  
