@@ -41,6 +41,22 @@ export class PromoCodeService {
       throw new Error('Fixed bonus must be greater than 0');
     }
 
+    // Validate max_bonus for percentage promo codes (Bug #8 fix)
+    // Percentage codes require a max_bonus cap to prevent unlimited bonuses
+    if (data.bonus_type === 'percentage') {
+      if (!data.max_bonus || data.max_bonus <= 0) {
+        throw new Error('Percentage promo codes require a positive max_bonus cap');
+      }
+      if (data.max_bonus > 10000) {
+        throw new Error('max_bonus cannot exceed 10,000 RCN');
+      }
+    }
+
+    // Validate max_bonus upper bound for all codes (if provided)
+    if (data.max_bonus !== undefined && data.max_bonus !== null && data.max_bonus > 10000) {
+      throw new Error('max_bonus cannot exceed 10,000 RCN');
+    }
+
     const promoCode = await this.promoCodeRepo.create({
       ...data,
       shop_id: shopId
@@ -70,14 +86,14 @@ export class PromoCodeService {
   }
 
   async updatePromoCode(
-    shopId: string, 
-    promoCodeId: number, 
+    shopId: string,
+    promoCodeId: number,
     updates: Partial<PromoCode>
   ): Promise<PromoCode> {
     // Verify ownership
     const existing = await this.promoCodeRepo.findByShop(shopId);
     const promoCode = existing.find(pc => pc.id === promoCodeId);
-    
+
     if (!promoCode) {
       throw new Error('Promo code not found or you do not have permission to update it');
     }
@@ -85,6 +101,31 @@ export class PromoCodeService {
     // Don't allow code changes
     delete updates.code;
     delete updates.shop_id;
+
+    // Determine the effective bonus_type after update
+    const effectiveBonusType = updates.bonus_type || promoCode.bonus_type;
+    const effectiveMaxBonus = updates.max_bonus !== undefined ? updates.max_bonus : promoCode.max_bonus;
+
+    // Validate max_bonus for percentage promo codes (Bug #8 fix)
+    if (effectiveBonusType === 'percentage') {
+      if (!effectiveMaxBonus || effectiveMaxBonus <= 0) {
+        throw new Error('Percentage promo codes require a positive max_bonus cap');
+      }
+      if (effectiveMaxBonus > 10000) {
+        throw new Error('max_bonus cannot exceed 10,000 RCN');
+      }
+    }
+
+    // Validate max_bonus upper bound for all codes (if provided)
+    if (effectiveMaxBonus !== undefined && effectiveMaxBonus !== null && effectiveMaxBonus > 10000) {
+      throw new Error('max_bonus cannot exceed 10,000 RCN');
+    }
+
+    // Validate bonus_value for percentage type
+    const effectiveBonusValue = updates.bonus_value !== undefined ? updates.bonus_value : promoCode.bonus_value;
+    if (effectiveBonusType === 'percentage' && (effectiveBonusValue <= 0 || effectiveBonusValue > 100)) {
+      throw new Error('Percentage bonus must be between 1 and 100');
+    }
 
     const updated = await this.promoCodeRepo.update(promoCodeId, updates);
     if (!updated) {
@@ -153,17 +194,18 @@ export class PromoCodeService {
       };
     }
 
+    // Round to 2 decimal places to match database NUMERIC(18,2) and avoid floating point precision issues
     let bonusAmount = 0;
 
     if (validation.bonus_type === 'fixed') {
-      bonusAmount = parseFloat(validation.bonus_value as any) || 0;
+      bonusAmount = Math.round((parseFloat(validation.bonus_value as any) || 0) * 100) / 100;
     } else if (validation.bonus_type === 'percentage') {
-      bonusAmount = (baseReward * (parseFloat(validation.bonus_value as any) || 0)) / 100;
-      
+      bonusAmount = Math.round((baseReward * (parseFloat(validation.bonus_value as any) || 0)) / 100 * 100) / 100;
+
       // Apply max bonus if specified
       const promoCode = await this.promoCodeRepo.findByCode(code, shopId);
       if (promoCode?.max_bonus && bonusAmount > promoCode.max_bonus) {
-        bonusAmount = promoCode.max_bonus;
+        bonusAmount = Math.round(promoCode.max_bonus * 100) / 100;
       }
     }
 

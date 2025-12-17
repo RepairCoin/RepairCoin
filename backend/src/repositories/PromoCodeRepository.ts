@@ -503,30 +503,24 @@ export class PromoCodeRepository extends BaseRepository {
       }
 
       // Step 5: Calculate bonus amount
+      // Round to 2 decimal places to match database NUMERIC(18,2) and avoid floating point precision issues
       let bonusAmount = 0;
       const bonusValue = parseFloat(promo.bonus_value) || 0;
 
       if (promo.bonus_type === 'fixed') {
-        bonusAmount = bonusValue;
+        bonusAmount = Math.round(bonusValue * 100) / 100;
       } else if (promo.bonus_type === 'percentage') {
-        bonusAmount = (baseReward * bonusValue) / 100;
+        bonusAmount = Math.round((baseReward * bonusValue) / 100 * 100) / 100;
         // Apply max bonus if specified
         if (promo.max_bonus && bonusAmount > parseFloat(promo.max_bonus)) {
-          bonusAmount = parseFloat(promo.max_bonus);
+          bonusAmount = Math.round(parseFloat(promo.max_bonus) * 100) / 100;
         }
       }
 
-      // Step 6: Reserve the usage by incrementing times_used and recording in promo_code_uses
-      // This atomically prevents other concurrent requests from using the code
-      await client.query(`
-        UPDATE promo_codes
-        SET times_used = times_used + 1,
-            total_bonus_issued = total_bonus_issued + $2,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = $1
-      `, [promo.id, bonusAmount]);
-
-      // Step 7: Record the usage
+      // Step 6: Record the usage in promo_code_uses
+      // Note: Database trigger (promo_code_uses_insert_trigger) automatically updates
+      // times_used and total_bonus_issued on the promo_codes table.
+      // This ensures counters always match actual records, preventing drift.
       const useResult = await client.query(`
         INSERT INTO promo_code_uses (
           promo_code_id, customer_address, shop_id,
@@ -586,16 +580,10 @@ export class PromoCodeRepository extends BaseRepository {
       await client.query('BEGIN');
 
       // Remove the usage record
+      // Note: Database trigger (promo_code_uses_delete_trigger) automatically decrements
+      // times_used and total_bonus_issued on the promo_codes table.
+      // This ensures counters always match actual records, preventing drift.
       await client.query('DELETE FROM promo_code_uses WHERE id = $1', [reservationId]);
-
-      // Decrement the usage count and bonus issued
-      await client.query(`
-        UPDATE promo_codes
-        SET times_used = GREATEST(0, times_used - 1),
-            total_bonus_issued = GREATEST(0, total_bonus_issued - $2),
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = $1
-      `, [promoCodeId, bonusAmount]);
 
       await client.query('COMMIT');
 

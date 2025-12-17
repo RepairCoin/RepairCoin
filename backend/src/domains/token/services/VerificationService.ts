@@ -376,7 +376,7 @@ export class VerificationService {
    */
   private async calculateAvailableBalance(customerAddress: string): Promise<number> {
     try {
-      // Get customer's lifetime earnings and pending mint balance
+      // Get customer data
       const customer = await customerRepository.getCustomer(customerAddress);
       if (!customer) {
         return 0;
@@ -385,21 +385,30 @@ export class VerificationService {
       const lifetimeEarnings = customer.lifetimeEarnings || 0;
       const pendingMintBalance = customer.pendingMintBalance || 0;
 
-      // Get total redemptions from transactions
+      // Get totals from transactions in a single query
       let totalRedeemed = 0;
+      let totalMintedToWallet = 0;
       try {
         const transactions = await transactionRepository.getTransactionsByCustomer(customerAddress, 1000);
         for (const tx of transactions) {
           if (tx.type === 'redeem') {
             totalRedeemed += tx.amount;
           }
+          // Check for wallet mint transactions (tokens sent to blockchain wallet)
+          // These have metadata.mintType = 'instant_mint' or reason contains 'instant mint'
+          if ((tx.type as string) === 'mint' && tx.metadata) {
+            const metadata = typeof tx.metadata === 'string' ? JSON.parse(tx.metadata) : tx.metadata;
+            if (metadata.mintType === 'instant_mint' || metadata.source === 'customer_dashboard') {
+              totalMintedToWallet += tx.amount;
+            }
+          }
         }
       } catch (error) {
-        logger.warn('Failed to get redemption history for balance calculation', error);
+        logger.warn('Failed to get transaction history for balance calculation', error);
       }
 
-      // Available balance = lifetime earnings - total redeemed - pending mint (queued for blockchain)
-      return Math.max(0, lifetimeEarnings - totalRedeemed - pendingMintBalance);
+      // Available balance = lifetime earnings - total redeemed - pending mint - already minted to wallet
+      return Math.max(0, lifetimeEarnings - totalRedeemed - pendingMintBalance - totalMintedToWallet);
 
     } catch (error) {
       logger.error('Error calculating available balance:', error);

@@ -369,15 +369,15 @@ export class AppointmentRepository extends BaseRepository {
     try {
       const query = `
         SELECT
-          booking_time_slot as "timeSlot",
+          COALESCE(booking_time_slot, booking_time) as "timeSlot",
           COUNT(*) as count
         FROM service_orders
         WHERE shop_id = $1
           AND booking_date = $2
-          AND booking_time_slot IS NOT NULL
+          AND (booking_time_slot IS NOT NULL OR booking_time IS NOT NULL)
           AND status NOT IN ('cancelled', 'refunded')
-        GROUP BY booking_time_slot
-        ORDER BY booking_time_slot
+        GROUP BY COALESCE(booking_time_slot, booking_time)
+        ORDER BY COALESCE(booking_time_slot, booking_time)
       `;
 
       const result = await this.pool.query(query, [shopId, date]);
@@ -418,7 +418,12 @@ export class AppointmentRepository extends BaseRepository {
       `;
 
       const result = await this.pool.query(query, [shopId, startDate, endDate]);
-      return result.rows;
+
+      // Convert totalAmount from string to number
+      return result.rows.map(row => ({
+        ...row,
+        totalAmount: parseFloat(row.totalAmount)
+      }));
     } catch (error) {
       logger.error('Error getting shop calendar:', error);
       throw new Error('Failed to get shop calendar');
@@ -434,11 +439,11 @@ export class AppointmentRepository extends BaseRepository {
           so.order_id as "orderId",
           so.shop_id as "shopId",
           so.service_id as "serviceId",
-          so.service_name as "serviceName",
+          ss.service_name as "serviceName",
           so.customer_address as "customerAddress",
           c.name as "customerName",
           so.booking_date as "bookingDate",
-          so.booking_time_slot as "bookingTimeSlot",
+          COALESCE(so.booking_time_slot, so.booking_time) as "bookingTimeSlot",
           so.booking_end_time as "bookingEndTime",
           so.status,
           so.total_amount as "totalAmount",
@@ -446,16 +451,22 @@ export class AppointmentRepository extends BaseRepository {
           so.created_at as "createdAt"
         FROM service_orders so
         LEFT JOIN customers c ON c.wallet_address = so.customer_address
+        LEFT JOIN shop_services ss ON ss.service_id = so.service_id
         WHERE so.customer_address = $1
           AND so.booking_date IS NOT NULL
-          AND so.booking_time_slot IS NOT NULL
+          AND (so.booking_time_slot IS NOT NULL OR so.booking_time IS NOT NULL)
           AND DATE(so.booking_date) >= DATE($2)
           AND DATE(so.booking_date) <= DATE($3)
-        ORDER BY so.booking_date, so.booking_time_slot
+        ORDER BY so.booking_date, COALESCE(so.booking_time_slot, so.booking_time)
       `;
 
       const result = await this.pool.query(query, [customerAddress.toLowerCase(), startDate, endDate]);
-      return result.rows;
+
+      // Convert totalAmount from string to number
+      return result.rows.map(row => ({
+        ...row,
+        totalAmount: parseFloat(row.totalAmount)
+      }));
     } catch (error) {
       logger.error('Error getting customer appointments:', error);
       throw new Error('Failed to get customer appointments');
@@ -466,7 +477,11 @@ export class AppointmentRepository extends BaseRepository {
     try {
       // First, check if the order belongs to the customer and get booking details
       const checkQuery = `
-        SELECT booking_date, booking_time_slot, status, customer_address
+        SELECT
+          booking_date,
+          COALESCE(booking_time_slot, booking_time) as booking_time_slot,
+          status,
+          customer_address
         FROM service_orders
         WHERE order_id = $1
       `;

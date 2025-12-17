@@ -2,13 +2,49 @@ import { Router, Request, Response } from 'express';
 import { PromoCodeService } from '../../../services/PromoCodeService';
 import { authMiddleware } from '../../../middleware/auth';
 import { logger } from '../../../utils/logger';
+import { RateLimiter, createRateLimitMiddleware } from '../../../utils/rateLimiter';
 
 const router = Router();
 const promoCodeService = new PromoCodeService();
 
-// Helper function to validate Ethereum address
+// Rate limiter for promo code validation - prevents enumeration attacks
+// 20 attempts per 15 minutes per IP + customer address combination
+const promoValidationRateLimiter = new RateLimiter({
+  maxRequests: 20,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  keyGenerator: (key: string) => `promo_validate_${key}`
+});
+
+// Middleware to rate limit promo code validation
+const promoValidationRateLimit = createRateLimitMiddleware(
+  promoValidationRateLimiter,
+  (req: Request) => {
+    // Rate limit by IP + customer address to prevent enumeration
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const customerAddress = req.body?.customer_address?.toLowerCase() || 'anonymous';
+    return `${ip}_${customerAddress}`;
+  }
+);
+
+// Helper function to validate Ethereum address format
+// Returns true if address matches 0x + 40 hex characters
 const isValidEthereumAddress = (address: string): boolean => {
   return /^0x[a-fA-F0-9]{40}$/.test(address);
+};
+
+// Helper function to validate and normalize Ethereum address
+// Returns normalized (lowercase) address or null if invalid
+const validateAndNormalizeAddress = (address: string | undefined | null): string | null => {
+  if (!address || typeof address !== 'string') {
+    return null;
+  }
+
+  const trimmed = address.trim();
+  if (!isValidEthereumAddress(trimmed)) {
+    return null;
+  }
+
+  return trimmed.toLowerCase();
 };
 
 // Get all promo codes for a shop
@@ -207,32 +243,37 @@ router.get(
 );
 
 // Validate a promo code for a specific shop (shop-scoped endpoint)
+// Rate limited to prevent promo code enumeration attacks
 router.post(
   '/:shopId/promo-codes/validate',
+  promoValidationRateLimit,
   async (req: Request, res: Response) => {
     try {
       const { shopId } = req.params;
       const { code, customer_address } = req.body;
-      
-      // Basic validation
+
+      // Validate promo code
       if (!code || !code.trim()) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Promo code is required' 
+        return res.status(400).json({
+          success: false,
+          error: 'Promo code is required'
         });
       }
-      
-      if (!customer_address || !isValidEthereumAddress(customer_address)) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Valid customer address is required' 
+
+      // Validate and normalize customer address
+      // This prevents invalid addresses and ensures consistent lowercase format
+      const normalizedAddress = validateAndNormalizeAddress(customer_address);
+      if (!normalizedAddress) {
+        return res.status(400).json({
+          success: false,
+          error: 'Valid Ethereum address is required (0x followed by 40 hex characters)'
         });
       }
-      
+
       const validation = await promoCodeService.validatePromoCode(
         code,
         shopId,
-        customer_address
+        normalizedAddress
       );
 
       res.json({
@@ -250,38 +291,44 @@ router.post(
 );
 
 // Validate a promo code (public endpoint for customers)
+// Rate limited to prevent promo code enumeration attacks
 router.post(
   '/promo-codes/validate',
+  promoValidationRateLimit,
   async (req: Request, res: Response) => {
     try {
       const { code, shop_id, customer_address } = req.body;
-      
-      // Basic validation
+
+      // Validate promo code
       if (!code || !code.trim()) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Promo code is required' 
+        return res.status(400).json({
+          success: false,
+          error: 'Promo code is required'
         });
       }
-      
+
+      // Validate shop ID
       if (!shop_id) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Shop ID is required' 
+        return res.status(400).json({
+          success: false,
+          error: 'Shop ID is required'
         });
       }
-      
-      if (!customer_address || !isValidEthereumAddress(customer_address)) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Valid customer address is required' 
+
+      // Validate and normalize customer address
+      // This prevents invalid addresses and ensures consistent lowercase format
+      const normalizedAddress = validateAndNormalizeAddress(customer_address);
+      if (!normalizedAddress) {
+        return res.status(400).json({
+          success: false,
+          error: 'Valid Ethereum address is required (0x followed by 40 hex characters)'
         });
       }
-      
+
       const validation = await promoCodeService.validatePromoCode(
         code,
         shop_id,
-        customer_address
+        normalizedAddress
       );
 
       res.json({
@@ -305,23 +352,25 @@ router.get(
   async (req: Request, res: Response) => {
     try {
       const { address } = req.params;
-      
-      if (!isValidEthereumAddress(address)) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Valid address is required' 
-        });
-      }
-      
-      // Verify customer ownership or admin
-      if (req.user?.role === 'customer' && req.user.address?.toLowerCase() !== address.toLowerCase()) {
-        return res.status(403).json({ 
-          success: false, 
-          error: 'You can only view your own promo code history' 
+
+      // Validate and normalize address
+      const normalizedAddress = validateAndNormalizeAddress(address);
+      if (!normalizedAddress) {
+        return res.status(400).json({
+          success: false,
+          error: 'Valid Ethereum address is required (0x followed by 40 hex characters)'
         });
       }
 
-      const history = await promoCodeService.getCustomerPromoHistory(address);
+      // Verify customer ownership or admin
+      if (req.user?.role === 'customer' && req.user.address?.toLowerCase() !== normalizedAddress) {
+        return res.status(403).json({
+          success: false,
+          error: 'You can only view your own promo code history'
+        });
+      }
+
+      const history = await promoCodeService.getCustomerPromoHistory(normalizedAddress);
 
       res.json({
         success: true,
