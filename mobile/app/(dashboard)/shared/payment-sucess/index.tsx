@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ActivityIndicator, Animated, Easing } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, Animated, Easing, ScrollView } from "react-native";
 import { Ionicons, Feather, FontAwesome5 } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -206,16 +206,16 @@ export default function PaymentSuccess() {
       </Animated.View>
 
       {/* Success/Error Message */}
-      <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+      <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }], width: '100%' }}>
         {confirmError ? (
           <>
             <Text className="text-white text-2xl font-bold text-center mb-2">
               Payment Received
             </Text>
-            <Text className="text-orange-400 text-center mb-4 px-4">
+            <Text className="text-orange-400 text-center mb-4">
               Your payment was received but we encountered an issue confirming your booking.
             </Text>
-            <Text className="text-gray-500 text-sm text-center mb-8 px-4">
+            <Text className="text-gray-500 text-sm text-center mb-8">
               Don't worry - your booking is being processed. Please check your bookings in a few minutes.
             </Text>
           </>
@@ -224,7 +224,7 @@ export default function PaymentSuccess() {
             <Text className="text-white text-2xl font-bold text-center mb-2">
               Booking Confirmed!
             </Text>
-            <Text className="text-gray-400 text-center mb-8 px-4">
+            <Text className="text-gray-400 text-center mb-8">
               Your payment was successful and your service booking has been confirmed.
             </Text>
           </>
@@ -256,8 +256,8 @@ export default function PaymentSuccess() {
         )}
 
         {/* Info Cards */}
-        <View className="w-full space-y-3 mb-8">
-          <View className="flex-row items-center bg-zinc-900/50 rounded-xl p-4 border border-zinc-800">
+        <View className="w-full mb-8">
+          {/* <View className="flex-row items-center bg-zinc-900/50 rounded-xl p-4 border border-zinc-800 mb-3">
             <View className="w-10 h-10 bg-blue-500/20 rounded-full items-center justify-center mr-3">
               <Ionicons name="notifications-outline" size={20} color="#60A5FA" />
             </View>
@@ -265,7 +265,7 @@ export default function PaymentSuccess() {
               <Text className="text-white font-medium">Notification Sent</Text>
               <Text className="text-gray-500 text-sm">The shop has been notified of your booking</Text>
             </View>
-          </View>
+          </View> */}
 
           <View className="flex-row items-center bg-zinc-900/50 rounded-xl p-4 border border-zinc-800">
             <View className="w-10 h-10 bg-[#FFCC00]/20 rounded-full items-center justify-center mr-3">
@@ -424,11 +424,11 @@ export default function PaymentSuccess() {
         </Animated.View>
       </Animated.View>
 
-      <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+      <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }], width: '100%' }}>
         <Text className="text-white text-2xl font-bold text-center mb-2">
           Payment Successful!
         </Text>
-        <Text className="text-gray-400 text-center mb-8 px-4">
+        <Text className="text-gray-400 text-center mb-8">
           Your transaction has been completed successfully.
         </Text>
       </Animated.View>
@@ -441,14 +441,14 @@ export default function PaymentSuccess() {
       case "service_booking":
         return (
           <View className="px-6 pb-8">
-            <TouchableOpacity
+            {/* <TouchableOpacity
               onPress={handleViewBookings}
               className="bg-[#FFCC00] rounded-xl py-4 items-center flex-row justify-center mb-3"
               activeOpacity={0.8}
             >
               <Feather name="calendar" size={20} color="#000" />
               <Text className="text-black text-lg font-bold ml-2">View My Bookings</Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
 
             <TouchableOpacity
               onPress={handleCustomerHome}
@@ -516,10 +516,16 @@ export default function PaymentSuccess() {
 
   return (
     <View className="flex-1 bg-zinc-950">
-      {/* Success Content */}
-      <View className="flex-1 items-center justify-center px-6">
-        {renderContent()}
-      </View>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 40 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Success Content */}
+        <View className="items-center">
+          {renderContent()}
+        </View>
+      </ScrollView>
 
       {/* Bottom Buttons */}
       {renderButtons()}

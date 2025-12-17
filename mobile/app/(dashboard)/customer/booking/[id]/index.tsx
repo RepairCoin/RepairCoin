@@ -28,7 +28,7 @@ export default function CompleteBooking() {
   const { userProfile } = useAuthStore();
   const { useGetService } = useService();
   const { useCreateStripeCheckoutMutation } = useBooking();
-  const { useAvailableTimeSlotsQuery } = useAppointment();
+  const { useAvailableTimeSlotsQuery, useShopAvailabilityQuery } = useAppointment();
   const { data: serviceData, isLoading, error } = useGetService(id!);
   const { data: balanceData } = useBalance(userProfile?.address || "");
   const stripeCheckoutMutation = useCreateStripeCheckoutMutation();
@@ -38,6 +38,11 @@ export default function CompleteBooking() {
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [rcnToRedeem, setRcnToRedeem] = useState<string>("");
   const [notes] = useState("");
+
+  // Fetch shop availability (operating hours)
+  const { data: shopAvailability } = useShopAvailabilityQuery(
+    serviceData?.shopId || ""
+  );
 
   // Fetch available time slots when date is selected
   const {
@@ -221,6 +226,7 @@ export default function CompleteBooking() {
             timeSlots={timeSlots}
             isLoadingSlots={isLoadingSlots}
             slotsError={slotsError}
+            shopAvailability={shopAvailability}
             onDateSelect={handleDayPress}
             onTimeSelect={handleTimeSelect}
           />
