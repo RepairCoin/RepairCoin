@@ -190,7 +190,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                     value={formData.shop_id}
                     onChange={handleInputChange}
                     placeholder="unique-shop-id"
-                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                     required
                     disabled={loading}
                   />
@@ -206,7 +206,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                     value={formData.name}
                     onChange={handleInputChange}
                     placeholder="My Repair Shop"
-                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                     required
                     disabled={loading}
                   />
@@ -229,7 +229,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                     name="firstName"
                     value={formData.firstName}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                     disabled={loading}
                   />
                 </div>
@@ -243,7 +243,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                     name="lastName"
                     value={formData.lastName}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                     disabled={loading}
                   />
                 </div>
@@ -257,7 +257,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                     required
                     disabled={loading}
                   />
@@ -294,7 +294,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                   value={formData.wallet_address}
                   onChange={handleInputChange}
                   placeholder="0x..."
-                  className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                   required
                   disabled={loading}
                 />
@@ -316,7 +316,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                     name="address"
                     value={formData.address}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                     required
                     disabled={loading}
                   />
@@ -332,7 +332,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                       name="city"
                       value={formData.city}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                       disabled={loading}
                     />
                   </div>
@@ -346,7 +346,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                       name="country"
                       value={formData.country}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                       disabled={loading}
                     />
                   </div>
@@ -370,7 +370,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                     value={formData.website}
                     onChange={handleInputChange}
                     placeholder="https://example.com"
-                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                     disabled={loading}
                   />
                 </div>
@@ -384,7 +384,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                     value={formData.description}
                     onChange={handleInputChange}
                     rows={3}
-                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                     placeholder="Brief description of the shop..."
                     disabled={loading}
                   />
@@ -399,7 +399,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                       name="companySize"
                       value={formData.companySize}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                       disabled={loading}
                     >
                       <option value="">Select size</option>
@@ -418,7 +418,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                       name="monthlyRevenue"
                       value={formData.monthlyRevenue}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                       disabled={loading}
                     >
                       <option value="">Select revenue</option>
@@ -439,7 +439,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                     name="referralCode"
                     value={formData.referralCode}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                     disabled={loading}
                   />
                 </div>

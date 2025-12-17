@@ -168,7 +168,7 @@ export const ShopLocationTab: React.FC<ShopLocationTabProps> = ({
               value={locationFormData.address}
               onChange={handleLocationInputChange}
               disabled={!isEditingLocation}
-              className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+              className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
               placeholder="123 Main St, City, State ZIP"
             />
 

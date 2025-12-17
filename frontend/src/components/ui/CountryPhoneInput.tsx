@@ -143,7 +143,7 @@ export const CountryPhoneInput: React.FC<CountryPhoneInputProps> = ({
         <div
           className={cn(
             "w-full flex items-center border border-gray-300 bg-[#2F2F2F] text-white rounded-xl transition-all",
-            "focus-within:ring-2 focus-within:ring-[#FFCC00] focus-within:border-transparent",
+            "focus-within:outline-none focus-within:ring-2 focus-within:ring-[#FFCC00] focus-within:border-transparent",
             error && "border-red-500 focus-within:ring-red-500"
           )}
         >
@@ -177,7 +177,7 @@ export const CountryPhoneInput: React.FC<CountryPhoneInputProps> = ({
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="Search countries..."
-                      className="w-full pl-9 pr-3 py-2 bg-[#1a1a1a] text-white text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus-within:ring-[#FFCC00] focus:border-transparent"
+                      className="w-full pl-9 pr-3 py-2 bg-[#1a1a1a] text-white text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                     />
                   </div>
                 </div>

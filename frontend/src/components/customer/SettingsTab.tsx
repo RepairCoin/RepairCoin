@@ -234,7 +234,7 @@ export function SettingsTab() {
                 value={formData.first_name}
                 onChange={handleInputChange}
                 disabled={!isEditing}
-                className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                 placeholder="Enter your first name"
               />
             </div>
@@ -250,7 +250,7 @@ export function SettingsTab() {
                 value={formData.last_name}
                 onChange={handleInputChange}
                 disabled={!isEditing}
-                className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                 placeholder="Enter your last name"
               />
             </div>
@@ -266,7 +266,7 @@ export function SettingsTab() {
                 value={formData.email}
                 onChange={handleInputChange}
                 disabled={!isEditing}
-                className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                 placeholder="Enter your email"
               />
             </div>
@@ -298,7 +298,7 @@ export function SettingsTab() {
                   type="text"
                   value={account?.address || ""}
                   disabled
-                  className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-not-allowed"
+                  className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent cursor-not-allowed"
                 />
                 <button
                   onClick={() =>
@@ -430,7 +430,7 @@ export function SettingsTab() {
                   type={showPrivateKey ? "text" : "password"}
                   value="••••••••••••••••••••••••••••••••"
                   disabled
-                  className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-not-allowed"
+                  className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent cursor-not-allowed"
                 />
                 <button
                   onClick={() => setShowPrivateKey(!showPrivateKey)}
