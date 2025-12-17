@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { Calendar, DateData } from "react-native-calendars";
-import { TimeSlot } from "@/interfaces/appointment.interface";
+import { TimeSlot, ShopAvailability } from "@/interfaces/appointment.interface";
 
 interface ScheduleScreenProps {
   selectedDate: string;
@@ -16,6 +16,7 @@ interface ScheduleScreenProps {
   timeSlots: TimeSlot[] | undefined;
   isLoadingSlots: boolean;
   slotsError: Error | null;
+  shopAvailability: ShopAvailability[] | undefined;
   onDateSelect: (day: DateData) => void;
   onTimeSelect: (time: string) => void;
 }
@@ -26,6 +27,7 @@ export default function ScheduleScreen({
   timeSlots,
   isLoadingSlots,
   slotsError,
+  shopAvailability,
   onDateSelect,
   onTimeSelect,
 }: ScheduleScreenProps) {
@@ -40,6 +42,48 @@ export default function ScheduleScreen({
     date.setDate(date.getDate() + 30);
     return date.toISOString().split("T")[0];
   }, []);
+
+  // Check if a date is available based on shop operating hours
+  const isDateAvailable = (date: Date): boolean => {
+    if (!shopAvailability) return true; // If no availability data, allow all dates
+    const dayOfWeek = date.getDay();
+    const dayAvailability = shopAvailability.find(a => a.dayOfWeek === dayOfWeek);
+    return dayAvailability?.isOpen || false;
+  };
+
+  // Generate marked dates with unavailable days disabled
+  const markedDates = useMemo(() => {
+    const marks: Record<string, any> = {};
+
+    // Mark selected date
+    if (selectedDate) {
+      marks[selectedDate] = {
+        selected: true,
+        selectedColor: "#FFCC00",
+        selectedTextColor: "#000000",
+      };
+    }
+
+    // Mark unavailable dates (shop closed days) within the date range
+    if (shopAvailability) {
+      const startDate = new Date();
+      const endDate = new Date();
+      endDate.setDate(endDate.getDate() + 30);
+
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        const dateString = d.toISOString().split("T")[0];
+        if (!isDateAvailable(d)) {
+          marks[dateString] = {
+            ...marks[dateString],
+            disabled: true,
+            disableTouchEvent: true,
+          };
+        }
+      }
+    }
+
+    return marks;
+  }, [selectedDate, shopAvailability]);
 
   const formatDateFull = (dateString: string) => {
     const date = new Date(dateString + "T00:00:00");
@@ -76,13 +120,7 @@ export default function ScheduleScreen({
             onDayPress={onDateSelect}
             minDate={today}
             maxDate={maxDate}
-            markedDates={{
-              [selectedDate]: {
-                selected: true,
-                selectedColor: "#FFCC00",
-                selectedTextColor: "#000000",
-              },
-            }}
+            markedDates={markedDates}
             theme={{
               backgroundColor: "#18181b",
               calendarBackground: "#18181b",

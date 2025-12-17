@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import {
   View,
   Text,
@@ -16,44 +16,14 @@ import { Ionicons, Feather, MaterialIcons } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useLocalSearchParams, router } from "expo-router";
 import { useService } from "@/hooks/service/useService";
-import { useAppointment } from "@/hooks/appointment/useAppointment";
 import { SERVICE_CATEGORIES } from "@/constants/service-categories";
-
-// Calculate date range for appointments check
-const getDateRange = () => {
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - 30);
-  const endDate = new Date();
-  endDate.setDate(endDate.getDate() + 90);
-  return {
-    startDate: startDate.toISOString().split("T")[0],
-    endDate: endDate.toISOString().split("T")[0],
-  };
-};
 
 export default function ServiceDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { useGetService } = useService();
-  const { useMyAppointmentsQuery } = useAppointment();
   const { data: serviceData, isLoading, error } = useGetService(id!);
   const [showShareModal, setShowShareModal] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
-
-  // Check if user has already booked this service
-  const { startDate, endDate } = getDateRange();
-  const { data: appointmentData } = useMyAppointmentsQuery(startDate, endDate);
-
-  const hasActiveBooking = useMemo(() => {
-    if (!appointmentData || !id) return false;
-
-    // Check if there's an active booking (pending, confirmed, paid) for this service
-    return appointmentData.some((apt) => {
-      const status = apt.status.toLowerCase();
-      const isActiveStatus = status === "pending" || status === "confirmed" || status === "paid";
-      const isUpcoming = new Date(apt.bookingDate) >= new Date();
-      return apt.serviceId === id && isActiveStatus && isUpcoming;
-    });
-  }, [appointmentData, id]);
 
   // Generate share URL and message
   const getShareUrl = () => {
@@ -337,13 +307,13 @@ export default function ServiceDetail() {
         <View className="flex-row gap-3">
           <TouchableOpacity
             onPress={handleViewShop}
-            className={`bg-zinc-800 border border-zinc-700 rounded-xl py-4 items-center flex-row justify-center ${hasActiveBooking || !serviceData.active ? "flex-1" : "flex-1"}`}
+            className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl py-4 items-center flex-row justify-center"
             activeOpacity={0.8}
           >
             <Ionicons name="storefront-outline" size={20} color="#FFCC00" />
             <Text className="text-white text-lg font-bold ml-2">View Shop</Text>
           </TouchableOpacity>
-          {serviceData.active && !hasActiveBooking && (
+          {serviceData.active && (
             <TouchableOpacity
               onPress={handleBookNow}
               className="flex-1 bg-[#FFCC00] rounded-xl py-4 items-center"
