@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import QrScanner from "qr-scanner";
-import { Camera, X, ScanLine, Search } from "lucide-react";
+import { Camera, X, Search } from "lucide-react";
 import toast from "react-hot-toast";
 
 interface CustomerData {
@@ -32,6 +32,7 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
   const [customerData, setCustomerData] = useState<CustomerData | null>(null);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [qrScanner, setQrScanner] = useState<QrScanner | null>(null);
+  const [cameraLoading, setCameraLoading] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const lookupCustomer = async () => {
@@ -110,36 +111,70 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
   const startQRScanner = async () => {
     try {
       setShowQRScanner(true);
-      if (videoRef.current) {
-        const scanner = new QrScanner(
-          videoRef.current,
-          (result) => {
-            const scannedText = result.data;
-            const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
-            if (ethAddressRegex.test(scannedText)) {
-              setSearchAddress(scannedText);
-              stopQRScanner();
-              toast.success("Wallet address scanned successfully!");
-              setTimeout(() => {
-                lookupCustomer();
-              }, 500);
-            } else {
-              toast.error("Invalid wallet address in QR code");
-            }
-          },
-          {
-            highlightScanRegion: true,
-            highlightCodeOutline: true,
-          }
-        );
+      setCameraLoading(true);
 
-        setQrScanner(scanner);
+      // Wait for video element to be ready in the DOM
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      if (!videoRef.current) {
+        throw new Error("Video element not ready");
+      }
+
+      const scanner = new QrScanner(
+        videoRef.current,
+        (result) => {
+          const scannedText = result.data;
+          console.log("QR scan result:", scannedText);
+
+          // Validate if it's an Ethereum address
+          const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
+          if (ethAddressRegex.test(scannedText)) {
+            setSearchAddress(scannedText);
+            stopQRScanner();
+            toast.success("Wallet address scanned successfully!");
+          } else {
+            toast.error("Invalid wallet address in QR code");
+          }
+        },
+        {
+          highlightScanRegion: true,
+          highlightCodeOutline: true,
+          preferredCamera: "environment", // Use back camera on mobile
+        }
+      );
+
+      setQrScanner(scanner);
+
+      // Start the scanner with better error handling
+      try {
         await scanner.start();
+        setCameraLoading(false);
+      } catch (startError: unknown) {
+        console.error("Scanner start error:", startError);
+
+        // Provide more specific error messages
+        const err = startError as { name?: string };
+        if (err.name === "NotAllowedError") {
+          toast.error(
+            "Camera permission denied. Please allow camera access in your browser settings."
+          );
+        } else if (err.name === "NotFoundError") {
+          toast.error("No camera found on this device.");
+        } else if (err.name === "NotReadableError") {
+          toast.error("Camera is already in use by another application.");
+        } else {
+          toast.error("Failed to start camera. Please try again.");
+        }
+
+        setShowQRScanner(false);
+        setQrScanner(null);
+        setCameraLoading(false);
       }
     } catch (error) {
-      console.error("Error starting QR scanner:", error);
-      toast.error("Failed to start camera. Please check permissions.");
+      console.error("Error initializing QR scanner:", error);
+      toast.error("Failed to initialize camera. Please try again.");
       setShowQRScanner(false);
+      setCameraLoading(false);
     }
   };
 
@@ -149,7 +184,19 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
       qrScanner.destroy();
       setQrScanner(null);
     }
+
+    // Explicitly stop all video tracks to ensure camera is released
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach((track) => {
+        track.stop();
+        console.log("Camera track stopped:", track.kind);
+      });
+      videoRef.current.srcObject = null;
+    }
+
     setShowQRScanner(false);
+    setCameraLoading(false);
   };
 
   useEffect(() => {
@@ -654,51 +701,75 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
 
       {/* QR Scanner Modal */}
       {showQRScanner && (
-        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#212121] rounded-2xl max-w-md w-full mx-4">
-            <div className="flex justify-between items-center p-6 border-b border-gray-700">
-              <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-                <ScanLine className="w-6 h-6 text-[#FFCC00]" />
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#212121] rounded-2xl p-6 max-w-md w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <Camera className="w-6 h-6 text-[#00B2FF]" />
                 Scan Customer QR Code
               </h3>
               <button
                 onClick={stopQRScanner}
-                className="text-gray-400 hover:text-white transition-colors"
+                className="p-2 hover:bg-gray-600 rounded-full transition-colors"
               >
-                <X className="w-6 h-6" />
+                <X className="w-6 h-6 text-gray-400" />
               </button>
             </div>
 
-            <div className="p-6">
-              <div className="relative">
-                <video
-                  ref={videoRef}
-                  className="w-full h-64 bg-black rounded-lg object-cover"
-                  playsInline
-                />
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="w-48 h-48 border-2 border-[#FFCC00] rounded-lg opacity-75"></div>
+            <div className="relative rounded-xl overflow-hidden bg-black">
+              <video
+                ref={videoRef}
+                className="w-full h-64 object-cover rounded-xl"
+                playsInline
+                muted
+              />
+              {cameraLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70">
+                  <div className="text-center">
+                    <svg
+                      className="animate-spin h-12 w-12 text-[#00B2FF] mx-auto mb-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    <p className="text-white text-sm">Starting camera...</p>
+                  </div>
                 </div>
-              </div>
-
-              <div className="mt-4 text-center">
-                <p className="text-gray-300 text-sm mb-2">
-                  Point your camera at the customer's QR code
-                </p>
-                <p className="text-gray-400 text-xs">
-                  The QR code should contain their wallet address
-                </p>
-              </div>
-
-              <div className="mt-6 flex justify-center">
-                <button
-                  onClick={stopQRScanner}
-                  className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
+              )}
+              {!cameraLoading && (
+                <div className="absolute inset-0 border-2 border-[#00B2FF] rounded-xl">
+                  <div className="absolute top-4 left-4 w-6 h-6 border-t-2 border-l-2 border-[#00B2FF]"></div>
+                  <div className="absolute top-4 right-4 w-6 h-6 border-t-2 border-r-2 border-[#00B2FF]"></div>
+                  <div className="absolute bottom-4 left-4 w-6 h-6 border-b-2 border-l-2 border-[#00B2FF]"></div>
+                  <div className="absolute bottom-4 right-4 w-6 h-6 border-b-2 border-r-2 border-[#00B2FF]"></div>
+                </div>
+              )}
             </div>
+
+            <p className="text-gray-400 text-sm mt-4 text-center">
+              Position the customer&apos;s QR code within the frame to scan
+              their wallet address
+            </p>
+
+            <button
+              onClick={stopQRScanner}
+              className="w-full mt-4 px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-medium"
+            >
+              Cancel Scan
+            </button>
           </div>
         </div>
       )}
