@@ -1,5 +1,7 @@
 import { Text, View, TouchableOpacity, Image } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useService } from "@/hooks/service/useService";
+import { useState, useEffect } from "react";
 
 interface ServiceCardProps {
   imageUrl?: string | null;
@@ -25,6 +27,10 @@ interface ServiceCardProps {
   onMenuPress?: () => void;
   variant?: "grid" | "list";
   showTrendingBadge?: boolean;
+  // Favorites
+  showFavoriteButton?: boolean;
+  serviceId?: string;
+  isFavorited?: boolean;
 }
 
 export default function ServiceCard({
@@ -44,7 +50,29 @@ export default function ServiceCard({
   onMenuPress,
   variant = "grid",
   showTrendingBadge = false,
+  showFavoriteButton = false,
+  serviceId,
+  isFavorited: initialFavorited,
 }: ServiceCardProps) {
+  const { useToggleFavorite } = useService();
+  const { toggleFavorite } = useToggleFavorite();
+
+  // Local state for instant UI feedback
+  const [localFavorited, setLocalFavorited] = useState(initialFavorited);
+
+  // Sync with prop when it changes
+  useEffect(() => {
+    setLocalFavorited(initialFavorited);
+  }, [initialFavorited]);
+
+  const handleFavoritePress = () => {
+    if (!serviceId) return;
+    // Update UI instantly
+    setLocalFavorited(!localFavorited);
+    // Then make API call in background
+    toggleFavorite(serviceId, !!localFavorited);
+  };
+
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "Not scheduled";
     const dateObj = new Date(dateString);
@@ -200,6 +228,19 @@ export default function ServiceCard({
                     Trending
                   </Text>
                 </View>
+              )}
+              {showFavoriteButton && serviceId && !showMenu && !badgeStatus && !(status && statusPosition === "image") && (
+                <TouchableOpacity
+                  onPress={handleFavoritePress}
+                  className="absolute top-2 right-2 bg-black/50 rounded-full p-1.5"
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={localFavorited ? "heart" : "heart-outline"}
+                    size={18}
+                    color={localFavorited ? "#EF4444" : "white"}
+                  />
+                </TouchableOpacity>
               )}
             </View>
           )}

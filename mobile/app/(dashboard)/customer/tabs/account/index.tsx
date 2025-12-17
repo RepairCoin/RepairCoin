@@ -104,18 +104,6 @@ export default function Account() {
             <Text className="text-black ml-2 text-base">Edit</Text>
           </Pressable>
         </View>
-        <View className="py-6 px-4 bg-[#212121] rounded-xl gap-4 mt-4">
-          <View className="flex-row justify-between items-center">
-            <Text className="text-white/50 text-xl">Wallet Address</Text>
-          </View>
-          <CopyableField
-            value={customerData?.customer?.address || ""}
-            handleCopyValue={() =>
-              handleCopyValue(customerData?.customer?.address || "")
-            }
-            isCopied={isCopied}
-          />
-        </View>
         <View className="p-4 bg-[#212121] rounded-xl mt-4">
           <Pressable
             onPress={handleLogout}
