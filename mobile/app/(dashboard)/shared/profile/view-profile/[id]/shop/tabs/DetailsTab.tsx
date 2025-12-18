@@ -1,7 +1,7 @@
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { LinkType } from "@/utilities/helper/linking";
+import { LinkType } from "@/utilities/linking";
 
 interface DetailsTabProps {
   shopData: any;

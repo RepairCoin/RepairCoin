@@ -1,6 +1,5 @@
 import { ServiceCategory } from "@/constants/service-categories";
 import { apiClient } from "@/utilities/axios";
-import { buildQueryString } from "@/utilities/helper";
 
 export interface Location {
   lat: number;

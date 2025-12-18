@@ -26,6 +26,7 @@ import { useService } from "@/hooks/service/useService";
 import { useAuthStore } from "@/store/auth.store";
 
 import ServiceCard from "@/components/shared/ServiceCard";
+import { useFavorite } from "@/hooks/favorite/useFavorite";
 
 interface TierInfo {
   color: [string, string];
@@ -183,7 +184,8 @@ const BalanceCard: React.FC<{
 export default function WalletTab() {
   const { account } = useAuthStore();
   const { useGetCustomerByWalletAddress } = useCustomer();
-  const { useGetAllServicesQuery, useGetTrendingServices, useGetFavorites } = useService();
+  const { useGetAllServicesQuery, useGetTrendingServices } = useService();
+  const { useGetFavorites } = useFavorite();
 
   // Use the token balance hook
   const {

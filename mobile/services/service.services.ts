@@ -1,4 +1,4 @@
-import { buildQueryString } from "@/utilities/helper/buildQueryString";
+import { buildQueryString } from "@/utilities/buildQueryString";
 import {
   CreateServiceRequest,
   ServiceResponse,
@@ -95,8 +95,6 @@ class ServiceApi {
       throw error;
     }
   }
-
-  // ==================== FAVORITES ====================
 
   async getFavorites(options?: {
     page?: number;

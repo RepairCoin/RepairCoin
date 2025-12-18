@@ -7,15 +7,15 @@ import {
   RefreshControl,
 } from "react-native";
 import React from "react";
-import { useService } from "@/hooks/service/useService";
 import { ServiceData } from "@/interfaces/service.interface";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { SERVICE_CATEGORIES } from "@/constants/service-categories";
 import ServiceCard from "@/components/shared/ServiceCard";
+import { useFavorite } from "@/hooks/favorite/useFavorite";
 
 export default function FavoritesTab() {
-  const { useGetFavorites } = useService();
+  const { useGetFavorites } = useFavorite();
   const {
     data: favoritesData,
     isLoading,

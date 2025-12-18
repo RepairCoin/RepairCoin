@@ -17,11 +17,13 @@ import { Ionicons, Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { SERVICE_CATEGORIES } from "@/constants/service-categories";
 import ServiceCard from "@/components/shared/ServiceCard";
+import { useFavorite } from "@/hooks/favorite/useFavorite";
 
 type StatusFilter = "all" | "available" | "unavailable";
 
 export default function ServicesTab() {
-  const { useGetAllServicesQuery, useGetFavorites } = useService();
+  const { useGetAllServicesQuery } = useService();
+  const { useGetFavorites } = useFavorite();
   const {
     data: servicesData,
     isLoading,
