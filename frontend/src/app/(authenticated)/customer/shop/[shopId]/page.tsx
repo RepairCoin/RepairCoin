@@ -1,5 +1,6 @@
 import { ShopProfileClient } from "@/components/customer/ShopProfileClient";
 
-export default function ShopProfilePage({ params }: { params: { shopId: string } }) {
-  return <ShopProfileClient shopId={params.shopId} />;
+export default async function ShopProfilePage({ params }: { params: Promise<{ shopId: string }> }) {
+  const { shopId } = await params;
+  return <ShopProfileClient shopId={shopId} />;
 }

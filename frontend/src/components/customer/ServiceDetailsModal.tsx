@@ -314,8 +314,10 @@ export const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({
                 {/* View Shop Button */}
                 <button
                   onClick={() => {
-                    router.push(`/customer/shop/${service.shopId}`);
-                    onClose();
+                    if (service.shopId) {
+                      router.push(`/customer/shop/${service.shopId}`);
+                      onClose();
+                    }
                   }}
                   className="w-full bg-[#1A1A1A] border-2 border-gray-700 text-white font-semibold text-base px-6 py-3 rounded-xl hover:border-[#FFCC00] hover:bg-[#2A2A2A] transition-all duration-200 flex items-center justify-center gap-2"
                 >
