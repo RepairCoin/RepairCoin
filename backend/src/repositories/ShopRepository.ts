@@ -1293,7 +1293,17 @@ export class ShopRepository extends BaseRepository {
 
       if (search) {
         paramCount++;
-        whereClause += ` AND (LOWER(c.address) LIKE LOWER($${paramCount}) OR LOWER(c.name) LIKE LOWER($${paramCount}))`;
+        // Full-text search across all customer columns
+        whereClause += ` AND (
+          LOWER(c.address) LIKE LOWER($${paramCount}) OR
+          LOWER(COALESCE(c.email, '')) LIKE LOWER($${paramCount}) OR
+          LOWER(COALESCE(c.name, '')) LIKE LOWER($${paramCount}) OR
+          LOWER(COALESCE(c.phone, '')) LIKE LOWER($${paramCount}) OR
+          LOWER(COALESCE(c.first_name, '')) LIKE LOWER($${paramCount}) OR
+          LOWER(COALESCE(c.last_name, '')) LIKE LOWER($${paramCount}) OR
+          LOWER(COALESCE(c.referral_code, '')) LIKE LOWER($${paramCount}) OR
+          LOWER(COALESCE(c.tier, '')) LIKE LOWER($${paramCount})
+        )`;
         params.push(`%${search}%`);
       }
 
