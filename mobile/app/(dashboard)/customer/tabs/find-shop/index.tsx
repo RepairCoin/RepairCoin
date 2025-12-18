@@ -7,6 +7,7 @@ import {
   FlatList,
   Alert,
   Linking,
+  Platform,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useShops } from "@/hooks";
@@ -20,6 +21,7 @@ import {
   milesToMeters,
   formatDuration,
 } from "@/providers/RouteProvider";
+import WebViewMap, { WebViewMapRef, MarkerData, CircleData, PolylineData } from "@/components/maps/WebViewMap";
 
 type ViewMode = "map" | "list";
 
@@ -33,6 +35,8 @@ interface ShopWithLocation extends ShopData {
 export default function FindShop() {
   const { data: shops, isLoading } = useShops();
   const mapRef = useRef<MapView>(null);
+  const webViewMapRef = useRef<WebViewMapRef>(null);
+  const isAndroid = Platform.OS === "android";
 
   const [viewMode, setViewMode] = useState<ViewMode>("map");
   const [searchQuery, setSearchQuery] = useState("");
@@ -203,38 +207,54 @@ export default function FindShop() {
 
   // Animate to pending region when map is ready
   useEffect(() => {
-    if (pendingRegion && viewMode === "map" && mapRef.current) {
+    if (pendingRegion && viewMode === "map") {
       // Small delay to ensure map is fully rendered
       const timer = setTimeout(() => {
-        if (mapRef.current) {
+        if (isAndroid && webViewMapRef.current) {
+          webViewMapRef.current.animateToRegion(pendingRegion, 300);
+        } else if (mapRef.current) {
           mapRef.current.animateToRegion(pendingRegion, 300);
         }
         setPendingRegion(null);
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [pendingRegion, viewMode]);
+  }, [pendingRegion, viewMode, isAndroid]);
 
   // Handle marker press
   const handleMarkerPress = (shop: ShopWithLocation) => {
     setSelectedShop(shop);
-    if (shop.lat && shop.lng && mapRef.current) {
-      mapRef.current.animateToRegion(
-        {
-          latitude: shop.lat,
-          longitude: shop.lng,
-          latitudeDelta: 0.02,
-          longitudeDelta: 0.02,
-        },
-        300
-      );
+    if (shop.lat && shop.lng) {
+      const region = {
+        latitude: shop.lat,
+        longitude: shop.lng,
+        latitudeDelta: 0.02,
+        longitudeDelta: 0.02,
+      };
+      if (isAndroid && webViewMapRef.current) {
+        webViewMapRef.current.animateToRegion(region, 300);
+      } else if (mapRef.current) {
+        mapRef.current.animateToRegion(region, 300);
+      }
+    }
+  };
+
+  // Handle marker press from WebViewMap (by ID)
+  const handleWebViewMarkerPress = (markerId: string) => {
+    const shop = filteredShops.find((s: ShopWithLocation) => s.shopId === markerId);
+    if (shop) {
+      handleMarkerPress(shop);
     }
   };
 
   // Center map on user location
   const centerOnUserLocation = () => {
-    if (initialMapRegion && mapRef.current) {
-      mapRef.current.animateToRegion(initialMapRegion, 300);
+    if (initialMapRegion) {
+      if (isAndroid && webViewMapRef.current) {
+        webViewMapRef.current.animateToRegion(initialMapRegion, 300);
+      } else if (mapRef.current) {
+        mapRef.current.animateToRegion(initialMapRegion, 300);
+      }
     }
   };
 
@@ -250,8 +270,12 @@ export default function FindShop() {
     setSelectedShop(shop);
 
     // If already in map view and map is ready, animate directly
-    if (viewMode === "map" && mapRef.current) {
-      mapRef.current.animateToRegion(region, 300);
+    if (viewMode === "map") {
+      if (isAndroid && webViewMapRef.current) {
+        webViewMapRef.current.animateToRegion(region, 300);
+      } else if (mapRef.current) {
+        mapRef.current.animateToRegion(region, 300);
+      }
     } else {
       // Switch to map view and set pending region for animation
       setPendingRegion(region);
@@ -378,17 +402,16 @@ export default function FindShop() {
     setRouteCoordinates([]);
 
     // Fit map to show both user location and shop
-    if (mapRef.current) {
-      mapRef.current.fitToCoordinates(
-        [
-          { latitude: userLocation.coords.latitude, longitude: userLocation.coords.longitude },
-          { latitude: shop.lat, longitude: shop.lng },
-        ],
-        {
-          edgePadding: { top: 100, right: 50, bottom: 300, left: 50 },
-          animated: true,
-        }
-      );
+    const coordinates = [
+      { latitude: userLocation.coords.latitude, longitude: userLocation.coords.longitude },
+      { latitude: shop.lat, longitude: shop.lng },
+    ];
+    const edgePadding = { top: 100, right: 50, bottom: 300, left: 50 };
+
+    if (isAndroid && webViewMapRef.current) {
+      webViewMapRef.current.fitToCoordinates(coordinates, { edgePadding, animated: true });
+    } else if (mapRef.current) {
+      mapRef.current.fitToCoordinates(coordinates, { edgePadding, animated: true });
     }
 
     // Fetch actual route from OpenRouteService
@@ -576,67 +599,108 @@ export default function FindShop() {
       ) : viewMode === "map" ? (
         /* Map View */
         <View className="flex-1">
-          <MapView
-            ref={mapRef}
-            style={{ flex: 1 }}
-            provider={PROVIDER_DEFAULT}
-            initialRegion={initialMapRegion}
-            showsUserLocation={true}
-            showsMyLocationButton={false}
-          >
-            {/* Dynamic radius circle around user location */}
-            {userLocation && (
-              <Circle
-                center={{
+          {/* Android: WebView-based map with Leaflet/OpenStreetMap (no API key needed) */}
+          {isAndroid ? (
+            <WebViewMap
+              ref={webViewMapRef}
+              style={{ flex: 1 }}
+              initialRegion={initialMapRegion || undefined}
+              showsUserLocation={true}
+              userLocation={userLocation ? {
+                latitude: userLocation.coords.latitude,
+                longitude: userLocation.coords.longitude,
+              } : null}
+              markers={filteredShops
+                .filter((shop: ShopWithLocation) => shop.hasValidLocation)
+                .map((shop: ShopWithLocation): MarkerData => ({
+                  id: shop.shopId,
+                  coordinate: { latitude: shop.lat!, longitude: shop.lng! },
+                  title: shop.name,
+                  description: shop.address,
+                  isSelected: selectedShop?.shopId === shop.shopId,
+                }))}
+              circles={userLocation ? [{
+                center: {
                   latitude: userLocation.coords.latitude,
                   longitude: userLocation.coords.longitude,
-                }}
-                radius={milesToMeters(radiusMiles)}
-                strokeColor="rgba(255, 204, 0, 0.8)"
-                strokeWidth={2}
-                fillColor="rgba(255, 204, 0, 0.1)"
-              />
-            )}
+                },
+                radius: milesToMeters(radiusMiles),
+                strokeColor: "rgba(255, 204, 0, 0.8)",
+                strokeWidth: 2,
+                fillColor: "rgba(255, 204, 0, 0.1)",
+              }] : []}
+              polylines={showDirections && routeCoordinates.length > 0 ? [{
+                coordinates: routeCoordinates,
+                strokeColor: "#FFCC00",
+                strokeWidth: 5,
+              }] : []}
+              onMarkerPress={handleWebViewMarkerPress}
+              onMapPress={() => setSelectedShop(null)}
+            />
+          ) : (
+            /* iOS: Native MapView with Apple Maps (no API key needed) */
+            <MapView
+              ref={mapRef}
+              style={{ flex: 1 }}
+              provider={PROVIDER_DEFAULT}
+              initialRegion={initialMapRegion}
+              showsUserLocation={true}
+              showsMyLocationButton={false}
+            >
+              {/* Dynamic radius circle around user location */}
+              {userLocation && (
+                <Circle
+                  center={{
+                    latitude: userLocation.coords.latitude,
+                    longitude: userLocation.coords.longitude,
+                  }}
+                  radius={milesToMeters(radiusMiles)}
+                  strokeColor="rgba(255, 204, 0, 0.8)"
+                  strokeWidth={2}
+                  fillColor="rgba(255, 204, 0, 0.1)"
+                />
+              )}
 
-            {filteredShops
-              .filter((shop: ShopWithLocation) => shop.hasValidLocation)
-              .map((shop: ShopWithLocation) => (
-                <Marker
-                  key={shop.shopId}
-                  coordinate={{ latitude: shop.lat!, longitude: shop.lng! }}
-                  title={shop.name}
-                  description={shop.address}
-                  onPress={() => handleMarkerPress(shop)}
-                >
-                  <View
-                    className={`w-10 h-10 rounded-full items-center justify-center ${
-                      selectedShop?.shopId === shop.shopId
-                        ? "bg-[#FFCC00]"
-                        : "bg-zinc-800 border-2 border-[#FFCC00]"
-                    }`}
+              {filteredShops
+                .filter((shop: ShopWithLocation) => shop.hasValidLocation)
+                .map((shop: ShopWithLocation) => (
+                  <Marker
+                    key={shop.shopId}
+                    coordinate={{ latitude: shop.lat!, longitude: shop.lng! }}
+                    title={shop.name}
+                    description={shop.address}
+                    onPress={() => handleMarkerPress(shop)}
                   >
-                    <Feather
-                      name="tool"
-                      size={18}
-                      color={
+                    <View
+                      className={`w-10 h-10 rounded-full items-center justify-center ${
                         selectedShop?.shopId === shop.shopId
-                          ? "#000"
-                          : "#FFCC00"
-                      }
-                    />
-                  </View>
-                </Marker>
-              ))}
+                          ? "bg-[#FFCC00]"
+                          : "bg-zinc-800 border-2 border-[#FFCC00]"
+                      }`}
+                    >
+                      <Feather
+                        name="tool"
+                        size={18}
+                        color={
+                          selectedShop?.shopId === shop.shopId
+                            ? "#000"
+                            : "#FFCC00"
+                        }
+                      />
+                    </View>
+                  </Marker>
+                ))}
 
-            {/* Directions route line */}
-            {showDirections && routeCoordinates.length > 0 && (
-              <Polyline
-                coordinates={routeCoordinates}
-                strokeColor="#FFCC00"
-                strokeWidth={5}
-              />
-            )}
-          </MapView>
+              {/* Directions route line */}
+              {showDirections && routeCoordinates.length > 0 && (
+                <Polyline
+                  coordinates={routeCoordinates}
+                  strokeColor="#FFCC00"
+                  strokeWidth={5}
+                />
+              )}
+            </MapView>
+          )}
 
           {/* Center on user location button */}
           <Pressable
