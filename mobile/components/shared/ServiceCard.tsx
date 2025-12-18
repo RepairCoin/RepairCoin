@@ -1,7 +1,7 @@
 import { Text, View, TouchableOpacity, Image } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useService } from "@/hooks/service/useService";
 import { useState, useEffect } from "react";
+import { useFavorite } from "@/hooks/favorite/useFavorite";
 
 interface ServiceCardProps {
   imageUrl?: string | null;
@@ -54,7 +54,7 @@ export default function ServiceCard({
   serviceId,
   isFavorited: initialFavorited,
 }: ServiceCardProps) {
-  const { useToggleFavorite } = useService();
+  const { useToggleFavorite } = useFavorite();
   const { toggleFavorite } = useToggleFavorite();
 
   // Local state for instant UI feedback

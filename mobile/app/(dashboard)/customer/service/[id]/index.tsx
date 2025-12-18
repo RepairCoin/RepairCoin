@@ -105,6 +105,18 @@ export default function ServiceDetail() {
     });
   };
 
+  const handleCall = () => {
+    if (serviceData?.shopPhone) {
+      Linking.openURL(`tel:${serviceData.shopPhone}`);
+    }
+  };
+
+  const handleEmail = () => {
+    if (serviceData?.shopEmail) {
+      Linking.openURL(`mailto:${serviceData.shopEmail}`);
+    }
+  };
+
   const handleBookNow = () => {
     router.push(`/customer/booking/${id}`);
   };
@@ -246,7 +258,10 @@ export default function ServiceDetail() {
 
             {/* Shop Phone */}
             {serviceData.shopPhone && (
-              <View className="flex-row items-center mb-3">
+              <TouchableOpacity
+                onPress={handleCall}
+                className="flex-row items-center mb-3"
+              >
                 <View className="bg-gray-800 rounded-full p-2 mr-3">
                   <Ionicons name="call-outline" size={20} color="#FFCC00" />
                 </View>
@@ -256,12 +271,16 @@ export default function ServiceDetail() {
                     {serviceData.shopPhone}
                   </Text>
                 </View>
-              </View>
+                <Ionicons name="chevron-forward" size={20} color="#666" />
+              </TouchableOpacity>
             )}
 
             {/* Shop Email */}
             {serviceData.shopEmail && (
-              <View className="flex-row items-center mb-3">
+              <TouchableOpacity
+                onPress={handleEmail}
+                className="flex-row items-center mb-3"
+              >
                 <View className="bg-gray-800 rounded-full p-2 mr-3">
                   <Ionicons name="mail-outline" size={20} color="#FFCC00" />
                 </View>
@@ -271,7 +290,8 @@ export default function ServiceDetail() {
                     {serviceData.shopEmail}
                   </Text>
                 </View>
-              </View>
+                <Ionicons name="chevron-forward" size={20} color="#666" />
+              </TouchableOpacity>
             )}
           </View>
 

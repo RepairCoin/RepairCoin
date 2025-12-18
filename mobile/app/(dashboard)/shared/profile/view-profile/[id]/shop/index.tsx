@@ -5,8 +5,8 @@ import { useShop } from "@/hooks/shop/useShop";
 import ReviewsTab from "./tabs/ReviewsTab";
 import DetailsTab from "./tabs/DetailsTab";
 import ServicesTab from "./tabs/ServicesTab";
-import { handleLink } from "@/utilities/helper/linking";
-import { formatDate } from "@/utilities/helper/format";
+import { handleLink } from "@/utilities/linking";
+import { formatDate } from "@/utilities/format";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { TabButtons } from "@/components/ui/TabButtons";
 
