@@ -52,6 +52,7 @@ import { metricsMiddleware } from './utils/metrics';
 import { generalCache } from './utils/cache';
 import { requestIdMiddleware } from './middleware/errorHandler';
 import { errorTrackingMiddleware, getErrorSummary, clearErrorMetrics, monitorErrors } from './middleware/errorTracking';
+import { generalLimiter } from './middleware/rateLimiter';
 
 class RepairCoinApp {
   public app = express();
@@ -164,7 +165,10 @@ class RepairCoinApp {
 
     // Add request ID middleware
     this.app.use(requestIdMiddleware);
-    
+
+    // Apply general rate limiting to all API routes
+    this.app.use('/api/', generalLimiter);
+
     // Add request timeout middleware (30 seconds)
     this.app.use((req, res, next) => {
       // Set timeout for all requests

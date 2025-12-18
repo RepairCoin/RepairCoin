@@ -22,22 +22,22 @@ interface UseCustomerReturn {
   loading: boolean;
   error: string | null;
   success: string | null;
-  
+
   // Customer data from store
   customerData: CustomerData | null;
   balanceData: BalanceData | null;
   transactions: TransactionHistory[];
   blockchainBalance: number;
   isLoading: boolean;
-  
+
   // Form handlers
   updateRegistrationFormField: (field: keyof RegistrationFormData, value: string) => void;
-  handleRegistrationSubmit: (walletAddress: string, walletType?: string, authMethod?: string) => Promise<void>;
-  
+  handleRegistrationSubmit: (walletAddress: string, walletType?: string, authMethod?: string, captchaToken?: string | null) => Promise<void>;
+
   // Data fetching
   fetchCustomerData: (force?: boolean) => Promise<void>;
   clearCache: () => void;
-  
+
   // Utilities
   clearMessages: () => void;
 }
@@ -109,7 +109,8 @@ export const useCustomer = (): UseCustomerReturn => {
   const handleRegistrationSubmit = useCallback(async (
     walletAddress: string,
     walletType?: string,
-    authMethod?: string
+    authMethod?: string,
+    captchaToken?: string | null
   ): Promise<void> => {
     setLoading(true);
     setError(null);
@@ -122,6 +123,7 @@ export const useCustomer = (): UseCustomerReturn => {
         last_name: registrationFormData.last_name,
         email: registrationFormData.email,
         referralCode: registrationFormData.referralCode,
+        captchaToken: captchaToken || undefined,
       };
 
       console.log('Sending registration data:', registrationData);

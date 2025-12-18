@@ -10,6 +10,7 @@ import { DiscoveryController } from './controllers/DiscoveryController';
 import { PaymentService } from './services/PaymentService';
 import { authMiddleware, optionalAuthMiddleware, requireRole } from '../../middleware/auth';
 import { StripeService } from '../../services/StripeService';
+import { paymentLimiter, orderLimiter } from '../../middleware/rateLimiter';
 
 const router = Router();
 
@@ -448,6 +449,7 @@ export function initializeRoutes(stripe: StripeService): Router {
    */
   router.post(
     '/orders/create-payment-intent',
+    paymentLimiter,
     authMiddleware,
     requireRole(['customer']),
     orderController.createPaymentIntent
@@ -508,6 +510,7 @@ export function initializeRoutes(stripe: StripeService): Router {
    */
   router.post(
     '/orders/stripe-checkout',
+    orderLimiter,
     authMiddleware,
     requireRole(['customer']),
     orderController.createStripeCheckout
@@ -1319,6 +1322,173 @@ export function initializeRoutes(stripe: StripeService): Router {
     authMiddleware,
     requireRole(['admin']),
     analyticsController.getMarketplaceHealthScore
+  );
+
+  // ==================== ANALYTICS EXPORT ROUTES (CSV) ====================
+
+  /**
+   * @swagger
+   * /api/services/analytics/shop/export:
+   *   get:
+   *     summary: Export shop analytics to CSV (Shop only)
+   *     description: Download comprehensive shop analytics as CSV file
+   *     tags: [Service Analytics]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: CSV file download
+   *         content:
+   *           text/csv:
+   *             schema:
+   *               type: string
+   */
+  router.get(
+    '/analytics/shop/export',
+    authMiddleware,
+    requireRole(['shop']),
+    analyticsController.exportShopAnalytics
+  );
+
+  /**
+   * @swagger
+   * /api/services/analytics/categories/export:
+   *   get:
+   *     summary: Export category breakdown to CSV (Shop only)
+   *     description: Download category performance data as CSV file
+   *     tags: [Service Analytics]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: CSV file download
+   *         content:
+   *           text/csv:
+   *             schema:
+   *               type: string
+   */
+  router.get(
+    '/analytics/categories/export',
+    authMiddleware,
+    requireRole(['shop']),
+    analyticsController.exportCategoryBreakdown
+  );
+
+  /**
+   * @swagger
+   * /api/services/analytics/trends/export:
+   *   get:
+   *     summary: Export order trends to CSV (Shop only)
+   *     description: Download order trends data as CSV file
+   *     tags: [Service Analytics]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: days
+   *         schema:
+   *           type: integer
+   *           default: 30
+   *         description: Number of days for trend data
+   *     responses:
+   *       200:
+   *         description: CSV file download
+   *         content:
+   *           text/csv:
+   *             schema:
+   *               type: string
+   */
+  router.get(
+    '/analytics/trends/export',
+    authMiddleware,
+    requireRole(['shop']),
+    analyticsController.exportOrderTrends
+  );
+
+  /**
+   * @swagger
+   * /api/services/analytics/platform/export:
+   *   get:
+   *     summary: Export platform analytics to CSV (Admin only)
+   *     description: Download platform-wide analytics as CSV file
+   *     tags: [Service Analytics]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: CSV file download
+   *         content:
+   *           text/csv:
+   *             schema:
+   *               type: string
+   */
+  router.get(
+    '/analytics/platform/export',
+    authMiddleware,
+    requireRole(['admin']),
+    analyticsController.exportPlatformAnalytics
+  );
+
+  /**
+   * @swagger
+   * /api/services/analytics/platform/categories/export:
+   *   get:
+   *     summary: Export platform category performance to CSV (Admin only)
+   *     description: Download platform category data as CSV file
+   *     tags: [Service Analytics]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: limit
+   *         schema:
+   *           type: integer
+   *           default: 10
+   *         description: Number of categories to export
+   *     responses:
+   *       200:
+   *         description: CSV file download
+   *         content:
+   *           text/csv:
+   *             schema:
+   *               type: string
+   */
+  router.get(
+    '/analytics/platform/categories/export',
+    authMiddleware,
+    requireRole(['admin']),
+    analyticsController.exportPlatformCategories
+  );
+
+  /**
+   * @swagger
+   * /api/services/analytics/platform/trends/export:
+   *   get:
+   *     summary: Export platform order trends to CSV (Admin only)
+   *     description: Download platform-wide order trends as CSV file
+   *     tags: [Service Analytics]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: days
+   *         schema:
+   *           type: integer
+   *           default: 30
+   *         description: Number of days for trend data
+   *     responses:
+   *       200:
+   *         description: CSV file download
+   *         content:
+   *           text/csv:
+   *             schema:
+   *               type: string
+   */
+  router.get(
+    '/analytics/platform/trends/export',
+    authMiddleware,
+    requireRole(['admin']),
+    analyticsController.exportPlatformTrends
   );
 
   // ==================== APPOINTMENT SCHEDULING ROUTES ====================

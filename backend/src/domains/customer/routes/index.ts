@@ -13,6 +13,7 @@ import {
 } from '../../../middleware/errorHandler';
 import { validateCustomerUniqueness } from '../../../middleware/validation';
 import { RateLimiter, createRateLimitMiddleware } from '../../../utils/rateLimiter';
+import { verifyCaptchaRegister } from '../../../middleware/captcha';
 import { CustomerController } from '../controllers/CustomerController';
 import { CustomerService } from '../services/CustomerService';
 
@@ -83,6 +84,7 @@ const customerController = new CustomerController(customerService);
 
 // Register new customer (specific route first)
 router.post('/register',
+  verifyCaptchaRegister, // CAPTCHA verification
   validateRequired(['walletAddress']),
   validateEthereumAddress('walletAddress'),
   validateEmail('email'),

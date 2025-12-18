@@ -6,6 +6,7 @@ import { ConnectButton } from "thirdweb/react";
 import { createThirdwebClient } from "thirdweb";
 import { useShopRegistration } from '@/hooks/useShopRegistration';
 import { ShopRegistrationForm } from '@/components/shop/ShopRegistrationForm';
+import { useRecaptcha } from '@/hooks/useRecaptcha';
 
 const client = createThirdwebClient({
   clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || "1969ac335e07ba13ad0f8d1a1de4f6ab",
@@ -13,6 +14,7 @@ const client = createThirdwebClient({
 
 export default function ShopRegistration() {
   const router = useRouter();
+  const { executeCaptcha } = useRecaptcha();
   const {
     formData,
     loading,
@@ -111,7 +113,11 @@ export default function ShopRegistration() {
             <ShopRegistrationForm
               formData={formData}
               loading={loading}
-              onSubmit={handleSubmit}
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const captchaToken = await executeCaptcha('register');
+                await handleSubmit(e, captchaToken);
+              }}
               onChange={handleInputChange}
               onPhoneChange={handlePhoneChange}
               onLocationSelect={handleLocationSelect}

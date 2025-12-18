@@ -109,7 +109,7 @@ export const useShopRegistration = () => {
     return null;
   }, [formData]);
 
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent, captchaToken?: string | null) => {
     e.preventDefault();
     console.log("Form submitted");
 
@@ -139,7 +139,7 @@ export const useShopRegistration = () => {
 
     try {
       const result = await toast.promise(
-        ShopService.registerShop(account.address, formData),
+        ShopService.registerShop(account.address, formData, captchaToken),
         {
           loading: 'Submitting your registration...',
           success: (data) => {

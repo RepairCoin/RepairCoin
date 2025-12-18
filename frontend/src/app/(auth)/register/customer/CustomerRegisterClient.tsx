@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAuthMethod } from "@/contexts/AuthMethodContext";
 import { useCustomer } from "@/hooks/useCustomer";
 import { getUserEmail } from "thirdweb/wallets";
+import { useRecaptcha } from "@/hooks/useRecaptcha";
 
 const client = createThirdwebClient({
   clientId:
@@ -20,6 +21,7 @@ export default function CustomerRegisterClient() {
   const { refreshProfile } = useAuth();
   const { authMethod, walletType } = useAuthMethod();
   const router = useRouter();
+  const { executeCaptcha } = useRecaptcha();
 
   const {
     loading,
@@ -50,11 +52,15 @@ export default function CustomerRegisterClient() {
     e.preventDefault();
     if (!account?.address) return;
 
+    // Execute CAPTCHA before registration
+    const captchaToken = await executeCaptcha('register');
+
     // Call the registration handler from the hook
     await handleRegistrationSubmit(
       account.address,
       walletType || "external",
-      authMethod || "wallet"
+      authMethod || "wallet",
+      captchaToken
     );
 
     // Refresh the auth profile after registration
