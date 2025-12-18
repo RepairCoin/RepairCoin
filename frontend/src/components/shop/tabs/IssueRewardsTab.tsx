@@ -3,9 +3,24 @@
 import React, { useState, useEffect, useRef } from "react";
 import { toast } from "react-hot-toast";
 import Tooltip from "../../ui/tooltip";
-import { Camera, X } from "lucide-react";
+import { Camera, X, Search, User } from "lucide-react";
 import QrScanner from "qr-scanner";
 import apiClient from "@/services/api/client";
+
+// Customer search result interface
+interface CustomerSearchResult {
+  address: string;
+  name?: string;
+  tier: "BRONZE" | "SILVER" | "GOLD";
+  lifetimeEarnings?: number;
+}
+
+// Tier badge styles for dropdown
+const TIER_BADGE_STYLES = {
+  GOLD: "bg-[#F7B500] text-black",
+  SILVER: "bg-[#6B7280] text-white",
+  BRONZE: "bg-[#CD7F32] text-white",
+} as const;
 
 interface ShopData {
   purchasedRcnBalance: number;
@@ -87,6 +102,12 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
   const [qrScanner, setQrScanner] = useState<QrScanner | null>(null);
   const [cameraLoading, setCameraLoading] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Customer Search Dropdown states
+  const [customerSearchResults, setCustomerSearchResults] = useState<CustomerSearchResult[]>([]);
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [searchingCustomers, setSearchingCustomers] = useState(false);
+  const customerSearchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const calculateBaseReward = () => {
     if (repairType === "custom") {
@@ -480,6 +501,76 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
     }
   };
 
+  // Customer Search Dropdown - search when input changes (if not a wallet address)
+  const searchCustomersByName = async (query: string) => {
+    if (!query || query.startsWith("0x") || query.length < 2) {
+      setCustomerSearchResults([]);
+      setShowCustomerDropdown(false);
+      return;
+    }
+
+    setSearchingCustomers(true);
+    setShowCustomerDropdown(true);
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/customers?search=${encodeURIComponent(query)}&page=1&limit=10`,
+        {
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const customers = (data.data?.customers || []).map((c: any) => ({
+          address: c.address,
+          name: c.name,
+          tier: c.tier || "BRONZE",
+          lifetimeEarnings: c.lifetimeEarnings || 0,
+        }));
+        setCustomerSearchResults(customers);
+      } else {
+        setCustomerSearchResults([]);
+      }
+    } catch (error) {
+      console.error("Error searching customers:", error);
+      setCustomerSearchResults([]);
+    } finally {
+      setSearchingCustomers(false);
+    }
+  };
+
+  // Handle customer address input change with debounced search
+  const handleCustomerAddressChange = (value: string) => {
+    setCustomerAddress(value);
+
+    // Clear existing timeout
+    if (customerSearchTimeoutRef.current) {
+      clearTimeout(customerSearchTimeoutRef.current);
+    }
+
+    // If it looks like a wallet address, don't search
+    if (value.startsWith("0x")) {
+      setCustomerSearchResults([]);
+      setShowCustomerDropdown(false);
+      return;
+    }
+
+    // Debounce search by 300ms
+    customerSearchTimeoutRef.current = setTimeout(() => {
+      searchCustomersByName(value);
+    }, 300);
+  };
+
+  // Handle customer selection from dropdown
+  const handleSelectCustomerFromDropdown = (customer: CustomerSearchResult) => {
+    setCustomerAddress(customer.address);
+    setShowCustomerDropdown(false);
+    setCustomerSearchResults([]);
+    toast.success(`Selected: ${customer.name || "Customer"}`);
+  };
+
   // QR Scanner functions
   const startQRScanner = async () => {
     try {
@@ -734,21 +825,31 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
             <div className="w-full p-4 md:p-8 text-white">
               <div>
                 <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Wallet Address
+                  Customer Name or Wallet Address
                 </label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
                     <input
                       type="text"
                       value={customerAddress}
-                      onChange={(e) => setCustomerAddress(e.target.value)}
-                      placeholder="0x0000...0000"
+                      onChange={(e) => handleCustomerAddressChange(e.target.value)}
+                      onFocus={() => {
+                        if (customerSearchResults.length > 0) {
+                          setShowCustomerDropdown(true);
+                        }
+                      }}
+                      onBlur={() => {
+                        // Delay to allow click on dropdown item
+                        setTimeout(() => setShowCustomerDropdown(false), 200);
+                      }}
+                      placeholder="Search by name or enter wallet address..."
                       disabled={isBlocked}
-                      className={`w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent transition-all ${
+                      className={`w-full pl-10 pr-10 py-3 bg-[#0D0D0D] border border-gray-700 text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent transition-all ${
                         isBlocked ? "opacity-50 cursor-not-allowed" : ""
                       }`}
                     />
-                    {fetchingCustomer && (
+                    {(fetchingCustomer || searchingCustomers) && (
                       <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                         <svg
                           className="animate-spin h-5 w-5 text-[#FFCC00]"
@@ -771,10 +872,70 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
                         </svg>
                       </div>
                     )}
+
+                    {/* Customer Search Dropdown */}
+                    {showCustomerDropdown && (
+                      <div className="absolute z-20 w-full mt-2 bg-[#1A1A1A] border border-gray-700 rounded-xl shadow-xl max-h-64 overflow-y-auto">
+                        {searchingCustomers && (
+                          <div className="px-4 py-3 text-center text-gray-400 flex items-center justify-center gap-2">
+                            <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            Searching...
+                          </div>
+                        )}
+
+                        {!searchingCustomers && customerSearchResults.length === 0 && customerAddress && !customerAddress.startsWith("0x") && (
+                          <div className="px-4 py-3 text-center text-gray-500 flex flex-col items-center gap-2">
+                            <User className="w-8 h-8 text-gray-600" />
+                            <span>No customers found</span>
+                          </div>
+                        )}
+
+                        {!searchingCustomers && customerSearchResults.map((customer) => (
+                          <div
+                            key={customer.address}
+                            onClick={() => handleSelectCustomerFromDropdown(customer)}
+                            className="px-4 py-3 hover:bg-[#2F2F2F] cursor-pointer transition-colors border-b border-gray-800 last:border-b-0"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                                  {customer.name ? customer.name.charAt(0).toUpperCase() : "?"}
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-white">
+                                      {customer.name || "Anonymous Customer"}
+                                    </span>
+                                    <span className={`px-2 py-0.5 text-xs rounded-full font-semibold ${TIER_BADGE_STYLES[customer.tier]}`}>
+                                      {customer.tier}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-gray-400 font-mono mt-0.5">
+                                    {customer.address.slice(0, 6)}...{customer.address.slice(-4)}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs text-gray-400">Lifetime</p>
+                                <p className="text-sm font-semibold text-[#FFCC00]">
+                                  {customer.lifetimeEarnings?.toLocaleString() || 0} RCN
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <button
                     onClick={startQRScanner}
-                    className="px-4 py-3 bg-[#FFCC00] text-black hover:bg-[#FFD700] font-bold rounded-xl transition-all flex items-center justify-center gap-2 whitespace-nowrap"
+                    disabled={isBlocked}
+                    className={`px-4 py-3 bg-[#FFCC00] text-black hover:bg-[#FFD700] font-bold rounded-xl transition-all flex items-center justify-center gap-2 whitespace-nowrap ${
+                      isBlocked ? "opacity-50 cursor-not-allowed" : ""
+                    }`}
                     title="Scan customer's QR code"
                   >
                     <Camera className="w-5 h-5" />
@@ -1551,6 +1712,7 @@ export const IssueRewardsTab: React.FC<IssueRewardsTabProps> = ({
           </div>
         </div>
       )}
+
     </div>
   );
 };
