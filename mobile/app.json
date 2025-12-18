@@ -8,14 +8,18 @@
     "icon": "./assets/images/icon.png",
     "scheme": "khalid2025",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.khalid2025.repaircoin",
       "runtimeVersion": "1.0.0",
       "appleTeamId": "BAN25WZ5LK",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "This app uses your location to find nearby shops."
+        "NSLocationWhenInUseUsageDescription": "This app uses your location to find nearby shops.",
+        "NSLocationAlwaysUsageDescription": "This app uses your location to find nearby shops.",
+        "NSCameraUsageDescription": "This app uses your camera to scan QR codes and take photos.",
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to upload images.",
+        "NSMicrophoneUsageDescription": "This app uses your microphone for video recording."
       }
     },
     "android": {
@@ -23,12 +27,21 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
       "package": "com.khalid2025.repaircoin",
       "runtimeVersion": {
         "policy": "appVersion"
       },
-      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_MEDIA_LOCATION",
+        "INTERNET",
+        "VIBRATE"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -51,15 +64,37 @@
         "expo-build-properties",
         {
           "android": {
-            "minSdkVersion": 26
+            "minSdkVersion": 26,
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "usesCleartextTraffic": true
+          },
+          "ios": {
+            "deploymentTarget": "15.1"
           }
         }
       ],
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow this app to access your location.",
-          "locationWhenInUsePermission": "Allow this app to access your location while using the app."
+          "locationAlwaysAndWhenInUsePermission": "Allow RepairCoin to access your location to find nearby shops.",
+          "locationWhenInUsePermission": "Allow RepairCoin to access your location while using the app.",
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow RepairCoin to access your camera to scan QR codes and take photos.",
+          "microphonePermission": "Allow RepairCoin to access your microphone for video recording.",
+          "recordAudioAndroid": true
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow RepairCoin to access your photos to upload images.",
+          "cameraPermission": "Allow RepairCoin to access your camera to take photos."
         }
       ]
     ],
