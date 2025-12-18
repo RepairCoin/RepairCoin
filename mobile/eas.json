@@ -4,31 +4,90 @@
     "appVersionSource": "remote"
   },
   "build": {
+    "base": {
+      "env": {
+        "NODE_VERSION": "20"
+      }
+    },
     "development": {
+      "extends": "base",
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleDebug"
+      },
+      "ios": {
+        "simulator": true
+      }
     },
     "preview": {
-      "distribution": "internal"
+      "extends": "base",
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "env": {
+          "EX_UPDATES_NATIVE_DEBUG": "1"
+        },
+        "gradleCommand": ":app:assembleRelease",
+        "withoutCredentials": false
+      },
+      "env": {
+        "APP_ENV": "preview",
+        "EXPO_NO_CAPABILITY_SYNC": "1"
+      },
+      "ios": {
+        "simulator": false
+      },
+      "channel": "preview"
     },
-    "production": {
-      "autoIncrement": true
+    "preview-debug": {
+      "extends": "base",
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleDebug"
+      },
+      "ios": {
+        "simulator": false
+      },
+      "channel": "preview"
     },
     "tester": {
+      "extends": "base",
       "android": {
         "buildType": "apk",
         "autoIncrement": true
       },
       "ios": {
+        "simulator": false,
         "autoIncrement": true
       },
-      "channel": "tester",
-      "env": {
-        "NODE_VERSION": "20"
-      }
+      "channel": "tester"
+    },
+    "production": {
+      "extends": "base",
+      "distribution": "store",
+      "android": {
+        "buildType": "app-bundle",
+        "autoIncrement": true
+      },
+      "ios": {
+        "simulator": false,
+        "autoIncrement": true
+      },
+      "channel": "production"
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "path/to/google-play-service-account.json"
+      },
+      "ios": {
+        "appleId": "YOUR_APPLE_ID",
+        "ascAppId": "YOUR_APP_STORE_CONNECT_APP_ID"
+      }
+    }
   }
 }

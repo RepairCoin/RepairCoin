@@ -1,3 +1,6 @@
+// CRITICAL: These polyfills MUST be imported FIRST before any other imports
+import "react-native-get-random-values";
+
 import { useEffect } from "react";
 import { StatusBar, Platform } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -13,7 +16,6 @@ import { ErrorBoundaryProvider } from "../providers/ErrorBoundaryProvider";
 import { queryClient } from "../config/queryClient";
 import DevTools from "../components/ui/ReactQueryDevtools";
 import "../global.css";
-import "react-native-get-random-values";
 
 SplashScreen.preventAutoHideAsync();
 

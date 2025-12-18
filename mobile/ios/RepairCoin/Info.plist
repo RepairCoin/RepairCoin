@@ -52,19 +52,19 @@
       <true/>
     </dict>
     <key>NSCameraUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your camera</string>
+    <string>Allow RepairCoin to access your camera to scan QR codes and take photos.</string>
     <key>NSFaceIDUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your Face ID biometric data.</string>
     <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-    <string>Allow this app to access your location.</string>
+    <string>Allow RepairCoin to access your location to find nearby shops.</string>
     <key>NSLocationAlwaysUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your location</string>
+    <string>This app uses your location to find nearby shops.</string>
     <key>NSLocationWhenInUseUsageDescription</key>
-    <string>Allow this app to access your location while using the app.</string>
+    <string>Allow RepairCoin to access your location while using the app.</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your microphone</string>
+    <string>Allow RepairCoin to access your microphone for video recording.</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your photos</string>
+    <string>Allow RepairCoin to access your photos to upload images.</string>
     <key>NSUserActivityTypes</key>
     <array>
       <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>
