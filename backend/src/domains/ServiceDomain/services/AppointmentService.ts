@@ -1,6 +1,7 @@
 // backend/src/domains/ServiceDomain/services/AppointmentService.ts
 import { AppointmentRepository, TimeSlot } from '../../../repositories/AppointmentRepository';
 import { logger } from '../../../utils/logger';
+import { parseLocalDateString, createDateTime } from '../../../utils/dateUtils';
 
 export class AppointmentService {
   private appointmentRepo: AppointmentRepository;
@@ -29,7 +30,7 @@ export class AppointmentService {
       const durationMinutes = serviceDuration?.durationMinutes || config.slotDurationMinutes;
 
       // Parse the date and get day of week
-      const targetDate = new Date(date);
+      const targetDate = parseLocalDateString(date);
       const dayOfWeek = targetDate.getDay(); // 0 = Sunday, 6 = Saturday
 
       // Check if weekend booking is allowed
@@ -63,7 +64,7 @@ export class AppointmentService {
 
       // Check if booking is within advance booking window
       const now = new Date();
-      const bookingDate = new Date(date);
+      const bookingDate = parseLocalDateString(date);
       const hoursUntilBooking = (bookingDate.getTime() - now.getTime()) / (1000 * 60 * 60);
 
       if (hoursUntilBooking < config.minBookingHours) {
@@ -84,11 +85,10 @@ export class AppointmentService {
       const [openHour, openMin] = openTime.split(':').map(Number);
       const [closeHour, closeMin] = closeTime.split(':').map(Number);
 
-      let currentTime = new Date();
-      currentTime.setHours(openHour, openMin, 0, 0);
-
-      const endTime = new Date();
-      endTime.setHours(closeHour, closeMin, 0, 0);
+      // Create times using the booking date, not current date
+      const [year, month, day] = date.split('-').map(Number);
+      let currentTime = new Date(year, month - 1, day, openHour, openMin, 0, 0);
+      const endTime = new Date(year, month - 1, day, closeHour, closeMin, 0, 0);
 
       // Generate slots with buffer time
       const totalSlotTime = durationMinutes + config.bufferTimeMinutes;
@@ -113,7 +113,7 @@ export class AppointmentService {
           const available = bookedCount < config.maxConcurrentBookings;
 
           // Check if it's too soon (same day booking)
-          const slotDateTime = new Date(date + ' ' + timeStr);
+          const slotDateTime = createDateTime(date, timeStr);
           const hoursUntilSlot = (slotDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
 
           if (hoursUntilSlot >= config.minBookingHours) {

@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { Clock, Loader2, Calendar } from 'lucide-react';
 import { appointmentsApi, TimeSlot } from '@/services/api/appointments';
 import { toast } from 'react-hot-toast';
+import { formatLocalDate } from '@/utils/dateUtils';
 
 interface TimeSlotPickerProps {
   shopId: string;
@@ -37,7 +38,7 @@ export const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
 
     try {
       setLoading(true);
-      const dateStr = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD
+      const dateStr = formatLocalDate(selectedDate); // YYYY-MM-DD
       const slots = await appointmentsApi.getAvailableTimeSlots(shopId, serviceId, dateStr);
       setTimeSlots(slots);
       // UI message already shows "No available time slots" - no need for toast

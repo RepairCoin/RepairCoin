@@ -9,6 +9,7 @@ import { loadStripe, StripeElementsOptions } from "@stripe/stripe-js";
 import { useCustomerStore } from "@/stores/customerStore";
 import { TimeSlotPicker } from "./TimeSlotPicker";
 import { DateAvailabilityPicker } from "./DateAvailabilityPicker";
+import { formatLocalDate } from "@/utils/dateUtils";
 
 // Initialize Stripe
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "");
@@ -196,7 +197,7 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
 
       const response = await createPaymentIntent({
         serviceId: service.serviceId,
-        bookingDate: bookingDate?.toISOString().split('T')[0],
+        bookingDate: bookingDate ? formatLocalDate(bookingDate) : undefined,
         bookingTime: bookingTimeSlot || undefined,
         rcnToRedeem: actualRcnRedeemed > 0 ? actualRcnRedeemed : undefined,
       });
