@@ -10,7 +10,6 @@ import {
   RefreshControl,
 } from "react-native";
 import {
-  Entypo,
   SimpleLineIcons,
   MaterialIcons,
   Ionicons,
@@ -61,6 +60,7 @@ const BalanceCard: React.FC<{
   isLoading: boolean;
 }> = ({ balance, tier, isLoading }) => {
   const tierInfo = TIER_CONFIG[tier];
+  const [isBalanceVisible, setIsBalanceVisible] = useState(false);
 
   return (
     <View className="h-70 rounded-3xl bg-[#FFFFFF]">
@@ -93,14 +93,19 @@ const BalanceCard: React.FC<{
             ) : (
               <>
                 <Text className="text-black text-3xl font-extrabold">
-                  {balance ?? 0} RCN
+                  {isBalanceVisible ? `${balance ?? 0} RCN` : "••••••"}
                 </Text>
-                <Entypo
-                  name="eye-with-line"
-                  color="#000"
-                  size={30}
-                  style={{ marginLeft: 10 }}
-                />
+                <TouchableOpacity
+                  onPress={() => setIsBalanceVisible(!isBalanceVisible)}
+                  className="ml-3 p-1"
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={isBalanceVisible ? "eye" : "eye-off"}
+                    color="#000"
+                    size={24}
+                  />
+                </TouchableOpacity>
               </>
             )}
           </View>

@@ -252,13 +252,13 @@ export default function ApprovalTab() {
             />
             <View className="pl-4 mt-6 w-[60%]">
               <Text className="text-black font-bold text-2xl">Create QR Code</Text>
-              <Text className="text-black/60 text-base">Generate a QR code to share your referral instantly.</Text>
+              <Text className="text-black/60 text-base">Share your referral link via QR code.</Text>
               <Pressable
                 onPress={() => router.push("/customer/qrcode")}
                 className="bg-black w-36 rounded-xl py-2 mt-4 justify-center items-center"
               >
                 <Text className="text-[#FFCC00] font-bold text-sm">
-                  Generate QR Code
+                  QR Code
                 </Text>
               </Pressable>
             </View>
