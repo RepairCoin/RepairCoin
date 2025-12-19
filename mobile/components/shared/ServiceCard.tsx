@@ -175,7 +175,7 @@ export default function ServiceCard({
     <View className="flex-1 mx-2 my-2">
       <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
         <LinearGradient
-          colors={["#121212", "#373737"]}
+          colors={["#27272a", "#18181b"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           className="rounded-xl overflow-hidden"

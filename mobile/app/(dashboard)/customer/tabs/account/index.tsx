@@ -1,10 +1,11 @@
-import { Pressable, ScrollView, Text, View, ActivityIndicator } from "react-native";
 import {
-  AntDesign,
-  Entypo,
-  Feather,
-  MaterialIcons,
-} from "@expo/vector-icons";
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+  ActivityIndicator,
+} from "react-native";
+import { AntDesign, Entypo, Feather, MaterialIcons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import * as Clipboard from "expo-clipboard";
 import { router } from "expo-router";
@@ -23,7 +24,7 @@ const CopyableField = ({
   isCopied,
   handleCopyValue,
 }: CopyableFieldProps) => {
-  const displayValue = 
+  const displayValue =
     value && value.length > 20 ? `${value.substring(0, 20)}...` : value || "";
 
   return (
@@ -61,17 +62,19 @@ export default function Account() {
   const { logout, isLoggingOut } = useLogout();
 
   // Use the token balance hook
-  const { data: customerData } = useGetCustomerByWalletAddress(account?.address);
+  const { data: customerData } = useGetCustomerByWalletAddress(
+    account?.address
+  );
 
   const [isCopied, setIsCopied] = useState<boolean>(false);
 
-  const handleCopyValue = async (value: string) => {
-    await Clipboard.setStringAsync(value);
-    setIsCopied(true);
-  };
-
   const handleLogout = async () => {
     await logout();
+  };
+
+  const handleReferFriends = () => {
+    // TODO: Implement refer friends functionality
+    router.push("/customer/referral")
   };
 
   useEffect(() => {
@@ -106,24 +109,35 @@ export default function Account() {
         </View>
         <View className="p-4 bg-[#212121] rounded-xl mt-4">
           <Pressable
+            onPress={handleReferFriends}
+            className="flex-row justify-between items-center"
+          >
+            <View className="flex-row items-center">
+              <MaterialIcons name="group" size={18} color="#FFCC00" />
+              <View className="px-4 gap-2">
+                <Text className="text-white text-lg font-semibold">
+                  Refer your friends
+                </Text>
+              </View>
+            </View>
+            <AntDesign name="right" color="#fff" size={18} />
+          </Pressable>
+        </View>
+        <View className="p-4 bg-[#212121] rounded-xl mt-4">
+          <Pressable
             onPress={handleLogout}
             disabled={isLoggingOut}
             className={`flex-row justify-between items-center ${isLoggingOut ? "opacity-50" : ""}`}
           >
             <View className="flex-row items-center">
-              <View className="rounded-full bg-[#FBCDCD] w-12 h-12 items-center justify-center">
-                {isLoggingOut ? (
-                  <ActivityIndicator size="small" color="#E74C4C" />
-                ) : (
-                  <MaterialIcons name="logout" color="#E74C4C" size={18} />
-                )}
-              </View>
+              {isLoggingOut ? (
+                <ActivityIndicator size="small" color="#E74C4C" />
+              ) : (
+                <MaterialIcons name="logout" color="#E74C4C" size={18} />
+              )}
               <View className="px-4 gap-2">
-                <Text className="text-white text-xl font-semibold">
+                <Text className="text-white text-lg font-semibold">
                   {isLoggingOut ? "Logging Out..." : "Log Out"}
-                </Text>
-                <Text className="text-white/50 text-sm">
-                  {isLoggingOut ? "Clearing all data..." : "Surely log out an account"}
                 </Text>
               </View>
             </View>

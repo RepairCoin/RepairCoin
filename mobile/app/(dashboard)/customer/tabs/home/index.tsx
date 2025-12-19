@@ -4,11 +4,10 @@ import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import WalletTab from "./tabs/wallet/WalletTab";
 import ApprovalTab from "./tabs/approval/ApprovalTab";
-import ReferralTab from "./tabs/referral/ReferralTab";
 import { useCustomer } from "@/hooks/customer/useCustomer";
 import { useAuthStore } from "@/store/auth.store";
 
-type CustomerTabs = "Wallet" | "Referral" | "Approval";
+type CustomerTabs = "Wallet" | "Approval";
 
 export default function CustomerDashboard() {
   const { account } = useAuthStore();
@@ -19,7 +18,7 @@ export default function CustomerDashboard() {
     data: customerData,
   } = useGetCustomerByWalletAddress(account?.address);
   const [activeTab, setActiveTab] = useState<CustomerTabs>("Wallet");
-  const customerTabs: CustomerTabs[] = ["Wallet", "Referral", "Approval"];
+  const customerTabs: CustomerTabs[] = ["Wallet", "Approval"];
 
   return (
     <View className="h-full w-full bg-zinc-950">
@@ -54,7 +53,7 @@ export default function CustomerDashboard() {
                 onPress={() => {
                   activeTab !== tab && setActiveTab(tab);
                 }}
-                className={`bg-${activeTab === tab ? "[#FFCC00]" : "[#121212]"} w-[33%] flex-row ${i === 0 && "rounded-l-xl"} ${i === 2 && "rounded-r-xl"} items-center justify-center`}
+                className={`bg-${activeTab === tab ? "[#FFCC00]" : "[#121212]"} w-[50%] flex-row ${i === 0 && "rounded-l-xl"} ${i === 1 && "rounded-r-xl"} items-center justify-center`}
               >
                 <Text
                   className={`text-base font-bold text-${activeTab === tab ? "black" : "gray-400"}`}
@@ -62,15 +61,13 @@ export default function CustomerDashboard() {
                   {tab}
                 </Text>
               </Pressable>
-              {i !== 2 && activeTab === customerTabs[2 - 2 * i] && (
+              {i === 0 && activeTab !== customerTabs[0] && activeTab !== customerTabs[1] && (
                 <View className="w-[0.1%] bg-gray-400 my-2" />
               )}
             </React.Fragment>
           ))}
         </View>
-        {/* <PrimaryButton title="Logout" onPress={logout} /> */}
         {activeTab === "Wallet" && <WalletTab />}
-        {activeTab === "Referral" && <ReferralTab />}
         {activeTab === "Approval" && <ApprovalTab />}
       </View>
     </View>
