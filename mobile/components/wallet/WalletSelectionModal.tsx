@@ -95,7 +95,7 @@ export default function WalletSelectionModal({
         <View className="bg-gray-900 rounded-t-3xl p-6 max-h-[80%]">
           <View className="flex-row justify-between items-center mb-6">
             <Text className="text-white text-2xl font-bold">Connect Wallet</Text>
-            <TouchableOpacity onPress={onClose} disabled={isConnecting}>
+            <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={28} color="#fff" />
             </TouchableOpacity>
           </View>
@@ -114,6 +114,15 @@ export default function WalletSelectionModal({
             <Text className="text-gray-500 text-xs text-center mt-4">
               By connecting, you agree to RepairCoin's Terms of Service and Privacy Policy
             </Text>
+
+            {isConnecting && (
+              <TouchableOpacity
+                onPress={onClose}
+                className="bg-gray-700 rounded-xl py-3 mt-4"
+              >
+                <Text className="text-white text-center font-semibold">Cancel</Text>
+              </TouchableOpacity>
+            )}
           </ScrollView>
         </View>
       </View>

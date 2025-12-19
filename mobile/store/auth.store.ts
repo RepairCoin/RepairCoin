@@ -26,6 +26,7 @@ interface AuthState {
   userProfile: any;
   isAuthenticated: boolean;
   hasHydrated: boolean;
+  isLoading: boolean;
 
   // Actions
   setAccount: (account: any) => void;
@@ -34,6 +35,7 @@ interface AuthState {
   setUserType: (userType: string) => void;
   setUserProfile: (userProfile: any) => void;
   setHasHydrated: (state: boolean) => void;
+  setIsLoading: (isLoading: boolean) => void;
   logout: (navigate?: boolean) => Promise<void>;
 }
 
@@ -49,6 +51,7 @@ export const useAuthStore = create<AuthState>()(
         userProfile: null,
         isAuthenticated: false,
         hasHydrated: false,
+        isLoading: false,
 
         // Actions
         setAccount: (account) => {
@@ -57,6 +60,10 @@ export const useAuthStore = create<AuthState>()(
 
         setHasHydrated: (state) => {
           set({ hasHydrated: state }, false, "setHasHydrated");
+        },
+
+        setIsLoading: (isLoading) => {
+          set({ isLoading }, false, "setIsLoading");
         },
 
         setAccessToken: (accessToken) => {
@@ -121,6 +128,7 @@ export const useAuthStore = create<AuthState>()(
               userType: null,
               accessToken: null,
               refreshToken: null,
+              isLoading: false,
             },
             false,
             "logout"
@@ -138,6 +146,15 @@ export const useAuthStore = create<AuthState>()(
     {
       name: "auth-store",
       storage: createJSONStorage(() => secureStorage),
+      partialize: (state) => ({
+        account: state.account,
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
+        userType: state.userType,
+        userProfile: state.userProfile,
+        isAuthenticated: state.isAuthenticated,
+        // Exclude isLoading and hasHydrated from persistence
+      }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
         console.log("[Auth] Store hydrated");
