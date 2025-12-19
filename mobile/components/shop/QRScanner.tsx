@@ -7,6 +7,7 @@ import {
   Alert,
   StyleSheet,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -23,6 +24,8 @@ const SCAN_AREA_SIZE = width * 0.7;
 export function QRScanner({ visible, onClose, onScan }: QRScannerProps) {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraKey, setCameraKey] = useState(0);
 
   useEffect(() => {
     if (visible && !permission?.granted) {
@@ -30,8 +33,19 @@ export function QRScanner({ visible, onClose, onScan }: QRScannerProps) {
     }
     if (visible) {
       setScanned(false);
+      setCameraReady(false);
+      // Force camera remount and add delay for Android
+      setCameraKey((prev) => prev + 1);
+      if (Platform.OS === 'android') {
+        const timer = setTimeout(() => {
+          setCameraReady(true);
+        }, 500);
+        return () => clearTimeout(timer);
+      } else {
+        setCameraReady(true);
+      }
     }
-  }, [visible]);
+  }, [visible, permission?.granted]);
 
   const handleBarCodeScanned = ({ data }: { data: string }) => {
     if (scanned) return;
@@ -96,14 +110,22 @@ export function QRScanner({ visible, onClose, onScan }: QRScannerProps) {
   return (
     <Modal visible={visible} animationType="slide" transparent={false}>
       <View className="flex-1 bg-black">
-        <CameraView
-          style={StyleSheet.absoluteFillObject}
-          facing="back"
-          onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-          barcodeScannerSettings={{
-            barcodeTypes: ["qr"],
-          }}
-        />
+        {cameraReady ? (
+          <CameraView
+            key={cameraKey}
+            style={StyleSheet.absoluteFillObject}
+            facing="back"
+            onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+            barcodeScannerSettings={{
+              barcodeTypes: ["qr"],
+            }}
+          />
+        ) : (
+          <View style={StyleSheet.absoluteFillObject} className="justify-center items-center bg-black">
+            <MaterialIcons name="camera-alt" size={48} color="#666" />
+            <Text className="text-gray-400 mt-4">Initializing camera...</Text>
+          </View>
+        )}
         
         {/* Header */}
         <View className="absolute top-0 left-0 right-0 pt-16 px-4 pb-4 bg-black/50">

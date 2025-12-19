@@ -1,7 +1,6 @@
 import {
   View,
   Text,
-  TextInput,
   Pressable,
   ActivityIndicator,
   FlatList,
@@ -10,6 +9,7 @@ import {
   Platform,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
+import { SearchInput } from "@/components/ui/SearchInput";
 import { useShops } from "@/hooks";
 import { ShopData } from "@/interfaces/shop.interface";
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -92,14 +92,35 @@ export default function FindShop() {
 
   // Geocode an address to get coordinates
   const geocodeAddress = async (address: string): Promise<{ lat: number; lng: number } | null> => {
+    console.log("Geocoding address:", address);
     try {
-      const results = await Location.geocodeAsync(address);
+      // First attempt with the provided address
+      let results = await Location.geocodeAsync(address);
+      console.log("Geocode results:", results);
+
       if (results && results.length > 0) {
         return {
           lat: results[0].latitude,
           lng: results[0].longitude,
         };
       }
+
+      // If no results, try appending "USA" for US addresses
+      if (!address.toLowerCase().includes("usa") && !address.toLowerCase().includes("united states")) {
+        const addressWithCountry = `${address}, USA`;
+        console.log("Retrying with country:", addressWithCountry);
+        results = await Location.geocodeAsync(addressWithCountry);
+        console.log("Geocode results with country:", results);
+
+        if (results && results.length > 0) {
+          return {
+            lat: results[0].latitude,
+            lng: results[0].longitude,
+          };
+        }
+      }
+
+      console.log("No geocoding results for:", address);
     } catch (error) {
       console.log("Geocoding error for address:", address, error);
     }
@@ -285,8 +306,18 @@ export default function FindShop() {
 
   // Handle shop card press
   const handleShopCardPress = async (item: ShopWithLocation) => {
+    console.log("Shop card pressed:", {
+      name: item.name,
+      address: item.address,
+      location: item.location,
+      hasValidLocation: item.hasValidLocation,
+      lat: item.lat,
+      lng: item.lng,
+    });
+
     // If shop already has valid location, navigate directly
     if (item.hasValidLocation && item.lat && item.lng) {
+      console.log("Shop has valid location, navigating directly");
       navigateToShopOnMap(item.lat, item.lng, item);
       return;
     }
@@ -303,22 +334,31 @@ export default function FindShop() {
 
     // Check if already geocoded
     if (geocodedShops[item.shopId]) {
+      console.log("Using cached geocoded coordinates");
       const coords = geocodedShops[item.shopId];
       const updatedShop = { ...item, lat: coords.lat, lng: coords.lng, hasValidLocation: true };
       navigateToShopOnMap(coords.lat, coords.lng, updatedShop);
       return;
     }
 
+    // Build full address for geocoding
+    let fullAddress = item.address;
+    if (item.location?.city) {
+      fullAddress += `, ${item.location.city}`;
+    }
+    if (item.location?.state) {
+      fullAddress += `, ${item.location.state}`;
+    }
+
+    console.log("Attempting to geocode full address:", fullAddress);
+
     // Geocode the address
     setIsGeocoding(true);
-    const fullAddress = item.location?.city && item.location?.state
-      ? `${item.address}, ${item.location.city}, ${item.location.state}`
-      : item.address;
-
     const coords = await geocodeAddress(fullAddress);
     setIsGeocoding(false);
 
     if (coords) {
+      console.log("Geocoding successful:", coords);
       // Cache the geocoded result
       setGeocodedShops((prev) => ({
         ...prev,
@@ -328,9 +368,10 @@ export default function FindShop() {
       const updatedShop = { ...item, lat: coords.lat, lng: coords.lng, hasValidLocation: true };
       navigateToShopOnMap(coords.lat, coords.lng, updatedShop);
     } else {
+      console.log("Geocoding failed for:", fullAddress);
       Alert.alert(
         "Location Not Found",
-        `Could not find the location for ${item.name || "this shop"}. The address may be incomplete or invalid.`,
+        `Could not find the location for ${item.name || "this shop"}. The address "${fullAddress}" may be incomplete or invalid.`,
         [{ text: "OK" }]
       );
     }
@@ -864,21 +905,11 @@ export default function FindShop() {
           ListHeaderComponent={
             <View className="mb-4">
               {/* Search Bar */}
-              <View className="flex-row items-center bg-zinc-800 rounded-full px-4 py-3">
-                <Feather name="search" size={20} color="#9CA3AF" />
-                <TextInput
-                  className="flex-1 text-white ml-3"
-                  placeholder="Search shops..."
-                  placeholderTextColor="#6B7280"
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                />
-                {searchQuery.length > 0 && (
-                  <Pressable onPress={() => setSearchQuery("")}>
-                    <Feather name="x-circle" size={20} color="#9CA3AF" />
-                  </Pressable>
-                )}
-              </View>
+              <SearchInput
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Search shops..."
+              />
 
               {/* Results count */}
               {searchQuery.length > 0 && (

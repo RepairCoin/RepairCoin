@@ -128,7 +128,7 @@ export default function TierInfoScreen() {
             colors={TIER_CONFIG[currentTier].color}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            className="p-5 border-2 border-white"
+            className="p-5"
           >
             <View className="flex-row items-center justify-between m-2">
               <View>
