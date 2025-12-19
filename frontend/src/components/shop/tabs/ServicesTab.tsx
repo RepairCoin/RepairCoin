@@ -15,6 +15,7 @@ import {
   Image as ImageIcon,
   Calendar,
   Settings,
+  Users,
 } from "lucide-react";
 import {
   getAllServices,
@@ -28,6 +29,7 @@ import {
   SERVICE_CATEGORIES,
 } from "@/services/api/services";
 import { CreateServiceModal } from "@/components/shop/modals/CreateServiceModal";
+import { ShopServiceDetailsModal } from "@/components/shop/modals/ShopServiceDetailsModal";
 
 interface ShopData {
   subscriptionActive?: boolean;
@@ -46,6 +48,7 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [deletingService, setDeletingService] = useState<string | null>(null);
+  const [selectedService, setSelectedService] = useState<ShopService | null>(null);
 
   useEffect(() => {
     loadServices();
@@ -235,24 +238,43 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
           {services.map((service) => (
             <div
               key={service.serviceId}
+              onClick={() => setSelectedService(service)}
               className={`bg-[#1A1A1A] border ${
                 service.active ? "border-gray-800" : "border-gray-700 opacity-60"
-              } rounded-2xl p-6 hover:border-[#FFCC00]/30 transition-all duration-200 flex flex-col`}
+              } rounded-2xl p-6 hover:border-[#FFCC00]/30 transition-all duration-200 flex flex-col cursor-pointer`}
             >
               {/* Service Image */}
-              {service.imageUrl ? (
-                <div className="w-full h-48 rounded-xl mb-4 overflow-hidden bg-gray-800">
-                  <img
-                    src={service.imageUrl}
-                    alt={service.serviceName}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ) : (
-                <div className="w-full h-48 rounded-xl mb-4 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
-                  <ImageIcon className="w-16 h-16 text-gray-600" />
-                </div>
-              )}
+              <div className="relative mb-4">
+                {service.imageUrl ? (
+                  <div className="w-full h-48 rounded-xl overflow-hidden bg-gray-800">
+                    <img
+                      src={service.imageUrl}
+                      alt={service.serviceName}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-full h-48 rounded-xl bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
+                    <ImageIcon className="w-16 h-16 text-gray-600" />
+                  </div>
+                )}
+
+                {/* Group Token Indicators - Overlay on image */}
+                {service.groups && service.groups.length > 0 && (
+                  <div className="absolute top-3 left-3 z-10 flex flex-wrap gap-1.5">
+                    {service.groups.map((group) => (
+                      <div
+                        key={group.groupId}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-purple-600/95 to-purple-500/95 backdrop-blur-md border border-purple-300/50 text-white rounded-lg text-[11px] font-bold shadow-xl"
+                        title={`Linked to ${group.groupName} (${group.customTokenSymbol})`}
+                      >
+                        <span className="text-sm">{group.icon || '🎁'}</span>
+                        <span className="tracking-wide">{group.customTokenSymbol}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {/* Service Header */}
               <div className="flex items-start justify-between mb-3">
@@ -288,6 +310,19 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
                 <p className="text-sm text-gray-400 mb-4 line-clamp-2">
                   {service.description}
                 </p>
+              )}
+
+              {/* Group Rewards Info */}
+              {service.groups && service.groups.length > 0 && (
+                <div className="mb-4 p-3 bg-gradient-to-r from-purple-900/20 to-purple-800/20 border border-purple-500/30 rounded-lg">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Users className="w-4 h-4 text-purple-300" />
+                    <span className="text-xs font-bold text-purple-300">GROUP REWARDS ACTIVE</span>
+                  </div>
+                  <p className="text-[11px] text-purple-200 leading-relaxed">
+                    Customers earn <span className="font-bold text-purple-100">{service.groups.map(g => g.customTokenSymbol).join(', ')}</span> when booking
+                  </p>
+                </div>
               )}
 
               {/* Service Details */}
@@ -340,14 +375,20 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
               <div className="space-y-2 pt-4 border-t border-gray-800 mt-auto">
                 <div className="grid grid-cols-2 gap-2">
                   <button
-                    onClick={() => router.push(`/shop/services/${service.serviceId}`)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/shop/services/${service.serviceId}`);
+                    }}
                     className="flex items-center justify-center gap-2 bg-blue-600/20 text-blue-400 border border-blue-600/30 px-3 py-2 rounded-lg hover:bg-blue-600/30 transition-colors duration-200 text-sm"
                   >
                     <Edit className="w-4 h-4" />
                     Edit
                   </button>
                   <button
-                    onClick={() => router.push(`/shop/services/${service.serviceId}?tab=availability`)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/shop/services/${service.serviceId}?tab=availability`);
+                    }}
                     className="flex items-center justify-center gap-2 bg-purple-600/20 text-purple-400 border border-purple-600/30 px-3 py-2 rounded-lg hover:bg-purple-600/30 transition-colors duration-200 text-sm"
                   >
                     <Settings className="w-4 h-4" />
@@ -356,7 +397,10 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <button
-                    onClick={() => router.push(`/shop/services/${service.serviceId}?tab=calendar`)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/shop/services/${service.serviceId}?tab=calendar`);
+                    }}
                     className="flex items-center justify-center gap-2 bg-[#FFCC00]/20 text-[#FFCC00] border border-[#FFCC00]/30 px-3 py-2 rounded-lg hover:bg-[#FFCC00]/30 transition-colors duration-200 text-sm"
                   >
                     <Calendar className="w-4 h-4" />
@@ -385,6 +429,17 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
         <CreateServiceModal
           onClose={() => setShowCreateModal(false)}
           onSubmit={handleCreateService}
+        />
+      )}
+
+      {/* Service Details Modal */}
+      {selectedService && (
+        <ShopServiceDetailsModal
+          service={selectedService}
+          onClose={() => {
+            setSelectedService(null);
+            loadServices(); // Reload services in case groups were changed
+          }}
         />
       )}
     </div>

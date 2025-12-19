@@ -15,6 +15,11 @@ export interface ShopService {
   active: boolean;
   createdAt: Date;
   updatedAt: Date;
+  // Group-related fields
+  groupId?: string;
+  groupExclusive?: boolean;
+  groupTokenRewardPercentage?: number;
+  groupBonusMultiplier?: number;
 }
 
 export interface ShopServiceWithShopInfo extends ShopService {
@@ -66,6 +71,24 @@ export interface ServiceFilters {
   maxPrice?: number;
   activeOnly?: boolean;
   sortBy?: 'price_asc' | 'price_desc' | 'rating_desc' | 'newest' | 'oldest';
+  groupId?: string;
+  groupExclusiveOnly?: boolean;
+}
+
+export interface ServiceGroupAvailability {
+  id: number;
+  serviceId: string;
+  groupId: string;
+  tokenRewardPercentage: number;
+  bonusMultiplier: number;
+  active: boolean;
+  addedAt: Date;
+  updatedAt: Date;
+  // Joined data
+  groupName?: string;
+  customTokenName?: string;
+  customTokenSymbol?: string;
+  icon?: string;
 }
 
 export class ServiceRepository extends BaseRepository {
@@ -184,16 +207,38 @@ export class ServiceRepository extends BaseRepository {
       const countResult = await this.pool.query(countQuery, [shopId]);
       const total = parseInt(countResult.rows[0].total);
 
-      // Get paginated results
+      // Get paginated results with groups
       const query = `
-        SELECT * FROM shop_services
+        SELECT
+          s.*,
+          (
+            SELECT json_agg(json_build_object(
+              'groupId', sga.group_id,
+              'groupName', asg.group_name,
+              'customTokenSymbol', asg.custom_token_symbol,
+              'customTokenName', asg.custom_token_name,
+              'icon', asg.icon,
+              'tokenRewardPercentage', sga.token_reward_percentage,
+              'bonusMultiplier', sga.bonus_multiplier
+            ))
+            FROM service_group_availability sga
+            JOIN affiliate_shop_groups asg ON sga.group_id = asg.group_id
+            WHERE sga.service_id = s.service_id AND sga.active = true
+          ) as groups
+        FROM shop_services s
         ${whereClause}
-        ORDER BY created_at DESC
+        ORDER BY s.created_at DESC
         LIMIT $2 OFFSET $3
       `;
       const result = await this.pool.query(query, [shopId, limit, offset]);
 
-      const items = result.rows.map(row => this.mapServiceRow(row));
+      const items = result.rows.map(row => {
+        const service = this.mapServiceRow(row);
+        return {
+          ...service,
+          groups: row.groups || []
+        };
+      });
 
       return {
         items,
@@ -313,7 +358,21 @@ export class ServiceRepository extends BaseRepository {
           sh.location_zip_code as shop_zip_code,
           NULL as shop_logo,
           COALESCE(AVG(r.rating), 0) as avg_rating,
-          COUNT(r.review_id) as review_count
+          COUNT(r.review_id) as review_count,
+          (
+            SELECT json_agg(json_build_object(
+              'groupId', sga.group_id,
+              'groupName', asg.group_name,
+              'customTokenSymbol', asg.custom_token_symbol,
+              'customTokenName', asg.custom_token_name,
+              'icon', asg.icon,
+              'tokenRewardPercentage', sga.token_reward_percentage,
+              'bonusMultiplier', sga.bonus_multiplier
+            ))
+            FROM service_group_availability sga
+            JOIN affiliate_shop_groups asg ON sga.group_id = asg.group_id
+            WHERE sga.service_id = s.service_id AND sga.active = true
+          ) as groups
         FROM shop_services s
         INNER JOIN shops sh ON s.shop_id = sh.shop_id
         LEFT JOIN service_reviews r ON s.service_id = r.service_id
@@ -325,7 +384,13 @@ export class ServiceRepository extends BaseRepository {
       params.push(limit, offset);
 
       const result = await this.pool.query(query, params);
-      const items = result.rows.map(row => this.mapServiceWithShopInfoRow(row));
+      const items = result.rows.map(row => {
+        const service = this.mapServiceWithShopInfoRow(row);
+        return {
+          ...service,
+          groups: row.groups || []
+        };
+      });
 
       return {
         items,
@@ -440,7 +505,11 @@ export class ServiceRepository extends BaseRepository {
       tags: row.tags || [],
       active: row.active,
       createdAt: row.created_at,
-      updatedAt: row.updated_at
+      updatedAt: row.updated_at,
+      groupId: row.group_id || undefined,
+      groupExclusive: row.group_exclusive || false,
+      groupTokenRewardPercentage: row.group_token_reward_percentage ? parseFloat(row.group_token_reward_percentage) : undefined,
+      groupBonusMultiplier: row.group_bonus_multiplier ? parseFloat(row.group_bonus_multiplier) : undefined
     };
   }
 
@@ -464,6 +533,218 @@ export class ServiceRepository extends BaseRepository {
         state: row.shop_state,
         zipCode: row.shop_zip_code
       } : undefined
+    };
+  }
+
+  /**
+   * Link a service to an affiliate group (many-to-many)
+   */
+  async linkServiceToGroup(
+    serviceId: string,
+    groupId: string,
+    tokenRewardPercentage: number = 100,
+    bonusMultiplier: number = 1.0
+  ): Promise<ServiceGroupAvailability> {
+    try {
+      const query = `
+        INSERT INTO service_group_availability (
+          service_id, group_id, token_reward_percentage, bonus_multiplier, active
+        ) VALUES ($1, $2, $3, $4, true)
+        ON CONFLICT (service_id, group_id)
+        DO UPDATE SET
+          token_reward_percentage = EXCLUDED.token_reward_percentage,
+          bonus_multiplier = EXCLUDED.bonus_multiplier,
+          active = true,
+          updated_at = CURRENT_TIMESTAMP
+        RETURNING *
+      `;
+
+      const values = [serviceId, groupId, tokenRewardPercentage, bonusMultiplier];
+      const result = await this.pool.query(query, values);
+
+      logger.info('Service linked to group', { serviceId, groupId });
+      return this.mapServiceGroupAvailabilityRow(result.rows[0]);
+    } catch (error) {
+      logger.error('Error linking service to group', { error, serviceId, groupId });
+      throw error;
+    }
+  }
+
+  /**
+   * Unlink a service from an affiliate group
+   */
+  async unlinkServiceFromGroup(serviceId: string, groupId: string): Promise<void> {
+    try {
+      const query = `DELETE FROM service_group_availability WHERE service_id = $1 AND group_id = $2`;
+      await this.pool.query(query, [serviceId, groupId]);
+      logger.info('Service unlinked from group', { serviceId, groupId });
+    } catch (error) {
+      logger.error('Error unlinking service from group', { error, serviceId, groupId });
+      throw error;
+    }
+  }
+
+  /**
+   * Get all groups a service is linked to
+   */
+  async getServiceGroups(serviceId: string): Promise<ServiceGroupAvailability[]> {
+    try {
+      const query = `
+        SELECT
+          sga.*,
+          asg.group_name,
+          asg.custom_token_name,
+          asg.custom_token_symbol,
+          asg.icon
+        FROM service_group_availability sga
+        JOIN affiliate_shop_groups asg ON sga.group_id = asg.group_id
+        WHERE sga.service_id = $1 AND sga.active = true
+        ORDER BY sga.added_at DESC
+      `;
+
+      const result = await this.pool.query(query, [serviceId]);
+      return result.rows.map(row => this.mapServiceGroupAvailabilityRow(row));
+    } catch (error) {
+      logger.error('Error getting service groups', { error, serviceId });
+      throw error;
+    }
+  }
+
+  /**
+   * Get all services in an affiliate group
+   */
+  async getServicesByGroup(groupId: string, filters?: ServiceFilters): Promise<ShopServiceWithShopInfo[]> {
+    try {
+      let query = `
+        SELECT
+          ss.*,
+          sga.token_reward_percentage as group_token_reward_percentage,
+          sga.bonus_multiplier as group_bonus_multiplier,
+          s.name as shop_name,
+          s.address as shop_address,
+          s.phone as shop_phone,
+          s.email as shop_email,
+          s.logo_url as shop_logo,
+          COALESCE(ss.average_rating, 0) as avg_rating,
+          COALESCE(ss.review_count, 0) as review_count,
+          s.location_lat as shop_lat,
+          s.location_lng as shop_lng,
+          s.city as shop_city,
+          s.state as shop_state,
+          s.zip_code as shop_zip_code
+        FROM service_group_availability sga
+        JOIN shop_services ss ON sga.service_id = ss.service_id
+        JOIN shops s ON ss.shop_id = s.shop_id
+        WHERE sga.group_id = $1 AND sga.active = true AND ss.active = true
+      `;
+
+      const values: any[] = [groupId];
+      let paramCount = 1;
+
+      if (filters?.category) {
+        paramCount++;
+        query += ` AND ss.category = $${paramCount}`;
+        values.push(filters.category);
+      }
+
+      if (filters?.minPrice !== undefined) {
+        paramCount++;
+        query += ` AND ss.price_usd >= $${paramCount}`;
+        values.push(filters.minPrice);
+      }
+
+      if (filters?.maxPrice !== undefined) {
+        paramCount++;
+        query += ` AND ss.price_usd <= $${paramCount}`;
+        values.push(filters.maxPrice);
+      }
+
+      if (filters?.search) {
+        paramCount++;
+        query += ` AND (ss.service_name ILIKE $${paramCount} OR ss.description ILIKE $${paramCount})`;
+        values.push(`%${filters.search}%`);
+      }
+
+      query += ` ORDER BY sga.added_at DESC`;
+
+      const result = await this.pool.query(query, values);
+      return result.rows.map(row => this.mapServiceWithShopInfoRow(row));
+    } catch (error) {
+      logger.error('Error getting services by group', { error, groupId });
+      throw error;
+    }
+  }
+
+  /**
+   * Update group reward settings for a service
+   */
+  async updateServiceGroupRewards(
+    serviceId: string,
+    groupId: string,
+    tokenRewardPercentage?: number,
+    bonusMultiplier?: number
+  ): Promise<ServiceGroupAvailability> {
+    try {
+      const updates: string[] = [];
+      const values: any[] = [serviceId, groupId];
+      let paramCount = 2;
+
+      if (tokenRewardPercentage !== undefined) {
+        paramCount++;
+        updates.push(`token_reward_percentage = $${paramCount}`);
+        values.push(tokenRewardPercentage);
+      }
+
+      if (bonusMultiplier !== undefined) {
+        paramCount++;
+        updates.push(`bonus_multiplier = $${paramCount}`);
+        values.push(bonusMultiplier);
+      }
+
+      if (updates.length === 0) {
+        throw new Error('No updates provided');
+      }
+
+      updates.push('updated_at = CURRENT_TIMESTAMP');
+
+      const query = `
+        UPDATE service_group_availability
+        SET ${updates.join(', ')}
+        WHERE service_id = $1 AND group_id = $2
+        RETURNING *
+      `;
+
+      const result = await this.pool.query(query, values);
+
+      if (result.rows.length === 0) {
+        throw new Error('Service-group link not found');
+      }
+
+      logger.info('Service group rewards updated', { serviceId, groupId });
+      return this.mapServiceGroupAvailabilityRow(result.rows[0]);
+    } catch (error) {
+      logger.error('Error updating service group rewards', { error, serviceId, groupId });
+      throw error;
+    }
+  }
+
+  /**
+   * Map service group availability row to interface
+   */
+  private mapServiceGroupAvailabilityRow(row: any): ServiceGroupAvailability {
+    return {
+      id: row.id,
+      serviceId: row.service_id,
+      groupId: row.group_id,
+      tokenRewardPercentage: parseFloat(row.token_reward_percentage),
+      bonusMultiplier: parseFloat(row.bonus_multiplier),
+      active: row.active,
+      addedAt: new Date(row.added_at),
+      updatedAt: new Date(row.updated_at),
+      groupName: row.group_name,
+      customTokenName: row.custom_token_name,
+      customTokenSymbol: row.custom_token_symbol,
+      icon: row.icon
     };
   }
 }

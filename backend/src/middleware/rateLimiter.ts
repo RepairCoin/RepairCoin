@@ -5,11 +5,14 @@ import { logger } from '../utils/logger';
 
 /**
  * Rate limiter for general API endpoints
- * 100 requests per 15 minutes per IP
+ * Development: 10000 requests per 15 minutes (very lenient for hot-reload)
+ * Production: 100 requests per 15 minutes per IP
  */
+const isDevelopment = process.env.NODE_ENV === 'development';
+
 export const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  max: isDevelopment ? 10000 : 100, // Much higher limit in dev
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   message: {
@@ -31,11 +34,12 @@ export const generalLimiter = rateLimit({
 
 /**
  * Stricter rate limiter for authentication endpoints
- * 5 attempts per 15 minutes per IP
+ * Development: 1000 requests per 15 minutes
+ * Production: 20 attempts per 15 minutes per IP
  */
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 login/register attempts per windowMs
+  max: isDevelopment ? 1000 : 20, // Higher limit in dev
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true, // Don't count successful requests

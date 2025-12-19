@@ -29,6 +29,16 @@ export interface FavoriteWithServiceInfo {
   shopName?: string;
   shopAddress?: string;
   shopIsVerified?: boolean;
+  // Group rewards
+  groups?: Array<{
+    groupId: string;
+    groupName: string;
+    customTokenSymbol: string;
+    customTokenName: string;
+    icon?: string;
+    tokenRewardPercentage: number;
+    bonusMultiplier: number;
+  }>;
 }
 
 export class FavoriteRepository extends BaseRepository {
@@ -167,7 +177,21 @@ export class FavoriteRepository extends BaseRepository {
           s.shop_id,
           sh.name as shop_name,
           sh.address as shop_address,
-          sh.verified as shop_is_verified
+          sh.verified as shop_is_verified,
+          (
+            SELECT json_agg(json_build_object(
+              'groupId', sga.group_id,
+              'groupName', asg.group_name,
+              'customTokenSymbol', asg.custom_token_symbol,
+              'customTokenName', asg.custom_token_name,
+              'icon', asg.icon,
+              'tokenRewardPercentage', sga.token_reward_percentage,
+              'bonusMultiplier', sga.bonus_multiplier
+            ))
+            FROM service_group_availability sga
+            JOIN affiliate_shop_groups asg ON sga.group_id = asg.group_id
+            WHERE sga.service_id = s.service_id AND sga.active = true
+          ) as groups
         FROM service_favorites f
         INNER JOIN shop_services s ON f.service_id = s.service_id
         INNER JOIN shops sh ON s.shop_id = sh.shop_id
@@ -177,7 +201,10 @@ export class FavoriteRepository extends BaseRepository {
       `;
 
       const result = await this.pool.query(query, [customerAddress.toLowerCase(), limit, offset]);
-      const items = result.rows.map(row => this.mapFavoriteWithServiceInfoRow(row));
+      const items = result.rows.map(row => ({
+        ...this.mapFavoriteWithServiceInfoRow(row),
+        groups: row.groups || []
+      }));
 
       return {
         items,

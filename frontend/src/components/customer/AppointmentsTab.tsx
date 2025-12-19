@@ -105,7 +105,7 @@ export const AppointmentsTab: React.FC = () => {
     'in-progress': { bg: 'bg-purple-500/20', text: 'text-purple-400', border: 'border-purple-500/30' },
     completed: { bg: 'bg-green-500/20', text: 'text-green-400', border: 'border-green-500/30' },
     cancelled: { bg: 'bg-red-500/20', text: 'text-red-400', border: 'border-red-500/30' },
-    paid: { bg: 'bg-green-500/20', text: 'text-green-400', border: 'border-green-500/30' }
+    paid: { bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/30' } // Paid = Confirmed (blue)
   };
 
   const renderAppointment = (appointment: CalendarBooking) => {

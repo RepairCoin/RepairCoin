@@ -179,7 +179,21 @@ export class DiscoveryController {
           sh.location_city,
           sh.location_state,
           sh.location_zip_code,
-          rv.viewed_at
+          rv.viewed_at,
+          (
+            SELECT json_agg(json_build_object(
+              'groupId', sga.group_id,
+              'groupName', asg.group_name,
+              'customTokenSymbol', asg.custom_token_symbol,
+              'customTokenName', asg.custom_token_name,
+              'icon', asg.icon,
+              'tokenRewardPercentage', sga.token_reward_percentage,
+              'bonusMultiplier', sga.bonus_multiplier
+            ))
+            FROM service_group_availability sga
+            JOIN affiliate_shop_groups asg ON sga.group_id = asg.group_id
+            WHERE sga.service_id = s.service_id AND sga.active = true
+          ) as groups
         FROM recently_viewed_services rv
         INNER JOIN shop_services s ON rv.service_id = s.service_id
         INNER JOIN shops sh ON s.shop_id = sh.shop_id
@@ -220,6 +234,7 @@ export class DiscoveryController {
           state: row.location_state,
           zipCode: row.location_zip_code
         },
+        groups: row.groups || [],
         viewedAt: row.viewed_at
       }));
 

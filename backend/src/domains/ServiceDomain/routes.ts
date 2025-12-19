@@ -7,6 +7,7 @@ import { ReviewController } from './controllers/ReviewController';
 import { AnalyticsController } from './controllers/AnalyticsController';
 import { AppointmentController } from './controllers/AppointmentController';
 import { DiscoveryController } from './controllers/DiscoveryController';
+import { ServiceGroupController } from './controllers/ServiceGroupController';
 import { PaymentService } from './services/PaymentService';
 import { authMiddleware, optionalAuthMiddleware, requireRole } from '../../middleware/auth';
 import { StripeService } from '../../services/StripeService';
@@ -24,6 +25,7 @@ export function initializeRoutes(stripe: StripeService): Router {
   const analyticsController = new AnalyticsController();
   const appointmentController = new AppointmentController();
   const discoveryController = new DiscoveryController();
+  const serviceGroupController = new ServiceGroupController();
 
   // ==================== SERVICE MANAGEMENT ROUTES ====================
 
@@ -1866,6 +1868,185 @@ export function initializeRoutes(stripe: StripeService): Router {
     authMiddleware,
     requireRole(['customer']),
     appointmentController.cancelCustomerAppointment
+  );
+
+  // ==================== SERVICE GROUP ROUTES ====================
+
+  /**
+   * @swagger
+   * /api/services/{serviceId}/groups/{groupId}:
+   *   post:
+   *     summary: Link service to affiliate group (Shop only)
+   *     description: Link service to an affiliate group to earn group tokens
+   *     tags: [Service Groups]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: serviceId
+   *         required: true
+   *         schema:
+   *           type: string
+   *       - in: path
+   *         name: groupId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               tokenRewardPercentage:
+   *                 type: number
+   *                 default: 100
+   *               bonusMultiplier:
+   *                 type: number
+   *                 default: 1.0
+   *     responses:
+   *       201:
+   *         description: Service linked to group
+   *       403:
+   *         description: Shop not a member of group
+   */
+  router.post(
+    '/:serviceId/groups/:groupId',
+    authMiddleware,
+    requireRole(['shop']),
+    (req, res) => serviceGroupController.linkServiceToGroup(req, res)
+  );
+
+  /**
+   * @swagger
+   * /api/services/{serviceId}/groups/{groupId}:
+   *   delete:
+   *     summary: Unlink service from group (Shop only)
+   *     description: Remove service from affiliate group
+   *     tags: [Service Groups]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: serviceId
+   *         required: true
+   *         schema:
+   *           type: string
+   *       - in: path
+   *         name: groupId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Service unlinked from group
+   */
+  router.delete(
+    '/:serviceId/groups/:groupId',
+    authMiddleware,
+    requireRole(['shop']),
+    (req, res) => serviceGroupController.unlinkServiceFromGroup(req, res)
+  );
+
+  /**
+   * @swagger
+   * /api/services/{serviceId}/groups:
+   *   get:
+   *     summary: Get service groups (Public)
+   *     description: Get all groups this service is linked to
+   *     tags: [Service Groups]
+   *     parameters:
+   *       - in: path
+   *         name: serviceId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: List of service groups
+   */
+  router.get(
+    '/:serviceId/groups',
+    (req, res) => serviceGroupController.getServiceGroups(req, res)
+  );
+
+  /**
+   * @swagger
+   * /api/services/{serviceId}/groups/{groupId}/rewards:
+   *   put:
+   *     summary: Update group rewards (Shop only)
+   *     description: Update reward settings for service-group link
+   *     tags: [Service Groups]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: serviceId
+   *         required: true
+   *         schema:
+   *           type: string
+   *       - in: path
+   *         name: groupId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               tokenRewardPercentage:
+   *                 type: number
+   *               bonusMultiplier:
+   *                 type: number
+   *     responses:
+   *       200:
+   *         description: Rewards updated
+   */
+  router.put(
+    '/:serviceId/groups/:groupId/rewards',
+    authMiddleware,
+    requireRole(['shop']),
+    (req, res) => serviceGroupController.updateGroupRewards(req, res)
+  );
+
+  /**
+   * @swagger
+   * /api/services/groups/{groupId}/services:
+   *   get:
+   *     summary: Get services by group (Public)
+   *     description: Get all services in an affiliate group
+   *     tags: [Service Groups]
+   *     parameters:
+   *       - in: path
+   *         name: groupId
+   *         required: true
+   *         schema:
+   *           type: string
+   *       - in: query
+   *         name: category
+   *         schema:
+   *           type: string
+   *       - in: query
+   *         name: minPrice
+   *         schema:
+   *           type: number
+   *       - in: query
+   *         name: maxPrice
+   *         schema:
+   *           type: number
+   *       - in: query
+   *         name: search
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: List of services in group
+   */
+  router.get(
+    '/groups/:groupId/services',
+    (req, res) => serviceGroupController.getGroupServices(req, res)
   );
 
   // ==================== DISCOVERY & SEARCH ROUTES ====================

@@ -133,6 +133,7 @@ export class FavoriteController {
         companyName: item.shopName, // Map shopName to companyName
         shopAddress: item.shopAddress,
         shopIsVerified: item.shopIsVerified || false,
+        groups: item.groups || [], // Include group rewards
         createdAt: item.createdAt
       }));
 

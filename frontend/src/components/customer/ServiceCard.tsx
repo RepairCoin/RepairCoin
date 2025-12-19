@@ -95,6 +95,33 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
           />
         </div>
 
+        {/* Group Token Badges - Bottom Left */}
+        {service.groups && service.groups.length > 0 && (
+          <div className="absolute bottom-3 left-3 z-10 flex flex-col gap-1 max-w-[65%]">
+            <div className="flex flex-wrap gap-1">
+              {service.groups.slice(0, 2).map((group) => (
+                <div
+                  key={group.groupId}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-purple-600/95 to-purple-500/95 backdrop-blur-md border border-purple-300/50 text-white rounded-lg text-[11px] font-bold shadow-xl hover:scale-105 hover:shadow-purple-500/50 transition-all duration-200 cursor-help"
+                  title={`Earn ${group.customTokenSymbol} tokens (${group.customTokenName}) when you book this service!`}
+                >
+                  <span className="text-sm">{group.icon || '🎁'}</span>
+                  <span className="tracking-wide">{group.customTokenSymbol}</span>
+                  <span className="text-purple-200">+</span>
+                </div>
+              ))}
+              {service.groups.length > 2 && (
+                <div
+                  className="flex items-center px-2 py-1 bg-gray-800/95 backdrop-blur-sm border border-gray-500/60 text-gray-200 rounded-lg text-[10px] font-semibold shadow-lg cursor-help"
+                  title={`${service.groups.length - 2} more group token${service.groups.length - 2 > 1 ? 's' : ''}: ${service.groups.slice(2).map(g => g.customTokenSymbol).join(', ')}`}
+                >
+                  +{service.groups.length - 2} more
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* RCN Earning Badge - Bottom Right */}
         {qualifies && (
           <div className="absolute bottom-3 right-3 z-10 group/rcn">
@@ -167,6 +194,19 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
             <p className="text-sm text-gray-400 mb-4 line-clamp-2">
               {service.description}
             </p>
+          )}
+
+          {/* Group Rewards Info */}
+          {service.groups && service.groups.length > 0 && (
+            <div className="mb-4 p-3 bg-gradient-to-r from-purple-900/20 to-purple-800/20 border border-purple-500/30 rounded-lg">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">🎁</span>
+                <span className="text-xs font-bold text-purple-300">BONUS GROUP REWARDS</span>
+              </div>
+              <p className="text-[11px] text-purple-200 leading-relaxed">
+                Earn <span className="font-bold text-purple-100">{service.groups.map(g => g.customTokenSymbol).join(', ')}</span> token{service.groups.length > 1 ? 's' : ''} in addition to RCN!
+              </p>
+            </div>
           )}
 
           {/* Price and Duration */}

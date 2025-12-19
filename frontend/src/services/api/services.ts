@@ -31,6 +31,15 @@ export interface ShopService {
   active: boolean;
   createdAt: string;
   updatedAt: string;
+  groups?: Array<{
+    groupId: string;
+    groupName: string;
+    customTokenSymbol: string;
+    customTokenName: string;
+    icon?: string;
+    tokenRewardPercentage: number;
+    bonusMultiplier: number;
+  }>;
 }
 
 export interface ShopServiceWithShopInfo extends ShopService {

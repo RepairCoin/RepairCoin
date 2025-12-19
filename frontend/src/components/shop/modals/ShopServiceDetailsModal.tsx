@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, DollarSign, Clock, Tag, Star, MessageSquare } from "lucide-react";
+import { X, DollarSign, Clock, Tag, Star, MessageSquare, Users } from "lucide-react";
 import { ShopService, SERVICE_CATEGORIES } from "@/services/api/services";
 import { servicesApi, ServiceReview } from "@/services/api/services";
 import { toast } from "react-hot-toast";
+import { ServiceGroupSettings } from "@/components/shop/ServiceGroupSettings";
 
 interface ShopServiceDetailsModalProps {
   service: ShopService;
@@ -15,7 +16,7 @@ export const ShopServiceDetailsModal: React.FC<ShopServiceDetailsModalProps> = (
   service,
   onClose,
 }) => {
-  const [activeTab, setActiveTab] = useState<"details" | "reviews">("details");
+  const [activeTab, setActiveTab] = useState<"details" | "reviews" | "groups">("details");
   const [reviews, setReviews] = useState<ServiceReview[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewsLoaded, setReviewsLoaded] = useState(false);
@@ -51,7 +52,7 @@ export const ShopServiceDetailsModal: React.FC<ShopServiceDetailsModalProps> = (
     }
   };
 
-  const handleTabChange = (tab: "details" | "reviews") => {
+  const handleTabChange = (tab: "details" | "reviews" | "groups") => {
     setActiveTab(tab);
     if (tab === "reviews" && !reviewsLoaded) {
       loadReviews();
@@ -150,6 +151,17 @@ export const ShopServiceDetailsModal: React.FC<ShopServiceDetailsModalProps> = (
               }`}
             >
               Reviews {reviews.length > 0 ? `(${reviews.length})` : ""}
+            </button>
+            <button
+              onClick={() => handleTabChange("groups")}
+              className={`flex-1 px-6 py-3 text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${
+                activeTab === "groups"
+                  ? "text-[#FFCC00] border-b-2 border-[#FFCC00]"
+                  : "text-gray-400 hover:text-gray-300"
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              Group Rewards
             </button>
           </div>
         </div>
@@ -367,6 +379,13 @@ export const ShopServiceDetailsModal: React.FC<ShopServiceDetailsModalProps> = (
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Groups Tab */}
+          {activeTab === "groups" && (
+            <div>
+              <ServiceGroupSettings serviceId={service.serviceId} />
             </div>
           )}
         </div>

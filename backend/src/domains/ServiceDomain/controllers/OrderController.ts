@@ -7,18 +7,21 @@ import { ServiceRepository } from '../../../repositories/ServiceRepository';
 import { shopRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
 import { eventBus, createDomainEvent } from '../../../events/EventBus';
+import { AffiliateShopGroupService } from '../../../services/AffiliateShopGroupService';
 
 export class OrderController {
   private paymentService: PaymentService;
   private orderRepository: OrderRepository;
   private notificationService: NotificationService;
   private serviceRepository: ServiceRepository;
+  private groupService: AffiliateShopGroupService;
 
   constructor(paymentService: PaymentService) {
     this.paymentService = paymentService;
     this.orderRepository = new OrderRepository();
     this.notificationService = new NotificationService();
     this.serviceRepository = new ServiceRepository();
+    this.groupService = new AffiliateShopGroupService();
   }
 
   /**
@@ -313,6 +316,9 @@ export class OrderController {
             amount: updatedOrder.totalAmount
           });
 
+          // Issue group tokens for this service
+          await this.issueGroupTokensForService(updatedOrder);
+
           // Send notification to customer about order completion
           // Wait a bit for RCN rewards to be minted (event bus processes async)
           setTimeout(async () => {
@@ -399,4 +405,74 @@ export class OrderController {
       });
     }
   };
+
+  /**
+   * Helper method to issue group tokens when a service is completed
+   */
+  private async issueGroupTokensForService(order: { orderId: string; serviceId: string; customerAddress: string; totalAmount: number; shopId: string }): Promise<void> {
+    try {
+      // Get all groups this service is linked to
+      const serviceGroups = await this.serviceRepository.getServiceGroups(order.serviceId);
+
+      if (serviceGroups.length === 0) {
+        logger.debug('No group tokens to issue - service not linked to any groups', {
+          orderId: order.orderId,
+          serviceId: order.serviceId
+        });
+        return;
+      }
+
+      // Get service details for logging
+      const service = await this.serviceRepository.getServiceById(order.serviceId);
+
+      for (const groupLink of serviceGroups) {
+        try {
+          // Calculate group token amount
+          const baseAmount = order.totalAmount * (groupLink.tokenRewardPercentage / 100);
+          const finalAmount = baseAmount * groupLink.bonusMultiplier;
+
+          // Issue group tokens
+          await this.groupService.earnGroupTokens({
+            customerAddress: order.customerAddress,
+            groupId: groupLink.groupId,
+            shopId: order.shopId,
+            amount: finalAmount,
+            reason: `Service completed: ${service?.serviceName || 'Service'}`,
+            metadata: {
+              orderId: order.orderId,
+              serviceId: order.serviceId,
+              rewardPercentage: groupLink.tokenRewardPercentage,
+              bonusMultiplier: groupLink.bonusMultiplier,
+              orderAmount: order.totalAmount
+            }
+          });
+
+          logger.info('Group tokens issued for completed service', {
+            groupId: groupLink.groupId,
+            groupName: groupLink.groupName,
+            customerAddress: order.customerAddress,
+            amount: finalAmount,
+            tokenSymbol: groupLink.customTokenSymbol,
+            orderId: order.orderId,
+            serviceId: order.serviceId
+          });
+        } catch (groupError) {
+          logger.error('Error issuing group tokens for specific group', {
+            error: groupError,
+            groupId: groupLink.groupId,
+            orderId: order.orderId,
+            serviceId: order.serviceId
+          });
+          // Continue with other groups even if one fails
+        }
+      }
+    } catch (error) {
+      logger.error('Error issuing group tokens for service', {
+        error,
+        orderId: order.orderId,
+        serviceId: order.serviceId
+      });
+      // Don't throw - log and continue (group tokens are bonus, not critical to order flow)
+    }
+  }
 }

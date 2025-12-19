@@ -13,10 +13,12 @@ import { ShopMapView } from "./ShopMapView";
 import { RecentlyViewedServices } from "./RecentlyViewedServices";
 import { TrendingServices } from "./TrendingServices";
 import { useAuthStore } from "@/stores/authStore";
+import { serviceGroupApi } from "@/services/api/serviceGroups";
+import { getAllCustomerBalances, CustomerAffiliateGroupBalance } from "@/services/api/affiliateShopGroups";
 
 export const ServiceMarketplaceClient: React.FC = () => {
   const router = useRouter();
-  const { userType } = useAuthStore();
+  const { userType, address } = useAuthStore();
   const [services, setServices] = useState<ShopServiceWithShopInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<FilterState>({});
@@ -27,16 +29,52 @@ export const ServiceMarketplaceClient: React.FC = () => {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "map">("grid");
   const [refreshKey, setRefreshKey] = useState(0); // For refreshing recently viewed
+  const [customerGroups, setCustomerGroups] = useState<CustomerAffiliateGroupBalance[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>("");
+
+  // Load customer groups on mount
+  useEffect(() => {
+    if (userType === 'customer' && address) {
+      loadCustomerGroups();
+    }
+  }, [userType, address]);
 
   useEffect(() => {
     loadServices();
-  }, [filters, page, showFavoritesOnly]);
+  }, [filters, page, showFavoritesOnly, selectedGroupId]);
+
+  const loadCustomerGroups = async () => {
+    if (!address) return;
+
+    try {
+      const balances = await getAllCustomerBalances(address);
+      // Show all groups (customer can discover services in new groups)
+      setCustomerGroups(balances);
+    } catch (error) {
+      console.error('Error loading customer groups:', error);
+    }
+  };
 
   const loadServices = async () => {
     setLoading(true);
 
     try {
-      if (showFavoritesOnly) {
+      if (selectedGroupId) {
+        // Load services from selected group
+        const groupServices = await serviceGroupApi.getGroupServices(selectedGroupId, {
+          category: filters.category,
+          minPrice: filters.minPrice,
+          maxPrice: filters.maxPrice,
+          search: filters.search
+        });
+
+        if (page === 1) {
+          setServices(groupServices as ShopServiceWithShopInfo[]);
+        } else {
+          setServices(prev => [...prev, ...(groupServices as ShopServiceWithShopInfo[])]);
+        }
+        setHasMore(false); // Group services don't have pagination yet
+      } else if (showFavoritesOnly) {
         // Load favorites
         const response = await servicesApi.getCustomerFavorites({
           page,
@@ -220,8 +258,68 @@ export const ServiceMarketplaceClient: React.FC = () => {
           </div>
         )}
 
+        {/* Group Filter - Show for customers with group memberships */}
+        {userType === 'customer' && customerGroups.length > 0 && !showFavoritesOnly && viewMode === "grid" && (
+          <div className="mb-8">
+            <div className="bg-gradient-to-r from-purple-900/20 to-purple-800/20 border border-purple-500/30 rounded-xl p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-2xl">🎁</span>
+                <label className="block text-sm font-bold text-purple-300">
+                  Discover Group Rewards
+                </label>
+              </div>
+              <p className="text-xs text-purple-200 mb-3">
+                Filter services by affiliate groups to earn bonus tokens on top of RCN!
+              </p>
+              <select
+                value={selectedGroupId}
+                onChange={(e) => {
+                  setSelectedGroupId(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full px-4 py-3 bg-[#0A0A0A] border border-purple-500/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent hover:border-purple-400/70 transition-colors"
+              >
+                <option value="">🌐 All Services (with or without group rewards)</option>
+                {customerGroups.map(group => (
+                  <option key={group.groupId} value={group.groupId}>
+                    {group.icon || '🏪'} {group.customerName || group.groupName} - Earn {group.customTokenSymbol} tokens
+                  </option>
+                ))}
+              </select>
+              {selectedGroupId && (
+                <div className="mt-3 p-2 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+                  <p className="text-xs text-purple-200">
+                    ✨ Showing only services where you can earn <span className="font-bold">{customerGroups.find(g => g.groupId === selectedGroupId)?.customTokenSymbol}</span> tokens
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Active Group Filter Banner */}
+        {selectedGroupId && viewMode === "grid" && (
+          <div className="mb-8 flex items-center gap-3 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/30 rounded-xl p-4">
+            <div className="flex-1">
+              <p className="text-sm text-purple-400 mb-1">Browsing group services:</p>
+              <p className="text-white font-semibold">
+                {customerGroups.find(g => g.groupId === selectedGroupId)?.customerName || "Group Services"}
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setSelectedGroupId("");
+                setPage(1);
+              }}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+            >
+              View All Services
+            </button>
+          </div>
+        )}
+
         {/* Active Shop Filter */}
-        {viewMode === "grid" && filters.shopId && !showFavoritesOnly && (
+        {viewMode === "grid" && filters.shopId && !showFavoritesOnly && !selectedGroupId && (
           <div className="mb-8 flex items-center gap-3 bg-[#1A1A1A] border border-gray-800 rounded-xl p-4">
             <div className="flex-1">
               <p className="text-sm text-gray-400 mb-1">Viewing shop:</p>
