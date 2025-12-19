@@ -237,20 +237,22 @@ const OverviewStatCard: React.FC<{
   const [showTooltip, setShowTooltip] = useState(false);
 
   return (
-    <div className={`bg-[#101010] rounded-[20px] p-4 sm:p-5 h-[97px] relative ${showTooltip ? 'z-50 overflow-visible' : 'overflow-hidden'}`}>
-      <div className="flex items-start gap-3">
+    <div className={`bg-[#101010] rounded-[20px] p-4 sm:p-5 min-h-[97px] relative ${showTooltip ? 'z-50 overflow-visible' : ''}`}>
+      <div className="flex items-start gap-2 sm:gap-3 pr-6">
         {/* Icon with yellow gradient background */}
         <div className="relative flex-shrink-0">
-          <div className="w-8 h-8 bg-gradient-to-br from-[#FFCC00] to-[#FFD633] rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20">
-            {icon}
+          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-[#FFCC00] to-[#FFD633] rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20">
+            <div className="scale-75 sm:scale-100">
+              {icon}
+            </div>
           </div>
         </div>
         {/* Text content */}
         <div className="flex flex-col min-w-0 flex-1">
-          <p className="text-white text-sm font-medium leading-tight truncate">
+          <p className="text-white text-xs sm:text-sm font-medium leading-tight break-words">
             {title}
           </p>
-          <p className="text-white text-xl sm:text-2xl font-bold mt-1 tracking-tight">
+          <p className="text-white text-lg sm:text-xl md:text-2xl font-bold mt-1 tracking-tight break-all">
             {value}
           </p>
         </div>
@@ -263,13 +265,13 @@ const OverviewStatCard: React.FC<{
           onMouseLeave={() => setShowTooltip(false)}
           onClick={() => setShowTooltip(!showTooltip)}
         >
-          <HelpCircle className="w-[18px] h-[18px]" />
+          <HelpCircle className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
         </button>
         {/* Tooltip */}
         {showTooltip && tooltip && (
-          <div className="absolute right-0 top-6 z-[100] w-64 p-3 bg-[#2a2a2a] border border-[#404040] rounded-lg shadow-xl">
+          <div className="absolute right-0 top-6 z-[100] w-48 sm:w-64 p-3 bg-[#2a2a2a] border border-[#404040] rounded-lg shadow-xl">
             <div className="absolute -top-1.5 right-2 w-3 h-3 bg-[#2a2a2a] border-l border-t border-[#404040] transform rotate-45"></div>
-            <p className="text-sm text-gray-300 leading-relaxed">{tooltip}</p>
+            <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">{tooltip}</p>
           </div>
         )}
       </div>

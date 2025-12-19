@@ -24,6 +24,7 @@ import { SettingsTab } from "@/components/shop/tabs/SettingsTab";
 import { CustomersTab } from "@/components/shop/tabs/CustomersTab";
 import PromoCodesTab from "@/components/shop/tabs/PromoCodesTab";
 import { ShopLocationTab } from "@/components/shop/tabs/ShopLocationTab";
+import { ShopBreadcrumb } from "@/components/shop/ShopBreadcrumb";
 import { GroupsTab } from "@/components/shop/tabs/GroupsTab";
 import { ServicesTab } from "@/components/shop/tabs/ServicesTab";
 import { ShopServiceOrdersTab } from "@/components/shop/tabs/ShopServiceOrdersTab";
@@ -870,6 +871,9 @@ export default function ShopDashboardClient() {
               </div>
             </div>
           )}
+
+          {/* Breadcrumb Navigation */}
+          <ShopBreadcrumb activeTab={activeTab} onTabChange={handleTabChange} />
 
           {/* Tab Content */}
           {activeTab === "overview" && (

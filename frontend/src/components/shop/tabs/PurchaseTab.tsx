@@ -6,6 +6,9 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
+  ShoppingCart,
+  HelpCircle,
+  History,
 } from "lucide-react";
 import Tooltip from "../../ui/tooltip";
 
@@ -103,286 +106,288 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
   };
 
   return (
-    <>
-      <style jsx>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Purchase Card */}
-          <div className="bg-[#212121] rounded-3xl">
-            <div
-              className="w-full flex flex-row items-center justify-between px-4 md:px-8 py-4 text-white rounded-t-3xl"
-              style={{
-                backgroundImage: `url('/img/cust-ref-widget3.png')`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-                backgroundRepeat: "no-repeat",
-              }}
+    <div className=" mx-auto px-2 py-2">
+      {/* Main Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Purchase Card */}
+        <div className="bg-[#101010] border border-gray-800 rounded-2xl">
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-5">
+            <div className="flex items-center gap-3">
+              <ShoppingCart className="w-5 h-5 text-[#FFCC00]" />
+              <h3 className="text-lg font-semibold text-[#FFCC00]">
+                Purchase RCN Tokens
+              </h3>
+            </div>
+            <Tooltip
+              title="How it works"
+              position="left"
+              className=""
+              content={
+                <ul className="space-y-3 text-sm">
+                  <li className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-blue-400">1</span>
+                    </div>
+                    <span className="text-gray-300">
+                      Purchase RCN tokens at a fixed rate of $0.10 per token
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-blue-400">2</span>
+                    </div>
+                    <span className="text-gray-300">
+                      Tokens are instantly added to your shop&apos;s balance
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-blue-400">3</span>
+                    </div>
+                    <span className="text-gray-300">
+                      Use tokens to reward customers for repairs and services
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-blue-400">4</span>
+                    </div>
+                    <span className="text-gray-300">
+                      Customers can redeem tokens at your shop ($1 value per RCN)
+                    </span>
+                  </li>
+                </ul>
+              }
             >
-              <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-1">
-                  Purchase RCN Tokens
-                </h3>
-                <p className="text-sm text-gray-800">
-                  Buy tokens to reward your customers
-                </p>
-              </div>
-              {/* How it Works - Info Icon with Tooltip */}
-              <Tooltip
-                title="How it works"
-                position="bottom"
-                className="right-0"
-                content={
-                  <ul className="space-y-3 text-sm">
-                    <li className="flex items-start gap-3">
-                      <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <span className="text-xs font-bold text-blue-400">
-                          1
-                        </span>
-                      </div>
-                      <span className="text-gray-300">
-                        Purchase RCN tokens at a fixed rate of $0.10 per
-                        token
-                      </span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <span className="text-xs font-bold text-blue-400">
-                          2
-                        </span>
-                      </div>
-                      <span className="text-gray-300">
-                        Tokens are instantly added to your shop&apos;s balance
-                      </span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <span className="text-xs font-bold text-blue-400">
-                          3
-                        </span>
-                      </div>
-                      <span className="text-gray-300">
-                        Use tokens to reward customers for repairs and
-                        services
-                      </span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <span className="text-xs font-bold text-blue-400">
-                          4
-                        </span>
-                      </div>
-                      <span className="text-gray-300">
-                        Customers can redeem tokens at your shop ($1 value
-                        per RCN)
-                      </span>
-                    </li>
-                  </ul>
-                }
-              />
-            </div>
-            <div className="p-6 space-y-6">
-              {/* Amount Input */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-3">
-                  Token Amount
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    min="5"
-                    max="100000"
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        setPurchaseAmount(
-                          Math.max(1, parseInt(e.target.value) || 1)
-                        );
-                      } else {
-                        setPurchaseAmount(0);
-                      }
-                    }}
-                    placeholder="Enter rcn amount"
-                    className="w-full px-6 py-4 bg-[#2F2F2F] border border-gray-700 rounded-xl text-xl font-semibold text-[#FFCC00] placeholder-[#FFCC00] focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent "
-                  />
-                </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  <span className="text-[#FFCC00]">Minimum</span>: 5 RCN ($0.50)
-                  • <span className="text-[#FFCC00]">Maximum</span>: 100,000 RCN
-                </p>
-              </div>
-
-              {/* Quick Amount Buttons */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-3">
-                  Quick Select
-                </label>
-                <div className="grid grid-cols-5 gap-2">
-                  {quickAmounts.map((amount) => (
-                    <button
-                      key={amount}
-                      onClick={() => setPurchaseAmount(amount)}
-                      className={`py-2 px-3 rounded-lg text-sm font-semibold transition-all ${
-                        purchaseAmount === amount
-                          ? "bg-[#FFCC00] text-gray-900"
-                          : "bg-[#0D0D0D] text-gray-400 border border-gray-700 hover:border-gray-600 hover:text-white"
-                      }`}
-                    >
-                      {amount >= 1000 ? `${amount / 1000}k` : amount}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Payment Method - Credit Card Only */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-3">
-                  Payment Method
-                </label>
-                <div className="grid grid-cols-1 gap-3">
-                  <div className="relative p-4 rounded-xl border-2 border-[#FFCC00] bg-[#FFCC00]/10">
-                    <div className="absolute top-2 left-2">
-                      <CheckCircle className="w-4 h-4 text-[#FFCC00]" />
-                    </div>
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="w-10 h-10 bg-blue-500/20 rounded-full flex items-center justify-center">
-                        <CreditCard className="w-6 h-6 text-blue-400" />
-                      </div>
-                      <div className="flex flex-col items-center">
-                        <p className="font-semibold text-white">Credit Card</p>
-                        <p className="text-xs text-gray-400">
-                          Secure payment via Stripe
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Price Breakdown */}
-              <div className="bg-[#2F2F2F] rounded-xl p-4 space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-400">Base Amount</span>
-                  <span className="text-white font-medium">
-                    {purchaseAmount.toLocaleString()} RCN
-                  </span>
-                </div>
-                {bonusAmount > 0 && (
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-400">Tier Bonus</span>
-                    <span className="text-green-400 font-medium">
-                      +{bonusAmount.toLocaleString()} RCN
-                    </span>
-                  </div>
-                )}
-                <div className="pt-3 mt-3 border-t border-gray-700">
-                  <div className="flex items-center justify-between">
-                    <span className="text-white font-semibold">Total Cost</span>
-                    <span className="text-[#FFCC00] font-bold text-lg">
-                      ${((purchaseAmount + bonusAmount) * 0.1).toFixed(2)} USD
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Purchase Button */}
-              <button
-                type="button"
-                onClick={onInitiatePurchase}
-                disabled={purchasing || purchaseAmount < 5 || isBlocked}
-                className={`w-full py-4 px-6 rounded-xl font-semibold transition-all ${
-                  purchasing || purchaseAmount < 5 || isBlocked
-                    ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-                    : "bg-[#FFCC00] text-[#1A1A1A] hover:bg-[#FFCC00]/90"
-                }`}
-                title={isBlocked ? blockReason : undefined}
-              >
-                {purchasing ? "Processing..." : isBlocked ? "Purchase Blocked" : "Complete Purchase"}
-              </button>
-              {isBlocked && (
-                <div className="mt-2 text-center">
-                  <p className="text-sm text-red-400">{blockReason}</p>
-                </div>
-              )}
-            </div>
+              <HelpCircle className="w-5 h-5 text-gray-500 hover:text-gray-400 cursor-pointer" />
+            </Tooltip>
           </div>
 
-          {/* Recent Purchases Section */}
-          <div className="bg-[#212121] rounded-3xl p-6 flex flex-col max-h-[50vh] lg:max-h-[800px]">
-            <h3 className="text-xl font-semibold text-white mb-6 flex-shrink-0">
+          {/* Divider */}
+          <div className="border-t border-gray-800" />
+
+          <div className="p-6 space-y-6">
+            {/* Token Amount */}
+            <div>
+              <label className="block text-sm font-medium text-white mb-3">
+                Token Amount
+              </label>
+              <input
+                type="number"
+                min="5"
+                max="100000"
+                value={purchaseAmount || ""}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setPurchaseAmount(Math.max(1, parseInt(e.target.value) || 1));
+                  } else {
+                    setPurchaseAmount(0);
+                  }
+                }}
+                placeholder="Enter RCN Amount"
+                className="w-full px-4 py-3 bg-[#1A1A1A] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                Minimum: 5 RCN ($0.50) • Maximum: 100,000 RCN
+              </p>
+            </div>
+
+            {/* Quick Select */}
+            <div>
+              <label className="block text-sm font-medium text-white mb-3">
+                Quick Select
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                {quickAmounts.slice(0, 4).map((amount) => (
+                  <button
+                    key={amount}
+                    onClick={() => setPurchaseAmount(amount)}
+                    className={`py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
+                      purchaseAmount === amount
+                        ? "bg-[#FFCC00] text-gray-900"
+                        : "bg-transparent text-gray-400 border border-gray-700 hover:border-gray-500 hover:text-white"
+                    }`}
+                  >
+                    {amount}
+                  </button>
+                ))}
+              </div>
+              <div className="grid grid-cols-4 gap-2 mt-2">
+                {quickAmounts.slice(4).map((amount) => (
+                  <button
+                    key={amount}
+                    onClick={() => setPurchaseAmount(amount)}
+                    className={`py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
+                      purchaseAmount === amount
+                        ? "bg-[#FFCC00] text-gray-900"
+                        : "bg-transparent text-gray-400 border border-gray-700 hover:border-gray-500 hover:text-white"
+                    }`}
+                  >
+                    {amount}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Payment Method */}
+            <div>
+              <label className="block text-sm font-medium text-white mb-3">
+                Payment Method
+              </label>
+              <div className="flex items-center justify-between p-4 rounded-xl border-2 border-[#FFCC00] bg-[#FFCC00]/5">
+                <div className="flex items-center gap-4">
+                  <div className="w-9 h-9 bg-[#FFCC00]/20 rounded-full flex items-center justify-center">
+                    <CreditCard className="w-5 h-5 text-[#FFCC00]" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-white">Credit Card</p>
+                    <p className="text-xs text-gray-500">
+                      Secure payment via Stripe
+                    </p>
+                  </div>
+                </div>
+                <CheckCircle className="w-5 h-5 text-[#FFCC00]" />
+              </div>
+            </div>
+
+            {/* Price Summary */}
+            <div className="rounded-xl border border-gray-800 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3">
+                <span className="text-gray-400">Base Amount</span>
+                <span className="text-white font-medium">
+                  {purchaseAmount.toLocaleString()} RCN
+                </span>
+              </div>
+              {bonusAmount > 0 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t border-gray-800">
+                  <span className="text-gray-400">Tier Bonus</span>
+                  <span className="text-green-400 font-medium">
+                    +{bonusAmount.toLocaleString()} RCN
+                  </span>
+                </div>
+              )}
+              <div className="border-t border-gray-800">
+                <div className="flex items-center justify-between px-4 py-3">
+                  <span className="text-white font-semibold">Total Cost</span>
+                  <span className="text-[#FFCC00] font-bold">
+                    $ {((purchaseAmount + bonusAmount) * 0.1).toFixed(2)} USD
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Purchase Button */}
+            <button
+              type="button"
+              onClick={onInitiatePurchase}
+              disabled={purchasing || purchaseAmount < 5 || isBlocked}
+              className={`w-full py-4 px-6 rounded-xl font-semibold transition-all ${
+                purchasing || purchaseAmount < 5 || isBlocked
+                  ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+                  : "bg-[#FFCC00] text-gray-900 hover:bg-[#FFCC00]/90"
+              }`}
+              title={isBlocked ? blockReason : undefined}
+            >
+              {purchasing
+                ? "Processing..."
+                : isBlocked
+                ? "Purchase Blocked"
+                : "Complete Purchase"}
+            </button>
+            {isBlocked && (
+              <p className="text-sm text-red-400 text-center">{blockReason}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Recent Purchases Section */}
+        <div className="bg-[#101010] border border-gray-800 rounded-2xl flex flex-col max-h-[50vh] lg:max-h-[800px]">
+          {/* Header */}
+          <div className="flex items-center gap-3 px-6 py-5 flex-shrink-0">
+            <History className="w-5 h-5 text-[#FFCC00]" />
+            <h3 className="text-lg font-semibold text-[#FFCC00]">
               Recent Purchases
             </h3>
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-gray-800" />
+
+          <div className="p-6 flex-1 overflow-hidden">
             {purchasing ? (
               <div className="text-center text-gray-400">Loading...</div>
             ) : purchases.length === 0 ? (
               <p className="text-gray-400 text-center">No purchases yet</p>
             ) : (
-              <div className="space-y-3 overflow-y-auto flex-1 pr-2">
+              <div className="space-y-4 overflow-y-auto h-full pr-2">
                 {purchases.map((purchase) => {
-                  const statusInfo = getStatusDetails(purchase.status, purchase.createdAt);
+                  const statusInfo = getStatusDetails(
+                    purchase.status,
+                    purchase.createdAt
+                  );
                   return (
                     <div
                       key={purchase.id}
-                      className="bg-[#2F2F2F] rounded-lg p-4"
+                      className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-4"
                     >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-white font-medium">
-                            {purchase.amount.toLocaleString()} RCN
-                          </p>
-                          <p className="text-gray-400 text-sm">
-                            {new Date(purchase.createdAt).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[#FFCC00] font-medium">
-                            $
-                            {(
-                              purchase.totalCost || purchase.amount * 0.1
-                            ).toFixed(2)}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span
-                              className={`text-sm flex items-center gap-1 ${statusInfo.color} px-2 py-1 rounded border`}
-                            >
-                              {statusInfo.icon}
-                              {statusInfo.label}
-                            </span>
-                          </div>
-                        </div>
+                      {/* Top Row: RCN Amount and Price */}
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-white font-semibold text-lg">
+                          {purchase.amount.toLocaleString()} RCN
+                        </p>
+                        <p className="text-[#FFCC00] font-semibold">
+                          ${" "}
+                          {(purchase.totalCost || purchase.amount * 0.1).toFixed(
+                            2
+                          )}
+                        </p>
                       </div>
-                      {purchase.status === "pending" && (() => {
-                        // Check if purchase is very recent (< 2 minutes)
-                        const purchaseTime = new Date(purchase.createdAt).getTime();
-                        const now = Date.now();
-                        const ageMinutes = Math.floor((now - purchaseTime) / 60000);
-                        const isVeryRecent = ageMinutes < 2;
 
-                        if (isVeryRecent) {
-                          return (
-                            <div className="mt-3 pt-3 border-t border-gray-700">
-                              <div className="flex items-center gap-2">
-                                <div className="animate-pulse w-2 h-2 bg-blue-400 rounded-full"></div>
-                                <p className="text-xs text-gray-400">
-                                  Payment in progress... Complete your purchase in the Stripe window
-                                </p>
-                              </div>
-                            </div>
+                      {/* Divider */}
+                      <div className="border-t border-gray-700 mb-3" />
+
+                      {/* Bottom Row: Date and Status */}
+                      <div className="flex items-center justify-between">
+                        <p className="text-gray-400 text-sm">
+                          <span className="text-gray-500">Date Purchased:</span>{" "}
+                          {new Date(purchase.createdAt).toLocaleDateString()}
+                        </p>
+                        <span
+                          className={`text-xs flex items-center gap-1 ${statusInfo.color} px-3 py-1 rounded-full border`}
+                        >
+                          {statusInfo.icon}
+                          {statusInfo.label}
+                        </span>
+                      </div>
+
+                      {/* In Progress Message */}
+                      {purchase.status === "pending" &&
+                        (() => {
+                          const purchaseTime = new Date(
+                            purchase.createdAt
+                          ).getTime();
+                          const now = Date.now();
+                          const ageMinutes = Math.floor(
+                            (now - purchaseTime) / 60000
                           );
-                        }
+                          const isVeryRecent = ageMinutes < 2;
 
-                        return null; // Older pending purchases will be auto-cancelled on refresh
-                      })()}
+                          if (isVeryRecent) {
+                            return (
+                              <div className="mt-3 pt-3 border-t border-gray-700">
+                                <div className="flex items-center gap-2">
+                                  <div className="animate-pulse w-2 h-2 bg-blue-400 rounded-full"></div>
+                                  <p className="text-xs text-gray-400">
+                                    Payment in progress... Complete your purchase
+                                    in the Stripe window
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                     </div>
                   );
                 })}
@@ -391,6 +396,6 @@ export const PurchaseTab: React.FC<PurchaseTabProps> = ({
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 };
