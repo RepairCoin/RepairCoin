@@ -4,6 +4,7 @@ import { authMiddleware, requireRole, requireShopOrAdmin, requireShopOwnership, 
 import { optionalAuthMiddleware } from '../../../middleware/optionalAuth';
 import { validateRequired, validateEthereumAddress, validateEmail, validateNumeric, validateStringType } from '../../../middleware/errorHandler';
 import { validateShopUniqueness } from '../../../middleware/validation';
+import { verifyCaptchaRegister } from '../../../middleware/captcha';
 import {
   shopRepository,
   customerRepository,
@@ -397,6 +398,7 @@ router.get('/wallet/:address',
 
 // Register new shop
 router.post('/register',
+  verifyCaptchaRegister, // CAPTCHA verification
   validateRequired(['shopId', 'name', 'address', 'phone', 'email', 'walletAddress']),
   validateStringType('shopId'),
   validateEthereumAddress('walletAddress'),

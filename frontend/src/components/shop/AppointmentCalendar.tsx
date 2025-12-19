@@ -129,7 +129,9 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ servic
       const dateStr = formatDateLocal(date);
       // Extract just the date part from bookingDate (might be "2025-12-17T00:00:00.000Z" or "2025-12-17")
       const dayBookings = allBookings.filter(b => {
-        const bookingDateOnly = b.bookingDate.split('T')[0];
+        // Handle both string and Date types, and extract date portion safely
+        const bookingDateStr = typeof b.bookingDate === 'string' ? b.bookingDate : String(b.bookingDate);
+        const bookingDateOnly = bookingDateStr.split('T')[0].split(' ')[0]; // Handle both ISO and space-separated format
         return bookingDateOnly === dateStr;
       });
 

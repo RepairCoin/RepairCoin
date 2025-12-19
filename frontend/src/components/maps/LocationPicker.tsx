@@ -220,7 +220,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={handleKeyPress}
               placeholder="Search for an address..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-lg focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
             />
           </div>
           <button

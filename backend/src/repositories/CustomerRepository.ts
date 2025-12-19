@@ -17,14 +17,20 @@ export class CustomerRepository extends BaseRepository {
       const params: any[] = [];
       
       if (search) {
+        // Full-text search across all customer columns
         query += ` AND (
-          LOWER(address) LIKE LOWER($${params.length + 1}) OR 
-          LOWER(email) LIKE LOWER($${params.length + 1}) OR 
-          LOWER(name) LIKE LOWER($${params.length + 1})
+          LOWER(address) LIKE LOWER($${params.length + 1}) OR
+          LOWER(COALESCE(email, '')) LIKE LOWER($${params.length + 1}) OR
+          LOWER(COALESCE(name, '')) LIKE LOWER($${params.length + 1}) OR
+          LOWER(COALESCE(phone, '')) LIKE LOWER($${params.length + 1}) OR
+          LOWER(COALESCE(first_name, '')) LIKE LOWER($${params.length + 1}) OR
+          LOWER(COALESCE(last_name, '')) LIKE LOWER($${params.length + 1}) OR
+          LOWER(COALESCE(referral_code, '')) LIKE LOWER($${params.length + 1}) OR
+          LOWER(COALESCE(tier, '')) LIKE LOWER($${params.length + 1})
         )`;
         params.push(`%${search}%`);
       }
-      
+
       query += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
       params.push(limit, offset);
       
@@ -64,14 +70,20 @@ export class CustomerRepository extends BaseRepository {
       const params: any[] = [];
       
       if (search) {
+        // Full-text search across all customer columns (must match getAllCustomers)
         query += ` AND (
-          LOWER(address) LIKE LOWER($${params.length + 1}) OR 
-          LOWER(email) LIKE LOWER($${params.length + 1}) OR 
-          LOWER(name) LIKE LOWER($${params.length + 1})
+          LOWER(address) LIKE LOWER($${params.length + 1}) OR
+          LOWER(COALESCE(email, '')) LIKE LOWER($${params.length + 1}) OR
+          LOWER(COALESCE(name, '')) LIKE LOWER($${params.length + 1}) OR
+          LOWER(COALESCE(phone, '')) LIKE LOWER($${params.length + 1}) OR
+          LOWER(COALESCE(first_name, '')) LIKE LOWER($${params.length + 1}) OR
+          LOWER(COALESCE(last_name, '')) LIKE LOWER($${params.length + 1}) OR
+          LOWER(COALESCE(referral_code, '')) LIKE LOWER($${params.length + 1}) OR
+          LOWER(COALESCE(tier, '')) LIKE LOWER($${params.length + 1})
         )`;
         params.push(`%${search}%`);
       }
-      
+
       const result = await this.pool.query(query, params);
       return parseInt(result.rows[0].count);
     } catch (error) {

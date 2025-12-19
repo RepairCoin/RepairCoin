@@ -5,6 +5,7 @@ import { SubscriptionManagement } from "../SubscriptionManagement";
 import { Store, Mail, Phone, MapPin, Globe, Clock, User } from "lucide-react";
 import toast from "react-hot-toast";
 import { LocationPickerWrapper } from "../../maps/LocationPickerWrapper";
+import { CountryPhoneInput } from "../../ui/CountryPhoneInput";
 import apiClient from '@/services/api/client';
 
 interface ShopData {
@@ -264,7 +265,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     value={shopFormData.name}
                     onChange={handleShopInputChange}
                     disabled={!isEditingShop}
-                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                     placeholder="Enter shop name"
                   />
                 </div>
@@ -280,7 +281,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     value={shopFormData.email}
                     onChange={handleShopInputChange}
                     disabled={!isEditingShop}
-                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                     placeholder="shop@example.com"
                   />
                 </div>
@@ -290,14 +291,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     <Phone className="w-6 h-6 inline mr-1" />
                     Phone Number
                   </label>
-                  <input
-                    type="tel"
-                    name="phone"
+                  <CountryPhoneInput
                     value={shopFormData.phone}
-                    onChange={handleShopInputChange}
+                    onChange={(phone) =>
+                      setShopFormData((prev) => ({ ...prev, phone }))
+                    }
                     disabled={!isEditingShop}
-                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
-                    placeholder="+1 (555) 123-4567"
+                    placeholder="Enter phone number"
                   />
                 </div>
 
@@ -311,7 +311,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       type="text"
                       value={shopData?.walletAddress || ""}
                       disabled
-                      className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent cursor-not-allowed"
+                      className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent cursor-not-allowed"
                     />
                     <button
                       onClick={() =>
@@ -340,7 +340,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     value={shopFormData.address}
                     onChange={handleShopInputChange}
                     disabled={!isEditingShop}
-                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                     placeholder="123 Main St, City, State ZIP"
                   />
 
@@ -384,7 +384,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     value={shopFormData.website}
                     onChange={handleShopInputChange}
                     disabled={!isEditingShop}
-                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                     placeholder="https://yourshop.com"
                   />
                 </div>
@@ -400,7 +400,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     value={shopFormData.facebook}
                     onChange={handleShopInputChange}
                     disabled={!isEditingShop}
-                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                     placeholder="https://facebook.com/yourshop"
                   />
                 </div>
@@ -416,7 +416,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     value={shopFormData.twitter}
                     onChange={handleShopInputChange}
                     disabled={!isEditingShop}
-                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                     placeholder="https://twitter.com/yourshop"
                   />
                 </div>
@@ -432,7 +432,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     value={shopFormData.instagram}
                     onChange={handleShopInputChange}
                     disabled={!isEditingShop}
-                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
                     placeholder="https://instagram.com/yourshop"
                   />
                 </div>
