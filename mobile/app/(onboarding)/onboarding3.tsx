@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { Text, View, ImageBackground } from "react-native";
 import { useConnect } from "thirdweb/react";
 import { client } from "@/constants/thirdweb";
@@ -55,14 +55,25 @@ export default function OnboardingStep3({
 }
 
 const ConnectWithMetaMask = () => {
-  const { connect, isConnecting } = useConnect();
+  const { connect } = useConnect();
   const { useConnectWallet } = useAuth();
   const connectWalletMutation = useConnectWallet();
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [connectingWallet, setConnectingWallet] = useState<string>();
+  const [isLocalConnecting, setIsLocalConnecting] = useState(false);
+  const isCancelledRef = useRef(false);
+
+  const handleCancel = useCallback(() => {
+    isCancelledRef.current = true;
+    setConnectingWallet(undefined);
+    setIsLocalConnecting(false);
+    setShowWalletModal(false);
+  }, []);
 
   const handleWalletSelection = async (walletId: string) => {
     setConnectingWallet(walletId);
+    setIsLocalConnecting(true);
+    isCancelledRef.current = false;
 
     try {
       await connect(async () => {
@@ -107,6 +118,11 @@ const ConnectWithMetaMask = () => {
             });
         }
 
+        // Check if cancelled while connecting
+        if (isCancelledRef.current) {
+          throw new Error("Connection cancelled");
+        }
+
         // Get the wallet address after successful connection
         const account = w.getAccount();
         if (account) {
@@ -124,27 +140,33 @@ const ConnectWithMetaMask = () => {
         return w;
       });
     } catch (error) {
-      console.error(`Failed to connect with ${walletId}:`, error);
+      if (!isCancelledRef.current) {
+        console.error(`Failed to connect with ${walletId}:`, error);
+      }
     } finally {
       setConnectingWallet(undefined);
+      setIsLocalConnecting(false);
     }
   };
+
+  // Use local state to control UI, so we can cancel and reset
+  const showLoading = isLocalConnecting || connectWalletMutation.isPending;
 
   return (
     <>
       <ThemedButton
         title="Connect"
         variant="primary"
-        loading={isConnecting || connectWalletMutation.isPending}
+        loading={showLoading}
         loadingTitle="Connecting..."
         onPress={() => setShowWalletModal(true)}
       />
 
       <WalletSelectionModal
         visible={showWalletModal}
-        onClose={() => !isConnecting && setShowWalletModal(false)}
+        onClose={handleCancel}
         onSelectWallet={handleWalletSelection}
-        isConnecting={isConnecting || connectWalletMutation.isPending}
+        isConnecting={showLoading}
         connectingWallet={connectingWallet}
       />
     </>

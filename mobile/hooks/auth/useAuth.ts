@@ -34,6 +34,7 @@ export function useAuth() {
     const setAccessToken = useAuthStore((state) => state.setAccessToken);
     const setRefreshToken = useAuthStore((state) => state.setRefreshToken);
     const setUserType = useAuthStore((state) => state.setUserType);
+    const setIsLoading = useAuthStore((state) => state.setIsLoading);
 
     const getTokenMutation = useGetToken();
 
@@ -42,6 +43,7 @@ export function useAuth() {
         if (!address) {
           throw new Error("No wallet address provided");
         }
+        setIsLoading(true);
         setAccount({ address });
 
         return await authApi.checkUserExists(address);
@@ -57,26 +59,32 @@ export function useAuth() {
             apiClient.setAuthToken(getTokenResult.token);
 
             if (!result.exists) {
-              router.push("/register");
+              setIsLoading(false);
+              router.replace("/register");
             } else {
               if (result.type === "customer") {
-                router.push("/customer/tabs/home");
+                router.replace("/customer/tabs/home");
               } else if (result.type === "shop") {
                 const active = result.user?.isActive || false;
                 if (active) {
-                  router.push("/shop/tabs/home");
+                  router.replace("/shop/tabs/home");
                 } else {
-                  router.push("/register/pending");
+                  router.replace("/register/pending");
                 }
               } else {
-                router.push("/customer/tabs/home");
+                router.replace("/customer/tabs/home");
               }
             }
+          } else {
+            setIsLoading(false);
           }
+        } else {
+          setIsLoading(false);
         }
       },
       onError: (error: any) => {
         console.error("[useConnectWallet] Error:", error);
+        setIsLoading(false);
       },
     });
   };
@@ -87,7 +95,6 @@ export function useAuth() {
     const userType = useAuthStore((state) => state.userType);
     const accessToken = useAuthStore((state) => state.accessToken);
     const hasHydrated = useAuthStore((state) => state.hasHydrated);
-    const logout = useAuthStore((state) => state.logout);
 
     const navigate = async () => {
       // Wait for store to hydrate before checking auth
@@ -103,7 +110,6 @@ export function useAuth() {
       // Check if we have stored auth data
       if (!isAuthenticated || !userProfile?.address || !accessToken) {
         console.log("[Auth] No stored authentication found");
-        await logout(false);
         router.replace("/onboarding1");
         return;
       }
