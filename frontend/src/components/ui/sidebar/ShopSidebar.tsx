@@ -30,6 +30,7 @@ import {
 } from "@/components/icon";
 import { BaseSidebar, SectionHeader, SectionMenuItem } from "./BaseSidebar";
 import { useSidebar, SidebarItem, SidebarSection } from "./useSidebar";
+import Image from "next/image";
 
 interface ShopSidebarProps {
   isOpen?: boolean;
@@ -163,7 +164,14 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
         {
           title: "Marketing",
           href: "/shop?tab=marketing",
-          icon: <MegaphoneIcon className="w-5 h-5" />,
+          icon: (
+            <Image
+              src={"/img/megaphone.png"}
+              width={32}
+              height={32}
+              alt={"megaphone icon"}
+            />
+          ),
           tabId: "marketing",
         },
         {
@@ -257,7 +265,7 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
                         const isActive = isItemActive(item);
 
                         // Check if this is a direct page route (not a tab route)
-                        const isDirectPageRoute = !item.href.includes('?tab=');
+                        const isDirectPageRoute = !item.href.includes("?tab=");
 
                         const handleClick = (e: React.MouseEvent) => {
                           // For direct page routes, let the Link navigate normally
@@ -294,7 +302,7 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
                 const isActive = isItemActive(item);
 
                 // Check if this is a direct page route (not a tab route)
-                const isDirectPageRoute = !item.href.includes('?tab=');
+                const isDirectPageRoute = !item.href.includes("?tab=");
 
                 const handleClick = (e: React.MouseEvent) => {
                   // For direct page routes, let the Link navigate normally
