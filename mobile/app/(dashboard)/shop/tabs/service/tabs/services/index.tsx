@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   FlatList,
   RefreshControl,
-  TextInput,
   Pressable,
   Modal,
   ScrollView,
@@ -17,6 +16,7 @@ import { Ionicons, Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { SERVICE_CATEGORIES } from "@/constants/service-categories";
 import ServiceCard from "@/components/shared/ServiceCard";
+import { SearchInput } from "@/components/ui/SearchInput";
 import { useAuthStore } from "@/store/auth.store";
 
 type StatusFilter = "all" | "active" | "inactive";
@@ -127,27 +127,19 @@ export default function ServicesTab({
     <React.Fragment>
       {/* Search Input with Filter Button */}
       <View className="flex-row items-center gap-2 mb-4">
-        <View className="flex-1 flex-row items-center bg-zinc-800 rounded-full px-4 py-3">
-          <Feather name="search" size={20} color="#9CA3AF" />
-          <TextInput
-            className="flex-1 text-white ml-3"
-            placeholder="Search services..."
-            placeholderTextColor="#6B7280"
+        <View className="flex-1">
+          <SearchInput
             value={searchQuery}
             onChangeText={setSearchQuery}
+            placeholder="Search services..."
           />
-          {searchQuery.length > 0 && (
-            <Pressable onPress={() => setSearchQuery("")}>
-              <Feather name="x-circle" size={20} color="#9CA3AF" />
-            </Pressable>
-          )}
         </View>
 
         {/* Filter Button */}
         <Pressable
           onPress={() => setFilterModalVisible(true)}
           className={`p-3 rounded-full ${
-            hasActiveFilters ? "bg-[#FFCC00]" : "bg-zinc-800"
+            hasActiveFilters ? "bg-[#FFCC00]" : ""
           }`}
         >
           <Ionicons

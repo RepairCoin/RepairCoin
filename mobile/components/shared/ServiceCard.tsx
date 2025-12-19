@@ -1,4 +1,5 @@
 import { Text, View, TouchableOpacity, Image } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useState, useEffect } from "react";
 import { useFavorite } from "@/hooks/favorite/useFavorite";
@@ -173,7 +174,12 @@ export default function ServiceCard({
   return (
     <View className="flex-1 mx-2 my-2">
       <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
-        <View className="bg-gray-900 rounded-xl overflow-hidden">
+        <LinearGradient
+          colors={["#121212", "#373737"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          className="rounded-xl overflow-hidden"
+        >
           {imageUrl !== undefined && (
             <View className="relative">
               {imageUrl ? (
@@ -183,7 +189,7 @@ export default function ServiceCard({
                   resizeMode="cover"
                 />
               ) : (
-                <View className="w-full h-28 bg-gray-800 items-center justify-center">
+                <View className="w-full h-28 bg-gray-200 items-center justify-center">
                   <Ionicons name="image-outline" size={32} color="#6B7280" />
                 </View>
               )}
@@ -279,7 +285,7 @@ export default function ServiceCard({
               <Text className="text-[#FFCC00] font-bold text-lg">${price}</Text>
             </View>
           </View>
-        </View>
+        </LinearGradient>
       </TouchableOpacity>
     </View>
   );

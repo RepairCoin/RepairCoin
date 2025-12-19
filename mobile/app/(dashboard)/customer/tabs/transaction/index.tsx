@@ -2,15 +2,16 @@ import { useCallback, useState, useMemo } from "react";
 import {
   View,
   Text,
-  TextInput,
   Pressable,
   FlatList,
   RefreshControl,
   TouchableOpacity,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
-import { Feather, Ionicons } from "@expo/vector-icons";
+import { Feather } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/auth.store";
+import { SearchInput } from "@/components/ui/SearchInput";
 import TransactionHistoryCard from "@/components/common/TransactionHistoryCard";
 import { useCustomer } from "@/hooks/customer/useCustomer";
 import { TransactionData } from "@/interfaces/customer.interface";
@@ -168,20 +169,12 @@ export default function TransactionHistory() {
           Transaction History
         </Text>
         {/* Search Bar */}
-        <View className="flex-row px-4 bg-zinc-900 rounded-xl items-center mb-4">
-          <Feather name="search" color="#666" size={20} />
-          <TextInput
-            placeholder="Search transactions..."
-            placeholderTextColor="#666"
+        <View className="mb-4">
+          <SearchInput
             value={searchString}
             onChangeText={setSearchString}
-            className="flex-1 text-white ml-2 py-3"
+            placeholder="Search transactions..."
           />
-          {searchString.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchString("")}>
-              <Ionicons name="close-circle" color="#666" size={20} />
-            </TouchableOpacity>
-          )}
         </View>
 
         {/* Transaction Type Filters */}
@@ -241,9 +234,9 @@ export default function TransactionHistory() {
         )}
         ListEmptyComponent={
           isLoading ? (
-            <View className="items-center justify-center py-12">
-              <Feather name="loader" color="#FFCC00" size={32} />
-              <Text className="text-gray-400 text-lg mt-4">
+            <View className="items-center justify-center py-20">
+              <ActivityIndicator size="large" color="#FFCC00" />
+              <Text className="text-gray-400 text-base mt-4">
                 Loading transactions...
               </Text>
             </View>

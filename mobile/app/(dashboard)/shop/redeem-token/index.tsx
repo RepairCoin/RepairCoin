@@ -47,7 +47,17 @@ export default function RedeemToken() {
     resetRedemption,
     isCreatingSession,
     isCancellingSession,
-  } = useRedemption();
+  } = useRedemption({
+    onError: (error: any) => {
+      // Extract error message from axios error response
+      const errorMessage =
+        error?.response?.data?.error ||
+        error?.message ||
+        "Failed to process redemption. Please try again.";
+
+      Alert.alert("Redemption Error", errorMessage);
+    },
+  });
 
   const {} = useShopRewards();
 

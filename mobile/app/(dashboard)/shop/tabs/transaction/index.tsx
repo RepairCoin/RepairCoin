@@ -6,15 +6,15 @@ import {
   RefreshControl,
   ActivityIndicator,
   Pressable,
-  TextInput,
   TouchableOpacity,
   ScrollView,
 } from "react-native";
 import { ThemedView } from "@/components/ui/ThemedView";
+import { SearchInput } from "@/components/ui/SearchInput";
 import { useAuthStore } from "@/store/auth.store";
 import { useShopTransactions } from "@/hooks";
 import TransactionHistoryCard from "@/components/common/TransactionHistoryCard";
-import { Feather, Ionicons } from "@expo/vector-icons";
+import { Feather } from "@expo/vector-icons";
 import { PurchaseHistory } from "@/services/ShopServices";
 
 // Filter types
@@ -237,20 +237,12 @@ export default function TransactionHistory() {
           Purchase History
         </Text>
         {/* Search Input */}
-        <View className="flex-row items-center bg-zinc-900 rounded-xl px-4 mb-4">
-          <Feather name="search" size={20} color="#666" />
-          <TextInput
-            className="flex-1 text-white ml-2 py-3"
-            placeholder="Search transactions..."
-            placeholderTextColor="#666"
+        <View className="mb-4">
+          <SearchInput
             value={searchQuery}
             onChangeText={setSearchQuery}
+            placeholder="Search transactions..."
           />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery("")}>
-              <Ionicons name="close-circle" size={20} color="#666" />
-            </TouchableOpacity>
-          )}
         </View>
 
         {/* Status Filters */}

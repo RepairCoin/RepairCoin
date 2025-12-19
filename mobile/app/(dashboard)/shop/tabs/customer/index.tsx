@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-  TextInput,
   FlatList,
   ActivityIndicator,
 } from "react-native";
@@ -14,6 +13,7 @@ import {
 } from "@expo/vector-icons";
 import HorizontalCard from "@/components/ui/HorizontalCard";
 import { ThemedView } from "@/components/ui/ThemedView";
+import { SearchInput } from "@/components/ui/SearchInput";
 import CustomerCard from "@/components/shop/CustomerCard";
 import { useAuthStore } from "@/store/auth.store";
 import { useShop } from "@/hooks/shop/useShop";
@@ -75,18 +75,11 @@ export default function CustomerList() {
           </Text>
           <View className="w-[25px]" />
         </View>
-        <View className="flex-row justify-between">
-          <View className="flex-row px-4 border-2 border-[#666] rounded-full items-center w-full">
-            <Feather name="search" color="#666" size={20} />
-            <TextInput
-              placeholder="Search customer by name"
-              placeholderTextColor="#666"
-              value={searchText}
-              onChangeText={setSearchText}
-              className="text-white ml-2 w-full py-2"
-            />
-          </View>
-        </View>
+        <SearchInput
+          value={searchText}
+          onChangeText={setSearchText}
+          placeholder="Search customer by name"
+        />
       </View>
 
       <View className="flex-row flex-wrap my-4">
