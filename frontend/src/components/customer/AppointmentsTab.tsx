@@ -5,6 +5,7 @@ import {Calendar, Clock, MapPin, DollarSign, Loader2, XCircle, Edit2, Star, Mess
 import { appointmentsApi, CalendarBooking } from '@/services/api/appointments';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
+import { formatLocalDate } from '@/utils/dateUtils';
 
 export const AppointmentsTab: React.FC = () => {
   const router = useRouter();
@@ -27,8 +28,8 @@ export const AppointmentsTab: React.FC = () => {
       endDate.setDate(endDate.getDate() + 90);
 
       const data = await appointmentsApi.getCustomerAppointments(
-        startDate.toISOString().split('T')[0],
-        endDate.toISOString().split('T')[0]
+        formatLocalDate(startDate),
+        formatLocalDate(endDate)
       );
 
       setAppointments(data);

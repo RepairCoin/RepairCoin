@@ -48,8 +48,8 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ servic
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
 
-      const startDate = firstDay.toISOString().split('T')[0];
-      const endDate = lastDay.toISOString().split('T')[0];
+      const startDate = formatDateLocal(firstDay);
+      const endDate = formatDateLocal(lastDay);
 
       const data = await appointmentsApi.getShopCalendar(startDate, endDate);
 
