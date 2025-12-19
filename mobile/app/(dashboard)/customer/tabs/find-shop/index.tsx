@@ -56,6 +56,7 @@ export default function FindShop() {
   const [routeDistance, setRouteDistance] = useState<number | null>(null);
   const [routeDuration, setRouteDuration] = useState<number | null>(null);
   const [isDirectionsPanelMinimized, setIsDirectionsPanelMinimized] = useState(false);
+  const [isShopPopupMinimized, setIsShopPopupMinimized] = useState(false);
   const [radiusMiles, setRadiusMiles] = useState(1); // Default 1 miles radius
 
   // Request location permission and get user's location
@@ -90,13 +91,47 @@ export default function FindShop() {
     })();
   }, []);
 
+  // Geocode using OpenStreetMap Nominatim API (more reliable fallback)
+  const geocodeWithNominatim = async (address: string): Promise<{ lat: number; lng: number } | null> => {
+    try {
+      const encodedAddress = encodeURIComponent(address);
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`;
+
+      console.log("Nominatim geocoding:", address);
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'RepairCoin-Mobile-App/1.0',
+        },
+      });
+
+      if (!response.ok) {
+        console.log("Nominatim request failed:", response.status);
+        return null;
+      }
+
+      const data = await response.json();
+      console.log("Nominatim results:", data);
+
+      if (data && data.length > 0) {
+        return {
+          lat: parseFloat(data[0].lat),
+          lng: parseFloat(data[0].lon),
+        };
+      }
+    } catch (error) {
+      console.log("Nominatim geocoding error:", error);
+    }
+    return null;
+  };
+
   // Geocode an address to get coordinates
   const geocodeAddress = async (address: string): Promise<{ lat: number; lng: number } | null> => {
     console.log("Geocoding address:", address);
+
+    // Try expo-location first (works well on iOS)
     try {
-      // First attempt with the provided address
       let results = await Location.geocodeAsync(address);
-      console.log("Geocode results:", results);
+      console.log("Expo geocode results:", results);
 
       if (results && results.length > 0) {
         return {
@@ -104,26 +139,28 @@ export default function FindShop() {
           lng: results[0].longitude,
         };
       }
-
-      // If no results, try appending "USA" for US addresses
-      if (!address.toLowerCase().includes("usa") && !address.toLowerCase().includes("united states")) {
-        const addressWithCountry = `${address}, USA`;
-        console.log("Retrying with country:", addressWithCountry);
-        results = await Location.geocodeAsync(addressWithCountry);
-        console.log("Geocode results with country:", results);
-
-        if (results && results.length > 0) {
-          return {
-            lat: results[0].latitude,
-            lng: results[0].longitude,
-          };
-        }
-      }
-
-      console.log("No geocoding results for:", address);
     } catch (error) {
-      console.log("Geocoding error for address:", address, error);
+      console.log("Expo geocoding error:", error);
     }
+
+    // Fallback to Nominatim API (more reliable on Android)
+    console.log("Trying Nominatim fallback...");
+    const nominatimResult = await geocodeWithNominatim(address);
+    if (nominatimResult) {
+      return nominatimResult;
+    }
+
+    // Try with USA suffix if not already included
+    if (!address.toLowerCase().includes("usa") && !address.toLowerCase().includes("united states")) {
+      const addressWithCountry = `${address}, USA`;
+      console.log("Trying Nominatim with USA suffix:", addressWithCountry);
+      const resultWithCountry = await geocodeWithNominatim(addressWithCountry);
+      if (resultWithCountry) {
+        return resultWithCountry;
+      }
+    }
+
+    console.log("No geocoding results for:", address);
     return null;
   };
 
@@ -245,6 +282,7 @@ export default function FindShop() {
   // Handle marker press
   const handleMarkerPress = (shop: ShopWithLocation) => {
     setSelectedShop(shop);
+    setIsShopPopupMinimized(false);
     if (shop.lat && shop.lng) {
       const region = {
         latitude: shop.lat,
@@ -289,6 +327,7 @@ export default function FindShop() {
     };
 
     setSelectedShop(shop);
+    setIsShopPopupMinimized(false);
 
     // If already in map view and map is ready, animate directly
     if (viewMode === "map") {
@@ -508,16 +547,50 @@ export default function FindShop() {
     });
   };
 
-  // Selected shop popup for map view
-  const ShopPopup = ({ shop }: { shop: ShopWithLocation }) => (
+  // Selected shop popup - Minimized version
+  const ShopPopupMinimized = ({ shop }: { shop: ShopWithLocation }) => (
+    <Pressable
+      onPress={() => setIsShopPopupMinimized(false)}
+      className="absolute bottom-24 left-5 right-5 bg-zinc-900 rounded-2xl px-4 py-3 flex-row items-center border border-zinc-700"
+      style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 }}
+    >
+      <View className="bg-[#FFCC00] w-10 h-10 rounded-full items-center justify-center mr-3">
+        <Feather name="tool" size={20} color="#000" />
+      </View>
+      <View className="flex-1 mr-3">
+        <Text className="text-white font-bold" numberOfLines={1}>
+          {shop.name || "Unknown Shop"}
+        </Text>
+        <Text className="text-gray-400 text-sm" numberOfLines={1}>
+          {shop.distance ? `${shop.distance.toFixed(1)} mi away` : shop.address || "No address"}
+        </Text>
+      </View>
+      <Ionicons name="chevron-up" size={20} color="#9CA3AF" />
+    </Pressable>
+  );
+
+  // Selected shop popup - Expanded version
+  const ShopPopupExpanded = ({ shop }: { shop: ShopWithLocation }) => (
     <View className="absolute bottom-24 left-5 right-5">
       <View className="bg-zinc-900 rounded-2xl p-4 border border-zinc-700">
-        <Pressable
-          onPress={() => setSelectedShop(null)}
-          className="absolute top-2 right-2 z-10"
-        >
-          <Ionicons name="close-circle" size={24} color="#9CA3AF" />
-        </Pressable>
+        {/* Header with minimize and close buttons */}
+        <View className="flex-row items-center justify-end gap-2 mb-2">
+          <Pressable
+            onPress={() => setIsShopPopupMinimized(true)}
+            className="bg-zinc-800 p-2 rounded-full"
+          >
+            <Ionicons name="chevron-down" size={16} color="#9CA3AF" />
+          </Pressable>
+          <Pressable
+            onPress={() => {
+              setSelectedShop(null);
+              setIsShopPopupMinimized(false);
+            }}
+            className="bg-zinc-800 p-2 rounded-full"
+          >
+            <Ionicons name="close" size={16} color="#9CA3AF" />
+          </Pressable>
+        </View>
 
         <View className="flex-row items-start">
           <View className="bg-[#FFCC00] w-12 h-12 rounded-full items-center justify-center mr-3">
@@ -862,7 +935,11 @@ export default function FindShop() {
           )}
 
           {/* Selected shop popup (hidden when showing directions) */}
-          {selectedShop && !showDirections && <ShopPopup shop={selectedShop} />}
+          {selectedShop && !showDirections && (
+            isShopPopupMinimized
+              ? <ShopPopupMinimized shop={selectedShop} />
+              : <ShopPopupExpanded shop={selectedShop} />
+          )}
 
           {/* Shop count and radius control */}
           <View className="absolute top-4 left-4 right-4 flex-row items-center justify-between">
