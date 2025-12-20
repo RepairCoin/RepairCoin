@@ -47,9 +47,13 @@ export class ServiceManagementService {
         throw new Error('Shop must be active and verified to create services');
       }
 
-      // Require active subscription
-      if (!shop.subscriptionActive) {
-        throw new Error('Active RepairCoin subscription required to create services. Subscribe at $500/month to unlock this feature.');
+      // Require active subscription OR RCG qualification (10K+ RCG tokens)
+      const isRcgQualified = shop.operational_status === 'rcg_qualified' ||
+                             (shop.rcg_balance && parseFloat(shop.rcg_balance.toString()) >= 10000);
+      const isSubscriptionQualified = shop.subscriptionActive || shop.operational_status === 'subscription_qualified';
+
+      if (!isRcgQualified && !isSubscriptionQualified) {
+        throw new Error('Active RepairCoin subscription or RCG qualification (10K+ RCG tokens) required to create services.');
       }
 
       // Validate price
@@ -164,6 +168,21 @@ export class ServiceManagementService {
 
       if (existingService.shopId !== shopId) {
         throw new Error('Unauthorized: Service does not belong to this shop');
+      }
+
+      // Verify shop is qualified to update services
+      const shop = await shopRepository.getShop(shopId);
+      if (!shop) {
+        throw new Error('Shop not found');
+      }
+
+      // Require active subscription OR RCG qualification (10K+ RCG tokens)
+      const isRcgQualified = shop.operational_status === 'rcg_qualified' ||
+                             (shop.rcg_balance && parseFloat(shop.rcg_balance.toString()) >= 10000);
+      const isSubscriptionQualified = shop.subscriptionActive || shop.operational_status === 'subscription_qualified';
+
+      if (!isRcgQualified && !isSubscriptionQualified) {
+        throw new Error('Active RepairCoin subscription or RCG qualification (10K+ RCG tokens) required to update services.');
       }
 
       // Validate updates
