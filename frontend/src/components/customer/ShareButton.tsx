@@ -37,8 +37,9 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Build the service URL
-  const serviceUrl = `${window.location.origin}/customer/marketplace?service=${serviceId}`;
+  // Build the service URL - Use public /services/ path for better Open Graph support
+  // Social media crawlers will get proper meta tags from this URL
+  const serviceUrl = `${window.location.origin}/services/${serviceId}`;
   const shareText = `Check out "${serviceName}" by ${shopName} on RepairCoin!`;
 
   // Size classes
