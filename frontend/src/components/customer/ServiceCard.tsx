@@ -8,6 +8,7 @@ import { ShareButton } from "./ShareButton";
 import { StarRating } from "./StarRating";
 import { calculateTotalRcn } from "@/utils/rcnCalculator";
 import { useCustomerStore } from "@/stores/customerStore";
+import { sanitizeDescription } from "@/utils/sanitize";
 
 interface ServiceCardProps {
   service: ShopServiceWithShopInfo;
@@ -191,8 +192,8 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
 
           {/* Description */}
           {service.description && (
-            <p className="text-sm text-gray-400 mb-4 line-clamp-2">
-              {service.description}
+            <p className="text-sm text-gray-400 mb-4 line-clamp-2 whitespace-pre-line">
+              {sanitizeDescription(service.description)}
             </p>
           )}
 

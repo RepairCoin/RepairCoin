@@ -6,6 +6,7 @@ import { ShopService, SERVICE_CATEGORIES } from "@/services/api/services";
 import { servicesApi, ServiceReview } from "@/services/api/services";
 import { toast } from "react-hot-toast";
 import { ServiceGroupSettings } from "@/components/shop/ServiceGroupSettings";
+import { sanitizeDescription } from "@/utils/sanitize";
 
 interface ShopServiceDetailsModalProps {
   service: ShopService;
@@ -220,7 +221,7 @@ export const ShopServiceDetailsModal: React.FC<ShopServiceDetailsModalProps> = (
                 {service.description && (
                   <div className="mb-4">
                     <h4 className="text-sm font-semibold text-white mb-2">Description</h4>
-                    <p className="text-sm text-gray-400 leading-relaxed">{service.description}</p>
+                    <p className="text-sm text-gray-400 leading-relaxed whitespace-pre-line">{sanitizeDescription(service.description)}</p>
                   </div>
                 )}
 

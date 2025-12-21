@@ -17,6 +17,7 @@ import {
   Settings,
   Users,
 } from "lucide-react";
+import { sanitizeDescription } from "@/utils/sanitize";
 import {
   getAllServices,
   getShopServices,
@@ -278,8 +279,8 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
 
               {/* Service Header */}
               <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                  <h3 className="text-lg font-bold text-white mb-1">
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg font-bold text-white mb-1 truncate" title={service.serviceName}>
                     {service.serviceName}
                   </h3>
                   {service.category && (
@@ -307,8 +308,8 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
 
               {/* Description */}
               {service.description && (
-                <p className="text-sm text-gray-400 mb-4 line-clamp-2">
-                  {service.description}
+                <p className="text-sm text-gray-400 mb-4 line-clamp-2 whitespace-pre-line">
+                  {sanitizeDescription(service.description)}
                 </p>
               )}
 

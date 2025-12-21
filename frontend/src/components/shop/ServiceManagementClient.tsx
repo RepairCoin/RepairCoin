@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Edit, Settings, Calendar, Loader2, Star } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { getServiceById, updateService, ShopService, UpdateServiceData } from "@/services/api/services";
+import { sanitizeDescription } from "@/utils/sanitize";
 import { CreateServiceModal } from "@/components/shop/modals/CreateServiceModal";
 
 // Import the per-service components
@@ -228,7 +229,7 @@ export default function ServiceManagementClient({ serviceId }: ServiceManagement
 
                   <div>
                     <label className="block text-sm font-medium text-gray-400 mb-2">Description</label>
-                    <p className="text-white">{service.description || 'No description'}</p>
+                    <p className="text-white whitespace-pre-line">{sanitizeDescription(service.description) || 'No description'}</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">

@@ -12,10 +12,11 @@ function LoadingFallback() {
   );
 }
 
-export default function ServiceManagementPage({ params }: { params: { serviceId: string } }) {
+export default async function ServiceManagementPage({ params }: { params: Promise<{ serviceId: string }> }) {
+  const { serviceId } = await params;
   return (
     <Suspense fallback={<LoadingFallback />}>
-      <ServiceManagementClient serviceId={params.serviceId} />
+      <ServiceManagementClient serviceId={serviceId} />
     </Suspense>
   );
 }

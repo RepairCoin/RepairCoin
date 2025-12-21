@@ -9,6 +9,7 @@ import {
   ShopService,
 } from "@/services/api/services";
 import { ImageUploader } from "../ImageUploader";
+import { sanitizeDescription } from "@/utils/sanitize";
 
 interface CreateServiceModalProps {
   onClose: () => void;
@@ -37,6 +38,7 @@ export const CreateServiceModal: React.FC<CreateServiceModalProps> = ({
   const [errors, setErrors] = useState<Partial<Record<keyof CreateServiceData, string>>>({});
   const [submitting, setSubmitting] = useState(false);
   const [tagInput, setTagInput] = useState("");
+  const [tagError, setTagError] = useState<string | null>(null);
 
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof CreateServiceData, string>> = {};
@@ -44,6 +46,8 @@ export const CreateServiceModal: React.FC<CreateServiceModalProps> = ({
     // Basic Info
     if (!formData.serviceName.trim()) {
       newErrors.serviceName = "Service name is required";
+    } else if (formData.serviceName.length > 100) {
+      newErrors.serviceName = "Service name must be 100 characters or less";
     }
 
     if (!formData.category) {
@@ -92,15 +96,28 @@ export const CreateServiceModal: React.FC<CreateServiceModalProps> = ({
     const tag = tagInput.trim();
     if (!tag) return;
 
-    const currentTags = formData.tags || [];
-    if (currentTags.length >= 5) {
-      return; // Max 5 tags
+    // Clear previous error
+    setTagError(null);
+
+    // Validate tag length (max 20 characters)
+    if (tag.length > 20) {
+      setTagError("Tag must be 20 characters or less");
+      return;
     }
 
-    if (!currentTags.includes(tag)) {
-      handleChange("tags", [...currentTags, tag]);
-      setTagInput("");
+    const currentTags = formData.tags || [];
+    if (currentTags.length >= 5) {
+      setTagError("Maximum 5 tags allowed");
+      return;
     }
+
+    if (currentTags.includes(tag)) {
+      setTagError("Tag already exists");
+      return;
+    }
+
+    handleChange("tags", [...currentTags, tag]);
+    setTagInput("");
   };
 
   const handleRemoveTag = (tagToRemove: string) => {
@@ -152,11 +169,15 @@ export const CreateServiceModal: React.FC<CreateServiceModalProps> = ({
                     type="text"
                     value={formData.serviceName}
                     onChange={(e) => handleChange("serviceName", e.target.value)}
+                    maxLength={100}
                     className={`w-full bg-[#1A1A1A] border ${
                       errors.serviceName ? "border-red-500" : "border-gray-700"
                     } rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[#FFCC00] transition-colors`}
                     placeholder="e.g., iPhone Screen Repair, Haircut & Style"
                   />
+                  <p className="mt-1 text-xs text-gray-500">
+                    {formData.serviceName?.length || 0}/100 characters
+                  </p>
                   {errors.serviceName && (
                     <p className="mt-1 text-sm text-red-500">{errors.serviceName}</p>
                   )}
@@ -274,10 +295,14 @@ export const CreateServiceModal: React.FC<CreateServiceModalProps> = ({
                     <input
                       type="text"
                       value={tagInput}
-                      onChange={(e) => setTagInput(e.target.value)}
+                      onChange={(e) => {
+                        setTagInput(e.target.value);
+                        if (tagError) setTagError(null);
+                      }}
                       onKeyPress={handleKeyPress}
+                      maxLength={20}
                       disabled={(formData.tags?.length || 0) >= 5}
-                      className="w-full bg-[#1A1A1A] border border-gray-700 rounded-lg pl-10 pr-20 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[#FFCC00] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className={`w-full bg-[#1A1A1A] border ${tagError ? 'border-red-500' : 'border-gray-700'} rounded-lg pl-10 pr-20 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[#FFCC00] transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
                       placeholder="e.g., iPhone, Screen, Battery"
                     />
                     <button
@@ -289,6 +314,14 @@ export const CreateServiceModal: React.FC<CreateServiceModalProps> = ({
                       <Plus className="w-4 h-4" />
                     </button>
                   </div>
+                  <div className="flex justify-between mt-1">
+                    {tagError ? (
+                      <p className="text-sm text-red-500">{tagError}</p>
+                    ) : (
+                      <p className="text-xs text-gray-500">Press Enter or click + to add tags. Great for search!</p>
+                    )}
+                    <span className="text-xs text-gray-500">{tagInput.length}/20</span>
+                  </div>
 
                   {/* Tags Display */}
                   {formData.tags && formData.tags.length > 0 && (
@@ -296,9 +329,10 @@ export const CreateServiceModal: React.FC<CreateServiceModalProps> = ({
                       {formData.tags.map((tag, index) => (
                         <div
                           key={index}
-                          className="inline-flex items-center gap-1 bg-[#FFCC00]/10 border border-[#FFCC00]/30 text-[#FFCC00] px-3 py-1.5 rounded-full text-sm font-medium"
+                          className="inline-flex items-center gap-1 bg-[#FFCC00]/10 border border-[#FFCC00]/30 text-[#FFCC00] px-3 py-1.5 rounded-full text-sm font-medium max-w-[150px]"
+                          title={tag}
                         >
-                          {tag}
+                          <span className="truncate">{tag}</span>
                           <button
                             type="button"
                             onClick={() => handleRemoveTag(tag)}
@@ -310,9 +344,6 @@ export const CreateServiceModal: React.FC<CreateServiceModalProps> = ({
                       ))}
                     </div>
                   )}
-                  <p className="mt-1 text-xs text-gray-500">
-                    Press Enter or click + to add tags. Great for search!
-                  </p>
                 </div>
               </div>
 
@@ -385,20 +416,20 @@ export const CreateServiceModal: React.FC<CreateServiceModalProps> = ({
 
                 {/* Service Card Preview */}
                 <div className="bg-[#1A1A1A] border border-gray-700 rounded-xl p-4">
-                  <div className="flex items-start justify-between mb-2">
-                    <h4 className="text-lg font-bold text-white">
+                  <div className="flex items-start justify-between mb-2 gap-2">
+                    <h4 className="text-lg font-bold text-white truncate flex-1" title={formData.serviceName || "Service Name"}>
                       {formData.serviceName || "Service Name"}
                     </h4>
                     {formData.category && (
-                      <span className="text-xs bg-[#FFCC00]/10 border border-[#FFCC00]/30 text-[#FFCC00] px-2 py-1 rounded-full">
+                      <span className="text-xs bg-[#FFCC00]/10 border border-[#FFCC00]/30 text-[#FFCC00] px-2 py-1 rounded-full flex-shrink-0">
                         {SERVICE_CATEGORIES.find(c => c.value === formData.category)?.label}
                       </span>
                     )}
                   </div>
 
                   {formData.description && (
-                    <p className="text-sm text-gray-400 mb-3 line-clamp-2">
-                      {formData.description}
+                    <p className="text-sm text-gray-400 mb-3 line-clamp-2 whitespace-pre-line">
+                      {sanitizeDescription(formData.description)}
                     </p>
                   )}
 
@@ -416,7 +447,8 @@ export const CreateServiceModal: React.FC<CreateServiceModalProps> = ({
                       {formData.tags.map((tag, index) => (
                         <span
                           key={index}
-                          className="text-xs bg-gray-800 text-gray-300 px-2 py-0.5 rounded-full"
+                          className="text-xs bg-gray-800 text-gray-300 px-2 py-0.5 rounded-full max-w-[100px] truncate"
+                          title={tag}
                         >
                           {tag}
                         </span>

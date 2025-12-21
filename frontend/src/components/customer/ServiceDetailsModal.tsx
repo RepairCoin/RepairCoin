@@ -11,6 +11,7 @@ import { ReviewList } from "./ReviewList";
 import { SimilarServices } from "./SimilarServices";
 import { calculateTotalRcn } from "@/utils/rcnCalculator";
 import { useCustomerStore } from "@/stores/customerStore";
+import { sanitizeDescription } from "@/utils/sanitize";
 
 interface ServiceDetailsModalProps {
   service: ShopServiceWithShopInfo;
@@ -193,7 +194,7 @@ export const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({
                 {service.description && (
                   <div>
                     <h4 className="text-sm font-semibold text-white mb-2">Description</h4>
-                    <p className="text-sm text-gray-400">{service.description}</p>
+                    <p className="text-sm text-gray-400 whitespace-pre-line">{sanitizeDescription(service.description)}</p>
                   </div>
                 )}
 
