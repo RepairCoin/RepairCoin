@@ -3,6 +3,7 @@ import { customerRepository, transactionRepository } from '../../../repositories
 import { logger } from '../../../utils/logger';
 import { TierLevel } from '../../../contracts/TierManager';
 import { TokenMinter } from '../../../contracts/TokenMinter';
+import { VerificationService } from '../../token/services/VerificationService';
 
 export interface CustomerBalanceInfo {
   address: string;
@@ -243,6 +244,7 @@ export class CustomerBalanceService {
 
   /**
    * Validate mint request based on business rules
+   * Uses VerificationService.getBalance() to ensure consistency with frontend display
    */
   async validateMintRequest(address: string, amount: number): Promise<{
     valid: boolean;
@@ -257,19 +259,15 @@ export class CustomerBalanceService {
         };
       }
 
-      const balanceInfo = await customerRepository.getCustomerBalance(address);
-      if (!balanceInfo) {
-        return {
-          valid: false,
-          reason: 'Customer not found'
-        };
-      }
+      // Use VerificationService to get balance - same calculation as frontend
+      const verificationService = new VerificationService();
+      const balanceInfo = await verificationService.getBalance(address);
 
-      if (balanceInfo.databaseBalance < amount) {
+      if (balanceInfo.availableBalance < amount) {
         return {
           valid: false,
-          reason: 'Insufficient database balance',
-          maxAllowed: balanceInfo.databaseBalance
+          reason: `Insufficient balance. You have ${balanceInfo.availableBalance.toFixed(2)} RCN available to mint.`,
+          maxAllowed: balanceInfo.availableBalance
         };
       }
 
@@ -289,12 +287,12 @@ export class CustomerBalanceService {
   }
 
   /**
-   * Instant mint: Deduct from database balance and mint directly to blockchain
-   * This bypasses the queue and mints tokens immediately to the customer's wallet
+   * Instant mint: Mint tokens directly to blockchain
+   * No pending queue - mints immediately to customer's wallet
    */
   async instantMint(address: string, amount: number): Promise<InstantMintResult> {
     try {
-      // Step 1: Validate the mint request
+      // Step 1: Validate the mint request (uses same calculation as frontend)
       const validation = await this.validateMintRequest(address, amount);
       if (!validation.valid) {
         return {
@@ -303,16 +301,7 @@ export class CustomerBalanceService {
         };
       }
 
-      // Step 2: Deduct from database balance (atomic operation)
-      // This uses the same method as queue-mint but we'll process immediately
-      await customerRepository.queueForMinting(address, amount);
-
-      logger.info('Instant mint: Deducted from database balance', {
-        address,
-        amount
-      });
-
-      // Step 3: Mint tokens to blockchain
+      // Step 2: Mint tokens directly to blockchain
       const tokenMinter = this.getTokenMinter();
       const mintResult = await tokenMinter.adminMintTokens(
         address,
@@ -321,25 +310,11 @@ export class CustomerBalanceService {
       );
 
       if (!mintResult.success) {
-        // Rollback: Return tokens to database balance
-        // We need to reverse the queueForMinting operation
-        logger.error('Instant mint: Blockchain mint failed, attempting rollback', {
+        logger.error('Instant mint: Blockchain mint failed', {
           address,
           amount,
           error: mintResult.error || mintResult.message
         });
-
-        try {
-          // Reverse the pending balance back to available balance
-          await customerRepository.cancelPendingMint(address, amount);
-          logger.info('Instant mint: Rollback successful', { address, amount });
-        } catch (rollbackError) {
-          logger.error('Instant mint: Rollback failed! Manual intervention required', {
-            address,
-            amount,
-            rollbackError
-          });
-        }
 
         return {
           success: false,
@@ -347,10 +322,7 @@ export class CustomerBalanceService {
         };
       }
 
-      // Step 4: Complete the mint (clear pending balance and update sync time)
-      await customerRepository.completeMint(address, amount, mintResult.transactionHash || '');
-
-      // Step 5: Record the mint transaction for balance tracking
+      // Step 3: Record the mint transaction for balance tracking
       try {
         await transactionRepository.recordTransaction({
           type: 'mint' as any,
