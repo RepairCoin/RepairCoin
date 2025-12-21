@@ -13,6 +13,7 @@ export interface CreateServiceRequest {
   durationMinutes?: number;
   category?: string;
   imageUrl?: string;
+  tags?: string[];
 }
 
 export interface UpdateServiceRequest {
@@ -22,6 +23,7 @@ export interface UpdateServiceRequest {
   durationMinutes?: number;
   category?: string;
   imageUrl?: string;
+  tags?: string[];
   active?: boolean;
 }
 
@@ -30,6 +32,39 @@ export class ServiceManagementService {
 
   constructor() {
     this.repository = new ServiceRepository();
+  }
+
+  /**
+   * Sanitize description - strip HTML tags to prevent XSS
+   */
+  private sanitizeDescription(description: string | undefined): string | undefined {
+    if (!description) return description;
+    // Strip all HTML tags
+    return description.replace(/<[^>]*>/g, '');
+  }
+
+  /**
+   * Validate and sanitize tags
+   */
+  private validateAndSanitizeTags(tags: string[] | undefined): string[] | undefined {
+    if (!tags || tags.length === 0) return tags;
+
+    // Max 5 tags
+    if (tags.length > 5) {
+      throw new Error('Maximum 5 tags allowed');
+    }
+
+    // Validate and sanitize each tag
+    const sanitizedTags = tags.map(tag => {
+      const trimmedTag = tag.trim();
+      if (trimmedTag.length > 20) {
+        throw new Error(`Tag "${trimmedTag.substring(0, 10)}..." exceeds 20 character limit`);
+      }
+      // Strip HTML from tags
+      return trimmedTag.replace(/<[^>]*>/g, '');
+    });
+
+    return sanitizedTags;
   }
 
   /**
@@ -56,6 +91,14 @@ export class ServiceManagementService {
         throw new Error('Active RepairCoin subscription or RCG qualification (10K+ RCG tokens) required to create services.');
       }
 
+      // Validate service name
+      if (!request.serviceName || request.serviceName.trim().length === 0) {
+        throw new Error('Service name is required');
+      }
+      if (request.serviceName.length > 100) {
+        throw new Error('Service name must be 100 characters or less');
+      }
+
       // Validate price
       if (request.priceUsd <= 0) {
         throw new Error('Service price must be greater than 0');
@@ -66,6 +109,9 @@ export class ServiceManagementService {
         throw new Error('Service duration must be greater than 0');
       }
 
+      // Validate and sanitize tags
+      const sanitizedTags = this.validateAndSanitizeTags(request.tags);
+
       // Generate unique service ID
       const serviceId = `srv_${uuidv4()}`;
 
@@ -73,11 +119,12 @@ export class ServiceManagementService {
         serviceId,
         shopId: request.shopId,
         serviceName: request.serviceName,
-        description: request.description,
+        description: this.sanitizeDescription(request.description),
         priceUsd: request.priceUsd,
         durationMinutes: request.durationMinutes,
         category: request.category,
-        imageUrl: request.imageUrl
+        imageUrl: request.imageUrl,
+        tags: sanitizedTags
       };
 
       const service = await this.repository.createService(params);
@@ -186,6 +233,10 @@ export class ServiceManagementService {
       }
 
       // Validate updates
+      if (updates.serviceName !== undefined && updates.serviceName.length > 100) {
+        throw new Error('Service name must be 100 characters or less');
+      }
+
       if (updates.priceUsd !== undefined && updates.priceUsd <= 0) {
         throw new Error('Service price must be greater than 0');
       }
@@ -194,13 +245,19 @@ export class ServiceManagementService {
         throw new Error('Service duration must be greater than 0');
       }
 
+      // Validate and sanitize tags if provided
+      const sanitizedTags = updates.tags !== undefined
+        ? this.validateAndSanitizeTags(updates.tags)
+        : undefined;
+
       const params: UpdateServiceParams = {
         serviceName: updates.serviceName,
-        description: updates.description,
+        description: this.sanitizeDescription(updates.description),
         priceUsd: updates.priceUsd,
         durationMinutes: updates.durationMinutes,
         category: updates.category,
         imageUrl: updates.imageUrl,
+        tags: sanitizedTags,
         active: updates.active
       };
 

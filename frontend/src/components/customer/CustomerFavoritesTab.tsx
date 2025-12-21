@@ -7,6 +7,7 @@ import { servicesApi, ShopServiceWithShopInfo } from "@/services/api/services";
 import { StarRating } from "./StarRating";
 import { FavoriteButton } from "./FavoriteButton";
 import { ShareButton } from "./ShareButton";
+import { sanitizeDescription } from "@/utils/sanitize";
 
 interface CustomerFavoritesTabProps {
   className?: string;
@@ -177,8 +178,8 @@ export const CustomerFavoritesTab: React.FC<CustomerFavoritesTabProps> = ({
 
               {/* Description */}
               {service.description && (
-                <p className="text-sm text-gray-400 mb-4 line-clamp-2 flex-1">
-                  {service.description}
+                <p className="text-sm text-gray-400 mb-4 line-clamp-2 flex-1 whitespace-pre-line">
+                  {sanitizeDescription(service.description)}
                 </p>
               )}
 
