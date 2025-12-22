@@ -19,11 +19,21 @@ export class AppointmentService {
     date: string
   ): Promise<TimeSlot[]> {
     try {
+      logger.info('getAvailableTimeSlots called', { shopId, serviceId, date });
+
       // Get shop configuration
       const config = await this.appointmentRepo.getTimeSlotConfig(shopId);
       if (!config) {
+        logger.warn('No time slot config found for shop', { shopId });
         throw new Error('Shop time slot configuration not found');
       }
+
+      logger.debug('Time slot config loaded', {
+        shopId,
+        allowWeekendBooking: config.allowWeekendBooking,
+        minBookingHours: config.minBookingHours,
+        bookingAdvanceDays: config.bookingAdvanceDays
+      });
 
       // Get service duration (or use default)
       const serviceDuration = await this.appointmentRepo.getServiceDuration(serviceId);
@@ -33,8 +43,16 @@ export class AppointmentService {
       const targetDate = parseLocalDateString(date);
       const dayOfWeek = targetDate.getDay(); // 0 = Sunday, 6 = Saturday
 
+      logger.debug('Date parsed', {
+        date,
+        parsedDate: targetDate.toISOString(),
+        dayOfWeek,
+        dayName: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek]
+      });
+
       // Check if weekend booking is allowed
       if ((dayOfWeek === 0 || dayOfWeek === 6) && !config.allowWeekendBooking) {
+        logger.info('Weekend booking not allowed', { dayOfWeek, allowWeekendBooking: config.allowWeekendBooking });
         return [];
       }
 
@@ -43,14 +61,42 @@ export class AppointmentService {
       const dateOverride = overrides.find(o => o.overrideDate === date);
 
       if (dateOverride && dateOverride.isClosed) {
+        logger.info('Date has closure override', { date, reason: dateOverride.reason });
         return [];
       }
 
       // Get shop availability for this day
       const availability = await this.appointmentRepo.getShopAvailability(shopId);
-      const dayAvailability = availability.find(a => a.dayOfWeek === dayOfWeek);
 
-      if (!dayAvailability || !dayAvailability.isOpen) {
+      logger.debug('Shop availability loaded', {
+        shopId,
+        totalDays: availability.length,
+        availableDays: availability.map(a => ({
+          day: a.dayOfWeek,
+          dayType: typeof a.dayOfWeek,
+          isOpen: a.isOpen,
+          openTime: a.openTime,
+          closeTime: a.closeTime
+        }))
+      });
+
+      // CRITICAL FIX: Ensure numeric comparison for dayOfWeek
+      // Database may return dayOfWeek as string in some cases
+      const dayAvailability = availability.find(a => Number(a.dayOfWeek) === dayOfWeek);
+
+      if (!dayAvailability) {
+        logger.warn('No availability entry found for day', {
+          shopId,
+          date,
+          dayOfWeek,
+          dayName: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek],
+          existingDays: availability.map(a => Number(a.dayOfWeek))
+        });
+        return [];
+      }
+
+      if (!dayAvailability.isOpen) {
+        logger.info('Day is configured as closed', { dayOfWeek, isOpen: dayAvailability.isOpen });
         return [];
       }
 
@@ -59,21 +105,46 @@ export class AppointmentService {
       const closeTime = dateOverride?.customCloseTime || dayAvailability.closeTime;
 
       if (!openTime || !closeTime) {
+        logger.warn('Missing open/close time for day', {
+          dayOfWeek,
+          openTime,
+          closeTime,
+          dayAvailability
+        });
         return [];
       }
 
       // Check if booking is within advance booking window
       const now = new Date();
       const bookingDate = parseLocalDateString(date);
-      const hoursUntilBooking = (bookingDate.getTime() - now.getTime()) / (1000 * 60 * 60);
 
-      if (hoursUntilBooking < config.minBookingHours) {
-        return []; // Too soon to book
+      // Calculate hours until start of booking date (midnight)
+      const hoursUntilBookingDate = (bookingDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+      // For same-day or next-day bookings, we need more nuanced checking
+      // Only reject if the entire day is too soon (date + last slot time < minBookingHours)
+      const [closeHour, closeMin] = closeTime.split(':').map(Number);
+      const lastSlotTime = createDateTime(date, `${String(closeHour).padStart(2, '0')}:${String(closeMin).padStart(2, '0')}`);
+      const hoursUntilLastSlot = (lastSlotTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+      // Only reject the entire day if even the last slot is too soon
+      if (hoursUntilLastSlot < config.minBookingHours) {
+        logger.info('All slots too soon to book', {
+          date,
+          hoursUntilLastSlot,
+          minBookingHours: config.minBookingHours
+        });
+        return [];
       }
 
-      const daysUntilBooking = (bookingDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+      const daysUntilBooking = hoursUntilBookingDate / 24;
       if (daysUntilBooking > config.bookingAdvanceDays) {
-        return []; // Too far in advance
+        logger.info('Date too far in advance', {
+          date,
+          daysUntilBooking,
+          bookingAdvanceDays: config.bookingAdvanceDays
+        });
+        return [];
       }
 
       // Get already booked slots for this date
@@ -83,20 +154,36 @@ export class AppointmentService {
       // Generate time slots
       const slots: TimeSlot[] = [];
       const [openHour, openMin] = openTime.split(':').map(Number);
-      const [closeHour, closeMin] = closeTime.split(':').map(Number);
+
+      // Re-parse closeTime for slot generation (already parsed above for advance booking check)
+      const [closeHourParsed, closeMinParsed] = closeTime.split(':').map(Number);
 
       // Create times using the booking date, not current date
       const [year, month, day] = date.split('-').map(Number);
       let currentTime = new Date(year, month - 1, day, openHour, openMin, 0, 0);
-      const endTime = new Date(year, month - 1, day, closeHour, closeMin, 0, 0);
+      const endTime = new Date(year, month - 1, day, closeHourParsed, closeMinParsed, 0, 0);
+
+      logger.debug('Generating slots', {
+        date,
+        openTime,
+        closeTime,
+        startTime: currentTime.toISOString(),
+        endTime: endTime.toISOString(),
+        durationMinutes,
+        bufferTimeMinutes: config.bufferTimeMinutes
+      });
 
       // Generate slots with buffer time
       const totalSlotTime = durationMinutes + config.bufferTimeMinutes;
+      let slotsSkippedBreak = 0;
+      let slotsSkippedTooSoon = 0;
+      let slotsSkippedPastClose = 0;
 
       while (currentTime < endTime) {
         // Check if slot would end before close time
         const slotEnd = new Date(currentTime.getTime() + durationMinutes * 60000);
         if (slotEnd > endTime) {
+          slotsSkippedPastClose++;
           break;
         }
 
@@ -108,7 +195,9 @@ export class AppointmentService {
           dayAvailability.breakEndTime
         );
 
-        if (!inBreak) {
+        if (inBreak) {
+          slotsSkippedBreak++;
+        } else {
           const bookedCount = bookedMap.get(timeStr) || 0;
           const available = bookedCount < config.maxConcurrentBookings;
 
@@ -123,6 +212,8 @@ export class AppointmentService {
               bookedCount,
               maxBookings: config.maxConcurrentBookings
             });
+          } else {
+            slotsSkippedTooSoon++;
           }
         }
 
@@ -130,9 +221,27 @@ export class AppointmentService {
         currentTime = new Date(currentTime.getTime() + totalSlotTime * 60000);
       }
 
+      logger.info('Time slots generated', {
+        shopId,
+        date,
+        dayOfWeek,
+        dayName: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek],
+        totalSlots: slots.length,
+        availableSlots: slots.filter(s => s.available).length,
+        slotsSkippedBreak,
+        slotsSkippedTooSoon,
+        slotsSkippedPastClose
+      });
+
       return slots;
     } catch (error) {
-      logger.error('Error getting available time slots:', error);
+      logger.error('Error getting available time slots:', {
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined,
+        shopId,
+        serviceId,
+        date
+      });
       throw error;
     }
   }

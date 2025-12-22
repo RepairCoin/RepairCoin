@@ -53,7 +53,9 @@ export class ServiceController {
         search: req.query.search as string | undefined,
         minPrice: req.query.minPrice ? parseFloat(req.query.minPrice as string) : undefined,
         maxPrice: req.query.maxPrice ? parseFloat(req.query.maxPrice as string) : undefined,
-        activeOnly: req.query.activeOnly !== 'false' // Default to true
+        activeOnly: req.query.activeOnly !== 'false', // Default to true
+        city: req.query.city as string | undefined,
+        state: req.query.state as string | undefined
       };
 
       const options = {

@@ -65,6 +65,14 @@ export interface CalendarBooking {
   createdAt: string;
 }
 
+export interface ServiceDuration {
+  durationId: string;
+  serviceId: string;
+  durationMinutes: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ==================== API CLIENT ====================
 
 export const appointmentsApi = {
@@ -175,13 +183,23 @@ export const appointmentsApi = {
     return response.data.data;
   },
 
+  // Shop: Get service duration
+  async getServiceDuration(serviceId: string): Promise<ServiceDuration | null> {
+    const response = await axios.get<{ success: boolean; data: ServiceDuration | null }>(
+      `${API_URL}/services/${serviceId}/duration`,
+      { withCredentials: true }
+    );
+    return response.data.data;
+  },
+
   // Shop: Update service duration
-  async updateServiceDuration(serviceId: string, durationMinutes: number): Promise<void> {
-    await axios.put(
+  async updateServiceDuration(serviceId: string, durationMinutes: number): Promise<ServiceDuration> {
+    const response = await axios.put<{ success: boolean; data: ServiceDuration }>(
       `${API_URL}/services/${serviceId}/duration`,
       { durationMinutes },
       { withCredentials: true }
     );
+    return response.data.data;
   },
 
   // Customer: Get customer's appointments

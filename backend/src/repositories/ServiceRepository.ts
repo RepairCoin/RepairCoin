@@ -73,6 +73,8 @@ export interface ServiceFilters {
   sortBy?: 'price_asc' | 'price_desc' | 'rating_desc' | 'newest' | 'oldest';
   groupId?: string;
   groupExclusiveOnly?: boolean;
+  city?: string;
+  state?: string;
 }
 
 export interface ServiceGroupAvailability {
@@ -310,6 +312,20 @@ export class ServiceRepository extends BaseRepository {
         params.push(filters.maxPrice);
       }
 
+      // Location filters - search within the full address field
+      // Note: Shops typically only fill in the single "address" field, not separate city/state
+      if (filters.city) {
+        paramCount++;
+        whereClauses.push(`LOWER(sh.address) LIKE LOWER($${paramCount})`);
+        params.push(`%${filters.city}%`);
+      }
+
+      if (filters.state) {
+        paramCount++;
+        whereClauses.push(`LOWER(sh.address) LIKE LOWER($${paramCount})`);
+        params.push(`%${filters.state}%`);
+      }
+
       const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
       // Determine sort order
@@ -334,10 +350,11 @@ export class ServiceRepository extends BaseRepository {
         }
       }
 
-      // Get total count
+      // Get total count (must join shops table for location filters)
       const countQuery = `
         SELECT COUNT(*) as total
         FROM shop_services s
+        INNER JOIN shops sh ON s.shop_id = sh.shop_id
         ${whereClause}
       `;
       const countResult = await this.pool.query(countQuery, params);

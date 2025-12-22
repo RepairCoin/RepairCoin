@@ -1776,6 +1776,31 @@ export function initializeRoutes(stripe: StripeService): Router {
   /**
    * @swagger
    * /api/services/:serviceId/duration:
+   *   get:
+   *     summary: Get service duration (Shop only)
+   *     tags: [Appointments]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: serviceId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Service duration configuration
+   */
+  router.get(
+    '/:serviceId/duration',
+    authMiddleware,
+    requireRole(['shop']),
+    appointmentController.getServiceDuration
+  );
+
+  /**
+   * @swagger
+   * /api/services/:serviceId/duration:
    *   put:
    *     summary: Update service duration (Shop only)
    *     tags: [Appointments]

@@ -200,8 +200,21 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
         const isEditing = editingDay === day.value;
         const isOpen = dayAvailability?.isOpen ?? true;
 
+        // Check if this is a weekend day that's blocked by the master switch
+        const isWeekend = day.value === 0 || day.value === 6;
+        const weekendBlocked = isWeekend && !config?.allowWeekendBooking;
+
         return (
-          <div key={day.value} className="bg-[#1A1A1A] border border-gray-800 rounded-lg p-4">
+          <div key={day.value} className={`bg-[#1A1A1A] border border-gray-800 rounded-lg p-4 ${weekendBlocked ? 'opacity-60' : ''}`}>
+            {/* Warning banner if weekend is blocked by master switch */}
+            {weekendBlocked && isOpen && (
+              <div className="mb-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-2 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+                <span className="text-xs text-yellow-400">
+                  Weekend bookings disabled. Enable &quot;Allow weekend bookings&quot; in Booking Settings to accept appointments.
+                </span>
+              </div>
+            )}
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
                 <span className="text-white font-semibold w-24">{day.label}</span>
