@@ -30,6 +30,7 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
   const [shopAvailability, setShopAvailability] = useState<ShopAvailability[]>([]);
   const [timeSlotConfig, setTimeSlotConfig] = useState<TimeSlotConfig | null>(null);
   const [customDuration, setCustomDuration] = useState<number>(service.durationMinutes || 60);
+  const [savedDuration, setSavedDuration] = useState<number | null>(null); // Track the saved value
   const [durationSaved, setDurationSaved] = useState(false);
   const [editingDay, setEditingDay] = useState<number | null>(null);
   const [configSaved, setConfigSaved] = useState(false);
@@ -48,7 +49,25 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
   useEffect(() => {
     loadShopAvailability();
     loadTimeSlotConfig();
-  }, [service.shopId]);
+    loadServiceDuration();
+  }, [service.shopId, serviceId]);
+
+  const loadServiceDuration = async () => {
+    try {
+      const duration = await appointmentsApi.getServiceDuration(serviceId);
+      if (duration) {
+        setCustomDuration(duration.durationMinutes);
+        setSavedDuration(duration.durationMinutes);
+      } else {
+        // No custom duration saved yet - savedDuration stays null
+        setSavedDuration(null);
+      }
+    } catch (error) {
+      console.error('Error loading service duration:', error);
+      // If no custom duration is set, use the service's default
+      setSavedDuration(null);
+    }
+  };
 
   const loadShopAvailability = async () => {
     try {
@@ -81,6 +100,7 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
     try {
       setSaving(true);
       await appointmentsApi.updateServiceDuration(serviceId, customDuration);
+      setSavedDuration(customDuration); // Update the saved value
       setDurationSaved(true);
       toast.success('Service duration updated successfully');
 
@@ -188,7 +208,7 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
             />
             <button
               onClick={handleSaveDuration}
-              disabled={saving || customDuration === (service.durationMinutes || 60)}
+              disabled={saving || customDuration === (savedDuration ?? service.durationMinutes ?? 60)}
               className="px-6 py-3 bg-[#FFCC00] text-black rounded-lg font-semibold hover:bg-[#FFD700] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {saving ? (
@@ -368,8 +388,21 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
             const isEditing = editingDay === day.value;
             const isOpen = dayAvail?.isOpen ?? true;
 
+            // Check if this is a weekend day that's blocked by the master switch
+            const isWeekend = day.value === 0 || day.value === 6;
+            const weekendBlocked = isWeekend && !timeSlotConfig?.allowWeekendBooking;
+
             return (
-              <div key={day.value} className="bg-[#0D0D0D] border border-gray-800 rounded-lg p-4">
+              <div key={day.value} className={`bg-[#0D0D0D] border border-gray-800 rounded-lg p-4 ${weekendBlocked ? 'opacity-60' : ''}`}>
+                {/* Warning banner if weekend is blocked by master switch */}
+                {weekendBlocked && isOpen && (
+                  <div className="mb-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-2 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+                    <span className="text-xs text-yellow-400">
+                      Weekend bookings disabled. Enable &quot;Allow weekend bookings&quot; above to accept appointments.
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <span className="text-white font-semibold w-24">{day.label}</span>

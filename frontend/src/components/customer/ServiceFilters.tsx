@@ -17,6 +17,7 @@ export interface FilterState {
   state?: string;
   zipCode?: string;
   distance?: number; // in miles
+  shopId?: string; // For filtering by specific shop
 }
 
 interface ServiceFiltersProps {
@@ -33,10 +34,19 @@ export const ServiceFilters: React.FC<ServiceFiltersProps> = ({
   onSelectService,
 }) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  // Local state for slider - synced with filters
   const [priceRange, setPriceRange] = useState<[number, number]>([
     filters.minPrice || 0,
     filters.maxPrice || 500
   ]);
+
+  // Sync priceRange when filters change externally (e.g., reset)
+  React.useEffect(() => {
+    setPriceRange([
+      filters.minPrice || 0,
+      filters.maxPrice || 500
+    ]);
+  }, [filters.minPrice, filters.maxPrice]);
 
   const handleCategoryChange = (value: string) => {
     onFilterChange({
@@ -49,18 +59,25 @@ export const ServiceFilters: React.FC<ServiceFiltersProps> = ({
     setPriceRange([min, max]);
     onFilterChange({
       ...filters,
+      // Always send the values - let backend handle filtering
       minPrice: min > 0 ? min : undefined,
-      maxPrice: max < 500 ? max : undefined
+      maxPrice: max // Always send maxPrice, don't skip at 500
     });
   };
 
   const handleMinPriceChange = (value: string) => {
     const numValue = value ? parseFloat(value) : undefined;
+    // Update both filter state and slider state
+    const newMin = numValue || 0;
+    setPriceRange([newMin, priceRange[1]]);
     onFilterChange({ ...filters, minPrice: numValue });
   };
 
   const handleMaxPriceChange = (value: string) => {
     const numValue = value ? parseFloat(value) : undefined;
+    // Update both filter state and slider state
+    const newMax = numValue || 500;
+    setPriceRange([priceRange[0], newMax]);
     onFilterChange({ ...filters, maxPrice: numValue });
   };
 

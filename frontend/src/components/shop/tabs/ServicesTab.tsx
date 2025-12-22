@@ -16,6 +16,9 @@ import {
   Calendar,
   Settings,
   Users,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
 } from "lucide-react";
 import { sanitizeDescription } from "@/utils/sanitize";
 import {
@@ -43,6 +46,8 @@ interface ServicesTabProps {
   shopData?: ShopData | null;
 }
 
+const ITEMS_PER_PAGE = 12;
+
 export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) => {
   const router = useRouter();
   const [services, setServices] = useState<ShopService[]>([]);
@@ -51,18 +56,28 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
   const [deletingService, setDeletingService] = useState<string | null>(null);
   const [selectedService, setSelectedService] = useState<ShopService | null>(null);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
   useEffect(() => {
     loadServices();
-  }, [shopId]);
+  }, [shopId, currentPage]);
 
   const loadServices = async () => {
     setLoading(true);
 
     try {
-      const response = await getShopServices(shopId, { limit: 100 });
+      const response = await getShopServices(shopId, {
+        page: currentPage,
+        limit: ITEMS_PER_PAGE
+      });
 
-      if (response?.data) {
-        setServices(response.data);
+      if (response) {
+        setServices(response.data || []);
+        setTotalItems(response.pagination?.total || 0);
+        setTotalPages(response.pagination?.totalPages || 1);
       }
     } catch (error) {
       console.error("Error loading services:", error);
@@ -72,11 +87,20 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
     }
   };
 
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+      // Scroll to top of services grid
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   const handleCreateService = async (data: CreateServiceData) => {
     try {
       await createService(data);
       toast.success("Service created successfully!");
       setShowCreateModal(false);
+      setCurrentPage(1); // Reset to first page to see new service
       loadServices();
     } catch (error) {
       console.error("Error creating service:", error);
@@ -235,6 +259,7 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
           </button>
         </div>
       ) : (
+        <>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {services.map((service) => (
             <div
@@ -423,6 +448,92 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
             </div>
           ))}
         </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="mt-8 flex flex-col items-center gap-4">
+
+            {/* Page Navigation */}
+            <div className="flex items-center gap-2">
+              {/* Previous Button */}
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1 || loading}
+                className="flex items-center gap-1 px-3 py-2 bg-[#1A1A1A] border border-gray-800 rounded-lg text-gray-400 hover:text-white hover:border-[#FFCC00]/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-800"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span className="hidden sm:inline">Previous</span>
+              </button>
+
+              {/* Page Numbers */}
+              <div className="flex items-center gap-1">
+                {/* First page */}
+                {currentPage > 3 && (
+                  <>
+                    <button
+                      onClick={() => handlePageChange(1)}
+                      className="px-3 py-2 bg-[#1A1A1A] border border-gray-800 rounded-lg text-gray-400 hover:text-white hover:border-[#FFCC00]/50 transition-colors"
+                    >
+                      1
+                    </button>
+                    {currentPage > 4 && (
+                      <span className="px-2 text-gray-600">...</span>
+                    )}
+                  </>
+                )}
+
+                {/* Page numbers around current */}
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(page => {
+                    if (totalPages <= 7) return true;
+                    if (page === 1 || page === totalPages) return false;
+                    return Math.abs(page - currentPage) <= 2;
+                  })
+                  .map(page => (
+                    <button
+                      key={page}
+                      onClick={() => handlePageChange(page)}
+                      disabled={loading}
+                      className={`px-3 py-2 rounded-lg transition-colors ${
+                        page === currentPage
+                          ? "bg-[#FFCC00] text-black font-semibold"
+                          : "bg-[#1A1A1A] border border-gray-800 text-gray-400 hover:text-white hover:border-[#FFCC00]/50"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+
+                {/* Last page */}
+                {currentPage < totalPages - 2 && totalPages > 5 && (
+                  <>
+                    {currentPage < totalPages - 3 && (
+                      <span className="px-2 text-gray-600">...</span>
+                    )}
+                    <button
+                      onClick={() => handlePageChange(totalPages)}
+                      className="px-3 py-2 bg-[#1A1A1A] border border-gray-800 rounded-lg text-gray-400 hover:text-white hover:border-[#FFCC00]/50 transition-colors"
+                    >
+                      {totalPages}
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Next Button */}
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages || loading}
+                className="flex items-center gap-1 px-3 py-2 bg-[#1A1A1A] border border-gray-800 rounded-lg text-gray-400 hover:text-white hover:border-[#FFCC00]/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-800"
+              >
+                <span className="hidden sm:inline">Next</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        </>
       )}
 
       {/* Create Service Modal */}

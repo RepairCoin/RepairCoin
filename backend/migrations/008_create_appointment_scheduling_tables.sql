@@ -6,7 +6,7 @@
 -- 1. Shop Availability Table (Operating Hours)
 -- =====================================================
 CREATE TABLE IF NOT EXISTS shop_availability (
-  availability_id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  availability_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   shop_id VARCHAR(255) NOT NULL REFERENCES shops(shop_id) ON DELETE CASCADE,
   day_of_week INTEGER NOT NULL CHECK (day_of_week >= 0 AND day_of_week <= 6), -- 0 = Sunday, 6 = Saturday
   is_open BOOLEAN DEFAULT true,
@@ -26,7 +26,7 @@ CREATE INDEX idx_shop_availability_day ON shop_availability(day_of_week);
 -- 2. Shop Time Slot Configuration
 -- =====================================================
 CREATE TABLE IF NOT EXISTS shop_time_slot_config (
-  config_id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  config_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   shop_id VARCHAR(255) NOT NULL UNIQUE REFERENCES shops(shop_id) ON DELETE CASCADE,
   slot_duration_minutes INTEGER DEFAULT 60, -- Default 1 hour slots
   buffer_time_minutes INTEGER DEFAULT 15, -- 15 min buffer between appointments
@@ -42,10 +42,11 @@ CREATE INDEX idx_time_slot_config_shop ON shop_time_slot_config(shop_id);
 
 -- =====================================================
 -- 3. Service Duration Override (per service)
+-- Note: service_id must be VARCHAR(50) to match shop_services.service_id
 -- =====================================================
 CREATE TABLE IF NOT EXISTS service_duration_config (
-  duration_id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
-  service_id VARCHAR(36) NOT NULL REFERENCES shop_services(service_id) ON DELETE CASCADE,
+  duration_id VARCHAR(255) PRIMARY KEY DEFAULT 'dur_' || replace(uuid_generate_v4()::text, '-', ''),
+  service_id VARCHAR(50) NOT NULL REFERENCES shop_services(service_id) ON DELETE CASCADE,
   duration_minutes INTEGER NOT NULL DEFAULT 60,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW(),
@@ -58,7 +59,7 @@ CREATE INDEX idx_service_duration_service ON service_duration_config(service_id)
 -- 4. Shop Date Overrides (Holidays, Special Days)
 -- =====================================================
 CREATE TABLE IF NOT EXISTS shop_date_overrides (
-  override_id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  override_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   shop_id VARCHAR(255) NOT NULL REFERENCES shops(shop_id) ON DELETE CASCADE,
   override_date DATE NOT NULL,
   is_closed BOOLEAN DEFAULT true,

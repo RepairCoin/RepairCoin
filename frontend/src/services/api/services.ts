@@ -148,6 +148,8 @@ export interface ServiceFilters {
   page?: number;
   limit?: number;
   activeOnly?: boolean;
+  city?: string;
+  state?: string;
 }
 
 export interface OrderFilters {

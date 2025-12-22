@@ -1,16 +1,19 @@
 // backend/src/domains/ServiceDomain/controllers/AppointmentController.ts
 import { Request, Response } from 'express';
 import { AppointmentRepository } from '../../../repositories/AppointmentRepository';
+import { ServiceRepository } from '../../../repositories/ServiceRepository';
 import { AppointmentService } from '../services/AppointmentService';
 import { logger } from '../../../utils/logger';
 
 export class AppointmentController {
   private appointmentRepo: AppointmentRepository;
   private appointmentService: AppointmentService;
+  private serviceRepo: ServiceRepository;
 
   constructor() {
     this.appointmentRepo = new AppointmentRepository();
     this.appointmentService = new AppointmentService();
+    this.serviceRepo = new ServiceRepository();
   }
 
   /**
@@ -318,6 +321,48 @@ export class AppointmentController {
   };
 
   /**
+   * Get service duration (Shop only)
+   * GET /api/services/:serviceId/duration
+   */
+  getServiceDuration = async (req: Request, res: Response) => {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+
+      const { serviceId } = req.params;
+
+      // Validate serviceId format (srv_ prefix + UUID)
+      if (!serviceId || !/^srv_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(serviceId)) {
+        return res.status(400).json({ success: false, error: 'Invalid service ID format' });
+      }
+
+      // Verify the service belongs to the authenticated shop
+      const service = await this.serviceRepo.getServiceById(serviceId);
+      if (!service) {
+        return res.status(404).json({ success: false, error: 'Service not found' });
+      }
+      if (service.shopId !== shopId) {
+        return res.status(403).json({ success: false, error: 'Unauthorized to access this service' });
+      }
+
+      const result = await this.appointmentRepo.getServiceDuration(serviceId);
+
+      res.json({
+        success: true,
+        data: result
+      });
+    } catch (error: unknown) {
+      logger.error('Error in getServiceDuration controller:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get service duration'
+      });
+    }
+  };
+
+  /**
    * Update service duration (Shop only)
    * PUT /api/services/:serviceId/duration
    */
@@ -331,19 +376,40 @@ export class AppointmentController {
       const { serviceId } = req.params;
       const { durationMinutes } = req.body;
 
-      if (!durationMinutes) {
+      // Validate serviceId format (srv_ prefix + UUID)
+      if (!serviceId || !/^srv_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(serviceId)) {
+        return res.status(400).json({ success: false, error: 'Invalid service ID format' });
+      }
+
+      // Validate durationMinutes - check for undefined/null explicitly
+      if (durationMinutes === undefined || durationMinutes === null) {
         return res.status(400).json({ success: false, error: 'durationMinutes is required' });
       }
 
-      const duration = await this.appointmentRepo.updateServiceDuration(serviceId, durationMinutes);
+      // Validate durationMinutes is a positive number
+      const duration = Number(durationMinutes);
+      if (isNaN(duration) || duration < 1) {
+        return res.status(400).json({ success: false, error: 'durationMinutes must be a positive number' });
+      }
+
+      // Verify the service belongs to the authenticated shop
+      const service = await this.serviceRepo.getServiceById(serviceId);
+      if (!service) {
+        return res.status(404).json({ success: false, error: 'Service not found' });
+      }
+      if (service.shopId !== shopId) {
+        return res.status(403).json({ success: false, error: 'Unauthorized to modify this service' });
+      }
+
+      const result = await this.appointmentRepo.updateServiceDuration(serviceId, duration);
 
       res.json({
         success: true,
-        data: duration
+        data: result
       });
     } catch (error: unknown) {
       logger.error('Error in updateServiceDuration controller:', error);
-      res.status(400).json({
+      res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to update service duration'
       });

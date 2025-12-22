@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
-import { ShoppingBag, Loader2, Heart, Grid3x3, Map as MapIcon } from "lucide-react";
+import { ShoppingBag, Loader2, Heart, Grid3x3, Map as MapIcon, Filter, X } from "lucide-react";
 import { getAllServices, ShopServiceWithShopInfo, servicesApi } from "@/services/api/services";
 import { ServiceCard } from "./ServiceCard";
 import { ServiceFilters, FilterState } from "./ServiceFilters";
@@ -26,6 +26,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
   const [checkoutService, setCheckoutService] = useState<ShopServiceWithShopInfo | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [totalItems, setTotalItems] = useState(0);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "map">("grid");
   const [refreshKey, setRefreshKey] = useState(0); // For refreshing recently viewed
@@ -74,6 +75,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
           setServices(prev => [...prev, ...(groupServices as ShopServiceWithShopInfo[])]);
         }
         setHasMore(false); // Group services don't have pagination yet
+        setTotalItems(groupServices.length);
       } else if (showFavoritesOnly) {
         // Load favorites
         const response = await servicesApi.getCustomerFavorites({
@@ -89,10 +91,12 @@ export const ServiceMarketplaceClient: React.FC = () => {
             setServices(prev => [...prev, ...response.data]);
           }
           setHasMore(response.pagination.page < response.pagination.totalPages);
+          setTotalItems(response.pagination.total || response.data.length);
         } else {
           // Handle null response
           if (page === 1) {
             setServices([]);
+            setTotalItems(0);
           }
           setHasMore(false);
         }
@@ -112,10 +116,12 @@ export const ServiceMarketplaceClient: React.FC = () => {
             setServices(prev => [...prev, ...response.data]);
           }
           setHasMore(response.pagination.page < response.pagination.totalPages);
+          setTotalItems(response.pagination.total || response.data.length);
         } else {
           // Handle null response
           if (page === 1) {
             setServices([]);
+            setTotalItems(0);
           }
           setHasMore(false);
         }
@@ -125,6 +131,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
       toast.error(showFavoritesOnly ? "Failed to load favorites" : "Failed to load services");
       if (page === 1) {
         setServices([]);
+        setTotalItems(0);
       }
       setHasMore(false);
     } finally {
@@ -179,6 +186,47 @@ export const ServiceMarketplaceClient: React.FC = () => {
 
   const handleLoadMore = () => {
     setPage((prev) => prev + 1);
+  };
+
+  // Determine if any filters are active (for hiding discovery sections)
+  const hasActiveFilters = Boolean(
+    filters.search ||
+    filters.category ||
+    filters.minPrice ||
+    filters.maxPrice ||
+    filters.city ||
+    filters.state ||
+    filters.shopId
+  );
+
+  // Count active filters for the indicator
+  const activeFilterCount = [
+    filters.search,
+    filters.category,
+    filters.minPrice !== undefined || filters.maxPrice !== undefined,
+    filters.city || filters.state,
+    filters.shopId
+  ].filter(Boolean).length;
+
+  // Get human-readable filter descriptions
+  const getActiveFilterDescriptions = (): string[] => {
+    const descriptions: string[] = [];
+    if (filters.search) descriptions.push(`"${filters.search}"`);
+    if (filters.category) descriptions.push(filters.category.replace(/_/g, ' '));
+    if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
+      if (filters.minPrice && filters.maxPrice) {
+        descriptions.push(`$${filters.minPrice}-$${filters.maxPrice}`);
+      } else if (filters.minPrice) {
+        descriptions.push(`$${filters.minPrice}+`);
+      } else if (filters.maxPrice) {
+        descriptions.push(`up to $${filters.maxPrice}`);
+      }
+    }
+    if (filters.city || filters.state) {
+      const location = [filters.city, filters.state].filter(Boolean).join(', ');
+      descriptions.push(location);
+    }
+    return descriptions;
   };
 
   return (
@@ -255,6 +303,35 @@ export const ServiceMarketplaceClient: React.FC = () => {
               onReset={handleResetFilters}
               onSelectService={handleAutocompleteSelect}
             />
+          </div>
+        )}
+
+        {/* Active Filters Indicator */}
+        {hasActiveFilters && viewMode === "grid" && !showFavoritesOnly && !selectedGroupId && (
+          <div className="mb-6 bg-gradient-to-r from-[#FFCC00]/10 to-[#FFD700]/5 border border-[#FFCC00]/30 rounded-xl p-4">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-8 h-8 bg-[#FFCC00]/20 rounded-lg">
+                  <Filter className="w-4 h-4 text-[#FFCC00]" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-white">
+                    {activeFilterCount} filter{activeFilterCount !== 1 ? 's' : ''} applied
+                    {!loading && ` • ${totalItems} result${totalItems !== 1 ? 's' : ''}`}
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    {getActiveFilterDescriptions().join(' • ')}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleResetFilters}
+                className="flex items-center gap-2 px-4 py-2 bg-[#1A1A1A] border border-gray-700 rounded-lg text-gray-300 hover:text-white hover:border-[#FFCC00]/50 transition-all text-sm font-medium"
+              >
+                <X className="w-4 h-4" />
+                Clear All
+              </button>
+            </div>
           </div>
         )}
 
@@ -339,8 +416,8 @@ export const ServiceMarketplaceClient: React.FC = () => {
           </div>
         )}
 
-        {/* Trending Now Section */}
-        {!loading && page === 1 && !showFavoritesOnly && viewMode === "grid" && !filters.search && !filters.category && !filters.shopId && (
+        {/* Trending Now Section - Hidden when filters are active */}
+        {!loading && page === 1 && !showFavoritesOnly && viewMode === "grid" && !hasActiveFilters && !selectedGroupId && (
           <div className="mb-10">
             <div className="flex items-center gap-3 mb-6">
               <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-800 to-transparent"></div>
@@ -359,8 +436,8 @@ export const ServiceMarketplaceClient: React.FC = () => {
           </div>
         )}
 
-        {/* Recently Viewed Section */}
-        {userType === 'customer' && !showFavoritesOnly && viewMode === "grid" && !filters.shopId && (
+        {/* Recently Viewed Section - Hidden when filters are active */}
+        {userType === 'customer' && !showFavoritesOnly && viewMode === "grid" && !hasActiveFilters && !selectedGroupId && (
           <div className="mb-10">
             <div className="flex items-center gap-3 mb-6">
               <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-800 to-transparent"></div>
@@ -399,8 +476,14 @@ export const ServiceMarketplaceClient: React.FC = () => {
             <div className="flex items-center gap-3 mb-6">
               <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-800 to-transparent"></div>
               <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                <span className="text-[#FFCC00]">🏪</span>
-                {showFavoritesOnly ? "Your Favorites" : filters.shopId ? "Shop Services" : "All Services"}
+                <span className="text-[#FFCC00]">{hasActiveFilters ? "🔍" : "🏪"}</span>
+                {showFavoritesOnly
+                  ? "Your Favorites"
+                  : selectedGroupId
+                    ? "Group Services"
+                    : hasActiveFilters
+                      ? "Filtered Results"
+                      : "All Services"}
               </h2>
               <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-800 to-transparent"></div>
             </div>
@@ -480,7 +563,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
         {/* Results Count */}
         {!loading && services.length > 0 && viewMode === "grid" && (
           <p className="text-center text-gray-500 text-sm mt-6">
-            Showing {services.length} service{services.length !== 1 ? "s" : ""}
+            Showing {services.length} of {totalItems} service{totalItems !== 1 ? "s" : ""}
           </p>
         )}
       </div>
