@@ -150,6 +150,22 @@ export interface PromoCodeValidateData {
   error_message?: string;
 }
 
+export interface RewardRequest {
+  customerAddress: string;
+  repairAmount: number;
+  skipTierBonus?: boolean;
+  promoCode?: string;
+  customBaseReward?: number;
+}
+
+export interface RewardData {
+  totalReward: number;
+  baseReward: number;
+  tierBonus: number;
+  promoBonus: number;
+  transactionHash?: string;
+}
+
 export interface PromoCodeValidateResponse extends BaseResponse<PromoCodeValidateData> {}
 export interface PromoCodeResponse extends BaseResponse<PromoCodeData> {}
 export interface ProcessRedemptionResponse extends BaseResponse<ProcessRedemptionData> {}
@@ -157,3 +173,4 @@ export interface ShopByWalletAddressResponse extends BaseResponse<ShopData> {}
 export interface ShopCustomersResponse extends BaseResponse<ShopCustomerData> {}
 export interface ShopCustomerGrowthResponse extends BaseResponse<CustomerGrowthData> {}
 export interface ShopResponse extends BaseResponse<ShopResponseData> {}
+export interface RewardResponse extends BaseResponse<RewardData> {}

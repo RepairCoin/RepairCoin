@@ -10,7 +10,6 @@ import {
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { SearchInput } from "@/components/ui/SearchInput";
-import { useShops } from "@/hooks";
 import { ShopData } from "@/interfaces/shop.interface";
 import { useState, useEffect, useMemo, useRef } from "react";
 import MapView, { Marker, Region, PROVIDER_DEFAULT, Polyline, LatLng, Circle } from "react-native-maps";
@@ -22,6 +21,7 @@ import {
   formatDuration,
 } from "@/providers/RouteProvider";
 import WebViewMap, { WebViewMapRef, MarkerData, CircleData, PolylineData } from "@/components/maps/WebViewMap";
+import { useShop } from "@/hooks/shop/useShop";
 
 type ViewMode = "map" | "list";
 
@@ -33,7 +33,8 @@ interface ShopWithLocation extends ShopData {
 }
 
 export default function FindShop() {
-  const { data: shops, isLoading } = useShops();
+  const { useGetShops } = useShop();
+  const { data: shops, isLoading } = useGetShops();
   const mapRef = useRef<MapView>(null);
   const webViewMapRef = useRef<WebViewMapRef>(null);
   const isAndroid = Platform.OS === "android";

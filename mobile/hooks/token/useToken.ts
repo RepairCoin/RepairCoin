@@ -1,15 +1,13 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, queryKeys } from "@/config/queryClient";
+import { tokenApi } from "@/services/token.services";
 import {
-  transferToken,
-  validateTransfer,
-  getTransferHistory,
   GiftTokenRequest,
   GiftTokenResponse,
+  TransferHistoryResponse,
   ValidateTransferRequest,
   ValidateTransferResponse,
-  TransferHistoryResponse,
-} from "@/services/tokenServices";
+} from "@/interfaces/token.interface";
 
 export const useToken = () => {
   /**
@@ -18,7 +16,8 @@ export const useToken = () => {
   const useTransferToken = () => {
     return useMutation({
       mutationFn: async (payload: GiftTokenRequest) => {
-        const response: GiftTokenResponse = await transferToken(payload);
+        const response: GiftTokenResponse =
+          await tokenApi.transferToken(payload);
         return response.data;
       },
       onSuccess: (_, variables) => {
@@ -46,7 +45,8 @@ export const useToken = () => {
   const useValidateTransfer = () => {
     return useMutation({
       mutationFn: async (payload: ValidateTransferRequest) => {
-        const response: ValidateTransferResponse = await validateTransfer(payload);
+        const response: ValidateTransferResponse =
+          await tokenApi.validateTransfer(payload);
         return response.data;
       },
       onError: (error: any) => {
@@ -66,10 +66,8 @@ export const useToken = () => {
     return useQuery({
       queryKey: queryKeys.transferHistory(address, options),
       queryFn: async () => {
-        const response: TransferHistoryResponse = await getTransferHistory(
-          address,
-          options
-        );
+        const response: TransferHistoryResponse =
+          await tokenApi.getTransferHistory(address, options);
         return response.data;
       },
       enabled: !!address,

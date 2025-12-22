@@ -1,16 +1,12 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  getCustomerInfo,
-  issueReward,
-  RewardRequest,
-  CreatePromoCodeRequest,
-} from "@/services/ShopServices";
+import { CreatePromoCodeRequest, RewardRequest } from "@/interfaces/shop.interface";
 import { useAuthStore } from "@/store/auth.store";
 import { queryKeys } from "@/config/queryClient";
 import { Alert } from "react-native";
 import { router } from "expo-router";
 import { shopApi } from "@/services/shop.services";
+import { customerApi } from "@/services/customer.services";
 
 // Tier bonuses constants
 const TIER_BONUSES = {
@@ -33,7 +29,7 @@ export type RepairType = "minor" | "small" | "large" | "custom";
 export function useCustomerInfo(walletAddress: string) {
   return useQuery({
     queryKey: queryKeys.customerInfo(walletAddress),
-    queryFn: () => getCustomerInfo(walletAddress),
+    queryFn: () => customerApi.getCustomerByWalletAddress(walletAddress),
     enabled: !!walletAddress && walletAddress.length === 42,
     select: (data) => data.data.customer,
     retry: false,
@@ -53,13 +49,13 @@ export function useIssueReward(resetInputs?: () => void) {
       if (!shopId) {
         throw new Error("Shop not authenticated");
       }
-      return issueReward(shopId, request);
+      return shopApi.issueReward(shopId, request);
     },
     onSuccess: (data, variables) => {
       // Show success alert
       Alert.alert(
         "Reward Issued!",
-        `Successfully issued ${data.data.totalReward} RCN to customer!`,
+        `Successfully issued ${data.data?.totalReward} RCN to customer!`,
         [{ text: "OK" }]
       );
 

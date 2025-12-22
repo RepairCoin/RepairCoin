@@ -12,10 +12,10 @@ import {
 import { ThemedView } from "@/components/ui/ThemedView";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { useAuthStore } from "@/store/auth.store";
-import { useShopTransactions } from "@/hooks";
 import TransactionHistoryCard from "@/components/common/TransactionHistoryCard";
 import { Feather } from "@expo/vector-icons";
 import { PurchaseHistory } from "@/services/ShopServices";
+import { usePurchase } from "@/hooks/purchase/usePurchase";
 
 // Filter types
 type StatusFilter = "all" | "pending" | "completed" | "failed";
@@ -63,6 +63,7 @@ const FilterChip = ({
 );
 
 export default function TransactionHistory() {
+  const { useShopTransactions } = usePurchase();
   const { userProfile } = useAuthStore((state) => state);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");

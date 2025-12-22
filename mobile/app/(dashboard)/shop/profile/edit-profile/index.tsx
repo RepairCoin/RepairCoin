@@ -5,16 +5,15 @@ import { View, Text, TextInput, Platform, ScrollView, Alert } from "react-native
 import PrimaryButton from "@/components/ui/PrimaryButton";
 import { ThemedView } from "@/components/ui/ThemedView";
 import { useAuthStore } from "@/store/auth.store";
-import { useUpdateShopDetails } from "@/hooks";
 import { useShop } from "@/hooks/shop/useShop";
 
 export default function EditShopProfilePage() {
   const { account } = useAuthStore();
-  const { useGetShopByWalletAddress } = useShop();
+  const { useGetShopByWalletAddress, useUpdateShop } = useShop();
   const { data: shopData } = useGetShopByWalletAddress(
     account?.address || ""
   );
-  const updateShopMutation = useUpdateShopDetails(account?.address || "");
+  const updateShopMutation = useUpdateShop(account?.address || "");
 
   const [shopFormData, setShopFormData] = useState({
     name: shopData?.name || "",
