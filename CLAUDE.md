@@ -157,6 +157,12 @@ cp env.example .env
 - Social sharing (WhatsApp, Twitter, Facebook, copy link)
 - Review and rating system for completed service bookings
 - View service details with reviews and ratings
+- **Group Rewards Discovery**:
+  - Purple badges on service cards showing bonus token opportunities
+  - Filter marketplace by affiliate group to find group-specific services
+  - See all available tokens (RCN + group tokens) before booking
+  - Automatic earning of both RCN and group tokens on service completion
+  - Visual indicators across all views (marketplace, favorites, trending, recently viewed)
 - **Appointment Scheduling**:
   - Select date and time when booking services
   - Real-time availability display based on shop hours
@@ -172,6 +178,13 @@ cp env.example .env
 - Service booking management with custom completion modal
 - View and respond to customer reviews
 - Service details modal with integrated reviews tab
+- **Service-Group Integration**:
+  - Link services to affiliate groups for bonus token rewards
+  - Configure custom reward percentages (0-500%) per group
+  - Set bonus multipliers (0-10x) for special promotions
+  - Visual indicators showing which services offer group rewards
+  - Automatic group token issuance on order completion
+  - Manage multiple group links per service
 - **Service Analytics Dashboard**:
   - Performance metrics and revenue tracking
   - Top 5 performing services with conversion rates
@@ -397,3 +410,54 @@ stripe listen --forward-to localhost:4000/api/shops/webhooks/stripe
   - RCN badge: Bottom right of image
   - Fixed text overflow issues with long service titles
   - Removed duplicate badge from header area
+
+### Service-Group Integration System (December 19, 2024)
+- **Backend Implementation (Complete)**
+  - ServiceGroupController with 5 endpoints for linking services to affiliate groups
+  - Duplicate prevention system (409 Conflict on duplicate links)
+  - Automatic group token issuance on order completion
+  - Database N+1 query optimization using PostgreSQL json_agg subquery
+  - Groups data added to ALL 7 service endpoints:
+    - Main services (getAllActiveServices)
+    - Shop services (getServicesByShop)
+    - Favorites (getCustomerFavorites)
+    - Recently viewed (getRecentlyViewed)
+    - Trending services (getTrendingServices)
+    - Similar services (getSimilarServices)
+    - Group services (getGroupServices)
+  - Shared utilities for maintainability:
+    - sqlFragments.ts - Reusable SQL subqueries and field selections
+    - serviceMapper.ts - Consistent data transformation functions
+- **Frontend Implementation (Complete)**
+  - ServiceGroupSettings component (194 lines) for shop management
+  - Purple group badge system on all service cards:
+    - Bottom-left badges showing token symbols (e.g., "🏪 CDV+")
+    - "+N more" indicator for 3+ groups
+    - Hover tooltips explaining rewards
+  - "BONUS GROUP REWARDS" info box inside service cards
+  - Group filter dropdown in customer marketplace
+  - API client (serviceGroups.ts) with 5 methods
+  - Integration with ShopServiceDetailsModal (Group Rewards tab)
+- **Visual Design (Purple Theme)**
+  - Purple gradient backgrounds to distinguish from yellow RCN
+  - Backdrop blur effects for visual depth
+  - Responsive design for mobile and desktop
+  - Consistent purple color scheme across all group features
+- **Bug Fixes & Optimizations**
+  - Fixed rate limiter for development (increased to 1000/10000 requests)
+  - Fixed appointment calendar colors (paid = blue, not green)
+  - Fixed N+1 query causing "too many clients" database errors
+  - Fixed axios double .data access in API client
+  - Fixed FavoriteController missing groups field in transformation
+  - Fixed DiscoveryController endpoints missing groups data
+- **Architecture Improvements**
+  - DRY principle with shared SQL fragments
+  - Single source of truth for service data mapping
+  - Type-safe transformations with shared interfaces
+  - Easy to maintain and extend for future features
+- **Impact**
+  - Shops can link services to multiple affiliate groups
+  - Customers see purple badges showing which services offer bonus tokens
+  - Automatic token issuance when orders complete
+  - Customers earn both RCN + group tokens simultaneously
+  - Filter marketplace by group to discover group-specific services
