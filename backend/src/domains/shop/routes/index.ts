@@ -143,7 +143,8 @@ router.get('/', async (req: Request, res: Response) => {
       facebook: shop.facebook,
       twitter: shop.twitter,
       instagram: shop.instagram,
-      category: shop.category
+      category: shop.category,
+      logoUrl: shop.logoUrl
     }));
 
     res.json({
@@ -203,7 +204,8 @@ router.get('/:shopId', optionalAuthMiddleware, async (req: Request, res: Respons
         facebook: shop.facebook,
         twitter: shop.twitter,
         instagram: shop.instagram,
-        category: shop.category
+        category: shop.category,
+        logoUrl: shop.logoUrl
       };
     }
 
@@ -371,6 +373,7 @@ router.get('/wallet/:address',
           instagram: shop.instagram,
           // Add other fields as needed
           website: shop.website,
+          logoUrl: shop.logoUrl,
           firstName: shop.firstName,
           lastName: shop.lastName,
           companySize: shop.companySize,
@@ -547,6 +550,7 @@ router.put('/:shopId/details',
         instagram,
         firstName,
         lastName,
+        logoUrl,
       } = req.body;
 
       logger.info('Shop details update request received:', {
@@ -564,9 +568,9 @@ router.put('/:shopId/details',
       }
 
       // Prepare updates
-      const updates: Partial<ShopData & { 
-        website?: string; 
-        openingHours?: string; 
+      const updates: Partial<ShopData & {
+        website?: string;
+        openingHours?: string;
         ownerName?: string;
         locationLat?: number;
         locationLng?: number;
@@ -578,6 +582,7 @@ router.put('/:shopId/details',
         instagram?: string;
         firstName?: string;
         lastName?: string;
+        logoUrl?: string;
      }> = {};
       if (name !== undefined) updates.name = name;
       if (email !== undefined) updates.email = email;
@@ -591,7 +596,8 @@ router.put('/:shopId/details',
       if (instagram !== undefined) updates.instagram = instagram;
       if (firstName !== undefined) updates.firstName = firstName;
       if (lastName !== undefined) updates.lastName = lastName;
-            
+      if (logoUrl !== undefined) updates.logoUrl = logoUrl;
+
       // Handle location updates - coordinates are stored in separate database columns
       if (location !== undefined) {
         // Validate and set coordinates if provided

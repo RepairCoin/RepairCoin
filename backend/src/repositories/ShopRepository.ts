@@ -57,6 +57,7 @@ interface ShopData {
   country?: string;
   category?: string;
   city?: string; // Maps to location_city in database
+  logoUrl?: string; // URL to shop logo stored in DigitalOcean Spaces
 }
 
 export interface ShopFilters {
@@ -118,7 +119,8 @@ export class ShopRepository extends BaseRepository {
         acceptTerms: row.accept_terms,
         country: row.country,
         category: row.category,
-        city: row.location_city // Map location_city to city
+        city: row.location_city, // Map location_city to city
+        logoUrl: row.logo_url
       };
     } catch (error) {
       logger.error('Error fetching shop:', error);
@@ -243,6 +245,7 @@ export class ShopRepository extends BaseRepository {
         lastName: 'last_name',
         category: 'category',
         country: 'country',
+        logoUrl: 'logo_url',
       };
 
       for (const [key, value] of Object.entries(updates)) {
@@ -409,7 +412,8 @@ export class ShopRepository extends BaseRepository {
         tier_updated_at: row.tier_updated_at,
         city: row.location_city, // Map location_city to city
         country: row.country,
-        website: row.website
+        website: row.website,
+        logoUrl: row.logo_url
       }));
 
       const totalPages = Math.ceil(totalItems / filters.limit);
@@ -480,7 +484,8 @@ export class ShopRepository extends BaseRepository {
         acceptTerms: row.accept_terms,
         country: row.country,
         city: row.location_city, // Map location_city to city for convenience
-        category: row.category
+        category: row.category,
+        logoUrl: row.logo_url
       }));
     } catch (error) {
       logger.error('Error getting active shops:', error);
@@ -578,7 +583,8 @@ export class ShopRepository extends BaseRepository {
         facebook: row.facebook,
         twitter: row.twitter,
         instagram: row.instagram,
-        website: row.website
+        website: row.website,
+        logoUrl: row.logo_url
       };
     } catch (error) {
       logger.error('Error fetching shop by wallet:', error);
