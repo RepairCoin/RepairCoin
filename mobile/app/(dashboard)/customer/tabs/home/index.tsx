@@ -2,8 +2,8 @@ import { Image, View, Text, Pressable } from "react-native";
 import React, { useState } from "react";
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
-import WalletTab from "./tabs/wallet/WalletTab";
-import ApprovalTab from "./tabs/approval/ApprovalTab";
+import WalletTab from "./tabs/wallet";
+import ApprovalTab from "./tabs/approval";
 import { useCustomer } from "@/hooks/customer/useCustomer";
 import { useAuthStore } from "@/store/auth.store";
 
@@ -53,7 +53,7 @@ export default function CustomerDashboard() {
                 onPress={() => {
                   activeTab !== tab && setActiveTab(tab);
                 }}
-                className={`bg-${activeTab === tab ? "[#FFCC00]" : "[#121212]"} w-[50%] flex-row ${i === 0 && "rounded-l-xl"} ${i === 1 && "rounded-r-xl"} items-center justify-center`}
+                className={`bg-${activeTab === tab ? "[#FFCC00]" : "[#121212]"} w-[50%] flex-row ${i === 0 && "rounded-l-lg"} ${i === 1 && "rounded-r-lg"} items-center justify-center`}
               >
                 <Text
                   className={`text-base font-bold text-${activeTab === tab ? "black" : "gray-400"}`}
