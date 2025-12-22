@@ -61,7 +61,7 @@ export default function Home() {
                 onPress={() => {
                   activeTab !== tab && setActiveTab(tab);
                 }}
-                className={`bg-${activeTab === tab ? "[#FFCC00]" : "[#121212]"} w-[33%] flex-row ${i === 0 && "rounded-l-xl"} ${i === 2 && "rounded-r-xl"} items-center justify-center`}
+                className={`bg-${activeTab === tab ? "[#FFCC00]" : "[#121212]"} w-[33%] flex-row ${i === 0 && "rounded-l-lg"} ${i === 2 && "rounded-r-lg"} items-center justify-center`}
               >
                 <Text
                   className={`text-base font-bold text-${activeTab === tab ? "black" : "gray-400"}`}

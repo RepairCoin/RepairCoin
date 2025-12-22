@@ -95,7 +95,7 @@ export default function Service() {
               onPress={() => setActiveTab(tab)}
               className={`flex-1 items-center justify-center ${
                 activeTab === tab ? "bg-[#FFCC00]" : "bg-[#121212]"
-              } ${i === 0 ? "rounded-l-xl" : "rounded-r-xl"}`}
+              } ${i === 0 ? "rounded-l-lg" : "rounded-r-lg"}`}
             >
               <Text
                 className={`text-base font-bold ${
