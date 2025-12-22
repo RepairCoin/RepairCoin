@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from "react";
 import { SubscriptionManagement } from "../SubscriptionManagement";
-import { Store, Mail, Phone, MapPin, Globe, Clock, User } from "lucide-react";
+import { Store, Mail, Phone, MapPin, Globe, Clock, User, Camera } from "lucide-react";
 import toast from "react-hot-toast";
 import { LocationPickerWrapper } from "../../maps/LocationPickerWrapper";
 import { CountryPhoneInput } from "../../ui/CountryPhoneInput";
+import { ImageUploader } from "../ImageUploader";
 import apiClient from '@/services/api/client';
 
 interface ShopData {
@@ -21,6 +22,7 @@ interface ShopData {
   twitter?: string;
   instagram?: string;
   website?: string;
+  logoUrl?: string;
   location?: {
     city?: string;
     state?: string;
@@ -59,6 +61,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     twitter: "",
     instagram: "",
     website: "",
+    logoUrl: "",
     location: {
       lat: undefined as number | undefined,
       lng: undefined as number | undefined,
@@ -79,6 +82,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         twitter: shopData.twitter || "",
         instagram: shopData.instagram || "",
         website: shopData.website || "",
+        logoUrl: shopData.logoUrl || "",
         location: {
           lat: shopData.location?.lat,
           lng: shopData.location?.lng,
@@ -108,6 +112,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         twitter: shopFormData.twitter,
         instagram: shopFormData.instagram,
         website: shopFormData.website,
+        logoUrl: shopFormData.logoUrl,
         location: {
           lat: shopFormData.location.lat,
           lng: shopFormData.location.lng,
@@ -147,6 +152,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       twitter: shopData?.twitter || "",
       instagram: shopData?.instagram || "",
       website: shopData?.website || "",
+      logoUrl: shopData?.logoUrl || "",
       location: {
         lat: shopData?.location?.lat,
         lng: shopData?.location?.lng,
@@ -154,6 +160,23 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     });
     setIsEditingShop(false);
     setShowLocationPicker(false);
+  };
+
+  // Handle logo upload success
+  const handleLogoUpload = (url: string) => {
+    setShopFormData((prev) => ({
+      ...prev,
+      logoUrl: url,
+    }));
+    toast.success("Logo uploaded! Click 'Save Changes' to apply.");
+  };
+
+  // Handle logo removal
+  const handleLogoRemove = () => {
+    setShopFormData((prev) => ({
+      ...prev,
+      logoUrl: "",
+    }));
   };
 
   const handleLocationSelect = (location: {
@@ -252,6 +275,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </div>
               )}
             </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-20 px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
               <div className="flex flex-col gap-6">
                 <div>
@@ -325,6 +349,40 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       Copy
                     </button>
                   </div>
+                </div>
+
+                {/* Twitter - moved from right column */}
+                <div>
+                  <label className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
+                    <Globe className="w-6 h-6 inline mr-1" />
+                    Twitter
+                  </label>
+                  <input
+                    type="url"
+                    name="twitter"
+                    value={shopFormData.twitter}
+                    onChange={handleShopInputChange}
+                    disabled={!isEditingShop}
+                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                    placeholder="https://twitter.com/yourshop"
+                  />
+                </div>
+
+                {/* Instagram - moved from right column */}
+                <div>
+                  <label className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
+                    <Globe className="w-6 h-6 inline mr-1" />
+                    Instagram
+                  </label>
+                  <input
+                    type="url"
+                    name="instagram"
+                    value={shopFormData.instagram}
+                    onChange={handleShopInputChange}
+                    disabled={!isEditingShop}
+                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                    placeholder="https://instagram.com/yourshop"
+                  />
                 </div>
               </div>
 
@@ -405,36 +463,35 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   />
                 </div>
 
-                <div>
+                {/* Shop Logo - spans 3 rows height */}
+                <div className="flex-grow flex flex-col">
                   <label className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
-                    <Globe className="w-6 h-6 inline mr-1" />
-                    Twitter
+                    <Camera className="w-6 h-6 inline mr-1" />
+                    Shop Logo
                   </label>
-                  <input
-                    type="url"
-                    name="twitter"
-                    value={shopFormData.twitter}
-                    onChange={handleShopInputChange}
-                    disabled={!isEditingShop}
-                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
-                    placeholder="https://twitter.com/yourshop"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
-                    <Globe className="w-6 h-6 inline mr-1" />
-                    Instagram
-                  </label>
-                  <input
-                    type="url"
-                    name="instagram"
-                    value={shopFormData.instagram}
-                    onChange={handleShopInputChange}
-                    disabled={!isEditingShop}
-                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
-                    placeholder="https://instagram.com/yourshop"
-                  />
+                  {isEditingShop ? (
+                    <ImageUploader
+                      imageType="logo"
+                      currentImageUrl={shopFormData.logoUrl || undefined}
+                      onUploadSuccess={handleLogoUpload}
+                      onRemove={handleLogoRemove}
+                      showPreview={true}
+                    />
+                  ) : (
+                    <div className="flex-grow flex items-center justify-center">
+                      <div className="w-44 h-44 rounded-full overflow-hidden bg-[#2F2F2F] border-4 border-gray-600 flex items-center justify-center shadow-lg">
+                        {shopFormData.logoUrl ? (
+                          <img
+                            src={shopFormData.logoUrl}
+                            alt="Shop logo"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <Camera className="w-16 h-16 text-gray-500" />
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

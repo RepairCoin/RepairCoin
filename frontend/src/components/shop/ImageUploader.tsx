@@ -154,53 +154,53 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
         {showPreview && previewUrl ? (
           <div className="relative group">
             <div
-              className={`relative overflow-hidden rounded-lg bg-gray-800 border-2 border-gray-700 ${
+              className={`relative rounded-lg bg-gray-800 border-2 border-gray-700 ${
                 imageType === "banner"
                   ? "w-full h-48"
                   : imageType === "logo"
-                  ? "w-32 h-32"
+                  ? "w-full h-44"
                   : "w-full h-64"
               }`}
             >
               <img
                 src={previewUrl}
                 alt="Preview"
-                className="w-full h-full object-cover"
+                className={`w-full h-full ${imageType === "logo" ? "object-contain p-2" : "object-cover"}`}
               />
+            </div>
 
-              {/* Overlay on hover */}
-              <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+            {/* Buttons below image - not inside overflow container */}
+            <div className="flex gap-2 mt-3">
+              <button
+                type="button"
+                onClick={handleClick}
+                disabled={uploading}
+                className="flex-1 px-4 py-2 bg-[#FFCC00] text-black rounded-lg font-semibold hover:bg-[#FFD700] transition-colors disabled:opacity-50 text-sm"
+              >
+                {uploading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 inline mr-2" />
+                    Change
+                  </>
+                )}
+              </button>
+
+              {onRemove && (
                 <button
                   type="button"
-                  onClick={handleClick}
+                  onClick={handleRemove}
                   disabled={uploading}
-                  className="px-4 py-2 bg-[#FFCC00] text-black rounded-lg font-semibold hover:bg-[#FFD700] transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 transition-colors disabled:opacity-50 text-sm"
                 >
-                  {uploading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4 inline mr-2" />
-                      Change
-                    </>
-                  )}
+                  <X className="w-4 h-4 inline mr-2" />
+                  Remove
                 </button>
-
-                {onRemove && (
-                  <button
-                    type="button"
-                    onClick={handleRemove}
-                    disabled={uploading}
-                    className="px-4 py-2 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 transition-colors disabled:opacity-50"
-                  >
-                    <X className="w-4 h-4 inline mr-2" />
-                    Remove
-                  </button>
-                )}
-              </div>
+              )}
             </div>
           </div>
         ) : (
@@ -213,7 +213,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
               imageType === "banner"
                 ? "w-full h-48"
                 : imageType === "logo"
-                ? "w-32 h-32"
+                ? "w-full h-44"
                 : "w-full h-64"
             }`}
           >
