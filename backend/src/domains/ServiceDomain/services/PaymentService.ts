@@ -47,6 +47,17 @@ function toLocalDate(date: Date | string): Date {
   return new Date(year, month - 1, day, 0, 0, 0, 0);
 }
 
+/**
+ * Normalize time string to HH:MM format.
+ * PostgreSQL TIME type returns "HH:MM:SS" but frontend sends "HH:MM".
+ * This ensures consistent comparison between stored and requested times.
+ */
+function normalizeTimeSlot(time: string): string {
+  // Extract just the HH:MM part (handles "10:00:00", "10:00", etc.)
+  const parts = time.split(':');
+  return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+}
+
 export interface CreatePaymentIntentResponse {
   orderId: string;
   clientSecret: string;
@@ -132,7 +143,8 @@ export class PaymentService {
 
         // Get booked slots for this date
         const bookedSlots = await this.appointmentRepository.getBookedSlots(service.shopId, dateStr);
-        const bookedCount = bookedSlots.find(slot => slot.timeSlot === request.bookingTime)?.count || 0;
+        const normalizedRequestTime = normalizeTimeSlot(request.bookingTime);
+        const bookedCount = bookedSlots.find(slot => normalizeTimeSlot(slot.timeSlot) === normalizedRequestTime)?.count || 0;
 
         // Check if time slot is available
         if (bookedCount >= config.maxConcurrentBookings) {
@@ -143,6 +155,8 @@ export class PaymentService {
           shopId: service.shopId,
           date: dateStr,
           timeSlot: request.bookingTime,
+          normalizedTime: normalizedRequestTime,
+          bookedSlots: bookedSlots.map(s => ({ time: s.timeSlot, normalized: normalizeTimeSlot(s.timeSlot), count: s.count })),
           bookedCount,
           maxBookings: config.maxConcurrentBookings
         });
@@ -283,12 +297,22 @@ export class PaymentService {
 
         // Get booked slots for this date
         const bookedSlots = await this.appointmentRepository.getBookedSlots(service.shopId, dateStr);
-        const bookedCount = bookedSlots.find(slot => slot.timeSlot === request.bookingTime)?.count || 0;
+        const normalizedRequestTime = normalizeTimeSlot(request.bookingTime);
+        const bookedCount = bookedSlots.find(slot => normalizeTimeSlot(slot.timeSlot) === normalizedRequestTime)?.count || 0;
 
         // Check if time slot is available
         if (bookedCount >= config.maxConcurrentBookings) {
           throw new Error(`Time slot ${request.bookingTime} is fully booked. Please select a different time.`);
         }
+
+        logger.info('Time slot validated (checkout)', {
+          shopId: service.shopId,
+          date: dateStr,
+          timeSlot: request.bookingTime,
+          normalizedTime: normalizedRequestTime,
+          bookedCount,
+          maxBookings: config.maxConcurrentBookings
+        });
       }
 
       let rcnRedeemed = 0;
