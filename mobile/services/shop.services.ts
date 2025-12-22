@@ -11,6 +11,8 @@ import {
   PromoCodeValidateResponse,
   ShopResponse,
   ShopData,
+  RewardRequest,
+  RewardResponse,
 } from "@/interfaces/shop.interface";
 
 class ShopApi {
@@ -174,6 +176,18 @@ class ShopApi {
       throw error;
     }
   }
+
+  async issueReward(
+    shopId: string,
+    request: RewardRequest
+  ): Promise<RewardResponse> {
+    try {
+      return await apiClient.post(`/shops/${shopId}/issue-reward`, request);
+    } catch (error: any) {
+      console.error("Failed to issue reward:", error.message);
+      throw error;
+    }
+  };
 }
 
 export const shopApi = new ShopApi();

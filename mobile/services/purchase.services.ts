@@ -1,4 +1,5 @@
 import apiClient from "@/utilities/axios";
+import { PurchaseHistoryResponse } from "@/interfaces/purchase.interface";
 
 class PurchaseApi {
   async createTokenPurchasePaymentIntent(amount: number): Promise<any> {
@@ -39,6 +40,15 @@ class PurchaseApi {
       throw error;
     }
   }
+
+  async getShopTransactions(shopId: string): Promise<PurchaseHistoryResponse> {
+    try {
+      return await apiClient.get(`/shops/purchase/history/${shopId}`);
+    } catch (error: any) {
+      console.error("Failed to get shop transactions:", error.message);
+      throw error;
+    }
+  };
 }
 
 export const purchaseApi = new PurchaseApi();

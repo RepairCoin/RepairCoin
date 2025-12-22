@@ -1,13 +1,8 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/auth.store";
 import { queryKeys } from "@/config/queryClient";
-import {
-  approvalRedemptionSession,
-  fetchMyRedemptionSessions,
-  fetchTokenBalance,
-  rejectRedemptionSession,
-  RedemptionSessionsResponse
-} from "@/services/tokenServices";
+import { tokenApi } from "@/services/token.services";
+import { RedemptionSessionStatusResponse } from "@/interfaces/token.interface";
 
 // Interfaces
 export interface BalanceData {
@@ -73,23 +68,23 @@ export const useTokenBalance = (walletAddress?: string) => {
   return useQuery<BalanceData | null>({
     queryKey: queryKeys.tokenBalance(walletAddress || ""),
     queryFn: async () => {
-      const data = await fetchTokenBalance(walletAddress!);
+      const data = await tokenApi.fetchTokenBalance(walletAddress!);
       if (data) {
         // Round all numeric values to 2 decimal places
         const roundedData: BalanceData = {
           availableBalance:
-            Math.round(data.data.availableBalance * 100) / 100,
-          lifetimeEarned: Math.round(data.data.lifetimeEarned * 100) / 100,
-          totalRedeemed: Math.round(data.data.totalRedeemed * 100) / 100,
-          earningHistory: data.data.earningHistory
+            Math.round(data.data?.availableBalance || 0 * 100) / 100,
+          lifetimeEarned: Math.round(data.data?.lifetimeEarned || 0 * 100) / 100,
+          totalRedeemed: Math.round(data.data?.totalRedeemed || 0 * 100) / 100,
+          earningHistory: data.data?.earningHistory
             ? {
                 fromRepairs:
                   Math.round(
-                    (data.data.earningHistory.fromRepairs || 0) * 100
+                    (data.data?.earningHistory?.fromRepairs || 0) * 100
                   ) / 100,
                 fromReferrals:
                   Math.round(
-                    (data.data.earningHistory.fromReferrals || 0) * 100
+                    (data.data?.earningHistory?.fromReferrals || 0) * 100
                   ) / 100,
                 fromBonuses:
                   Math.round(
@@ -117,10 +112,10 @@ export const useRedemptionSessions = () => {
   const { userProfile } = useAuthStore();
   const walletAddress = userProfile?.address;
 
-  return useQuery<RedemptionSessionsResponse>({
+  return useQuery<RedemptionSessionStatusResponse>({
     queryKey: queryKeys.redemptionSessions(walletAddress || ""),
     queryFn: async () => {
-      const response: RedemptionSessionsResponse = await fetchMyRedemptionSessions();
+      const response: RedemptionSessionStatusResponse = await tokenApi.fetchMyRedemptionSessions();
       return response;
     },
     enabled: !!walletAddress,
@@ -141,7 +136,7 @@ export const useApproveRedemptionSession = () => {
         hasTransactionHash: !!transactionHash
       });
       
-      const response = await approvalRedemptionSession(sessionId, signature);
+      const response = await tokenApi.approvalRedemptionSession(sessionId, signature);
       console.log('[useApproveRedemptionSession] Response:', response);
       return response;
     },
@@ -170,7 +165,7 @@ export const useRejectRedemptionSession = () => {
         sessionId
       });
       
-      const response = await rejectRedemptionSession(sessionId);
+      const response = await tokenApi.rejectRedemptionSession(sessionId);
       console.log('[useRejectRedemptionSession] Response:', response);
       return response;
     },

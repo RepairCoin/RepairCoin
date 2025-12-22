@@ -1,18 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/auth.store";
-import {
-  createRedemptionSession,
-  checkRedemptionSessionStatus,
-  cancelRedemptionSession,
-  getCustomerInfo,
-  RedemptionSession,
-  CreateRedemptionSessionRequest,
-  ProcessRedemptionRequest,
-} from "@/services/ShopServices";
 import { queryKeys } from "@/config/queryClient";
 import { balanceApi } from "@/services/balance.services";
 import { shopApi } from "@/services/shop.services";
+import { customerApi } from "@/services/customer.services";
+import { tokenApi } from "@/services/token.services";
+import { CreateRedemptionSessionRequest, RedemptionSession } from "@/interfaces/token.interface";
 
 export interface CustomerData {
   address: string;
@@ -53,7 +47,7 @@ export function useCustomerLookup() {
 
     try {
       const [customerResponse, balanceResponse] = await Promise.all([
-        getCustomerInfo(address),
+        customerApi.getCustomerByWalletAddress(address),
         balanceApi.getCustomerBalance(address)
       ]);
 
@@ -136,9 +130,14 @@ export function useCreateRedemptionSession(callbacks?: RedemptionCallbacks) {
 
   return useMutation({
     mutationFn: async (request: CreateRedemptionSessionRequest) => {
-      return await createRedemptionSession(request);
+      return await tokenApi.createRedemptionSession(request);
     },
     onSuccess: (response, variables) => {
+      if (!response.data?.sessionId || !response.data?.expiresAt) {
+        console.error("Invalid session response: missing sessionId or expiresAt");
+        return;
+      }
+
       const session: RedemptionSession = {
         sessionId: response.data.sessionId,
         customerAddress: variables.customerAddress,
@@ -166,7 +165,7 @@ export function useCancelRedemptionSession(callbacks?: RedemptionCallbacks) {
 
   return useMutation({
     mutationFn: async (sessionId: string) => {
-      return await cancelRedemptionSession(sessionId);
+      return await tokenApi.cancelRedemptionSession(sessionId);
     },
     onError: (error: any) => {
       console.error("Failed to cancel session:", error);
@@ -202,7 +201,11 @@ export function useSessionPolling(
       throw new Error("Shop ID or session not found");
     }
 
-    const request: ProcessRedemptionRequest = {
+    const request: {
+      customerAddress: string;
+      amount: number;
+      sessionId: string;
+    } = {
       customerAddress: currentSession.customerAddress,
       amount: currentSession.amount,
       sessionId,
@@ -247,30 +250,32 @@ export function useSessionPolling(
         }
 
         try {
-          const response = await checkRedemptionSessionStatus(sessionId);
+          const response = await tokenApi.checkRedemptionSessionStatus(sessionId);
           const sessionData = response.data;
 
           // Update session expiry time
-          setSessionData({ expiresAt: sessionData.expiresAt });
+          setSessionData({ expiresAt: sessionData?.expiresAt });
 
-          if (sessionData.status === "approved") {
+          if (sessionData?.status === "approved") {
             setStatus("processing");
             stopPolling();
             onSessionApproved?.(sessionData);
             await processRedemptionAfterApproval(sessionId, currentSession);
             setStatus("completed");
-          } else if (sessionData.status === "rejected") {
+          } else if (sessionData?.status === "rejected") {
             stopPolling();
             setStatus("idle");
             onSessionRejected?.(sessionData);
           } else if (
-            sessionData.status === "expired" ||
-            new Date(sessionData.expiresAt) < new Date()
+            sessionData?.status === "expired" ||
+            new Date(sessionData?.expiresAt || "") < new Date()
           ) {
             stopPolling();
             setStatus("idle");
-            onSessionExpired?.(sessionData);
-          } else if (sessionData.status === "used") {
+            if (sessionData) {
+              onSessionExpired?.(sessionData);
+            }
+          } else if (sessionData?.status === "used") {
             stopPolling();
             setStatus("completed");
             onRedemptionComplete?.(sessionData);
