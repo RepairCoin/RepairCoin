@@ -10,6 +10,7 @@ interface BookingCardProps {
   status: BookingStatus;
   totalAmount: number;
   createdAt: string;
+  bookingDate?: string | null;
   onPress?: () => void;
 }
 
@@ -42,6 +43,18 @@ const formatDate = (dateString: string) => {
   });
 };
 
+const formatBookingDate = (dateString: string) => {
+  if (!dateString) return null;
+  const date = new Date(dateString);
+  return date.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
 const truncateAddress = (address: string) => {
   if (!address) return "N/A";
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -54,9 +67,11 @@ export default function BookingCard({
   status,
   totalAmount,
   createdAt,
+  bookingDate,
   onPress,
 }: BookingCardProps) {
   const statusColor = getStatusColor(status);
+  const formattedBookingDate = bookingDate ? formatBookingDate(bookingDate) : null;
 
   return (
     <TouchableOpacity
@@ -89,6 +104,16 @@ export default function BookingCard({
               {customerName || truncateAddress(customerAddress)}
             </Text>
           </View>
+
+          {/* Scheduled Date */}
+          {formattedBookingDate && (
+            <View className="flex-row items-center mb-2 bg-[#FFCC00]/10 px-2 py-1 rounded self-start">
+              <Feather name="calendar" size={12} color="#FFCC00" />
+              <Text className="text-[#FFCC00] text-xs ml-1 font-medium">
+                {formattedBookingDate}
+              </Text>
+            </View>
+          )}
 
           <View className="flex-row items-center justify-between">
             <View className="flex-row items-center">
