@@ -13,10 +13,38 @@ import Stripe from 'stripe';
 export interface CreatePaymentIntentRequest {
   serviceId: string;
   customerAddress: string;
-  bookingDate?: Date;
+  bookingDate?: Date | string;
   bookingTime?: string;
   rcnToRedeem?: number;
   notes?: string;
+}
+
+/**
+ * Safely extract date string from Date or string, avoiding timezone issues.
+ * When Date is created from a date string like "2024-12-24", using toISOString()
+ * can cause the date to shift by a day depending on timezone.
+ * This function uses local date components to avoid that issue.
+ */
+function getDateString(date: Date | string): string {
+  if (typeof date === 'string') {
+    // If already a string, extract just the date part (in case it has time component)
+    return date.split('T')[0];
+  }
+  // If Date object, use local date components to avoid timezone issues
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Convert booking date to Date object for database storage.
+ * Parses date strings as local date at midnight to avoid timezone issues.
+ */
+function toLocalDate(date: Date | string): Date {
+  if (date instanceof Date) {
+    return date;
+  }
+  // Parse YYYY-MM-DD string as local date (not UTC)
+  const [year, month, day] = date.split('T')[0].split('-').map(Number);
+  return new Date(year, month - 1, day, 0, 0, 0, 0);
 }
 
 export interface CreatePaymentIntentResponse {
@@ -83,7 +111,7 @@ export class PaymentService {
       // Validate time slot availability if booking date and time provided
       let bookingEndTime: string | undefined;
       if (request.bookingDate && request.bookingTime) {
-        const dateStr = request.bookingDate.toISOString().split('T')[0];
+        const dateStr = getDateString(request.bookingDate);
 
         // Get service duration
         const serviceDuration = await this.appointmentRepository.getServiceDuration(request.serviceId);
@@ -157,7 +185,7 @@ export class PaymentService {
         rcnRedeemed,
         rcnDiscountUsd,
         finalAmountUsd,
-        bookingDate: request.bookingDate,
+        bookingDate: request.bookingDate ? toLocalDate(request.bookingDate) : undefined,
         bookingTimeSlot: request.bookingTime,
         bookingEndTime,
         notes: request.notes
@@ -234,7 +262,7 @@ export class PaymentService {
       // Validate time slot availability if booking date and time provided
       let bookingEndTime: string | undefined;
       if (request.bookingDate && request.bookingTime) {
-        const dateStr = request.bookingDate.toISOString().split('T')[0];
+        const dateStr = getDateString(request.bookingDate);
 
         // Get service duration
         const serviceDuration = await this.appointmentRepository.getServiceDuration(request.serviceId);
@@ -300,7 +328,7 @@ export class PaymentService {
         rcnRedeemed,
         rcnDiscountUsd,
         finalAmountUsd,
-        bookingDate: request.bookingDate,
+        bookingDate: request.bookingDate ? toLocalDate(request.bookingDate) : undefined,
         bookingTimeSlot: request.bookingTime,
         bookingEndTime,
         notes: request.notes

@@ -397,15 +397,19 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
                 <input
                   type="number"
                   value={config.slotDurationMinutes}
-                  onChange={(e) => setConfig({ ...config, slotDurationMinutes: parseInt(e.target.value) })}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value) || 60;
+                    setConfig({ ...config, slotDurationMinutes: Math.max(15, Math.min(480, value)) });
+                  }}
                   min={15}
+                  max={480}
                   step={15}
                   className="w-full px-4 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00]"
                 />
               ) : (
                 <p className="text-white text-lg">{config.slotDurationMinutes} minutes</p>
               )}
-              <p className="text-xs text-gray-500 mt-1">Default appointment length</p>
+              <p className="text-xs text-gray-500 mt-1">Default appointment length (15-480 min)</p>
             </div>
 
             <div>
@@ -416,15 +420,19 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
                 <input
                   type="number"
                   value={config.bufferTimeMinutes}
-                  onChange={(e) => setConfig({ ...config, bufferTimeMinutes: parseInt(e.target.value) })}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value) || 0;
+                    setConfig({ ...config, bufferTimeMinutes: Math.max(0, Math.min(120, value)) });
+                  }}
                   min={0}
+                  max={120}
                   step={5}
                   className="w-full px-4 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00]"
                 />
               ) : (
                 <p className="text-white text-lg">{config.bufferTimeMinutes} minutes</p>
               )}
-              <p className="text-xs text-gray-500 mt-1">Time between appointments</p>
+              <p className="text-xs text-gray-500 mt-1">Time between appointments (0-120 min)</p>
             </div>
 
             <div>
@@ -435,14 +443,18 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
                 <input
                   type="number"
                   value={config.maxConcurrentBookings}
-                  onChange={(e) => setConfig({ ...config, maxConcurrentBookings: parseInt(e.target.value) })}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value) || 1;
+                    setConfig({ ...config, maxConcurrentBookings: Math.max(1, Math.min(50, value)) });
+                  }}
                   min={1}
+                  max={50}
                   className="w-full px-4 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00]"
                 />
               ) : (
                 <p className="text-white text-lg">{config.maxConcurrentBookings} bookings</p>
               )}
-              <p className="text-xs text-gray-500 mt-1">Appointments at same time</p>
+              <p className="text-xs text-gray-500 mt-1">Appointments at same time (1-50)</p>
             </div>
 
             <div>
@@ -453,15 +465,18 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
                 <input
                   type="number"
                   value={config.bookingAdvanceDays}
-                  onChange={(e) => setConfig({ ...config, bookingAdvanceDays: parseInt(e.target.value) })}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value) || 30;
+                    setConfig({ ...config, bookingAdvanceDays: Math.max(1, Math.min(365, value)) });
+                  }}
                   min={1}
-                  max={90}
+                  max={365}
                   className="w-full px-4 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00]"
                 />
               ) : (
                 <p className="text-white text-lg">{config.bookingAdvanceDays} days</p>
               )}
-              <p className="text-xs text-gray-500 mt-1">Max days customers can book ahead</p>
+              <p className="text-xs text-gray-500 mt-1">Max days customers can book ahead (1-365)</p>
             </div>
 
             <div>
@@ -472,15 +487,18 @@ export const AvailabilitySettings: React.FC<AvailabilitySettingsProps> = ({ shop
                 <input
                   type="number"
                   value={config.minBookingHours}
-                  onChange={(e) => setConfig({ ...config, minBookingHours: parseInt(e.target.value) })}
-                  min={1}
-                  max={48}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value) || 0;
+                    setConfig({ ...config, minBookingHours: Math.max(0, Math.min(168, value)) });
+                  }}
+                  min={0}
+                  max={168}
                   className="w-full px-4 py-2 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00]"
                 />
               ) : (
                 <p className="text-white text-lg">{config.minBookingHours} hours</p>
               )}
-              <p className="text-xs text-gray-500 mt-1">Min advance notice required</p>
+              <p className="text-xs text-gray-500 mt-1">Min advance notice required (0-168 hours)</p>
             </div>
 
             <div>
