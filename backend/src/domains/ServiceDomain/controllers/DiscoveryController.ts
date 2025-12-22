@@ -322,7 +322,21 @@ export class DiscoveryController {
               WHEN s.price_usd BETWEEN $4 AND $5 THEN 20
               ELSE 0
             END
-          ) as similarity_score
+          ) as similarity_score,
+          (
+            SELECT json_agg(json_build_object(
+              'groupId', sga.group_id,
+              'groupName', asg.group_name,
+              'customTokenSymbol', asg.custom_token_symbol,
+              'customTokenName', asg.custom_token_name,
+              'icon', asg.icon,
+              'tokenRewardPercentage', sga.token_reward_percentage,
+              'bonusMultiplier', sga.bonus_multiplier
+            ))
+            FROM service_group_availability sga
+            JOIN affiliate_shop_groups asg ON sga.group_id = asg.group_id
+            WHERE sga.service_id = s.service_id AND sga.active = true
+          ) as groups
         FROM shop_services s
         INNER JOIN shops sh ON s.shop_id = sh.shop_id
         WHERE s.service_id != $1
@@ -376,7 +390,8 @@ export class DiscoveryController {
           city: row.location_city,
           state: row.location_state,
           zipCode: row.location_zip_code
-        }
+        },
+        groups: row.groups || []
       }));
 
       res.json({
@@ -432,7 +447,21 @@ export class DiscoveryController {
           sh.location_zip_code,
           COUNT(o.order_id) as booking_count,
           COUNT(o.order_id) * 100 +
-          COALESCE(s.average_rating, 0) * 20 as trending_score
+          COALESCE(s.average_rating, 0) * 20 as trending_score,
+          (
+            SELECT json_agg(json_build_object(
+              'groupId', sga.group_id,
+              'groupName', asg.group_name,
+              'customTokenSymbol', asg.custom_token_symbol,
+              'customTokenName', asg.custom_token_name,
+              'icon', asg.icon,
+              'tokenRewardPercentage', sga.token_reward_percentage,
+              'bonusMultiplier', sga.bonus_multiplier
+            ))
+            FROM service_group_availability sga
+            JOIN affiliate_shop_groups asg ON sga.group_id = asg.group_id
+            WHERE sga.service_id = s.service_id AND sga.active = true
+          ) as groups
         FROM shop_services s
         INNER JOIN shops sh ON s.shop_id = sh.shop_id
         LEFT JOIN service_orders o ON s.service_id = o.service_id
@@ -476,6 +505,7 @@ export class DiscoveryController {
           state: row.location_state,
           zipCode: row.location_zip_code
         },
+        groups: row.groups || [],
         bookingCount: parseInt(row.booking_count),
         trendingScore: parseFloat(row.trending_score)
       }));
