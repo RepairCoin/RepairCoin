@@ -12,11 +12,13 @@ import {
   Pressable,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
-import { Ionicons, Feather, MaterialIcons } from "@expo/vector-icons";
+import { Ionicons, Feather } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useLocalSearchParams, router } from "expo-router";
 import { useService } from "@/hooks/service/useService";
 import { SERVICE_CATEGORIES } from "@/constants/service-categories";
+import { useCustomer } from "@/hooks/customer/useCustomer";
+import { useAuthStore } from "@/store/auth.store";
 
 export default function ServiceDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -24,6 +26,45 @@ export default function ServiceDetail() {
   const { data: serviceData, isLoading, error } = useGetService(id!);
   const [showShareModal, setShowShareModal] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+
+  // Get customer tier info
+  const { account } = useAuthStore();
+  const { useGetCustomerByWalletAddress } = useCustomer();
+  const { data: customerData } = useGetCustomerByWalletAddress(account?.address || "");
+
+  // Calculate RCN rewards based on tier
+  const getTierInfo = () => {
+    const tier = customerData?.customer?.tier || "bronze";
+    const tierBenefits = customerData?.tierBenefits;
+
+    const tierConfig: Record<string, { color: string; bgColor: string; icon: string; bonus: number }> = {
+      bronze: { color: "#CD7F32", bgColor: "bg-amber-900/30", icon: "medal-outline", bonus: 0 },
+      silver: { color: "#C0C0C0", bgColor: "bg-gray-500/30", icon: "medal-outline", bonus: 2 },
+      gold: { color: "#FFD700", bgColor: "bg-yellow-500/30", icon: "medal-outline", bonus: 5 },
+    };
+
+    const config = tierConfig[tier.toLowerCase()] || tierConfig.bronze;
+    const tierBonus = tierBenefits?.tierBonus ?? config.bonus;
+
+    return {
+      tier: tier.charAt(0).toUpperCase() + tier.slice(1),
+      ...config,
+      tierBonus,
+    };
+  };
+
+  const calculateReward = () => {
+    if (!serviceData?.priceUsd) return { base: 0, bonus: 0, total: 0 };
+    const tierInfo = getTierInfo();
+    // Base reward: 1 RCN per $10 spent (adjustable)
+    const baseReward = Math.floor(serviceData.priceUsd / 10);
+    const bonusReward = tierInfo.tierBonus;
+    return {
+      base: baseReward,
+      bonus: bonusReward,
+      total: baseReward + bonusReward,
+    };
+  };
 
   // Generate share URL and message
   const getShareUrl = () => {
@@ -218,9 +259,17 @@ export default function ServiceDetail() {
 
           {/* Shop Information */}
           <View className="mb-6">
-            <Text className="text-white text-lg font-semibold mb-4">
-              Shop Information
-            </Text>
+            <View className="flex-row items-center mb-4">
+              <Ionicons
+                name="storefront-outline"
+                size={22}
+                color="#FFCC00"
+                style={{ marginRight: 8 }}
+              />
+              <Text className="text-white text-lg font-semibold">
+                Shop Information
+              </Text>
+            </View>
 
             {/* Shop Name */}
             {serviceData.shopName && (
@@ -298,15 +347,82 @@ export default function ServiceDetail() {
           {/* Divider */}
           <View className="h-px bg-gray-800 mb-6" />
 
+          {/* RCN Rewards Section */}
+          <View className="mb-6">
+            <View className="flex-row items-center mb-4">
+              <Ionicons name="gift-outline" size={22} color="#FFCC00" />
+              <Text className="text-white text-lg font-semibold ml-2">
+                RCN Rewards
+              </Text>
+            </View>
+
+            {/* Tier Badge & Rewards Card */}
+            <View className="bg-[#1a1a1a] rounded-xl p-4">
+              {/* Your Tier */}
+              <View className="flex-row items-center justify-between mb-4">
+                <View className="flex-row items-center">
+                  <View className={`w-10 h-10 rounded-full items-center justify-center mr-3 ${getTierInfo().bgColor}`}>
+                    <Ionicons name="medal" size={22} color={getTierInfo().color} />
+                  </View>
+                  <View>
+                    <Text className="text-gray-500 text-xs">Your Tier</Text>
+                    <Text className="text-white font-semibold" style={{ color: getTierInfo().color }}>
+                      {getTierInfo().tier}
+                    </Text>
+                  </View>
+                </View>
+                <View className="items-end">
+                  <Text className="text-gray-500 text-xs">Tier Bonus</Text>
+                  <Text className="text-[#FFCC00] font-bold">+{getTierInfo().tierBonus} RCN</Text>
+                </View>
+              </View>
+
+              {/* Divider */}
+              <View className="h-px bg-gray-800 mb-4" />
+
+              {/* Reward Breakdown */}
+              <View className="mb-3">
+                <Text className="text-gray-400 text-sm mb-3">Potential Earnings</Text>
+                <View className="flex-row justify-between mb-2">
+                  <Text className="text-gray-500">Base Reward</Text>
+                  <Text className="text-white">{calculateReward().base} RCN</Text>
+                </View>
+                <View className="flex-row justify-between mb-2">
+                  <Text className="text-gray-500">Tier Bonus ({getTierInfo().tier})</Text>
+                  <Text className="text-green-400">+{calculateReward().bonus} RCN</Text>
+                </View>
+                <View className="h-px bg-gray-700 my-2" />
+                <View className="flex-row justify-between">
+                  <Text className="text-white font-semibold">Total Reward</Text>
+                  <Text className="text-[#FFCC00] font-bold text-lg">{calculateReward().total} RCN</Text>
+                </View>
+              </View>
+
+              {/* Info Note */}
+              <View className="bg-[#FFCC00]/10 rounded-lg p-3 flex-row items-start">
+                <Ionicons name="information-circle" size={18} color="#FFCC00" />
+                <Text className="text-gray-400 text-xs ml-2 flex-1">
+                  Earn RCN tokens when you complete this service. Higher tiers unlock better rewards!
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Divider */}
+          <View className="h-px bg-gray-800 mb-6" />
+
           {/* Additional Info */}
           <View className="mb-6">
-            <Text className="text-white text-lg font-semibold mb-4">
-              Additional Information
-            </Text>
+            <View className="flex-row items-center mb-4">
+              <Ionicons name="information-circle-outline" size={22} color="#FFCC00" />
+              <Text className="text-white text-lg font-semibold ml-2">
+                Additional Information
+              </Text>
+            </View>
 
             <View className="flex-row items-center">
               <View className="bg-gray-800 rounded-full p-2 mr-3">
-                <Ionicons name="calendar-outline" size={20} color="#9CA3AF" />
+                <Ionicons name="calendar-outline" size={20} color="#FFCC00" />
               </View>
               <View>
                 <Text className="text-gray-500 text-xs">Listed On</Text>

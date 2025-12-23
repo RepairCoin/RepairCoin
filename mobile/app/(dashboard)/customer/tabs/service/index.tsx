@@ -19,8 +19,8 @@ export default function Service() {
   const getTabStyle = (tab: ServiceTab, index: number) => {
     const isActive = activeTab === tab;
     let roundedClass = "";
-    if (index === 0) roundedClass = "rounded-l-xl";
-    else if (index === serviceTabs.length - 1) roundedClass = "rounded-r-xl";
+    if (index === 0) roundedClass = "rounded-l-lg";
+    else if (index === serviceTabs.length - 1) roundedClass = "rounded-r-lg";
 
     return `flex-1 items-center justify-center ${
       isActive ? "bg-[#FFCC00]" : "bg-[#121212]"
