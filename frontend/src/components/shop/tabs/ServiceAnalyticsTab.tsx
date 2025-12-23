@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { serviceAnalyticsApi, ShopAnalyticsSummary } from '@/services/api/serviceAnalytics';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, TrendingUp, DollarSign, Package, Star, ShoppingCart, Gift, Percent } from 'lucide-react';
+import { GroupPerformanceSection } from '../GroupPerformanceSection';
 
 export default function ServiceAnalyticsTab() {
   const [analytics, setAnalytics] = useState<ShopAnalyticsSummary | null>(null);
@@ -343,6 +344,11 @@ export default function ServiceAnalyticsTab() {
           )}
         </CardContent>
       </Card>
+
+      {/* Group Performance Analytics */}
+      <div className="mt-8">
+        <GroupPerformanceSection />
+      </div>
     </div>
   );
 }
