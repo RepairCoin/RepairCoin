@@ -254,7 +254,7 @@ export default function CompleteBooking() {
       </ScrollView>
 
       {/* Fixed Bottom Button */}
-      <View className="absolute bottom-0 left-0 right-0 bg-zinc-950 px-4 py-4 border-t border-zinc-800">
+      <View className="absolute bottom-0 left-0 right-0 bg-zinc-950 px-6 pt-4 pb-8 border-t border-zinc-800">
         {currentStep === "schedule" && (
           <TouchableOpacity
             onPress={handleContinueToDiscount}

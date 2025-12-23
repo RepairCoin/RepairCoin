@@ -10,6 +10,9 @@ import {
   Platform,
   Modal,
   FlatList,
+  Switch,
+  ActivityIndicator,
+  Pressable,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams } from "expo-router";
@@ -23,6 +26,532 @@ import { useAuthStore } from "@/store/auth.store";
 import { useService } from "@/hooks/service/useService";
 import { UpdateServiceData } from "@/interfaces/service.interface";
 import { queryKeys } from "@/config/queryClient";
+import { appointmentApi } from "@/services/appointment.services";
+import {
+  ShopAvailability,
+  TimeSlotConfig,
+} from "@/interfaces/appointment.interface";
+
+type AvailabilityTab = "hours" | "settings";
+
+const FULL_DAYS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+
+const AVAILABILITY_TABS: { label: string; value: AvailabilityTab }[] = [
+  { label: "Hours", value: "hours" },
+  { label: "Settings", value: "settings" },
+];
+
+const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
+  const hour = Math.floor(i / 2);
+  const minute = i % 2 === 0 ? "00" : "30";
+  const period = hour < 12 ? "AM" : "PM";
+  const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+  return {
+    value: `${hour.toString().padStart(2, "0")}:${minute}`,
+    label: `${displayHour}:${minute} ${period}`,
+  };
+});
+
+interface PendingAvailabilityChanges {
+  availability: ShopAvailability[];
+  timeSlotConfig: TimeSlotConfig | null;
+  hasChanges: boolean;
+}
+
+interface AvailabilityModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onSave: (changes: PendingAvailabilityChanges) => void;
+  shopId: string;
+}
+
+function AvailabilityModal({
+  visible,
+  onClose,
+  onSave,
+  shopId,
+}: AvailabilityModalProps) {
+  const [activeTab, setActiveTab] = useState<AvailabilityTab>("hours");
+  const [loading, setLoading] = useState(true);
+
+  const [availability, setAvailability] = useState<ShopAvailability[]>([]);
+  const [originalAvailability, setOriginalAvailability] = useState<
+    ShopAvailability[]
+  >([]);
+  const [timeSlotConfig, setTimeSlotConfig] = useState<TimeSlotConfig | null>(
+    null
+  );
+  const [originalTimeSlotConfig, setOriginalTimeSlotConfig] =
+    useState<TimeSlotConfig | null>(null);
+
+  // Time picker state
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [editingDay, setEditingDay] = useState<number | null>(null);
+  const [editingField, setEditingField] = useState<
+    "openTime" | "closeTime" | null
+  >(null);
+
+  const openTimePicker = (
+    dayOfWeek: number,
+    field: "openTime" | "closeTime"
+  ) => {
+    setEditingDay(dayOfWeek);
+    setEditingField(field);
+    setShowTimePicker(true);
+  };
+
+  const handleTimeSelect = (time: string) => {
+    if (editingDay !== null && editingField) {
+      handleUpdateHours(editingDay, editingField, time);
+    }
+    setShowTimePicker(false);
+    setEditingDay(null);
+    setEditingField(null);
+  };
+
+  useEffect(() => {
+    if (visible && shopId) {
+      loadData();
+    }
+  }, [visible, shopId]);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [availRes, configRes] = await Promise.all([
+        appointmentApi.getShopAvailability(shopId),
+        appointmentApi.getTimeSlotConfig(),
+      ]);
+
+      if (availRes.data) {
+        const sorted = [...availRes.data].sort(
+          (a, b) => a.dayOfWeek - b.dayOfWeek
+        );
+        setAvailability(sorted);
+        setOriginalAvailability(sorted);
+      }
+      if (configRes.data) {
+        setTimeSlotConfig(configRes.data);
+        setOriginalTimeSlotConfig(configRes.data);
+      }
+    } catch (error) {
+      console.error("Failed to load availability data:", error);
+      Alert.alert("Error", "Failed to load availability settings");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleDay = (dayOfWeek: number, isOpen: boolean) => {
+    setAvailability((prev) =>
+      prev.map((a) => (a.dayOfWeek === dayOfWeek ? { ...a, isOpen } : a))
+    );
+  };
+
+  const handleUpdateHours = (
+    dayOfWeek: number,
+    field: "openTime" | "closeTime",
+    value: string
+  ) => {
+    setAvailability((prev) =>
+      prev.map((a) =>
+        a.dayOfWeek === dayOfWeek ? { ...a, [field]: value } : a
+      )
+    );
+  };
+
+  const handleUpdateConfig = (updates: Partial<TimeSlotConfig>) => {
+    if (!timeSlotConfig) return;
+    setTimeSlotConfig({ ...timeSlotConfig, ...updates });
+  };
+
+  const hasChanges = () => {
+    const availChanged =
+      JSON.stringify(availability) !== JSON.stringify(originalAvailability);
+    const configChanged =
+      JSON.stringify(timeSlotConfig) !== JSON.stringify(originalTimeSlotConfig);
+    return availChanged || configChanged;
+  };
+
+  const handleDone = () => {
+    onSave({
+      availability,
+      timeSlotConfig,
+      hasChanges: hasChanges(),
+    });
+    onClose();
+  };
+
+  const formatTime = (time: string | null) => {
+    if (!time) return "--:--";
+    const [hour, minute] = time.split(":");
+    const h = parseInt(hour);
+    const period = h < 12 ? "AM" : "PM";
+    const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    return `${displayHour}:${minute} ${period}`;
+  };
+
+  const renderHoursTab = () => (
+    <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      <Text className="text-gray-400 text-sm mb-4">
+        Set your shop's operating hours for each day of the week.
+      </Text>
+      {availability.length === 0 ? (
+        <View className="items-center py-8">
+          <Text className="text-gray-500">No availability data found</Text>
+        </View>
+      ) : (
+        availability.map((day) => (
+          <View
+            key={day.dayOfWeek}
+            className="bg-[#1a1a1a] rounded-xl p-4 mb-3"
+          >
+            <View className="flex-row items-center justify-between mb-3">
+              <Text className="text-white font-semibold">
+                {FULL_DAYS[day.dayOfWeek]}
+              </Text>
+              <Switch
+                value={day.isOpen}
+                onValueChange={(value) => handleToggleDay(day.dayOfWeek, value)}
+                trackColor={{ false: "#374151", true: "#FFCC00" }}
+                thumbColor="#fff"
+              />
+            </View>
+            {day.isOpen && (
+              <View className="flex-row items-center gap-2">
+                <View className="flex-1">
+                  <Text className="text-gray-500 text-xs mb-1">Open</Text>
+                  <TouchableOpacity
+                    className="bg-[#252525] rounded-lg px-3 py-2 flex-row items-center justify-between"
+                    onPress={() => openTimePicker(day.dayOfWeek, "openTime")}
+                  >
+                    <Text className="text-white flex-1 text-center">
+                      {formatTime(day.openTime)}
+                    </Text>
+                    <Ionicons name="chevron-down" size={16} color="#9CA3AF" />
+                  </TouchableOpacity>
+                </View>
+                <Text className="text-gray-500 mt-4">to</Text>
+                <View className="flex-1">
+                  <Text className="text-gray-500 text-xs mb-1">Close</Text>
+                  <TouchableOpacity
+                    className="bg-[#252525] rounded-lg px-3 py-2 flex-row items-center justify-between"
+                    onPress={() => openTimePicker(day.dayOfWeek, "closeTime")}
+                  >
+                    <Text className="text-white flex-1 text-center">
+                      {formatTime(day.closeTime)}
+                    </Text>
+                    <Ionicons name="chevron-down" size={16} color="#9CA3AF" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
+        ))
+      )}
+    </ScrollView>
+  );
+
+  const renderSettingsTab = () => (
+    <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      <Text className="text-gray-400 text-sm mb-4">
+        Configure your booking slot settings.
+      </Text>
+      {!timeSlotConfig ? (
+        <View className="items-center py-8">
+          <Text className="text-gray-500">No settings found</Text>
+        </View>
+      ) : (
+        <>
+          <View className="bg-[#1a1a1a] rounded-xl p-4 mb-3">
+            <Text className="text-white font-semibold mb-2">Slot Duration</Text>
+            <Text className="text-gray-500 text-xs mb-3">
+              How long each appointment slot should be
+            </Text>
+            <View className="flex-row gap-2">
+              {[15, 30, 45, 60, 90, 120].map((duration) => (
+                <TouchableOpacity
+                  key={duration}
+                  onPress={() =>
+                    handleUpdateConfig({ slotDurationMinutes: duration })
+                  }
+                  className={`flex-1 py-2 rounded-lg ${
+                    timeSlotConfig.slotDurationMinutes === duration
+                      ? "bg-[#FFCC00]"
+                      : "bg-[#252525]"
+                  }`}
+                >
+                  <Text
+                    className={`text-center text-xs font-medium ${
+                      timeSlotConfig.slotDurationMinutes === duration
+                        ? "text-black"
+                        : "text-white"
+                    }`}
+                  >
+                    {duration}m
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <View className="bg-[#1a1a1a] rounded-xl p-4 mb-3">
+            <Text className="text-white font-semibold mb-2">Buffer Time</Text>
+            <Text className="text-gray-500 text-xs mb-3">
+              Time between appointments
+            </Text>
+            <View className="flex-row gap-2">
+              {[0, 5, 10, 15, 30].map((buffer) => (
+                <TouchableOpacity
+                  key={buffer}
+                  onPress={() =>
+                    handleUpdateConfig({ bufferTimeMinutes: buffer })
+                  }
+                  className={`flex-1 py-2 rounded-lg ${
+                    timeSlotConfig.bufferTimeMinutes === buffer
+                      ? "bg-[#FFCC00]"
+                      : "bg-[#252525]"
+                  }`}
+                >
+                  <Text
+                    className={`text-center text-xs font-medium ${
+                      timeSlotConfig.bufferTimeMinutes === buffer
+                        ? "text-black"
+                        : "text-white"
+                    }`}
+                  >
+                    {buffer}m
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <View className="bg-[#1a1a1a] rounded-xl p-4 mb-3">
+            <Text className="text-white font-semibold mb-2">
+              Max Concurrent Bookings
+            </Text>
+            <Text className="text-gray-500 text-xs mb-3">
+              Maximum bookings allowed at the same time
+            </Text>
+            <View className="flex-row gap-2">
+              {[1, 2, 3, 4, 5].map((max) => (
+                <TouchableOpacity
+                  key={max}
+                  onPress={() =>
+                    handleUpdateConfig({ maxConcurrentBookings: max })
+                  }
+                  className={`flex-1 py-2 rounded-lg ${
+                    timeSlotConfig.maxConcurrentBookings === max
+                      ? "bg-[#FFCC00]"
+                      : "bg-[#252525]"
+                  }`}
+                >
+                  <Text
+                    className={`text-center text-sm font-medium ${
+                      timeSlotConfig.maxConcurrentBookings === max
+                        ? "text-black"
+                        : "text-white"
+                    }`}
+                  >
+                    {max}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <View className="bg-[#1a1a1a] rounded-xl p-4 mb-3">
+            <Text className="text-white font-semibold mb-2">
+              Advance Booking
+            </Text>
+            <Text className="text-gray-500 text-xs mb-3">
+              How far in advance customers can book
+            </Text>
+            <View className="flex-row gap-2">
+              {[7, 14, 30, 60, 90].map((days) => (
+                <TouchableOpacity
+                  key={days}
+                  onPress={() =>
+                    handleUpdateConfig({ bookingAdvanceDays: days })
+                  }
+                  className={`flex-1 py-2 rounded-lg ${
+                    timeSlotConfig.bookingAdvanceDays === days
+                      ? "bg-[#FFCC00]"
+                      : "bg-[#252525]"
+                  }`}
+                >
+                  <Text
+                    className={`text-center text-xs font-medium ${
+                      timeSlotConfig.bookingAdvanceDays === days
+                        ? "text-black"
+                        : "text-white"
+                    }`}
+                  >
+                    {days}d
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </>
+      )}
+    </ScrollView>
+  );
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={onClose}
+    >
+      <View className="flex-1 bg-black/70 justify-end">
+        <View className="bg-[#121212] rounded-t-3xl pt-4 pb-8 px-4 h-[85%]">
+          <View className="flex-row items-center justify-between mb-4">
+            <TouchableOpacity onPress={onClose} className="p-2">
+              <Ionicons name="close" size={24} color="#999" />
+            </TouchableOpacity>
+            <Text className="text-white text-lg font-semibold">
+              Availability Settings
+            </Text>
+            <View className="w-10" />
+          </View>
+
+          <View className="flex-row bg-[#1a1a1a] rounded-lg p-1 mb-4">
+            {AVAILABILITY_TABS.map((tab) => (
+              <TouchableOpacity
+                key={tab.value}
+                onPress={() => setActiveTab(tab.value)}
+                className={`flex-1 py-2 rounded-md ${
+                  activeTab === tab.value ? "bg-[#FFCC00]" : ""
+                }`}
+              >
+                <Text
+                  className={`text-center text-sm font-medium ${
+                    activeTab === tab.value ? "text-black" : "text-gray-400"
+                  }`}
+                >
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {loading ? (
+            <View className="flex-1 items-center justify-center">
+              <ActivityIndicator size="large" color="#FFCC00" />
+            </View>
+          ) : (
+            <>
+              {activeTab === "hours" && renderHoursTab()}
+              {activeTab === "settings" && renderSettingsTab()}
+            </>
+          )}
+
+          {/* Done Button */}
+          <TouchableOpacity
+            onPress={handleDone}
+            className="bg-[#FFCC00] rounded-xl py-4 mt-4"
+          >
+            <Text className="text-black text-center font-semibold">Done</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Time Picker Modal */}
+      <Modal
+        visible={showTimePicker}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowTimePicker(false)}
+      >
+        <Pressable
+          className="flex-1 bg-black/60 justify-center items-center"
+          onPress={() => setShowTimePicker(false)}
+        >
+          <Pressable
+            className="bg-[#1a1a1a] rounded-2xl w-[80%] max-h-[60%]"
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View className="flex-row items-center justify-between px-4 py-3 border-b border-gray-800">
+              <Text className="text-white text-lg font-semibold">
+                Select {editingField === "openTime" ? "Opening" : "Closing"}{" "}
+                Time
+              </Text>
+              <TouchableOpacity onPress={() => setShowTimePicker(false)}>
+                <Ionicons name="close" size={24} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={TIME_OPTIONS}
+              keyExtractor={(item) => item.value}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingVertical: 8 }}
+              renderItem={({ item }) => {
+                const currentDay = availability.find(
+                  (d) => d.dayOfWeek === editingDay
+                );
+                const isSelected =
+                  editingField === "openTime"
+                    ? currentDay?.openTime === item.value
+                    : currentDay?.closeTime === item.value;
+
+                return (
+                  <TouchableOpacity
+                    onPress={() => handleTimeSelect(item.value)}
+                    className={`px-4 py-3 mx-2 rounded-lg mb-1 ${
+                      isSelected ? "bg-[#FFCC00]" : "bg-transparent"
+                    }`}
+                  >
+                    <Text
+                      className={`text-center text-base ${
+                        isSelected ? "text-black font-semibold" : "text-white"
+                      }`}
+                    >
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }}
+              getItemLayout={(_, index) => ({
+                length: 49,
+                offset: 49 * index,
+                index,
+              })}
+              initialScrollIndex={
+                editingDay !== null && editingField
+                  ? Math.max(
+                      0,
+                      TIME_OPTIONS.findIndex(
+                        (t) =>
+                          t.value ===
+                          (editingField === "openTime"
+                            ? availability.find(
+                                (d) => d.dayOfWeek === editingDay
+                              )?.openTime
+                            : availability.find(
+                                (d) => d.dayOfWeek === editingDay
+                              )?.closeTime)
+                      ) - 3
+                    )
+                  : 0
+              }
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </Modal>
+  );
+}
 
 export default function ServiceForm() {
   const params = useLocalSearchParams();
@@ -51,6 +580,9 @@ export default function ServiceForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [categoryModalVisible, setCategoryModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showAvailability, setShowAvailability] = useState(false);
+  const [pendingAvailabilityChanges, setPendingAvailabilityChanges] =
+    useState<PendingAvailabilityChanges | null>(null);
 
   // Load service data for edit mode
   useEffect(() => {
@@ -179,6 +711,46 @@ export default function ServiceForm() {
     }
   };
 
+  // Save availability changes to the API
+  const saveAvailabilityChanges = async () => {
+    if (!pendingAvailabilityChanges || !pendingAvailabilityChanges.hasChanges) {
+      return;
+    }
+
+    const { availability, timeSlotConfig } = pendingAvailabilityChanges;
+
+    // Save availability for each day that changed
+    for (const day of availability) {
+      try {
+        await appointmentApi.updateShopAvailability({
+          dayOfWeek: day.dayOfWeek,
+          isOpen: day.isOpen,
+          openTime: day.openTime || "09:00",
+          closeTime: day.closeTime || "17:00",
+        });
+      } catch (error) {
+        console.error(
+          `Failed to update availability for day ${day.dayOfWeek}:`,
+          error
+        );
+      }
+    }
+
+    // Save time slot config if changed
+    if (timeSlotConfig) {
+      try {
+        await appointmentApi.updateTimeSlotConfig({
+          slotDurationMinutes: timeSlotConfig.slotDurationMinutes,
+          bufferTimeMinutes: timeSlotConfig.bufferTimeMinutes,
+          maxConcurrentBookings: timeSlotConfig.maxConcurrentBookings,
+          bookingAdvanceDays: timeSlotConfig.bookingAdvanceDays,
+        });
+      } catch (error) {
+        console.error("Failed to update time slot config:", error);
+      }
+    }
+  };
+
   const handleSubmit = async () => {
     // Validation
     if (!formData.serviceName.trim()) {
@@ -220,6 +792,9 @@ export default function ServiceForm() {
           serviceData: updateData,
         });
 
+        // Save availability changes if any
+        await saveAvailabilityChanges();
+
         // Invalidate and refetch services list (use servicesBase for partial match)
         await queryClient.invalidateQueries({
           queryKey: queryKeys.service(shopId!),
@@ -244,6 +819,9 @@ export default function ServiceForm() {
         await createServiceMutation({
           serviceData: createData,
         });
+
+        // Save availability changes if any
+        await saveAvailabilityChanges();
 
         // Invalidate and refetch services list (use servicesBase for partial match)
         await queryClient.invalidateQueries({
@@ -354,14 +932,16 @@ export default function ServiceForm() {
               {isUploading ? (
                 <View className="bg-gray-800 rounded-lg border-2 border-dashed border-gray-700 h-40 items-center justify-center">
                   <View className="bg-gray-700/50 rounded-full p-4 mb-3">
-                    <Ionicons name="cloud-upload-outline" size={32} color="#FFCC00" />
+                    <Ionicons
+                      name="cloud-upload-outline"
+                      size={32}
+                      color="#FFCC00"
+                    />
                   </View>
                   <Text className="text-white font-medium mb-1">
                     Uploading Image...
                   </Text>
-                  <Text className="text-gray-500 text-xs">
-                    Please wait
-                  </Text>
+                  <Text className="text-gray-500 text-xs">Please wait</Text>
                 </View>
               ) : selectedImage ? (
                 <View className="relative">
@@ -420,26 +1000,81 @@ export default function ServiceForm() {
             />
           </View>
 
-          {/* Submit Button */}
-          <TouchableOpacity
-            onPress={handleSubmit}
-            disabled={isSubmitting}
-            className={`bg-[#FFCC00] rounded-lg py-4 items-center ${
-              isSubmitting ? "opacity-50" : ""
-            }`}
-          >
-            <Text className="text-black font-semibold text-base">
-              {isSubmitting
-                ? isEditMode
-                  ? "Updating..."
-                  : "Creating..."
-                : isEditMode
-                  ? "Update Service"
-                  : "Create Service"}
-            </Text>
-          </TouchableOpacity>
+          {/* Service Status */}
+          <View className="mb-4">
+            <Text className="text-gray-400 text-sm mb-2">Service Status</Text>
+            <View className="bg-gray-800 px-4 py-4 rounded-lg flex-row items-center justify-between">
+              <View className="flex-row items-center flex-1">
+                <Ionicons
+                  name={formData.active ? "checkmark-circle" : "close-circle"}
+                  size={20}
+                  color={formData.active ? "#22c55e" : "#ef4444"}
+                />
+                <View className="ml-3 flex-1">
+                  <Text className="text-white font-medium">
+                    {formData.active ? "Active" : "Inactive"}
+                  </Text>
+                  <Text className="text-gray-500 text-xs">
+                    {formData.active
+                      ? "Service is visible to customers"
+                      : "Service is hidden from customers"}
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={formData.active}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, active: value })
+                }
+                trackColor={{ false: "#374151", true: "#22c55e" }}
+                thumbColor={formData.active ? "#fff" : "#9CA3AF"}
+              />
+            </View>
+          </View>
+
+          {/* Availability Settings */}
+          <View className="mb-4">
+            <Text className="text-gray-400 text-sm mb-2">Availability</Text>
+            <TouchableOpacity
+              onPress={() => setShowAvailability(true)}
+              className="bg-gray-800 px-4 py-4 rounded-lg flex-row items-center justify-between"
+            >
+              <View className="flex-row items-center">
+                <Ionicons name="time-outline" size={20} color="#FFCC00" />
+                <View className="ml-3">
+                  <Text className="text-white font-medium">
+                    Availability Settings
+                  </Text>
+                  <Text className="text-gray-500 text-xs">
+                    Set operating hours, booking slots & holidays
+                  </Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
+      {/* Submit Button */}
+      <View className="absolute bottom-0 left-0 right-0 bg-zinc-950 px-6 pt-4 pb-8 border-t border-gray-800">
+        <TouchableOpacity
+          onPress={handleSubmit}
+          disabled={isSubmitting}
+          className={`bg-[#FFCC00] rounded-lg py-4 items-center ${
+            isSubmitting ? "opacity-50" : ""
+          }`}
+        >
+          <Text className="text-black text-lg font-bold ml-2">
+            {isSubmitting
+              ? isEditMode
+                ? "Updating..."
+                : "Creating..."
+              : isEditMode
+                ? "Update Service"
+                : "Create Service"}
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Category Selection Modal */}
       <Modal
@@ -530,6 +1165,16 @@ export default function ServiceForm() {
           </View>
         </View>
       </Modal>
+
+      {/* Availability Modal */}
+      {shopId && (
+        <AvailabilityModal
+          visible={showAvailability}
+          onClose={() => setShowAvailability(false)}
+          onSave={(changes) => setPendingAvailabilityChanges(changes)}
+          shopId={shopId}
+        />
+      )}
     </ThemedView>
   );
 }
