@@ -898,6 +898,213 @@ const options = {
               description: 'Sort order'
             }
           }
+        },
+
+        // Service Group schemas
+        ServiceGroupLink: {
+          type: 'object',
+          description: 'Link between a service and an affiliate group with reward settings',
+          properties: {
+            id: {
+              type: 'number',
+              description: 'Unique link ID',
+              example: 123
+            },
+            serviceId: {
+              type: 'string',
+              description: 'Service ID',
+              example: 'srv_123abc'
+            },
+            groupId: {
+              type: 'string',
+              description: 'Affiliate group ID',
+              example: 'grp_456def'
+            },
+            tokenRewardPercentage: {
+              type: 'number',
+              minimum: 0,
+              maximum: 500,
+              description: 'Percentage of service price awarded as group tokens (0-500%)',
+              example: 100
+            },
+            bonusMultiplier: {
+              type: 'number',
+              minimum: 0,
+              maximum: 10,
+              description: 'Bonus multiplier applied to token rewards (0-10x)',
+              example: 1.0
+            },
+            active: {
+              type: 'boolean',
+              description: 'Whether this link is active',
+              example: true
+            },
+            addedAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'When the link was created'
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'When the link was last updated'
+            },
+            groupName: {
+              type: 'string',
+              description: 'Name of the affiliate group',
+              example: 'CODEBILITY Developer Coalition'
+            },
+            customTokenName: {
+              type: 'string',
+              description: 'Full name of the group token',
+              example: 'CODEBILITY Token'
+            },
+            customTokenSymbol: {
+              type: 'string',
+              description: 'Short symbol for the group token',
+              example: 'CDV'
+            },
+            icon: {
+              type: 'string',
+              description: 'Emoji icon for the group',
+              example: '💻'
+            }
+          }
+        },
+
+        ServiceGroup: {
+          type: 'object',
+          description: 'Affiliate group information shown on services',
+          properties: {
+            groupId: {
+              type: 'string',
+              description: 'Affiliate group ID',
+              example: 'grp_456def'
+            },
+            groupName: {
+              type: 'string',
+              description: 'Name of the affiliate group',
+              example: 'CODEBILITY Developer Coalition'
+            },
+            customTokenSymbol: {
+              type: 'string',
+              description: 'Short symbol for the group token',
+              example: 'CDV'
+            },
+            customTokenName: {
+              type: 'string',
+              description: 'Full name of the group token',
+              example: 'CODEBILITY Token'
+            },
+            icon: {
+              type: 'string',
+              description: 'Emoji icon for the group',
+              example: '💻'
+            },
+            tokenRewardPercentage: {
+              type: 'number',
+              description: 'Percentage of service price awarded as tokens',
+              example: 100
+            },
+            bonusMultiplier: {
+              type: 'number',
+              description: 'Bonus multiplier for rewards',
+              example: 1.0
+            }
+          }
+        },
+
+        ServiceWithShopInfo: {
+          type: 'object',
+          description: 'Service with shop information and group affiliations',
+          properties: {
+            serviceId: {
+              type: 'string',
+              description: 'Unique service identifier',
+              example: 'srv_123abc'
+            },
+            shopId: {
+              type: 'string',
+              description: 'Shop ID that owns this service',
+              example: 'shop_001'
+            },
+            serviceName: {
+              type: 'string',
+              description: 'Name of the service',
+              example: 'iPhone Screen Repair'
+            },
+            description: {
+              type: 'string',
+              description: 'Detailed service description'
+            },
+            priceUsd: {
+              type: 'number',
+              description: 'Service price in USD',
+              example: 89.99
+            },
+            durationMinutes: {
+              type: 'number',
+              description: 'Estimated service duration in minutes',
+              example: 60
+            },
+            category: {
+              type: 'string',
+              description: 'Service category',
+              example: 'Electronics Repair'
+            },
+            imageUrl: {
+              type: 'string',
+              description: 'Service image URL'
+            },
+            tags: {
+              type: 'array',
+              items: {
+                type: 'string'
+              },
+              description: 'Service tags for categorization',
+              example: ['iphone', 'screen', 'repair']
+            },
+            active: {
+              type: 'boolean',
+              description: 'Whether service is active',
+              example: true
+            },
+            avgRating: {
+              type: 'number',
+              description: 'Average customer rating (1-5)',
+              example: 4.5
+            },
+            reviewCount: {
+              type: 'number',
+              description: 'Number of customer reviews',
+              example: 23
+            },
+            companyName: {
+              type: 'string',
+              description: 'Shop/company name'
+            },
+            shopIsVerified: {
+              type: 'boolean',
+              description: 'Whether shop is verified'
+            },
+            shopLocation: {
+              type: 'object',
+              properties: {
+                lat: { type: 'number', description: 'Latitude' },
+                lng: { type: 'number', description: 'Longitude' },
+                city: { type: 'string', description: 'City' },
+                state: { type: 'string', description: 'State' },
+                zipCode: { type: 'string', description: 'ZIP code' }
+              }
+            },
+            groups: {
+              type: 'array',
+              items: {
+                $ref: '#/components/schemas/ServiceGroup'
+              },
+              description: 'Affiliate groups this service is linked to'
+            }
+          }
         }
       }
     },
@@ -5833,6 +6040,14 @@ const options = {
       {
         name: 'Shop Groups',
         description: 'Shop coalition management - create groups, manage members, and issue custom group tokens/points redeemable within the group'
+      },
+      {
+        name: 'Services',
+        description: 'Service management including creation, updates, and group linking for shops'
+      },
+      {
+        name: 'Affiliate Groups',
+        description: 'Affiliate group operations including service discovery and filtering by group'
       }
     ]
   },

@@ -123,7 +123,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
           </div>
         )}
 
-        {/* RCN Earning Badge - Bottom Right */}
+        {/* RCN Earning Badge - Bottom Right with Enhanced Tooltip */}
         {qualifies && (
           <div className="absolute bottom-3 right-3 z-10 group/rcn">
             <div className="flex items-center gap-0.5 bg-gradient-to-r from-[#FFCC00]/95 to-[#FFD700]/95 backdrop-blur-sm border border-[#FFCC00]/60 text-black px-2.5 py-1 rounded-full shadow-lg hover:scale-105 transition-transform duration-200 cursor-help">
@@ -133,12 +133,57 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
               </span>
               <Coins className="w-3 h-3 ml-0.5" />
             </div>
-            {/* Tooltip on hover */}
-            {tierBonus > 0 && (
-              <div className="absolute bottom-full right-0 mb-2 px-2 py-1 bg-black/90 text-white text-[10px] rounded whitespace-nowrap opacity-0 group-hover/rcn:opacity-100 transition-opacity duration-200 pointer-events-none">
-                Base: {baseRcn} + {customerTier} Bonus: {tierBonus}
+            {/* Enhanced Earning Preview Tooltip */}
+            <div className="absolute bottom-full right-0 mb-2 w-64 px-3 py-2.5 bg-gradient-to-br from-gray-900 to-black border border-gray-700 rounded-lg shadow-2xl opacity-0 group-hover/rcn:opacity-100 transition-opacity duration-200 pointer-events-none">
+              <div className="text-xs font-bold text-[#FFCC00] mb-2 flex items-center gap-1">
+                <Coins className="w-3.5 h-3.5" />
+                <span>Earning Breakdown</span>
               </div>
-            )}
+
+              {/* RCN Rewards */}
+              <div className="space-y-1 mb-2">
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-gray-400">Base RCN:</span>
+                  <span className="text-white font-semibold">{baseRcn} RCN</span>
+                </div>
+                {tierBonus > 0 && (
+                  <div className="flex justify-between items-center text-[10px]">
+                    <span className="text-gray-400">{customerTier} Tier Bonus:</span>
+                    <span className="text-[#FFCC00] font-semibold">+{tierBonus} RCN</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center text-[10px] pt-1 border-t border-gray-700">
+                  <span className="text-gray-300 font-medium">Total RCN:</span>
+                  <span className="text-[#FFCC00] font-bold">{totalRcn} RCN</span>
+                </div>
+                <div className="text-[9px] text-gray-500 text-right">
+                  ≈ ${(totalRcn * 0.10).toFixed(2)} USD value
+                </div>
+              </div>
+
+              {/* Group Token Rewards */}
+              {service.groups && service.groups.length > 0 && (
+                <div className="pt-2 border-t border-gray-700">
+                  <div className="text-[10px] text-purple-300 font-semibold mb-1.5">
+                    + Bonus Group Tokens:
+                  </div>
+                  <div className="space-y-1">
+                    {service.groups.map((group) => {
+                      const groupTokenAmount = (service.priceUsd * (group.tokenRewardPercentage / 100) * group.bonusMultiplier).toFixed(1);
+                      return (
+                        <div key={group.groupId} className="flex justify-between items-center text-[10px]">
+                          <span className="text-gray-400 flex items-center gap-1">
+                            <span>{group.icon || '🎁'}</span>
+                            <span>{group.customTokenSymbol}:</span>
+                          </span>
+                          <span className="text-purple-300 font-semibold">+{groupTokenAmount}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
