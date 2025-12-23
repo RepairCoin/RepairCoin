@@ -99,6 +99,14 @@ export const appointmentsApi = {
     return response.data.data;
   },
 
+  // Public: Get time slot configuration by shop ID (for customers)
+  async getPublicTimeSlotConfig(shopId: string): Promise<TimeSlotConfig | null> {
+    const response = await axios.get<{ success: boolean; data: TimeSlotConfig | null }>(
+      `${API_URL}/services/appointments/time-slot-config/${shopId}`
+    );
+    return response.data.data;
+  },
+
   // Shop: Update shop availability
   async updateShopAvailability(availability: {
     dayOfWeek: number;

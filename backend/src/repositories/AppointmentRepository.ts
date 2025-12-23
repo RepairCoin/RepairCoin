@@ -367,13 +367,17 @@ export class AppointmentRepository extends BaseRepository {
 
   async getBookedSlots(shopId: string, date: string): Promise<{ timeSlot: string; count: number }[]> {
     try {
+      // CRITICAL FIX: Use DATE() cast for proper date comparison
+      // The booking_date column stores full timestamps (e.g., '2025-12-30T00:00:00.000Z')
+      // but we pass a plain date string (e.g., '2025-12-30')
+      // Without DATE() cast, the comparison fails and returns empty results
       const query = `
         SELECT
           COALESCE(booking_time_slot, booking_time) as "timeSlot",
           COUNT(*) as count
         FROM service_orders
         WHERE shop_id = $1
-          AND booking_date = $2
+          AND DATE(booking_date) = DATE($2)
           AND (booking_time_slot IS NOT NULL OR booking_time IS NOT NULL)
           AND status NOT IN ('cancelled', 'refunded')
         GROUP BY COALESCE(booking_time_slot, booking_time)

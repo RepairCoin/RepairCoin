@@ -10,6 +10,7 @@ import { useCustomerStore } from "@/stores/customerStore";
 import { TimeSlotPicker } from "./TimeSlotPicker";
 import { DateAvailabilityPicker } from "./DateAvailabilityPicker";
 import { formatLocalDate } from "@/utils/dateUtils";
+import { appointmentsApi, TimeSlotConfig } from "@/services/api/appointments";
 
 // Initialize Stripe
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "");
@@ -168,6 +169,20 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
   // Booking Date & Time State
   const [bookingDate, setBookingDate] = useState<Date | null>(null);
   const [bookingTimeSlot, setBookingTimeSlot] = useState<string | null>(null);
+  const [timeSlotConfig, setTimeSlotConfig] = useState<TimeSlotConfig | null>(null);
+
+  // Load shop's time slot configuration for booking advance days
+  useEffect(() => {
+    const loadTimeSlotConfig = async () => {
+      try {
+        const config = await appointmentsApi.getPublicTimeSlotConfig(service.shopId);
+        setTimeSlotConfig(config);
+      } catch (error) {
+        console.error('Error loading time slot config:', error);
+      }
+    };
+    loadTimeSlotConfig();
+  }, [service.shopId]);
 
   // RCN Redemption State
   const [rcnToRedeem, setRcnToRedeem] = useState(0);
@@ -356,6 +371,7 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
                         setBookingDate(date);
                         setBookingTimeSlot(null); // Reset time slot when date changes
                       }}
+                      maxAdvanceDays={timeSlotConfig?.bookingAdvanceDays || 30}
                     />
                   </div>
 

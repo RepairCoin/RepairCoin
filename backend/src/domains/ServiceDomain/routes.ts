@@ -1601,6 +1601,28 @@ export function initializeRoutes(stripe: StripeService): Router {
 
   /**
    * @swagger
+   * /api/services/appointments/time-slot-config/{shopId}:
+   *   get:
+   *     summary: Get time slot configuration for a shop (Public)
+   *     description: Get booking configuration including max advance days, slot duration, etc.
+   *     tags: [Appointments]
+   *     parameters:
+   *       - in: path
+   *         name: shopId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Time slot configuration
+   */
+  router.get(
+    '/appointments/time-slot-config/:shopId',
+    appointmentController.getPublicTimeSlotConfig
+  );
+
+  /**
+   * @swagger
    * /api/services/appointments/shop-availability:
    *   put:
    *     summary: Update shop operating hours (Shop only)

@@ -124,7 +124,19 @@ export class AppointmentService {
       // For same-day or next-day bookings, we need more nuanced checking
       // Only reject if the entire day is too soon (date + last slot time < minBookingHours)
       const [closeHour, closeMin] = closeTime.split(':').map(Number);
-      const lastSlotTime = createDateTime(date, `${String(closeHour).padStart(2, '0')}:${String(closeMin).padStart(2, '0')}`);
+      const [openHourCheck, openMinCheck] = openTime.split(':').map(Number);
+
+      // Calculate last slot time, accounting for overnight hours
+      let lastSlotTime = createDateTime(date, `${String(closeHour).padStart(2, '0')}:${String(closeMin).padStart(2, '0')}`);
+
+      // CRITICAL FIX: Handle overnight hours for last slot calculation
+      const openMinsTotal = openHourCheck * 60 + openMinCheck;
+      const closeMinsTotal = closeHour * 60 + closeMin;
+      if (closeMinsTotal <= openMinsTotal) {
+        // Overnight hours: last slot is actually on the next day
+        lastSlotTime = new Date(lastSlotTime.getTime() + 24 * 60 * 60 * 1000);
+      }
+
       const hoursUntilLastSlot = (lastSlotTime.getTime() - now.getTime()) / (1000 * 60 * 60);
 
       // Only reject the entire day if even the last slot is too soon
@@ -149,7 +161,26 @@ export class AppointmentService {
 
       // Get already booked slots for this date
       const bookedSlots = await this.appointmentRepo.getBookedSlots(shopId, date);
-      const bookedMap = new Map(bookedSlots.map(s => [s.timeSlot, s.count]));
+
+      logger.info('DEBUG: Raw booked slots from database', {
+        shopId,
+        date,
+        bookedSlots: bookedSlots.map(s => ({
+          rawTimeSlot: s.timeSlot,
+          normalizedTimeSlot: this.normalizeTimeSlot(s.timeSlot),
+          count: s.count
+        }))
+      });
+
+      // Normalize time format: PostgreSQL returns "09:00:00" but we use "09:00"
+      const bookedMap = new Map(bookedSlots.map(s => [this.normalizeTimeSlot(s.timeSlot), s.count]));
+
+      logger.info('DEBUG: Booked map entries', {
+        shopId,
+        date,
+        mapEntries: Array.from(bookedMap.entries()),
+        maxConcurrentBookings: config.maxConcurrentBookings
+      });
 
       // Generate time slots
       const slots: TimeSlot[] = [];
@@ -161,7 +192,24 @@ export class AppointmentService {
       // Create times using the booking date, not current date
       const [year, month, day] = date.split('-').map(Number);
       let currentTime = new Date(year, month - 1, day, openHour, openMin, 0, 0);
-      const endTime = new Date(year, month - 1, day, closeHourParsed, closeMinParsed, 0, 0);
+      let endTime = new Date(year, month - 1, day, closeHourParsed, closeMinParsed, 0, 0);
+
+      // CRITICAL FIX: Handle overnight hours (e.g., 3pm - 12am where close < open)
+      // If close time is midnight (00:00) or if close time is before open time,
+      // the shop operates overnight, so endTime should be the next day
+      const openMinutes = openHour * 60 + openMin;
+      const closeMinutes = closeHourParsed * 60 + closeMinParsed;
+      if (closeMinutes <= openMinutes) {
+        // Overnight hours: add 1 day to endTime
+        endTime = new Date(year, month - 1, day + 1, closeHourParsed, closeMinParsed, 0, 0);
+        logger.debug('Overnight hours detected', {
+          openTime,
+          closeTime,
+          openMinutes,
+          closeMinutes,
+          adjustedEndTime: endTime.toISOString()
+        });
+      }
 
       logger.debug('Generating slots', {
         date,
@@ -200,6 +248,17 @@ export class AppointmentService {
         } else {
           const bookedCount = bookedMap.get(timeStr) || 0;
           const available = bookedCount < config.maxConcurrentBookings;
+
+          // DEBUG: Log each slot's availability calculation
+          if (bookedCount > 0) {
+            logger.info('DEBUG: Slot has bookings', {
+              timeStr,
+              bookedCount,
+              maxConcurrent: config.maxConcurrentBookings,
+              available,
+              mapHasKey: bookedMap.has(timeStr)
+            });
+          }
 
           // Check if it's too soon (same day booking)
           const slotDateTime = createDateTime(date, timeStr);
@@ -336,5 +395,14 @@ export class AppointmentService {
   private timeToMinutes(time: string): number {
     const [hours, minutes] = time.split(':').map(Number);
     return hours * 60 + minutes;
+  }
+
+  /**
+   * Helper: Normalize time string to HH:MM format
+   * PostgreSQL TIME returns "HH:MM:SS" but we use "HH:MM" internally
+   */
+  private normalizeTimeSlot(time: string): string {
+    const parts = time.split(':');
+    return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
   }
 }

@@ -74,6 +74,33 @@ export class AppointmentController {
   };
 
   /**
+   * Get time slot configuration by shop ID (Public - for customers)
+   * GET /api/services/appointments/time-slot-config/:shopId
+   */
+  getPublicTimeSlotConfig = async (req: Request, res: Response) => {
+    try {
+      const { shopId } = req.params;
+
+      if (!shopId) {
+        return res.status(400).json({ success: false, error: 'shopId is required' });
+      }
+
+      const config = await this.appointmentRepo.getTimeSlotConfig(shopId);
+
+      res.json({
+        success: true,
+        data: config
+      });
+    } catch (error: unknown) {
+      logger.error('Error in getPublicTimeSlotConfig controller:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get time slot config'
+      });
+    }
+  };
+
+  /**
    * Update shop availability (Shop only)
    * PUT /api/services/appointments/shop-availability
    */
