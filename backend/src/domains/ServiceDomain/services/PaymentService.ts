@@ -151,6 +151,18 @@ export class PaymentService {
           throw new Error(`Time slot ${request.bookingTime} is fully booked. Please select a different time.`);
         }
 
+        // Validate minimum notice (minBookingHours)
+        // Parse booking date and time to create a proper DateTime
+        const [bookingYear, bookingMonth, bookingDay] = dateStr.split('-').map(Number);
+        const [bookingHour, bookingMinute] = request.bookingTime.split(':').map(Number);
+        const slotDateTime = new Date(bookingYear, bookingMonth - 1, bookingDay, bookingHour, bookingMinute, 0, 0);
+        const now = new Date();
+        const hoursUntilSlot = (slotDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+        if (hoursUntilSlot < config.minBookingHours) {
+          throw new Error(`Bookings require at least ${config.minBookingHours} hours advance notice. Please select a later time.`);
+        }
+
         logger.info('Time slot validated', {
           shopId: service.shopId,
           date: dateStr,
@@ -303,6 +315,18 @@ export class PaymentService {
         // Check if time slot is available
         if (bookedCount >= config.maxConcurrentBookings) {
           throw new Error(`Time slot ${request.bookingTime} is fully booked. Please select a different time.`);
+        }
+
+        // Validate minimum notice (minBookingHours)
+        // Parse booking date and time to create a proper DateTime
+        const [bookingYear, bookingMonth, bookingDay] = dateStr.split('-').map(Number);
+        const [bookingHour, bookingMinute] = request.bookingTime.split(':').map(Number);
+        const slotDateTime = new Date(bookingYear, bookingMonth - 1, bookingDay, bookingHour, bookingMinute, 0, 0);
+        const now = new Date();
+        const hoursUntilSlot = (slotDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+        if (hoursUntilSlot < config.minBookingHours) {
+          throw new Error(`Bookings require at least ${config.minBookingHours} hours advance notice. Please select a later time.`);
         }
 
         logger.info('Time slot validated (checkout)', {
