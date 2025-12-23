@@ -42,7 +42,8 @@ export const DateAvailabilityPicker: React.FC<DateAvailabilityPickerProps> = ({
 
   const isDateAvailable = (date: Date): boolean => {
     const dayOfWeek = date.getDay();
-    const dayAvailability = shopAvailability.find(a => a.dayOfWeek === dayOfWeek);
+    // Use Number() to ensure type consistency (API might return string)
+    const dayAvailability = shopAvailability.find(a => Number(a.dayOfWeek) === dayOfWeek);
     return dayAvailability?.isOpen || false;
   };
 
