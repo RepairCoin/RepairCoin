@@ -96,6 +96,39 @@ export interface MarketplaceHealthScore {
   interpretation: string;
 }
 
+export interface GroupPerformanceAnalytics {
+  summary: {
+    totalServicesLinked: number;
+    totalGroupsActive: number;
+    totalGroupTokensIssued: number;
+    totalBookingsFromGroups: number;
+  };
+  groupBreakdown: Array<{
+    groupId: string;
+    groupName: string;
+    customTokenSymbol: string;
+    icon: string;
+    servicesLinked: number;
+    totalBookings: number;
+    totalRevenue: number;
+    tokensIssued: number;
+    conversionRate: number;
+  }>;
+  servicesLinked: Array<{
+    serviceId: string;
+    serviceName: string;
+    groups: Array<{
+      groupId: string;
+      groupName: string;
+      customTokenSymbol: string;
+      tokenRewardPercentage: number;
+      bonusMultiplier: number;
+    }>;
+    bookings: number;
+    revenue: number;
+  }>;
+}
+
 // Shop Analytics API
 export const serviceAnalyticsApi = {
   // Shop endpoints
@@ -138,6 +171,14 @@ export const serviceAnalyticsApi = {
   async getShopCategoryBreakdown(): Promise<CategoryPerformance[]> {
     const response = await axios.get<{ success: boolean; data: CategoryPerformance[] }>(
       `${API_URL}/services/analytics/shop/categories`,
+      { withCredentials: true }
+    );
+    return response.data.data;
+  },
+
+  async getGroupPerformanceAnalytics(): Promise<GroupPerformanceAnalytics> {
+    const response = await axios.get<{ success: boolean; data: GroupPerformanceAnalytics }>(
+      `${API_URL}/services/analytics/shop/group-performance`,
       { withCredentials: true }
     );
     return response.data.data;

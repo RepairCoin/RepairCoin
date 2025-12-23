@@ -259,4 +259,48 @@ export class ServiceAnalyticsService {
       throw new Error('Failed to calculate marketplace health score');
     }
   }
+
+  /**
+   * Get group performance analytics for a shop
+   * Shows which affiliate groups are driving bookings and token issuance
+   */
+  async getGroupPerformanceAnalytics(shopId: string): Promise<{
+    summary: {
+      totalServicesLinked: number;
+      totalGroupsActive: number;
+      totalGroupTokensIssued: number;
+      totalBookingsFromGroups: number;
+    };
+    groupBreakdown: Array<{
+      groupId: string;
+      groupName: string;
+      customTokenSymbol: string;
+      icon: string;
+      servicesLinked: number;
+      totalBookings: number;
+      totalRevenue: number;
+      tokensIssued: number;
+      conversionRate: number;
+    }>;
+    servicesLinked: Array<{
+      serviceId: string;
+      serviceName: string;
+      groups: Array<{
+        groupId: string;
+        groupName: string;
+        customTokenSymbol: string;
+        tokenRewardPercentage: number;
+        bonusMultiplier: number;
+      }>;
+      bookings: number;
+      revenue: number;
+    }>;
+  }> {
+    try {
+      return await this.analyticsRepository.getGroupPerformanceAnalytics(shopId);
+    } catch (error) {
+      logger.error('Error getting group performance analytics:', error);
+      throw new Error('Failed to get group performance analytics');
+    }
+  }
 }

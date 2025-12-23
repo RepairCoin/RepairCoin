@@ -446,4 +446,149 @@ export class ServiceAnalyticsRepository extends BaseRepository {
       throw new Error('Failed to get platform order trends');
     }
   }
+
+  /**
+   * Get group performance analytics for a shop
+   */
+  async getGroupPerformanceAnalytics(shopId: string): Promise<{
+    summary: {
+      totalServicesLinked: number;
+      totalGroupsActive: number;
+      totalGroupTokensIssued: number;
+      totalBookingsFromGroups: number;
+    };
+    groupBreakdown: Array<{
+      groupId: string;
+      groupName: string;
+      customTokenSymbol: string;
+      icon: string;
+      servicesLinked: number;
+      totalBookings: number;
+      totalRevenue: number;
+      tokensIssued: number;
+      conversionRate: number;
+    }>;
+    servicesLinked: Array<{
+      serviceId: string;
+      serviceName: string;
+      groups: Array<{
+        groupId: string;
+        groupName: string;
+        customTokenSymbol: string;
+        tokenRewardPercentage: number;
+        bonusMultiplier: number;
+      }>;
+      bookings: number;
+      revenue: number;
+    }>;
+  }> {
+    try {
+      // Get summary statistics
+      const summaryQuery = `
+        SELECT
+          COUNT(DISTINCT sga.service_id) as total_services_linked,
+          COUNT(DISTINCT sga.group_id) as total_groups_active,
+          COALESCE(SUM(
+            CASE
+              WHEN so.status IN ('paid', 'completed') THEN
+                (so.total_amount * (sga.token_reward_percentage / 100) * sga.bonus_multiplier)
+              ELSE 0
+            END
+          ), 0) as total_group_tokens_issued,
+          COUNT(DISTINCT so.order_id) as total_bookings_from_groups
+        FROM service_group_availability sga
+        INNER JOIN shop_services s ON sga.service_id = s.service_id
+        LEFT JOIN service_orders so ON s.service_id = so.service_id
+        WHERE s.shop_id = $1 AND sga.active = true
+      `;
+
+      const summaryResult = await this.pool.query(summaryQuery, [shopId]);
+      const summary = summaryResult.rows[0];
+
+      // Get group breakdown
+      const groupQuery = `
+        SELECT
+          asg.group_id,
+          asg.group_name,
+          asg.custom_token_symbol,
+          asg.icon,
+          COUNT(DISTINCT sga.service_id) as services_linked,
+          COUNT(DISTINCT so.order_id) as total_bookings,
+          COALESCE(SUM(CASE WHEN so.status IN ('paid', 'completed') THEN so.total_amount ELSE 0 END), 0) as total_revenue,
+          COALESCE(SUM(
+            CASE
+              WHEN so.status IN ('paid', 'completed') THEN
+                (so.total_amount * (sga.token_reward_percentage / 100) * sga.bonus_multiplier)
+              ELSE 0
+            END
+          ), 0) as tokens_issued
+        FROM affiliate_shop_groups asg
+        INNER JOIN service_group_availability sga ON asg.group_id = sga.group_id
+        INNER JOIN shop_services s ON sga.service_id = s.service_id
+        LEFT JOIN service_orders so ON s.service_id = so.service_id
+        WHERE s.shop_id = $1 AND sga.active = true
+        GROUP BY asg.group_id, asg.group_name, asg.custom_token_symbol, asg.icon
+        ORDER BY total_bookings DESC, total_revenue DESC
+      `;
+
+      const groupResult = await this.pool.query(groupQuery, [shopId]);
+
+      // Get services linked to groups
+      const servicesQuery = `
+        SELECT
+          s.service_id,
+          s.service_name,
+          json_agg(json_build_object(
+            'groupId', asg.group_id,
+            'groupName', asg.group_name,
+            'customTokenSymbol', asg.custom_token_symbol,
+            'tokenRewardPercentage', sga.token_reward_percentage,
+            'bonusMultiplier', sga.bonus_multiplier
+          )) as groups,
+          COUNT(DISTINCT so.order_id) as bookings,
+          COALESCE(SUM(CASE WHEN so.status IN ('paid', 'completed') THEN so.total_amount ELSE 0 END), 0) as revenue
+        FROM shop_services s
+        INNER JOIN service_group_availability sga ON s.service_id = sga.service_id
+        INNER JOIN affiliate_shop_groups asg ON sga.group_id = asg.group_id
+        LEFT JOIN service_orders so ON s.service_id = so.service_id
+        WHERE s.shop_id = $1 AND sga.active = true
+        GROUP BY s.service_id, s.service_name
+        ORDER BY bookings DESC, revenue DESC
+      `;
+
+      const servicesResult = await this.pool.query(servicesQuery, [shopId]);
+
+      return {
+        summary: {
+          totalServicesLinked: parseInt(summary.total_services_linked) || 0,
+          totalGroupsActive: parseInt(summary.total_groups_active) || 0,
+          totalGroupTokensIssued: parseFloat(summary.total_group_tokens_issued) || 0,
+          totalBookingsFromGroups: parseInt(summary.total_bookings_from_groups) || 0
+        },
+        groupBreakdown: groupResult.rows.map(row => ({
+          groupId: row.group_id,
+          groupName: row.group_name,
+          customTokenSymbol: row.custom_token_symbol,
+          icon: row.icon || '🎁',
+          servicesLinked: parseInt(row.services_linked),
+          totalBookings: parseInt(row.total_bookings),
+          totalRevenue: parseFloat(row.total_revenue),
+          tokensIssued: parseFloat(row.tokens_issued),
+          conversionRate: parseInt(row.services_linked) > 0
+            ? (parseInt(row.total_bookings) / parseInt(row.services_linked)) * 100
+            : 0
+        })),
+        servicesLinked: servicesResult.rows.map(row => ({
+          serviceId: row.service_id,
+          serviceName: row.service_name,
+          groups: row.groups || [],
+          bookings: parseInt(row.bookings),
+          revenue: parseFloat(row.revenue)
+        }))
+      };
+    } catch (error) {
+      logger.error('Error getting group performance analytics:', error);
+      throw new Error('Failed to get group performance analytics');
+    }
+  }
 }

@@ -1179,6 +1179,55 @@ export function initializeRoutes(stripe: StripeService): Router {
 
   /**
    * @swagger
+   * /api/services/analytics/shop/group-performance:
+   *   get:
+   *     summary: Get group performance analytics for shop
+   *     description: Retrieve analytics showing which affiliate groups are driving bookings and token issuance
+   *     tags: [Service Analytics]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Group performance analytics
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     summary:
+   *                       type: object
+   *                       properties:
+   *                         totalServicesLinked:
+   *                           type: number
+   *                         totalGroupsActive:
+   *                           type: number
+   *                         totalGroupTokensIssued:
+   *                           type: number
+   *                         totalBookingsFromGroups:
+   *                           type: number
+   *                     groupBreakdown:
+   *                       type: array
+   *                       items:
+   *                         type: object
+   *                     servicesLinked:
+   *                       type: array
+   *                       items:
+   *                         type: object
+   */
+  router.get(
+    '/analytics/shop/group-performance',
+    authMiddleware,
+    requireRole(['shop']),
+    analyticsController.getGroupPerformance
+  );
+
+  /**
+   * @swagger
    * /api/services/analytics/platform:
    *   get:
    *     summary: Get platform-wide service analytics (Admin only)

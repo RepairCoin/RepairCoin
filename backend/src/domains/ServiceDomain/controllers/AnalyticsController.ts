@@ -481,4 +481,30 @@ export class AnalyticsController {
       });
     }
   };
+
+  /**
+   * Get group performance analytics for shop
+   * GET /api/services/analytics/shop/group-performance
+   */
+  getGroupPerformance = async (req: Request, res: Response) => {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+
+      const analytics = await this.analyticsService.getGroupPerformanceAnalytics(shopId);
+
+      res.json({
+        success: true,
+        data: analytics
+      });
+    } catch (error: unknown) {
+      logger.error('Error in getGroupPerformance controller:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get group performance analytics'
+      });
+    }
+  };
 }
