@@ -234,6 +234,68 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       });
     }
 
+    // ============================================================
+    // SLIDING WINDOW TOKEN REFRESH
+    // ============================================================
+    // Proactively refresh the access token if it's close to expiring
+    // This prevents active users from being unexpectedly logged out
+    // Token is refreshed if less than 5 minutes remaining
+    // ============================================================
+    const SLIDING_WINDOW_THRESHOLD_SECONDS = 5 * 60; // 5 minutes before expiry
+    const timeUntilExpiry = decoded.exp - Math.floor(Date.now() / 1000);
+
+    if (timeUntilExpiry > 0 && timeUntilExpiry < SLIDING_WINDOW_THRESHOLD_SECONDS) {
+      logger.info('Sliding window refresh: Token expiring soon, issuing new access token', {
+        address: decoded.address,
+        role: decoded.role,
+        timeUntilExpiry: `${timeUntilExpiry} seconds`
+      });
+
+      try {
+        // Generate a new access token
+        const newAccessToken = generateAccessToken({
+          address: decoded.address,
+          role: decoded.role,
+          shopId: decoded.shopId
+        });
+
+        // Set cookie options
+        const cookieOptions: any = {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+          maxAge: 15 * 60 * 1000, // 15 minutes
+          path: '/'
+        };
+
+        // Set domain for cookie sharing
+        const isProduction = process.env.NODE_ENV === 'production';
+        const cookieDomain = process.env.COOKIE_DOMAIN;
+        if (isProduction && cookieDomain) {
+          cookieOptions.domain = cookieDomain;
+        } else if (!isProduction) {
+          cookieOptions.domain = 'localhost';
+        }
+
+        // Set the new access token cookie
+        res.cookie('auth_token', newAccessToken, cookieOptions);
+
+        // Also add a custom header so the frontend knows a refresh happened
+        res.setHeader('X-Token-Refreshed', 'true');
+
+        logger.info('Sliding window refresh: New access token issued successfully', {
+          address: decoded.address
+        });
+      } catch (refreshError) {
+        // Don't fail the request if sliding window refresh fails
+        // The user still has a valid (though expiring soon) token
+        logger.warn('Sliding window refresh failed, continuing with current token', {
+          address: decoded.address,
+          error: refreshError
+        });
+      }
+    }
+
     // NOTE: Refresh token validation removed from here for performance
     // Validation happens at /auth/refresh endpoint when access token expires
     // This is more efficient than checking database on every API call
