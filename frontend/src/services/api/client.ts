@@ -49,11 +49,28 @@ const processQueue = (error: AxiosError | null, token: string | null = null) => 
  * 3. Queues failed requests while refreshing (prevents duplicate refresh calls)
  * 4. Retries all queued requests after successful refresh
  * 5. Triggers logout on session revocation or refresh failure
+ * 6. Detects sliding window token refresh (proactive refresh before expiry)
  *
  * The refresh token is stored in an httpOnly cookie and sent automatically.
  */
 apiClient.interceptors.response.use(
-  (response) => response.data, // Return just the data, not the full axios response
+  (response) => {
+    // Check if the backend performed a sliding window token refresh
+    // This happens when the access token is close to expiring and the user is active
+    const tokenRefreshed = response.headers['x-token-refreshed'];
+    if (tokenRefreshed === 'true') {
+      // The new token is automatically set via httpOnly cookie by the backend
+      // Dispatch an event so components can react if needed (e.g., update UI indicators)
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('auth:token-refreshed', {
+          detail: { type: 'sliding-window' }
+        }));
+      }
+    }
+
+    // Return just the data, not the full axios response
+    return response.data;
+  },
   async (error: AxiosError<{ code?: string; message?: string; error?: string }>) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 

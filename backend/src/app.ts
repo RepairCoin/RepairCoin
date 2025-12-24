@@ -141,6 +141,7 @@ class RepairCoinApp {
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'Cache-Control', 'Pragma', 'x-payment-page'],
+      exposedHeaders: ['X-Token-Refreshed'], // Expose sliding window refresh header to frontend
       preflightContinue: false,
       optionsSuccessStatus: 204
     }));
