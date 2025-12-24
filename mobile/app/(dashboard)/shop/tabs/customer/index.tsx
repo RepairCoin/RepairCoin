@@ -25,6 +25,8 @@ export default function CustomerList() {
       customer?.name?.toLowerCase().includes(searchText.toLowerCase())
   );
 
+  console.log("filteredCustomers: ", filteredCustomers)
+
   return (
     <ThemedView className="w-full h-full">
       <View className="pt-20 px-4 gap-4 mb-4">
@@ -49,8 +51,8 @@ export default function CustomerList() {
             <CustomerCard
               name={item?.name}
               tier={item?.tier}
-              lifetimeEarnings={item?.lifetimeEarnings}
-              lastTransactionDate={item?.lastEarnedDate}
+              lifetimeEarnings={item?.lifetime_earnings}
+              total_transactions={item?.total_transactions}
               onPress={() => console.log("Customer pressed:", item?.name)}
             />
           );

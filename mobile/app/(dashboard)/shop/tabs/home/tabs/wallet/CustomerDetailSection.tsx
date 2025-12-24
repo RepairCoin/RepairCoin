@@ -36,13 +36,11 @@ function CustomerDetailSection({
         <View className="flex-row">
           <StatCard
             icon={<Ionicons name="people" size={18} color="#FFCC00" />}
-            iconBgColor="#FFCC00"
             value={growthData?.totalCustomers ?? 0}
             label="Total Customers"
           />
           <StatCard
             icon={<Ionicons name="person-add" size={18} color="#FFCC00" />}
-            iconBgColor="#4ADE80"
             value={growthData?.newCustomers ?? 0}
             label="New Customers"
           />
@@ -50,13 +48,11 @@ function CustomerDetailSection({
         <View className="flex-row">
           <StatCard
             icon={<MaterialIcons name="verified-user" size={18} color="#FFCC00" />}
-            iconBgColor="#60A5FA"
             value={growthData?.activeCustomers ?? 0}
             label="Active"
           />
           <StatCard
             icon={<FontAwesome5 name="coins" size={14} color="#FFCC00" />}
-            iconBgColor="#F472B6"
             value={growthData?.averageEarningsPerCustomer ?? 0}
             label="Avg Earnings"
           />
