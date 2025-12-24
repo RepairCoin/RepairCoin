@@ -12,11 +12,13 @@ import AnalyticsTab from "./tabs/analytics";
 type ShopTabs = "Wallet" | "Analysis" | "Promo Code";
 
 export default function Home() {
-  const { useGetShopByWalletAddress } = useShop();
-  const { account } = useAuthStore();
+  const { account, userProfile } = useAuthStore();
+  const { useGetShopByWalletAddress, useShopCustomerGrowth } = useShop();
+
   const { data: shopData, refetch } = useGetShopByWalletAddress(
     account?.address || ""
   );
+  const { data: growthData } = useShopCustomerGrowth(userProfile?.shopId || "");
 
   const [activeTab, setActiveTab] = useState<ShopTabs>("Wallet");
   const shopTabs: ShopTabs[] = ["Wallet", "Analysis", "Promo Code"];
@@ -76,7 +78,7 @@ export default function Home() {
           ))}
         </View>
         {activeTab === "Wallet" && shopData && (
-          <WalletTab shopData={shopData} />
+          <WalletTab shopData={shopData} growthData={growthData} />
         )}
         {activeTab === "Promo Code" && shopData && <PromoCodeTab />}
         {activeTab === "Analysis" && shopData && <AnalyticsTab />}

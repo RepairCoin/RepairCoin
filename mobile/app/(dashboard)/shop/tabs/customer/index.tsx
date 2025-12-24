@@ -5,13 +5,6 @@ import {
   FlatList,
   ActivityIndicator,
 } from "react-native";
-import {
-  Feather,
-  Fontisto,
-  MaterialCommunityIcons,
-  Octicons,
-} from "@expo/vector-icons";
-import HorizontalCard from "@/components/ui/HorizontalCard";
 import { ThemedView } from "@/components/ui/ThemedView";
 import { SearchInput } from "@/components/ui/SearchInput";
 import CustomerCard from "@/components/shop/CustomerCard";
@@ -21,7 +14,6 @@ import { useShop } from "@/hooks/shop/useShop";
 export default function CustomerList() {
   const { userProfile } = useAuthStore();
   const { useGetShopCustomers, useShopCustomerGrowth } = useShop();
-  const { data: growthData } = useShopCustomerGrowth(userProfile?.shopId || "");
   const { data: shopCustomerData, isLoading } = useGetShopCustomers(
     userProfile?.shopId || ""
   );
@@ -33,42 +25,9 @@ export default function CustomerList() {
       customer?.name?.toLowerCase().includes(searchText.toLowerCase())
   );
 
-  const horizontalCardList: {
-    label: string;
-    Icon: any;
-    number: number;
-  }[] = [
-    {
-      label: "Total Customers",
-      Icon: <Octicons name="people" color="#ffcc00" size={22} />,
-      number: growthData?.totalCustomers || 0,
-    },
-    {
-      label: "Avg. RCN per Customer",
-      Icon: (
-        <MaterialCommunityIcons
-          name="hand-coin-outline"
-          color="#ffcc00"
-          size={22}
-        />
-      ),
-      number: growthData?.averageEarningsPerCustomer || 0,
-    },
-    {
-      label: "New Customers",
-      Icon: <Fontisto name="clock" color="#ffcc00" size={22} />,
-      number: growthData?.newCustomers || 0,
-    },
-    {
-      label: "Active Customers",
-      Icon: <Feather name="user-check" color="#ffcc00" size={22} />,
-      number: growthData?.activeCustomers || 0,
-    },
-  ];
-
   return (
     <ThemedView className="w-full h-full">
-      <View className="pt-20 px-4 gap-4">
+      <View className="pt-20 px-4 gap-4 mb-4">
         <View className="flex-row justify-between items-center">
           <Text className="text-white text-xl font-semibold">
             Customers List
@@ -78,22 +37,8 @@ export default function CustomerList() {
         <SearchInput
           value={searchText}
           onChangeText={setSearchText}
-          placeholder="Search customer by name"
+          placeholder="Search customers..."
         />
-      </View>
-
-      <View className="flex-row flex-wrap my-4">
-        {horizontalCardList.map((props, i) => (
-          <View key={i} style={{ width: "50%" }}>
-            <HorizontalCard {...props} />
-          </View>
-        ))}
-      </View>
-
-      <View className="mx-4 mb-4 pl-2 py-4 rounded-t-xl p-2 gap-4 bg-[#FFCC00]">
-        <Text className="text-black text-lg font-semibold">
-          Recent Customers
-        </Text>
       </View>
 
       <FlatList
