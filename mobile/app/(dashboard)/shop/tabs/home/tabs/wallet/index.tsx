@@ -6,14 +6,21 @@ import {
   ScrollView,
   RefreshControl,
 } from "react-native";
-import { MaterialCommunityIcons, MaterialIcons, Octicons } from "@expo/vector-icons";
+import { MaterialIcons, Octicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "@/store/auth.store";
-import DetailCard from "@/components/ui/DetailCard";
 import ActionCard from "@/components/shared/ActionCard";
-import { ShopData } from "@/interfaces/shop.interface";
+import { CustomerGrowthData, ShopData } from "@/interfaces/shop.interface";
+import WalletDetailSection from "./WalletDetailSection";
+import CustomerDetailSection from "./CustomerDetailSection";
 
-export default function WalletTab({ shopData }: { shopData: ShopData }) {
+export default function WalletTab({
+  shopData,
+  growthData,
+}: {
+  shopData: ShopData;
+  growthData?: CustomerGrowthData;
+}) {
   const router = useRouter();
   const { account } = useAuthStore();
 
@@ -25,20 +32,6 @@ export default function WalletTab({ shopData }: { shopData: ShopData }) {
       </View>
     );
   }
-
-  // if (error) {
-  //   return (
-  //     <View className="flex-1 justify-center items-center mt-20">
-  //       <Text className="text-red-500 text-lg">Failed to load balance</Text>
-  //       <Pressable
-  //         onPress={() => refetch()}
-  //         className="mt-4 px-6 py-3 bg-[#FFCC00] rounded-lg"
-  //       >
-  //         <Text className="text-black font-semibold">Retry</Text>
-  //       </Pressable>
-  //     </View>
-  //   );
-  // }
 
   return (
     <View className="mt-4 flex-1">
@@ -68,12 +61,20 @@ export default function WalletTab({ shopData }: { shopData: ShopData }) {
           isLoading={false}
           quickActions={[
             {
-              icon: <MaterialIcons name="add-shopping-cart" size={24} color="#000" />,
+              icon: (
+                <MaterialIcons
+                  name="add-shopping-cart"
+                  size={24}
+                  color="#000"
+                />
+              ),
               label: "Buy",
               onPress: () => router.push("/shop/buy-token"),
             },
             {
-              icon: <MaterialIcons name="card-giftcard" size={24} color="#000" />,
+              icon: (
+                <MaterialIcons name="card-giftcard" size={24} color="#000" />
+              ),
               label: "Reward",
               onPress: () => router.push("/shop/reward-token"),
             },
@@ -85,60 +86,9 @@ export default function WalletTab({ shopData }: { shopData: ShopData }) {
           ]}
         />
 
-        {/* Detail Cards - Scrollable Section */}
-
-        <DetailCard
-          icon={
-            <MaterialCommunityIcons name="screwdriver" color="#000" size={16} />
-          }
-          title="Total Purchased"
-          label="Total RCN tokens you've purchased"
-          badge={
-            false ? (
-              <ActivityIndicator size="small" color="#000" />
-            ) : (
-              <>
-                <Text className="text-3xl font-semibold">
-                  {shopData?.totalRcnPurchased}
-                </Text>{" "}
-              </>
-            )
-          }
-        />
-        <DetailCard
-          icon={
-            <MaterialCommunityIcons name="screwdriver" color="#000" size={16} />
-          }
-          title="Tokens Issued"
-          label="Total RCN tokens issued to customers"
-          badge={
-            false ? (
-              <ActivityIndicator size="small" color="#000" />
-            ) : (
-              <>
-                <Text className="text-3xl font-semibold">
-                  {shopData?.totalTokensIssued}
-                </Text>{" "}
-              </>
-            )
-          }
-        />
-        <DetailCard
-          icon={
-            <MaterialCommunityIcons name="screwdriver" color="#000" size={16} />
-          }
-          title="RCG Balance"
-          label="RCG tokens in your wallet"
-          badge={
-            false ? (
-              <ActivityIndicator size="small" color="#000" />
-            ) : (
-              <>
-                <Text className="text-3xl font-semibold">2</Text>{" "}
-              </>
-            )
-          }
-        />
+        {/* Detail Cards */}
+        <WalletDetailSection shopData={shopData} />
+        <CustomerDetailSection growthData={growthData} />
       </ScrollView>
     </View>
   );
