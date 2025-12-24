@@ -14,14 +14,13 @@ export interface CustomerData {
   email: string;
   phone: string;
   tier: string;
-  lifetimeEarnings: number;
+  lifetime_earnings: number;
   totalRedemptions: number;
   totalRepairs: number;
   referralCode: string;
   referralCount: number;
   dailyEarnings: number;
   monthlyEarnings: number;
-  lastEarnedDate: string;
   joinDate: string;
   isActive: boolean;
   isSuspended: boolean;
@@ -31,6 +30,8 @@ export interface CustomerData {
   stripeCustomerId: string;
   createdAt: string;
   updatedAt: string;
+  total_transactions: number;
+  last_transaction_date: string;
 }
 
 export interface Customer {
