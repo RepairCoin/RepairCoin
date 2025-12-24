@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import {
-  Image,
   Pressable,
   ScrollView,
   Text,
@@ -9,6 +8,7 @@ import {
 } from "react-native";
 import { LineChart } from "react-native-gifted-charts";
 import { ThemedView } from "@/components/ui/ThemedView";
+import ActionCard from "@/components/shared/ActionCard";
 
 interface ChartDataPoint {
   value: number;
@@ -83,34 +83,16 @@ export default function AnalyticsTab() {
     <ThemedView className="w-full h-full">
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header Card */}
-        <View className="h-48 my-4">
-          <View className="w-full h-full bg-[#FFCC00] rounded-3xl flex-row overflow-hidden relative">
-            <View
-              className="w-[300px] h-[300px] border-[48px] border-[rgba(102,83,7,0.13)] rounded-full absolute"
-              style={{
-                right: -80,
-                top: -20,
-              }}
-            />
-            <Image
-              source={require("@/assets/images/customer_approval_card.png")}
-              className="w-98 h-98 bottom-0 right-0 absolute"
-              resizeMode="contain"
-            />
-            <View className="pl-4 mt-10 w-[60%]">
-              <Text className="text-black font-bold text-2xl">
-                Profit Analytics
-              </Text>
-              <Text className="text-black/60 text-base">
-                Your profit summary
-              </Text>
-              <Pressable className="bg-black w-40 rounded-xl py-2 mt-4 justify-center items-center">
-                <Text className="text-[#FFCC00] font-bold text-sm">
-                  View Analytics
-                </Text>
-              </Pressable>
-            </View>
-          </View>
+        <View className="my-4">
+          <ActionCard
+            title="Profit Analytics"
+            subtitle="Your profit summary"
+            backgroundImage={require("@/assets/images/customer_approval_card.png")}
+            inlineAction={{
+              label: "View Analytics",
+              onPress: () => {},
+            }}
+          />
         </View>
 
         {/* Chart Section */}

@@ -5,9 +5,9 @@ import { router, useFocusEffect } from "expo-router";
 import { useShop } from "@/hooks/shop/useShop";
 import { useAuthStore } from "@/store/auth.store";
 import { ThemedView } from "@/components/ui/ThemedView";
-import WalletTab from "./tabs/WalletTab";
-import PromoCodeTab from "./tabs/PromoCodeTab";
-import AnalyticsTab from "./tabs/AnalyticsTab";
+import WalletTab from "./tabs/wallet";
+import PromoCodeTab from "./tabs/promo-code";
+import AnalyticsTab from "./tabs/analytics";
 
 type ShopTabs = "Wallet" | "Analysis" | "Promo Code";
 

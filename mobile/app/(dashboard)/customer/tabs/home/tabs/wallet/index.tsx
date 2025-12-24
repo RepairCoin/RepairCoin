@@ -3,19 +3,13 @@ import {
   View,
   Text,
   Pressable,
-  Image,
   ActivityIndicator,
-  TouchableOpacity,
   ScrollView,
   RefreshControl,
+  TouchableOpacity,
 } from "react-native";
-import {
-  SimpleLineIcons,
-  MaterialIcons,
-  Ionicons,
-} from "@expo/vector-icons";
+import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
 
 import { Tier } from "@/utilities/GlobalTypes";
 import { ServiceData } from "@/interfaces/service.interface";
@@ -25,166 +19,8 @@ import { useService } from "@/hooks/service/useService";
 import { useAuthStore } from "@/store/auth.store";
 
 import ServiceCard from "@/components/shared/ServiceCard";
+import ActionCard from "@/components/shared/ActionCard";
 import { useFavorite } from "@/hooks/favorite/useFavorite";
-
-interface TierInfo {
-  color: [string, string];
-  label: string;
-  intro: string;
-  nextTierRequirement?: number;
-}
-
-const TIER_CONFIG: Record<Tier, TierInfo> = {
-  GOLD: {
-    color: ["#FFCC00", "#FFEC9F"],
-    label: "Gold",
-    intro: "You are currently at Gold Tier",
-  },
-  SILVER: {
-    color: ["#ABABAB", "#FFFFFF"],
-    label: "Silver",
-    intro: "You need 1000 RCN to reach Gold Tier",
-    nextTierRequirement: 1000,
-  },
-  BRONZE: {
-    color: ["#95602B", "#FFFFFF"],
-    label: "Bronze",
-    intro: "You need 200 RCN to reach Silver Tier",
-    nextTierRequirement: 200,
-  },
-};
-
-const BalanceCard: React.FC<{
-  balance: number | undefined;
-  tier: Tier;
-  isLoading: boolean;
-}> = ({ balance, tier, isLoading }) => {
-  const tierInfo = TIER_CONFIG[tier];
-  const [isBalanceVisible, setIsBalanceVisible] = useState(false);
-
-  return (
-    <View className="h-70 rounded-3xl bg-[#FFFFFF]">
-      <View className="w-full h-40 bg-[#FFCC00] rounded-3xl flex-row overflow-hidden relative">
-        {/* Decorative Circle */}
-        <View
-          className="w-[300px] h-[300px] border-[48px] border-[rgba(102,83,7,0.13)] rounded-full absolute"
-          style={{
-            right: -80,
-            top: -20,
-          }}
-        />
-
-        {/* Background Image */}
-        <Image
-          source={require("@/assets/images/customer_wallet_card.png")}
-          className="w-98 h-98 bottom-0 right-0 absolute"
-          resizeMode="contain"
-        />
-
-        {/* Content */}
-        <View className="pl-4">
-          <Text className="text-black text-base font-semibold mt-4">
-            Your Current RCN Balance
-          </Text>
-
-          <View className="flex-row items-center mt-2">
-            {isLoading ? (
-              <ActivityIndicator size="large" color="#000" />
-            ) : (
-              <>
-                <Text className="text-black text-3xl font-extrabold">
-                  {isBalanceVisible ? `${balance ?? 0} RCN` : "••••••"}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setIsBalanceVisible(!isBalanceVisible)}
-                  className="ml-3 p-1"
-                  activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name={isBalanceVisible ? "eye" : "eye-off"}
-                    color="#000"
-                    size={24}
-                  />
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-
-          {/* Tier Badge */}
-          <View
-            className="w-32 h-8 mt-4 rounded-full overflow-hidden"
-            style={{
-              shadowColor: "black",
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.25,
-              shadowRadius: 10,
-              elevation: 12,
-            }}
-          >
-            <LinearGradient
-              colors={tierInfo.color}
-              start={{ x: 0, y: 1 }}
-              end={{ x: 1, y: 1 }}
-              className="w-full h-full items-center justify-center"
-            >
-              <View className="items-center h-full justify-center flex-row">
-                <SimpleLineIcons name="badge" color="#000" size={12} />
-                <Text className="text-black text-sm font-semibold ml-2">
-                  {tierInfo.label} Tier
-                </Text>
-              </View>
-            </LinearGradient>
-          </View>
-        </View>
-      </View>
-      {/* Quick Actions inside card - 2x2 Grid */}
-      <View className="py-4 px-6">
-        <View className="flex-row justify-around items-center mb-4">
-          <TouchableOpacity
-            onPress={() => router.push("/customer/gift-token")}
-            className="items-center"
-            activeOpacity={0.7}
-          >
-            <View className="bg-white border border-gray-200 rounded-full p-3 mb-2 shadow-sm">
-              <MaterialIcons name="card-giftcard" size={24} color="#000" />
-            </View>
-            <Text className="text-black text-xs font-medium">Gift Token</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => router.push("/customer/qrcode")}
-            className="items-center"
-            activeOpacity={0.7}
-          >
-            <View className="bg-white border border-gray-200 rounded-full p-3 mb-2 shadow-sm">
-              <Ionicons name="qr-code-outline" size={24} color="#000" />
-            </View>
-            <Text className="text-black text-xs font-medium">QR Code</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => router.push("/customer/tier-info")}
-            className="items-center"
-            activeOpacity={0.7}
-          >
-            <View className="bg-white border border-gray-200 rounded-full p-3 mb-2 shadow-sm">
-              <Ionicons name="ribbon-outline" size={24} color="#000" />
-            </View>
-            <Text className="text-black text-xs font-medium">Tier Info</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => router.push("/customer/redeem")}
-            className="items-center"
-            activeOpacity={0.7}
-          >
-            <View className="bg-white border border-gray-200 rounded-full p-3 mb-2 shadow-sm">
-              <Ionicons name="wallet-outline" size={24} color="#000" />
-            </View>
-            <Text className="text-black text-xs font-medium">Redeem</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  );
-};
 
 export default function WalletTab() {
   const { account } = useAuthStore();
@@ -320,10 +156,32 @@ export default function WalletTab() {
         }
       >
         {/* Balance Card */}
-        <BalanceCard
+        <ActionCard
           balance={tokenData.balance}
           tier={tokenData.tier}
           isLoading={isLoading}
+          quickActions={[
+            {
+              icon: <MaterialIcons name="card-giftcard" size={24} color="#000" />,
+              label: "Gift Token",
+              onPress: () => router.push("/customer/gift-token"),
+            },
+            {
+              icon: <Ionicons name="qr-code-outline" size={24} color="#000" />,
+              label: "QR Code",
+              onPress: () => router.push("/customer/qrcode"),
+            },
+            {
+              icon: <Ionicons name="ribbon-outline" size={24} color="#000" />,
+              label: "Tier Info",
+              onPress: () => router.push("/customer/tier-info"),
+            },
+            {
+              icon: <Ionicons name="wallet-outline" size={24} color="#000" />,
+              label: "Redeem",
+              onPress: () => router.push("/customer/redeem"),
+            },
+          ]}
         />
 
         {/* Trending Services Section */}
