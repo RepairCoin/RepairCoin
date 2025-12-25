@@ -16,7 +16,7 @@ import { goBack } from "expo-router/build/global-state/routing";
 import { ThemedView } from "@/components/ui/ThemedView";
 import { QRScanner } from "@/components/shop/QRScanner";
 import { useAuthStore } from "@/store/auth.store";
-import { useRedemption } from "@/hooks/useRedemption";
+import { useRedemption } from "@/hooks/redemption/useRedemption";
 import { useShopRewards } from "@/hooks/useShopRewards";
 
 const TIER_STYLES = {
