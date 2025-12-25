@@ -21,6 +21,8 @@ import { useAuthStore } from "@/store/auth.store";
 import ServiceCard from "@/components/shared/ServiceCard";
 import ActionCard from "@/components/shared/ActionCard";
 import { useFavorite } from "@/hooks/favorite/useFavorite";
+import TrendingSection from "./TrendingSection";
+import ServiceSection from "./ServiceSection";
 
 export default function WalletTab() {
   const { account } = useAuthStore();
@@ -53,7 +55,8 @@ export default function WalletTab() {
   const { data: favoritesData, refetch: refetchFavorites } = useGetFavorites();
 
   // Create a Set of favorited service IDs for O(1) lookup
-  const favoritedIds = useMemo(() => {
+  const 
+  favoritedIds = useMemo(() => {
     if (!favoritesData) return new Set<string>();
     return new Set(favoritesData.map((s: ServiceData) => s.serviceId));
   }, [favoritesData]);
@@ -185,125 +188,24 @@ export default function WalletTab() {
         />
 
         {/* Trending Services Section */}
-        <View className="mt-5">
-          {/* Header */}
-          <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-white text-xl font-bold">Trending</Text>
-            <TouchableOpacity onPress={handleViewAllTrendingServices}>
-              <Text className="text-[#FFCC00] text-sm font-semibold">
-                View All
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Trending Cards - Horizontal Slider */}
-          {trendingLoading ? (
-            <View className="justify-center items-center py-10">
-              <ActivityIndicator size="large" color="#FFCC00" />
-            </View>
-          ) : trendingData && trendingData.length > 0 ? (
-            <View style={{ marginHorizontal: -16 }}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ paddingHorizontal: 16 }}
-                decelerationRate="fast"
-                snapToInterval={286}
-                snapToAlignment="start"
-              >
-                {trendingData.map((item: ServiceData) => (
-                  <View
-                    key={item.serviceId}
-                    style={{ width: 280, marginRight: 6 }}
-                  >
-                    <ServiceCard
-                      imageUrl={item.imageUrl}
-                      category={getCategoryLabel(item.category)}
-                      title={item.serviceName}
-                      description={item.description}
-                      price={item.priceUsd}
-                      duration={item.durationMinutes}
-                      onPress={() => handleServicePress(item)}
-                      showTrendingBadge
-                      showFavoriteButton
-                      serviceId={item.serviceId}
-                      isFavorited={favoritedIds.has(item.serviceId)}
-                    />
-                  </View>
-                ))}
-              </ScrollView>
-            </View>
-          ) : (
-            <View className="items-center py-10">
-              <Text className="text-gray-400 text-center">
-                No trending services
-              </Text>
-              <Text className="text-gray-500 text-sm text-center mt-2">
-                Check back later for trending services
-              </Text>
-            </View>
-          )}
-        </View>
+        <TrendingSection
+          handleViewAllTrendingServices={handleViewAllTrendingServices}
+          trendingLoading={trendingLoading}
+          trendingData={trendingData || []}
+          getCategoryLabel={getCategoryLabel}
+          handleServicePress={(item) => handleServicePress(item)}
+          favoritedIds={favoritedIds}
+        />
 
         {/* Choose Service Section */}
-        <View className="mt-5">
-          {/* Header */}
-          <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-white text-xl font-bold">Services</Text>
-            <TouchableOpacity onPress={handleViewAllServices}>
-              <Text className="text-[#FFCC00] text-sm font-semibold">
-                View All
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Service Cards - Horizontal Slider */}
-          {servicesLoading ? (
-            <View className="justify-center items-center py-10">
-              <ActivityIndicator size="large" color="#FFCC00" />
-            </View>
-          ) : displayedServices.length > 0 ? (
-            <View style={{ marginHorizontal: -16 }}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ paddingHorizontal: 16 }}
-                decelerationRate="fast"
-                snapToInterval={286}
-                snapToAlignment="start"
-              >
-                {displayedServices.map((item: ServiceData) => (
-                  <View
-                    key={item.serviceId}
-                    style={{ width: 280, marginRight: 6 }}
-                  >
-                    <ServiceCard
-                      imageUrl={item.imageUrl}
-                      category={getCategoryLabel(item.category)}
-                      title={item.serviceName}
-                      description={item.description}
-                      price={item.priceUsd}
-                      duration={item.durationMinutes}
-                      onPress={() => handleServicePress(item)}
-                      showFavoriteButton
-                      serviceId={item.serviceId}
-                      isFavorited={favoritedIds.has(item.serviceId)}
-                    />
-                  </View>
-                ))}
-              </ScrollView>
-            </View>
-          ) : (
-            <View className="items-center py-10">
-              <Text className="text-gray-400 text-center">
-                No services available
-              </Text>
-              <Text className="text-gray-500 text-sm text-center mt-2">
-                Check back later for new services
-              </Text>
-            </View>
-          )}
-        </View>
+        <ServiceSection
+          handleViewAllServices={handleViewAllServices}
+          servicesLoading={servicesLoading}
+          displayedServices={displayedServices}
+          getCategoryLabel={getCategoryLabel}
+          handleServicePress={handleServicePress}
+          favoritedIds={favoritedIds}
+        />
       </ScrollView>
     </View>
   );

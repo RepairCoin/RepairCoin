@@ -1,7 +1,7 @@
+import React, { useState, useEffect } from "react";
 import { Text, View, TouchableOpacity, Image } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useState, useEffect } from "react";
 import { useFavorite } from "@/hooks/favorite/useFavorite";
 
 interface ServiceCardProps {
@@ -34,7 +34,7 @@ interface ServiceCardProps {
   isFavorited?: boolean;
 }
 
-export default function ServiceCard({
+function ServiceCard({
   imageUrl,
   category,
   title,
@@ -178,7 +178,7 @@ export default function ServiceCard({
           colors={["#27272a", "#18181b"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          className="rounded-xl overflow-hidden"
+          style={{ borderRadius: 12, overflow: "hidden" }}
         >
           {imageUrl !== undefined && (
             <View className="relative">
@@ -290,3 +290,5 @@ export default function ServiceCard({
     </View>
   );
 }
+
+export default React.memo(ServiceCard);
