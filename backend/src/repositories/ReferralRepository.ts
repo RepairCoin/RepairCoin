@@ -37,7 +37,11 @@ export interface ReferralStats {
 }
 
 export class ReferralRepository extends BaseRepository {
-  async createReferral(referrerAddress: string, refereeAddress?: string): Promise<Referral> {
+  async createReferral(
+    referrerAddress: string,
+    refereeAddress?: string,
+    metadata?: object
+  ): Promise<Referral> {
     try {
       const query = `
         INSERT INTO referrals (
@@ -45,33 +49,29 @@ export class ReferralRepository extends BaseRepository {
           referrer_address,
           referred_address,
           status,
-          expires_at
+          expires_at,
+          metadata
         ) VALUES (
           generate_referral_code(),
           $1,
           $2,
           'pending',
-          CURRENT_TIMESTAMP + INTERVAL '30 days'
+          CURRENT_TIMESTAMP + INTERVAL '30 days',
+          $3
         )
         RETURNING *
       `;
 
       const result = await this.pool.query(query, [
         referrerAddress.toLowerCase(),
-        refereeAddress?.toLowerCase() || null
+        refereeAddress?.toLowerCase() || null,
+        JSON.stringify(metadata || {})
       ]);
       const row = result.rows[0];
 
       return this.mapReferralFromDb(row);
-    } catch (error: any) {
-      logger.error('Error creating referral:', {
-        fn: 'ReferralBusinessLogic',
-        errorMessage: error?.message,
-        errorCode: error?.code,
-        errorDetail: error?.detail,
-        referrerAddress,
-        refereeAddress
-      });
+    } catch (error) {
+      logger.error('Error creating referral:', error);
       throw new Error('Failed to create referral');
     }
   }

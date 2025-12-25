@@ -82,19 +82,11 @@ export class ReferralService {
   ): Promise<{ success: boolean; message: string }> {
     try {
       // Find the referrer by their referral code in customers table
-      logger.info('start get referrer', {
-        fn: 'ReferralBusinessLogic',
-        referralCode
-      });
       const referrer = await this.customerRepository.getCustomerByReferralCode(referralCode);
-      logger.info('get referrer', {
-        fn: 'ReferralBusinessLogic',
-        referrer
-      });
       if (!referrer) {
-        return { 
-          success: false, 
-          message: 'Invalid referral code' 
+        return {
+          success: false,
+          message: 'Invalid referral code'
         };
       }
 
@@ -107,52 +99,25 @@ export class ReferralService {
       }
 
       // Update the customer's referred_by field
-      logger.info('checking existing customer', {
-        fn: 'ReferralBusinessLogic',
-        refereeAddress
-      });
       const existingCustomer = await this.customerRepository.getCustomer(refereeAddress);
-      logger.info('existing customer result', {
-        fn: 'ReferralBusinessLogic',
-        existingCustomer: !!existingCustomer,
-        hasReferredBy: !!existingCustomer?.referredBy
-      });
       if (existingCustomer && !existingCustomer.referredBy) {
-        logger.info('updating customer referred_by', {
-          fn: 'ReferralBusinessLogic',
-          refereeAddress,
-          referrerAddress: referrer.address
-        });
         await this.customerRepository.updateCustomer(refereeAddress, {
           referredBy: referrer.address
         });
-        logger.info('customer referred_by updated', {
-          fn: 'ReferralBusinessLogic'
-        });
       }
 
-      // Create PENDING referral record in referrals table
-      logger.info('creating referral record', {
-        fn: 'ReferralBusinessLogic',
-        referrerAddress: referrer.address,
-        refereeAddress
-      });
-      const referral = await this.referralRepository.createReferral(referrer.address, refereeAddress);
-      logger.info('referral record created', {
-        fn: 'ReferralBusinessLogic',
-        referralId: referral.id
-      });
-
-      // Update the referral with metadata
-      await this.referralRepository.updateReferral(referral.id, {
-        metadata: {
+      // Create PENDING referral record in referrals table with metadata
+      const referral = await this.referralRepository.createReferral(
+        referrer.address,
+        refereeAddress,
+        {
           referralCode,
           referrerAddress: referrer.address,
           refereeAddress,
           registeredAt: new Date().toISOString(),
           awaitingFirstRepair: true
         }
-      });
+      );
 
       // Emit event for pending referral
       await eventBus.publish({
@@ -176,17 +141,12 @@ export class ReferralService {
         referralId: referral.id
       });
 
-      return { 
-        success: true, 
-        message: 'Referral recorded successfully. Rewards will be distributed after first repair completion.' 
+      return {
+        success: true,
+        message: 'Referral recorded successfully. Rewards will be distributed after first repair completion.'
       };
     } catch (error) {
       logger.error('Error processing referral:', error);
-      logger.error('Error processing referral', {
-        fn: 'ReferralBusinessLogic',
-        errorMessage: error instanceof Error ? error.message : String(error),
-        errorStack: error instanceof Error ? error.stack : undefined
-      });
       throw error;
     }
   }
