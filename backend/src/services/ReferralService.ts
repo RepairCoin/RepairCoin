@@ -134,17 +134,17 @@ export class ReferralService {
       // Create PENDING referral record in referrals table
       logger.info('creating referral record', {
         fn: 'ReferralBusinessLogic',
-        referrerAddress: referrer.address
+        referrerAddress: referrer.address,
+        refereeAddress
       });
-      const referral = await this.referralRepository.createReferral(referrer.address);
+      const referral = await this.referralRepository.createReferral(referrer.address, refereeAddress);
       logger.info('referral record created', {
         fn: 'ReferralBusinessLogic',
         referralId: referral.id
       });
-      
-      // Update the referral with referee address but keep status as pending
+
+      // Update the referral with metadata
       await this.referralRepository.updateReferral(referral.id, {
-        refereeAddress,
         metadata: {
           referralCode,
           referrerAddress: referrer.address,
