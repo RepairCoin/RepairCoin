@@ -272,7 +272,7 @@ export class ReferralService {
       const referrals = await this.referralRepository.getCustomerReferrals(customer.referredBy);
       const pendingReferral = referrals.find(
         r => r.status === 'pending' && 
-        r.refereeAddress?.toLowerCase() === customerAddress.toLowerCase()
+        r.referredAddress?.toLowerCase() === customerAddress.toLowerCase()
       );
 
       logger.info('Searching for pending referral', {

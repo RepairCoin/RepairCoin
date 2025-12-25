@@ -5,6 +5,7 @@ export interface Referral {
   id: string;
   referralCode: string;
   referrerAddress: string;
+  referredAddress: string;
   refereeAddress?: string;
   status: 'pending' | 'completed' | 'expired';
   createdAt: string;
@@ -618,6 +619,7 @@ export class ReferralRepository extends BaseRepository {
       id: row.id,
       referralCode: row.referral_code,
       referrerAddress: row.referrer_address,
+      referredAddress: row.referred_address,
       refereeAddress: row.referee_address,
       status: row.status,
       createdAt: row.created_at,
