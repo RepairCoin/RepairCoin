@@ -78,20 +78,21 @@ export class ReferralService {
   async processReferral(
     referralCode: string,
     refereeAddress: string,
+    referrerAddress: string,
     refereeData: any
   ): Promise<{ success: boolean; message: string }> {
     try {
       // Find the referrer by their referral code in customers table
-      const referrer = await this.customerRepository.getCustomerByReferralCode(referralCode);
-      if (!referrer) {
-        return {
-          success: false,
-          message: 'Invalid referral code'
-        };
-      }
+      // const referrer = await this.customerRepository.getCustomerByReferralCode(referralCode);
+      // if (!referrer) {
+      //   return {
+      //     success: false,
+      //     message: 'Invalid referral code'
+      //   };
+      // }
 
       // Check if referrer is trying to refer themselves
-      if (referrer.address.toLowerCase() === refereeAddress.toLowerCase()) {
+      if (referrerAddress.toLowerCase() === refereeAddress.toLowerCase()) {
         return {
           success: false,
           message: 'Cannot refer yourself'
@@ -102,17 +103,17 @@ export class ReferralService {
       const existingCustomer = await this.customerRepository.getCustomer(refereeAddress);
       if (existingCustomer && !existingCustomer.referredBy) {
         await this.customerRepository.updateCustomer(refereeAddress, {
-          referredBy: referrer.address
+          referredBy: referrerAddress
         });
       }
 
       // Create PENDING referral record in referrals table with metadata
       const referral = await this.referralRepository.createReferral(
-        referrer.address,
+        referrerAddress,
         refereeAddress,
         {
           referralCode,
-          referrerAddress: referrer.address,
+          referrerAddress: referrerAddress,
           refereeAddress,
           registeredAt: new Date().toISOString(),
           awaitingFirstRepair: true
@@ -125,7 +126,7 @@ export class ReferralService {
         aggregateId: referralCode,
         data: {
           referralCode,
-          referrerAddress: referrer.address,
+          referrerAddress: referrerAddress,
           refereeAddress,
           referralId: referral.id
         },
@@ -136,7 +137,7 @@ export class ReferralService {
 
       logger.info('Referral recorded as pending (awaiting first repair)', {
         referralCode,
-        referrerAddress: referrer.address,
+        referrerAddress: referrerAddress,
         refereeAddress,
         referralId: referral.id
       });
