@@ -26,6 +26,7 @@ const Header: React.FC = () => {
   const router = useRouter();
   const pathname = usePathname();
   const hasCheckedRef = useRef(false);
+  const sessionCheckedRef = useRef(false);
   const previousAccountRef = useRef<string | undefined>(undefined);
 
   const client = createThirdwebClient({
@@ -63,9 +64,11 @@ const Header: React.FC = () => {
 
   // Check for existing session on mount (for public pages like homepage)
   useEffect(() => {
-    const checkSession = async () => {
-      if (sessionChecked) return;
+    // Use ref to prevent multiple calls - more reliable than state
+    if (sessionCheckedRef.current) return;
+    sessionCheckedRef.current = true;
 
+    const checkSession = async () => {
       try {
         const session = await authApi.getSession();
         if (session.isValid && session.user) {
@@ -81,7 +84,7 @@ const Header: React.FC = () => {
     };
 
     checkSession();
-  }, [sessionChecked]);
+  }, []); // Empty dependency - only run once on mount
 
   // Track when modal opens to mark the start of a sign-in flow
   const signInInitiatedRef = useRef(false);
