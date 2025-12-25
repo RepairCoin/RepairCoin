@@ -5,7 +5,6 @@ import { useReadContract } from "thirdweb/react";
 import { getContract, createThirdwebClient } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
 import { useCustomer } from "@/hooks/useCustomer";
-import { useReferralStore } from "@/stores/referralStore";
 import { toast } from "react-hot-toast";
 import {
   GroupHeadIcon,
@@ -116,14 +115,14 @@ export function ReferralDashboard() {
 
   useEffect(() => {
     const fetchReferralStats = async () => {
-      try {{customerData?.address}
+      try {
         const resp = await apiClient.get('/referrals/stats');
-        if (resp.data.success && resp.data.data) {
+        if (resp.data) {
           setReferralStats({
             totalReferrals: resp.data.totalReferrals || 0,
             successfulReferrals: resp.data.successfulReferrals || 0,
             pendingReferrals: resp.data.pendingReferrals || 0,
-            totalEarned: resp.data.totalEarned || 0,
+            totalEarned: resp.data.totalEarned?.toString() || '0',
             referrals: resp.data.referrals || []
           });
         }
@@ -409,7 +408,7 @@ export function ReferralDashboard() {
           <DataTable
             data={referralStats?.referrals || []}
             columns={referralColumns}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => `${item.id}`}
             emptyMessage="No referrals yet. Share your referral code to start earning!"
             emptyIcon={
               <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">👥</div>
