@@ -41,25 +41,31 @@ export class ReferralRepository extends BaseRepository {
     try {
       const query = `
         INSERT INTO referrals (
-          referral_code, 
-          referrer_address, 
-          status, 
+          referral_code,
+          referrer_address,
+          status,
           expires_at
         ) VALUES (
-          generate_referral_code(), 
-          $1, 
-          'pending', 
+          generate_referral_code(),
+          $1,
+          'pending',
           CURRENT_TIMESTAMP + INTERVAL '30 days'
         )
         RETURNING *
       `;
-      
+
       const result = await this.pool.query(query, [referrerAddress.toLowerCase()]);
       const row = result.rows[0];
-      
+
       return this.mapReferralFromDb(row);
-    } catch (error) {
-      logger.error('Error creating referral:', error);
+    } catch (error: any) {
+      logger.error('Error creating referral:', {
+        fn: 'ReferralBusinessLogic',
+        errorMessage: error?.message,
+        errorCode: error?.code,
+        errorDetail: error?.detail,
+        referrerAddress
+      });
       throw new Error('Failed to create referral');
     }
   }

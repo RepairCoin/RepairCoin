@@ -82,7 +82,15 @@ export class ReferralService {
   ): Promise<{ success: boolean; message: string }> {
     try {
       // Find the referrer by their referral code in customers table
+      logger.info('start get referrer', {
+        fn: 'ReferralBusinessLogic',
+        referralCode
+      });
       const referrer = await this.customerRepository.getCustomerByReferralCode(referralCode);
+      logger.info('get referrer', {
+        fn: 'ReferralBusinessLogic',
+        referrer
+      });
       if (!referrer) {
         return { 
           success: false, 
@@ -92,22 +100,47 @@ export class ReferralService {
 
       // Check if referrer is trying to refer themselves
       if (referrer.address.toLowerCase() === refereeAddress.toLowerCase()) {
-        return { 
-          success: false, 
-          message: 'Cannot refer yourself' 
+        return {
+          success: false,
+          message: 'Cannot refer yourself'
         };
       }
 
       // Update the customer's referred_by field
+      logger.info('checking existing customer', {
+        fn: 'ReferralBusinessLogic',
+        refereeAddress
+      });
       const existingCustomer = await this.customerRepository.getCustomer(refereeAddress);
+      logger.info('existing customer result', {
+        fn: 'ReferralBusinessLogic',
+        existingCustomer: !!existingCustomer,
+        hasReferredBy: !!existingCustomer?.referredBy
+      });
       if (existingCustomer && !existingCustomer.referredBy) {
+        logger.info('updating customer referred_by', {
+          fn: 'ReferralBusinessLogic',
+          refereeAddress,
+          referrerAddress: referrer.address
+        });
         await this.customerRepository.updateCustomer(refereeAddress, {
           referredBy: referrer.address
+        });
+        logger.info('customer referred_by updated', {
+          fn: 'ReferralBusinessLogic'
         });
       }
 
       // Create PENDING referral record in referrals table
+      logger.info('creating referral record', {
+        fn: 'ReferralBusinessLogic',
+        referrerAddress: referrer.address
+      });
       const referral = await this.referralRepository.createReferral(referrer.address);
+      logger.info('referral record created', {
+        fn: 'ReferralBusinessLogic',
+        referralId: referral.id
+      });
       
       // Update the referral with referee address but keep status as pending
       await this.referralRepository.updateReferral(referral.id, {
@@ -149,6 +182,11 @@ export class ReferralService {
       };
     } catch (error) {
       logger.error('Error processing referral:', error);
+      logger.error('Error processing referral', {
+        fn: 'ReferralBusinessLogic',
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined
+      });
       throw error;
     }
   }
@@ -221,12 +259,25 @@ export class ReferralService {
     shopId: string,
     repairAmount: number
   ): Promise<{ success: boolean; message: string; referralCompleted?: boolean }> {
+    const fn = 'completeReferralOnFirstRepair';
+    logger.info('completeReferralOnFirstRepair called', {
+      fn,
+      customerAddress,
+      shopId,
+      repairAmount
+    });
+
     try {
       // Check if customer was referred
       const customer = await this.customerRepository.getCustomer(customerAddress);
       if (!customer || !customer.referredBy) {
-        return { 
-          success: true, 
+        logger.info('Customer was not referred, skipping referral completion', {
+          fn,
+          customerAddress,
+          customerExists: !!customer
+        });
+        return {
+          success: true,
           message: 'Customer was not referred',
           referralCompleted: false
         };
@@ -235,11 +286,22 @@ export class ReferralService {
       // Check if this is the customer's first repair
       const transactions = await this.transactionRepository.getTransactionsByCustomer(customerAddress, 100);
       const repairCount = transactions.filter(t => t.type === 'mint' && t.shopId !== 'admin_system').length;
-      
+
+      logger.info('Checking repair count for referral eligibility', {
+        fn,
+        customerAddress,
+        repairCount,
+        referredBy: customer.referredBy
+      });
+
       if (repairCount > 1) {
-        // Not the first repair
-        return { 
-          success: true, 
+        logger.info('Not the first repair, skipping referral completion', {
+          fn,
+          customerAddress,
+          repairCount
+        });
+        return {
+          success: true,
           message: 'Not the first repair',
           referralCompleted: false
         };
@@ -252,8 +314,18 @@ export class ReferralService {
         r.refereeAddress?.toLowerCase() === customerAddress.toLowerCase()
       );
 
+      logger.info('Searching for pending referral', {
+        fn,
+        customerAddress,
+        referredBy: customer.referredBy,
+        totalReferrals: referrals.length,
+        pendingReferralFound: !!pendingReferral,
+        referralCode: pendingReferral?.referralCode
+      });
+
       if (!pendingReferral) {
         logger.warn('No pending referral found for referred customer', {
+          fn,
           customerAddress,
           referredBy: customer.referredBy
         });
@@ -266,13 +338,30 @@ export class ReferralService {
 
       // Now distribute the rewards
       const transactionId = uuidv4();
-      
+
+      logger.info('Starting referral reward distribution', {
+        fn,
+        transactionId,
+        referralCode: pendingReferral.referralCode,
+        referrerAddress: customer.referredBy,
+        refereeAddress: customerAddress
+      });
+
       // Mint 25 RCN to referrer
+      logger.info('Minting 25 RCN to referrer', {
+        fn,
+        referrerAddress: customer.referredBy,
+        amount: 25
+      });
       await this.tokenService.mintTokens(
         customer.referredBy,
         25,
         'Referral bonus - referred customer completed first repair'
       );
+      logger.info('Successfully minted 25 RCN to referrer', {
+        fn,
+        referrerAddress: customer.referredBy
+      });
 
       // Record referrer's RCN source
       await this.referralRepository.recordRcnSource({
@@ -290,11 +379,20 @@ export class ReferralService {
       });
 
       // Mint 10 RCN to referee (in addition to repair reward)
+      logger.info('Minting 10 RCN to referee', {
+        fn,
+        refereeAddress: customerAddress,
+        amount: 10
+      });
       await this.tokenService.mintTokens(
         customerAddress,
         10,
         'Referral bonus - first repair completed'
       );
+      logger.info('Successfully minted 10 RCN to referee', {
+        fn,
+        refereeAddress: customerAddress
+      });
 
       // Record referee's RCN source
       await this.referralRepository.recordRcnSource({
@@ -312,17 +410,34 @@ export class ReferralService {
       });
 
       // Mark referral as completed
+      logger.info('Marking referral as completed', {
+        fn,
+        referralCode: pendingReferral.referralCode,
+        refereeAddress: customerAddress,
+        transactionId
+      });
       await this.referralRepository.completeReferral(
         pendingReferral.referralCode,
         customerAddress,
         transactionId
       );
+      logger.info('Referral marked as completed', {
+        fn,
+        referralCode: pendingReferral.referralCode
+      });
 
       // Update referrer's referral count
       const referrer = await this.customerRepository.getCustomer(customer.referredBy);
       if (referrer) {
+        const newCount = (referrer.referralCount || 0) + 1;
+        logger.info('Updating referrer referral count', {
+          fn,
+          referrerAddress: customer.referredBy,
+          previousCount: referrer.referralCount || 0,
+          newCount
+        });
         await this.customerRepository.updateCustomer(customer.referredBy, {
-          referralCount: (referrer.referralCount || 0) + 1
+          referralCount: newCount
         });
       }
 
@@ -348,6 +463,7 @@ export class ReferralService {
       });
 
       logger.info('Referral completed on first repair', {
+        fn,
         referralCode: pendingReferral.referralCode,
         referrerAddress: customer.referredBy,
         refereeAddress: customerAddress,
@@ -361,7 +477,7 @@ export class ReferralService {
         referralCompleted: true
       };
     } catch (error) {
-      logger.error('Error completing referral on first repair:', error);
+      logger.error('Error completing referral on first repair', { fn, error });
       throw error;
     }
   }

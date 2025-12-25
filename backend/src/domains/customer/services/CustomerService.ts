@@ -176,11 +176,21 @@ export class CustomerService {
       // Process referral if code provided
       if (data.referralCode) {
         try {
+          logger.info('create referral start', {
+            fn: 'ReferralBusinessLogic',
+            referralCode:data.referralCode,
+            refereeAddress: data.walletAddress,
+            refereeData:newCustomer
+          });
           const referralResult = await this.referralService.processReferral(
             data.referralCode,
             data.walletAddress,
             newCustomer
           );
+          logger.info('referral end', {
+            fn: 'ReferralBusinessLogic',
+            referralResult
+          });
           
           if (!referralResult.success) {
             logger.warn('Referral processing failed', {

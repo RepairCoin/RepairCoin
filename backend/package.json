@@ -45,7 +45,8 @@
     "admin:list": "ts-node src/cli/admin.ts list",
     "admin:add": "ts-node src/cli/admin.ts add",
     "admin:check": "ts-node src/cli/admin.ts check",
-    "mint:rcg": "ts-node scripts/mint-rcg-tokens.ts"
+    "mint:rcg": "ts-node scripts/mint-rcg-tokens.ts",
+    "logger": "bash scripts/logger.sh"
   },
   "keywords": [
     "blockchain",
