@@ -3,7 +3,7 @@
 import { LookupIcon } from "@/components/icon";
 import React, { useState, useRef, useEffect } from "react";
 import QrScanner from "qr-scanner";
-import { Camera, X, ScanLine, Search, Loader2 } from "lucide-react";
+import { Camera, X, Search, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import CustomerCard from "@/components/shop/customers/CustomerCard";
 
@@ -47,6 +47,7 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
   });
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [qrScanner, setQrScanner] = useState<QrScanner | null>(null);
+  const [cameraLoading, setCameraLoading] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const searchCustomers = async (query?: string) => {
@@ -135,38 +136,74 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
   const startQRScanner = async () => {
     try {
       setShowQRScanner(true);
-      if (videoRef.current) {
-        const scanner = new QrScanner(
-          videoRef.current,
-          (result) => {
-            const scannedText = result.data;
-            // Check if it's a valid Ethereum address
-            const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
-            if (ethAddressRegex.test(scannedText)) {
-              setSearchQuery(scannedText);
-              stopQRScanner();
-              toast.success("Wallet address scanned successfully!");
-              // Auto-search with the scanned address
-              setTimeout(() => {
-                searchCustomers(scannedText);
-              }, 500);
-            } else {
-              toast.error("Invalid wallet address in QR code");
-            }
-          },
-          {
-            highlightScanRegion: true,
-            highlightCodeOutline: true,
-          }
-        );
+      setCameraLoading(true);
 
-        setQrScanner(scanner);
+      // Wait for video element to be ready in the DOM
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      if (!videoRef.current) {
+        throw new Error("Video element not ready");
+      }
+
+      const scanner = new QrScanner(
+        videoRef.current,
+        (result) => {
+          const scannedText = result.data;
+          console.log("QR scan result:", scannedText);
+
+          // Check if it's a valid Ethereum address
+          const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
+          if (ethAddressRegex.test(scannedText)) {
+            setSearchQuery(scannedText);
+            stopQRScanner();
+            toast.success("Wallet address scanned successfully!");
+            // Auto-search with the scanned address
+            setTimeout(() => {
+              searchCustomers(scannedText);
+            }, 500);
+          } else {
+            toast.error("Invalid wallet address in QR code");
+          }
+        },
+        {
+          highlightScanRegion: true,
+          highlightCodeOutline: true,
+          preferredCamera: "environment", // Use back camera on mobile
+        }
+      );
+
+      setQrScanner(scanner);
+
+      // Start the scanner with better error handling
+      try {
         await scanner.start();
+        setCameraLoading(false);
+      } catch (startError: unknown) {
+        console.error("Scanner start error:", startError);
+
+        // Provide more specific error messages
+        const error = startError as { name?: string };
+        if (error.name === "NotAllowedError") {
+          toast.error(
+            "Camera permission denied. Please allow camera access in your browser settings."
+          );
+        } else if (error.name === "NotFoundError") {
+          toast.error("No camera found on this device.");
+        } else if (error.name === "NotReadableError") {
+          toast.error("Camera is already in use by another application.");
+        } else {
+          toast.error("Failed to start camera. Please try again.");
+        }
+
+        setShowQRScanner(false);
+        setQrScanner(null);
+        setCameraLoading(false);
       }
     } catch (error) {
-      console.error("Error starting QR scanner:", error);
-      toast.error("Failed to start camera. Please check permissions.");
+      console.error("Error initializing QR scanner:", error);
+      toast.error("Failed to initialize camera. Please try again.");
       setShowQRScanner(false);
+      setCameraLoading(false);
     }
   };
 
@@ -176,7 +213,19 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
       qrScanner.destroy();
       setQrScanner(null);
     }
+
+    // Explicitly stop all video tracks to ensure camera is released
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach((track) => {
+        track.stop();
+        console.log("Camera track stopped:", track.kind);
+      });
+      videoRef.current.srcObject = null;
+    }
+
     setShowQRScanner(false);
+    setCameraLoading(false);
   };
 
   // Cleanup scanner on unmount
@@ -196,73 +245,67 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="bg-[#212121] rounded-3xl">
+    <div className=" mx-auto rounded-lg">
+      <div className="bg-[#101010] rounded-xl border border-gray-800">
         {/* Header */}
-        <div
-          className="w-full flex gap-2 px-4 md:px-8 py-4 text-white rounded-t-3xl"
-          style={{
-            backgroundImage: `url('/img/cust-ref-widget3.png')`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-          }}
-        >
-          <LookupIcon width={24} height={24} color={"black"} />
-          <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-800">
+          <div className="text-[#FFCC00]">
+            <LookupIcon width={24} height={24} color="#FFCC00" />
+          </div>
+          <h2 className="text-lg font-semibold text-[#FFCC00]">
             Customer Lookup
-          </p>
+          </h2>
         </div>
 
         {/* Search Input */}
-        <div className="flex flex-col sm:flex-row gap-4 px-4 md:px-8 py-6 border-gray-700">
-          <div className="w-full flex items-center gap-2">
-            <div className="flex-1 relative">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Enter customer name or wallet address..."
-                className="w-full px-4 py-3 bg-[#2F2F2F] text-white rounded-xl transition-all pl-10 pr-4 focus:ring-2 focus:ring-[#FFCC00] focus:outline-none"
-              />
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
-            </div>
+        <div className="flex flex-col sm:flex-row items-center gap-3 px-6 py-5">
+          <div className="w-full flex-1 relative">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Enter customer name or wallet address..."
+              className="w-full px-4 py-2.5 bg-white text-gray-900 rounded-lg transition-all pl-10 pr-4 focus:ring-2 focus:ring-[#FFCC00] focus:outline-none placeholder:text-gray-500"
+            />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+          </div>
 
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               onClick={startQRScanner}
               disabled={searchState.isLoading}
-              className="px-4 py-3 bg-[#2F2F2F] border border-gray-600 text-white hover:bg-[#3F3F3F] font-medium rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 whitespace-nowrap"
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-[#1a1a1a] border border-gray-600 text-white hover:bg-[#2a2a2a] font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 whitespace-nowrap"
               title="Scan customer's QR code"
             >
-              <Camera className="w-5 h-5" />
-              <span className="hidden sm:inline">Scan QR</span>
+              <Camera className="w-4 h-4" />
+              <span>Scan QR</span>
+            </button>
+
+            <button
+              onClick={() => searchCustomers()}
+              disabled={searchState.isLoading || !searchQuery.trim()}
+              className="flex-1 sm:flex-none px-5 py-2.5 bg-[#FFCC00] border border-gray-600 text-black hover:bg-[#e6b800] font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+            >
+              {searchState.isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Searching...</span>
+                </>
+              ) : (
+                <>
+                  <Search className="w-4 h-4" />
+                  <span>Search</span>
+                </>
+              )}
             </button>
           </div>
-
-          <button
-            onClick={() => searchCustomers()}
-            disabled={searchState.isLoading || !searchQuery.trim()}
-            className="px-8 py-3 bg-[#FFCC00] text-black font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow-lg hover:shadow-yellow-500/25 transform hover:scale-105 flex items-center justify-center gap-2"
-          >
-            {searchState.isLoading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Searching...
-              </>
-            ) : (
-              <>
-                <Search className="w-5 h-5" />
-                Search
-              </>
-            )}
-          </button>
         </div>
 
         {/* Error Display */}
         {searchState.error && (
-          <div className="px-4 md:px-8 pb-4">
-            <div className="bg-red-900 bg-opacity-20 border border-red-500 rounded-xl p-4">
+          <div className="px-6 pb-4">
+            <div className="bg-red-900 bg-opacity-20 border border-red-500 rounded-lg p-4">
               <div className="flex items-center">
                 <svg
                   className="w-5 h-5 text-red-500 mr-3"
@@ -282,18 +325,18 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
         )}
 
         {/* Results Section */}
-        <div className="px-4 md:px-8 pb-6">
+        <div className="px-6 pb-6">
           {/* Results Header */}
           {searchState.hasSearched && !searchState.error && (
             <div className="mb-4">
               <h3 className="text-white text-lg font-semibold">Results</h3>
               {searchState.results.length > 0 ? (
                 <p className="text-gray-400 text-sm">
-                  {searchState.totalResults} match{searchState.totalResults !== 1 ? "es" : ""} for "{searchState.query}"
+                  {searchState.totalResults} match{searchState.totalResults !== 1 ? "es" : ""} for &quot;{searchState.query}&quot;
                 </p>
               ) : (
                 <p className="text-gray-400 text-sm">
-                  No customers found matching "{searchState.query}"
+                  No customers found matching &quot;{searchState.query}&quot;
                 </p>
               )}
             </div>
@@ -301,11 +344,11 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
 
           {/* Loading State */}
           {searchState.isLoading && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {[1, 2, 3].map((i) => (
                 <div
                   key={i}
-                  className="bg-[#2a2a2a] border border-gray-700 rounded-lg p-4 animate-pulse"
+                  className="bg-[#212121] border border-gray-800 rounded-lg p-4 animate-pulse"
                 >
                   <div className="flex items-start gap-4">
                     <div className="w-12 h-12 bg-gray-700 rounded-full" />
@@ -375,7 +418,7 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
                 No Customers Found
               </h3>
               <p className="text-gray-400 text-sm max-w-md mx-auto">
-                No customers match your search for "{searchState.query}". Try a different name or wallet address.
+                No customers match your search for &quot;{searchState.query}&quot;. Try a different name or wallet address.
               </p>
             </div>
           )}
@@ -384,51 +427,75 @@ export const CustomerLookupTab: React.FC<CustomerLookupTabProps> = ({
 
       {/* QR Scanner Modal */}
       {showQRScanner && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#212121] rounded-2xl max-w-md w-full mx-4">
-            <div className="flex justify-between items-center p-6 border-b border-gray-700">
-              <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-                <ScanLine className="w-6 h-6 text-[#FFCC00]" />
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#101010] rounded-xl p-6 max-w-md w-full border border-gray-800">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <Camera className="w-6 h-6 text-[#FFCC00]" />
                 Scan Customer QR Code
               </h3>
               <button
                 onClick={stopQRScanner}
-                className="text-gray-400 hover:text-white transition-colors"
+                className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
               >
-                <X className="w-6 h-6" />
+                <X className="w-6 h-6 text-gray-400" />
               </button>
             </div>
 
-            <div className="p-6">
-              <div className="relative">
-                <video
-                  ref={videoRef}
-                  className="w-full h-64 bg-black rounded-lg object-cover"
-                  playsInline
-                />
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="w-48 h-48 border-2 border-[#FFCC00] rounded-lg opacity-75"></div>
+            <div className="relative rounded-xl overflow-hidden bg-black">
+              <video
+                ref={videoRef}
+                className="w-full h-64 object-cover rounded-xl"
+                playsInline
+                muted
+              />
+              {cameraLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70">
+                  <div className="text-center">
+                    <svg
+                      className="animate-spin h-12 w-12 text-[#FFCC00] mx-auto mb-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    <p className="text-white text-sm">Starting camera...</p>
+                  </div>
                 </div>
-              </div>
-
-              <div className="mt-4 text-center">
-                <p className="text-gray-300 text-sm mb-2">
-                  Point your camera at the customer's QR code
-                </p>
-                <p className="text-gray-400 text-xs">
-                  The QR code should contain their wallet address
-                </p>
-              </div>
-
-              <div className="mt-6 flex justify-center">
-                <button
-                  onClick={stopQRScanner}
-                  className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
+              )}
+              {!cameraLoading && (
+                <div className="absolute inset-0 border-2 border-[#FFCC00] rounded-xl">
+                  <div className="absolute top-4 left-4 w-6 h-6 border-t-2 border-l-2 border-[#FFCC00]"></div>
+                  <div className="absolute top-4 right-4 w-6 h-6 border-t-2 border-r-2 border-[#FFCC00]"></div>
+                  <div className="absolute bottom-4 left-4 w-6 h-6 border-b-2 border-l-2 border-[#FFCC00]"></div>
+                  <div className="absolute bottom-4 right-4 w-6 h-6 border-b-2 border-r-2 border-[#FFCC00]"></div>
+                </div>
+              )}
             </div>
+
+            <p className="text-gray-400 text-sm mt-4 text-center">
+              Position the customer&apos;s QR code within the frame to scan
+              their wallet address
+            </p>
+
+            <button
+              onClick={stopQRScanner}
+              className="w-full mt-4 px-4 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium"
+            >
+              Cancel Scan
+            </button>
           </div>
         </div>
       )}
