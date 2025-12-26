@@ -10,6 +10,7 @@ import { SearchInput } from "@/components/ui/SearchInput";
 import CustomerCard from "@/components/shop/CustomerCard";
 import { useAuthStore } from "@/store/auth.store";
 import { useShop } from "@/hooks/shop/useShop";
+import { router } from "expo-router";
 
 export default function CustomerList() {
   const { userProfile } = useAuthStore();
@@ -24,8 +25,6 @@ export default function CustomerList() {
     (customer: any) =>
       customer?.name?.toLowerCase().includes(searchText.toLowerCase())
   );
-
-  console.log("filteredCustomers: ", filteredCustomers)
 
   return (
     <ThemedView className="w-full h-full">
@@ -51,9 +50,13 @@ export default function CustomerList() {
             <CustomerCard
               name={item?.name}
               tier={item?.tier}
-              lifetimeEarnings={item?.lifetime_earnings}
+              lifetimeEarnings={item?.lifetimeEarnings}
               total_transactions={item?.total_transactions}
-              onPress={() => console.log("Customer pressed:", item?.name)}
+              onPress={() => {
+                router.push(
+                  `/shared/profile/view-profile/${item?.address}` as any
+                );
+              }}
             />
           );
         }}

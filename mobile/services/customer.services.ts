@@ -1,8 +1,8 @@
-import { CustomerFormData, CustomerData } from "@/interfaces/customer.interface";
+import { CustomerFormData, CustomerData, CustomerResponse } from "@/interfaces/customer.interface";
 import apiClient from "@/utilities/axios";
 
 class CustomerApi {
-  async getCustomerByWalletAddress(walletAddress: string): Promise<any> {
+  async getCustomerByWalletAddress(walletAddress: string): Promise<CustomerResponse> {
     try {
       return await apiClient.get<any>(`/customers/${walletAddress}`);
     } catch (error) {
