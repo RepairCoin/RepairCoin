@@ -270,7 +270,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       {activeTab === "information" && (
         <>
           {/* Shop Details Section */}
-          <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
+          <div className="bg-[#101010] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
             {/* Header with background image and Edit button */}
             <div
               className="w-full flex justify-between items-center px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
@@ -284,36 +284,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
                 Shop Information
               </p>
-              {!isEditingShop ? (
-                <button
-                  onClick={() => setIsEditingShop(true)}
-                  className="text-xs sm:text-sm px-4 py-2 bg-black text-white rounded-3xl font-medium hover:bg-gray-900 transition-colors"
-                >
-                  Edit Details
-                </button>
-              ) : (
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleCancelShopEdit}
-                    className="text-xs sm:text-sm px-4 py-2 bg-black text-white rounded-3xl font-medium hover:bg-gray-900 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSaveShopDetails}
-                    disabled={loadingShopUpdate}
-                    className="text-xs sm:text-sm px-4 py-2 bg-black text-white rounded-3xl font-medium hover:bg-gray-900 transition-colors disabled:opacity-50"
-                  >
-                    {loadingShopUpdate ? "Saving..." : "Save Changes"}
-                  </button>
-                </div>
-              )}
+             
             </div>
 
             {/* Card Title Section */}
-            <div className="px-4 sm:px-6 lg:px-8 pt-6">
-              <h2 className="text-xl font-semibold text-white">Shop Profile</h2>
-              <p className="text-sm text-gray-400 mt-1">Basic shop information, location and contact numbers</p>
+            <div className="w-full flex justify-between items-center px-4 sm:px-6 lg:px-8 pt-6">
+              <div>
+                <h2 className="text-xl font-semibold text-[#FFCC00]">Shop Profile</h2>
+                <p className="text-sm text-gray-400 mt-1">Basic shop information, location and contact numbers</p>
+              </div>
             </div>
 
             {/* Main Form Grid - 2 columns: fields left, logo right */}
@@ -323,7 +302,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 {/* Shop Name */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1.5">
-                    <Store className="w-4 h-4 inline mr-1.5" />
+                    <Store className="w-4 h-4 inline mr-1.5 text-[#FFCC00]" />
                     Shop Name
                   </label>
                   <input
@@ -332,7 +311,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     value={shopFormData.name}
                     onChange={handleShopInputChange}
                     disabled={!isEditingShop}
-                    className="w-full px-4 py-3 bg-[#2F2F2F] text-white rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#1F1F1F] disabled:cursor-not-allowed"
+                    className="w-full px-4 py-3 bg-[#F6F8FA] text-[#24292F] rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#E8EAED] disabled:cursor-not-allowed"
                     placeholder="Enter shop name"
                   />
                   <p className="mt-1.5 text-xs text-gray-500">This shop name will appear on your RepairCoin profile and customer reward receipts</p>
@@ -341,7 +320,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 {/* Wallet Address */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1.5">
-                    <Wallet className="w-4 h-4 inline mr-1.5" />
+                    <Wallet className="w-4 h-4 inline mr-1.5 text-[#FFCC00]" />
                     Wallet Address
                   </label>
                   <div className="flex gap-2">
@@ -349,11 +328,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       type="text"
                       value={shopData?.walletAddress || ""}
                       disabled
-                      className="flex-1 px-4 py-3 bg-[#2F2F2F] text-white rounded-xl border border-[#3F3F3F] focus:outline-none cursor-not-allowed font-mono text-sm"
+                      className="flex-1 px-4 py-3 bg-[#F6F8FA] text-[#24292F] rounded-xl border border-[#3F3F3F] focus:outline-none cursor-not-allowed font-mono text-sm"
                     />
                     <button
                       onClick={() => copyToClipboard(shopData?.walletAddress || "", "Wallet address")}
-                      className="px-4 py-3 bg-[#2F2F2F] text-gray-300 rounded-xl border border-[#3F3F3F] hover:bg-[#3F3F3F] transition-colors"
+                      className="px-4 py-3 bg-[#F6F8FA] text-[#24292F] rounded-xl border border-[#3F3F3F] hover:bg-[#E8EAED] transition-colors"
                       title="Copy wallet address"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -367,7 +346,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 {/* Phone Number */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1.5">
-                    <Phone className="w-4 h-4 inline mr-1.5" />
+                    <Phone className="w-4 h-4 inline mr-1.5 text-[#FFCC00]" />
                     Phone Number
                   </label>
                   <CountryPhoneInput
@@ -375,6 +354,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     onChange={(phone) => setShopFormData((prev) => ({ ...prev, phone }))}
                     disabled={!isEditingShop}
                     placeholder="Enter phone number"
+                    version="UPDATES2"
                   />
                   <p className="mt-1.5 text-xs text-gray-500">Your main shop contact number for customer inquiries and verification</p>
                 </div>
@@ -382,7 +362,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 {/* Email Address */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1.5">
-                    <Mail className="w-4 h-4 inline mr-1.5" />
+                    <Mail className="w-4 h-4 inline mr-1.5 text-[#FFCC00]" />
                     Email Address
                   </label>
                   <input
@@ -391,7 +371,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     value={shopFormData.email}
                     onChange={handleShopInputChange}
                     disabled={!isEditingShop}
-                    className="w-full px-4 py-3 bg-[#2F2F2F] text-white rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#1F1F1F] disabled:cursor-not-allowed"
+                    className="w-full px-4 py-3 bg-[#F6F8FA] text-[#24292F] rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#E8EAED] disabled:cursor-not-allowed"
                     placeholder="shop@example.com"
                   />
                   <p className="mt-1.5 text-xs text-gray-500">We&apos;ll use this email for account notifications and important updates</p>
@@ -468,7 +448,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             <div className="px-4 sm:px-6 lg:px-8 pb-6">
               <div className="border-t border-[#3F3F3F] pt-6">
                 <h3 className="text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
-                  <Globe className="w-4 h-4" />
+                  <Globe className="w-4 h-4 text-[#FFCC00]" />
                   Social Media & Website
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -481,7 +461,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       value={shopFormData.website}
                       onChange={handleShopInputChange}
                       disabled={!isEditingShop}
-                      className="w-full px-4 py-2.5 bg-[#2F2F2F] text-white rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#1F1F1F] disabled:cursor-not-allowed text-sm"
+                      className="w-full px-4 py-3 bg-[#F6F8FA] text-[#24292F] rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#E8EAED] disabled:cursor-not-allowed"
                       placeholder="https://yourshop.com"
                     />
                   </div>
@@ -494,7 +474,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       value={shopFormData.twitter}
                       onChange={handleShopInputChange}
                       disabled={!isEditingShop}
-                      className="w-full px-4 py-2.5 bg-[#2F2F2F] text-white rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#1F1F1F] disabled:cursor-not-allowed text-sm"
+                      className="w-full px-4 py-3 bg-[#F6F8FA] text-[#24292F] rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#E8EAED] disabled:cursor-not-allowed"
                       placeholder="https://twitter.com/yourshop"
                     />
                   </div>
@@ -507,7 +487,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       value={shopFormData.instagram}
                       onChange={handleShopInputChange}
                       disabled={!isEditingShop}
-                      className="w-full px-4 py-2.5 bg-[#2F2F2F] text-white rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#1F1F1F] disabled:cursor-not-allowed text-sm"
+                      className="w-full px-4 py-3 bg-[#F6F8FA] text-[#24292F] rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#E8EAED] disabled:cursor-not-allowed"
                       placeholder="https://instagram.com/yourshop"
                     />
                   </div>
@@ -520,7 +500,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       value={shopFormData.facebook}
                       onChange={handleShopInputChange}
                       disabled={!isEditingShop}
-                      className="w-full px-4 py-2.5 bg-[#2F2F2F] text-white rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#1F1F1F] disabled:cursor-not-allowed text-sm"
+                      className="w-full px-4 py-3 bg-[#F6F8FA] text-[#24292F] rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#E8EAED] disabled:cursor-not-allowed"
                       placeholder="https://facebook.com/yourshop"
                     />
                   </div>
@@ -531,9 +511,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             {/* Location Section */}
             <div className="px-4 sm:px-6 lg:px-8 pb-6">
                  {/* Shop Address */}
-                <div>
+                <div className="border-t border-[#3F3F3F] pt-6">
                   <label className="block text-sm font-medium text-gray-300 mb-1.5">
-                    <MapPin className="w-4 h-4 inline mr-1.5" />
+                    <MapPin className="w-4 h-4 inline mr-1.5 text-[#FFCC00]" />
                     Shop Address
                   </label>
                   <input
@@ -542,7 +522,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     value={shopFormData.address}
                     onChange={handleShopInputChange}
                     disabled={!isEditingShop}
-                    className="w-full px-4 py-3 bg-[#2F2F2F] text-white rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#1F1F1F] disabled:cursor-not-allowed"
+                    className="w-full px-4 py-3 bg-[#F6F8FA] text-[#24292F] rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#E8EAED] disabled:cursor-not-allowed"
                     placeholder="Door 2, Lot 14, Flex Building, Buffed Avenue, New York City, 8000"
                   />
                   <p className="mt-1.5 text-xs text-gray-500">Use your full address for accurate map pinning</p>
@@ -567,6 +547,34 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Save Edit Button */}
+            <div className="px-4 sm:px-6 lg:px-8 pb-6">
+              {!isEditingShop ? (
+                  <button
+                    onClick={() => setIsEditingShop(true)}
+                    className="text-xs sm:text-sm px-6 py-3 bg-[#FFCC00] text-black rounded-lg font-medium hover:bg-[#E6B800] transition-all duration-200"
+                  >
+                    Edit Details
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleCancelShopEdit}
+                      className="text-xs sm:text-sm px-6 py-3 bg-transparent text-gray-400 border border-gray-600 rounded-lg font-medium hover:text-white hover:border-gray-400 transition-all duration-200"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveShopDetails}
+                      disabled={loadingShopUpdate}
+                      className="text-xs sm:text-sm px-6 py-3 bg-[#FFCC00] text-black rounded-lg font-medium hover:bg-[#E6B800] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {loadingShopUpdate ? "Saving..." : "Save Changes"}
+                    </button>
+                  </div>
+                )}
             </div>
 
             {/* Universal Redemption Notice */}

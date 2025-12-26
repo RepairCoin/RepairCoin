@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { MapPin, Search, Loader2 } from "lucide-react";
 import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import toast from "react-hot-toast";
 import { Icon, LatLng, Map as LeafletMap } from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -107,37 +108,45 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
 
   // Handle search for addresses
   const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
-    
+    if (!searchQuery.trim()) {
+      toast.error("Please enter an address to search");
+      return;
+    }
+
     setIsSearching(true);
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=1`
       );
       const data = await response.json();
-      
+
       if (data && data.length > 0) {
         const result = data[0];
         const lat = parseFloat(result.lat);
         const lng = parseFloat(result.lon);
         const newPosition = new LatLng(lat, lng);
-        
+
         setMarkerPosition(newPosition);
         setCenter([lat, lng]);
-        
+
         // Fly to the new location
         if (mapRef.current) {
           mapRef.current.flyTo([lat, lng], 15);
         }
-        
+
         onLocationSelect({
           latitude: lat,
           longitude: lng,
           address: result.display_name
         });
+
+        toast.success("Address found! Location updated.");
+      } else {
+        toast.error("Address not found. Please try a different search.");
       }
     } catch (error) {
       console.error("Error searching for address:", error);
+      toast.error("Failed to search for address. Please try again.");
     } finally {
       setIsSearching(false);
     }
