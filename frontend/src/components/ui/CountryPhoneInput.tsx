@@ -199,7 +199,7 @@ export const CountryPhoneInput: React.FC<CountryPhoneInputProps> = ({
               type="button"
               onClick={() => !disabled && setIsOpen(!isOpen)}
               disabled={disabled}
-              className={cn("flex items-center gap-2 px-4 py-3 transition-colors", theme.button)}
+              className={cn("flex items-center gap-2 px-4 py-2 transition-colors", theme.button)}
             >
               {selectedCountry && (
                 <>
@@ -265,7 +265,7 @@ export const CountryPhoneInput: React.FC<CountryPhoneInputProps> = ({
             onChange={handleLocalNumberChange}
             disabled={disabled}
             placeholder={placeholder}
-            className={cn("flex-1 w-full px-4 py-3 bg-transparent outline-none", theme.phoneInput)}
+            className={cn("flex-1 w-full px-4 py-2 bg-transparent outline-none", theme.phoneInput)}
           />
         </div>
       </div>

@@ -8,11 +8,11 @@ const LocationPicker = dynamic(() => import("./LocationPicker").then(mod => ({ d
   ssr: false,
   loading: () => (
     <div className="w-full">
-      <div 
-        className="flex items-center justify-center bg-[#2F2F2F] rounded-lg border border-gray-300"
+      <div
+        className="flex items-center justify-center bg-[#F6F8FA] rounded-lg border border-[#3F3F3F]"
         style={{ height: "350px" }}
       >
-        <div className="flex items-center gap-2 text-gray-400">
+        <div className="flex items-center gap-2 text-gray-500">
           <Loader2 className="w-5 h-5 animate-spin" />
           <span>Loading map...</span>
         </div>
@@ -32,6 +32,7 @@ interface LocationPickerWrapperProps {
   onLocationSelect: (location: LocationData) => void;
   className?: string;
   height?: string;
+  version?: 'UPDATES2'
 }
 
 export const LocationPickerWrapper: React.FC<LocationPickerWrapperProps> = (props) => {
