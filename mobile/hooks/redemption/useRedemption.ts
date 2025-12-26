@@ -54,9 +54,9 @@ export function useCustomerLookup() {
       if (customerResponse && balanceResponse) {
         setCustomerData({
           address,
-          tier: customerResponse.data?.customer?.tier || "BRONZE",
+          tier: (customerResponse.data?.customer?.tier as "GOLD" | "SILVER" | "BRONZE") || "BRONZE",
           balance: balanceResponse.data?.totalBalance || 0,
-          lifetimeEarnings: customerResponse.data?.customer?.lifetime_earnings || 0,
+          lifetimeEarnings: customerResponse.data?.customer?.lifetimeEarnings || 0,
         });
       } else {
         setCustomerError("Customer not found");

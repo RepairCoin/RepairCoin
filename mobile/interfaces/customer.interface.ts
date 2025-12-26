@@ -14,7 +14,7 @@ export interface CustomerData {
   email: string;
   phone: string;
   tier: string;
-  lifetime_earnings: number;
+  lifetimeEarnings: number;
   totalRedemptions: number;
   totalRepairs: number;
   referralCode: string;
