@@ -43,6 +43,13 @@ export interface SubscriptionReactivatedData {
   nextPaymentDate: Date;
 }
 
+export interface SubscriptionCancelledByAdminData {
+  shopEmail: string;
+  shopName: string;
+  reason?: string;
+  effectiveDate: Date;
+}
+
 export class EmailService {
   private transporter: nodemailer.Transporter | null = null;
   private config: EmailConfig;
@@ -272,6 +279,196 @@ export class EmailService {
     `;
 
     return this.sendEmail(data.shopEmail, subject, html);
+  }
+
+  /**
+   * Send subscription cancelled by admin notice
+   */
+  async sendSubscriptionCancelledByAdmin(data: SubscriptionCancelledByAdminData): Promise<boolean> {
+    const subject = '⚠️ Your RepairCoin Subscription Has Been Cancelled';
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #f57c00;">Subscription Cancelled</h2>
+
+        <p>Dear ${data.shopName},</p>
+
+        <p>Your RepairCoin subscription has been cancelled by an administrator.</p>
+
+        <div style="background-color: #fff3e0; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f57c00;">
+          <p style="margin: 5px 0;"><strong>Status:</strong> Cancelled</p>
+          <p style="margin: 5px 0;"><strong>Reason:</strong> ${data.reason || 'Not specified'}</p>
+          <p style="margin: 5px 0;"><strong>Full Access Until:</strong> ${data.effectiveDate.toLocaleDateString()}</p>
+        </div>
+
+        <div style="background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <p style="margin: 0;"><strong>Good news:</strong> You retain <strong>full platform access</strong> until ${data.effectiveDate.toLocaleDateString()}. During this period, you can continue to issue rewards, process redemptions, and manage your services as normal.</p>
+        </div>
+
+        <p><strong>After ${data.effectiveDate.toLocaleDateString()}, you will no longer be able to:</strong></p>
+
+        <ul>
+          <li>Issue RCN rewards to customers</li>
+          <li>Process RCN redemptions</li>
+          <li>Manage services in the marketplace</li>
+          <li>Look up customer information</li>
+          <li>Purchase additional RCN tokens</li>
+        </ul>
+
+        <p style="color: #666;"><em>Note: You will still be able to view your purchase history and limited analytics.</em></p>
+
+        <div style="background-color: #e8f5e9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <p style="margin: 0 0 10px 0;"><strong>Want to continue using RepairCoin?</strong></p>
+          <p style="margin: 0;">You can resubscribe at any time by visiting your shop dashboard. Alternatively, holding 10,000+ RCG tokens grants you full platform access without a monthly subscription.</p>
+        </div>
+
+        <p>If you believe this cancellation was made in error or have questions, please contact our support team immediately.</p>
+
+        <hr style="border: 1px solid #ddd; margin: 30px 0;">
+
+        <p style="color: #666; font-size: 12px;">
+          This is an automated message from RepairCoin. For support, please contact support@repaircoin.com
+        </p>
+      </div>
+    `;
+
+    return this.sendEmail(data.shopEmail, subject, html);
+  }
+
+  /**
+   * Send subscription paused by admin notice
+   */
+  async sendSubscriptionPausedByAdmin(shopEmail: string, shopName: string, reason?: string): Promise<boolean> {
+    const subject = '⏸️ Your RepairCoin Subscription Has Been Paused';
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #f59e0b;">Subscription Paused</h2>
+
+        <p>Dear ${shopName},</p>
+
+        <p>Your RepairCoin subscription has been temporarily paused by an administrator.</p>
+
+        <div style="background-color: #fef3c7; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+          <p style="margin: 5px 0;"><strong>Status:</strong> Paused</p>
+          <p style="margin: 5px 0;"><strong>Reason:</strong> ${reason || 'Not specified'}</p>
+        </div>
+
+        <p><strong>While your subscription is paused, you will not be able to:</strong></p>
+
+        <ul>
+          <li>Issue RCN rewards to customers</li>
+          <li>Process RCN redemptions</li>
+          <li>Manage services in the marketplace</li>
+          <li>Look up customer information</li>
+          <li>Purchase additional RCN tokens</li>
+        </ul>
+
+        <p style="color: #666;"><em>Note: You will still be able to view your purchase history and limited analytics.</em></p>
+
+        <div style="background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <p style="margin: 0;">Your subscription will remain paused until an administrator resumes it. If you have questions or believe this was done in error, please contact our support team.</p>
+        </div>
+
+        <hr style="border: 1px solid #ddd; margin: 30px 0;">
+
+        <p style="color: #666; font-size: 12px;">
+          This is an automated message from RepairCoin. For support, please contact support@repaircoin.com
+        </p>
+      </div>
+    `;
+
+    return this.sendEmail(shopEmail, subject, html);
+  }
+
+  /**
+   * Send subscription resumed by admin notice
+   */
+  async sendSubscriptionResumedByAdmin(shopEmail: string, shopName: string): Promise<boolean> {
+    const subject = '▶️ Your RepairCoin Subscription Has Been Resumed';
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #10b981;">Subscription Resumed</h2>
+
+        <p>Dear ${shopName},</p>
+
+        <p>Great news! Your RepairCoin subscription has been resumed by an administrator.</p>
+
+        <div style="background-color: #d1fae5; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
+          <p style="margin: 5px 0;"><strong>Status:</strong> Active</p>
+          <p style="margin: 0;"><strong>All platform features are now available.</strong></p>
+        </div>
+
+        <p><strong>You can now:</strong></p>
+
+        <ul>
+          <li>Issue RCN rewards to customers</li>
+          <li>Process RCN redemptions</li>
+          <li>Manage services in the marketplace</li>
+          <li>Look up customer information</li>
+          <li>Purchase RCN tokens at $0.10 each</li>
+        </ul>
+
+        <p>Thank you for your patience. If you have any questions, please don't hesitate to contact our support team.</p>
+
+        <hr style="border: 1px solid #ddd; margin: 30px 0;">
+
+        <p style="color: #666; font-size: 12px;">
+          This is an automated message from RepairCoin. For support, please contact support@repaircoin.com
+        </p>
+      </div>
+    `;
+
+    return this.sendEmail(shopEmail, subject, html);
+  }
+
+  /**
+   * Send subscription reactivated by admin notice (for cancelled subscriptions that are reactivated)
+   */
+  async sendSubscriptionReactivatedByAdmin(shopEmail: string, shopName: string): Promise<boolean> {
+    const subject = '✅ Your RepairCoin Subscription Has Been Reactivated';
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #10b981;">Subscription Reactivated!</h2>
+
+        <p>Dear ${shopName},</p>
+
+        <p>Great news! Your RepairCoin subscription has been reactivated by an administrator. Your scheduled cancellation has been reversed.</p>
+
+        <div style="background-color: #d1fae5; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
+          <p style="margin: 5px 0;"><strong>Status:</strong> Active ✅</p>
+          <p style="margin: 0;"><strong>All platform features are now fully available.</strong></p>
+        </div>
+
+        <p><strong>You can now continue to:</strong></p>
+
+        <ul>
+          <li>Issue RCN rewards to customers</li>
+          <li>Process RCN redemptions</li>
+          <li>Manage services in the marketplace</li>
+          <li>Look up customer information</li>
+          <li>Purchase RCN tokens at $0.10 each</li>
+        </ul>
+
+        <p>Your subscription will continue as normal with no interruption to your service.</p>
+
+        <div style="background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <p style="margin: 0;"><strong>Tip:</strong> Ensure your payment method is up to date to avoid any future interruptions.</p>
+        </div>
+
+        <p>Thank you for being a valued RepairCoin partner. If you have any questions, please don't hesitate to contact our support team.</p>
+
+        <hr style="border: 1px solid #ddd; margin: 30px 0;">
+
+        <p style="color: #666; font-size: 12px;">
+          This is an automated message from RepairCoin. For support, please contact support@repaircoin.com
+        </p>
+      </div>
+    `;
+
+    return this.sendEmail(shopEmail, subject, html);
   }
 
   /**

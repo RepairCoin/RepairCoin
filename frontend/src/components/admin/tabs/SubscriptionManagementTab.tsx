@@ -982,11 +982,20 @@ export default function SubscriptionManagementTab() {
                 />
               </div>
 
-              <div className="bg-red-900/30 border border-red-700 rounded-lg p-4">
-                <h4 className="font-semibold text-red-400 mb-2">Warning:</h4>
-                <ul className="space-y-1 text-sm text-red-300">
-                  <li>• Shop will lose operational status immediately</li>
+              <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-4 mb-4">
+                <h4 className="font-semibold text-blue-400 mb-2">Good news:</h4>
+                <p className="text-sm text-blue-300">
+                  Shop will retain <strong>full platform access</strong> until the end of their current billing period.
+                  They can continue to issue rewards, process redemptions, and manage services as normal until then.
+                </p>
+              </div>
+
+              <div className="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4">
+                <h4 className="font-semibold text-yellow-400 mb-2">After billing period ends:</h4>
+                <ul className="space-y-1 text-sm text-yellow-300">
+                  <li>• Shop will lose operational status</li>
                   <li>• Cannot issue rewards or process redemptions</li>
+                  <li>• Cannot manage services in the marketplace</li>
                   <li>• Shop can resubscribe at any time</li>
                 </ul>
               </div>

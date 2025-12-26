@@ -5,14 +5,15 @@ import { getSubscriptionEnforcementService } from '../../../services/Subscriptio
 import { ShopRepository } from '../../../repositories/ShopRepository';
 import { DatabaseService } from '../../../services/DatabaseService';
 import { logger } from '../../../utils/logger';
-import { NotificationService } from '../../notification/services/NotificationService';
+import { EmailService } from '../../../services/EmailService';
+import { eventBus, createDomainEvent } from '../../../events/EventBus';
 
 const router = Router();
 const subscriptionService = new SubscriptionService();
 const stripeService = getStripeService();
 const shopRepository = new ShopRepository();
 const db = DatabaseService.getInstance();
-const notificationService = new NotificationService();
+const emailService = new EmailService();
 
 // Get all subscriptions for admin view (now using shop_subscriptions)
 router.get('/subscriptions', async (req: Request, res: Response) => {
@@ -258,21 +259,50 @@ router.post('/subscriptions/:subscriptionId/cancel', async (req: Request, res: R
       [reason || 'Cancelled by admin', subscriptionId]
     );
 
-    // Get shop wallet address for notification
+    // Get shop details for notifications
     const shopQuery = await db.query(
-      'SELECT wallet_address FROM shops WHERE shop_id = $1',
+      'SELECT wallet_address, email, name FROM shops WHERE shop_id = $1',
       [shopId]
     );
 
-    if (shopQuery.rows.length > 0 && shopQuery.rows[0].wallet_address) {
-      try {
-        await notificationService.createSubscriptionCancelledNotification(
-          shopQuery.rows[0].wallet_address,
-          reason || 'Cancelled by admin'
-        );
-        logger.info('Subscription cancellation notification sent', { shopId, subscriptionId });
-      } catch (notifError) {
-        logger.error('Failed to send cancellation notification:', notifError);
+    // Get subscription period end date for email
+    const subDetailsQuery = await db.query(
+      'SELECT current_period_end FROM stripe_subscriptions WHERE stripe_subscription_id = $1',
+      [stripeSubscriptionId]
+    );
+    const effectiveDate = subDetailsQuery.rows[0]?.current_period_end || new Date();
+
+    if (shopQuery.rows.length > 0) {
+      const shop = shopQuery.rows[0];
+
+      // Emit event for in-app notification (handled by NotificationDomain with WebSocket)
+      if (shop.wallet_address) {
+        await eventBus.publish(createDomainEvent(
+          'subscription:cancelled',
+          subscriptionId,
+          {
+            shopAddress: shop.wallet_address,
+            reason: reason || 'Cancelled by administrator',
+            effectiveDate: effectiveDate
+          },
+          'AdminDomain'
+        ));
+        logger.info('Subscription cancellation event emitted', { shopId, subscriptionId, effectiveDate });
+      }
+
+      // Send email notification
+      if (shop.email) {
+        try {
+          await emailService.sendSubscriptionCancelledByAdmin({
+            shopEmail: shop.email,
+            shopName: shop.name || 'Shop Owner',
+            reason: reason || 'Cancelled by administrator',
+            effectiveDate: new Date(effectiveDate)
+          });
+          logger.info('Subscription cancellation email sent', { shopId, subscriptionId, email: shop.email });
+        } catch (emailError) {
+          logger.error('Failed to send cancellation email:', emailError);
+        }
       }
     }
 
@@ -409,21 +439,41 @@ router.post('/subscriptions/:subscriptionId/pause', async (req: Request, res: Re
       [subscriptionId]
     );
 
-    // Get shop wallet address for notification
+    // Get shop details for notifications
     const shopQuery = await db.query(
-      'SELECT wallet_address FROM shops WHERE shop_id = $1',
+      'SELECT wallet_address, email, name FROM shops WHERE shop_id = $1',
       [shopId]
     );
 
-    if (shopQuery.rows.length > 0 && shopQuery.rows[0].wallet_address) {
-      try {
-        await notificationService.createSubscriptionPausedNotification(
-          shopQuery.rows[0].wallet_address,
-          'Paused by admin'
-        );
-        logger.info('Subscription pause notification sent', { shopId, subscriptionId });
-      } catch (notifError) {
-        logger.error('Failed to send pause notification:', notifError);
+    if (shopQuery.rows.length > 0) {
+      const shop = shopQuery.rows[0];
+
+      // Emit event for in-app notification (handled by NotificationDomain with WebSocket)
+      if (shop.wallet_address) {
+        await eventBus.publish(createDomainEvent(
+          'subscription:paused',
+          subscriptionId,
+          {
+            shopAddress: shop.wallet_address,
+            reason: 'Paused by administrator'
+          },
+          'AdminDomain'
+        ));
+        logger.info('Subscription pause event emitted', { shopId, subscriptionId });
+      }
+
+      // Send email notification
+      if (shop.email) {
+        try {
+          await emailService.sendSubscriptionPausedByAdmin(
+            shop.email,
+            shop.name || 'Shop Owner',
+            'Paused by administrator'
+          );
+          logger.info('Subscription pause email sent', { shopId, email: shop.email });
+        } catch (emailError) {
+          logger.error('Failed to send pause email:', emailError);
+        }
       }
     }
 
@@ -577,20 +627,39 @@ router.post('/subscriptions/:subscriptionId/resume', async (req: Request, res: R
         [subscriptionId]
       );
 
-      // Get shop wallet address for notification
+      // Get shop details for notifications
       const shopQuery = await db.query(
-        'SELECT wallet_address FROM shops WHERE shop_id = $1',
+        'SELECT wallet_address, email, name FROM shops WHERE shop_id = $1',
         [shopId]
       );
 
-      if (shopQuery.rows.length > 0 && shopQuery.rows[0].wallet_address) {
-        try {
-          await notificationService.createSubscriptionResumedNotification(
-            shopQuery.rows[0].wallet_address
-          );
-          logger.info('Subscription resume notification sent', { shopId, subscriptionId });
-        } catch (notifError) {
-          logger.error('Failed to send resume notification:', notifError);
+      if (shopQuery.rows.length > 0) {
+        const shop = shopQuery.rows[0];
+
+        // Emit event for in-app notification (handled by NotificationDomain with WebSocket)
+        if (shop.wallet_address) {
+          await eventBus.publish(createDomainEvent(
+            'subscription:resumed',
+            subscriptionId,
+            {
+              shopAddress: shop.wallet_address
+            },
+            'AdminDomain'
+          ));
+          logger.info('Subscription resume event emitted', { shopId, subscriptionId });
+        }
+
+        // Send email notification
+        if (shop.email) {
+          try {
+            await emailService.sendSubscriptionResumedByAdmin(
+              shop.email,
+              shop.name || 'Shop Owner'
+            );
+            logger.info('Subscription resume email sent', { shopId, email: shop.email });
+          } catch (emailError) {
+            logger.error('Failed to send resume email:', emailError);
+          }
         }
       }
 
@@ -925,20 +994,39 @@ router.post('/subscriptions/:subscriptionId/reactivate', async (req: Request, re
       [subscriptionId]
     );
 
-    // Get shop wallet address for notification
+    // Get shop details for notifications
     const shopQuery = await db.query(
-      'SELECT wallet_address FROM shops WHERE shop_id = $1',
+      'SELECT wallet_address, email, name FROM shops WHERE shop_id = $1',
       [shopId]
     );
 
-    if (shopQuery.rows.length > 0 && shopQuery.rows[0].wallet_address) {
-      try {
-        await notificationService.createSubscriptionReactivatedNotification(
-          shopQuery.rows[0].wallet_address
-        );
-        logger.info('Subscription reactivation notification sent', { shopId, subscriptionId });
-      } catch (notifError) {
-        logger.error('Failed to send reactivation notification:', notifError);
+    if (shopQuery.rows.length > 0) {
+      const shop = shopQuery.rows[0];
+
+      // Emit event for in-app notification (handled by NotificationDomain with WebSocket)
+      if (shop.wallet_address) {
+        await eventBus.publish(createDomainEvent(
+          'subscription:reactivated',
+          subscriptionId,
+          {
+            shopAddress: shop.wallet_address
+          },
+          'AdminDomain'
+        ));
+        logger.info('Subscription reactivation event emitted', { shopId, subscriptionId });
+      }
+
+      // Send email notification
+      if (shop.email) {
+        try {
+          await emailService.sendSubscriptionReactivatedByAdmin(
+            shop.email,
+            shop.name || 'Shop Owner'
+          );
+          logger.info('Subscription reactivation email sent', { shopId, email: shop.email });
+        } catch (emailError) {
+          logger.error('Failed to send reactivation email:', emailError);
+        }
       }
     }
 

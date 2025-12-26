@@ -11,7 +11,7 @@ export interface NotificationMessageTemplates {
   token_gifted: (data: { fromCustomerName: string; amount: number }) => string;
   subscription_paused: (data: { reason?: string }) => string;
   subscription_resumed: () => string;
-  subscription_cancelled: (data: { reason?: string }) => string;
+  subscription_cancelled: (data: { reason?: string; effectiveDate?: Date | string }) => string;
   subscription_approved: () => string;
   subscription_reactivated: () => string;
   service_booking_received: (data: { customerName: string; serviceName: string; amount: number }) => string;
@@ -59,7 +59,7 @@ export class NotificationService {
         'Your subscription has been resumed by admin and is now active.',
 
       subscription_cancelled: (data) =>
-        `Your subscription has been cancelled by admin${data.reason ? ': ' + data.reason : '.'}`,
+        `Your subscription has been cancelled by admin${data.reason ? ': ' + data.reason : '.'}${data.effectiveDate ? ` You retain full access until ${new Date(data.effectiveDate).toLocaleDateString()}.` : ''}`,
 
       subscription_approved: () =>
         'Your subscription has been approved and is now active!',
@@ -341,9 +341,10 @@ export class NotificationService {
 
   async createSubscriptionCancelledNotification(
     shopAddress: string,
-    reason?: string
+    reason?: string,
+    effectiveDate?: Date | string
   ): Promise<Notification> {
-    const message = this.messageTemplates.subscription_cancelled({ reason });
+    const message = this.messageTemplates.subscription_cancelled({ reason, effectiveDate });
 
     return this.createNotification({
       senderAddress: 'SYSTEM',
@@ -352,6 +353,7 @@ export class NotificationService {
       message,
       metadata: {
         reason,
+        effectiveDate: effectiveDate ? new Date(effectiveDate).toISOString() : null,
         timestamp: new Date().toISOString()
       }
     });
