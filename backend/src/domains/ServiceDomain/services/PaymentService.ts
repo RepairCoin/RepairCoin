@@ -13,10 +13,49 @@ import Stripe from 'stripe';
 export interface CreatePaymentIntentRequest {
   serviceId: string;
   customerAddress: string;
-  bookingDate?: Date;
+  bookingDate?: Date | string;
   bookingTime?: string;
   rcnToRedeem?: number;
   notes?: string;
+}
+
+/**
+ * Safely extract date string from Date or string, avoiding timezone issues.
+ * When Date is created from a date string like "2024-12-24", using toISOString()
+ * can cause the date to shift by a day depending on timezone.
+ * This function uses local date components to avoid that issue.
+ */
+function getDateString(date: Date | string): string {
+  if (typeof date === 'string') {
+    // If already a string, extract just the date part (in case it has time component)
+    return date.split('T')[0];
+  }
+  // If Date object, use local date components to avoid timezone issues
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Convert booking date to Date object for database storage.
+ * Parses date strings as local date at midnight to avoid timezone issues.
+ */
+function toLocalDate(date: Date | string): Date {
+  if (date instanceof Date) {
+    return date;
+  }
+  // Parse YYYY-MM-DD string as local date (not UTC)
+  const [year, month, day] = date.split('T')[0].split('-').map(Number);
+  return new Date(year, month - 1, day, 0, 0, 0, 0);
+}
+
+/**
+ * Normalize time string to HH:MM format.
+ * PostgreSQL TIME type returns "HH:MM:SS" but frontend sends "HH:MM".
+ * This ensures consistent comparison between stored and requested times.
+ */
+function normalizeTimeSlot(time: string): string {
+  // Extract just the HH:MM part (handles "10:00:00", "10:00", etc.)
+  const parts = time.split(':');
+  return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
 }
 
 export interface CreatePaymentIntentResponse {
@@ -83,7 +122,7 @@ export class PaymentService {
       // Validate time slot availability if booking date and time provided
       let bookingEndTime: string | undefined;
       if (request.bookingDate && request.bookingTime) {
-        const dateStr = request.bookingDate.toISOString().split('T')[0];
+        const dateStr = getDateString(request.bookingDate);
 
         // Get service duration
         const serviceDuration = await this.appointmentRepository.getServiceDuration(request.serviceId);
@@ -104,17 +143,32 @@ export class PaymentService {
 
         // Get booked slots for this date
         const bookedSlots = await this.appointmentRepository.getBookedSlots(service.shopId, dateStr);
-        const bookedCount = bookedSlots.find(slot => slot.timeSlot === request.bookingTime)?.count || 0;
+        const normalizedRequestTime = normalizeTimeSlot(request.bookingTime);
+        const bookedCount = bookedSlots.find(slot => normalizeTimeSlot(slot.timeSlot) === normalizedRequestTime)?.count || 0;
 
         // Check if time slot is available
         if (bookedCount >= config.maxConcurrentBookings) {
           throw new Error(`Time slot ${request.bookingTime} is fully booked. Please select a different time.`);
         }
 
+        // Validate minimum notice (minBookingHours)
+        // Parse booking date and time to create a proper DateTime
+        const [bookingYear, bookingMonth, bookingDay] = dateStr.split('-').map(Number);
+        const [bookingHour, bookingMinute] = request.bookingTime.split(':').map(Number);
+        const slotDateTime = new Date(bookingYear, bookingMonth - 1, bookingDay, bookingHour, bookingMinute, 0, 0);
+        const now = new Date();
+        const hoursUntilSlot = (slotDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+        if (hoursUntilSlot < config.minBookingHours) {
+          throw new Error(`Bookings require at least ${config.minBookingHours} hours advance notice. Please select a later time.`);
+        }
+
         logger.info('Time slot validated', {
           shopId: service.shopId,
           date: dateStr,
           timeSlot: request.bookingTime,
+          normalizedTime: normalizedRequestTime,
+          bookedSlots: bookedSlots.map(s => ({ time: s.timeSlot, normalized: normalizeTimeSlot(s.timeSlot), count: s.count })),
           bookedCount,
           maxBookings: config.maxConcurrentBookings
         });
@@ -157,7 +211,7 @@ export class PaymentService {
         rcnRedeemed,
         rcnDiscountUsd,
         finalAmountUsd,
-        bookingDate: request.bookingDate,
+        bookingDate: request.bookingDate ? toLocalDate(request.bookingDate) : undefined,
         bookingTimeSlot: request.bookingTime,
         bookingEndTime,
         notes: request.notes
@@ -234,7 +288,7 @@ export class PaymentService {
       // Validate time slot availability if booking date and time provided
       let bookingEndTime: string | undefined;
       if (request.bookingDate && request.bookingTime) {
-        const dateStr = request.bookingDate.toISOString().split('T')[0];
+        const dateStr = getDateString(request.bookingDate);
 
         // Get service duration
         const serviceDuration = await this.appointmentRepository.getServiceDuration(request.serviceId);
@@ -255,12 +309,34 @@ export class PaymentService {
 
         // Get booked slots for this date
         const bookedSlots = await this.appointmentRepository.getBookedSlots(service.shopId, dateStr);
-        const bookedCount = bookedSlots.find(slot => slot.timeSlot === request.bookingTime)?.count || 0;
+        const normalizedRequestTime = normalizeTimeSlot(request.bookingTime);
+        const bookedCount = bookedSlots.find(slot => normalizeTimeSlot(slot.timeSlot) === normalizedRequestTime)?.count || 0;
 
         // Check if time slot is available
         if (bookedCount >= config.maxConcurrentBookings) {
           throw new Error(`Time slot ${request.bookingTime} is fully booked. Please select a different time.`);
         }
+
+        // Validate minimum notice (minBookingHours)
+        // Parse booking date and time to create a proper DateTime
+        const [bookingYear, bookingMonth, bookingDay] = dateStr.split('-').map(Number);
+        const [bookingHour, bookingMinute] = request.bookingTime.split(':').map(Number);
+        const slotDateTime = new Date(bookingYear, bookingMonth - 1, bookingDay, bookingHour, bookingMinute, 0, 0);
+        const now = new Date();
+        const hoursUntilSlot = (slotDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+        if (hoursUntilSlot < config.minBookingHours) {
+          throw new Error(`Bookings require at least ${config.minBookingHours} hours advance notice. Please select a later time.`);
+        }
+
+        logger.info('Time slot validated (checkout)', {
+          shopId: service.shopId,
+          date: dateStr,
+          timeSlot: request.bookingTime,
+          normalizedTime: normalizedRequestTime,
+          bookedCount,
+          maxBookings: config.maxConcurrentBookings
+        });
       }
 
       let rcnRedeemed = 0;
@@ -300,7 +376,7 @@ export class PaymentService {
         rcnRedeemed,
         rcnDiscountUsd,
         finalAmountUsd,
-        bookingDate: request.bookingDate,
+        bookingDate: request.bookingDate ? toLocalDate(request.bookingDate) : undefined,
         bookingTimeSlot: request.bookingTime,
         bookingEndTime,
         notes: request.notes

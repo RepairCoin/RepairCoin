@@ -262,13 +262,17 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
               <input
                 type="number"
                 value={timeSlotConfig.bufferTimeMinutes}
-                onChange={(e) => setTimeSlotConfig({ ...timeSlotConfig, bufferTimeMinutes: parseInt(e.target.value) || 0 })}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value) || 0;
+                  setTimeSlotConfig({ ...timeSlotConfig, bufferTimeMinutes: Math.max(0, Math.min(120, value)) });
+                }}
                 min={0}
+                max={120}
                 step={5}
                 className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
               />
               <p className="text-xs text-gray-500 mt-2">
-                Time added between appointments (e.g., 0, 5, 10, 15 minutes)
+                Time added between appointments (0-120 minutes)
               </p>
             </div>
 
@@ -280,13 +284,16 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
               <input
                 type="number"
                 value={timeSlotConfig.maxConcurrentBookings}
-                onChange={(e) => setTimeSlotConfig({ ...timeSlotConfig, maxConcurrentBookings: parseInt(e.target.value) || 1 })}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value) || 1;
+                  setTimeSlotConfig({ ...timeSlotConfig, maxConcurrentBookings: Math.max(1, Math.min(50, value)) });
+                }}
                 min={1}
-                max={10}
+                max={50}
                 className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
               />
               <p className="text-xs text-gray-500 mt-2">
-                How many appointments can overlap at the same time
+                How many appointments can overlap at the same time (1-50)
               </p>
             </div>
 
@@ -298,13 +305,16 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
               <input
                 type="number"
                 value={timeSlotConfig.bookingAdvanceDays}
-                onChange={(e) => setTimeSlotConfig({ ...timeSlotConfig, bookingAdvanceDays: parseInt(e.target.value) || 30 })}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value) || 30;
+                  setTimeSlotConfig({ ...timeSlotConfig, bookingAdvanceDays: Math.max(1, Math.min(365, value)) });
+                }}
                 min={1}
-                max={90}
+                max={365}
                 className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
               />
               <p className="text-xs text-gray-500 mt-2">
-                How far in advance customers can book (e.g., 30, 60, 90 days)
+                How far in advance customers can book (1-365 days)
               </p>
             </div>
 
@@ -316,13 +326,16 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
               <input
                 type="number"
                 value={timeSlotConfig.minBookingHours}
-                onChange={(e) => setTimeSlotConfig({ ...timeSlotConfig, minBookingHours: parseInt(e.target.value) || 2 })}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value) || 0;
+                  setTimeSlotConfig({ ...timeSlotConfig, minBookingHours: Math.max(0, Math.min(168, value)) });
+                }}
                 min={0}
-                max={48}
+                max={168}
                 className="w-full px-4 py-3 bg-[#0D0D0D] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
               />
               <p className="text-xs text-gray-500 mt-2">
-                Minimum hours before appointment can be booked (e.g., 2, 4, 24 hours)
+                Minimum hours before appointment can be booked (0-168 hours)
               </p>
             </div>
           </div>

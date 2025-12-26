@@ -14,7 +14,7 @@ import { RecentlyViewedServices } from "./RecentlyViewedServices";
 import { TrendingServices } from "./TrendingServices";
 import { useAuthStore } from "@/stores/authStore";
 import { serviceGroupApi } from "@/services/api/serviceGroups";
-import { getAllCustomerBalances, CustomerAffiliateGroupBalance } from "@/services/api/affiliateShopGroups";
+import { getAllCustomerBalances, CustomerAffiliateGroupBalance, getAllGroups, AffiliateShopGroup } from "@/services/api/affiliateShopGroups";
 
 export const ServiceMarketplaceClient: React.FC = () => {
   const router = useRouter();
@@ -30,27 +30,23 @@ export const ServiceMarketplaceClient: React.FC = () => {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "map">("grid");
   const [refreshKey, setRefreshKey] = useState(0); // For refreshing recently viewed
-  const [customerGroups, setCustomerGroups] = useState<CustomerAffiliateGroupBalance[]>([]);
+  const [customerGroups, setCustomerGroups] = useState<AffiliateShopGroup[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
 
-  // Load customer groups on mount
+  // Load all public groups on mount (for filtering)
   useEffect(() => {
-    if (userType === 'customer' && address) {
-      loadCustomerGroups();
-    }
-  }, [userType, address]);
+    loadCustomerGroups();
+  }, []);
 
   useEffect(() => {
     loadServices();
   }, [filters, page, showFavoritesOnly, selectedGroupId]);
 
   const loadCustomerGroups = async () => {
-    if (!address) return;
-
     try {
-      const balances = await getAllCustomerBalances(address);
-      // Show all groups (customer can discover services in new groups)
-      setCustomerGroups(balances);
+      // Load all public affiliate groups so customers can discover services
+      const allGroups = await getAllGroups({ isPrivate: false });
+      setCustomerGroups(allGroups);
     } catch (error) {
       console.error('Error loading customer groups:', error);
     }
@@ -335,8 +331,8 @@ export const ServiceMarketplaceClient: React.FC = () => {
           </div>
         )}
 
-        {/* Group Filter - Show for customers with group memberships */}
-        {userType === 'customer' && customerGroups.length > 0 && !showFavoritesOnly && viewMode === "grid" && (
+        {/* Group Filter - Show all public groups for discovery */}
+        {customerGroups.length > 0 && !showFavoritesOnly && viewMode === "grid" && (
           <div className="mb-8">
             <div className="bg-gradient-to-r from-purple-900/20 to-purple-800/20 border border-purple-500/30 rounded-xl p-5">
               <div className="flex items-center gap-2 mb-3">
@@ -359,7 +355,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
                 <option value="">🌐 All Services (with or without group rewards)</option>
                 {customerGroups.map(group => (
                   <option key={group.groupId} value={group.groupId}>
-                    {group.icon || '🏪'} {group.customerName || group.groupName} - Earn {group.customTokenSymbol} tokens
+                    {group.icon || '🏪'} {group.groupName} - Earn {group.customTokenSymbol} tokens
                   </option>
                 ))}
               </select>
@@ -380,7 +376,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
             <div className="flex-1">
               <p className="text-sm text-purple-400 mb-1">Browsing group services:</p>
               <p className="text-white font-semibold">
-                {customerGroups.find(g => g.groupId === selectedGroupId)?.customerName || "Group Services"}
+                {customerGroups.find(g => g.groupId === selectedGroupId)?.icon || '🎁'} {customerGroups.find(g => g.groupId === selectedGroupId)?.groupName || "Group Services"}
               </p>
             </div>
             <button

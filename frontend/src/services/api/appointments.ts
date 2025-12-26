@@ -1,7 +1,5 @@
 // frontend/src/services/api/appointments.ts
-import axios from 'axios';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+import apiClient from './client';
 
 // ==================== TYPES ====================
 
@@ -75,6 +73,9 @@ export interface ServiceDuration {
 
 // ==================== API CLIENT ====================
 
+// Note: apiClient already returns response.data and has withCredentials: true configured
+// The response interceptor extracts the data, so we access .data directly from the result
+
 export const appointmentsApi = {
   // Public: Get available time slots for a service
   async getAvailableTimeSlots(
@@ -82,21 +83,29 @@ export const appointmentsApi = {
     serviceId: string,
     date: string
   ): Promise<TimeSlot[]> {
-    const response = await axios.get<{ success: boolean; data: TimeSlot[] }>(
-      `${API_URL}/services/appointments/available-slots`,
+    const response = await apiClient.get<{ success: boolean; data: TimeSlot[] }>(
+      `/services/appointments/available-slots`,
       {
         params: { shopId, serviceId, date }
       }
     );
-    return response.data.data;
+    return (response as unknown as { success: boolean; data: TimeSlot[] }).data;
   },
 
   // Public: Get shop availability (operating hours)
   async getShopAvailability(shopId: string): Promise<ShopAvailability[]> {
-    const response = await axios.get<{ success: boolean; data: ShopAvailability[] }>(
-      `${API_URL}/services/appointments/shop-availability/${shopId}`
+    const response = await apiClient.get<{ success: boolean; data: ShopAvailability[] }>(
+      `/services/appointments/shop-availability/${shopId}`
     );
-    return response.data.data;
+    return (response as unknown as { success: boolean; data: ShopAvailability[] }).data;
+  },
+
+  // Public: Get time slot configuration by shop ID (for customers)
+  async getPublicTimeSlotConfig(shopId: string): Promise<TimeSlotConfig | null> {
+    const response = await apiClient.get<{ success: boolean; data: TimeSlotConfig | null }>(
+      `/services/appointments/time-slot-config/${shopId}`
+    );
+    return (response as unknown as { success: boolean; data: TimeSlotConfig | null }).data;
   },
 
   // Shop: Update shop availability
@@ -108,43 +117,39 @@ export const appointmentsApi = {
     breakStartTime?: string;
     breakEndTime?: string;
   }): Promise<ShopAvailability> {
-    const response = await axios.put<{ success: boolean; data: ShopAvailability }>(
-      `${API_URL}/services/appointments/shop-availability`,
-      availability,
-      { withCredentials: true }
+    const response = await apiClient.put<{ success: boolean; data: ShopAvailability }>(
+      `/services/appointments/shop-availability`,
+      availability
     );
-    return response.data.data;
+    return (response as unknown as { success: boolean; data: ShopAvailability }).data;
   },
 
   // Shop: Get time slot configuration
   async getTimeSlotConfig(): Promise<TimeSlotConfig | null> {
-    const response = await axios.get<{ success: boolean; data: TimeSlotConfig | null }>(
-      `${API_URL}/services/appointments/time-slot-config`,
-      { withCredentials: true }
+    const response = await apiClient.get<{ success: boolean; data: TimeSlotConfig | null }>(
+      `/services/appointments/time-slot-config`
     );
-    return response.data.data;
+    return (response as unknown as { success: boolean; data: TimeSlotConfig | null }).data;
   },
 
   // Shop: Update time slot configuration
   async updateTimeSlotConfig(config: Partial<TimeSlotConfig>): Promise<TimeSlotConfig> {
-    const response = await axios.put<{ success: boolean; data: TimeSlotConfig }>(
-      `${API_URL}/services/appointments/time-slot-config`,
-      config,
-      { withCredentials: true }
+    const response = await apiClient.put<{ success: boolean; data: TimeSlotConfig }>(
+      `/services/appointments/time-slot-config`,
+      config
     );
-    return response.data.data;
+    return (response as unknown as { success: boolean; data: TimeSlotConfig }).data;
   },
 
   // Shop: Get date overrides
   async getDateOverrides(startDate?: string, endDate?: string): Promise<DateOverride[]> {
-    const response = await axios.get<{ success: boolean; data: DateOverride[] }>(
-      `${API_URL}/services/appointments/date-overrides`,
+    const response = await apiClient.get<{ success: boolean; data: DateOverride[] }>(
+      `/services/appointments/date-overrides`,
       {
-        params: { startDate, endDate },
-        withCredentials: true
+        params: { startDate, endDate }
       }
     );
-    return response.data.data;
+    return (response as unknown as { success: boolean; data: DateOverride[] }).data;
   },
 
   // Shop: Create date override
@@ -155,71 +160,59 @@ export const appointmentsApi = {
     customCloseTime?: string;
     reason?: string;
   }): Promise<DateOverride> {
-    const response = await axios.post<{ success: boolean; data: DateOverride }>(
-      `${API_URL}/services/appointments/date-overrides`,
-      override,
-      { withCredentials: true }
+    const response = await apiClient.post<{ success: boolean; data: DateOverride }>(
+      `/services/appointments/date-overrides`,
+      override
     );
-    return response.data.data;
+    return (response as unknown as { success: boolean; data: DateOverride }).data;
   },
 
   // Shop: Delete date override
   async deleteDateOverride(date: string): Promise<void> {
-    await axios.delete(
-      `${API_URL}/services/appointments/date-overrides/${date}`,
-      { withCredentials: true }
-    );
+    await apiClient.delete(`/services/appointments/date-overrides/${date}`);
   },
 
   // Shop: Get calendar view
   async getShopCalendar(startDate: string, endDate: string): Promise<CalendarBooking[]> {
-    const response = await axios.get<{ success: boolean; data: CalendarBooking[] }>(
-      `${API_URL}/services/appointments/calendar`,
+    const response = await apiClient.get<{ success: boolean; data: CalendarBooking[] }>(
+      `/services/appointments/calendar`,
       {
-        params: { startDate, endDate },
-        withCredentials: true
+        params: { startDate, endDate }
       }
     );
-    return response.data.data;
+    return (response as unknown as { success: boolean; data: CalendarBooking[] }).data;
   },
 
   // Shop: Get service duration
   async getServiceDuration(serviceId: string): Promise<ServiceDuration | null> {
-    const response = await axios.get<{ success: boolean; data: ServiceDuration | null }>(
-      `${API_URL}/services/${serviceId}/duration`,
-      { withCredentials: true }
+    const response = await apiClient.get<{ success: boolean; data: ServiceDuration | null }>(
+      `/services/${serviceId}/duration`
     );
-    return response.data.data;
+    return (response as unknown as { success: boolean; data: ServiceDuration | null }).data;
   },
 
   // Shop: Update service duration
   async updateServiceDuration(serviceId: string, durationMinutes: number): Promise<ServiceDuration> {
-    const response = await axios.put<{ success: boolean; data: ServiceDuration }>(
-      `${API_URL}/services/${serviceId}/duration`,
-      { durationMinutes },
-      { withCredentials: true }
+    const response = await apiClient.put<{ success: boolean; data: ServiceDuration }>(
+      `/services/${serviceId}/duration`,
+      { durationMinutes }
     );
-    return response.data.data;
+    return (response as unknown as { success: boolean; data: ServiceDuration }).data;
   },
 
   // Customer: Get customer's appointments
   async getCustomerAppointments(startDate: string, endDate: string): Promise<CalendarBooking[]> {
-    const response = await axios.get<{ success: boolean; data: CalendarBooking[] }>(
-      `${API_URL}/services/appointments/my-appointments`,
+    const response = await apiClient.get<{ success: boolean; data: CalendarBooking[] }>(
+      `/services/appointments/my-appointments`,
       {
-        params: { startDate, endDate },
-        withCredentials: true
+        params: { startDate, endDate }
       }
     );
-    return response.data.data;
+    return (response as unknown as { success: boolean; data: CalendarBooking[] }).data;
   },
 
   // Customer: Cancel appointment
   async cancelAppointment(orderId: string): Promise<void> {
-    await axios.post(
-      `${API_URL}/services/appointments/cancel/${orderId}`,
-      {},
-      { withCredentials: true }
-    );
+    await apiClient.post(`/services/appointments/cancel/${orderId}`, {});
   }
 };

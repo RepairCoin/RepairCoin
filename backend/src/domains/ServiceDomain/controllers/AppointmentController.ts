@@ -74,6 +74,33 @@ export class AppointmentController {
   };
 
   /**
+   * Get time slot configuration by shop ID (Public - for customers)
+   * GET /api/services/appointments/time-slot-config/:shopId
+   */
+  getPublicTimeSlotConfig = async (req: Request, res: Response) => {
+    try {
+      const { shopId } = req.params;
+
+      if (!shopId) {
+        return res.status(400).json({ success: false, error: 'shopId is required' });
+      }
+
+      const config = await this.appointmentRepo.getTimeSlotConfig(shopId);
+
+      res.json({
+        success: true,
+        data: config
+      });
+    } catch (error: unknown) {
+      logger.error('Error in getPublicTimeSlotConfig controller:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get time slot config'
+      });
+    }
+  };
+
+  /**
    * Update shop availability (Shop only)
    * PUT /api/services/appointments/shop-availability
    */
@@ -158,6 +185,57 @@ export class AppointmentController {
         minBookingHours,
         allowWeekendBooking
       } = req.body;
+
+      // Validate all fields before saving
+      const validationErrors: string[] = [];
+
+      // Slot Duration: 15-480 minutes (15 min to 8 hours)
+      if (slotDurationMinutes !== undefined) {
+        if (typeof slotDurationMinutes !== 'number' || !Number.isInteger(slotDurationMinutes) || slotDurationMinutes < 15 || slotDurationMinutes > 480) {
+          validationErrors.push('Slot duration must be between 15 and 480 minutes');
+        }
+      }
+
+      // Buffer Time: 0-120 minutes
+      if (bufferTimeMinutes !== undefined) {
+        if (typeof bufferTimeMinutes !== 'number' || !Number.isInteger(bufferTimeMinutes) || bufferTimeMinutes < 0 || bufferTimeMinutes > 120) {
+          validationErrors.push('Buffer time must be between 0 and 120 minutes');
+        }
+      }
+
+      // Max Concurrent Bookings: 1-50
+      if (maxConcurrentBookings !== undefined) {
+        if (typeof maxConcurrentBookings !== 'number' || !Number.isInteger(maxConcurrentBookings) || maxConcurrentBookings < 1 || maxConcurrentBookings > 50) {
+          validationErrors.push('Max concurrent bookings must be between 1 and 50');
+        }
+      }
+
+      // Booking Advance: 1-365 days
+      if (bookingAdvanceDays !== undefined) {
+        if (typeof bookingAdvanceDays !== 'number' || !Number.isInteger(bookingAdvanceDays) || bookingAdvanceDays < 1 || bookingAdvanceDays > 365) {
+          validationErrors.push('Booking advance must be between 1 and 365 days');
+        }
+      }
+
+      // Minimum Notice: 0-168 hours (1 week)
+      if (minBookingHours !== undefined) {
+        if (typeof minBookingHours !== 'number' || !Number.isInteger(minBookingHours) || minBookingHours < 0 || minBookingHours > 168) {
+          validationErrors.push('Minimum notice must be between 0 and 168 hours');
+        }
+      }
+
+      // Weekend Booking: must be boolean
+      if (allowWeekendBooking !== undefined && typeof allowWeekendBooking !== 'boolean') {
+        validationErrors.push('Allow weekend booking must be true or false');
+      }
+
+      if (validationErrors.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Validation failed',
+          details: validationErrors
+        });
+      }
 
       const config = await this.appointmentRepo.updateTimeSlotConfig({
         shopId,

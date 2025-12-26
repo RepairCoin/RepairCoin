@@ -646,9 +646,9 @@ export class ServiceRepository extends BaseRepository {
           COALESCE(ss.review_count, 0) as review_count,
           s.location_lat as shop_lat,
           s.location_lng as shop_lng,
-          s.city as shop_city,
-          s.state as shop_state,
-          s.zip_code as shop_zip_code
+          s.location_city as shop_city,
+          s.location_state as shop_state,
+          s.location_zip_code as shop_zip_code
         FROM service_group_availability sga
         JOIN shop_services ss ON sga.service_id = ss.service_id
         JOIN shops s ON ss.shop_id = s.shop_id
