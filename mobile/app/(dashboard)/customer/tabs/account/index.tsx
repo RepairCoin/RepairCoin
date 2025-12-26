@@ -4,8 +4,15 @@ import {
   Text,
   View,
   ActivityIndicator,
+  TouchableOpacity,
 } from "react-native";
-import { AntDesign, Entypo, Feather, MaterialIcons } from "@expo/vector-icons";
+import {
+  AntDesign,
+  Entypo,
+  Feather,
+  Ionicons,
+  MaterialIcons,
+} from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import * as Clipboard from "expo-clipboard";
 import { router } from "expo-router";
@@ -74,7 +81,7 @@ export default function Account() {
 
   const handleReferFriends = () => {
     // TODO: Implement refer friends functionality
-    router.push("/customer/referral")
+    router.push("/customer/referral");
   };
 
   useEffect(() => {
@@ -88,62 +95,82 @@ export default function Account() {
   }, [isCopied]);
 
   return (
-    <View className="w-full h-full bg-zinc-950 px-4 pt-24">
-      <ScrollView>
-        <View className="flex-row py-6 px-4 justify-between bg-[#212121] rounded-xl items-center">
-          <View className="gap-2">
-            <Text className="text-[#FFCC00] text-xl font-bold">
+    <View className="w-full h-full bg-zinc-950">
+      {/* Header */}
+      <View className="flex-row items-center justify-between px-4 pt-16 pb-4">
+        <Text className="text-white text-xl font-semibold">Profile</Text>
+        <TouchableOpacity
+          onPress={() => router.push("/customer/settings")}
+          className="p-2"
+        >
+          <Ionicons name="ellipsis-vertical" size={22} color="#fff" />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView className="px-4" showsVerticalScrollIndicator={false}>
+        {/* Profile Card */}
+        <View className="rounded-2xl flex-row items-center">
+          <View className="w-16 h-16 rounded-full bg-[#FFCC00]/20 items-center justify-center">
+            <Ionicons name="person" size={32} color="#FFCC00" />
+          </View>
+          <View className="flex-1 ml-4">
+            <Text className="text-white text-lg font-bold">
               {customerData?.customer?.name || "User"}
             </Text>
-            <Text className="text-white/50 text-base">
+            <Text className="text-gray-500 text-sm mt-0.5">
               {customerData?.customer?.email || "No email"}
             </Text>
+            <View className="flex-row items-center mt-1">
+              <View className="bg-[#FFCC00]/20 px-2 py-0.5 rounded-full">
+                <Text className="text-[#FFCC00] text-xs font-medium capitalize">
+                  {customerData?.customer?.tier || "Bronze"} Member
+                </Text>
+              </View>
+            </View>
           </View>
-          <Pressable
-            onPress={() => router.push("/customer/profile")}
-            className="bg-white p-2 max-h-12 w-24 rounded-lg flex-row justify-center items-center"
-          >
-            <Feather name="edit" color="#000" size={14} />
-            <Text className="text-black ml-2 text-base">Edit</Text>
-          </Pressable>
         </View>
-        <View className="p-4 bg-[#212121] rounded-xl mt-4">
-          <Pressable
-            onPress={handleReferFriends}
-            className="flex-row justify-between items-center"
-          >
-            <View className="flex-row items-center">
-              <MaterialIcons name="group" size={18} color="#FFCC00" />
-              <View className="px-4 gap-2">
-                <Text className="text-white text-lg font-semibold">
-                  Refer your friends
-                </Text>
-              </View>
+
+        {/* Wallet Address - Copyable */}
+        <TouchableOpacity
+          onPress={async () => {
+            if (account?.address) {
+              await Clipboard.setStringAsync(account.address);
+              setIsCopied(true);
+            }
+          }}
+          activeOpacity={0.7}
+          className={`mt-4 p-4 rounded-xl flex-row items-center justify-between ${
+            isCopied ? "bg-[#FFCC00]" : "bg-zinc-900"
+          }`}
+        >
+          <View className="flex-row items-center flex-1">
+            <View className={`p-2 rounded-full ${isCopied ? "bg-black/20" : "bg-zinc-800"}`}>
+              <Ionicons
+                name={isCopied ? "checkmark" : "wallet-outline"}
+                size={18}
+                color={isCopied ? "#000" : "#FFCC00"}
+              />
             </View>
-            <AntDesign name="right" color="#fff" size={18} />
-          </Pressable>
-        </View>
-        <View className="p-4 bg-[#212121] rounded-xl mt-4">
-          <Pressable
-            onPress={handleLogout}
-            disabled={isLoggingOut}
-            className={`flex-row justify-between items-center ${isLoggingOut ? "opacity-50" : ""}`}
-          >
-            <View className="flex-row items-center">
-              {isLoggingOut ? (
-                <ActivityIndicator size="small" color="#E74C4C" />
-              ) : (
-                <MaterialIcons name="logout" color="#E74C4C" size={18} />
-              )}
-              <View className="px-4 gap-2">
-                <Text className="text-white text-lg font-semibold">
-                  {isLoggingOut ? "Logging Out..." : "Log Out"}
-                </Text>
-              </View>
+            <View className="ml-3 flex-1">
+              <Text className={`text-xs ${isCopied ? "text-black/60" : "text-gray-500"}`}>
+                Wallet Address
+              </Text>
+              <Text
+                className={`text-sm font-medium ${isCopied ? "text-black" : "text-white"}`}
+                numberOfLines={1}
+              >
+                {isCopied
+                  ? "Copied to clipboard!"
+                  : account?.address
+                    ? `${account.address.slice(0, 10)}...${account.address.slice(-8)}`
+                    : "Not connected"}
+              </Text>
             </View>
-            {!isLoggingOut && <AntDesign name="right" color="#fff" size={18} />}
-          </Pressable>
-        </View>
+          </View>
+          {!isCopied && (
+            <Ionicons name="copy-outline" size={18} color="#9CA3AF" />
+          )}
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
