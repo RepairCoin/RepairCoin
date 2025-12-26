@@ -6,22 +6,22 @@ import {
   CheckCircle,
   XCircle,
   Wallet,
-  Search,
-  CreditCard,
   Shield,
-  TrendingDown,
   AlertCircle,
   ChevronRight,
-  Smartphone,
+  ChevronLeft,
   RefreshCw,
   Camera,
   X,
+  HelpCircle,
+  User,
+  Gift,
+  Coins,
+  UserCircleIcon,
 } from "lucide-react";
-import { LookupIcon, RedeemIcon } from "../../icon";
 import { showToast } from "@/utils/toast";
 import QrScanner from "qr-scanner";
 import toast from "react-hot-toast";
-import Tooltip from "../../ui/tooltip";
 import apiClient from "@/services/api/client";
 import ToggleDisableWrapper from "@/components/status/ToggleDisableWrapper";
 import { ShopData as ShopDataImport } from "../ShopDashboardClient";
@@ -126,6 +126,8 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   const [transactions, setTransactions] = useState<RedemptionTransaction[]>([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [showHistory, setShowHistory] = useState(true);
+  const [historyPage, setHistoryPage] = useState(1);
+  const ITEMS_PER_PAGE = 3;
 
   // QR Scanner states
   const [showQRScanner, setShowQRScanner] = useState(false);
@@ -888,7 +890,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
   }, [shopData]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className=" ">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Content - Left Side */}
         <div className="lg:col-span-2 space-y-6">
@@ -925,157 +927,117 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
               </div>
             </div>
           )}
-          {/* Security Notice */}
-          <div className="bg-blue-900 bg-opacity-20 border border-blue-500 rounded-xl p-4">
-            <div className="flex items-start">
-              <Shield className="w-5 h-5 text-blue-500 mt-0.5 mr-3 flex-shrink-0" />
-              <div className="flex-1">
-                <h4 className="font-semibold text-blue-400 mb-1">
-                  Secure Redemption Process
-                </h4>
-                <p className="text-sm text-blue-300">
-                  For security, all redemptions require customer approval on
-                  their own device. Customer must approve the transaction
-                  themselves on their phone/device.
-                </p>
-              </div>
-            </div>
-          </div>
-
           {/* Customer Input Flow - Used by both immediate and session-based */}
           {sessionStatus === "idle" && (
             <>
               {/* Customer Search Card */}
-              <div className="bg-[#212121] rounded-3xl">
-                <div
-                  className="w-full flex items-center justify-between px-4 md:px-8 py-4 text-white rounded-t-3xl"
-                  style={{
-                    backgroundImage: `url('/img/cust-ref-widget3.png')`,
-                    backgroundSize: "cover",
-                    backgroundPosition: "center",
-                    backgroundRepeat: "no-repeat",
-                  }}
-                >
-                  <div className="flex gap-2 items-center">
-                    <LookupIcon width={24} height={24} color={"black"} />
-                    <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
+              <div className="bg-[#101010] rounded-xl border border-gray-800">
+                <div className="flex items-center justify-between pl-8 pr-6 py-4 border-b border-gray-800">
+                  <div className="flex gap-3 items-center">
+                    <UserCircleIcon className="w-6 h-6 text-[#FFCC00]" />
+                    <h2 className="text-lg font-semibold text-[#FFCC00]">
                       Step 1: Select Customer
-                    </p>
+                    </h2>
                   </div>
-                  <Tooltip
-                    title="How redemption works"
-                    position="bottom"
-                    className="right-0"
-                    content={
-                      <ul className="space-y-3 text-sm">
+                  <div className="relative group">
+                    <button className="p-1.5 rounded-full transition-colors">
+                      <HelpCircle className="w-6 h-6 text-gray-400" />
+                    </button>
+                    <div className="absolute right-0 top-full mt-2 w-80 bg-[#1a1a1a] border border-gray-700 rounded-xl p-5 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                      <div className="flex items-center gap-2 mb-4">
+                        <svg className="w-5 h-5 text-[#FFCC00]" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 0L14.59 8.41L23 11L14.59 13.59L12 22L9.41 13.59L1 11L9.41 8.41L12 0Z" />
+                        </svg>
+                        <span className="text-base font-semibold text-[#FFCC00]">How redemption works</span>
+                      </div>
+                      <ul className="space-y-4 text-sm">
                         <li className="flex items-start gap-3">
-                          <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <span className="text-xs font-bold text-blue-400">
-                              1
-                            </span>
+                          <div className="w-6 h-6 bg-[#FFCC00] rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-xs font-bold text-black">1</span>
                           </div>
-                          <span className="text-gray-300">
-                            Search for customer by wallet address or scan QR
-                            code
-                          </span>
+                          <span className="text-gray-200">Search for customer by wallet address or scan QR code</span>
                         </li>
                         <li className="flex items-start gap-3">
-                          <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <span className="text-xs font-bold text-blue-400">
-                              2
-                            </span>
+                          <div className="w-6 h-6 bg-[#FFCC00] rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-xs font-bold text-black">2</span>
                           </div>
-                          <span className="text-gray-300">
-                            Enter the RCN amount customer wants to redeem
-                          </span>
+                          <span className="text-gray-200">Enter the RCN amount customer wants to redeem</span>
                         </li>
                         <li className="flex items-start gap-3">
-                          <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <span className="text-xs font-bold text-blue-400">
-                              3
-                            </span>
+                          <div className="w-6 h-6 bg-[#FFCC00] rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-xs font-bold text-black">3</span>
                           </div>
-                          <span className="text-gray-300">
-                            System calculates redemption value (100% at your
-                            shop, 20% elsewhere)
-                          </span>
+                          <span className="text-gray-200">System calculates redemption value (100% at your shop, 20% elsewhere)</span>
                         </li>
                         <li className="flex items-start gap-3">
-                          <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <span className="text-xs font-bold text-blue-400">
-                              4
-                            </span>
+                          <div className="w-6 h-6 bg-[#FFCC00] rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-xs font-bold text-black">4</span>
                           </div>
-                          <span className="text-gray-300">
-                            Approve the redemption to transfer RCN and complete
-                            transaction
-                          </span>
+                          <span className="text-gray-200">Approve the redemption to transfer RCN and complete transaction</span>
                         </li>
                       </ul>
-                    }
-                  />
+                    </div>
+                  </div>
                 </div>
-                  <div className="space-y-4 px-4 md:px-8 py-4">
+                  <div className="px-6 py-5">
+                    <p className="text-sm font-medium text-gray-400 mb-2">Customer Name or Wallet Address</p>
                     <ToggleDisableWrapper {...maskState} onClick={() => setShowOnboardingModal(true)}>
-                    <div>  
-                      <div className="flex gap-2">
-                        <div className="relative flex-1">
-                          <input
-                            type="text"
-                            value={customerSearch}
-                            onChange={(e) => {
-                              setCustomerSearch(e.target.value);
-                              if (
-                                selectedCustomer &&
-                                !e.target.value.includes(
-                                  selectedCustomer.address.slice(0, 6)
-                                )
-                              ) {
-                                setSelectedCustomer(null);
-                                setCustomerAddress("");
-                                setCustomerBalance(null);
-                                setCrossShopInfo(null);
-                              }
-                            }}
-                            placeholder="Type customer name or wallet address..."
-                            className="w-full px-4 py-3 bg-[#2F2F2F] text-white rounded-xl transition-all pl-10 pr-4 border-2 border-transparent focus:border-[#FFCC00]"
-                          />
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                          {loadingCustomers && (
-                            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                              <svg
-                                className="animate-spin h-5 w-5 text-[#FFCC00]"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                              >
-                                <circle
-                                  className="opacity-25"
-                                  cx="12"
-                                  cy="12"
-                                  r="10"
-                                  stroke="currentColor"
-                                  strokeWidth="4"
-                                ></circle>
-                                <path
-                                  className="opacity-75"
-                                  fill="currentColor"
-                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                ></path>
-                              </svg>
-                            </div>
-                          )}
-                        </div>
-
-                        <button
-                          onClick={startQRScanner}
-                          disabled={loadingCustomers}
-                          className="px-4 py-3 font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all bg-[#FFCC00] text-black hover:bg-[#FFD700] flex items-center justify-center gap-2 whitespace-nowrap"
-                          title="Scan customer's QR code"
-                        >
-                          <Camera className="w-5 h-5" />
-                          <span className="hidden sm:inline">Scan QR</span>
-                        </button>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <input
+                          type="text"
+                          value={customerSearch}
+                          onChange={(e) => {
+                            setCustomerSearch(e.target.value);
+                            if (
+                              selectedCustomer &&
+                              !e.target.value.includes(
+                                selectedCustomer.address.slice(0, 6)
+                              )
+                            ) {
+                              setSelectedCustomer(null);
+                              setCustomerAddress("");
+                              setCustomerBalance(null);
+                              setCrossShopInfo(null);
+                            }
+                          }}
+                          placeholder="Enter Customer Wallet Address..."
+                          className="w-full px-4 py-2.5 bg-white text-gray-900 rounded-lg transition-all pl-4 pr-4 focus:ring-2 focus:ring-[#FFCC00] focus:outline-none placeholder:text-gray-500"
+                        />
+                        {loadingCustomers && (
+                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                            <svg
+                              className="animate-spin h-5 w-5 text-[#FFCC00]"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              ></circle>
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                              ></path>
+                            </svg>
+                          </div>
+                        )}
                       </div>
+
+                      <button
+                        onClick={startQRScanner}
+                        disabled={loadingCustomers}
+                        className="px-4 py-2.5 font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all bg-[#FFCC00] text-black hover:bg-[#FFD700] flex items-center justify-center gap-2 whitespace-nowrap"
+                        title="Scan customer's QR code"
+                      >
+                        <Camera className="w-4 h-4" />
+                        <span>Scan QR</span>
+                      </button>
                     </div>
                     </ToggleDisableWrapper>
                     {/* Search Results */}
@@ -1280,7 +1242,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
 
                     {/* Selected Customer Display */}
                     {selectedCustomer && (
-                      <div className="bg-gradient-to-r from-green-900/20 to-green-800/20 rounded-xl p-4 border-2 border-green-500">
+                      <div className="mt-4 bg-gradient-to-r from-green-900/20 to-green-800/20 rounded-xl p-4 border-2 border-green-500">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <CheckCircle className="w-5 h-5 text-green-500" />
@@ -1354,22 +1316,14 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                   
               </div>
               {/* Amount Input Card */}
-              <div className="bg-[#212121] rounded-3xl">
-                <div
-                  className="w-full flex gap-2 px-4 md:px-8 py-4 text-white rounded-t-3xl"
-                  style={{
-                    backgroundImage: `url('/img/cust-ref-widget3.png')`,
-                    backgroundSize: "cover",
-                    backgroundPosition: "center",
-                    backgroundRepeat: "no-repeat",
-                  }}
-                >
-                  <LookupIcon width={24} height={24} color={"black"} />
-                  <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
+              <div className="bg-[#101010] rounded-xl border border-gray-800">
+                <div className="flex items-center gap-3 pl-8 pr-6 py-4 border-b border-gray-800">
+                  <Coins className="w-6 h-6 text-[#FFCC00]" />
+                  <h2 className="text-lg font-semibold text-[#FFCC00]">
                     Step 2: Enter Redemption Amount
-                  </p>
+                  </h2>
                 </div>
-                <div className="space-y-4 px-4 md:px-8 py-4">
+                <div className="px-6 py-5 space-y-4">
                   <ToggleDisableWrapper {...maskState} onClick={() => setShowOnboardingModal(true)}>
                   <div>
                     <label className="block text-sm font-medium text-gray-400 mb-2">
@@ -1385,24 +1339,33 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                         setRedeemAmount(amount);
                       }}
                       placeholder="0"
-                      className="w-full px-4 py-3 bg-[#2F2F2F] text-[#FFCC00] rounded-xl transition-all text-2xl font-bold"
+                      className="w-full px-4 py-2.5 bg-white text-gray-900 rounded-lg transition-all text-xl font-bold focus:ring-2 focus:ring-[#FFCC00] focus:outline-none"
                     />
                   </div>
 
-                  {/* Quick amount buttons */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                    {[10, 25, 50, 100].map((amount) => (
-                      <button
-                        key={amount}
-                        onClick={() => {
-                          console.log("Quick amount button clicked:", amount);
-                          setRedeemAmount(amount);
-                        }}
-                        className="px-3 py-2 bg-[#FFCC00] hover:bg-yellow-500 border border-gray-700 rounded-3xl font-medium text-black transition-colors"
-                      >
-                        {amount} RCN
-                      </button>
-                    ))}
+                  {/* Quick Select buttons */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Quick Select
+                    </label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {[10, 25, 50, 100].map((amount) => (
+                        <button
+                          key={amount}
+                          onClick={() => {
+                            console.log("Quick amount button clicked:", amount);
+                            setRedeemAmount(amount);
+                          }}
+                          className={`px-3 py-2 border rounded-lg font-medium transition-colors ${
+                            redeemAmount === amount
+                              ? "bg-[#FFCC00] text-black border-[#FFCC00]"
+                              : "bg-transparent text-white border-gray-600 hover:border-gray-500"
+                          }`}
+                        >
+                          {amount} RCN
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   </ToggleDisableWrapper>
                 </div>
@@ -1578,99 +1541,84 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
         <div className="lg:col-span-1">
           <div className="sticky top-8">
             {/* Redemption Summary Card */}
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#1C1C1C] to-[#252525] border border-gray-800">
-              {/* Decorative Header */}
-              <div className="p-1">
-                <div className="bg-[#1C1C1C] px-6 py-4 rounded-t-3xl">
-                  <div className="flex items-center gap-2">
-                    <RedeemIcon width={24} height={24} color={"#FFCC00"} />
-                    <h3 className="text-xl font-bold text-white">
-                      Redemption Summary
-                    </h3>
+            <div className="bg-[#101010] rounded-xl border border-gray-800">
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-[#FFCC00] rounded-lg flex items-center justify-center">
+                    <Gift className="w-5 h-5 text-black" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-[#FFCC00]">
+                    Redemption Summary
+                  </h3>
+                </div>
+                <div className="relative group">
+                  <button className="p-1.5 rounded-full transition-colors">
+                    <HelpCircle className="w-6 h-6 text-gray-400" />
+                  </button>
+                  <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2 w-56 bg-[#1a1a1a] border border-gray-600 rounded-lg p-4 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                    <p className="text-sm text-gray-200 leading-relaxed">
+                      Review the redemption details before requesting customer approval.
+                    </p>
                   </div>
                 </div>
               </div>
 
               {/* Redemption Details */}
-              <div className="px-6 py-4 space-y-4">
-                {/* Shop RCN Balance Display */}
-                <div className="bg-[#0D0D0D] rounded-xl p-3 border border-gray-700">
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-400 text-sm">Your Shop RCN</span>
-                    <span className={`font-bold ${shopRcnBalance > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {Math.floor(shopRcnBalance)} RCN
+              <div className="px-5 py-5 space-y-5">
+                {/* Customer Info Section - Card Style */}
+                <div className="bg-[#1a1a1a] rounded-xl overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/50">
+                    <span className="text-white text-sm font-medium">Customer •</span>
+                    <span className="text-[#FFCC00] font-semibold">
+                      {selectedCustomer?.name || "—"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between px-4 py-3 bg-[#222222] border-b border-gray-800/50">
+                    <span className="text-white text-sm font-medium">Base Reward •</span>
+                    {selectedCustomer ? (
+                      <span
+                        className={`px-4 py-1 rounded-full text-xs font-bold ${
+                          selectedCustomer.tier === "GOLD"
+                            ? "bg-[#F7B500] text-black"
+                            : selectedCustomer.tier === "SILVER"
+                            ? "bg-[#9CA3AF] text-black"
+                            : "bg-[#CD7F32] text-white"
+                        }`}
+                      >
+                        {selectedCustomer.tier}
+                      </span>
+                    ) : (
+                      <span className="text-gray-500">—</span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <span className="text-white text-sm font-medium">Balance •</span>
+                    <span className="text-[#22C55E] font-semibold">
+                      {loadingBalance ? (
+                        "Loading..."
+                      ) : customerBalance !== null ? (
+                        `${Math.floor(customerBalance)} RCN`
+                      ) : (
+                        "0 RCN"
+                      )}
                     </span>
                   </div>
                 </div>
 
-                {selectedCustomer && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-[#FFCC00] rounded-full"></div>
-                        <span className="text-gray-300">Customer</span>
-                      </div>
-                      <span className="text-white font-semibold text-sm">
-                        {selectedCustomer.name || "External"}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <span className="text-gray-300">Tier</span>
-                      </div>
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-bold ${getTierColor(
-                          selectedCustomer.tier
-                        )}`}
-                      >
-                        {selectedCustomer.tier}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                        <span className="text-gray-300">Customer Balance</span>
-                      </div>
-                      <span className="text-white font-semibold text-sm">
-                        {loadingBalance ? (
-                          <span className="text-gray-400">Loading...</span>
-                        ) : customerBalance !== null ? (
-                          <span
-                            className={
-                              customerBalance > 0
-                                ? "text-green-400"
-                                : "text-red-400"
-                            }
-                          >
-                            {Math.floor(customerBalance)} RCN
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">Unknown</span>
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Amount Display */}
-                <div className="border-t border-gray-700 pt-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-white font-semibold text-lg">
-                      Redemption Amount
+                {/* Redemption Amount Display */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-white font-semibold">
+                      Redemption Amount:
                     </span>
-                    <div className="text-right">
-                      <div className="text-3xl font-bold text-[#FFCC00]">
-                        {redeemAmount || 0} RCN
-                      </div>
-                    </div>
-                  </div>
-                  <div className="bg-[#0D0D0D] rounded-xl p-3 text-center">
-                    <span className="text-gray-400 text-sm">USD Value: </span>
-                    <span className="text-white font-bold">
-                      ${((redeemAmount || 0) * 0.10).toFixed(2)}
+                    <span className="text-[#22C55E] font-bold text-xl">
+                      {redeemAmount || 0} RCN
                     </span>
                   </div>
+                  <p className="text-center text-white text-sm">
+                    USD Value: <span className="font-bold">${((redeemAmount || 0) * 0.10).toFixed(2)}</span>
+                  </p>
                 </div>
 
                 {/* Insufficient Customer Balance Warning */}
@@ -1876,24 +1824,27 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
               </div>
             </div> */}
 
-            {/* Recent Transactions */}
-            <div className="mt-6 bg-gradient-to-br from-[#1C1C1C] to-[#252525] rounded-2xl p-6 border border-gray-800">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-white">
-                  Recent Redemptions
-                </h3>
+            {/* Redemption History */}
+            <div className="mt-6 bg-[#101010] rounded-xl border border-gray-800">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-[#FFCC00]" />
+                  <h3 className="text-lg font-semibold text-[#FFCC00]">
+                    Redemption History
+                  </h3>
+                </div>
                 <button
                   onClick={() => setShowHistory(!showHistory)}
-                  className="text-[#FFCC00] hover:text-yellow-400 text-sm"
+                  className="text-[#FFCC00] hover:text-yellow-400 text-sm font-medium"
                 >
                   {showHistory ? "Hide" : "Show"}
                 </button>
               </div>
 
               {showHistory && (
-                <div className="space-y-2 max-h-64 overflow-y-auto">
+                <div className="px-4 py-4">
                   {loadingTransactions ? (
-                    <div className="text-center py-4">
+                    <div className="text-center py-6">
                       <svg
                         className="animate-spin h-8 w-8 text-[#FFCC00] mx-auto"
                         fill="none"
@@ -1915,34 +1866,88 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                       </svg>
                     </div>
                   ) : transactions.length === 0 ? (
-                    <p className="text-center text-gray-500 py-4">
+                    <p className="text-center text-gray-500 py-6">
                       No redemptions yet
                     </p>
                   ) : (
-                    transactions.slice(0, 5).map((tx) => (
-                      <div
-                        key={tx.id}
-                        className="bg-[#0D0D0D] rounded-lg p-3 border border-gray-700"
-                      >
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <p className="text-sm font-medium text-white">
-                              {tx.customerName ||
-                                `${tx.customerAddress.slice(0, 6)}...`}
+                    <div>
+                      {transactions
+                        .slice((historyPage - 1) * ITEMS_PER_PAGE, historyPage * ITEMS_PER_PAGE)
+                        .map((tx) => (
+                        <div
+                          key={tx.id}
+                          className="flex justify-between items-start py-4 border-b border-gray-800 last:border-b-0"
+                        >
+                          <div className="flex-1 min-w-0 pl-4 border-l-2 border-[#FFCC00]">
+                            <p className="font-semibold text-white">
+                              {tx.customerName || "Unknown Customer"}
                             </p>
-                            <p className="text-xs text-gray-400">
-                              {new Date(tx.timestamp).toLocaleDateString()}
+                            <p className="text-sm text-gray-500 font-mono mt-0.5">
+                              {tx.customerAddress.slice(0, 18)}...
+                            </p>
+                            <p className="text-sm text-gray-500 mt-1">
+                              {new Date(tx.timestamp).toLocaleDateString("en-US", {
+                                month: "long",
+                                day: "numeric",
+                                year: "numeric",
+                              })}, {new Date(tx.timestamp).toLocaleTimeString("en-US", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: true,
+                              })}
                             </p>
                           </div>
-                          <div className="text-right">
-                            <p className="text-sm font-bold text-red-500">
-                              -{tx.amount}
+                          <div className="text-right flex flex-col items-end gap-2">
+                            <p className="font-bold text-[#FFCC00] text-lg">
+                              {tx.amount} RCN
                             </p>
-                            <p className="text-xs text-gray-400">RCN</p>
+                            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${
+                              tx.status === "confirmed"
+                                ? "bg-[#22C55E] text-white"
+                                : tx.status === "pending"
+                                ? "bg-yellow-500 text-black"
+                                : "bg-red-500 text-white"
+                            }`}>
+                              {tx.status === "confirmed" && <CheckCircle className="w-3 h-3" />}
+                              {tx.status === "confirmed" ? "Completed" : tx.status === "pending" ? "Pending" : "Failed"}
+                            </span>
                           </div>
                         </div>
-                      </div>
-                    ))
+                      ))}
+
+                      {/* Pagination */}
+                      {transactions.length > ITEMS_PER_PAGE && (
+                        <div className="flex items-center justify-center gap-6 pt-5 mt-2">
+                          <button
+                            onClick={() => setHistoryPage(prev => Math.max(1, prev - 1))}
+                            disabled={historyPage === 1}
+                            className={`flex items-center gap-1 text-sm transition-colors ${
+                              historyPage === 1
+                                ? "text-gray-600 cursor-not-allowed"
+                                : "text-gray-400 hover:text-white"
+                            }`}
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                            <span>Previous</span>
+                          </button>
+                          <span className="px-4 py-1.5 bg-gray-800 text-white rounded text-sm font-medium">
+                            {historyPage}
+                          </span>
+                          <button
+                            onClick={() => setHistoryPage(prev => Math.min(Math.ceil(transactions.length / ITEMS_PER_PAGE), prev + 1))}
+                            disabled={historyPage >= Math.ceil(transactions.length / ITEMS_PER_PAGE)}
+                            className={`flex items-center gap-1 text-sm transition-colors ${
+                              historyPage >= Math.ceil(transactions.length / ITEMS_PER_PAGE)
+                                ? "text-gray-600 cursor-not-allowed"
+                                : "text-gray-400 hover:text-white"
+                            }`}
+                          >
+                            <span>Next</span>
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -1993,15 +1998,15 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
       {/* QR Scanner Modal */}
       {showQRScanner && (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#212121] rounded-2xl p-6 max-w-md w-full">
+          <div className="bg-[#101010] rounded-xl p-6 max-w-md w-full border border-gray-800">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                <Camera className="w-6 h-6 text-blue-400" />
+                <Camera className="w-6 h-6 text-[#FFCC00]" />
                 Scan Customer QR Code
               </h3>
               <button
                 onClick={stopQRScanner}
-                className="p-2 hover:bg-gray-600 rounded-full transition-colors"
+                className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
               >
                 <X className="w-6 h-6 text-gray-400" />
               </button>
@@ -2018,7 +2023,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                 <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70">
                   <div className="text-center">
                     <svg
-                      className="animate-spin h-12 w-12 text-blue-400 mx-auto mb-3"
+                      className="animate-spin h-12 w-12 text-[#FFCC00] mx-auto mb-3"
                       fill="none"
                       viewBox="0 0 24 24"
                     >
@@ -2041,11 +2046,11 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
                 </div>
               )}
               {!cameraLoading && (
-                <div className="absolute inset-0 border-2 border-blue-400 rounded-xl">
-                  <div className="absolute top-4 left-4 w-6 h-6 border-t-2 border-l-2 border-blue-400"></div>
-                  <div className="absolute top-4 right-4 w-6 h-6 border-t-2 border-r-2 border-blue-400"></div>
-                  <div className="absolute bottom-4 left-4 w-6 h-6 border-b-2 border-l-2 border-blue-400"></div>
-                  <div className="absolute bottom-4 right-4 w-6 h-6 border-b-2 border-r-2 border-blue-400"></div>
+                <div className="absolute inset-0 border-2 border-[#FFCC00] rounded-xl">
+                  <div className="absolute top-4 left-4 w-6 h-6 border-t-2 border-l-2 border-[#FFCC00]"></div>
+                  <div className="absolute top-4 right-4 w-6 h-6 border-t-2 border-r-2 border-[#FFCC00]"></div>
+                  <div className="absolute bottom-4 left-4 w-6 h-6 border-b-2 border-l-2 border-[#FFCC00]"></div>
+                  <div className="absolute bottom-4 right-4 w-6 h-6 border-b-2 border-r-2 border-[#FFCC00]"></div>
                 </div>
               )}
             </div>
@@ -2057,7 +2062,7 @@ export const RedeemTabV2: React.FC<RedeemTabProps> = ({
 
             <button
               onClick={stopQRScanner}
-              className="w-full mt-4 px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-medium"
+              className="w-full mt-4 px-4 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium"
             >
               Cancel Scan
             </button>
