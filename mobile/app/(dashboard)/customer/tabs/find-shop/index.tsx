@@ -13,15 +13,19 @@ import { SearchInput } from "@/components/ui/SearchInput";
 import { ShopData } from "@/interfaces/shop.interface";
 import { useState, useEffect, useMemo, useRef } from "react";
 import MapView, { Marker, Region, PROVIDER_DEFAULT, Polyline, LatLng, Circle } from "react-native-maps";
-import * as Location from "expo-location";
 import {
   fetchRoute,
   metersToMiles,
   milesToMeters,
   formatDuration,
 } from "@/providers/RouteProvider";
-import WebViewMap, { WebViewMapRef, MarkerData, CircleData, PolylineData } from "@/components/maps/WebViewMap";
+import WebViewMap, { WebViewMapRef, MarkerData } from "@/components/maps/WebViewMap";
 import { useShop } from "@/hooks/shop/useShop";
+import {
+  getCurrentLocation,
+  geocodeAddress,
+  Coordinates,
+} from "@/services/geocoding.service";
 
 type ViewMode = "map" | "list";
 
@@ -44,8 +48,7 @@ export default function FindShop() {
   const [selectedShop, setSelectedShop] = useState<ShopWithLocation | null>(
     null
   );
-  const [userLocation, setUserLocation] =
-    useState<Location.LocationObject | null>(null);
+  const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
   const [locationLoading, setLocationLoading] = useState(true);
   const [initialMapRegion, setInitialMapRegion] = useState<Region | null>(null);
   const [geocodedShops, setGeocodedShops] = useState<Record<string, { lat: number; lng: number }>>({});
@@ -64,26 +67,20 @@ export default function FindShop() {
   useEffect(() => {
     (async () => {
       try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== "granted") {
-          console.log("Location permission denied");
-          setLocationLoading(false);
-          return;
+        const location = await getCurrentLocation();
+
+        if (location) {
+          console.log("Got user location:", location.latitude, location.longitude);
+          setUserLocation(location);
+          setInitialMapRegion({
+            latitude: location.latitude,
+            longitude: location.longitude,
+            latitudeDelta: 0.05,
+            longitudeDelta: 0.05,
+          });
+        } else {
+          console.log("Location permission denied or unavailable");
         }
-
-        const location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-
-        console.log("Got user location:", location.coords.latitude, location.coords.longitude);
-
-        setUserLocation(location);
-        setInitialMapRegion({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        });
       } catch (error) {
         console.log("Error getting location:", error);
       } finally {
@@ -91,79 +88,6 @@ export default function FindShop() {
       }
     })();
   }, []);
-
-  // Geocode using OpenStreetMap Nominatim API (more reliable fallback)
-  const geocodeWithNominatim = async (address: string): Promise<{ lat: number; lng: number } | null> => {
-    try {
-      const encodedAddress = encodeURIComponent(address);
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`;
-
-      console.log("Nominatim geocoding:", address);
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'RepairCoin-Mobile-App/1.0',
-        },
-      });
-
-      if (!response.ok) {
-        console.log("Nominatim request failed:", response.status);
-        return null;
-      }
-
-      const data = await response.json();
-      console.log("Nominatim results:", data);
-
-      if (data && data.length > 0) {
-        return {
-          lat: parseFloat(data[0].lat),
-          lng: parseFloat(data[0].lon),
-        };
-      }
-    } catch (error) {
-      console.log("Nominatim geocoding error:", error);
-    }
-    return null;
-  };
-
-  // Geocode an address to get coordinates
-  const geocodeAddress = async (address: string): Promise<{ lat: number; lng: number } | null> => {
-    console.log("Geocoding address:", address);
-
-    // Try expo-location first (works well on iOS)
-    try {
-      let results = await Location.geocodeAsync(address);
-      console.log("Expo geocode results:", results);
-
-      if (results && results.length > 0) {
-        return {
-          lat: results[0].latitude,
-          lng: results[0].longitude,
-        };
-      }
-    } catch (error) {
-      console.log("Expo geocoding error:", error);
-    }
-
-    // Fallback to Nominatim API (more reliable on Android)
-    console.log("Trying Nominatim fallback...");
-    const nominatimResult = await geocodeWithNominatim(address);
-    if (nominatimResult) {
-      return nominatimResult;
-    }
-
-    // Try with USA suffix if not already included
-    if (!address.toLowerCase().includes("usa") && !address.toLowerCase().includes("united states")) {
-      const addressWithCountry = `${address}, USA`;
-      console.log("Trying Nominatim with USA suffix:", addressWithCountry);
-      const resultWithCountry = await geocodeWithNominatim(addressWithCountry);
-      if (resultWithCountry) {
-        return resultWithCountry;
-      }
-    }
-
-    console.log("No geocoding results for:", address);
-    return null;
-  };
 
   // Calculate distance between two coordinates (Haversine formula)
   const calculateDistance = (
@@ -210,8 +134,8 @@ export default function FindShop() {
         let distance: number | undefined;
         if (userLocation && hasValidLocation && lat && lng) {
           distance = calculateDistance(
-            userLocation.coords.latitude,
-            userLocation.coords.longitude,
+            userLocation.latitude,
+            userLocation.longitude,
             lat,
             lng
           );
@@ -399,14 +323,15 @@ export default function FindShop() {
 
     if (coords) {
       console.log("Geocoding successful:", coords);
-      // Cache the geocoded result
+      // Cache the geocoded result (convert latitude/longitude to lat/lng)
+      const cachedCoords = { lat: coords.latitude, lng: coords.longitude };
       setGeocodedShops((prev) => ({
         ...prev,
-        [item.shopId]: coords,
+        [item.shopId]: cachedCoords,
       }));
 
-      const updatedShop = { ...item, lat: coords.lat, lng: coords.lng, hasValidLocation: true };
-      navigateToShopOnMap(coords.lat, coords.lng, updatedShop);
+      const updatedShop = { ...item, lat: cachedCoords.lat, lng: cachedCoords.lng, hasValidLocation: true };
+      navigateToShopOnMap(cachedCoords.lat, cachedCoords.lng, updatedShop);
     } else {
       console.log("Geocoding failed for:", fullAddress);
       Alert.alert(
@@ -484,7 +409,7 @@ export default function FindShop() {
 
     // Fit map to show both user location and shop
     const coordinates = [
-      { latitude: userLocation.coords.latitude, longitude: userLocation.coords.longitude },
+      { latitude: userLocation.latitude, longitude: userLocation.longitude },
       { latitude: shop.lat, longitude: shop.lng },
     ];
     const edgePadding = { top: 100, right: 50, bottom: 300, left: 50 };
@@ -497,8 +422,8 @@ export default function FindShop() {
 
     // Fetch actual route from OpenRouteService
     const route = await fetchRoute(
-      userLocation.coords.latitude,
-      userLocation.coords.longitude,
+      userLocation.latitude,
+      userLocation.longitude,
       shop.lat,
       shop.lng
     );
@@ -512,7 +437,7 @@ export default function FindShop() {
     } else {
       // Fallback to straight line if route fetch fails
       setRouteCoordinates([
-        { latitude: userLocation.coords.latitude, longitude: userLocation.coords.longitude },
+        { latitude: userLocation.latitude, longitude: userLocation.longitude },
         { latitude: shop.lat, longitude: shop.lng },
       ]);
       // Use the calculated straight-line distance as fallback
@@ -721,10 +646,7 @@ export default function FindShop() {
               style={{ flex: 1 }}
               initialRegion={initialMapRegion || undefined}
               showsUserLocation={true}
-              userLocation={userLocation ? {
-                latitude: userLocation.coords.latitude,
-                longitude: userLocation.coords.longitude,
-              } : null}
+              userLocation={userLocation}
               markers={filteredShops
                 .filter((shop: ShopWithLocation) => shop.hasValidLocation)
                 .map((shop: ShopWithLocation): MarkerData => ({
@@ -736,8 +658,8 @@ export default function FindShop() {
                 }))}
               circles={userLocation ? [{
                 center: {
-                  latitude: userLocation.coords.latitude,
-                  longitude: userLocation.coords.longitude,
+                  latitude: userLocation.latitude,
+                  longitude: userLocation.longitude,
                 },
                 radius: milesToMeters(radiusMiles),
                 strokeColor: "rgba(255, 204, 0, 0.8)",
@@ -766,8 +688,8 @@ export default function FindShop() {
               {userLocation && (
                 <Circle
                   center={{
-                    latitude: userLocation.coords.latitude,
-                    longitude: userLocation.coords.longitude,
+                    latitude: userLocation.latitude,
+                    longitude: userLocation.longitude,
                   }}
                   radius={milesToMeters(radiusMiles)}
                   strokeColor="rgba(255, 204, 0, 0.8)"

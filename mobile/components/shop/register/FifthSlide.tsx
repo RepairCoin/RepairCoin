@@ -1,8 +1,9 @@
-import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
-import { AntDesign, Ionicons } from "@expo/vector-icons";
-import RNPickerSelect from "react-native-picker-select";
-import Screen from "@/components/ui/Screen";
-import { CompanySize, MonthlyRevenue } from "@/utilities/GlobalTypes";
+import { View, Text, ScrollView } from "react-native";
+import { Feather, Ionicons } from "@expo/vector-icons";
+import { AppHeader } from "@/components/ui/AppHeader";
+import FormInput from "@/components/ui/FormInput";
+import SectionHeader from "@/components/ui/SectionHeader";
+import PrimaryButton from "@/components/ui/PrimaryButton";
 
 type Props = {
   handleGoBack: () => void;
@@ -31,117 +32,106 @@ export default function FifthShopRegisterSlide({
   walletAddress,
   setWalletAddress,
   reimbursementAddress,
-  setReimbursementAddress
+  setReimbursementAddress,
 }: Props) {
-  return (
-    <Screen>
-      <View className="px-10 py-20 w-[100vw]">
-        <AntDesign name="left" color="white" size={25} onPress={handleGoBack} />
-        <Text className="text-[#FFCC00] font-bold mt-6">
-          Additional Information
-        </Text>
-        <View className="mt-4">
-          <Text className="text-sm text-gray-300 mb-1">
-           Street Address <Text className="text-[#FFCC00]">*</Text>
-          </Text>
-          <TextInput
-            className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
-            placeholder="Enter Street Address"
-            placeholderTextColor="#999"
-            value={street}
-            onChangeText={setStreet}
-          />
-        </View>
-        <View className="mt-4">
-          <Text className="text-sm text-gray-300 mb-1">
-           City <Text className="text-[#FFCC00]">*</Text>
-          </Text>
-          <TextInput
-            className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
-            placeholder="Enter City"
-            placeholderTextColor="#999"
-            value={city}
-            onChangeText={setCity}
-          />
-        </View>
-        <View className="mt-4">
-          <Text className="text-sm text-gray-300 mb-1">
-           Country <Text className="text-[#FFCC00]">*</Text>
-          </Text>
-          <TextInput
-            className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
-            placeholder="Enter Country"
-            placeholderTextColor="#999"
-            value={country}
-            onChangeText={setCountry}
-          />
-        </View>
-        <Text className="text-[#FFCC00] font-bold mt-14">
-          Wallet Information
-        </Text>
-        <View className="mt-4">
-          <Text className="text-sm text-gray-300 mb-1">
-            Connected Wallet <Text className="text-[#FFCC00]">*</Text>
-          </Text>
-          <TextInput
-            className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
-            placeholder="Enter your wallet address..."
-            placeholderTextColor="#999"
-            value={walletAddress}
-            onChangeText={setWalletAddress}
-          />
-          <Text className="text-sm text-gray-300 mt-2">
-            Used for shop operations and token management
-          </Text>
-        </View>
-        <View className="mt-4">
-          <Text className="text-sm text-gray-300 mb-1 mt-2">
-            Reimbursement Address (Optional)
-          </Text>
-          <TextInput
-            className="w-full h-12 bg-white text-black rounded-xl px-3 py-2 text-base"
-            placeholder="Enter reimbursement address..."
-            placeholderTextColor="#999"
-            value={reimbursementAddress}
-            onChangeText={setReimbursementAddress}
-          />
-          <Text className="text-sm text-gray-300 mt-2">
-            Where to receive payments for token redemptions
-          </Text>
-        </View>
+  // Check if required fields are filled
+  const isFormValid =
+    street.trim().length >= 3 &&
+    city.trim().length >= 2 &&
+    country.trim().length >= 2 &&
+    walletAddress.trim().length > 0;
 
-        <Pressable
-          className="ml-auto flex-row items-center mt-10"
-          onPress={handleGoNext}
-        >
-          <Text className="text-white text-base mr-2">
-            Continue Registration
+  return (
+    <View className="w-full h-full">
+      {/* Header */}
+      <AppHeader title="Additional Information" onBackPress={handleGoBack} />
+
+      <ScrollView
+        className="flex-1 px-6"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 120 }}
+      >
+        {/* Location Section */}
+        <SectionHeader
+          icon={<Ionicons name="location" size={16} color="#000" />}
+          title="Address Details"
+        />
+
+        <FormInput
+          label="Street Address"
+          icon={<Ionicons name="location-outline" size={20} color="#FFCC00" />}
+          value={street}
+          onChangeText={setStreet}
+          placeholder="Enter your street address"
+        />
+
+        <FormInput
+          label="City"
+          icon={<Ionicons name="business-outline" size={20} color="#FFCC00" />}
+          value={city}
+          onChangeText={setCity}
+          placeholder="Enter your city"
+        />
+
+        <FormInput
+          label="Country"
+          icon={<Feather name="flag" size={20} color="#FFCC00" />}
+          value={country}
+          onChangeText={setCountry}
+          placeholder="Enter your country"
+        />
+
+        {/* Wallet Section */}
+        <SectionHeader
+          icon={<Ionicons name="wallet" size={16} color="#000" />}
+          title="Wallet Information"
+        />
+
+        <FormInput
+          label="Connected Wallet"
+          icon={<Ionicons name="wallet-outline" size={20} color="#666" />}
+          value={walletAddress}
+          onChangeText={setWalletAddress}
+          placeholder="Enter your wallet address"
+          editable={false}
+          helperText="Used for shop operations and token management"
+        />
+
+        <FormInput
+          label="Reimbursement Address (Optional)"
+          icon={<Ionicons name="card-outline" size={20} color="#FFCC00" />}
+          value={reimbursementAddress}
+          onChangeText={setReimbursementAddress}
+          placeholder="Enter reimbursement address (0x...)"
+          autoCapitalize="none"
+          helperText="Where to receive payments for token redemptions"
+        />
+
+        {/* Info Note */}
+        <View className="bg-[#2A2A2C] rounded-xl p-4 mt-2 flex-row">
+          <Ionicons name="information-circle" size={20} color="#FFCC00" />
+          <Text className="text-gray-400 text-sm ml-3 flex-1">
+            Your wallet address will be used for all token operations. The
+            reimbursement address is optional and can be set later.
           </Text>
-          <Ionicons name="arrow-forward" color="yellow" size={20} />
-        </Pressable>
+        </View>
+      </ScrollView>
+
+      {/* Fixed Bottom Button */}
+      <View
+        className="absolute bottom-0 left-0 right-0 px-4 pb-8 pt-4"
+        style={{
+          backgroundColor: "#121212",
+          borderTopWidth: 1,
+          borderTopColor: "#2A2A2C",
+        }}
+      >
+        <PrimaryButton
+          title="Continue"
+          onPress={handleGoNext}
+          disabled={!isFormValid}
+        />
       </View>
-    </Screen>
+    </View>
   );
 }
-
-const pickerSelectStyles = StyleSheet.create({
-  inputIOS: {
-    backgroundColor: "#fff",
-    height: 42.3,
-    borderRadius: 10.5,
-    paddingHorizontal: 10
-  },
-  inputAndroid: {
-    backgroundColor: "#fff",
-    height: 42.3,
-    borderRadius: 10.5,
-    paddingHorizontal: 10
-  },
-  iconContainer: {
-    top: 15,
-    right: 15,
-  },
-  placeholder: {
-    color: "#999",
-  },
-});

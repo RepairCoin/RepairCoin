@@ -85,6 +85,13 @@ export function useAuth() {
       onError: (error: any) => {
         console.error("[useConnectWallet] Error:", error);
         setIsLoading(false);
+
+        // Check if user not found - redirect to register
+        if (error?.response?.status === 404 || error?.status === 404) {
+          console.log("[useConnectWallet] User not found, redirecting to register...");
+          router.replace("/register");
+          return;
+        }
       },
     });
   };

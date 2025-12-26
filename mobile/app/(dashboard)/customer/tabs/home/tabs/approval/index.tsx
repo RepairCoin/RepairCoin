@@ -2,7 +2,6 @@ import {
   View,
   Text,
   Pressable,
-  Image,
   ScrollView,
   ActivityIndicator,
   RefreshControl,
@@ -10,8 +9,10 @@ import {
 import React, { useCallback, useState } from "react";
 import { router } from "expo-router";
 import { useToast } from "react-native-toast-notifications";
-import { RedemptionSession } from "@/services/tokenServices";
+import ActionCard from "@/components/shared/ActionCard";
 import { useRedemptionSignature } from "@/hooks/useSignature";
+import { RedemptionSession } from "@/interfaces/token.interface";
+
 import {
   useRedemptionSessions,
   useApproveRedemptionSession,
@@ -236,36 +237,17 @@ export default function ApprovalTab() {
         }
         pointerEvents={actionLoading ? "none" : "auto"}
       >
-        <View className="h-52">
-          <View className="w-full h-full bg-[#FFCC00] rounded-3xl flex-row overflow-hidden relative">
-            <View
-              className="w-[300px] h-[300px] border-[48px] border-[rgba(102,83,7,0.13)] rounded-full absolute"
-              style={{
-                right: -80,
-                top: -20,
-              }}
-            />
-            <Image
-              source={require("@/assets/images/customer_approval_card.png")}
-              className="w-98 h-98 bottom-0 right-0 absolute"
-              resizeMode="contain"
-            />
-            <View className="pl-4 mt-6 w-[60%]">
-              <Text className="text-black font-bold text-2xl">Create QR Code</Text>
-              <Text className="text-black/60 text-base">Share your referral link via QR code.</Text>
-              <Pressable
-                onPress={() => router.push("/customer/qrcode")}
-                className="bg-black w-36 rounded-xl py-2 mt-4 justify-center items-center"
-              >
-                <Text className="text-[#FFCC00] font-bold text-sm">
-                  QR Code
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-        <View className="bg-[#212121] mt-4 rounded-xl">
-          <View className="bg-[#FFCC00] p-4 rounded-t-xl flex-row justify-between items-center">
+        <ActionCard
+          title="Create QR Code"
+          subtitle="Share your referral link via QR code."
+          inlineAction={{
+            label: "QR Code",
+            onPress: () => router.push("/customer/qrcode"),
+          }}
+          backgroundImage={require("@/assets/images/customer_approval_card.png")}
+        />
+        <View className="bg-[#212121] mt-4 rounded-lg">
+          <View className="bg-[#FFCC00] p-4 rounded-t-lg flex-row justify-between items-center">
             <Text className="text-black text-lg font-extrabold">
               Redemption Requests
             </Text>

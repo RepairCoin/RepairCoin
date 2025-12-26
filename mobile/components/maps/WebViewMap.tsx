@@ -40,6 +40,11 @@ export interface PolylineData {
   strokeWidth?: number;
 }
 
+export interface DraggableMarker {
+  coordinate: LatLng;
+  onDragEnd?: (coordinate: LatLng) => void;
+}
+
 interface WebViewMapProps {
   initialRegion?: Region;
   showsUserLocation?: boolean;
@@ -48,7 +53,8 @@ interface WebViewMapProps {
   circles?: CircleData[];
   polylines?: PolylineData[];
   onMarkerPress?: (markerId: string) => void;
-  onMapPress?: () => void;
+  onMapPress?: (coordinate?: LatLng) => void;
+  draggableMarker?: DraggableMarker;
   style?: object;
 }
 
@@ -63,6 +69,7 @@ const WebViewMap = forwardRef<WebViewMapRef, WebViewMapProps>(
       polylines = [],
       onMarkerPress,
       onMapPress,
+      draggableMarker,
       style,
     },
     ref
@@ -141,6 +148,17 @@ const WebViewMap = forwardRef<WebViewMapRef, WebViewMapProps>(
       `);
     }, [userLocation, showsUserLocation, isMapReady]);
 
+    // Update draggable marker when coordinate changes
+    useEffect(() => {
+      if (!isMapReady || !webViewRef.current || !draggableMarker) return;
+      webViewRef.current.injectJavaScript(`
+        if (typeof updateDraggableMarker !== 'undefined') {
+          updateDraggableMarker(${draggableMarker.coordinate.latitude}, ${draggableMarker.coordinate.longitude});
+        }
+        true;
+      `);
+    }, [draggableMarker?.coordinate.latitude, draggableMarker?.coordinate.longitude, isMapReady]);
+
     // Handle messages from WebView
     const handleMessage = (event: { nativeEvent: { data: string } }) => {
       try {
@@ -148,7 +166,14 @@ const WebViewMap = forwardRef<WebViewMapRef, WebViewMapProps>(
         if (data.type === "markerPress" && onMarkerPress) {
           onMarkerPress(data.markerId);
         } else if (data.type === "mapPress" && onMapPress) {
-          onMapPress();
+          // Include coordinates if available
+          if (data.latitude !== undefined && data.longitude !== undefined) {
+            onMapPress({ latitude: data.latitude, longitude: data.longitude });
+          } else {
+            onMapPress();
+          }
+        } else if (data.type === "draggableMarkerDragEnd" && draggableMarker?.onDragEnd) {
+          draggableMarker.onDragEnd({ latitude: data.latitude, longitude: data.longitude });
         } else if (data.type === "mapReady") {
           setIsMapReady(true);
         }
@@ -169,6 +194,9 @@ const WebViewMap = forwardRef<WebViewMapRef, WebViewMapProps>(
       const initialPolylines = JSON.stringify(polylines);
       const initialUserLocation = showsUserLocation && userLocation
         ? `updateUserLocation(${userLocation.latitude}, ${userLocation.longitude});`
+        : "";
+      const initialDraggableMarker = draggableMarker
+        ? `updateDraggableMarker(${draggableMarker.coordinate.latitude}, ${draggableMarker.coordinate.longitude});`
         : "";
 
       return `
@@ -219,6 +247,39 @@ const WebViewMap = forwardRef<WebViewMapRef, WebViewMapProps>(
       0% { transform: scale(0.5); opacity: 1; }
       100% { transform: scale(1.5); opacity: 0; }
     }
+    .draggable-pin {
+      width: 40px;
+      height: 50px;
+      position: relative;
+    }
+    .draggable-pin-head {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, #FFE066 0%, #FFCC00 50%, #E6B800 100%);
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .draggable-pin-head::after {
+      content: '';
+      width: 16px;
+      height: 16px;
+      background: #1A1A1C;
+      border-radius: 50%;
+      transform: rotate(45deg);
+    }
+    .draggable-pin-shadow {
+      width: 20px;
+      height: 6px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 50%;
+      position: absolute;
+      bottom: -2px;
+      left: 10px;
+    }
   </style>
 </head>
 <body>
@@ -240,6 +301,7 @@ const WebViewMap = forwardRef<WebViewMapRef, WebViewMapProps>(
     var circlesLayer = [];
     var polylinesLayer = [];
     var userLocationMarker = null;
+    var draggableMarkerRef = null;
 
     // Helper to convert delta to zoom
     function getZoomFromDelta(delta) {
@@ -356,10 +418,46 @@ const WebViewMap = forwardRef<WebViewMapRef, WebViewMapProps>(
       }
     }
 
+    // Create draggable pin icon
+    function createDraggablePinIcon() {
+      return L.divIcon({
+        className: '',
+        html: '<div class="draggable-pin"><div class="draggable-pin-head"></div><div class="draggable-pin-shadow"></div></div>',
+        iconSize: [40, 50],
+        iconAnchor: [20, 50],
+      });
+    }
+
+    // Update draggable marker
+    function updateDraggableMarker(lat, lng) {
+      if (!lat || !lng) return;
+      if (draggableMarkerRef) {
+        draggableMarkerRef.setLatLng([lat, lng]);
+      } else {
+        draggableMarkerRef = L.marker([lat, lng], {
+          icon: createDraggablePinIcon(),
+          draggable: true,
+          zIndexOffset: 2000
+        }).addTo(map);
+
+        // Handle drag end
+        draggableMarkerRef.on('dragend', function(e) {
+          var latlng = e.target.getLatLng();
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'draggableMarkerDragEnd',
+            latitude: latlng.lat,
+            longitude: latlng.lng
+          }));
+        });
+      }
+    }
+
     // Handle map clicks
     map.on('click', function(e) {
       window.ReactNativeWebView.postMessage(JSON.stringify({
-        type: 'mapPress'
+        type: 'mapPress',
+        latitude: e.latlng.lat,
+        longitude: e.latlng.lng
       }));
     });
 
@@ -368,6 +466,7 @@ const WebViewMap = forwardRef<WebViewMapRef, WebViewMapProps>(
     updateCircles(${initialCircles});
     updatePolylines(${initialPolylines});
     ${initialUserLocation}
+    ${initialDraggableMarker}
 
     // Notify React Native that map is ready
     window.ReactNativeWebView.postMessage(JSON.stringify({
