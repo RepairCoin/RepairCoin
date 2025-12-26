@@ -16,6 +16,7 @@ import { MyAppointment } from "@/interfaces/appointment.interface";
 import { router } from "expo-router";
 
 type FilterTab = "upcoming" | "past" | "all";
+type StatusFilter = "all" | "pending" | "paid" | "completed" | "cancelled";
 
 // Calculate date range: 30 days ago to 90 days in the future
 const getDateRange = () => {
@@ -226,37 +227,103 @@ function AppointmentCard({ appointment, onPress, onCancel }: AppointmentCardProp
   );
 }
 
-function FilterTabs({
-  activeTab,
-  onTabChange,
-  counts,
-}: {
-  activeTab: FilterTab;
-  onTabChange: (tab: FilterTab) => void;
-  counts: { upcoming: number; past: number; all: number };
-}) {
-  const tabs: { key: FilterTab; label: string }[] = [
-    { key: "upcoming", label: "Upcoming" },
-    { key: "past", label: "Past" },
-    { key: "all", label: "All" },
-  ];
+const TIME_FILTERS: { key: FilterTab; label: string }[] = [
+  { key: "upcoming", label: "Upcoming" },
+  { key: "past", label: "Past" },
+  { key: "all", label: "All" },
+];
 
+const STATUS_FILTERS: { key: StatusFilter; label: string; color: string }[] = [
+  { key: "all", label: "All Status", color: "#FFCC00" },
+  { key: "pending", label: "Pending", color: "#EAB308" },
+  { key: "paid", label: "Paid", color: "#3B82F6" },
+  { key: "completed", label: "Completed", color: "#22C55E" },
+  { key: "cancelled", label: "Cancelled", color: "#EF4444" },
+];
+
+function FilterModal({
+  title,
+  icon,
+  options,
+  selectedKey,
+  onSelect,
+  visible,
+  onClose,
+}: {
+  title: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  options: { key: string; label: string; color?: string }[];
+  selectedKey: string;
+  onSelect: (key: string) => void;
+  visible: boolean;
+  onClose: () => void;
+}) {
   return (
-    <View className="flex-row bg-zinc-900 rounded-xl p-1 mb-4">
-      {tabs.map((tab) => (
-        <TouchableOpacity
-          key={tab.key}
-          onPress={() => onTabChange(tab.key)}
-          className={`flex-1 py-2.5 rounded-lg ${activeTab === tab.key ? "bg-[#FFCC00]" : ""}`}
-        >
-          <Text
-            className={`text-center text-sm font-medium ${activeTab === tab.key ? "text-black" : "text-gray-400"}`}
-          >
-            {tab.label} ({counts[tab.key]})
-          </Text>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <TouchableOpacity
+        activeOpacity={1}
+        onPress={onClose}
+        className="flex-1 bg-black/60 justify-end"
+      >
+        <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+          <View className="bg-zinc-900 rounded-t-3xl">
+            {/* Header */}
+            <View className="flex-row items-center justify-between px-5 py-4 border-b border-zinc-800">
+              <View className="flex-row items-center">
+                <Ionicons name={icon} size={20} color="#FFCC00" />
+                <Text className="text-white text-lg font-semibold ml-2">{title}</Text>
+              </View>
+              <TouchableOpacity onPress={onClose} className="p-1">
+                <Ionicons name="close" size={24} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Options */}
+            <View className="px-4 py-3">
+              {options.map((option) => (
+                <TouchableOpacity
+                  key={option.key}
+                  onPress={() => {
+                    onSelect(option.key);
+                    onClose();
+                  }}
+                  className={`flex-row items-center justify-between px-4 py-4 rounded-xl mb-2 ${
+                    selectedKey === option.key ? "bg-zinc-800" : ""
+                  }`}
+                >
+                  <View className="flex-row items-center">
+                    {option.color && (
+                      <View
+                        className="w-3 h-3 rounded-full mr-3"
+                        style={{ backgroundColor: option.color }}
+                      />
+                    )}
+                    <Text
+                      className={`text-base ${
+                        selectedKey === option.key ? "text-[#FFCC00] font-semibold" : "text-gray-300"
+                      }`}
+                    >
+                      {option.label}
+                    </Text>
+                  </View>
+                  {selectedKey === option.key && (
+                    <Ionicons name="checkmark-circle" size={22} color="#FFCC00" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Bottom safe area */}
+            <View className="h-8" />
+          </View>
         </TouchableOpacity>
-      ))}
-    </View>
+      </TouchableOpacity>
+    </Modal>
   );
 }
 
@@ -275,16 +342,16 @@ export default function BookingsTab() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>("upcoming");
+  const [activeStatus, setActiveStatus] = useState<StatusFilter>("all");
+  const [showTimeFilter, setShowTimeFilter] = useState(false);
+  const [showStatusFilter, setShowStatusFilter] = useState(false);
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<MyAppointment | null>(null);
 
   // Filter and sort appointments
-  const { filteredAppointments, counts } = useMemo(() => {
+  const filteredAppointments = useMemo(() => {
     if (!appointmentData) {
-      return {
-        filteredAppointments: [],
-        counts: { upcoming: 0, past: 0, all: 0 },
-      };
+      return [];
     }
 
     const now = new Date();
@@ -307,12 +374,6 @@ export default function BookingsTab() {
         new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime()
     );
 
-    const counts = {
-      upcoming: upcoming.length,
-      past: past.length,
-      all: appointmentData.length,
-    };
-
     let filtered: MyAppointment[];
     switch (activeTab) {
       case "upcoming":
@@ -325,8 +386,15 @@ export default function BookingsTab() {
         filtered = [...upcoming, ...past];
     }
 
-    return { filteredAppointments: filtered, counts };
-  }, [appointmentData, activeTab]);
+    // Apply status filter
+    if (activeStatus !== "all") {
+      filtered = filtered.filter(
+        (apt) => apt.status.toLowerCase() === activeStatus
+      );
+    }
+
+    return filtered;
+  }, [appointmentData, activeTab, activeStatus]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -420,13 +488,56 @@ export default function BookingsTab() {
     );
   }
 
+  // Get current filter labels
+  const currentTimeLabel = TIME_FILTERS.find(f => f.key === activeTab)?.label || "Upcoming";
+  const currentStatusLabel = STATUS_FILTERS.find(f => f.key === activeStatus)?.label || "All Status";
+
   return (
     <View className="flex-1">
-      {/* Filter Tabs */}
-      <FilterTabs
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        counts={counts}
+      {/* Filter Buttons */}
+      <View className="flex-row gap-3 mb-4">
+        <TouchableOpacity
+          onPress={() => setShowTimeFilter(true)}
+          className="flex-1 flex-row items-center justify-between bg-zinc-900 rounded-xl px-3 py-3"
+        >
+          <View className="flex-row items-center">
+            <Ionicons name="calendar-outline" size={18} color="#FFCC00" />
+            <Text className="text-white text-sm font-medium ml-2">{currentTimeLabel}</Text>
+          </View>
+          <Ionicons name="chevron-down" size={16} color="#9CA3AF" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => setShowStatusFilter(true)}
+          className="flex-1 flex-row items-center justify-between bg-zinc-900 rounded-xl px-3 py-3"
+        >
+          <View className="flex-row items-center">
+            <Ionicons name="filter-outline" size={18} color="#FFCC00" />
+            <Text className="text-white text-sm font-medium ml-2">{currentStatusLabel}</Text>
+          </View>
+          <Ionicons name="chevron-down" size={16} color="#9CA3AF" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Filter Modals */}
+      <FilterModal
+        title="Time Period"
+        icon="calendar-outline"
+        options={TIME_FILTERS}
+        selectedKey={activeTab}
+        onSelect={(key) => setActiveTab(key as FilterTab)}
+        visible={showTimeFilter}
+        onClose={() => setShowTimeFilter(false)}
+      />
+
+      <FilterModal
+        title="Status"
+        icon="filter-outline"
+        options={STATUS_FILTERS}
+        selectedKey={activeStatus}
+        onSelect={(key) => setActiveStatus(key as StatusFilter)}
+        visible={showStatusFilter}
+        onClose={() => setShowStatusFilter(false)}
       />
 
       {/* Appointments List */}
