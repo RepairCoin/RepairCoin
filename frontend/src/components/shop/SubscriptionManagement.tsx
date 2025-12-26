@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,6 +21,7 @@ import {
 import Link from "next/link";
 import apiClient from "@/services/api/client";
 import { CountryPhoneInput } from "../ui/CountryPhoneInput";
+import { useNotificationStore } from "@/stores/notificationStore";
 
 interface Subscription {
   id?: number;
@@ -77,6 +78,10 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
     billingPhone: "",
   });
 
+  // Get notifications from the store for real-time updates
+  const { notifications } = useNotificationStore();
+  const lastNotificationIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     loadSubscriptionStatus();
 
@@ -94,6 +99,32 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
       }));
     }
   }, [shopId]);
+
+  // Listen for subscription-related notifications and auto-refresh
+  useEffect(() => {
+    const latestNotification = notifications[0];
+    if (!latestNotification) return;
+
+    // Check if this is a new notification we haven't processed
+    if (latestNotification.id === lastNotificationIdRef.current) return;
+
+    // Check if it's a subscription-related notification
+    const subscriptionNotificationTypes = [
+      'subscription_cancelled',
+      'subscription_paused',
+      'subscription_resumed',
+      'subscription_reactivated'
+    ];
+
+    if (subscriptionNotificationTypes.includes(latestNotification.notificationType)) {
+      console.log('📋 Subscription notification received, refreshing subscription status...', {
+        type: latestNotification.notificationType,
+        id: latestNotification.id
+      });
+      lastNotificationIdRef.current = latestNotification.id;
+      loadSubscriptionStatus();
+    }
+  }, [notifications]);
 
   const loadSubscriptionStatus = async () => {
     try {
@@ -674,87 +705,233 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
         </div>
       ) : subscription && subscription.status === "cancelled" ? (
         <div className="space-y-6">
-          {/* Cancelled Subscription */}
-          <div className="bg-red-900/20 border border-red-700 rounded-lg p-4">
-            <div className="flex items-center gap-3">
-              <XCircle className="w-6 h-6 text-red-400" />
-              <div className="flex-1">
-                <h4 className="text-lg font-semibold text-red-400">
-                  Subscription Cancelled
-                </h4>
-                <p className="text-sm text-gray-300 mt-1">
-                  Your subscription has been cancelled and is no longer active.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Subscription Details */}
-          <div className="bg-gray-800 rounded-lg p-6">
-            <h4 className="text-lg font-semibold text-white mb-4">
-              Previous Subscription
-            </h4>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-400">Monthly Amount:</span>
-                <span className="text-white font-medium">
-                  ${subscription.monthlyAmount}/mo
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Cancelled On:</span>
-                <span className="text-white font-medium">
-                  {subscription.cancelledAt
-                    ? new Date(subscription.cancelledAt).toLocaleDateString()
-                    : "Recently"}
-                </span>
-              </div>
-              {subscription.cancellationReason && (
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Reason:</span>
-                  <span className="text-white font-medium">
-                    {subscription.cancellationReason}
+          {/* Cancelled Subscription - Check if still within access period */}
+          {subscription.currentPeriodEnd && new Date(subscription.currentPeriodEnd) > new Date() ? (
+            <>
+              {/* Still has access until period end */}
+              <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <AlertCircle className="w-6 h-6 text-yellow-400" />
+                    <div>
+                      <h4 className="text-lg font-semibold text-yellow-400">
+                        Subscription Cancelled
+                      </h4>
+                      <p className="text-sm text-gray-300 mt-1">
+                        You still have <strong>full access</strong> until{" "}
+                        {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 bg-yellow-500/20 text-yellow-400 rounded-full text-sm font-medium">
+                    Access Until {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
                   </span>
                 </div>
-              )}
-              <div className="flex justify-between">
-                <span className="text-gray-400">Total Paid:</span>
-                <span className="text-white font-medium">
-                  ${subscription.totalPaid}
-                </span>
               </div>
-            </div>
-          </div>
 
-          {/* Resubscribe Section */}
-          <div className="bg-gray-800 rounded-lg p-6 text-center">
-            <h4 className="text-lg font-semibold text-white mb-2">
-              Want to Resume Operations?
-            </h4>
-            <p className="text-gray-400 mb-6">
-              Subscribe again to regain full operational status and continue
-              serving your customers.
-            </p>
+              {/* Good News - Current Access Info */}
+              <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4">
+                <p className="text-blue-300">
+                  <strong className="text-blue-400">Good news:</strong> You retain{" "}
+                  <strong>full platform access</strong> until{" "}
+                  {new Date(subscription.currentPeriodEnd).toLocaleDateString()}.
+                  During this period, you can continue to issue rewards, process
+                  redemptions, and manage your services as normal.
+                </p>
+              </div>
 
-            <div className="space-y-3 mb-6">
-              <div className="flex items-center gap-2 text-sm text-gray-300">
-                <CheckCircle className="w-4 h-4 text-green-400" />
-                <span>Issue RCN rewards to customers</span>
+              {/* What happens after */}
+              <div className="bg-red-900/20 border border-red-700 rounded-lg p-4">
+                <h4 className="font-semibold text-red-400 mb-3">
+                  After {new Date(subscription.currentPeriodEnd).toLocaleDateString()}, you will no longer be able to:
+                </h4>
+                <ul className="space-y-2 text-sm text-red-300">
+                  <li className="flex items-start gap-2">
+                    <XCircle className="w-4 h-4 text-red-400 mt-0.5" />
+                    <span>Issue RCN rewards to customers</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <XCircle className="w-4 h-4 text-red-400 mt-0.5" />
+                    <span>Process customer redemptions</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <XCircle className="w-4 h-4 text-red-400 mt-0.5" />
+                    <span>Manage services in the marketplace</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <XCircle className="w-4 h-4 text-red-400 mt-0.5" />
+                    <span>Look up customer information</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <XCircle className="w-4 h-4 text-red-400 mt-0.5" />
+                    <span>Purchase RCN tokens</span>
+                  </li>
+                </ul>
+                <p className="mt-3 text-sm text-gray-400 italic">
+                  Note: You will still be able to view your purchase history and limited analytics.
+                </p>
               </div>
-              <div className="flex items-center gap-2 text-sm text-gray-300">
-                <CheckCircle className="w-4 h-4 text-green-400" />
-                <span>Process customer redemptions</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-gray-300">
-                <CheckCircle className="w-4 h-4 text-green-400" />
-                <span>Purchase RCN tokens at $0.10 each</span>
-              </div>
-            </div>
 
-            <Button className="bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold">
-              <Link href="/shop/subscription-form">Subscribe Again</Link>
-            </Button>
-          </div>
+              {/* Subscription Details */}
+              <div className="bg-gray-800 rounded-lg p-6">
+                <h4 className="text-lg font-semibold text-white mb-4">
+                  Subscription Details
+                </h4>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Monthly Amount:</span>
+                    <span className="text-white font-medium">
+                      ${subscription.monthlyAmount}/mo
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Cancelled On:</span>
+                    <span className="text-white font-medium">
+                      {subscription.cancelledAt
+                        ? new Date(subscription.cancelledAt).toLocaleDateString()
+                        : "Recently"}
+                    </span>
+                  </div>
+                  {subscription.cancellationReason && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Reason:</span>
+                      <span className="text-white font-medium">
+                        {subscription.cancellationReason}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Full Access Until:</span>
+                    <span className="text-yellow-400 font-medium">
+                      {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Total Paid:</span>
+                    <span className="text-white font-medium">
+                      ${subscription.totalPaid}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Resubscribe CTA */}
+              <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
+                <h4 className="font-semibold text-green-400 mb-2">
+                  Want to continue using RepairCoin?
+                </h4>
+                <p className="text-gray-300 mb-4">
+                  You can resubscribe at any time by clicking the button below.
+                  Alternatively, holding 10,000+ RCG tokens grants you full platform
+                  access without a monthly subscription.
+                </p>
+                <Button className="bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold">
+                  <Link href="/shop/subscription-form">Subscribe Again</Link>
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* No access - subscription fully ended */}
+              <div className="bg-red-900/20 border border-red-700 rounded-lg p-4">
+                <div className="flex items-center gap-3">
+                  <XCircle className="w-6 h-6 text-red-400" />
+                  <div className="flex-1">
+                    <h4 className="text-lg font-semibold text-red-400">
+                      Subscription Cancelled
+                    </h4>
+                    <p className="text-sm text-gray-300 mt-1">
+                      Your subscription has ended and platform features are no longer accessible.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* What you cannot do */}
+              <div className="bg-gray-800 rounded-lg p-6">
+                <h4 className="text-lg font-semibold text-white mb-4">
+                  Features No Longer Available
+                </h4>
+                <ul className="space-y-2 text-sm text-gray-400">
+                  <li className="flex items-start gap-2">
+                    <XCircle className="w-4 h-4 text-red-400 mt-0.5" />
+                    <span>Issue RCN rewards to customers</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <XCircle className="w-4 h-4 text-red-400 mt-0.5" />
+                    <span>Process customer redemptions</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <XCircle className="w-4 h-4 text-red-400 mt-0.5" />
+                    <span>Manage services in the marketplace</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <XCircle className="w-4 h-4 text-red-400 mt-0.5" />
+                    <span>Look up customer information</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <XCircle className="w-4 h-4 text-red-400 mt-0.5" />
+                    <span>Purchase RCN tokens</span>
+                  </li>
+                </ul>
+                <p className="mt-4 text-sm text-gray-500 italic">
+                  You can still view your purchase history and limited analytics.
+                </p>
+              </div>
+
+              {/* Subscription Details */}
+              <div className="bg-gray-800 rounded-lg p-6">
+                <h4 className="text-lg font-semibold text-white mb-4">
+                  Previous Subscription
+                </h4>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Monthly Amount:</span>
+                    <span className="text-white font-medium">
+                      ${subscription.monthlyAmount}/mo
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Cancelled On:</span>
+                    <span className="text-white font-medium">
+                      {subscription.cancelledAt
+                        ? new Date(subscription.cancelledAt).toLocaleDateString()
+                        : "Recently"}
+                    </span>
+                  </div>
+                  {subscription.cancellationReason && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Reason:</span>
+                      <span className="text-white font-medium">
+                        {subscription.cancellationReason}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Total Paid:</span>
+                    <span className="text-white font-medium">
+                      ${subscription.totalPaid}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Resubscribe Section */}
+              <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
+                <h4 className="font-semibold text-green-400 mb-2">
+                  Want to continue using RepairCoin?
+                </h4>
+                <p className="text-gray-300 mb-4">
+                  You can resubscribe at any time by clicking the button below.
+                  Alternatively, holding 10,000+ RCG tokens grants you full platform
+                  access without a monthly subscription.
+                </p>
+                <Button className="bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold">
+                  <Link href="/shop/subscription-form">Subscribe Again</Link>
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       ) : (
         <div className="space-y-6">

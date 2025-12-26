@@ -39,6 +39,7 @@ import { OperationalRequiredTab } from "@/components/shop/OperationalRequiredTab
 import { SubscriptionManagement } from "@/components/shop/SubscriptionManagement";
 import { CoinsIcon } from 'lucide-react';
 import SuccessModal from "@/components/modals/SuccessModal";
+import { useNotificationStore } from "@/stores/notificationStore";
 
 const client = createThirdwebClient({
   clientId:
@@ -247,6 +248,25 @@ export default function ShopDashboardClient() {
       loadShopData();
     }
   }, [account?.address]);
+
+  // Listen for subscription-related notifications and refresh data
+  const { notifications } = useNotificationStore();
+  useEffect(() => {
+    // Check if the latest notification is subscription-related
+    const latestNotification = notifications[0];
+    if (latestNotification && [
+      'subscription_cancelled',
+      'subscription_paused',
+      'subscription_resumed',
+      'subscription_reactivated'
+    ].includes(latestNotification.notificationType)) {
+      console.log('📋 Subscription notification received, refreshing shop data...');
+      // Refresh shop data to update the warning banner
+      if (account?.address) {
+        loadShopData();
+      }
+    }
+  }, [notifications, account?.address]);
 
   // Check if shop is suspended or rejected
   const isSuspended = shopData && (shopData.suspended_at || shopData.suspendedAt);
