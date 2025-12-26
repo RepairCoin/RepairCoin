@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { SubscriptionManagement } from "../SubscriptionManagement";
-import { Store, Mail, Phone, MapPin, Globe, Clock, User, Camera } from "lucide-react";
+import { Store, Mail, Phone, MapPin, Globe, Camera, Wallet, Search, Navigation, Pencil } from "lucide-react";
 import toast from "react-hot-toast";
 import { LocationPickerWrapper } from "../../maps/LocationPickerWrapper";
 import { CountryPhoneInput } from "../../ui/CountryPhoneInput";
@@ -69,6 +69,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   });
   const [loadingShopUpdate, setLoadingShopUpdate] = useState(false);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [locationSearch, setLocationSearch] = useState("");
+  const [showLogoUploader, setShowLogoUploader] = useState(false);
 
   // Initialize shop form data
   useEffect(() => {
@@ -160,6 +162,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     });
     setIsEditingShop(false);
     setShowLocationPicker(false);
+    setShowLogoUploader(false);
   };
 
   // Handle logo upload success
@@ -207,6 +210,36 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     toast.success(`${label} copied to clipboard!`);
   };
 
+  // Get current location using browser geolocation
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by your browser");
+      return;
+    }
+
+    toast.loading("Getting your location...", { id: "location" });
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setShopFormData((prev) => ({
+          ...prev,
+          location: {
+            lat: latitude,
+            lng: longitude,
+          },
+        }));
+        setShowLocationPicker(true);
+        toast.success("Location updated! You can adjust the pin on the map.", { id: "location" });
+      },
+      (error) => {
+        toast.error("Unable to get your location. Please pin manually.", { id: "location" });
+        console.error("Geolocation error:", error);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Tab Buttons */}
@@ -238,6 +271,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         <>
           {/* Shop Details Section */}
           <div className="bg-[#212121] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
+            {/* Header with background image and Edit button */}
             <div
               className="w-full flex justify-between items-center px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
               style={{
@@ -276,11 +310,20 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-20 px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
-              <div className="flex flex-col gap-6">
+            {/* Card Title Section */}
+            <div className="px-4 sm:px-6 lg:px-8 pt-6">
+              <h2 className="text-xl font-semibold text-white">Shop Profile</h2>
+              <p className="text-sm text-gray-400 mt-1">Basic shop information, location and contact numbers</p>
+            </div>
+
+            {/* Main Form Grid - 2 columns: fields left, logo right */}
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-8 lg:gap-12 px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+              {/* Left Column - Form Fields */}
+              <div className="flex flex-col gap-5 order-2 lg:order-1">
+                {/* Shop Name */}
                 <div>
-                  <label className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
-                    <Store className="w-6 h-6 inline mr-1" />
+                  <label className="block text-sm font-medium text-gray-300 mb-1.5">
+                    <Store className="w-4 h-4 inline mr-1.5" />
                     Shop Name
                   </label>
                   <input
@@ -289,14 +332,57 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     value={shopFormData.name}
                     onChange={handleShopInputChange}
                     disabled={!isEditingShop}
-                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                    className="w-full px-4 py-3 bg-[#2F2F2F] text-white rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#1F1F1F] disabled:cursor-not-allowed"
                     placeholder="Enter shop name"
                   />
+                  <p className="mt-1.5 text-xs text-gray-500">This shop name will appear on your RepairCoin profile and customer reward receipts</p>
                 </div>
 
+                {/* Wallet Address */}
                 <div>
-                  <label className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
-                    <Mail className="w-6 h-6 inline mr-1" />
+                  <label className="block text-sm font-medium text-gray-300 mb-1.5">
+                    <Wallet className="w-4 h-4 inline mr-1.5" />
+                    Wallet Address
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={shopData?.walletAddress || ""}
+                      disabled
+                      className="flex-1 px-4 py-3 bg-[#2F2F2F] text-white rounded-xl border border-[#3F3F3F] focus:outline-none cursor-not-allowed font-mono text-sm"
+                    />
+                    <button
+                      onClick={() => copyToClipboard(shopData?.walletAddress || "", "Wallet address")}
+                      className="px-4 py-3 bg-[#2F2F2F] text-gray-300 rounded-xl border border-[#3F3F3F] hover:bg-[#3F3F3F] transition-colors"
+                      title="Copy wallet address"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                  </div>
+                  <p className="mt-1.5 text-xs text-gray-500">This wallet is used for receiving and sending RCN rewards</p>
+                </div>
+
+                {/* Phone Number */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1.5">
+                    <Phone className="w-4 h-4 inline mr-1.5" />
+                    Phone Number
+                  </label>
+                  <CountryPhoneInput
+                    value={shopFormData.phone}
+                    onChange={(phone) => setShopFormData((prev) => ({ ...prev, phone }))}
+                    disabled={!isEditingShop}
+                    placeholder="Enter phone number"
+                  />
+                  <p className="mt-1.5 text-xs text-gray-500">Your main shop contact number for customer inquiries and verification</p>
+                </div>
+
+                {/* Email Address */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1.5">
+                    <Mail className="w-4 h-4 inline mr-1.5" />
                     Email Address
                   </label>
                   <input
@@ -305,181 +391,24 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     value={shopFormData.email}
                     onChange={handleShopInputChange}
                     disabled={!isEditingShop}
-                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                    className="w-full px-4 py-3 bg-[#2F2F2F] text-white rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#1F1F1F] disabled:cursor-not-allowed"
                     placeholder="shop@example.com"
                   />
-                </div>
-
-                <div>
-                  <label className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
-                    <Phone className="w-6 h-6 inline mr-1" />
-                    Phone Number
-                  </label>
-                  <CountryPhoneInput
-                    value={shopFormData.phone}
-                    onChange={(phone) =>
-                      setShopFormData((prev) => ({ ...prev, phone }))
-                    }
-                    disabled={!isEditingShop}
-                    placeholder="Enter phone number"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
-                    <MapPin className="w-6 h-6 inline mr-1" />
-                    Wallet Address
-                  </label>
-                  <div className="flex gap-6">
-                    <input
-                      type="text"
-                      value={shopData?.walletAddress || ""}
-                      disabled
-                      className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent cursor-not-allowed"
-                    />
-                    <button
-                      onClick={() =>
-                        copyToClipboard(
-                          shopData?.walletAddress || "",
-                          "Wallet address"
-                        )
-                      }
-                      className="text-xs sm:text-sm px-8 bg-[#FFCC00] text-black rounded-3xl font-medium hover:bg-yellow-500 transition-colors"
-                    >
-                      Copy
-                    </button>
-                  </div>
-                </div>
-
-                {/* Twitter - moved from right column */}
-                <div>
-                  <label className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
-                    <Globe className="w-6 h-6 inline mr-1" />
-                    Twitter
-                  </label>
-                  <input
-                    type="url"
-                    name="twitter"
-                    value={shopFormData.twitter}
-                    onChange={handleShopInputChange}
-                    disabled={!isEditingShop}
-                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
-                    placeholder="https://twitter.com/yourshop"
-                  />
-                </div>
-
-                {/* Instagram - moved from right column */}
-                <div>
-                  <label className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
-                    <Globe className="w-6 h-6 inline mr-1" />
-                    Instagram
-                  </label>
-                  <input
-                    type="url"
-                    name="instagram"
-                    value={shopFormData.instagram}
-                    onChange={handleShopInputChange}
-                    disabled={!isEditingShop}
-                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
-                    placeholder="https://instagram.com/yourshop"
-                  />
+                  <p className="mt-1.5 text-xs text-gray-500">We&apos;ll use this email for account notifications and important updates</p>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-6">
-                <div>
-                  <label className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
-                    <MapPin className="w-6 h-6 inline mr-1" />
-                    Shop Address
-                  </label>
-                  <input
-                    type="text"
-                    name="address"
-                    value={shopFormData.address}
-                    onChange={handleShopInputChange}
-                    disabled={!isEditingShop}
-                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
-                    placeholder="123 Main St, City, State ZIP"
-                  />
+              {/* Right Column - Logo */}
+              <div className="flex flex-col items-center order-1 lg:order-2">
+                <label className="block text-sm font-medium text-gray-300 mb-3 self-start lg:self-center">
+                  Shop Logo
+                </label>
 
-                  {/* Location Picker Button */}
-                  {isEditingShop && (
-                    <div className="mt-2 space-y-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setShowLocationPicker(!showLocationPicker)
-                        }
-                        className="flex items-center gap-2 px-3 py-2 text-sm bg-[#FFCC00] text-black rounded-lg hover:bg-yellow-500 transition-colors"
-                      >
-                        <MapPin className="w-4 h-4" />
-                        {showLocationPicker
-                          ? "Hide Map"
-                          : "Pin Location on Map"}
-                      </button>
-
-                      {/* Current coordinates display */}
-                      {shopFormData.location.lat &&
-                        shopFormData.location.lng && (
-                          <div className="text-xs text-gray-400">
-                            Current: {shopFormData.location.lat.toFixed(6)},{" "}
-                            {shopFormData.location.lng.toFixed(6)}
-                          </div>
-                        )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Social Media Fields */}
-                <div>
-                  <label className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
-                    <Globe className="w-6 h-6 inline mr-1" />
-                    Website
-                  </label>
-                  <input
-                    type="url"
-                    name="website"
-                    value={shopFormData.website}
-                    onChange={handleShopInputChange}
-                    disabled={!isEditingShop}
-                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
-                    placeholder="https://yourshop.com"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
-                    <Globe className="w-6 h-6 inline mr-1" />
-                    Facebook
-                  </label>
-                  <input
-                    type="url"
-                    name="facebook"
-                    value={shopFormData.facebook}
-                    onChange={handleShopInputChange}
-                    disabled={!isEditingShop}
-                    className="w-full px-4 py-3 border border-gray-300 bg-[#2F2F2F] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
-                    placeholder="https://facebook.com/yourshop"
-                  />
-                </div>
-
-                {/* Shop Logo - spans 3 rows height */}
-                <div className="flex-grow flex flex-col">
-                  <label className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
-                    <Camera className="w-6 h-6 inline mr-1" />
-                    Shop Logo
-                  </label>
-                  {isEditingShop ? (
-                    <ImageUploader
-                      imageType="logo"
-                      currentImageUrl={shopFormData.logoUrl || undefined}
-                      onUploadSuccess={handleLogoUpload}
-                      onRemove={handleLogoRemove}
-                      showPreview={true}
-                    />
-                  ) : (
-                    <div className="flex-grow flex items-center justify-center">
-                      <div className="w-44 h-44 rounded-full overflow-hidden bg-[#2F2F2F] border-4 border-gray-600 flex items-center justify-center shadow-lg">
+                {/* Circular Logo Preview - show when not uploading */}
+                {!showLogoUploader ? (
+                  <>
+                    <div className="relative">
+                      <div className="w-40 h-40 lg:w-48 lg:h-48 rounded-full overflow-hidden bg-[#2F2F2F] border-2 border-[#3F3F3F] flex items-center justify-center shadow-lg">
                         {shopFormData.logoUrl ? (
                           <img
                             src={shopFormData.logoUrl}
@@ -490,36 +419,155 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                           <Camera className="w-16 h-16 text-gray-500" />
                         )}
                       </div>
+
+                      {/* Edit Button Overlay - only show in edit mode */}
+                      {isEditingShop && (
+                        <button
+                          type="button"
+                          onClick={() => setShowLogoUploader(true)}
+                          className="absolute bottom-2 right-2 w-10 h-10 bg-[#FFCC00] rounded-full flex items-center justify-center cursor-pointer hover:bg-yellow-500 transition-colors shadow-lg"
+                          title="Edit logo"
+                        >
+                          <Pencil className="w-5 h-5 text-black" />
+                        </button>
+                      )}
                     </div>
-                  )}
+                    <p className="mt-3 text-xs text-gray-500 text-center max-w-[200px]">
+                      Upload your company or brand logo here. This image will be used across your profile, communications, and website display
+                    </p>
+                  </>
+                ) : (
+                  /* ImageUploader - show when editing logo */
+                  <div className="w-full max-w-[280px]">
+                    <ImageUploader
+                      imageType="logo"
+                      currentImageUrl={shopFormData.logoUrl || undefined}
+                      onUploadSuccess={(url) => {
+                        handleLogoUpload(url);
+                        setShowLogoUploader(false);
+                      }}
+                      onRemove={() => {
+                        handleLogoRemove();
+                        setShowLogoUploader(false);
+                      }}
+                      showPreview={true}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowLogoUploader(false)}
+                      className="mt-3 w-full px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Social Media Section - Collapsible */}
+            <div className="px-4 sm:px-6 lg:px-8 pb-6">
+              <div className="border-t border-[#3F3F3F] pt-6">
+                <h3 className="text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
+                  <Globe className="w-4 h-4" />
+                  Social Media & Website
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Website */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">Website</label>
+                    <input
+                      type="url"
+                      name="website"
+                      value={shopFormData.website}
+                      onChange={handleShopInputChange}
+                      disabled={!isEditingShop}
+                      className="w-full px-4 py-2.5 bg-[#2F2F2F] text-white rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#1F1F1F] disabled:cursor-not-allowed text-sm"
+                      placeholder="https://yourshop.com"
+                    />
+                  </div>
+                  {/* Twitter */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">Twitter</label>
+                    <input
+                      type="url"
+                      name="twitter"
+                      value={shopFormData.twitter}
+                      onChange={handleShopInputChange}
+                      disabled={!isEditingShop}
+                      className="w-full px-4 py-2.5 bg-[#2F2F2F] text-white rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#1F1F1F] disabled:cursor-not-allowed text-sm"
+                      placeholder="https://twitter.com/yourshop"
+                    />
+                  </div>
+                  {/* Instagram */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">Instagram</label>
+                    <input
+                      type="url"
+                      name="instagram"
+                      value={shopFormData.instagram}
+                      onChange={handleShopInputChange}
+                      disabled={!isEditingShop}
+                      className="w-full px-4 py-2.5 bg-[#2F2F2F] text-white rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#1F1F1F] disabled:cursor-not-allowed text-sm"
+                      placeholder="https://instagram.com/yourshop"
+                    />
+                  </div>
+                  {/* Facebook */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">Facebook</label>
+                    <input
+                      type="url"
+                      name="facebook"
+                      value={shopFormData.facebook}
+                      onChange={handleShopInputChange}
+                      disabled={!isEditingShop}
+                      className="w-full px-4 py-2.5 bg-[#2F2F2F] text-white rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#1F1F1F] disabled:cursor-not-allowed text-sm"
+                      placeholder="https://facebook.com/yourshop"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Location Picker */}
-            {showLocationPicker && isEditingShop && (
-              <div className="px-4 sm:px-6 lg:px-8 pb-6">
-                <div className="bg-[#2F2F2F] rounded-xl p-4">
-                  <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                    <MapPin className="w-5 h-5 text-[#FFCC00]" />
-                    Pinpoint Your Shop Location
-                  </h4>
-                  <LocationPickerWrapper
-                    initialLocation={
-                      shopFormData.location.lat && shopFormData.location.lng
-                        ? {
-                            latitude: shopFormData.location.lat,
-                            longitude: shopFormData.location.lng,
-                            address: shopFormData.address,
-                          }
-                        : undefined
-                    }
-                    onLocationSelect={handleLocationSelect}
-                    height="350px"
+            {/* Location Section */}
+            <div className="px-4 sm:px-6 lg:px-8 pb-6">
+                 {/* Shop Address */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1.5">
+                    <MapPin className="w-4 h-4 inline mr-1.5" />
+                    Shop Address
+                  </label>
+                  <input
+                    type="text"
+                    name="address"
+                    value={shopFormData.address}
+                    onChange={handleShopInputChange}
+                    disabled={!isEditingShop}
+                    className="w-full px-4 py-3 bg-[#2F2F2F] text-white rounded-xl border border-[#3F3F3F] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 disabled:bg-[#1F1F1F] disabled:cursor-not-allowed"
+                    placeholder="Door 2, Lot 14, Flex Building, Buffed Avenue, New York City, 8000"
                   />
+                  <p className="mt-1.5 text-xs text-gray-500">Use your full address for accurate map pinning</p>
                 </div>
+              <div className="border-t border-[#3F3F3F] pt-6">
+                {/* Map - always show if coordinates exist or in edit mode */}
+                {isEditingShop && (
+                  <div >
+                    <LocationPickerWrapper
+                      initialLocation={
+                        shopFormData.location.lat && shopFormData.location.lng
+                          ? {
+                              latitude: shopFormData.location.lat,
+                              longitude: shopFormData.location.lng,
+                              address: shopFormData.address,
+                            }
+                          : undefined
+                      }
+                      onLocationSelect={isEditingShop ? handleLocationSelect : () => {}}
+                      height="450px"
+                    />
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
             {/* Universal Redemption Notice */}
             <div className="px-4 sm:px-6 lg:px-8 pb-6 sm:pb-10">
