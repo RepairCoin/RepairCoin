@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { SubscriptionManagement } from "../SubscriptionManagement";
-import { Store, Mail, Phone, MapPin, Globe, Camera, Wallet, Search, Navigation, Pencil } from "lucide-react";
+import { Store, Mail, Phone, MapPin, Globe, Camera, Wallet, Search, Navigation, Pencil, Settings } from "lucide-react";
 import toast from "react-hot-toast";
 import { LocationPickerWrapper } from "../../maps/LocationPickerWrapper";
 import { CountryPhoneInput } from "../../ui/CountryPhoneInput";
@@ -273,16 +273,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           <div className="bg-[#101010] rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden">
             {/* Header with background image and Edit button */}
             <div
-              className="w-full flex justify-between items-center px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl"
-              style={{
-                backgroundImage: `url('/img/cust-ref-widget3.png')`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-                backgroundRepeat: "no-repeat",
-              }}
+              className="w-full flex justify-between items-center px-4 sm:px-6 lg:px-8 py-3 sm:py-4 text-white rounded-t-xl sm:rounded-t-2xl lg:rounded-t-3xl border-b border-[#303236]"
             >
-              <p className="text-base sm:text-lg md:text-xl text-gray-900 font-semibold">
-                Shop Information
+              <p className="text-base sm:text-lg md:text-xl text-[#FFCC00] font-semibold">
+                  <Settings className="w-4 h-4 inline mr-1.5 text-[#FFCC00]" />
+                Settings
               </p>
              
             </div>
