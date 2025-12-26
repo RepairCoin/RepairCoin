@@ -15,10 +15,14 @@ import {
   Eye,
   HelpCircle,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Store
 } from "lucide-react";
 import { getCustomerOrders, ServiceOrderWithDetails, servicesApi } from "@/services/api/services";
 import { WriteReviewModal } from "./WriteReviewModal";
+import { BookingDetailsModal } from "./BookingDetailsModal";
+import { BookingCard } from "./BookingCard";
+import { CancelBookingModal } from "./CancelBookingModal";
 
 export const ServiceOrdersTab: React.FC = () => {
   const [orders, setOrders] = useState<ServiceOrderWithDetails[]>([]);
@@ -28,6 +32,8 @@ export const ServiceOrdersTab: React.FC = () => {
   const [reviewEligibility, setReviewEligibility] = useState<Map<string, boolean>>(new Map());
   const [showHelp, setShowHelp] = useState(false);
   const [sortBy, setSortBy] = useState<"date" | "status">("date");
+  const [viewingOrder, setViewingOrder] = useState<ServiceOrderWithDetails | null>(null);
+  const [cancellingOrder, setCancellingOrder] = useState<ServiceOrderWithDetails | null>(null);
 
   useEffect(() => {
     loadOrders();
@@ -158,11 +164,23 @@ export const ServiceOrdersTab: React.FC = () => {
     }
   };
 
+  const getCurrentStep = (status: string) => {
+    switch (status) {
+      case "pending": return 1;
+      case "paid": return 2;
+      case "approved": return 3;
+      case "scheduled": return 4;
+      case "completed": return 5;
+      case "cancelled": return 0;
+      default: return 0;
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
       month: "short",
-      day: "numeric",
+      day: "2-digit",
       year: "numeric",
     });
   };
@@ -311,193 +329,122 @@ export const ServiceOrdersTab: React.FC = () => {
               const progress = getProgressPercentage(order.status);
 
               return (
-                <div
+                <BookingCard
                   key={order.orderId}
-                  className="bg-[#1A1A1A] border border-gray-800 rounded-xl overflow-hidden hover:border-[#FFCC00]/30 transition-all duration-200"
-                >
-                  <div className="p-5">
-                    <div className="flex gap-4">
-                      {/* Service Image */}
-                      <div className="w-24 h-24 rounded-xl overflow-hidden bg-gray-800 flex-shrink-0">
-                        {order.serviceImageUrl ? (
-                          <img
-                            src={order.serviceImageUrl}
-                            alt={order.serviceName}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
-                            <ShoppingBag className="w-10 h-10 text-gray-600" />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Order Info */}
-                      <div className="flex-1 min-w-0">
-                        {/* Title & Status Badge */}
-                        <div className="flex items-start justify-between gap-3 mb-3">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-lg font-bold text-white mb-1">
-                              {order.serviceName}
-                            </h3>
-                            <div className="flex items-center gap-2 text-sm text-gray-400">
-                              <MapPin className="w-4 h-4" />
-                              <span>{order.shopName}</span>
-                            </div>
-                            {order.shopCity && (
-                              <div className="flex items-center gap-2 text-sm text-gray-500 mt-1">
-                                <MapPin className="w-3 h-3" />
-                                <span>{order.shopCity}</span>
-                              </div>
-                            )}
-                          </div>
-                          <span
-                            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-semibold border whitespace-nowrap ${statusInfo.badgeColor}`}
-                          >
-                            {statusInfo.badge}
+                  serviceImageUrl={order.serviceImageUrl}
+                  serviceName={order.serviceName}
+                  shopName={order.shopName}
+                  shopCity={order.shopCity}
+                  statusBadge={
+                    <span
+                      className={`inline-flex items-center gap-1 px-4 py-2 rounded-full text-sm font-bold border whitespace-nowrap ${statusInfo.badgeColor}`}
+                    >
+                      {statusInfo.badge}
+                    </span>
+                  }
+                  dateBooked={order.createdAt}
+                  serviceDate={order.bookingTimeSlot}
+                  serviceTime={order.bookingTimeSlot ? formatTime(order.bookingTimeSlot) : undefined}
+                  cost={order.totalAmount}
+                  progressSection={
+                    order.status !== "cancelled" ? (
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-semibold text-gray-300">
+                            Ongoing Status
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            Step {getCurrentStep(order.status)} out of 5
                           </span>
                         </div>
-
-                        {/* Booking Details Grid */}
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-                          <div className="bg-[#0D0D0D] rounded-lg p-3">
-                            <div className="text-xs text-gray-400 mb-1">Date Booked</div>
-                            <div className="flex items-center gap-1 text-white font-semibold">
-                              <Calendar className="w-4 h-4" />
-                              {formatDate(order.createdAt)}
-                            </div>
-                          </div>
-                          {order.bookingDate && (
-                            <div className="bg-[#0D0D0D] rounded-lg p-3">
-                              <div className="text-xs text-gray-400 mb-1">Service Date</div>
-                              <div className="flex items-center gap-1 text-white font-semibold">
-                                <Calendar className="w-4 h-4" />
-                                {formatDate(order.bookingDate)}
-                              </div>
-                            </div>
-                          )}
-                          {order.bookingTimeSlot && (
-                            <div className="bg-[#0D0D0D] rounded-lg p-3">
-                              <div className="text-xs text-gray-400 mb-1">Time</div>
-                              <div className="flex items-center gap-1 text-white font-semibold">
-                                <Clock className="w-4 h-4" />
-                                {order.bookingTimeSlot}
-                              </div>
-                            </div>
-                          )}
-                          <div className="bg-[#0D0D0D] rounded-lg p-3">
-                            <div className="text-xs text-gray-400 mb-1">Cost</div>
-                            <div className="flex items-center gap-1 text-green-400 font-bold">
-                              <DollarSign className="w-4 h-4" />
-                              {order.totalAmount.toFixed(2)}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Progress Bar (for non-cancelled orders) */}
-                        {order.status !== "cancelled" && (
-                          <div className="mb-4">
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-xs font-semibold text-gray-400">
-                                Ongoing Status
-                              </span>
-                              <span className="text-xs text-gray-500">
-                                Step 2 out of 5
-                              </span>
-                            </div>
-                            <div className="w-full bg-gray-800 rounded-full h-2 mb-3">
+                        <div className="flex gap-1.5 mb-3">
+                          {[20, 40, 60, 80, 100].map((step, index) => {
+                            const isCompleted = progress >= step;
+                            return (
                               <div
-                                className="bg-gradient-to-r from-[#FFCC00] to-[#FFD700] h-2 rounded-full transition-all duration-500"
-                                style={{ width: `${progress}%` }}
+                                key={index}
+                                className={`flex-1 h-2.5 rounded-full transition-all duration-500 ${
+                                  isCompleted ? "bg-green-500" : "bg-gray-700"
+                                }`}
                               />
-                            </div>
-                            <div className="flex justify-between text-xs">
-                              <div className={`${order.status === "pending" || progress >= 20 ? "text-green-400" : "text-gray-600"}`}>
-                                Requested
-                              </div>
-                              <div className={`${order.status === "paid" || progress >= 40 ? "text-green-400" : "text-gray-600"}`}>
-                                Paid
-                              </div>
-                              <div className={`${order.status === "approved" || progress >= 60 ? "text-green-400" : "text-gray-600"}`}>
-                                Approved
-                              </div>
-                              <div className={`${order.status === "scheduled" || progress >= 80 ? "text-green-400" : "text-gray-600"}`}>
-                                Scheduled
-                              </div>
-                              <div className={`${order.status === "completed" ? "text-green-400" : "text-gray-600"}`}>
-                                Completed
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Next Action */}
-                        {order.status === "pending" && (
-                          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mb-4">
-                            <div className="flex items-start gap-2">
-                              <Clock className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
-                              <div>
-                                <div className="font-semibold text-yellow-300 mb-1">Next Action</div>
-                                <div className="text-sm text-yellow-200">
-                                  Waiting for shop approval. You'll be notified once they respond.
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Action Buttons */}
-                        <div className="flex flex-wrap gap-2">
-                          <button className="flex-1 min-w-[150px] flex items-center justify-center gap-2 bg-[#FFCC00] text-black font-semibold px-4 py-2.5 rounded-lg hover:bg-[#FFD700] transition-colors">
-                            <Eye className="w-4 h-4" />
-                            View Booking Details
-                          </button>
-
-                          {order.status === "completed" && reviewEligibility.get(order.orderId) === true && (
-                            <button
-                              onClick={() => handleWriteReview(order)}
-                              className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-green-500 text-white font-semibold px-4 py-2.5 rounded-lg hover:from-green-500 hover:to-green-400 transition-all"
-                            >
-                              <Star className="w-4 h-4" />
-                              Write Review
-                            </button>
-                          )}
-
-                          {order.status === "pending" && (
-                            <button className="flex items-center gap-2 bg-red-600/90 text-white font-semibold px-4 py-2.5 rounded-lg hover:bg-red-600 transition-colors">
-                              <XCircle className="w-4 h-4" />
-                              Cancel Booking
-                            </button>
-                          )}
+                            );
+                          })}
                         </div>
-
-                        {/* RCN Earned Badge (for completed) */}
-                        {order.status === "completed" && order.rcnEarned && order.rcnEarned > 0 && (
-                          <div className="mt-3 bg-gradient-to-r from-[#FFCC00]/20 to-[#FFD700]/10 border border-[#FFCC00]/30 rounded-lg p-3">
-                            <div className="flex items-center gap-2">
-                              <span className="text-2xl">🪙</span>
-                              <div>
-                                <div className="text-sm font-semibold text-[#FFCC00]">
-                                  You earned +{order.rcnEarned.toFixed(2)} RCN
-                                </div>
-                                <div className="text-xs text-gray-400">
-                                  RepairCoin rewards for this service
-                                </div>
-                              </div>
+                        <div className="flex justify-between text-xs">
+                          <div className={`${progress >= 20 ? "text-white" : "text-gray-500"}`}>Requested</div>
+                          <div className={`${progress >= 40 ? "text-white" : "text-gray-500"}`}>Paid</div>
+                          <div className={`${progress >= 60 ? "text-white" : "text-gray-500"}`}>Approved</div>
+                          <div className={`${progress >= 80 ? "text-white" : "text-gray-500"}`}>Scheduled</div>
+                          <div className={`${progress >= 100 ? "text-white" : "text-gray-500"}`}>Completed</div>
+                        </div>
+                      </div>
+                    ) : undefined
+                  }
+                  nextActionSection={
+                    order.status === "pending" ? (
+                      <div className="bg-[#0D0D0D] border border-gray-800 rounded-lg p-4 mb-4">
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-full bg-yellow-500/10 flex items-center justify-center flex-shrink-0">
+                            <Clock className="w-5 h-5 text-yellow-400" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-bold text-yellow-400 mb-1 text-base">Next Action</div>
+                            <div className="text-sm text-yellow-200/80">
+                              Waiting for shop approval. You'll be notified once they respond.
                             </div>
                           </div>
-                        )}
+                        </div>
                       </div>
+                    ) : undefined
+                  }
+                  actionButtons={
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={() => setViewingOrder(order)}
+                        className="flex items-center justify-center gap-1.5 bg-[#FFCC00] text-black font-semibold px-4 py-2 rounded-lg hover:bg-[#FFD700] transition-colors text-sm"
+                      >
+                        <Eye className="w-4 h-4" />
+                        View Details
+                      </button>
+                      {order.status === "pending" && (
+                        <button
+                          onClick={() => setCancellingOrder(order)}
+                          className="flex items-center gap-1.5 bg-red-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm"
+                        >
+                          <XCircle className="w-4 h-4" />
+                          Cancel
+                        </button>
+                      )}
+                      {order.status === "completed" && reviewEligibility.get(order.orderId) === true && (
+                        <button
+                          onClick={() => handleWriteReview(order)}
+                          className="flex items-center gap-1.5 bg-gradient-to-r from-green-600 to-green-500 text-white font-semibold px-4 py-2 rounded-lg hover:from-green-500 hover:to-green-400 transition-all text-sm"
+                        >
+                          <Star className="w-4 h-4" />
+                          Review
+                        </button>
+                      )}
                     </div>
-                  </div>
-
-                  {/* Booking ID Footer */}
-                  <div className="bg-[#0D0D0D] px-5 py-3 border-t border-gray-800">
-                    <div className="text-xs text-gray-500">
-                      Booking ID: <span className="font-mono text-gray-400">{order.orderId}</span>
-                    </div>
-                  </div>
-                </div>
+                  }
+                  rcnBadge={
+                    order.status === "completed" && order.rcnEarned && order.rcnEarned > 0 ? (
+                      <div className="mt-3 bg-gradient-to-r from-[#FFCC00]/20 to-[#FFD700]/10 border border-[#FFCC00]/30 rounded-lg p-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl">🪙</span>
+                          <div>
+                            <div className="text-sm font-semibold text-[#FFCC00]">
+                              You earned +{order.rcnEarned.toFixed(2)} RCN
+                            </div>
+                            <div className="text-xs text-gray-400">
+                              RepairCoin rewards for this service
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : undefined
+                  }
+                  bookingId={order.orderId}
+                />
               );
             })}
           </div>
@@ -609,6 +556,26 @@ export const ServiceOrdersTab: React.FC = () => {
           }}
         />
       )}
+
+      {/* Booking Details Modal */}
+      {viewingOrder && (
+        <BookingDetailsModal
+          order={viewingOrder}
+          isOpen={!!viewingOrder}
+          onClose={() => setViewingOrder(null)}
+        />
+      )}
+
+      {/* Cancel Booking Modal */}
+      <CancelBookingModal
+        order={cancellingOrder}
+        isOpen={!!cancellingOrder}
+        onClose={() => setCancellingOrder(null)}
+        onSuccess={() => {
+          setCancellingOrder(null);
+          loadOrders();
+        }}
+      />
     </div>
   );
 };

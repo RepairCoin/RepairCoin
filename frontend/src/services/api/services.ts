@@ -95,6 +95,8 @@ export interface ServiceOrderWithDetails extends ServiceOrder {
   shopPhone?: string;
   shopEmail?: string;
   rcnEarned?: number; // RCN tokens earned when order completed
+  bookingTimeSlot?: string; // Appointment date/time
+  bookingEndTime?: string; // Appointment end time
 }
 
 export interface CreateServiceData {
