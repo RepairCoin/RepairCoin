@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { MapPin, Search, Loader2 } from "lucide-react";
 import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import toast from "react-hot-toast";
 import { Icon, LatLng, Map as LeafletMap } from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -27,17 +28,44 @@ interface LocationPickerProps {
   onLocationSelect: (location: LocationData) => void;
   className?: string;
   height?: string;
+  version?: 'UPDATES2';
 }
+
+// Style variants
+const styles = {
+  default: {
+    loadingBg: "bg-[#2F2F2F] border-gray-300",
+    searchInput: "border-gray-300 bg-[#2F2F2F] text-white",
+    searchIcon: "text-gray-400",
+    mapBorder: "border-gray-300",
+    infoBg: "bg-[#2F2F2F]",
+    infoText: "text-gray-300",
+    infoSubText: "text-gray-400",
+    currentLocationBtn: "bg-gray-600 text-white hover:bg-gray-700",
+  },
+  UPDATES2: {
+    loadingBg: "bg-[#F6F8FA] border-[#3F3F3F]",
+    searchInput: "border-[#3F3F3F] bg-[#F6F8FA] text-[#24292F]",
+    searchIcon: "text-gray-500",
+    mapBorder: "border-[#3F3F3F]",
+    infoBg: "bg-[#F6F8FA]",
+    infoText: "text-[#24292F]",
+    infoSubText: "text-gray-500",
+    currentLocationBtn: "bg-[#E8EAED] text-[#24292F] hover:bg-[#D0D7DE]",
+  },
+};
 
 // Component to handle map clicks and marker placement
 function MapClickHandler({ 
   onLocationSelect, 
   markerPosition, 
-  setMarkerPosition 
+  setMarkerPosition,
+  version 
 }: {
   onLocationSelect: (location: LocationData) => void;
   markerPosition: LatLng | null;
   setMarkerPosition: (position: LatLng | null) => void;
+  version?: 'UPDATES2'
 }) {
   useMapEvents({
     click: async (e) => {
@@ -74,8 +102,10 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
   initialLocation,
   onLocationSelect,
   className = "",
-  height = "400px"
+  height = "400px",
+  version,
 }) => {
+  const theme = version ? styles[version] : styles.default;
   const [isClient, setIsClient] = useState(false);
   const [markerPosition, setMarkerPosition] = useState<LatLng | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -107,37 +137,45 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
 
   // Handle search for addresses
   const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
-    
+    if (!searchQuery.trim()) {
+      toast.error("Please enter an address to search");
+      return;
+    }
+
     setIsSearching(true);
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=1`
       );
       const data = await response.json();
-      
+
       if (data && data.length > 0) {
         const result = data[0];
         const lat = parseFloat(result.lat);
         const lng = parseFloat(result.lon);
         const newPosition = new LatLng(lat, lng);
-        
+
         setMarkerPosition(newPosition);
         setCenter([lat, lng]);
-        
+
         // Fly to the new location
         if (mapRef.current) {
           mapRef.current.flyTo([lat, lng], 15);
         }
-        
+
         onLocationSelect({
           latitude: lat,
           longitude: lng,
           address: result.display_name
         });
+
+        toast.success("Address found! Location updated.");
+      } else {
+        toast.error("Address not found. Please try a different search.");
       }
     } catch (error) {
       console.error("Error searching for address:", error);
+      toast.error("Failed to search for address. Please try again.");
     } finally {
       setIsSearching(false);
     }
@@ -194,11 +232,11 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
   if (!isClient) {
     return (
       <div className={`w-full ${className}`}>
-        <div 
-          className="flex items-center justify-center bg-[#2F2F2F] rounded-lg border border-gray-300"
+        <div
+          className={`flex items-center justify-center rounded-lg border ${theme.loadingBg}`}
           style={{ height }}
         >
-          <div className="flex items-center gap-2 text-gray-400">
+          <div className={`flex items-center gap-2 ${theme.searchIcon}`}>
             <Loader2 className="w-5 h-5 animate-spin" />
             <span>Loading map...</span>
           </div>
@@ -213,14 +251,14 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
       <div className="mb-4 space-y-3">
         <div className="flex gap-2">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${theme.searchIcon}`} />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={handleKeyPress}
               placeholder="Search for an address..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 bg-[#2F2F2F] text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+              className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent placeholder:text-gray-500 ${theme.searchInput}`}
             />
           </div>
           <button
@@ -236,10 +274,10 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
             Search
           </button>
         </div>
-        
+
         <button
           onClick={getCurrentLocation}
-          className="flex items-center gap-2 px-4 py-2 text-sm bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+          className={`flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition-colors ${theme.currentLocationBtn}`}
         >
           <MapPin className="w-4 h-4" />
           Use Current Location
@@ -247,8 +285,8 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
       </div>
 
       {/* Map container */}
-      <div 
-        className="relative rounded-lg overflow-hidden border border-gray-300"
+      <div
+        className={`relative rounded-lg overflow-hidden border ${theme.mapBorder}`}
         style={{ height }}
       >
         <MapContainer
@@ -276,12 +314,12 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
 
       {/* Current selection info */}
       {markerPosition && (
-        <div className="mt-3 p-3 bg-[#2F2F2F] rounded-lg">
+        <div className={`mt-3 p-3 rounded-lg ${theme.infoBg}`}>
           <div className="flex items-start gap-2">
             <MapPin className="w-4 h-4 text-[#FFCC00] mt-0.5 flex-shrink-0" />
-            <div className="text-sm text-gray-300">
+            <div className={`text-sm ${theme.infoText}`}>
               <div className="font-medium">Selected Location:</div>
-              <div className="text-xs text-gray-400 mt-1">
+              <div className={`text-xs mt-1 ${theme.infoSubText}`}>
                 Latitude: {markerPosition.lat.toFixed(6)}, Longitude: {markerPosition.lng.toFixed(6)}
               </div>
             </div>

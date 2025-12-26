@@ -18,7 +18,46 @@ interface CountryPhoneInputProps {
   disabled?: boolean;
   placeholder?: string;
   className?: string;
+  version?: 'UPDATES2';
 }
+
+// Style variants
+const styles = {
+  default: {
+    skeleton: "bg-[#2F2F2F] border-gray-300",
+    container: "border-gray-300 bg-[#2F2F2F] text-white",
+    button: "text-white border-r border-gray-300",
+    dialCode: "text-gray-300",
+    dropdown: "bg-[#2F2F2F] border-gray-300",
+    searchBorder: "border-gray-300",
+    searchInput: "bg-[#1a1a1a] text-white border-gray-300",
+    searchIcon: "text-gray-400",
+    countryHover: "hover:bg-[#3a3a3a]",
+    countrySelected: "bg-[#3a3a3a]",
+    countryName: "text-white",
+    countryDialCode: "text-gray-400",
+    noResults: "text-gray-400",
+    phoneInput: "text-white placeholder:text-gray-500",
+    scrollbar: { scrollbarWidth: 'thin' as const, scrollbarColor: '#4a4a4a #2F2F2F' },
+  },
+  UPDATES2: {
+    skeleton: "bg-[#F6F8FA] border-[#3F3F3F]",
+    container: "border-[#3F3F3F] bg-[#F6F8FA] text-[#24292F]",
+    button: "text-[#24292F] border-r border-[#3F3F3F]",
+    dialCode: "text-[#24292F]",
+    dropdown: "bg-[#F6F8FA] border-[#3F3F3F]",
+    searchBorder: "border-[#3F3F3F]",
+    searchInput: "bg-white text-[#24292F] border-[#3F3F3F]",
+    searchIcon: "text-gray-500",
+    countryHover: "hover:bg-[#E8EAED]",
+    countrySelected: "bg-[#E8EAED]",
+    countryName: "text-[#24292F]",
+    countryDialCode: "text-gray-500",
+    noResults: "text-gray-500",
+    phoneInput: "text-[#24292F] placeholder:text-gray-500",
+    scrollbar: { scrollbarWidth: 'thin' as const, scrollbarColor: '#D0D7DE #F6F8FA' },
+  },
+};
 
 export const CountryPhoneInput: React.FC<CountryPhoneInputProps> = ({
   value,
@@ -26,7 +65,9 @@ export const CountryPhoneInput: React.FC<CountryPhoneInputProps> = ({
   disabled = false,
   placeholder = "Enter phone number",
   className,
+  version,
 }) => {
+  const theme = version ? styles[version] : styles.default;
   const [countries, setCountries] = useState<Country[]>([]);
   const [selectedCountry, setSelectedCountry] = useState<Country | null>(null);
   const [localNumber, setLocalNumber] = useState("");
@@ -135,7 +176,7 @@ export const CountryPhoneInput: React.FC<CountryPhoneInputProps> = ({
   if (isLoading) {
     return (
       <div className={cn("w-full", className)}>
-        <div className="w-full h-[50px] bg-[#2F2F2F] rounded-xl animate-pulse border border-gray-300" />
+        <div className={cn("w-full h-[50px] rounded-xl animate-pulse border", theme.skeleton)} />
       </div>
     );
   }
@@ -146,7 +187,8 @@ export const CountryPhoneInput: React.FC<CountryPhoneInputProps> = ({
       <div className="relative w-full">
         <div
           className={cn(
-            "w-full flex items-center border border-gray-300 bg-[#2F2F2F] text-white rounded-xl transition-all",
+            "w-full flex items-center border rounded-xl transition-all",
+            theme.container,
             "focus-within:outline-none focus-within:ring-2 focus-within:ring-[#FFCC00] focus-within:border-transparent",
             error && "border-red-500 focus-within:ring-red-500"
           )}
@@ -157,12 +199,12 @@ export const CountryPhoneInput: React.FC<CountryPhoneInputProps> = ({
               type="button"
               onClick={() => !disabled && setIsOpen(!isOpen)}
               disabled={disabled}
-              className="flex items-center gap-2 px-4 py-3 text-white border-r border-gray-300 transition-colors"
+              className={cn("flex items-center gap-2 px-4 py-2 transition-colors", theme.button)}
             >
               {selectedCountry && (
                 <>
                   <span className="text-lg">{selectedCountry.flag}</span>
-                  <span className="text-sm text-gray-300">{selectedCountry.dialCode}</span>
+                  <span className={cn("text-sm", theme.dialCode)}>{selectedCountry.dialCode}</span>
                 </>
               )}
               <ChevronDown className={cn("w-4 h-4 transition-transform", isOpen && "rotate-180")} />
@@ -170,26 +212,29 @@ export const CountryPhoneInput: React.FC<CountryPhoneInputProps> = ({
 
             {/* Dropdown */}
             {isOpen && (
-              <div className="absolute left-0 z-50 mt-1 w-72 max-h-80 overflow-hidden bg-[#2F2F2F] border border-gray-300 rounded-xl shadow-lg">
+              <div className={cn("absolute left-0 z-50 mt-1 w-72 max-h-80 overflow-hidden border rounded-xl shadow-lg", theme.dropdown)}>
                 {/* Search */}
-                <div className="p-2 border-b border-gray-300">
+                <div className={cn("p-2 border-b", theme.searchBorder)}>
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Search className={cn("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4", theme.searchIcon)} />
                     <input
                       ref={searchInputRef}
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="Search countries..."
-                      className="w-full pl-9 pr-3 py-2 bg-[#1a1a1a] text-white text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent"
+                      className={cn("w-full pl-9 pr-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#FFCC00] focus:border-transparent", theme.searchInput)}
                     />
                   </div>
                 </div>
 
                 {/* Country List */}
-                <div className="max-h-60 overflow-y-auto">
+                <div
+                  className="max-h-60 overflow-y-auto"
+                  style={theme.scrollbar}
+                >
                   {filteredCountries.length === 0 ? (
-                    <div className="px-4 py-3 text-sm text-gray-400">No countries found</div>
+                    <div className={cn("px-4 py-3 text-sm", theme.noResults)}>No countries found</div>
                   ) : (
                     filteredCountries.map((country) => (
                       <button
@@ -197,13 +242,14 @@ export const CountryPhoneInput: React.FC<CountryPhoneInputProps> = ({
                         type="button"
                         onClick={() => handleCountrySelect(country)}
                         className={cn(
-                          "w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-[#3a3a3a] transition-colors",
-                          selectedCountry?.code === country.code && "bg-[#3a3a3a]"
+                          "w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors",
+                          theme.countryHover,
+                          selectedCountry?.code === country.code && theme.countrySelected
                         )}
                       >
                         <span className="text-lg">{country.flag}</span>
-                        <span className="flex-1 text-sm text-white truncate">{country.name}</span>
-                        <span className="text-sm text-gray-400">{country.dialCode}</span>
+                        <span className={cn("flex-1 text-sm truncate", theme.countryName)}>{country.name}</span>
+                        <span className={cn("text-sm", theme.countryDialCode)}>{country.dialCode}</span>
                       </button>
                     ))
                   )}
@@ -219,7 +265,7 @@ export const CountryPhoneInput: React.FC<CountryPhoneInputProps> = ({
             onChange={handleLocalNumberChange}
             disabled={disabled}
             placeholder={placeholder}
-            className="flex-1 w-full px-4 py-3 bg-transparent text-white outline-none"
+            className={cn("flex-1 w-full px-4 py-2 bg-transparent outline-none", theme.phoneInput)}
           />
         </div>
       </div>
