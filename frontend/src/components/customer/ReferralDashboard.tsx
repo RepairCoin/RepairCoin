@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useReadContract } from "thirdweb/react";
 import { getContract, createThirdwebClient } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
@@ -29,22 +29,11 @@ const contract = getContract({
   address: (process.env.NEXT_PUBLIC_RCN_CONTRACT_ADDRESS || process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0xBFE793d78B6B83859b528F191bd6F2b8555D951C") as `0x${string}`,
 });
 
-interface ReferralStats {
-  totalReferrals: number;
-  successfulReferrals: number;
-  pendingReferrals: number;
-  totalEarned: number;
-  referrals: Array<{
-    id: string;
-    refereeAddress?: string;
-    status: string;
-    createdAt: string;
-    completedAt?: string;
-  }>;
-}
+import { Referral } from "@/constants/types";
+import apiClient from "@/services/api/client";
 
 // Define columns for the DataTable
-const referralColumns: Column<ReferralStats['referrals'][0]>[] = [
+const referralColumns: Column<Referral>[] = [
   {
     key: "date",
     header: "Date",
@@ -54,9 +43,9 @@ const referralColumns: Column<ReferralStats['referrals'][0]>[] = [
   {
     key: "referee",
     header: "Referee",
-    accessor: (item) => item.refereeAddress ? (
+    accessor: (item) => item.referredAddress ? (
       <span className="font-mono text-sm">
-        {item.refereeAddress.slice(0, 6)}...{item.refereeAddress.slice(-4)}
+        {item.referredAddress.slice(0, 6)}...{item.referredAddress.slice(-4)}
       </span>
     ) : (
       <span className="text-gray-500">Pending</span>
@@ -70,8 +59,6 @@ const referralColumns: Column<ReferralStats['referrals'][0]>[] = [
         className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
           item.status === "completed"
             ? "bg-green-100 text-green-800"
-            : item.status === "expired"
-            ? "bg-red-100 text-red-800"
             : "bg-yellow-100 text-yellow-800"
         }`}
       >
@@ -96,8 +83,20 @@ export function ReferralDashboard() {
     fetchCustomerData,
   } = useCustomer();
   
-  const [referralStats, setReferralStats] = useState<ReferralStats | null>(null);
   const [copying, setCopying] = useState(false);
+  const [referralStats, setReferralStats] = useState<{
+    totalReferrals: number;
+    successfulReferrals: number;
+    pendingReferrals: number;
+    totalEarned: number;
+    referrals: Referral[];
+  }>({
+    totalReferrals: 0,
+    successfulReferrals: 0,
+    pendingReferrals: 0,
+    totalEarned: 0,
+    referrals: []
+  });
 
   // Read token balance from contract
   const { data: tokenBalance } = useReadContract({
@@ -114,19 +113,28 @@ export function ReferralDashboard() {
     }
   }, [tokenBalance]);
 
-  // Initialize referral stats from customer data
   useEffect(() => {
-    if (customerData) {
-      const stats: ReferralStats = {
-        totalReferrals: customerData.referralCount || 0,
-        successfulReferrals: customerData.referralCount || 0,
-        pendingReferrals: 0,
-        totalEarned: (customerData.referralCount || 0) * 25,
-        referrals: [],
-      };
-      setReferralStats(stats);
+    const fetchReferralStats = async () => {
+      try {
+        const resp = await apiClient.get('/referrals/stats');
+        if (resp.data) {
+          setReferralStats({
+            totalReferrals: resp.data.totalReferrals || 0,
+            successfulReferrals: resp.data.successfulReferrals || 0,
+            pendingReferrals: resp.data.pendingReferrals || 0,
+            totalEarned: resp.data.totalEarned?.toString() || '0',
+            referrals: resp.data.referrals || []
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching referral stats:', error);
+      }
+    };
+
+    if (customerData?.address) {
+      fetchReferralStats();
     }
-  }, [customerData]);
+  }, [customerData?.address]);
 
   const referralCode = customerData?.referralCode || "Generating...";
   const referralLink = customerData?.referralCode
@@ -400,7 +408,7 @@ export function ReferralDashboard() {
           <DataTable
             data={referralStats?.referrals || []}
             columns={referralColumns}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => `${item.id}`}
             emptyMessage="No referrals yet. Share your referral code to start earning!"
             emptyIcon={
               <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">👥</div>

@@ -78,23 +78,24 @@ export class ReferralService {
   async processReferral(
     referralCode: string,
     refereeAddress: string,
+    referrerAddress: string,
     refereeData: any
   ): Promise<{ success: boolean; message: string }> {
     try {
       // Find the referrer by their referral code in customers table
-      const referrer = await this.customerRepository.getCustomerByReferralCode(referralCode);
-      if (!referrer) {
-        return { 
-          success: false, 
-          message: 'Invalid referral code' 
-        };
-      }
+      // const referrer = await this.customerRepository.getCustomerByReferralCode(referralCode);
+      // if (!referrer) {
+      //   return {
+      //     success: false,
+      //     message: 'Invalid referral code'
+      //   };
+      // }
 
       // Check if referrer is trying to refer themselves
-      if (referrer.address.toLowerCase() === refereeAddress.toLowerCase()) {
-        return { 
-          success: false, 
-          message: 'Cannot refer yourself' 
+      if (referrerAddress.toLowerCase() === refereeAddress.toLowerCase()) {
+        return {
+          success: false,
+          message: 'Cannot refer yourself'
         };
       }
 
@@ -102,24 +103,22 @@ export class ReferralService {
       const existingCustomer = await this.customerRepository.getCustomer(refereeAddress);
       if (existingCustomer && !existingCustomer.referredBy) {
         await this.customerRepository.updateCustomer(refereeAddress, {
-          referredBy: referrer.address
+          referredBy: referrerAddress
         });
       }
 
-      // Create PENDING referral record in referrals table
-      const referral = await this.referralRepository.createReferral(referrer.address);
-      
-      // Update the referral with referee address but keep status as pending
-      await this.referralRepository.updateReferral(referral.id, {
+      // Create PENDING referral record in referrals table with metadata
+      const referral = await this.referralRepository.createReferral(
+        referrerAddress,
         refereeAddress,
-        metadata: {
+        {
           referralCode,
-          referrerAddress: referrer.address,
+          referrerAddress: referrerAddress,
           refereeAddress,
           registeredAt: new Date().toISOString(),
           awaitingFirstRepair: true
         }
-      });
+      );
 
       // Emit event for pending referral
       await eventBus.publish({
@@ -127,7 +126,7 @@ export class ReferralService {
         aggregateId: referralCode,
         data: {
           referralCode,
-          referrerAddress: referrer.address,
+          referrerAddress: referrerAddress,
           refereeAddress,
           referralId: referral.id
         },
@@ -138,14 +137,14 @@ export class ReferralService {
 
       logger.info('Referral recorded as pending (awaiting first repair)', {
         referralCode,
-        referrerAddress: referrer.address,
+        referrerAddress: referrerAddress,
         refereeAddress,
         referralId: referral.id
       });
 
-      return { 
-        success: true, 
-        message: 'Referral recorded successfully. Rewards will be distributed after first repair completion.' 
+      return {
+        success: true,
+        message: 'Referral recorded successfully. Rewards will be distributed after first repair completion.'
       };
     } catch (error) {
       logger.error('Error processing referral:', error);
@@ -221,12 +220,25 @@ export class ReferralService {
     shopId: string,
     repairAmount: number
   ): Promise<{ success: boolean; message: string; referralCompleted?: boolean }> {
+    const fn = 'completeReferralOnFirstRepair';
+    logger.info('completeReferralOnFirstRepair called', {
+      fn,
+      customerAddress,
+      shopId,
+      repairAmount
+    });
+
     try {
       // Check if customer was referred
       const customer = await this.customerRepository.getCustomer(customerAddress);
       if (!customer || !customer.referredBy) {
-        return { 
-          success: true, 
+        logger.info('Customer was not referred, skipping referral completion', {
+          fn,
+          customerAddress,
+          customerExists: !!customer
+        });
+        return {
+          success: true,
           message: 'Customer was not referred',
           referralCompleted: false
         };
@@ -235,11 +247,22 @@ export class ReferralService {
       // Check if this is the customer's first repair
       const transactions = await this.transactionRepository.getTransactionsByCustomer(customerAddress, 100);
       const repairCount = transactions.filter(t => t.type === 'mint' && t.shopId !== 'admin_system').length;
-      
+
+      logger.info('Checking repair count for referral eligibility', {
+        fn,
+        customerAddress,
+        repairCount,
+        referredBy: customer.referredBy
+      });
+
       if (repairCount > 1) {
-        // Not the first repair
-        return { 
-          success: true, 
+        logger.info('Not the first repair, skipping referral completion', {
+          fn,
+          customerAddress,
+          repairCount
+        });
+        return {
+          success: true,
           message: 'Not the first repair',
           referralCompleted: false
         };
@@ -249,11 +272,21 @@ export class ReferralService {
       const referrals = await this.referralRepository.getCustomerReferrals(customer.referredBy);
       const pendingReferral = referrals.find(
         r => r.status === 'pending' && 
-        r.refereeAddress?.toLowerCase() === customerAddress.toLowerCase()
+        r.referredAddress?.toLowerCase() === customerAddress.toLowerCase()
       );
+
+      logger.info('Searching for pending referral', {
+        fn,
+        customerAddress,
+        referredBy: customer.referredBy,
+        totalReferrals: referrals.length,
+        pendingReferralFound: !!pendingReferral,
+        referralCode: pendingReferral?.referralCode
+      });
 
       if (!pendingReferral) {
         logger.warn('No pending referral found for referred customer', {
+          fn,
           customerAddress,
           referredBy: customer.referredBy
         });
@@ -266,13 +299,30 @@ export class ReferralService {
 
       // Now distribute the rewards
       const transactionId = uuidv4();
-      
+
+      logger.info('Starting referral reward distribution', {
+        fn,
+        transactionId,
+        referralCode: pendingReferral.referralCode,
+        referrerAddress: customer.referredBy,
+        refereeAddress: customerAddress
+      });
+
       // Mint 25 RCN to referrer
+      logger.info('Minting 25 RCN to referrer', {
+        fn,
+        referrerAddress: customer.referredBy,
+        amount: 25
+      });
       await this.tokenService.mintTokens(
         customer.referredBy,
         25,
         'Referral bonus - referred customer completed first repair'
       );
+      logger.info('Successfully minted 25 RCN to referrer', {
+        fn,
+        referrerAddress: customer.referredBy
+      });
 
       // Record referrer's RCN source
       await this.referralRepository.recordRcnSource({
@@ -290,11 +340,20 @@ export class ReferralService {
       });
 
       // Mint 10 RCN to referee (in addition to repair reward)
+      logger.info('Minting 10 RCN to referee', {
+        fn,
+        refereeAddress: customerAddress,
+        amount: 10
+      });
       await this.tokenService.mintTokens(
         customerAddress,
         10,
         'Referral bonus - first repair completed'
       );
+      logger.info('Successfully minted 10 RCN to referee', {
+        fn,
+        refereeAddress: customerAddress
+      });
 
       // Record referee's RCN source
       await this.referralRepository.recordRcnSource({
@@ -312,17 +371,34 @@ export class ReferralService {
       });
 
       // Mark referral as completed
+      logger.info('Marking referral as completed', {
+        fn,
+        referralCode: pendingReferral.referralCode,
+        refereeAddress: customerAddress,
+        transactionId
+      });
       await this.referralRepository.completeReferral(
         pendingReferral.referralCode,
         customerAddress,
         transactionId
       );
+      logger.info('Referral marked as completed', {
+        fn,
+        referralCode: pendingReferral.referralCode
+      });
 
       // Update referrer's referral count
       const referrer = await this.customerRepository.getCustomer(customer.referredBy);
       if (referrer) {
+        const newCount = (referrer.referralCount || 0) + 1;
+        logger.info('Updating referrer referral count', {
+          fn,
+          referrerAddress: customer.referredBy,
+          previousCount: referrer.referralCount || 0,
+          newCount
+        });
         await this.customerRepository.updateCustomer(customer.referredBy, {
-          referralCount: (referrer.referralCount || 0) + 1
+          referralCount: newCount
         });
       }
 
@@ -348,6 +424,7 @@ export class ReferralService {
       });
 
       logger.info('Referral completed on first repair', {
+        fn,
         referralCode: pendingReferral.referralCode,
         referrerAddress: customer.referredBy,
         refereeAddress: customerAddress,
@@ -361,7 +438,7 @@ export class ReferralService {
         referralCompleted: true
       };
     } catch (error) {
-      logger.error('Error completing referral on first repair:', error);
+      logger.error('Error completing referral on first repair', { fn, error });
       throw error;
     }
   }

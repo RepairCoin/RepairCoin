@@ -1,5 +1,5 @@
 // backend/src/services/CustomerService.ts
-import { customerRepository, transactionRepository, shopRepository, adminRepository } from "../../../repositories";
+import { customerRepository, transactionRepository, shopRepository, adminRepository, CustomerRepository } from "../../../repositories";
 import { TokenMinter } from '../../../contracts/TokenMinter';
 import { TierManager, CustomerData } from '../../../contracts/TierManager';
 import { logger } from '../../../utils/logger';
@@ -53,9 +53,11 @@ export class CustomerService {
   private tokenMinter: TokenMinter | null = null;
   private tierManager: TierManager | null = null;
   private referralService: ReferralService;
+  private customerRepository: CustomerRepository;
 
   constructor() {
     this.referralService = new ReferralService();
+    this.customerRepository = new CustomerRepository();
   }
 
   private getTokenMinter(): TokenMinter {
@@ -144,11 +146,21 @@ export class CustomerService {
   }
 
   async registerCustomer(data: CustomerRegistrationData) {
+    let referrer: CustomerData | null = null;
     try {
       // Check if customer already exists
       const existingCustomer = await customerRepository.getCustomer(data.walletAddress);
       if (existingCustomer) {
         throw new Error('This wallet address is already registered as a customer. Please sign in to your existing account.');
+      }
+
+      // Find the referrer by their referral code in customers table
+      if(data.referralCode){
+        const referrerresp = await this.customerRepository.getCustomerByReferralCode(data.referralCode);
+        if (!referrerresp) {
+          throw new Error('Invalid referral code');
+        }
+        referrer = referrerresp;
       }
 
       // Role conflict validation is handled by middleware
@@ -176,11 +188,22 @@ export class CustomerService {
       // Process referral if code provided
       if (data.referralCode) {
         try {
+          logger.info('create referral start', {
+            fn: 'ReferralBusinessLogic',
+            referralCode:data.referralCode,
+            refereeAddress: data.walletAddress,
+            refereeData:newCustomer
+          });
           const referralResult = await this.referralService.processReferral(
             data.referralCode,
             data.walletAddress,
-            newCustomer
+            referrer.address,
+            newCustomer,
           );
+          logger.info('referral end', {
+            fn: 'ReferralBusinessLogic',
+            referralResult
+          });
           
           if (!referralResult.success) {
             logger.warn('Referral processing failed', {

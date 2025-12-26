@@ -5,6 +5,7 @@ export interface Referral {
   id: string;
   referralCode: string;
   referrerAddress: string;
+  referredAddress: string;
   refereeAddress?: string;
   status: 'pending' | 'completed' | 'expired';
   createdAt: string;
@@ -37,26 +38,38 @@ export interface ReferralStats {
 }
 
 export class ReferralRepository extends BaseRepository {
-  async createReferral(referrerAddress: string): Promise<Referral> {
+  async createReferral(
+    referrerAddress: string,
+    refereeAddress?: string,
+    metadata?: object
+  ): Promise<Referral> {
     try {
       const query = `
         INSERT INTO referrals (
-          referral_code, 
-          referrer_address, 
-          status, 
-          expires_at
+          referral_code,
+          referrer_address,
+          referred_address,
+          status,
+          expires_at,
+          metadata
         ) VALUES (
-          generate_referral_code(), 
-          $1, 
-          'pending', 
-          CURRENT_TIMESTAMP + INTERVAL '30 days'
+          generate_referral_code(),
+          $1,
+          $2,
+          'pending',
+          CURRENT_TIMESTAMP + INTERVAL '30 days',
+          $3
         )
         RETURNING *
       `;
-      
-      const result = await this.pool.query(query, [referrerAddress.toLowerCase()]);
+
+      const result = await this.pool.query(query, [
+        referrerAddress.toLowerCase(),
+        refereeAddress?.toLowerCase() || null,
+        JSON.stringify(metadata || {})
+      ]);
       const row = result.rows[0];
-      
+
       return this.mapReferralFromDb(row);
     } catch (error) {
       logger.error('Error creating referral:', error);
@@ -606,6 +619,7 @@ export class ReferralRepository extends BaseRepository {
       id: row.id,
       referralCode: row.referral_code,
       referrerAddress: row.referrer_address,
+      referredAddress: row.referred_address,
       refereeAddress: row.referee_address,
       status: row.status,
       createdAt: row.created_at,
