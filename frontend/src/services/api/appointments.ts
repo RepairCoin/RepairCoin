@@ -180,6 +180,11 @@ export const appointmentsApi = {
     return (response as unknown as { success: boolean; data: TimeSlotConfig }).data;
   },
 
+  // Shop: Delete time slot configuration
+  async deleteTimeSlotConfig(): Promise<void> {
+    await apiClient.delete(`/services/appointments/time-slot-config`);
+  },
+
   // Shop: Get date overrides
   async getDateOverrides(startDate?: string, endDate?: string): Promise<DateOverride[]> {
     const response = await apiClient.get<{ success: boolean; data: DateOverride[] }>(

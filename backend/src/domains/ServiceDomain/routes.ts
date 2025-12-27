@@ -1766,6 +1766,26 @@ export function initializeRoutes(stripe: StripeService): Router {
 
   /**
    * @swagger
+   * /api/services/appointments/time-slot-config:
+   *   delete:
+   *     summary: Delete time slot configuration (Shop only)
+   *     description: Remove time slot configuration to disable booking settings
+   *     tags: [Appointments]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Configuration deleted
+   */
+  router.delete(
+    '/appointments/time-slot-config',
+    authMiddleware,
+    requireRole(['shop']),
+    appointmentController.deleteTimeSlotConfig
+  );
+
+  /**
+   * @swagger
    * /api/services/appointments/date-overrides:
    *   get:
    *     summary: Get date overrides (Shop only)
