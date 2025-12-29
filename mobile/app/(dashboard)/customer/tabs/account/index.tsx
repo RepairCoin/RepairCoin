@@ -129,48 +129,6 @@ export default function Account() {
             </View>
           </View>
         </View>
-
-        {/* Wallet Address - Copyable */}
-        <TouchableOpacity
-          onPress={async () => {
-            if (account?.address) {
-              await Clipboard.setStringAsync(account.address);
-              setIsCopied(true);
-            }
-          }}
-          activeOpacity={0.7}
-          className={`mt-4 p-4 rounded-xl flex-row items-center justify-between ${
-            isCopied ? "bg-[#FFCC00]" : "bg-zinc-900"
-          }`}
-        >
-          <View className="flex-row items-center flex-1">
-            <View className={`p-2 rounded-full ${isCopied ? "bg-black/20" : "bg-zinc-800"}`}>
-              <Ionicons
-                name={isCopied ? "checkmark" : "wallet-outline"}
-                size={18}
-                color={isCopied ? "#000" : "#FFCC00"}
-              />
-            </View>
-            <View className="ml-3 flex-1">
-              <Text className={`text-xs ${isCopied ? "text-black/60" : "text-gray-500"}`}>
-                Wallet Address
-              </Text>
-              <Text
-                className={`text-sm font-medium ${isCopied ? "text-black" : "text-white"}`}
-                numberOfLines={1}
-              >
-                {isCopied
-                  ? "Copied to clipboard!"
-                  : account?.address
-                    ? `${account.address.slice(0, 10)}...${account.address.slice(-8)}`
-                    : "Not connected"}
-              </Text>
-            </View>
-          </View>
-          {!isCopied && (
-            <Ionicons name="copy-outline" size={18} color="#9CA3AF" />
-          )}
-        </TouchableOpacity>
       </ScrollView>
     </View>
   );
