@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import React, { useMemo, useState, useCallback } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { useAppointment } from "@/hooks/appointment/useAppointment";
+import { useAppointment } from "@/feature/booking/hooks";
 import { MyAppointment } from "@/interfaces/appointment.interface";
 import { router } from "expo-router";
 
