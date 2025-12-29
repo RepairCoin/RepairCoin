@@ -477,14 +477,12 @@ async function validateUserInDatabase(tokenPayload: JWTPayload): Promise<boolean
         }
         // Allow unverified/inactive shops to access dashboard with limited features
         // Individual endpoints can enforce stricter checks if needed
-        if (shop.walletAddress.toLowerCase() !== tokenPayload.address.toLowerCase()) {
-          logger.warn('Shop wallet address mismatch', {
-            shopId: tokenPayload.shopId,
-            shopWallet: shop.walletAddress.toLowerCase(),
-            tokenWallet: tokenPayload.address.toLowerCase()
-          });
-          return false;
-        }
+
+        // For shops, validate by shopId instead of wallet address
+        // This allows social login where the connected wallet differs from the registered wallet
+        // The shopId is the source of truth - if token has valid shopId, the shop is authenticated
+        // The connected wallet is stored in tokenPayload.address (could be social login wallet)
+        // The original wallet is stored in shop.walletAddress (has RCG tokens)
         return true;
         
       case 'customer':

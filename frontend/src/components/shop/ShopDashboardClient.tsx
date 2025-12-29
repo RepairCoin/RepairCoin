@@ -112,7 +112,7 @@ export default function ShopDashboardClient() {
   const router = useRouter();
   const account = useActiveAccount();
   const searchParams = useSearchParams();
-  const { isAuthenticated, userType, isLoading: authLoading, authInitialized } = useAuthStore();
+  const { isAuthenticated, userType, isLoading: authLoading, authInitialized, userProfile } = useAuthStore();
   const { existingApplication } = useShopRegistration();
   const [shopData, setShopData] = useState<ShopData | null>(null);
   const [purchases, setPurchases] = useState<PurchaseHistory[]>([]);
@@ -247,7 +247,8 @@ export default function ShopDashboardClient() {
     if (account?.address) {
       loadShopData();
     }
-  }, [account?.address]);
+    // Also re-load when userProfile.shopId becomes available (for social login)
+  }, [account?.address, userProfile?.shopId]);
 
   // Listen for subscription-related notifications and refresh data
   const { notifications } = useNotificationStore();
@@ -404,8 +405,15 @@ export default function ShopDashboardClient() {
       // NOTE: Authentication is now handled globally by useAuthInitializer
       // No need to call /auth/shop here - cookies are already set
 
-      // Load shop data with authentication (cookies sent automatically)
-      const shopResult = await apiClient.get(`/shops/wallet/${account?.address}`);
+      // Load shop data - prefer shopId from session (for social login where wallet differs)
+      // Fall back to wallet address for backwards compatibility
+      const shopIdFromSession = userProfile?.shopId;
+      const shopEndpoint = shopIdFromSession
+        ? `/shops/${shopIdFromSession}`
+        : `/shops/wallet/${account?.address}`;
+
+      console.log('[ShopDashboard] Loading shop data from:', shopEndpoint, { shopIdFromSession, walletAddress: account?.address });
+      const shopResult = await apiClient.get(shopEndpoint);
 
       if (shopResult.success && shopResult.data) {
         let enhancedShopData = shopResult.data;

@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
-import { useActiveAccount } from 'thirdweb/react';
+import { useActiveAccount, useActiveWallet } from 'thirdweb/react';
 import { useRouter } from 'next/navigation';
+import { getUserEmail } from 'thirdweb/wallets/in-app';
+import { client } from '@/utils/thirdweb';
 import { WalletDetectionService, WalletType } from '../services/walletDetectionService';
 
 interface UseWalletDetectionResult {
@@ -13,6 +15,7 @@ interface UseWalletDetectionResult {
 
 export function useWalletDetection(autoRoute: boolean = false): UseWalletDetectionResult {
   const account = useActiveAccount();
+  const wallet = useActiveWallet();
   const router = useRouter();
   const [walletType, setWalletType] = useState<WalletType>('unknown');
   const [isDetecting, setIsDetecting] = useState(false);
@@ -31,11 +34,40 @@ export function useWalletDetection(autoRoute: boolean = false): UseWalletDetecti
 
     setIsDetecting(true);
     try {
+      // Small delay to ensure Thirdweb has fully initialized the wallet
+      // This allows getUserEmail to return the email for social login
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       const detector = WalletDetectionService.getInstance();
-      const result = await detector.detectWalletType(account.address);
-      
+
+      // ALWAYS try to get email for social login fallback
+      // This allows shops registered with MetaMask to login via Google if their email matches
+      // getUserEmail returns undefined for non-embedded wallets, which is fine
+      let userEmail: string | undefined;
+      try {
+        // Use Thirdweb v5's official getUserEmail function
+        // Try this regardless of wallet type detection (wallet object might not be ready yet)
+        userEmail = await getUserEmail({ client });
+
+        if (userEmail) {
+          console.log('🔍 [useWalletDetection] Found email for social login via getUserEmail:', userEmail);
+        } else {
+          // Fallback to localStorage for Thirdweb auth data
+          const authData = localStorage.getItem('thirdweb:in-app-wallet-user-id');
+          if (authData && authData.includes('@')) {
+            userEmail = authData;
+            console.log('🔍 [useWalletDetection] Found email from localStorage:', userEmail);
+          }
+        }
+      } catch (e) {
+        // This is expected for non-embedded wallets, just continue without email
+        console.log('🔍 [useWalletDetection] No email available (expected for external wallets)');
+      }
+
+      const result = await detector.detectWalletType(account.address, userEmail);
+
       console.log('🔍 [useWalletDetection] Detection result:', result);
-      
+
       setWalletType(result.type);
       setIsRegistered(result.isRegistered);
       setDetectionData(result.data);

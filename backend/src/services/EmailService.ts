@@ -472,6 +472,65 @@ export class EmailService {
   }
 
   /**
+   * Send subscription cancelled by shop confirmation email
+   */
+  async sendSubscriptionCancelledByShop(
+    shopEmail: string,
+    shopName: string,
+    reason: string | undefined,
+    effectiveDate: Date
+  ): Promise<boolean> {
+    const subject = '📋 Subscription Cancellation Confirmed';
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #6b7280;">Subscription Cancellation Confirmed</h2>
+
+        <p>Dear ${shopName},</p>
+
+        <p>This email confirms that you have cancelled your RepairCoin subscription.</p>
+
+        <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #6b7280;">
+          <p style="margin: 5px 0;"><strong>Status:</strong> Cancellation Scheduled</p>
+          ${reason ? `<p style="margin: 5px 0;"><strong>Reason:</strong> ${reason}</p>` : ''}
+          <p style="margin: 5px 0;"><strong>Full Access Until:</strong> ${effectiveDate.toLocaleDateString()}</p>
+        </div>
+
+        <div style="background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <p style="margin: 0;"><strong>Good news:</strong> You retain <strong>full platform access</strong> until ${effectiveDate.toLocaleDateString()}. During this period, you can continue to issue rewards, process redemptions, and manage your services as normal.</p>
+        </div>
+
+        <p><strong>After ${effectiveDate.toLocaleDateString()}, you will no longer be able to:</strong></p>
+
+        <ul>
+          <li>Issue RCN rewards to customers</li>
+          <li>Process RCN redemptions</li>
+          <li>Manage services in the marketplace</li>
+          <li>Look up customer information</li>
+          <li>Purchase additional RCN tokens</li>
+        </ul>
+
+        <p style="color: #666;"><em>Note: You will still be able to view your purchase history and limited analytics.</em></p>
+
+        <div style="background-color: #e8f5e9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <p style="margin: 0 0 10px 0;"><strong>Changed your mind?</strong></p>
+          <p style="margin: 0;">You can reactivate your subscription at any time before the cancellation date by visiting your shop dashboard. After cancellation, you can resubscribe to restore full access.</p>
+        </div>
+
+        <p>We're sorry to see you go. If there's anything we could have done better, please let us know by replying to this email.</p>
+
+        <hr style="border: 1px solid #ddd; margin: 30px 0;">
+
+        <p style="color: #666; font-size: 12px;">
+          This is an automated message from RepairCoin. For support, please contact support@repaircoin.com
+        </p>
+      </div>
+    `;
+
+    return this.sendEmail(shopEmail, subject, html);
+  }
+
+  /**
    * Send welcome email for new trial subscription
    */
   async sendTrialWelcome(shopEmail: string, shopName: string, trialDays: number): Promise<boolean> {

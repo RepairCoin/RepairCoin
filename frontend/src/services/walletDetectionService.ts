@@ -25,7 +25,12 @@ export class WalletDetectionService {
     return WalletDetectionService.instance;
   }
 
-  async detectWalletType(address: string): Promise<WalletDetectionResult> {
+  /**
+   * Detect wallet type and return appropriate routing
+   * @param address - Wallet address to check
+   * @param email - Optional email for social login fallback (allows MetaMask-registered shops to login via Google)
+   */
+  async detectWalletType(address: string, email?: string): Promise<WalletDetectionResult> {
     if (!address) {
       return { type: 'unknown', isRegistered: false, route: '/choose' };
     }
@@ -44,7 +49,7 @@ export class WalletDetectionService {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ address })
+          body: JSON.stringify({ address, email }) // Include email for fallback
         });
         if (adminCheckResponse.ok) {
           const userData = await adminCheckResponse.json();
@@ -52,9 +57,19 @@ export class WalletDetectionService {
             console.log(`✅ Wallet ${address} detected as admin (from backend)`);
             return { type: 'admin', isRegistered: true, route: '/admin', data: userData.user };
           }
+          // Check if shop was found (possibly via email fallback)
+          if (userData.type === 'shop') {
+            console.log(`✅ Wallet ${address} detected as shop (from check-user)`, userData.linkedByEmail ? '(via email)' : '');
+            return { type: 'shop', isRegistered: true, route: '/shop', data: userData.user };
+          }
+          // Check if customer was found
+          if (userData.type === 'customer') {
+            console.log(`✅ Wallet ${address} detected as customer (from check-user)`);
+            return { type: 'customer', isRegistered: true, route: '/customer', data: userData.user };
+          }
         }
       } catch (adminError) {
-        console.log(`ℹ️ Could not check admin status from backend for ${address}`);
+        console.log(`ℹ️ Could not check user status from backend for ${address}`);
       }
 
       // Check if customer
@@ -74,13 +89,17 @@ export class WalletDetectionService {
         console.log(`ℹ️ Wallet ${address} not found in customers (this is normal for new users)`);
       }
 
-      // Check if shop
-      const shopResponse = await fetch(`${this.apiUrl}/shops/wallet/${address}`, {
+      // Check if shop (with email fallback for social login)
+      const shopUrl = email
+        ? `${this.apiUrl}/shops/wallet/${address}?email=${encodeURIComponent(email)}`
+        : `${this.apiUrl}/shops/wallet/${address}`;
+      const shopResponse = await fetch(shopUrl, {
         credentials: 'include' // Send cookies with request
       });
       if (shopResponse.ok) {
         const shopData = await shopResponse.json();
-        console.log(`✅ Wallet ${address} detected as registered shop`);
+        const linkedByEmail = shopData.linkedByEmail;
+        console.log(`✅ Wallet ${address} detected as registered shop`, linkedByEmail ? '(matched by email)' : '');
         return {
           type: 'shop',
           isRegistered: true,

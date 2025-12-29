@@ -223,12 +223,13 @@ router.get('/:shopId', optionalAuthMiddleware, async (req: Request, res: Respons
   }
 });
 
-// Get shop by wallet address
-router.get('/wallet/:address', 
+// Get shop by wallet address (with email fallback for social login)
+router.get('/wallet/:address',
   async (req: Request, res: Response) => {
     try {
       const { address } = req.params;
-      
+      const { email } = req.query; // Optional email for social login fallback
+
       // Validate Ethereum address format
       if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
         return res.status(400).json({
@@ -236,8 +237,25 @@ router.get('/wallet/:address',
           error: 'Invalid Ethereum address format'
         });
       }
-      
-      const shop = await shopRepository.getShopByWallet(address);
+
+      let shop = await shopRepository.getShopByWallet(address);
+      let linkedByEmail = false;
+
+      // EMAIL FALLBACK: If not found by wallet but email provided, try email lookup
+      // This enables shops registered with MetaMask to login via Google/social auth
+      if (!shop && email && typeof email === 'string' && email.includes('@')) {
+        shop = await shopRepository.getShopByEmail(email);
+        if (shop) {
+          linkedByEmail = true;
+          logger.info('Shop found by email fallback', {
+            email,
+            shopId: shop.shopId,
+            originalWallet: shop.walletAddress,
+            requestedWallet: address
+          });
+        }
+      }
+
       if (!shop) {
         return res.status(404).json({
           success: false,
@@ -386,6 +404,7 @@ router.get('/wallet/:address',
 
       res.json({
         success: true,
+        linkedByEmail, // True if shop was found via email fallback (social login)
         data: shopData
       });
 

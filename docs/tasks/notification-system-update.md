@@ -4,7 +4,7 @@
 
 This document outlines the current state of subscription-related notifications, identifies gaps, and provides a strategy for implementing missing notifications including SMS via Twilio.
 
-**Last Updated**: December 26, 2024
+**Last Updated**: December 29, 2024
 
 ---
 
@@ -24,6 +24,8 @@ This document outlines the current state of subscription-related notifications, 
 | Dec 26, 2024 | Subscription Tab Real-time | Frontend | `SubscriptionManagement.tsx` |
 | Dec 26, 2024 | Admin Cancel Modal UI Update | Frontend | `SubscriptionManagementTab.tsx` |
 | Dec 26, 2024 | Days Remaining Bug Fix | Backend | `shop/routes/subscription.ts` |
+| Dec 29, 2024 | Shop Self-Cancel Email | Email | `EmailService.ts`, `shop/routes/subscription.ts` |
+| Dec 29, 2024 | Shop Self-Cancel In-App | In-App | `NotificationService.ts`, `NotificationDomain.ts`, `shop/routes/subscription.ts` |
 
 ### In Progress 🔄
 
@@ -35,7 +37,6 @@ This document outlines the current state of subscription-related notifications, 
 
 | Item | Type | Priority |
 |------|------|----------|
-| Shop Self-Cancel Notifications | Email + In-App | High |
 | Auto-Cancel In-App | In-App | High |
 | SMS Integration (Twilio) | SMS | Low |
 
@@ -52,7 +53,7 @@ This document outlines the current state of subscription-related notifications, 
 | Admin Pause | ✅ Yes | Admin action | `admin/routes/subscription.ts:420` |
 | Admin Resume | ✅ Yes | Admin action | `admin/routes/subscription.ts:588` |
 | Admin Reactivate | ✅ Yes | Admin action | `admin/routes/subscription.ts:936` |
-| Shop Self-Cancel | ❌ No | - | Not implemented |
+| Shop Self-Cancel | ✅ Yes | Shop action | `shop/routes/subscription.ts:975` |
 | Shop Self-Reactivate | ❌ No | - | Not implemented |
 | Auto-Cancel (Grace Period) | ❌ No | - | Only email sent |
 
@@ -69,7 +70,7 @@ This document outlines the current state of subscription-related notifications, 
 | Admin Pause | ✅ Yes | `sendSubscriptionPausedByAdmin()` | **Added Dec 26, 2024** |
 | Admin Resume | ✅ Yes | `sendSubscriptionResumedByAdmin()` | **Added Dec 26, 2024** |
 | Admin Reactivate | ✅ Yes | `sendSubscriptionReactivatedByAdmin()` | **Added Dec 26, 2024** |
-| Shop Self-Cancel | ❌ No | - | No notification at all |
+| Shop Self-Cancel | ✅ Yes | `sendSubscriptionCancelledByShop()` | **Added Dec 29, 2024** |
 | Subscription Activated | ❌ No | - | Only in-app (no email) |
 
 ### SMS Notifications
@@ -86,7 +87,7 @@ This document outlines the current state of subscription-related notifications, 
 
 | Gap | Impact | Current Behavior |
 |-----|--------|------------------|
-| Shop self-cancel notifications | Shop receives no confirmation when they cancel | Silent cancellation |
+| ~~Shop self-cancel notifications~~ | ~~Shop receives no confirmation when they cancel~~ | ✅ **FIXED Dec 29** - Email + In-App notification |
 | Auto-cancel in-app notification | Shop only gets email, may miss it | No dashboard alert |
 
 ### Medium Priority
@@ -116,7 +117,7 @@ This document outlines the current state of subscription-related notifications, 
 #### Tasks
 
 1. **Add missing in-app notifications**
-   - Shop self-cancel confirmation
+   - ~~Shop self-cancel confirmation~~ ✅ Done (Dec 29, 2024)
    - Shop self-reactivate confirmation
    - Auto-cancel notification (in addition to email)
 
@@ -125,7 +126,7 @@ This document outlines the current state of subscription-related notifications, 
    - ~~Admin pause email (`sendSubscriptionPausedByAdmin()`)~~ ✅ Done
    - ~~Admin resume email (`sendSubscriptionResumedByAdmin()`)~~ ✅ Done
    - ~~Admin reactivate email (`sendSubscriptionReactivatedByAdmin()`)~~ ✅ Done
-   - Shop self-cancel confirmation email (`sendSubscriptionCancelledByShop()`)
+   - ~~Shop self-cancel confirmation email (`sendSubscriptionCancelledByShop()`)~~ ✅ Done (Dec 29, 2024)
    - Subscription activated welcome email (`sendSubscriptionActivated()`)
 
 #### Files to Modify
@@ -136,12 +137,20 @@ backend/src/services/EmailService.ts
   - ✅ Added: sendSubscriptionPausedByAdmin()
   - ✅ Added: sendSubscriptionResumedByAdmin()
   - ✅ Added: sendSubscriptionReactivatedByAdmin()
-  - Add: sendSubscriptionCancelledByShop()
+  - ✅ Added: sendSubscriptionCancelledByShop() (Dec 29, 2024)
   - Add: sendSubscriptionActivated()
 
 backend/src/domains/shop/routes/subscription.ts
-  - Add notifications to self-cancel endpoint
+  - ✅ Added notifications to self-cancel endpoint (Dec 29, 2024)
   - Add notifications to self-reactivate endpoint
+
+backend/src/domains/notification/services/NotificationService.ts
+  - ✅ Added: subscription_self_cancelled message template (Dec 29, 2024)
+  - ✅ Added: createSubscriptionSelfCancelledNotification() (Dec 29, 2024)
+
+backend/src/domains/notification/NotificationDomain.ts
+  - ✅ Added: subscription:self_cancelled event subscription (Dec 29, 2024)
+  - ✅ Added: handleSubscriptionSelfCancelled() handler (Dec 29, 2024)
 
 backend/src/domains/admin/routes/subscription.ts
   - ✅ Added email calls alongside existing in-app notifications
