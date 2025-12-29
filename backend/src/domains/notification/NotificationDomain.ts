@@ -40,6 +40,7 @@ export class NotificationDomain implements DomainModule {
 
     // Listen to subscription events
     eventBus.subscribe('subscription:cancelled', this.handleSubscriptionCancelled.bind(this), 'NotificationDomain');
+    eventBus.subscribe('subscription:self_cancelled', this.handleSubscriptionSelfCancelled.bind(this), 'NotificationDomain');
     eventBus.subscribe('subscription:paused', this.handleSubscriptionPaused.bind(this), 'NotificationDomain');
     eventBus.subscribe('subscription:resumed', this.handleSubscriptionResumed.bind(this), 'NotificationDomain');
     eventBus.subscribe('subscription:reactivated', this.handleSubscriptionReactivated.bind(this), 'NotificationDomain');
@@ -205,6 +206,27 @@ export class NotificationDomain implements DomainModule {
       }
     } catch (error: any) {
       logger.error('Error handling subscription cancelled event:', error);
+    }
+  }
+
+  private async handleSubscriptionSelfCancelled(event: any): Promise<void> {
+    try {
+      const { shopAddress, reason, effectiveDate } = event.data;
+
+      logger.info(`Creating subscription self-cancelled notification for ${shopAddress}`);
+
+      const notification = await this.notificationService.createSubscriptionSelfCancelledNotification(
+        shopAddress,
+        reason,
+        effectiveDate
+      );
+
+      // Send real-time notification via WebSocket
+      if (this.wsManager) {
+        this.wsManager.sendNotificationToUser(shopAddress, notification);
+      }
+    } catch (error: any) {
+      logger.error('Error handling subscription self-cancelled event:', error);
     }
   }
 

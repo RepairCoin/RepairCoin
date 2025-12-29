@@ -141,8 +141,10 @@ export const useAuthStore = create<AuthState>()(
       },
 
       // Centralized login function - SINGLE SOURCE OF TRUTH
-      login: async (address: string) => {
-        console.log('[authStore] 🎯 Login function called with address:', address);
+      // @param address - Wallet address
+      // @param email - Optional email for social login fallback (allows MetaMask-registered shops to login via Google)
+      login: async (address: string, email?: string) => {
+        console.log('[authStore] 🎯 Login function called with address:', address, email ? `email: ${email}` : '');
         const state = get();
 
         // Prevent duplicate login attempts - GLOBAL LOCK
@@ -155,8 +157,8 @@ export const useAuthStore = create<AuthState>()(
         set({ loginInProgress: true, isLoading: true, error: null }, false, 'login:start');
 
         try {
-          // Check user type
-          const userCheck = await authApi.checkUser(address);
+          // Check user type (with email fallback for social login)
+          const userCheck = await authApi.checkUser(address, email);
 
           if (!userCheck.exists || !userCheck.type) {
             console.log('[authStore] User not registered - this is normal for new users');
@@ -176,7 +178,8 @@ export const useAuthStore = create<AuthState>()(
                 authResult = await authApi.authenticateAdmin(address);
                 break;
               case 'shop':
-                authResult = await authApi.authenticateShop(address);
+                // Pass email for social login fallback (MetaMask shop logging in via Google)
+                authResult = await authApi.authenticateShop(address, email);
                 break;
               case 'customer':
                 authResult = await authApi.authenticateCustomer(address);

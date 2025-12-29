@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useActiveAccount } from 'thirdweb/react';
+import { useActiveAccount, useActiveWallet } from 'thirdweb/react';
+import { getUserEmail } from 'thirdweb/wallets/in-app';
 import { useAuthStore } from '@/stores/authStore';
 import { authApi } from '@/services/api/auth';
+import { client } from '@/utils/thirdweb';
 
 /**
  * NOTE: We cannot reliably check for httpOnly cookies client-side because
@@ -25,6 +27,7 @@ import { authApi } from '@/services/api/auth';
  */
 export function useAuthInitializer() {
   const account = useActiveAccount();
+  const wallet = useActiveWallet();
   const { login, logout, setAccount, setUserProfile, setAuthInitialized } = useAuthStore();
   const previousAddressRef = useRef<string | null>(null);
   const isInitializedRef = useRef(false);
@@ -94,72 +97,79 @@ export function useAuthInitializer() {
         console.log('[AuthInitializer] Account connected:', currentAddress);
         setAccount(account);
 
-        // Only check for existing session if we haven't already determined there isn't one
-        // This prevents unnecessary 401 errors when connecting wallet on public pages
-        if (!sessionCheckedRef.current) {
-          // ALWAYS check for existing session first before creating new one
-          // The httpOnly cookies are sent automatically with the request via withCredentials
-          // We cannot detect them client-side, so we must always try the session check
-          try {
-            console.log('[AuthInitializer] 🔍 Checking for existing session (cookies sent automatically)...');
-            const session = await authApi.getSession();
-            console.log('[AuthInitializer] Session check result:', session);
+        // ALWAYS check for existing session when wallet connects
+        // The session might have been created by Header/DualAuthConnect
+        // The httpOnly cookies are sent automatically with the request via withCredentials
+        try {
+          console.log('[AuthInitializer] 🔍 Checking for existing session (cookies sent automatically)...');
+          const session = await authApi.getSession();
+          console.log('[AuthInitializer] Session check result:', session);
 
-            if (session.isValid && session.user) {
-              console.log('[AuthInitializer] ✅ Valid session found, restoring state without new login');
+          if (session.isValid && session.user) {
+            console.log('[AuthInitializer] ✅ Valid session found, restoring state without new login');
 
-              // Restore user profile from existing session
-              // Session user has extended properties beyond the basic User type
-              const userData = session.user as any;
-              const profile = {
-                id: userData.id,
-                address: userData.address || userData.walletAddress || currentAddress,
-                type: userData.type || userData.role as 'customer' | 'shop' | 'admin',
-                name: userData.name || userData.shopName,
-                email: userData.email,
-                isActive: userData.active !== false,
-                tier: userData.tier,
-                shopId: userData.shopId,
-                registrationDate: userData.createdAt || userData.created_at,
-                suspended: userData.suspended || false,
-                suspendedAt: userData.suspendedAt,
-                suspensionReason: userData.suspensionReason
-              };
+            // Restore user profile from existing session
+            // Session user has extended properties beyond the basic User type
+            const userData = session.user as any;
+            const profile = {
+              id: userData.id,
+              address: userData.address || userData.walletAddress || currentAddress,
+              type: userData.type || userData.role as 'customer' | 'shop' | 'admin',
+              name: userData.name || userData.shopName,
+              email: userData.email,
+              isActive: userData.active !== false,
+              tier: userData.tier,
+              shopId: userData.shopId,
+              registrationDate: userData.createdAt || userData.created_at,
+              suspended: userData.suspended || false,
+              suspendedAt: userData.suspendedAt,
+              suspensionReason: userData.suspensionReason
+            };
 
-              setUserProfile(profile);
-              setAuthInitialized(true); // Mark auth as initialized
-              isInitializedRef.current = true;
-              return; // Don't call login() - we already have a valid session
-            }
-
-            console.log('[AuthInitializer] Session invalid or not found, creating new session');
-          } catch (error: any) {
-            // Session check failed - could be:
-            // 1. No cookies (first time)
-            // 2. Expired cookies (need new login)
-            // 3. Network error
-            console.log('[AuthInitializer] Session check failed:', error?.message || error);
-
-            // Check if this is a token refresh error vs a "no session" error
-            const is401 = error?.response?.status === 401 || error?.status === 401;
-
-            if (is401) {
-              console.log('[AuthInitializer] No valid session - will create new one');
-            } else {
-              console.warn('[AuthInitializer] Unexpected error checking session:', error);
-            }
+            setUserProfile(profile);
+            setAuthInitialized(true); // Mark auth as initialized
+            isInitializedRef.current = true;
+            sessionCheckedRef.current = true;
+            return; // Don't call login() - we already have a valid session
           }
-        } else {
-          console.log('[AuthInitializer] ⏭️ Skipping redundant session check (already checked on page load)');
+
+          console.log('[AuthInitializer] Session invalid or not found, creating new session');
+        } catch (error: any) {
+          // Session check failed - could be:
+          // 1. No cookies (first time)
+          // 2. Expired cookies (need new login)
+          // 3. Network error
+          console.log('[AuthInitializer] Session check failed:', error?.message || error);
+
+          // Check if this is a token refresh error vs a "no session" error
+          const is401 = error?.response?.status === 401 || error?.status === 401;
+
+          if (is401) {
+            console.log('[AuthInitializer] No valid session - will create new one');
+          } else {
+            console.warn('[AuthInitializer] Unexpected error checking session:', error);
+          }
         }
 
-        // No valid session found - create a new one
-        // This is safe because it only happens on initial wallet connection, not on every refresh
+        // No valid session found - create a new one with email for social login fallback
+        // Try to get email from Thirdweb for social login (MetaMask shop logging in with Google)
+        let userEmail: string | undefined;
+        try {
+          userEmail = await getUserEmail({ client });
+          if (userEmail) {
+            console.log('[AuthInitializer] 📧 Found email for social login:', userEmail);
+          }
+        } catch (e) {
+          // Expected for non-embedded wallets
+          console.log('[AuthInitializer] No email available (expected for external wallets)');
+        }
+
         console.log('[AuthInitializer] 🚀 Creating new session via login()');
-        await login(currentAddress);
+        await login(currentAddress, userEmail);
         console.log('[AuthInitializer] ✅ Login completed');
         setAuthInitialized(true); // Mark auth as initialized
         isInitializedRef.current = true;
+        sessionCheckedRef.current = true;
       } else if (previousAddress) {
         // User disconnected wallet (only logout if we were previously connected)
         console.log('[AuthInitializer] Account disconnected:', previousAddress);

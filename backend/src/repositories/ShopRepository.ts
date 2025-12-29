@@ -592,6 +592,108 @@ export class ShopRepository extends BaseRepository {
     }
   }
 
+  /**
+   * Get shop by email address - used for social login (Google/Apple) fallback
+   * when wallet lookup fails but email matches
+   */
+  async getShopByEmail(email: string): Promise<ShopData | null> {
+    try {
+      const query = 'SELECT * FROM shops WHERE LOWER(email) = LOWER($1)';
+      const result = await this.pool.query(query, [email.trim()]);
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const row = result.rows[0];
+      return {
+        shopId: row.shop_id,
+        name: row.name,
+        address: row.address,
+        phone: row.phone,
+        email: row.email,
+        walletAddress: row.wallet_address,
+        reimbursementAddress: row.reimbursement_address,
+        verified: row.verified,
+        active: row.active,
+        crossShopEnabled: row.cross_shop_enabled,
+        totalTokensIssued: parseFloat(row.total_tokens_issued || 0),
+        totalRedemptions: parseFloat(row.total_redemptions || 0),
+        totalReimbursements: parseFloat(row.total_reimbursements || 0),
+        joinDate: row.join_date,
+        lastActivity: row.last_activity,
+        fixflowShopId: row.fixflow_shop_id,
+        location: row.location,
+        locationLat: row.location_lat ? parseFloat(row.location_lat) : undefined,
+        locationLng: row.location_lng ? parseFloat(row.location_lng) : undefined,
+        locationCity: row.location_city,
+        locationState: row.location_state,
+        locationZipCode: row.location_zip_code,
+        suspendedAt: row.suspended_at,
+        suspensionReason: row.suspension_reason,
+        verifiedAt: row.verified_at,
+        verifiedBy: row.verified_by,
+        purchasedRcnBalance: parseFloat(row.purchased_rcn_balance || 0),
+        totalRcnPurchased: parseFloat(row.total_rcn_purchased || 0),
+        rcg_balance: parseFloat(row.rcg_balance || 0),
+        rcg_tier: row.rcg_tier,
+        tier_updated_at: row.tier_updated_at,
+        operational_status: row.operational_status,
+        subscriptionActive: row.subscription_active === true || row.subscription_active === 't',
+        subscriptionId: row.subscription_id,
+        facebook: row.facebook,
+        twitter: row.twitter,
+        instagram: row.instagram,
+        website: row.website,
+        logoUrl: row.logo_url
+      };
+    } catch (error) {
+      logger.error('Error fetching shop by email:', error);
+      throw new Error('Failed to fetch shop by email');
+    }
+  }
+
+  /**
+   * Update a shop's wallet address
+   * Used when a shop logs in via social login (Google) with a different wallet than originally registered
+   */
+  async updateShopWalletAddress(shopId: string, newWalletAddress: string, oldWalletAddress?: string): Promise<boolean> {
+    try {
+      const normalizedAddress = newWalletAddress.toLowerCase();
+
+      logger.info('Updating shop wallet address', {
+        shopId,
+        oldWallet: oldWalletAddress,
+        newWallet: normalizedAddress
+      });
+
+      const query = `
+        UPDATE shops
+        SET wallet_address = $1,
+            updated_at = NOW()
+        WHERE shop_id = $2
+        RETURNING shop_id
+      `;
+
+      const result = await this.pool.query(query, [normalizedAddress, shopId]);
+
+      if (result.rowCount === 0) {
+        logger.warn('Shop not found for wallet update', { shopId });
+        return false;
+      }
+
+      logger.info('Shop wallet address updated successfully', {
+        shopId,
+        newWallet: normalizedAddress
+      });
+
+      return true;
+    } catch (error) {
+      logger.error('Error updating shop wallet address:', error);
+      throw new Error('Failed to update shop wallet address');
+    }
+  }
+
   async createShopPurchase(purchaseData: {
     shopId: string;
     amount: number;

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { client } from '@/utils/thirdweb';
 import { useAuthMethod } from '@/contexts/AuthMethodContext';
 import { createWallet, inAppWallet } from "thirdweb/wallets";
+import { getUserEmail } from "thirdweb/wallets/in-app";
 import { WalletDetectionService } from '@/services/walletDetectionService';
 
 interface DualAuthConnectProps {
@@ -121,32 +122,135 @@ export function DualAuthConnect({ onConnect, onError }: DualAuthConnectProps) {
 
       if (isNewSignIn && !hasCheckedRef.current) {
         console.log('🟩 [DualAuthConnect] ✅ NEW SIGN-IN detected - checking registration');
-        
+
         // Mark as checked to prevent duplicate checks
         hasCheckedRef.current = true;
         signInInitiatedRef.current = false; // Reset the flag
-        
+
         // Check wallet registration status and redirect if needed
         const checkAndRedirect = async () => {
           try {
+            // Small delay to ensure Thirdweb has fully initialized the wallet
+            // This allows getUserEmail to return the email for social login
+            await new Promise(resolve => setTimeout(resolve, 500));
+
             const detector = WalletDetectionService.getInstance();
-            const result = await detector.detectWalletType(account.address);
-            
-            console.log('� [DualAuthConnect] Detection result:', result);
-            
+
+            // ALWAYS try to get email for social login fallback
+            // This allows MetaMask-registered shops to also login via Google
+            let userEmail: string | undefined;
+            try {
+              // Use Thirdweb v5's official getUserEmail function
+              // Try this regardless of detected wallet type
+              userEmail = await getUserEmail({ client });
+
+              if (userEmail) {
+                console.log('🟩 [DualAuthConnect] Found email for social login via getUserEmail:', userEmail);
+              } else {
+                // Fallback to localStorage for Thirdweb auth data
+                const authData = localStorage.getItem('thirdweb:in-app-wallet-user-id');
+                if (authData && authData.includes('@')) {
+                  userEmail = authData;
+                  console.log('🟩 [DualAuthConnect] Found email from localStorage:', userEmail);
+                }
+              }
+            } catch (e) {
+              // This is expected for non-embedded wallets, just continue without email
+              console.log('🟩 [DualAuthConnect] No email available (expected for external wallets)');
+            }
+
+            const result = await detector.detectWalletType(account.address, userEmail);
+
+            console.log('🟩 [DualAuthConnect] Detection result:', result);
+
             if (!result.isRegistered) {
               console.log('🟩 [DualAuthConnect] 🔄 New user detected, redirecting to /choose...');
               setTimeout(() => {
                 router.push('/choose');
               }, 100);
             } else {
-              console.log('🟩 [DualAuthConnect] ✅ Registered user, staying on current page');
+              console.log('🟩 [DualAuthConnect] ✅ Registered user, authenticating...');
+
+              // IMPORTANT: Create session before redirecting
+              // Pass email for social login fallback (shop registered with MetaMask, logging in with Google)
+              try {
+                const { authApi } = await import('@/services/api/auth');
+                const { useAuthStore } = await import('@/stores/authStore');
+
+                if (result.type === 'shop') {
+                  const authResult = await authApi.authenticateShop(account.address, userEmail);
+                  console.log('🟩 [DualAuthConnect] Shop session created:', authResult);
+
+                  // Update authStore with user profile from authentication response
+                  if (authResult && authResult.user) {
+                    const userData = authResult.user as any;
+                    useAuthStore.getState().setUserProfile({
+                      id: userData.id || userData.shopId || account.address,
+                      address: userData.walletAddress || userData.address || account.address,
+                      type: 'shop',
+                      name: userData.name,
+                      email: userData.email,
+                      isActive: userData.active,
+                      shopId: userData.shopId,
+                      registrationDate: userData.createdAt,
+                    });
+                    console.log('🟩 [DualAuthConnect] Auth store updated with shop profile, shopId:', userData.shopId);
+                  }
+                } else if (result.type === 'customer') {
+                  const authResult = await authApi.authenticateCustomer(account.address);
+                  console.log('🟩 [DualAuthConnect] Customer session created');
+
+                  // Update authStore with user profile
+                  if (authResult && authResult.user) {
+                    const userData = authResult.user as any;
+                    // Convert tier to lowercase to match UserProfile type
+                    const tierLower = userData.tier?.toLowerCase() as 'bronze' | 'silver' | 'gold' | undefined;
+                    useAuthStore.getState().setUserProfile({
+                      id: userData.id || account.address,
+                      address: userData.address || account.address,
+                      type: 'customer',
+                      name: userData.name,
+                      email: userData.email,
+                      isActive: userData.active,
+                      tier: tierLower,
+                      registrationDate: userData.createdAt,
+                    });
+                    console.log('🟩 [DualAuthConnect] Auth store updated with customer profile');
+                  }
+                } else if (result.type === 'admin') {
+                  const authResult = await authApi.authenticateAdmin(account.address);
+                  console.log('🟩 [DualAuthConnect] Admin session created');
+
+                  // Update authStore with user profile
+                  if (authResult && authResult.user) {
+                    const userData = authResult.user as any;
+                    useAuthStore.getState().setUserProfile({
+                      id: userData.id || account.address,
+                      address: userData.address || account.address,
+                      type: 'admin',
+                      name: userData.name,
+                      email: userData.email,
+                      isActive: userData.active,
+                      registrationDate: userData.createdAt,
+                    });
+                    console.log('🟩 [DualAuthConnect] Auth store updated with admin profile');
+                  }
+                }
+              } catch (authError) {
+                console.error('🟩 [DualAuthConnect] Failed to create session:', authError);
+                // Still try to redirect - they might already have a valid session
+              }
+
+              console.log('🟩 [DualAuthConnect] Redirecting to dashboard...');
+              setTimeout(() => {
+                router.push(result.route);
+              }, 100);
             }
           } catch (error) {
             console.error('🟩 [DualAuthConnect] ❌ Error detecting wallet:', error);
           }
         };
-        
+
         checkAndRedirect();
       } else if (previousAccountRef.current !== account.address) {
         console.log('🟩 [DualAuthConnect] Address changed but sign-in not initiated (unlikely in DualAuthConnect)');

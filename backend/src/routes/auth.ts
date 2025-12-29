@@ -178,7 +178,7 @@ const generateAndSetTokens = async (
  */
 router.post('/token', async (req, res) => {
   try {
-    const { address } = req.body;
+    const { address, email } = req.body;
 
     if (!address) {
       return res.status(400).json({
@@ -192,7 +192,7 @@ router.post('/token', async (req, res) => {
 
     // Check admin addresses using database only
     const adminData = await adminRepository.getAdminByWalletAddress(normalizedAddress);
-    
+
     if (adminData) {
       userType = 'admin';
       userData = {
@@ -215,7 +215,7 @@ router.post('/token', async (req, res) => {
       }
 
       if (!userType) {
-        // Check if user is a shop
+        // Check if user is a shop by wallet
         try {
           const shop = await shopRepository.getShopByWallet(normalizedAddress);
 
@@ -228,7 +228,33 @@ router.post('/token', async (req, res) => {
             };
           }
         } catch (error) {
-          // Shop not found
+          // Shop not found by wallet
+        }
+      }
+
+      // EMAIL FALLBACK: If still no user found and email provided, try to find shop by email
+      // This allows shops registered with MetaMask to login via Google/social login
+      if (!userType && email && typeof email === 'string' && email.includes('@')) {
+        try {
+          const shopByEmail = await shopRepository.getShopByEmail(email);
+          if (shopByEmail) {
+            logger.info('Shop authenticated via email fallback', {
+              email,
+              shopId: shopByEmail.shopId,
+              originalWallet: shopByEmail.walletAddress,
+              connectedWallet: normalizedAddress
+            });
+            userType = 'shop';
+            userData = {
+              address: shopByEmail.walletAddress, // Use original wallet for reference
+              shopId: shopByEmail.shopId,
+              role: 'shop',
+              linkedByEmail: true,
+              connectedWallet: normalizedAddress // Track the wallet they're using now
+            };
+          }
+        } catch (error) {
+          // Shop not found by email either
         }
       }
     }
@@ -402,7 +428,7 @@ router.post('/check-user', async (req, res) => {
       logger.debug('Customer not found for address:', normalizedAddress);
     }
 
-    // Check if user is a shop
+    // Check if user is a shop (by wallet first)
     try {
       const shop = await shopRepository.getShopByWallet(normalizedAddress);
 
@@ -429,8 +455,58 @@ router.post('/check-user', async (req, res) => {
         });
       }
     } catch (error) {
-      // Shop not found, continue
+      // Shop not found by wallet, continue
       logger.debug('Shop not found for address:', normalizedAddress);
+    }
+
+    // EMAIL FALLBACK: If email is provided (social login), try to find shop by email
+    // This allows shops registered with MetaMask to also login via Google if email matches
+    const { email } = req.body;
+    if (email && typeof email === 'string' && email.includes('@')) {
+      try {
+        const shopByEmail = await shopRepository.getShopByEmail(email);
+
+        if (shopByEmail) {
+          logger.info('Shop found by email fallback for social login', {
+            email,
+            shopId: shopByEmail.shopId,
+            originalWallet: shopByEmail.walletAddress,
+            connectedWallet: normalizedAddress,
+            note: 'NOT updating wallet - RCG tokens remain on original wallet'
+          });
+
+          // NOTE: We do NOT update the wallet address here because:
+          // 1. The original wallet holds their RCG tokens (determines tier)
+          // 2. Changing wallet would affect their tier and token operations
+          // The shop can access their dashboard via email, but blockchain operations
+          // should use their original MetaMask wallet
+
+          return res.json({
+            exists: true,
+            type: 'shop',
+            linkedByEmail: true, // Flag to indicate this was matched by email
+            user: {
+              id: shopByEmail.shopId,
+              shopId: shopByEmail.shopId,
+              address: shopByEmail.walletAddress, // Original wallet (has RCG tokens)
+              walletAddress: shopByEmail.walletAddress, // Original wallet for blockchain ops
+              connectedWallet: normalizedAddress, // The embedded wallet they're connecting with
+              name: shopByEmail.name,
+              companyName: shopByEmail.name,
+              shopName: shopByEmail.name,
+              email: shopByEmail.email,
+              phone: shopByEmail.phone,
+              active: shopByEmail.active,
+              isActive: shopByEmail.active,
+              verified: shopByEmail.verified,
+              isVerified: shopByEmail.verified,
+              createdAt: shopByEmail.joinDate
+            }
+          });
+        }
+      } catch (error) {
+        logger.debug('Shop not found by email:', email);
+      }
     }
 
     // User not found in any category
@@ -916,7 +992,7 @@ router.post('/customer', authLimiter, async (req, res) => {
  */
 router.post('/shop', authLimiter, async (req, res) => {
   try {
-    const { address } = req.body;
+    const { address, email } = req.body;
 
     if (!address) {
       return res.status(400).json({
@@ -925,10 +1001,26 @@ router.post('/shop', authLimiter, async (req, res) => {
     }
 
     const normalizedAddress = address.toLowerCase();
+    let linkedByEmail = false;
 
     // Check if address belongs to a shop
     try {
-      const shop = await shopRepository.getShopByWallet(normalizedAddress);
+      let shop = await shopRepository.getShopByWallet(normalizedAddress);
+
+      // EMAIL FALLBACK: If shop not found by wallet and email provided, try email lookup
+      // This allows shops registered with MetaMask to also login via Google/social login
+      if (!shop && email && typeof email === 'string' && email.includes('@')) {
+        shop = await shopRepository.getShopByEmail(email);
+        if (shop) {
+          linkedByEmail = true;
+          logger.info('Shop authenticated via email fallback (social login)', {
+            email,
+            shopId: shop.shopId,
+            originalWallet: shop.walletAddress,
+            connectedWallet: normalizedAddress
+          });
+        }
+      }
 
       if (!shop) {
         return res.status(403).json({
@@ -964,11 +1056,13 @@ router.post('/shop', authLimiter, async (req, res) => {
       res.json({
         success: true,
         token: accessToken, // Send access token for backward compatibility
+        linkedByEmail, // Flag to indicate login was via email fallback
         user: {
           id: shop.shopId,
           shopId: shop.shopId,
-          address: shop.walletAddress,
+          address: shop.walletAddress, // Original registered wallet (has RCG tokens)
           walletAddress: shop.walletAddress,
+          connectedWallet: linkedByEmail ? normalizedAddress : shop.walletAddress, // Current session wallet
           name: shop.name,
           role: 'shop',
           active: shop.active,
@@ -985,6 +1079,11 @@ router.post('/shop', authLimiter, async (req, res) => {
         ...((!shop.active || !shop.verified) && {
           warning: 'Shop is pending verification. Some features may be limited.',
           limitedAccess: true
+        }),
+        // Include note about email-linked login
+        ...(linkedByEmail && {
+          note: 'Logged in via email. Your original wallet is preserved for RCG tokens.',
+          originalWallet: shop.walletAddress
         })
       });
 

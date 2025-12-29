@@ -17,14 +17,16 @@ export interface ProfileData {
 
 /**
  * Check user type and registration status
+ * @param address - Wallet address
+ * @param email - Optional email for social login fallback (allows MetaMask-registered shops to login via Google)
  */
-export const checkUser = async (address: string): Promise<{
+export const checkUser = async (address: string, email?: string): Promise<{
   exists: boolean;
   type?: 'admin' | 'shop' | 'customer';
   user?: any;
 }> => {
   try {
-    const response = await apiClient.post<any>('/auth/check-user', { address });
+    const response = await apiClient.post<any>('/auth/check-user', { address, email });
     // apiClient already returns response.data
     return response;
   } catch (error: any) {
@@ -115,10 +117,12 @@ export const authenticateCustomer = async (address: string): Promise<AuthToken |
 
 /**
  * Shop authentication - Cookie is set by backend automatically
+ * @param address - Wallet address
+ * @param email - Optional email for social login fallback (allows MetaMask-registered shops to login via Google)
  */
-export const authenticateShop = async (address: string): Promise<AuthToken | null> => {
+export const authenticateShop = async (address: string, email?: string): Promise<AuthToken | null> => {
   try {
-    const response = await apiClient.post<AuthToken>('/auth/shop', { address });
+    const response = await apiClient.post<AuthToken>('/auth/shop', { address, email });
     // apiClient already returns response.data, so response is the unwrapped data
     // Backend sets httpOnly cookie automatically
     return response || null;

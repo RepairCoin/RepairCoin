@@ -271,6 +271,16 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ notification, onC
         return '🎁';
       case 'marketing_campaign':
         return '📢';
+      case 'subscription_cancelled':
+        return '⚠️';
+      case 'subscription_self_cancelled':
+        return '📋';
+      case 'subscription_paused':
+        return '⏸️';
+      case 'subscription_resumed':
+        return '▶️';
+      case 'subscription_reactivated':
+        return '🔄';
       default:
         return '📬';
     }
@@ -292,6 +302,16 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ notification, onC
         return 'Tokens Received';
       case 'marketing_campaign':
         return notification.metadata?.campaignName || 'Campaign';
+      case 'subscription_cancelled':
+        return 'Subscription Cancelled by Admin';
+      case 'subscription_self_cancelled':
+        return 'Subscription Cancellation Confirmed';
+      case 'subscription_paused':
+        return 'Subscription Paused';
+      case 'subscription_resumed':
+        return 'Subscription Resumed';
+      case 'subscription_reactivated':
+        return 'Subscription Reactivated';
       default:
         return 'Notification';
     }
@@ -341,7 +361,7 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ notification, onC
                   </p>
                 </div>
 
-                {/* Subscription Cancelled Details */}
+                {/* Subscription Cancelled by Admin Details */}
                 {notification.notificationType === 'subscription_cancelled' && notification.metadata?.effectiveDate && (
                   <div className="space-y-3">
                     {/* Full Access Until */}
@@ -356,6 +376,64 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ notification, onC
                     <div className="bg-red-900/20 border border-red-700 rounded-lg p-3">
                       <p className="text-red-400 font-semibold text-sm mb-2">
                         After {new Date(notification.metadata.effectiveDate).toLocaleDateString()}, you will no longer be able to:
+                      </p>
+                      <ul className="space-y-1 text-sm text-red-300">
+                        <li className="flex items-center gap-2">
+                          <span className="text-red-400">✕</span> Issue RCN rewards to customers
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="text-red-400">✕</span> Process customer redemptions
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="text-red-400">✕</span> Manage services in the marketplace
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="text-red-400">✕</span> Look up customer information
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="text-red-400">✕</span> Purchase RCN tokens
+                        </li>
+                      </ul>
+                      <p className="mt-2 text-xs text-gray-400 italic">
+                        Note: You will still be able to view your purchase history and limited analytics.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Subscription Self-Cancelled Details */}
+                {notification.notificationType === 'subscription_self_cancelled' && notification.metadata?.effectiveDate && (
+                  <div className="space-y-3">
+                    {/* Cancellation Reason */}
+                    {notification.metadata.reason && (
+                      <div className="bg-gray-800/50 border border-gray-600 rounded-lg p-3">
+                        <p className="text-gray-400 text-sm">
+                          <strong className="text-gray-300">Reason:</strong> {notification.metadata.reason}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Full Access Until */}
+                    <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-3">
+                      <p className="text-blue-300 text-sm">
+                        <strong className="text-blue-400">Good news:</strong> You retain full platform access until{' '}
+                        <span className="font-semibold">{new Date(notification.metadata.effectiveDate).toLocaleDateString()}</span>.
+                      </p>
+                    </div>
+
+                    {/* Reactivation Info */}
+                    <div className="bg-green-900/20 border border-green-700 rounded-lg p-3">
+                      <p className="text-green-300 text-sm">
+                        <strong className="text-green-400">Changed your mind?</strong> You can reactivate your subscription anytime before{' '}
+                        <span className="font-semibold">{new Date(notification.metadata.effectiveDate).toLocaleDateString()}</span>{' '}
+                        from your Subscription settings.
+                      </p>
+                    </div>
+
+                    {/* Features Lost After */}
+                    <div className="bg-red-900/20 border border-red-700 rounded-lg p-3">
+                      <p className="text-red-400 font-semibold text-sm mb-2">
+                        After cancellation, you will no longer be able to:
                       </p>
                       <ul className="space-y-1 text-sm text-red-300">
                         <li className="flex items-center gap-2">
@@ -409,7 +487,7 @@ const NotificationModal: React.FC<NotificationModalProps> = ({ notification, onC
                 )}
 
                 {/* Other Metadata (for non-subscription notifications) */}
-                {!['subscription_cancelled', 'subscription_paused', 'subscription_resumed', 'subscription_reactivated'].includes(notification.notificationType) &&
+                {!['subscription_cancelled', 'subscription_self_cancelled', 'subscription_paused', 'subscription_resumed', 'subscription_reactivated'].includes(notification.notificationType) &&
                   notification.metadata && Object.keys(notification.metadata).length > 0 && (
                   <div className="bg-[#0D0D0D] rounded-lg p-4 space-y-2">
                     <h4 className="text-sm font-semibold text-[#FFCC00] mb-2">Details</h4>
@@ -500,6 +578,16 @@ export const NotificationBell: React.FC = () => {
         return '🎁';
       case 'marketing_campaign':
         return '📢';
+      case 'subscription_cancelled':
+        return '⚠️';
+      case 'subscription_self_cancelled':
+        return '📋';
+      case 'subscription_paused':
+        return '⏸️';
+      case 'subscription_resumed':
+        return '▶️';
+      case 'subscription_reactivated':
+        return '🔄';
       default:
         return '📬';
     }

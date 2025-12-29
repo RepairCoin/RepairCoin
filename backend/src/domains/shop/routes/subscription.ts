@@ -5,6 +5,8 @@ import { logger } from '../../../utils/logger';
 import { authMiddleware } from '../../../middleware/auth';
 import { DatabaseService } from '../../../services/DatabaseService';
 import { shopRepository } from '../../../repositories';
+import { eventBus } from '../../../events/EventBus';
+import { EmailService } from '../../../services/EmailService';
 
 const router = Router();
 
@@ -964,6 +966,46 @@ router.post('/subscription/cancel', async (req: Request, res: Response) => {
       reason
     });
 
+    // Get shop details for notifications
+    const shop = await shopRepository.getShop(shopId);
+    const effectiveDate = updatedSubscription.currentPeriodEnd
+      ? new Date(updatedSubscription.currentPeriodEnd)
+      : new Date();
+
+    // Publish event for in-app notification
+    eventBus.publish({
+      type: 'subscription:self_cancelled',
+      aggregateId: shopId,
+      data: {
+        shopAddress: shop?.walletAddress || shopId,
+        reason,
+        effectiveDate
+      },
+      timestamp: new Date(),
+      source: 'ShopSubscriptionRoutes',
+      version: 1
+    });
+
+    // Send confirmation email
+    if (shop?.email) {
+      try {
+        const emailService = new EmailService();
+        await emailService.sendSubscriptionCancelledByShop(
+          shop.email,
+          shop.name || 'Shop Owner',
+          reason,
+          effectiveDate
+        );
+        logger.info('Subscription cancellation email sent', { shopId, email: shop.email });
+      } catch (emailError) {
+        // Don't fail the request if email fails
+        logger.error('Failed to send cancellation email', {
+          error: emailError instanceof Error ? emailError.message : 'Unknown error',
+          shopId
+        });
+      }
+    }
+
     res.json({
       success: true,
       data: {
@@ -977,7 +1019,7 @@ router.post('/subscription/cancel', async (req: Request, res: Response) => {
       error: error instanceof Error ? error.message : 'Unknown error',
       shopId: req.user?.shopId
     });
-    
+
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to cancel subscription'
