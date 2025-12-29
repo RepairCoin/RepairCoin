@@ -711,6 +711,50 @@ export function initializeRoutes(stripe: StripeService): Router {
     orderController.cancelOrder
   );
 
+  /**
+   * @swagger
+   * /api/services/orders/{id}/mark-no-show:
+   *   post:
+   *     summary: Mark order as no-show (Shop only)
+   *     description: Mark a paid order as no-show when customer doesn't arrive
+   *     tags: [Orders]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Order ID
+   *     requestBody:
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               notes:
+   *                 type: string
+   *                 description: Optional notes about the no-show
+   *     responses:
+   *       200:
+   *         description: Order marked as no-show successfully
+   *       400:
+   *         description: Invalid request or order status
+   *       401:
+   *         description: Unauthorized
+   *       403:
+   *         description: Order doesn't belong to this shop
+   *       404:
+   *         description: Order not found
+   */
+  router.post(
+    '/orders/:id/mark-no-show',
+    authMiddleware,
+    requireRole(['shop']),
+    orderController.markNoShow
+  );
+
   // ==================== REVIEWS ROUTES ====================
 
   /**

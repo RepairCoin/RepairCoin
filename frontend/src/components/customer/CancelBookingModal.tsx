@@ -42,8 +42,8 @@ export const CancelBookingModal: React.FC<CancelBookingModalProps> = ({
     try {
       setIsSubmitting(true);
 
-      // Call the cancel order API
-      await servicesApi.cancelOrder(order.orderId);
+      // Call the cancel order API with reason and notes
+      await servicesApi.cancelOrder(order.orderId, selectedReason, additionalNotes);
 
       toast.success("Booking cancelled successfully");
 
@@ -71,14 +71,19 @@ export const CancelBookingModal: React.FC<CancelBookingModalProps> = ({
   };
 
   return (
-    <>
-      {/* Modal Container with Backdrop */}
-      <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/70 backdrop-blur-sm" onClick={handleClose}>
-        <div className="flex min-h-full items-center justify-center p-4">
-          <div
-            className="bg-[#1A1A1A] rounded-2xl max-w-lg w-full border border-gray-800 shadow-2xl max-h-[90vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
+    <div className="fixed inset-0 z-[60] overflow-y-auto">
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
+        onClick={handleClose}
+      />
+
+      {/* Modal Container */}
+      <div className="relative min-h-screen flex items-center justify-center p-4">
+        <div
+          className="relative bg-[#1A1A1A] rounded-2xl max-w-lg w-full border border-gray-800 shadow-2xl max-h-[90vh] flex flex-col"
+          onClick={(e) => e.stopPropagation()}
+        >
             {/* Header */}
             <div className="border-b border-gray-800 px-6 py-5 flex items-center justify-between flex-shrink-0">
             <div className="flex items-center gap-3">
@@ -223,9 +228,8 @@ export const CancelBookingModal: React.FC<CancelBookingModalProps> = ({
               )}
             </button>
           </div>
-          </div>
         </div>
       </div>
-    </>
+    </div>
   );
 };

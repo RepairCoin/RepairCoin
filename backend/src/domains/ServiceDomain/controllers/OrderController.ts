@@ -369,8 +369,9 @@ export class OrderController {
   };
 
   /**
-   * Cancel order (Customer only, before payment)
+   * Cancel order (Customer only - can cancel paid orders too)
    * POST /api/services/orders/:id/cancel
+   * Body: { cancellationReason: string, cancellationNotes?: string }
    */
   cancelOrder = async (req: Request, res: Response) => {
     try {
@@ -380,6 +381,12 @@ export class OrderController {
       }
 
       const { id } = req.params;
+      const { cancellationReason, cancellationNotes } = req.body;
+
+      // Validate cancellation reason
+      if (!cancellationReason) {
+        return res.status(400).json({ success: false, error: 'Cancellation reason is required' });
+      }
 
       // Verify order belongs to customer
       const order = await this.orderRepository.getOrderById(id);
@@ -391,7 +398,7 @@ export class OrderController {
         return res.status(403).json({ success: false, error: 'Unauthorized to cancel this order' });
       }
 
-      await this.paymentService.cancelOrder(id);
+      await this.paymentService.cancelOrder(id, cancellationReason, cancellationNotes);
 
       res.json({
         success: true,
@@ -402,6 +409,79 @@ export class OrderController {
       res.status(400).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to cancel order'
+      });
+    }
+  };
+
+  /**
+   * Mark order as no-show (Shop only)
+   * POST /api/services/orders/:id/mark-no-show
+   * Body: { notes?: string }
+   */
+  markNoShow = async (req: Request, res: Response) => {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+
+      const { id } = req.params;
+      const { notes } = req.body;
+
+      // Verify order belongs to shop
+      const order = await this.orderRepository.getOrderById(id);
+      if (!order) {
+        return res.status(404).json({ success: false, error: 'Order not found' });
+      }
+
+      if (order.shopId !== shopId) {
+        return res.status(403).json({ success: false, error: 'Unauthorized to mark this order as no-show' });
+      }
+
+      // Can only mark paid orders as no-show
+      if (order.status !== 'paid') {
+        return res.status(400).json({
+          success: false,
+          error: 'Only paid orders can be marked as no-show'
+        });
+      }
+
+      // Mark as no-show
+      await this.orderRepository.markAsNoShow(id, notes);
+
+      // Send notification to customer
+      try {
+        const service = await this.serviceRepository.getServiceById(order.serviceId);
+        const shop = await shopRepository.getShop(shopId);
+
+        if (service && shop) {
+          await this.notificationService.createNotification({
+            senderAddress: 'SYSTEM',
+            receiverAddress: order.customerAddress,
+            notificationType: 'service_no_show',
+            message: `You were marked as no-show for: ${service.serviceName} at ${shop.name}`,
+            metadata: {
+              orderId: id,
+              serviceName: service.serviceName,
+              shopName: shop.name,
+              notes,
+              timestamp: new Date().toISOString()
+            }
+          });
+        }
+      } catch (notifError) {
+        logger.error('Failed to send no-show notification:', notifError);
+      }
+
+      res.json({
+        success: true,
+        message: 'Order marked as no-show'
+      });
+    } catch (error: unknown) {
+      logger.error('Error in markNoShow controller:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to mark order as no-show'
       });
     }
   };

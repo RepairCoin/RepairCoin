@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
+import { useRouter } from "next/navigation";
 import {
   ShoppingBag,
   Clock,
@@ -16,7 +17,8 @@ import {
   HelpCircle,
   ChevronDown,
   ChevronUp,
-  Store
+  Store,
+  RotateCcw
 } from "lucide-react";
 import { getCustomerOrders, ServiceOrderWithDetails, servicesApi } from "@/services/api/services";
 import { WriteReviewModal } from "./WriteReviewModal";
@@ -25,6 +27,7 @@ import { BookingCard } from "./BookingCard";
 import { CancelBookingModal } from "./CancelBookingModal";
 
 export const ServiceOrdersTab: React.FC = () => {
+  const router = useRouter();
   const [orders, setOrders] = useState<ServiceOrderWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("all");
@@ -82,6 +85,12 @@ export const ServiceOrdersTab: React.FC = () => {
 
   const handleWriteReview = (order: ServiceOrderWithDetails) => {
     setReviewingOrder(order);
+  };
+
+  const handleBookAgain = (order: ServiceOrderWithDetails) => {
+    // Navigate to the service page so user can book it again
+    router.push(`/customer/services/${order.serviceId}`);
+    toast.success("Redirecting to service page...");
   };
 
   const getStatusInfo = (status: string) => {
@@ -380,6 +389,24 @@ export const ServiceOrdersTab: React.FC = () => {
                       </div>
                     ) : undefined
                   }
+                  additionalSections={
+                    order.noShow ? (
+                      <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4 mb-4">
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+                            <XCircle className="w-5 h-5 text-orange-400" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-bold text-orange-400 mb-1 text-base">Marked as No-Show</div>
+                            <div className="text-sm text-orange-200/80">
+                              This booking was marked as no-show by the shop.
+                              {order.noShowNotes && ` Note: ${order.noShowNotes}`}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : undefined
+                  }
                   nextActionSection={
                     order.status === "pending" ? (
                       <div className="bg-[#0D0D0D] border border-gray-800 rounded-lg p-4 mb-4">
@@ -422,6 +449,15 @@ export const ServiceOrdersTab: React.FC = () => {
                         >
                           <Star className="w-4 h-4" />
                           Review
+                        </button>
+                      )}
+                      {(order.status === "completed" || order.status === "cancelled") && (
+                        <button
+                          onClick={() => handleBookAgain(order)}
+                          className="flex items-center gap-1.5 bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                          Book Again
                         </button>
                       )}
                     </div>

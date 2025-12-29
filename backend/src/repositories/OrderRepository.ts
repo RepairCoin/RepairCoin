@@ -451,6 +451,71 @@ export class OrderRepository extends BaseRepository {
   }
 
   /**
+   * Update order with cancellation details
+   */
+  async updateCancellationData(
+    orderId: string,
+    cancellationReason: string,
+    cancellationNotes?: string
+  ): Promise<ServiceOrder> {
+    try {
+      const query = `
+        UPDATE service_orders
+        SET
+          status = 'cancelled',
+          cancelled_at = NOW(),
+          cancellation_reason = $1,
+          cancellation_notes = $2,
+          updated_at = NOW()
+        WHERE order_id = $3
+        RETURNING *
+      `;
+
+      const result = await this.pool.query(query, [cancellationReason, cancellationNotes || null, orderId]);
+
+      if (result.rows.length === 0) {
+        throw new Error('Order not found');
+      }
+
+      logger.info('Order cancelled with details', { orderId, cancellationReason });
+      return this.mapOrderRow(result.rows[0]);
+    } catch (error) {
+      logger.error('Error updating cancellation data:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Mark order as no-show
+   */
+  async markAsNoShow(orderId: string, notes?: string): Promise<ServiceOrder> {
+    try {
+      const query = `
+        UPDATE service_orders
+        SET
+          no_show = TRUE,
+          marked_no_show_at = NOW(),
+          no_show_notes = $1,
+          updated_at = NOW()
+        WHERE order_id = $2
+        RETURNING *
+      `;
+
+      const result = await this.pool.query(query, [notes || null, orderId]);
+
+      if (result.rows.length === 0) {
+        throw new Error('Order not found');
+      }
+
+      logger.info('Order marked as no-show', { orderId });
+      return this.mapOrderRow(result.rows[0]);
+    } catch (error) {
+      logger.error('Error marking order as no-show:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Map database row to ServiceOrder
    */
   private mapOrderRow(row: any): ServiceOrder {

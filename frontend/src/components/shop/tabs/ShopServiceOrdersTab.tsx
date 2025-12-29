@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { getShopOrders, updateOrderStatus, ServiceOrderWithDetails } from "@/services/api/services";
 import { CompleteOrderModal } from "../modals/CompleteOrderModal";
+import { MarkNoShowModal } from "../MarkNoShowModal";
 
 interface ShopServiceOrdersTabProps {
   shopId: string;
@@ -26,6 +27,7 @@ export const ShopServiceOrdersTab: React.FC<ShopServiceOrdersTabProps> = ({ shop
   const [filter, setFilter] = useState<string>("all");
   const [updatingOrder, setUpdatingOrder] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<ServiceOrderWithDetails | null>(null);
+  const [noShowOrder, setNoShowOrder] = useState<ServiceOrderWithDetails | null>(null);
 
   useEffect(() => {
     loadOrders();
@@ -310,16 +312,25 @@ export const ShopServiceOrdersTab: React.FC<ShopServiceOrdersTabProps> = ({ shop
                       )}
                     </div>
 
-                    {/* Mark Complete Button - Compact inline */}
+                    {/* Action Buttons - Compact inline */}
                     {order.status === "paid" && (
-                      <button
-                        onClick={() => setSelectedOrder(order)}
-                        disabled={updatingOrder === order.orderId}
-                        className="bg-gradient-to-r from-green-600 to-green-700 text-white font-medium px-3 py-1 rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1 text-xs"
-                      >
-                        <CheckCircle className="w-3 h-3" />
-                        {updatingOrder === order.orderId ? "Processing..." : "Mark Complete"}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setSelectedOrder(order)}
+                          disabled={updatingOrder === order.orderId}
+                          className="bg-gradient-to-r from-green-600 to-green-700 text-white font-medium px-3 py-1 rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1 text-xs"
+                        >
+                          <CheckCircle className="w-3 h-3" />
+                          {updatingOrder === order.orderId ? "Processing..." : "Mark Complete"}
+                        </button>
+                        <button
+                          onClick={() => setNoShowOrder(order)}
+                          className="bg-orange-600 text-white font-medium px-3 py-1 rounded-lg hover:bg-orange-700 transition-all duration-200 inline-flex items-center gap-1 text-xs"
+                        >
+                          <XCircle className="w-3 h-3" />
+                          No-Show
+                        </button>
+                      </div>
                     )}
 
                     {/* Completed Badge - Compact inline */}
@@ -357,6 +368,17 @@ export const ShopServiceOrdersTab: React.FC<ShopServiceOrdersTabProps> = ({ shop
           isProcessing={updatingOrder === selectedOrder.orderId}
         />
       )}
+
+      {/* Mark No-Show Modal */}
+      <MarkNoShowModal
+        order={noShowOrder}
+        isOpen={!!noShowOrder}
+        onClose={() => setNoShowOrder(null)}
+        onSuccess={() => {
+          setNoShowOrder(null);
+          loadOrders();
+        }}
+      />
     </div>
   );
 };

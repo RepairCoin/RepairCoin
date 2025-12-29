@@ -375,6 +375,36 @@ export class StripeService {
   }
 
   /**
+   * Refund a payment intent
+   */
+  async refundPayment(paymentIntentId: string, reason?: string): Promise<Stripe.Refund> {
+    try {
+      const refund = await this.stripe.refunds.create({
+        payment_intent: paymentIntentId,
+        reason: reason as Stripe.RefundCreateParams.Reason,
+        metadata: {
+          environment: this.config.isTestMode ? 'test' : 'production'
+        }
+      });
+
+      logger.info('Payment refunded', {
+        refundId: refund.id,
+        paymentIntentId,
+        amount: refund.amount,
+        status: refund.status
+      });
+
+      return refund;
+    } catch (error) {
+      logger.error('Failed to refund payment', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        paymentIntentId
+      });
+      throw new Error(`Failed to refund payment: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
    * Create setup intent for saving payment method
    */
   async createSetupIntent(customerId: string): Promise<Stripe.SetupIntent> {

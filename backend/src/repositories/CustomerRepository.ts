@@ -706,6 +706,28 @@ export class CustomerRepository extends BaseRepository {
   }
 
   /**
+   * Refund RCN to customer after order cancellation
+   */
+  async refundRcnAfterCancellation(address: string, amount: number): Promise<void> {
+    try {
+      const query = `
+        UPDATE customers
+        SET
+          current_rcn_balance = COALESCE(current_rcn_balance, 0) + $1,
+          total_redemptions = GREATEST(0, COALESCE(total_redemptions, 0) - $1),
+          updated_at = NOW()
+        WHERE address = $2
+      `;
+
+      await this.pool.query(query, [amount, address.toLowerCase()]);
+      logger.info('RCN refunded to customer after cancellation', { address, amount });
+    } catch (error) {
+      logger.error('Error refunding RCN after cancellation:', error);
+      throw new Error('Failed to refund RCN after cancellation');
+    }
+  }
+
+  /**
    * Move customer balance to pending mint queue (for mint-to-wallet feature)
    */
   async queueForMinting(address: string, amount: number): Promise<void> {

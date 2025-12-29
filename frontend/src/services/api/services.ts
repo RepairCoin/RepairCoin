@@ -80,6 +80,9 @@ export interface ServiceOrder {
   bookingTime?: string;
   completedAt?: string;
   notes?: string;
+  noShow?: boolean;
+  markedNoShowAt?: string;
+  noShowNotes?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -94,6 +97,7 @@ export interface ServiceOrderWithDetails extends ServiceOrder {
   shopCity?: string;
   shopPhone?: string;
   shopEmail?: string;
+  customerName?: string;
   rcnEarned?: number; // RCN tokens earned when order completed
   bookingTimeSlot?: string; // Appointment date/time
   bookingEndTime?: string; // Appointment end time
@@ -379,12 +383,37 @@ export const updateOrderStatus = async (orderId: string, status: OrderStatus): P
 /**
  * Cancel order (Customer only, before payment)
  */
-export const cancelOrder = async (orderId: string): Promise<boolean> => {
+export const cancelOrder = async (
+  orderId: string,
+  cancellationReason: string,
+  cancellationNotes?: string
+): Promise<boolean> => {
   try {
-    await apiClient.post(`/services/orders/${orderId}/cancel`);
+    await apiClient.post(`/services/orders/${orderId}/cancel`, {
+      cancellationReason,
+      cancellationNotes,
+    });
     return true;
   } catch (error) {
     console.error('Error canceling order:', error);
+    throw error;
+  }
+};
+
+/**
+ * Mark order as no-show (Shop only)
+ */
+export const markOrderAsNoShow = async (
+  orderId: string,
+  notes?: string
+): Promise<boolean> => {
+  try {
+    await apiClient.post(`/services/orders/${orderId}/mark-no-show`, {
+      notes,
+    });
+    return true;
+  } catch (error) {
+    console.error('Error marking order as no-show:', error);
     throw error;
   }
 };
@@ -796,6 +825,7 @@ export const servicesApi = {
   getOrderById,
   updateOrderStatus,
   cancelOrder,
+  markOrderAsNoShow,
 
   // Favorites
   addFavorite,

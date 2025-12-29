@@ -654,22 +654,121 @@ export class PaymentService {
   }
 
   /**
-   * Cancel an order (only if not paid)
+   * Cancel an order with full refund processing
    */
-  async cancelOrder(orderId: string): Promise<void> {
+  async cancelOrder(
+    orderId: string,
+    cancellationReason: string,
+    cancellationNotes?: string
+  ): Promise<void> {
     try {
       const order = await this.orderRepository.getOrderById(orderId);
       if (!order) {
         throw new Error('Order not found');
       }
 
-      if (order.status === 'paid' || order.status === 'completed') {
-        throw new Error('Cannot cancel a paid or completed order');
+      if (order.status === 'cancelled') {
+        throw new Error('Order is already cancelled');
       }
 
-      await this.orderRepository.updateOrderStatus(orderId, 'cancelled');
+      if (order.status === 'completed') {
+        throw new Error('Cannot cancel a completed order');
+      }
 
-      logger.info('Order cancelled', { orderId });
+      let refundStatus = '';
+      const refundDetails: string[] = [];
+
+      // 1. Refund RCN if any was redeemed
+      if (order.rcnRedeemed && order.rcnRedeemed > 0) {
+        try {
+          await customerRepository.refundRcnAfterCancellation(
+            order.customerAddress,
+            order.rcnRedeemed
+          );
+          refundDetails.push(`${order.rcnRedeemed} RCN refunded`);
+          logger.info('RCN refunded for cancelled order', {
+            orderId,
+            customerAddress: order.customerAddress,
+            rcnAmount: order.rcnRedeemed
+          });
+        } catch (rcnError) {
+          logger.error('Failed to refund RCN:', rcnError);
+          refundDetails.push('RCN refund failed - please contact support');
+        }
+      }
+
+      // 2. Process Stripe refund if payment was made
+      if (order.stripePaymentIntentId && (order.status === 'paid')) {
+        try {
+          await this.stripeService.refundPayment(
+            order.stripePaymentIntentId,
+            'requested_by_customer'
+          );
+          refundDetails.push(`$${order.finalAmountUsd?.toFixed(2) || '0.00'} refunded to card`);
+          logger.info('Stripe payment refunded for cancelled order', {
+            orderId,
+            paymentIntentId: order.stripePaymentIntentId,
+            amount: order.finalAmountUsd
+          });
+        } catch (stripeError) {
+          logger.error('Failed to process Stripe refund:', stripeError);
+          refundDetails.push('Payment refund initiated - may take 5-10 business days');
+        }
+      }
+
+      refundStatus = refundDetails.length > 0 ? refundDetails.join(', ') : 'No refunds required';
+
+      // 3. Update order with cancellation details
+      await this.orderRepository.updateCancellationData(
+        orderId,
+        cancellationReason,
+        cancellationNotes
+      );
+
+      // 4. Get service and shop details for notifications
+      const service = await this.serviceRepository.getServiceById(order.serviceId);
+      const shop = await shopRepository.getShop(order.shopId);
+
+      // 5. Send notification to customer
+      try {
+        if (service) {
+          await this.notificationService.createServiceOrderCancelledNotification(
+            order.customerAddress,
+            service.serviceName,
+            orderId,
+            refundStatus
+          );
+        }
+      } catch (notifError) {
+        logger.error('Failed to send customer cancellation notification:', notifError);
+      }
+
+      // 6. Send notification to shop
+      try {
+        if (service && shop && shop.walletAddress) {
+          await this.notificationService.createNotification({
+            senderAddress: 'SYSTEM',
+            receiverAddress: shop.walletAddress,
+            notificationType: 'service_booking_cancelled',
+            message: `Booking cancelled: ${service.serviceName} (Order ${orderId})`,
+            metadata: {
+              orderId,
+              serviceName: service.serviceName,
+              cancellationReason,
+              cancellationNotes,
+              timestamp: new Date().toISOString()
+            }
+          });
+        }
+      } catch (shopNotifError) {
+        logger.error('Failed to send shop cancellation notification:', shopNotifError);
+      }
+
+      logger.info('Order cancelled successfully', {
+        orderId,
+        cancellationReason,
+        refundStatus
+      });
     } catch (error) {
       logger.error('Error cancelling order:', error);
       throw error;
