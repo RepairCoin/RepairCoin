@@ -496,6 +496,7 @@ export class SubscriptionService extends BaseRepository {
       logger.info('Stripe subscription data received', {
         subscriptionId: stripeSubscriptionId,
         status: stripeSubscription.status,
+        cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
         hasPeriodStart: !!currentPeriodStart,
         hasPeriodEnd: !!currentPeriodEnd,
         periodStart: currentPeriodStart,

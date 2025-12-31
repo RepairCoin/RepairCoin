@@ -201,6 +201,7 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
         shopId,
         subscriptionId: stripeSubscription.stripeSubscriptionId,
         status: stripeSubscription.status,
+        cancelAtPeriodEnd: stripeSubscription.cancelAtPeriodEnd,
         stripePriceId: stripeSubscription.stripePriceId,
         currentPeriodEnd: stripeSubscription.currentPeriodEnd
       });

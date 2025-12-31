@@ -968,6 +968,14 @@ router.post('/subscriptions/:subscriptionId/reactivate', async (req: Request, re
       });
     }
 
+    // Log what Stripe returned for debugging
+    logger.info('Stripe subscription data for reactivation', {
+      stripeSubscriptionId,
+      stripeStatus: stripeSubscription.status,
+      cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
+      canceledAt: stripeSubscription.canceled_at
+    });
+
     // If subscription has cancel_at_period_end set, we can unset it to reactivate
     if (stripeSubscription.cancel_at_period_end) {
       // Remove the cancel_at_period_end flag in Stripe
@@ -976,15 +984,66 @@ router.post('/subscriptions/:subscriptionId/reactivate', async (req: Request, re
       });
 
       logger.info('Removed cancel_at_period_end flag in Stripe', { stripeSubscriptionId });
+    } else {
+      logger.warn('Stripe subscription does not have cancel_at_period_end set - forcing update anyway', { stripeSubscriptionId });
+      // Force update Stripe anyway to ensure consistency
+      await stripeService.getStripe().subscriptions.update(stripeSubscriptionId, {
+        cancel_at_period_end: false
+      });
+      logger.info('Forced cancel_at_period_end to false in Stripe', { stripeSubscriptionId });
     }
 
-    // Update stripe_subscriptions table
+    // ALSO find and update ALL other Stripe subscriptions for this shop
+    // This handles the case where shop has multiple subscription records in stripe_subscriptions table
+    const allShopStripeSubsQuery = await db.query(
+      `SELECT stripe_subscription_id FROM stripe_subscriptions
+       WHERE shop_id = $1 AND stripe_subscription_id != $2`,
+      [shopId, stripeSubscriptionId]
+    );
+
+    for (const row of allShopStripeSubsQuery.rows) {
+      const otherSubId = row.stripe_subscription_id;
+      try {
+        // Check if subscription exists in Stripe and update it
+        const otherStripeSub = await stripeService.getStripe().subscriptions.retrieve(otherSubId);
+        if (otherStripeSub && otherStripeSub.status !== 'canceled') {
+          await stripeService.getStripe().subscriptions.update(otherSubId, {
+            cancel_at_period_end: false
+          });
+          logger.info('Also reactivated additional Stripe subscription for shop', {
+            shopId,
+            additionalStripeSubscriptionId: otherSubId
+          });
+        }
+      } catch (stripeError) {
+        logger.warn('Could not update additional Stripe subscription', {
+          shopId,
+          additionalStripeSubscriptionId: otherSubId,
+          error: stripeError instanceof Error ? stripeError.message : 'Unknown error'
+        });
+      }
+    }
+
+    // Update stripe_subscriptions table by subscription ID
     await db.query(
       `UPDATE stripe_subscriptions
        SET status = 'active', cancel_at_period_end = false, canceled_at = NULL, updated_at = CURRENT_TIMESTAMP
        WHERE stripe_subscription_id = $1`,
       [stripeSubscriptionId]
     );
+
+    // ALSO update ALL stripe_subscriptions for this shop by shop_id
+    // This handles the case where shop has multiple subscription records
+    const shopUpdateResult = await db.query(
+      `UPDATE stripe_subscriptions
+       SET status = 'active', cancel_at_period_end = false, canceled_at = NULL, updated_at = CURRENT_TIMESTAMP
+       WHERE shop_id = $1`,
+      [shopId]
+    );
+    logger.info('Updated all stripe_subscriptions for shop', {
+      shopId,
+      rowsUpdated: shopUpdateResult.rowCount
+    });
 
     // Update shop_subscriptions table
     await db.query(
