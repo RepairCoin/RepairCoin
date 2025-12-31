@@ -211,6 +211,17 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
               // Heartbeat response
               break;
 
+            case 'subscription_status_changed':
+              // Admin-specific event: shop subscription status changed (self-cancel/reactivate)
+              console.log('📋 Subscription status changed:', message.payload);
+              // Dispatch custom DOM event so admin components can refresh
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('subscription-status-changed', {
+                  detail: message.payload
+                }));
+              }
+              break;
+
             default:
               console.warn('Unknown WebSocket message type:', message.type);
           }

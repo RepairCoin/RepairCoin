@@ -349,6 +349,49 @@ export class WebSocketManager {
     });
   }
 
+  /**
+   * Send a message to multiple specific wallet addresses
+   * Used for broadcasting admin-specific events like subscription status changes
+   */
+  public sendToAddresses(addresses: string[], message: WebSocketMessage): void {
+    let sentCount = 0;
+
+    // Debug: Log what addresses we're trying to send to and what's in the clients map
+    const connectedAddresses = Array.from(this.clients.keys());
+    logger.debug('sendToAddresses called', {
+      targetAddresses: addresses.map(a => a.toLowerCase()),
+      connectedAddresses,
+      messageType: message.type
+    });
+
+    addresses.forEach((address) => {
+      const normalizedAddress = address.toLowerCase();
+      const addressClients = this.clients.get(normalizedAddress);
+
+      if (addressClients && addressClients.size > 0) {
+        addressClients.forEach((client) => {
+          if (client.readyState === WebSocket.OPEN) {
+            this.send(client, message);
+            sentCount++;
+          }
+        });
+      } else {
+        logger.debug('No WebSocket clients found for address', { address: normalizedAddress });
+      }
+    });
+
+    if (sentCount > 0) {
+      logger.info(`WebSocket message sent to ${sentCount} client(s) across ${addresses.length} address(es)`, {
+        type: message.type
+      });
+    } else {
+      logger.warn('sendToAddresses: No clients found for any of the target addresses', {
+        targetAddresses: addresses.map(a => a.toLowerCase()),
+        connectedAddresses
+      });
+    }
+  }
+
   private send(ws: WebSocketClient, message: WebSocketMessage): void {
     try {
       ws.send(JSON.stringify(message));

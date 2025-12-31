@@ -27,8 +27,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  // Initialize notification system (only for customers and shops, not admins)
-  useNotifications({ enabled: userRole !== "admin" });
+  // Initialize notification system for all users
+  // Admins need WebSocket for subscription status change events
+  useNotifications({ enabled: true });
 
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);

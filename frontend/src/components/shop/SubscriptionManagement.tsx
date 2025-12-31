@@ -108,9 +108,17 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
     // Check if this is a new notification we haven't processed
     if (latestNotification.id === lastNotificationIdRef.current) return;
 
+    // Skip if an operation is in progress (prevents modal flicker from double refresh)
+    if (cancelling || reactivating) {
+      console.log('📋 Skipping notification refresh - operation in progress');
+      lastNotificationIdRef.current = latestNotification.id;
+      return;
+    }
+
     // Check if it's a subscription-related notification
     const subscriptionNotificationTypes = [
       'subscription_cancelled',
+      'subscription_self_cancelled',
       'subscription_paused',
       'subscription_resumed',
       'subscription_reactivated'
@@ -124,7 +132,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
       lastNotificationIdRef.current = latestNotification.id;
       loadSubscriptionStatus();
     }
-  }, [notifications]);
+  }, [notifications, cancelling, reactivating]);
 
   const loadSubscriptionStatus = async () => {
     try {
@@ -815,18 +823,21 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
                 </div>
               </div>
 
-              {/* Resubscribe CTA */}
+              {/* Reactivate CTA - subscription can still be reactivated */}
               <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
                 <h4 className="font-semibold text-green-400 mb-2">
-                  Want to continue using RepairCoin?
+                  Changed your mind?
                 </h4>
                 <p className="text-gray-300 mb-4">
-                  You can resubscribe at any time by clicking the button below.
-                  Alternatively, holding 10,000+ RCG tokens grants you full platform
-                  access without a monthly subscription.
+                  You can reactivate your subscription before it ends to continue
+                  using RepairCoin without interruption. Your billing will resume
+                  automatically.
                 </p>
-                <Button className="bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold">
-                  <Link href="/shop/subscription-form">Subscribe Again</Link>
+                <Button
+                  onClick={() => setShowReactivateModal(true)}
+                  className="bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold"
+                >
+                  Reactivate Subscription
                 </Button>
               </div>
             </>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { createThirdwebClient, getContract, readContract } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
@@ -252,20 +252,37 @@ export default function ShopDashboardClient() {
 
   // Listen for subscription-related notifications and refresh data
   const { notifications } = useNotificationStore();
+  const lastProcessedNotificationRef = useRef<string | null>(null);
+
   useEffect(() => {
     // Check if the latest notification is subscription-related
     const latestNotification = notifications[0];
-    if (latestNotification && [
+    if (!latestNotification) return;
+
+    // Skip if we've already processed this notification
+    if (latestNotification.id === lastProcessedNotificationRef.current) return;
+
+    const subscriptionNotificationTypes = [
       'subscription_cancelled',
+      'subscription_self_cancelled',
       'subscription_paused',
       'subscription_resumed',
       'subscription_reactivated'
-    ].includes(latestNotification.notificationType)) {
-      console.log('📋 Subscription notification received, refreshing shop data...');
-      // Refresh shop data to update the warning banner
-      if (account?.address) {
-        loadShopData();
-      }
+    ];
+
+    if (subscriptionNotificationTypes.includes(latestNotification.notificationType)) {
+      console.log('📋 Subscription notification received, refreshing shop data...', {
+        type: latestNotification.notificationType,
+        id: latestNotification.id
+      });
+      lastProcessedNotificationRef.current = latestNotification.id;
+      // Add small delay to let modal animations complete and prevent flicker
+      setTimeout(() => {
+        // Refresh shop data to update the warning banner
+        if (account?.address) {
+          loadShopData();
+        }
+      }, 500);
     }
   }, [notifications, account?.address]);
 
