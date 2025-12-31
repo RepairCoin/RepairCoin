@@ -618,15 +618,20 @@ export class SubscriptionService extends BaseRepository {
     try {
       await client.query('BEGIN');
 
-      // Update stripe_subscriptions table
+      // Update stripe_subscriptions table - include current_period_end for warning banner
+      const currentPeriodEnd = (updatedStripeSubscription as any).current_period_end
+        ? new Date((updatedStripeSubscription as any).current_period_end * 1000)
+        : null;
+
       const updateStripeQuery = `
         UPDATE stripe_subscriptions
         SET
           status = $1,
           cancel_at_period_end = $2,
           canceled_at = $3,
+          current_period_end = COALESCE($4, current_period_end),
           updated_at = CURRENT_TIMESTAMP
-        WHERE stripe_subscription_id = $4
+        WHERE stripe_subscription_id = $5
         RETURNING *
       `;
 
@@ -634,6 +639,7 @@ export class SubscriptionService extends BaseRepository {
         updatedStripeSubscription.status,
         updatedStripeSubscription.cancel_at_period_end,
         updatedStripeSubscription.canceled_at ? new Date(updatedStripeSubscription.canceled_at * 1000) : new Date(),
+        currentPeriodEnd,
         subscription.stripeSubscriptionId
       ]);
 

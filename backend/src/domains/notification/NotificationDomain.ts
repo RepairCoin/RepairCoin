@@ -11,6 +11,12 @@ export class NotificationDomain implements DomainModule {
   private notificationService!: NotificationService;
   private wsManager!: WebSocketManager;
 
+  // Get admin addresses from environment
+  private getAdminAddresses(): string[] {
+    const adminAddresses = process.env.ADMIN_ADDRESSES || '';
+    return adminAddresses.split(',').map(addr => addr.trim().toLowerCase()).filter(Boolean);
+  }
+
   async initialize(): Promise<void> {
     this.notificationService = new NotificationService();
     this.setupEventSubscriptions();
@@ -221,9 +227,24 @@ export class NotificationDomain implements DomainModule {
         effectiveDate
       );
 
-      // Send real-time notification via WebSocket
+      // Send real-time notification via WebSocket to the shop
       if (this.wsManager) {
         this.wsManager.sendNotificationToUser(shopAddress, notification);
+
+        // Also notify admins so their dashboard can refresh
+        const adminAddresses = this.getAdminAddresses();
+        if (adminAddresses.length > 0) {
+          this.wsManager.sendToAddresses(adminAddresses, {
+            type: 'subscription_status_changed',
+            payload: {
+              shopAddress,
+              action: 'self_cancelled',
+              reason,
+              effectiveDate
+            }
+          });
+          logger.info('Sent subscription status change event to admins', { shopAddress, action: 'self_cancelled' });
+        }
       }
     } catch (error: any) {
       logger.error('Error handling subscription self-cancelled event:', error);
@@ -279,9 +300,22 @@ export class NotificationDomain implements DomainModule {
         shopAddress
       );
 
-      // Send real-time notification via WebSocket
+      // Send real-time notification via WebSocket to the shop
       if (this.wsManager) {
         this.wsManager.sendNotificationToUser(shopAddress, notification);
+
+        // Also notify admins so their dashboard can refresh
+        const adminAddresses = this.getAdminAddresses();
+        if (adminAddresses.length > 0) {
+          this.wsManager.sendToAddresses(adminAddresses, {
+            type: 'subscription_status_changed',
+            payload: {
+              shopAddress,
+              action: 'reactivated'
+            }
+          });
+          logger.info('Sent subscription status change event to admins', { shopAddress, action: 'reactivated' });
+        }
       }
     } catch (error: any) {
       logger.error('Error handling subscription reactivated event:', error);

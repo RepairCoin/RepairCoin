@@ -82,22 +82,30 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
           cancellationReason: shopSub.cancellation_reason
         });
 
-        // For cancelled subscriptions, fetch currentPeriodEnd from stripe_subscriptions
-        // This is needed to show "full access until" date
+        // For cancelled subscriptions, fetch currentPeriodEnd and cancelAtPeriodEnd from stripe_subscriptions
+        // This is needed to show "full access until" date and the warning banner
         let currentPeriodEnd = null;
+        let cancelAtPeriodEnd = false;
         if (shopSub.status === 'cancelled') {
           const stripeSubQuery = await db.query(
-            'SELECT current_period_end FROM stripe_subscriptions WHERE shop_id = $1 ORDER BY created_at DESC LIMIT 1',
+            'SELECT current_period_end, cancel_at_period_end, status FROM stripe_subscriptions WHERE shop_id = $1 ORDER BY created_at DESC LIMIT 1',
             [shopId]
           );
-          if (stripeSubQuery.rows.length > 0 && stripeSubQuery.rows[0].current_period_end) {
-            // current_period_end is stored as a TIMESTAMP in PostgreSQL, which returns as a Date object
-            const periodEndDate = stripeSubQuery.rows[0].current_period_end;
-            currentPeriodEnd = new Date(periodEndDate).toISOString();
-            logger.info('📅 Found currentPeriodEnd for cancelled subscription', {
+          if (stripeSubQuery.rows.length > 0) {
+            const stripeRow = stripeSubQuery.rows[0];
+            if (stripeRow.current_period_end) {
+              // current_period_end is stored as a TIMESTAMP in PostgreSQL, which returns as a Date object
+              const periodEndDate = stripeRow.current_period_end;
+              currentPeriodEnd = new Date(periodEndDate).toISOString();
+            }
+            // Check if Stripe subscription is still active with cancel_at_period_end
+            // This is true for shop self-cancel (cancel at period end)
+            cancelAtPeriodEnd = stripeRow.cancel_at_period_end === true || stripeRow.status === 'active';
+            logger.info('📅 Found Stripe subscription data for cancelled shop subscription', {
               shopId,
               currentPeriodEnd,
-              periodEndDate
+              cancelAtPeriodEnd,
+              stripeStatus: stripeRow.status
             });
           }
         }
@@ -126,9 +134,10 @@ router.get('/subscription/status', async (req: Request, res: Response) => {
               cancellationReason: shopSub.cancellation_reason,
               pauseReason: shopSub.pause_reason,
               notes: shopSub.notes,
-              currentPeriodEnd: currentPeriodEnd
+              currentPeriodEnd: currentPeriodEnd,
+              cancelAtPeriodEnd: cancelAtPeriodEnd
             },
-            hasActiveSubscription: false
+            hasActiveSubscription: cancelAtPeriodEnd // If cancelAtPeriodEnd is true, subscription is still active until period end
           }
         });
       }
@@ -1136,11 +1145,29 @@ router.post('/subscription/reactivate', async (req: Request, res: Response) => {
       });
 
       await client.query('COMMIT');
+      client.release();
 
       logger.info('Subscription reactivated in both tables', {
         shopId,
         subscriptionId: activeSubscription.stripeSubscriptionId
       });
+
+      // Get shop details for notification
+      const shop = await shopRepository.getShop(shopId);
+
+      // Publish event for in-app notification (triggers real-time update)
+      eventBus.publish({
+        type: 'subscription:reactivated',
+        aggregateId: shopId,
+        data: {
+          shopAddress: shop?.walletAddress || shopId
+        },
+        timestamp: new Date(),
+        source: 'ShopSubscriptionRoutes',
+        version: 1
+      });
+
+      logger.info('Published subscription:reactivated event', { shopId, shopAddress: shop?.walletAddress });
 
       res.json({
         success: true,
@@ -1149,8 +1176,6 @@ router.post('/subscription/reactivate', async (req: Request, res: Response) => {
           subscription: updateResult.rows[0]
         }
       });
-
-      client.release();
     } catch (error) {
       await client.query('ROLLBACK');
       client.release();

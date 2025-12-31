@@ -193,6 +193,23 @@ export default function SubscriptionManagementTab() {
     loadSubscriptions();
   }, [loadSubscriptions]);
 
+  // Listen for real-time subscription status changes via WebSocket
+  useEffect(() => {
+    const handleSubscriptionStatusChange = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { shopAddress, action } = customEvent.detail || {};
+      console.log(`📋 Admin: Subscription status changed - ${action} for ${shopAddress}`);
+      // Refresh subscriptions list to reflect the change
+      loadSubscriptions();
+    };
+
+    window.addEventListener('subscription-status-changed', handleSubscriptionStatusChange);
+
+    return () => {
+      window.removeEventListener('subscription-status-changed', handleSubscriptionStatusChange);
+    };
+  }, [loadSubscriptions]);
+
   useEffect(() => {
     filterSubscriptions(filterStatus, searchQuery);
   }, [subscriptions, filterStatus, searchQuery, filterSubscriptions]);
@@ -613,7 +630,7 @@ export default function SubscriptionManagementTab() {
             </button>
           )}
 
-          {sub.status === "cancelled" && canReactivate(sub) && (
+          {sub.status === "cancelled" && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
