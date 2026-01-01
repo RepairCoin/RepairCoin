@@ -373,6 +373,93 @@ export const toggleCrossShop = async (shopId: string, enabled: boolean): Promise
   }
 };
 
+// Shop Profile Enhancements
+export interface GalleryPhoto {
+  id: number;
+  photoUrl: string;
+  caption: string | null;
+  displayOrder: number;
+  createdAt: string;
+}
+
+export const updateShopProfile = async (
+  shopId: string,
+  data: {
+    bannerUrl?: string;
+    aboutText?: string;
+    logoUrl?: string;
+  }
+): Promise<boolean> => {
+  try {
+    await apiClient.put(`/shops/${shopId}/profile`, data);
+    return true;
+  } catch (error) {
+    console.error('Error updating shop profile:', error);
+    return false;
+  }
+};
+
+export const getGalleryPhotos = async (shopId: string): Promise<GalleryPhoto[]> => {
+  try {
+    const response = await apiClient.get<GalleryPhoto[]>(`/shops/${shopId}/gallery`);
+    return response.data || [];
+  } catch (error) {
+    console.error('Error getting gallery photos:', error);
+    return [];
+  }
+};
+
+export const addGalleryPhoto = async (
+  shopId: string,
+  data: { photoUrl: string; caption?: string }
+): Promise<{ id: number } | null> => {
+  try {
+    const response = await apiClient.post<{ id: number }>(`/shops/${shopId}/gallery`, data);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error adding gallery photo:', error);
+    return null;
+  }
+};
+
+export const deleteGalleryPhoto = async (shopId: string, photoId: number): Promise<boolean> => {
+  try {
+    await apiClient.delete(`/shops/${shopId}/gallery/${photoId}`);
+    return true;
+  } catch (error) {
+    console.error('Error deleting gallery photo:', error);
+    return false;
+  }
+};
+
+export const updateGalleryPhotoCaption = async (
+  shopId: string,
+  photoId: number,
+  caption: string
+): Promise<boolean> => {
+  try {
+    await apiClient.put(`/shops/${shopId}/gallery/${photoId}/caption`, { caption });
+    return true;
+  } catch (error) {
+    console.error('Error updating gallery photo caption:', error);
+    return false;
+  }
+};
+
+export const updateGalleryPhotoOrder = async (
+  shopId: string,
+  photoId: number,
+  displayOrder: number
+): Promise<boolean> => {
+  try {
+    await apiClient.put(`/shops/${shopId}/gallery/${photoId}/order`, { displayOrder });
+    return true;
+  } catch (error) {
+    console.error('Error updating gallery photo order:', error);
+    return false;
+  }
+};
+
 // Named exports grouped as namespace for convenience
 export const shopApi = {
   // Management
@@ -413,4 +500,12 @@ export const shopApi = {
   // Settings
   requestVerification,
   toggleCrossShop,
+
+  // Profile & Gallery
+  updateProfile: updateShopProfile,
+  getGallery: getGalleryPhotos,
+  addGalleryPhoto,
+  deleteGalleryPhoto,
+  updateGalleryPhotoCaption,
+  updateGalleryPhotoOrder,
 } as const;

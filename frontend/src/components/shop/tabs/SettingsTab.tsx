@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { SubscriptionManagement } from "../SubscriptionManagement";
+import { ProfileSettingsSection } from "../ProfileSettingsSection";
 import {
   Store,
   Mail,
@@ -24,7 +25,7 @@ import {
 import toast from "react-hot-toast";
 import { LocationPickerWrapper } from "../../maps/LocationPickerWrapper";
 import { CountryPhoneInput } from "../../ui/CountryPhoneInput";
-import { ImageUploader } from "../ImageUploader";
+import { ImageUploader} from "../ImageUploader";
 import apiClient from "@/services/api/client";
 
 interface ShopData {
@@ -41,6 +42,8 @@ interface ShopData {
   instagram?: string;
   website?: string;
   logoUrl?: string;
+  bannerUrl?: string;
+  aboutText?: string;
   location?: {
     city?: string;
     state?: string;
@@ -706,13 +709,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 Online Presence
               </h2>
               <p className="text-sm text-gray-400 mb-6">
-                Manage your shop's online visibility and presence
+                Customize your shop's profile with banner, logo, about text, and photo gallery
               </p>
-              <div className="bg-[#1a1a1a] rounded-xl p-6 border border-[#303236]">
-                <p className="text-gray-400">
-                  Online presence settings coming soon...
-                </p>
-              </div>
+              <ProfileSettingsSection
+                shopId={shopId}
+                currentBannerUrl={shopData?.bannerUrl}
+                currentLogoUrl={shopData?.logoUrl}
+                currentAboutText={shopData?.aboutText}
+                onUpdate={onSettingsUpdate}
+              />
             </div>
           )}
 
