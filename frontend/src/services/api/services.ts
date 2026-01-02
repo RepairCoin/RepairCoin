@@ -31,6 +31,8 @@ export interface ShopService {
   active: boolean;
   createdAt: string;
   updatedAt: string;
+  avgRating?: number;
+  reviewCount?: number;
   groups?: Array<{
     groupId: string;
     groupName: string;

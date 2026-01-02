@@ -209,7 +209,7 @@ export class ServiceRepository extends BaseRepository {
       const countResult = await this.pool.query(countQuery, [shopId]);
       const total = parseInt(countResult.rows[0].total);
 
-      // Get paginated results with groups
+      // Get paginated results with groups, ratings, and duration
       const query = `
         SELECT
           s.*,
@@ -226,7 +226,20 @@ export class ServiceRepository extends BaseRepository {
             FROM service_group_availability sga
             JOIN affiliate_shop_groups asg ON sga.group_id = asg.group_id
             WHERE sga.service_id = s.service_id AND sga.active = true
-          ) as groups
+          ) as groups,
+          COALESCE(
+            (SELECT AVG(rating)::numeric(3,2) FROM service_reviews WHERE service_id = s.service_id),
+            0
+          ) as avg_rating,
+          COALESCE(
+            (SELECT COUNT(*) FROM service_reviews WHERE service_id = s.service_id),
+            0
+          ) as review_count,
+          COALESCE(
+            (SELECT duration_minutes FROM service_duration_config WHERE service_id = s.service_id),
+            (SELECT slot_duration_minutes FROM shop_time_slot_config WHERE shop_id = s.shop_id),
+            s.duration_minutes
+          ) as effective_duration
         FROM shop_services s
         ${whereClause}
         ORDER BY s.created_at DESC
@@ -238,7 +251,10 @@ export class ServiceRepository extends BaseRepository {
         const service = this.mapServiceRow(row);
         return {
           ...service,
-          groups: row.groups || []
+          groups: row.groups || [],
+          avgRating: row.avg_rating ? parseFloat(row.avg_rating) : 0,
+          reviewCount: row.review_count ? parseInt(row.review_count) : 0,
+          durationMinutes: row.effective_duration ? parseInt(row.effective_duration) : service.durationMinutes
         };
       });
 

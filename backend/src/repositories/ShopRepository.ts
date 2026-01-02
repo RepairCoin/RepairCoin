@@ -253,7 +253,6 @@ export class ShopRepository extends BaseRepository {
         lastName: 'last_name',
         category: 'category',
         country: 'country',
-        logoUrl: 'logo_url',
       };
 
       for (const [key, value] of Object.entries(updates)) {
