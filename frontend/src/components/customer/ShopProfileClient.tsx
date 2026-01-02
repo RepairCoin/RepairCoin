@@ -457,6 +457,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
             </div>
           </div>
         </div>
+        </div>
 
         {/* Google Maps Embed */}
         {shopInfo?.location?.lat && shopInfo?.location?.lng && (

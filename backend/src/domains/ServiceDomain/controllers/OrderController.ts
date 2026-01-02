@@ -414,6 +414,204 @@ export class OrderController {
   };
 
   /**
+   * Approve a booking (Shop only)
+   * POST /api/services/orders/:id/approve
+   */
+  approveBooking = async (req: Request, res: Response) => {
+    try {
+      const shopId = req.user?.shopId;
+      const shopAddress = req.user?.address;
+      if (!shopId || !shopAddress) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+
+      const { id } = req.params;
+
+      // Verify order belongs to shop
+      const order = await this.orderRepository.getOrderById(id);
+      if (!order) {
+        return res.status(404).json({ success: false, error: 'Order not found' });
+      }
+
+      if (order.shopId !== shopId) {
+        return res.status(403).json({ success: false, error: 'Unauthorized to approve this booking' });
+      }
+
+      // Can only approve paid orders
+      if (order.status !== 'paid') {
+        return res.status(400).json({
+          success: false,
+          error: 'Only paid orders can be approved'
+        });
+      }
+
+      // Check if already approved
+      if (order.shopApproved) {
+        return res.status(400).json({
+          success: false,
+          error: 'Booking is already approved'
+        });
+      }
+
+      const updatedOrder = await this.orderRepository.approveBooking(id, shopAddress);
+
+      // Send notification to customer
+      try {
+        const service = await this.serviceRepository.getServiceById(order.serviceId);
+        const shop = await shopRepository.getShop(shopId);
+
+        if (service && shop) {
+          await this.notificationService.createNotification({
+            senderAddress: shopAddress,
+            receiverAddress: order.customerAddress,
+            notificationType: 'booking_approved',
+            message: `Your booking for ${service.serviceName} at ${shop.name} has been approved!`,
+            metadata: {
+              orderId: id,
+              serviceName: service.serviceName,
+              shopName: shop.name,
+              bookingDate: order.bookingDate,
+              bookingTime: order.bookingTime,
+              timestamp: new Date().toISOString()
+            }
+          });
+        }
+      } catch (notifError) {
+        logger.error('Failed to send booking approval notification:', notifError);
+      }
+
+      res.json({
+        success: true,
+        data: updatedOrder,
+        message: 'Booking approved successfully'
+      });
+    } catch (error: unknown) {
+      logger.error('Error in approveBooking controller:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to approve booking'
+      });
+    }
+  };
+
+  /**
+   * Reschedule a booking (Shop only)
+   * POST /api/services/orders/:id/reschedule
+   * Body: { newBookingDate: string, newBookingTime: string, reason?: string }
+   */
+  rescheduleBooking = async (req: Request, res: Response) => {
+    try {
+      const shopId = req.user?.shopId;
+      const shopAddress = req.user?.address;
+      if (!shopId || !shopAddress) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+
+      const { id } = req.params;
+      const { newBookingDate, newBookingTime, reason } = req.body;
+
+      if (!newBookingDate || !newBookingTime) {
+        return res.status(400).json({
+          success: false,
+          error: 'New booking date and time are required'
+        });
+      }
+
+      // Verify order belongs to shop
+      const order = await this.orderRepository.getOrderById(id);
+      if (!order) {
+        return res.status(404).json({ success: false, error: 'Order not found' });
+      }
+
+      if (order.shopId !== shopId) {
+        return res.status(403).json({ success: false, error: 'Unauthorized to reschedule this booking' });
+      }
+
+      // Can only reschedule paid or approved orders
+      if (order.status !== 'paid') {
+        return res.status(400).json({
+          success: false,
+          error: 'Only paid orders can be rescheduled'
+        });
+      }
+
+      const updatedOrder = await this.orderRepository.rescheduleBooking(
+        id,
+        new Date(newBookingDate),
+        newBookingTime,
+        'shop',
+        reason
+      );
+
+      // Send notification to customer
+      try {
+        const service = await this.serviceRepository.getServiceById(order.serviceId);
+        const shop = await shopRepository.getShop(shopId);
+
+        if (service && shop) {
+          await this.notificationService.createNotification({
+            senderAddress: shopAddress,
+            receiverAddress: order.customerAddress,
+            notificationType: 'booking_rescheduled',
+            message: `Your booking for ${service.serviceName} at ${shop.name} has been rescheduled to ${new Date(newBookingDate).toLocaleDateString()} at ${newBookingTime}`,
+            metadata: {
+              orderId: id,
+              serviceName: service.serviceName,
+              shopName: shop.name,
+              oldBookingDate: order.bookingDate,
+              oldBookingTime: order.bookingTime,
+              newBookingDate,
+              newBookingTime,
+              reason,
+              timestamp: new Date().toISOString()
+            }
+          });
+        }
+      } catch (notifError) {
+        logger.error('Failed to send booking reschedule notification:', notifError);
+      }
+
+      res.json({
+        success: true,
+        data: updatedOrder,
+        message: 'Booking rescheduled successfully'
+      });
+    } catch (error: unknown) {
+      logger.error('Error in rescheduleBooking controller:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to reschedule booking'
+      });
+    }
+  };
+
+  /**
+   * Get pending approval bookings (Shop only)
+   * GET /api/services/orders/pending-approval
+   */
+  getPendingApprovalBookings = async (req: Request, res: Response) => {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+
+      const bookings = await this.orderRepository.getPendingApprovalBookings(shopId);
+
+      res.json({
+        success: true,
+        data: bookings
+      });
+    } catch (error: unknown) {
+      logger.error('Error in getPendingApprovalBookings controller:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get pending approval bookings'
+      });
+    }
+  };
+
+  /**
    * Mark order as no-show (Shop only)
    * POST /api/services/orders/:id/mark-no-show
    * Body: { notes?: string }

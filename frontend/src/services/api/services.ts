@@ -16,7 +16,7 @@ export type ServiceCategory =
   | 'food_beverage'
   | 'other_local_services';
 
-export type OrderStatus = 'pending' | 'paid' | 'completed' | 'cancelled' | 'refunded';
+export type OrderStatus = 'pending' | 'paid' | 'completed' | 'cancelled' | 'refunded' | 'no_show';
 
 export interface ShopService {
   serviceId: string;
@@ -85,6 +85,17 @@ export interface ServiceOrder {
   noShow?: boolean;
   markedNoShowAt?: string;
   noShowNotes?: string;
+  // Approval fields
+  shopApproved?: boolean;
+  approvedAt?: string;
+  approvedBy?: string;
+  // Reschedule fields
+  originalBookingDate?: string;
+  originalBookingTimeSlot?: string;
+  rescheduledAt?: string;
+  rescheduledBy?: string;
+  rescheduleReason?: string;
+  rescheduleCount?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -93,6 +104,8 @@ export interface ServiceOrderWithDetails extends ServiceOrder {
   serviceName: string;
   serviceDescription?: string;
   serviceImageUrl?: string;
+  serviceDuration?: number;
+  serviceCategory?: string;
   companyName: string;
   shopName: string;
   shopAddress?: string;
@@ -100,7 +113,10 @@ export interface ServiceOrderWithDetails extends ServiceOrder {
   shopPhone?: string;
   shopEmail?: string;
   customerName?: string;
+  customerTier?: string;
+  customerPhone?: string;
   rcnEarned?: number; // RCN tokens earned when order completed
+  promoRcn?: number; // RCN from promo codes
   bookingTimeSlot?: string; // Appointment date/time
   bookingEndTime?: string; // Appointment end time
 }
@@ -416,6 +432,54 @@ export const markOrderAsNoShow = async (
     return true;
   } catch (error) {
     console.error('Error marking order as no-show:', error);
+    throw error;
+  }
+};
+
+/**
+ * Approve a booking (Shop only)
+ */
+export const approveBooking = async (orderId: string): Promise<ServiceOrder | null> => {
+  try {
+    const response = await apiClient.post<ServiceOrder>(`/services/orders/${orderId}/approve`);
+    return response.data || null;
+  } catch (error) {
+    console.error('Error approving booking:', error);
+    throw error;
+  }
+};
+
+/**
+ * Reschedule a booking (Shop only)
+ */
+export const rescheduleBooking = async (
+  orderId: string,
+  newBookingDate: string,
+  newBookingTime: string,
+  reason?: string
+): Promise<ServiceOrder | null> => {
+  try {
+    const response = await apiClient.post<ServiceOrder>(`/services/orders/${orderId}/reschedule`, {
+      newBookingDate,
+      newBookingTime,
+      reason,
+    });
+    return response.data || null;
+  } catch (error) {
+    console.error('Error rescheduling booking:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get pending approval bookings (Shop only)
+ */
+export const getPendingApprovalBookings = async (): Promise<ServiceOrderWithDetails[]> => {
+  try {
+    const response = await apiClient.get<ServiceOrderWithDetails[]>('/services/orders/pending-approval');
+    return response.data || [];
+  } catch (error) {
+    console.error('Error getting pending approval bookings:', error);
     throw error;
   }
 };
@@ -828,6 +892,9 @@ export const servicesApi = {
   updateOrderStatus,
   cancelOrder,
   markOrderAsNoShow,
+  approveBooking,
+  rescheduleBooking,
+  getPendingApprovalBookings,
 
   // Favorites
   addFavorite,

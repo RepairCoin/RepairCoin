@@ -2,7 +2,7 @@
 import { BaseRepository, PaginatedResult } from './BaseRepository';
 import { logger } from '../utils/logger';
 
-export type OrderStatus = 'pending' | 'paid' | 'completed' | 'cancelled' | 'refunded';
+export type OrderStatus = 'pending' | 'paid' | 'completed' | 'cancelled' | 'refunded' | 'no_show';
 
 export interface ServiceOrder {
   orderId: string;
@@ -19,6 +19,17 @@ export interface ServiceOrder {
   bookingTime?: string;
   completedAt?: Date;
   notes?: string;
+  // Approval fields
+  shopApproved: boolean;
+  approvedAt?: Date;
+  approvedBy?: string;
+  // Reschedule fields
+  originalBookingDate?: Date;
+  originalBookingTimeSlot?: string;
+  rescheduledAt?: Date;
+  rescheduledBy?: string;
+  rescheduleReason?: string;
+  rescheduleCount: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -31,9 +42,13 @@ export interface ServiceOrderWithDetails extends ServiceOrder {
   serviceCategory?: string;
   shopName?: string;
   shopAddress?: string;
+  shopCity?: string;
   shopPhone?: string;
   customerName?: string;
+  customerTier?: string;
+  customerPhone?: string;
   rcnEarned?: number; // RCN tokens earned when order completed
+  promoRcn?: number; // RCN from promo codes
 }
 
 export interface CreateOrderParams {
@@ -328,7 +343,9 @@ export class OrderRepository extends BaseRepository {
           s.image_url as service_image_url,
           s.duration_minutes as service_duration,
           s.category as service_category,
-          c.name as customer_name
+          c.name as customer_name,
+          c.tier as customer_tier,
+          c.phone as customer_phone
         FROM service_orders o
         INNER JOIN shop_services s ON o.service_id = s.service_id
         LEFT JOIN customers c ON o.customer_address = c.address
@@ -493,6 +510,7 @@ export class OrderRepository extends BaseRepository {
       const query = `
         UPDATE service_orders
         SET
+          status = 'no_show',
           no_show = TRUE,
           marked_no_show_at = NOW(),
           no_show_notes = $1,
@@ -531,9 +549,20 @@ export class OrderRepository extends BaseRepository {
       rcnDiscountUsd: row.rcn_discount_usd ? parseFloat(row.rcn_discount_usd) : 0,
       finalAmountUsd: row.final_amount_usd ? parseFloat(row.final_amount_usd) : parseFloat(row.total_amount),
       bookingDate: row.booking_date,
-      bookingTime: row.booking_time,
+      bookingTime: row.booking_time || row.booking_time_slot,
       completedAt: row.completed_at,
       notes: row.notes,
+      // Approval fields
+      shopApproved: row.shop_approved || false,
+      approvedAt: row.approved_at,
+      approvedBy: row.approved_by,
+      // Reschedule fields
+      originalBookingDate: row.original_booking_date,
+      originalBookingTimeSlot: row.original_booking_time_slot,
+      rescheduledAt: row.rescheduled_at,
+      rescheduledBy: row.rescheduled_by,
+      rescheduleReason: row.reschedule_reason,
+      rescheduleCount: row.reschedule_count || 0,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
@@ -552,9 +581,139 @@ export class OrderRepository extends BaseRepository {
       serviceCategory: row.service_category,
       shopName: row.shop_name,
       shopAddress: row.shop_address,
+      shopCity: row.shop_city,
       shopPhone: row.shop_phone,
       customerName: row.customer_name,
-      rcnEarned: row.rcn_earned ? parseFloat(row.rcn_earned) : 0
+      customerTier: row.customer_tier,
+      customerPhone: row.customer_phone,
+      rcnEarned: row.rcn_earned ? parseFloat(row.rcn_earned) : 0,
+      promoRcn: row.promo_rcn ? parseFloat(row.promo_rcn) : 0
     };
+  }
+
+  /**
+   * Approve a booking (Shop only)
+   */
+  async approveBooking(orderId: string, approvedBy: string): Promise<ServiceOrder> {
+    try {
+      const query = `
+        UPDATE service_orders
+        SET
+          shop_approved = TRUE,
+          approved_at = NOW(),
+          approved_by = $1,
+          updated_at = NOW()
+        WHERE order_id = $2
+        RETURNING *
+      `;
+
+      const result = await this.pool.query(query, [approvedBy.toLowerCase(), orderId]);
+
+      if (result.rows.length === 0) {
+        throw new Error('Order not found');
+      }
+
+      logger.info('Booking approved', { orderId, approvedBy });
+      return this.mapOrderRow(result.rows[0]);
+    } catch (error) {
+      logger.error('Error approving booking:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reschedule a booking
+   */
+  async rescheduleBooking(
+    orderId: string,
+    newBookingDate: Date,
+    newBookingTime: string,
+    rescheduledBy: 'shop' | 'customer',
+    reason?: string
+  ): Promise<ServiceOrder> {
+    try {
+      // First get the current booking to save original date if this is the first reschedule
+      const currentOrder = await this.getOrderById(orderId);
+      if (!currentOrder) {
+        throw new Error('Order not found');
+      }
+
+      const isFirstReschedule = currentOrder.rescheduleCount === 0;
+
+      const query = `
+        UPDATE service_orders
+        SET
+          ${isFirstReschedule ? `
+            original_booking_date = booking_date,
+            original_booking_time_slot = booking_time_slot,
+          ` : ''}
+          booking_date = $1,
+          booking_time_slot = $2,
+          rescheduled_at = NOW(),
+          rescheduled_by = $3,
+          reschedule_reason = $4,
+          reschedule_count = reschedule_count + 1,
+          updated_at = NOW()
+        WHERE order_id = $5
+        RETURNING *
+      `;
+
+      const result = await this.pool.query(query, [
+        newBookingDate,
+        newBookingTime,
+        rescheduledBy,
+        reason || null,
+        orderId
+      ]);
+
+      if (result.rows.length === 0) {
+        throw new Error('Order not found');
+      }
+
+      logger.info('Booking rescheduled', {
+        orderId,
+        newBookingDate,
+        newBookingTime,
+        rescheduledBy,
+        rescheduleCount: result.rows[0].reschedule_count
+      });
+      return this.mapOrderRow(result.rows[0]);
+    } catch (error) {
+      logger.error('Error rescheduling booking:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get pending approval bookings for a shop
+   */
+  async getPendingApprovalBookings(shopId: string): Promise<ServiceOrderWithDetails[]> {
+    try {
+      const query = `
+        SELECT
+          o.*,
+          s.service_name,
+          s.description as service_description,
+          s.image_url as service_image_url,
+          s.duration_minutes as service_duration,
+          s.category as service_category,
+          c.name as customer_name,
+          c.tier as customer_tier,
+          c.phone as customer_phone
+        FROM service_orders o
+        INNER JOIN shop_services s ON o.service_id = s.service_id
+        LEFT JOIN customers c ON o.customer_address = c.address
+        WHERE o.shop_id = $1
+          AND o.status = 'paid'
+          AND (o.shop_approved = FALSE OR o.shop_approved IS NULL)
+        ORDER BY o.created_at ASC
+      `;
+
+      const result = await this.pool.query(query, [shopId]);
+      return result.rows.map(row => this.mapOrderWithDetailsRow(row));
+    } catch (error) {
+      logger.error('Error fetching pending approval bookings:', error);
+      throw error;
+    }
   }
 }
