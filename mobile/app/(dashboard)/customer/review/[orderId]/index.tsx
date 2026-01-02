@@ -11,8 +11,9 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, router } from "expo-router";
 import { goBack } from "expo-router/build/global-state/routing";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/utilities/axios";
+import { queryKeys } from "@/config/queryClient";
 
 export default function WriteReview() {
   const { orderId, serviceId, serviceName, shopName } = useLocalSearchParams<{
@@ -24,6 +25,8 @@ export default function WriteReview() {
 
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const queryClient = useQueryClient();
 
   // Submit review mutation
   const submitReviewMutation = useMutation({
@@ -32,6 +35,9 @@ export default function WriteReview() {
       return response.data;
     },
     onSuccess: () => {
+      setIsSubmitted(true);
+      // Invalidate appointments query so the bookings list refreshes with updated hasReview
+      queryClient.invalidateQueries({ queryKey: queryKeys.appointments() });
       Alert.alert(
         "Review Submitted",
         "Thank you for your feedback!",
@@ -181,14 +187,25 @@ export default function WriteReview() {
       <View className="absolute bottom-0 left-0 right-0 bg-zinc-950 px-4 py-4 border-t border-gray-800 pb-8">
         <TouchableOpacity
           onPress={handleSubmit}
-          disabled={rating === 0 || submitReviewMutation.isPending}
+          disabled={rating === 0 || submitReviewMutation.isPending || isSubmitted}
           className={`rounded-xl py-4 items-center ${
-            rating > 0 ? "bg-[#FFCC00]" : "bg-gray-700"
+            isSubmitted
+              ? "bg-gray-700"
+              : rating > 0
+                ? "bg-[#FFCC00]"
+                : "bg-gray-700"
           }`}
           activeOpacity={0.8}
         >
           {submitReviewMutation.isPending ? (
             <ActivityIndicator size="small" color="black" />
+          ) : isSubmitted ? (
+            <View className="flex-row items-center">
+              <Ionicons name="checkmark-circle" size={20} color="#22C55E" />
+              <Text className="text-green-500 text-lg font-bold ml-2">
+                Review Submitted
+              </Text>
+            </View>
           ) : (
             <Text
               className={`text-lg font-bold ${
