@@ -10,6 +10,7 @@ import { router } from "expo-router";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useAuthStore } from "@/store/auth.store";
 import { useAuth } from "@/hooks/auth/useAuth";
+import { useTheme } from "@/hooks/theme/useTheme";
 import { AppHeader } from "@/components/ui/AppHeader";
 
 interface SettingsItemProps {
@@ -96,6 +97,8 @@ export default function ShopSettingsScreen() {
   const { account } = useAuthStore();
   const { useLogout } = useAuth();
   const { logout, isLoggingOut } = useLogout();
+  const { useThemeColor } = useTheme();
+  const { toggleColorScheme, isDarkMode } = useThemeColor();
 
   const handleLogout = async () => {
     await logout();
