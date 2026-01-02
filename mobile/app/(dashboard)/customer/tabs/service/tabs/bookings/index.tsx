@@ -9,7 +9,7 @@ import {
   Modal,
   Alert,
 } from "react-native";
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppointment } from "@/feature/booking/hooks";
 import { MyAppointment } from "@/interfaces/appointment.interface";
@@ -92,6 +92,7 @@ interface AppointmentCardProps {
   appointment: MyAppointment;
   onPress: () => void;
   onCancel: () => void;
+  onReview: () => void;
 }
 
 // Check if appointment can be cancelled (24+ hours before + not already cancelled/completed)
@@ -115,11 +116,13 @@ const canCancelAppointment = (appointment: MyAppointment) => {
   return isCancellable && isMoreThan24Hours;
 };
 
-function AppointmentCard({ appointment, onPress, onCancel }: AppointmentCardProps) {
+function AppointmentCard({ appointment, onPress, onCancel, onReview }: AppointmentCardProps) {
   const statusConfig = getStatusConfig(appointment.status);
   const dateInfo = formatDate(appointment.bookingDate);
   const isUpcoming = new Date(appointment.bookingDate) >= new Date();
   const showCancelButton = canCancelAppointment(appointment);
+  const isCompleted = appointment.status.toLowerCase() === "completed";
+  const canReview = isCompleted && !appointment.hasReview;
 
   return (
     <TouchableOpacity
@@ -212,6 +215,32 @@ function AppointmentCard({ appointment, onPress, onCancel }: AppointmentCardProp
               </Text>
             </TouchableOpacity>
           )}
+
+          {/* Review Button for completed bookings (only if not already reviewed) */}
+          {canReview && (
+            <TouchableOpacity
+              onPress={(e) => {
+                e.stopPropagation();
+                onReview();
+              }}
+              className="mt-3 flex-row items-center justify-center py-2 rounded-lg bg-[#FFCC00]/20"
+            >
+              <Ionicons name="star" size={16} color="#FFCC00" />
+              <Text className="text-[#FFCC00] text-sm font-medium ml-1">
+                Write Review
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Already reviewed indicator */}
+          {isCompleted && appointment.hasReview && (
+            <View className="mt-3 flex-row items-center justify-center py-2 rounded-lg bg-green-500/20">
+              <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
+              <Text className="text-green-500 text-sm font-medium ml-1">
+                Reviewed
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Service Image */}
@@ -257,12 +286,22 @@ export default function BookingsTab() {
   const cancelMutation = useCancelAppointmentMutation();
 
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<FilterTab>("upcoming");
+  const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const [activeStatus, setActiveStatus] = useState<StatusFilter>("all");
   const [showTimeFilter, setShowTimeFilter] = useState(false);
   const [showStatusFilter, setShowStatusFilter] = useState(false);
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<MyAppointment | null>(null);
+
+  // Auto-switch to "all" time filter for completed/cancelled status
+  // since these are typically past appointments
+  useEffect(() => {
+    if (activeStatus === "completed" || activeStatus === "cancelled") {
+      if (activeTab === "upcoming") {
+        setActiveTab("all");
+      }
+    }
+  }, [activeStatus]);
 
   // Filter and sort appointments
   const filteredAppointments = useMemo(() => {
@@ -273,10 +312,23 @@ export default function BookingsTab() {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
 
-    const upcoming = appointmentData.filter(
+    // Helper to check if booking date has expired
+    const isExpired = (apt: MyAppointment) => new Date(apt.bookingDate) < now;
+
+    // Filter out expired pending bookings (pending with past dates should not show)
+    // Paid, completed, and cancelled bookings should always show regardless of date
+    const validAppointments = appointmentData.filter((apt) => {
+      const status = apt.status.toLowerCase();
+      if (status === "pending" && isExpired(apt)) {
+        return false; // Hide expired pending bookings
+      }
+      return true; // Show all other bookings
+    });
+
+    const upcoming = validAppointments.filter(
       (apt) => new Date(apt.bookingDate) >= now
     );
-    const past = appointmentData.filter(
+    const past = validAppointments.filter(
       (apt) => new Date(apt.bookingDate) < now
     );
 
@@ -319,12 +371,24 @@ export default function BookingsTab() {
   }, [refetch]);
 
   const handleAppointmentPress = (appointment: MyAppointment) => {
-    router.push(`/customer/service/${appointment.serviceId}`);
+    // Pass booking info to service detail screen
+    router.push(
+      `/customer/service/${appointment.serviceId}?orderId=${appointment.orderId}&bookingStatus=${appointment.status}&hasReview=${appointment.hasReview || false}` as any
+    );
   };
 
   const handleCancelPress = (appointment: MyAppointment) => {
     setSelectedAppointment(appointment);
     setCancelModalVisible(true);
+  };
+
+  const handleReviewPress = (appointment: MyAppointment) => {
+    const params = new URLSearchParams({
+      serviceId: appointment.serviceId || "",
+      serviceName: appointment.serviceName || "",
+      shopName: appointment.shopName || "",
+    });
+    router.push(`/customer/review/${appointment.orderId}?${params.toString()}` as any);
   };
 
   const handleConfirmCancel = () => {
@@ -350,6 +414,7 @@ export default function BookingsTab() {
       appointment={item}
       onPress={() => handleAppointmentPress(item)}
       onCancel={() => handleCancelPress(item)}
+      onReview={() => handleReviewPress(item)}
     />
   );
 
