@@ -5,29 +5,25 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
-import { useUpdatePromoCodeStatus } from "@/hooks/useShopRewards";
 import { ThemedView } from "@/components/ui/ThemedView";
 import { PromoCodeCard } from "@/components/shop/PromoCodeCard";
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
-import { useShop } from "@/hooks/shop/useShop";
-import { useAuthStore } from "@/store/auth.store";
 import ActionCard from "@/components/shared/ActionCard";
+import { usePromoCode } from "../../../hooks";
 
 export default function PromoCodeTab() {
-  const shopId = useAuthStore((state) => state.userProfile?.shopId);
-  const { useShopPromoCodes } = useShop();
-  const { data: promoCodesData, isLoading } = useShopPromoCodes(shopId);
-  const updatePromoCodeStatusMutation = useUpdatePromoCodeStatus();
-
-  const handleTogglePromoCode = (promoCodeId: string, isActive: boolean) => {
-    updatePromoCodeStatusMutation.mutate({ promoCodeId, isActive });
-  };
+  const {
+    promoCodes,
+    isLoading,
+    isUpdating,
+    togglePromoCodeStatus,
+  } = usePromoCode();
 
   return (
     <ThemedView className="w-full h-full">
       {/* Loading Overlay */}
-      <LoadingOverlay 
-        visible={updatePromoCodeStatusMutation.isPending}
+      <LoadingOverlay
+        visible={isUpdating}
         message="Updating promo code..."
       />
 
@@ -51,13 +47,13 @@ export default function PromoCodeTab() {
           </View>
         ) : (
           <FlatList
-            data={promoCodesData || []}
+            data={promoCodes}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
-              <PromoCodeCard 
-                promoCode={item} 
-                onToggleStatus={handleTogglePromoCode}
-                isUpdating={updatePromoCodeStatusMutation.isPending}
+              <PromoCodeCard
+                promoCode={item}
+                onToggleStatus={togglePromoCodeStatus}
+                isUpdating={isUpdating}
               />
             )}
             contentContainerStyle={{ paddingBottom: 20 }}
