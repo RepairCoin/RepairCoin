@@ -10,7 +10,6 @@ import { router } from "expo-router";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useAuthStore } from "@/store/auth.store";
 import { useAuth } from "@/hooks/auth/useAuth";
-import { useTheme } from "@/hooks/theme/useTheme";
 import { AppHeader } from "@/components/ui/AppHeader";
 
 interface SettingsItemProps {
@@ -93,12 +92,10 @@ function Divider() {
   return <View className="h-px bg-zinc-800 ml-16" />;
 }
 
-export default function SettingScreen() {
+export default function ShopSettingsScreen() {
   const { account } = useAuthStore();
   const { useLogout } = useAuth();
   const { logout, isLoggingOut } = useLogout();
-  const { useThemeColor } = useTheme();
-  const { toggleColorScheme, isDarkMode } = useThemeColor();
 
   const handleLogout = async () => {
     await logout();
@@ -116,10 +113,10 @@ export default function SettingScreen() {
         {/* Account Section */}
         <SettingsSection title="Account">
           <SettingsItem
-            icon={<Ionicons name="person-outline" size={20} color="#FFCC00" />}
+            icon={<Ionicons name="storefront-outline" size={20} color="#FFCC00" />}
             title="Edit Profile"
-            subtitle="Update your personal information"
-            onPress={() => router.push("/customer/profile")}
+            subtitle="Update your shop information"
+            onPress={() => router.push("/shop/profile/edit-profile")}
           />
           <Divider />
           <SettingsItem
@@ -136,7 +133,7 @@ export default function SettingScreen() {
         </SettingsSection>
 
         {/* Appearance Section */}
-        <SettingsSection title="Appearance">
+        {/* <SettingsSection title="Appearance">
           <SettingsItem
             icon={
               <Ionicons
@@ -166,17 +163,30 @@ export default function SettingScreen() {
               </View>
             }
           />
-        </SettingsSection>
+        </SettingsSection> */}
 
-        {/* Rewards Section */}
-        <SettingsSection title="Rewards">
+        {/* Subscription & Tokens Section */}
+        <SettingsSection title="Subscription & Tokens">
           <SettingsItem
-            icon={<MaterialIcons name="group" size={20} color="#FFCC00" />}
-            title="Refer Your Friends"
-            subtitle="Earn RCN for every friend you refer"
-            onPress={() => router.push("/customer/referral")}
+            icon={<MaterialIcons name="card-membership" size={20} color="#FFCC00" />}
+            title="Subscription"
+            subtitle="Manage your plan"
+            onPress={() => router.push("/shop/subscription")}
           />
           <Divider />
+          <SettingsItem
+            icon={<Ionicons name="wallet" size={20} color="#FFCC00" />}
+            title="Buy RCN Tokens"
+            subtitle="Purchase tokens for rewards"
+            onPress={() => router.push("/shop/buy-token")}
+          />
+          <Divider />
+          <SettingsItem
+            icon={<Ionicons name="qr-code" size={20} color="#FFCC00" />}
+            title="Redeem Tokens"
+            subtitle="Process customer redemptions"
+            onPress={() => router.push("/shop/redeem-token")}
+          />
         </SettingsSection>
 
         {/* Support Section */}
