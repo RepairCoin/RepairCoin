@@ -2,9 +2,11 @@ import React from "react";
 import {
   View,
   Text,
-  ActivityIndicator,
   ScrollView,
   RefreshControl,
+  Image,
+  TouchableOpacity,
+  ImageBackground,
 } from "react-native";
 import { MaterialIcons, Octicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -13,6 +15,9 @@ import ActionCard from "@/components/shared/ActionCard";
 import { CustomerGrowthData, ShopData } from "@/interfaces/shop.interface";
 import WalletDetailSection from "./WalletDetailSection";
 import CustomerDetailSection from "./CustomerDetailSection";
+
+const subscriptionHomeImage = require("@/assets/images/subsciption_home.png");
+const logoImage = require("@/assets/images/logo.png");
 
 export default function WalletTab({
   shopData,
@@ -85,6 +90,51 @@ export default function WalletTab({
             },
           ]}
         />
+
+        {/* Subscription Card */}
+        {shopData?.operational_status !== "subscription_qualified" && (
+          <View className="rounded-3xl overflow-hidden">
+            <ImageBackground
+              source={subscriptionHomeImage}
+              resizeMode="contain"
+              className="w-full"
+              imageStyle={{
+                borderRadius: 24,
+                right: -110,
+              }}
+              style={{ minHeight: 180, backgroundColor: '#1a1a1c' }}
+            >
+              <View className="p-6 flex-1 justify-between">
+                {/* Logo + Title */}
+                <View>
+                  <View className="flex-row items-center mb-3 ml-[-12px]">
+                    <Image
+                      source={logoImage}
+                      className="w-60 h-10"
+                      resizeMode="contain"
+                    />
+                  </View>
+
+                  {/* Tagline */}
+                  <Text className="text-[#FFCC00] text-sm">
+                    The Repair Industry's Loyalty Coin
+                  </Text>
+                </View>
+
+                {/* Subscribe Button */}
+                <TouchableOpacity
+                  onPress={() => router.push("/shop/subscription")}
+                  className="bg-[#FFCC00] rounded-xl py-3 px-6 self-start mt-4"
+                  activeOpacity={0.8}
+                >
+                  <Text className="text-black text-base font-bold">
+                    Subscribe Now
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </ImageBackground>
+          </View>
+        )}
 
         {/* Detail Cards */}
         <WalletDetailSection shopData={shopData} />

@@ -136,7 +136,7 @@ export default function SettingScreen() {
         </SettingsSection>
 
         {/* Appearance Section */}
-        <SettingsSection title="Appearance">
+        {/* <SettingsSection title="Appearance">
           <SettingsItem
             icon={
               <Ionicons
@@ -166,7 +166,7 @@ export default function SettingScreen() {
               </View>
             }
           />
-        </SettingsSection>
+        </SettingsSection> */}
 
         {/* Rewards Section */}
         <SettingsSection title="Rewards">
