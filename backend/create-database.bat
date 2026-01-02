@@ -17,6 +17,7 @@ if exist "C:\Program Files\PostgreSQL\14\bin\psql.exe" (
 )
 if exist "C:\Program Files\PostgreSQL\13\bin\psql.exe" (
     set PSQL="C:\Program Files\PostgreSQL\13\bin\psql.exe"
+    
     goto found
 )
 

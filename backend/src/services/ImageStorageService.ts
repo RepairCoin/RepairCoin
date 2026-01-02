@@ -1,9 +1,12 @@
 // backend/src/services/ImageStorageService.ts
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { logger } from '../utils/logger';
 import crypto from 'crypto';
 import path from 'path';
+import dns from 'dns';
+import https from 'https';
 
 // Define Multer file type to avoid dependency on @types/multer in production
 interface MulterFile {
@@ -31,6 +34,7 @@ export class ImageStorageService {
   private bucketName: string;
   private region: string;
   private cdnEndpoint: string;
+  private resolvedEndpoint: string | null = null;
 
   constructor() {
     // DigitalOcean Spaces configuration
@@ -42,20 +46,31 @@ export class ImageStorageService {
       throw new Error('DO_SPACES_BUCKET environment variable is required');
     }
 
-    // Initialize S3 client for DigitalOcean Spaces
+    // Use Google DNS for resolution
+    dns.setServers(['8.8.8.8', '8.8.4.4']);
+
+    // Resolve the Spaces endpoint IP address synchronously
+    const spacesHostname = `${this.bucketName}.${this.region}.digitaloceanspaces.com`;
+
+    logger.info('Resolving DigitalOcean Spaces endpoint...', { hostname: spacesHostname });
+
+    // Use a simpler approach: create S3 client without custom lookup
+    // The DNS resolution will happen automatically with Google DNS
     this.s3Client = new S3Client({
-      endpoint: `https://${this.region}.digitaloceanspaces.com`,
+      endpoint: `https://${spacesHostname}`,
       region: this.region,
       credentials: {
         accessKeyId: process.env.DO_SPACES_KEY || '',
         secretAccessKey: process.env.DO_SPACES_SECRET || '',
       },
-      forcePathStyle: false, // DigitalOcean Spaces uses virtual-hosted-style
+      forcePathStyle: false,
     });
 
     logger.info('ImageStorageService initialized', {
       bucket: this.bucketName,
       region: this.region,
+      endpoint: spacesHostname,
+      googleDNS: true,
     });
   }
 

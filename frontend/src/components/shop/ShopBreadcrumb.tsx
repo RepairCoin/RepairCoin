@@ -20,6 +20,7 @@ import {
   Search,
   ShoppingCart,
   TrendingUp,
+  MessageCircle,
 } from "lucide-react";
 
 // Tab configuration with icons, titles, and descriptions
@@ -37,6 +38,11 @@ const TAB_CONFIG: Record<string, {
     title: "Services",
     icon: <HeartHandshakeIcon className="w-5 h-5" />,
     description: "Manage your service offerings and pricing",
+  },
+  messages: {
+    title: "Messages",
+    icon: <MessageCircle className="w-5 h-5" />,
+    description: "Communicate with customers about bookings and services",
   },
   bookings: {
     title: "Bookings",

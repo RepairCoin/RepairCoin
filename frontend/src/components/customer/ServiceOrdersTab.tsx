@@ -88,9 +88,9 @@ export const ServiceOrdersTab: React.FC = () => {
   };
 
   const handleBookAgain = (order: ServiceOrderWithDetails) => {
-    // Navigate to the service page so user can book it again
-    router.push(`/customer/services/${order.serviceId}`);
-    toast.success("Redirecting to service page...");
+    // Navigate to the shop profile page where user can view and book the service again
+    router.push(`/customer/shop/${order.shopId}`);
+    toast.success("Redirecting to shop...");
   };
 
   const getStatusInfo = (status: string) => {

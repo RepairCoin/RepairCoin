@@ -15,6 +15,7 @@ import { SuspensionBanner } from "@/components/customer/SuspensionBanner";
 import { ServiceMarketplaceClient } from "@/components/customer/ServiceMarketplaceClient";
 import { ServiceOrdersTab } from "@/components/customer/ServiceOrdersTab";
 import { AppointmentsTab } from "@/components/customer/AppointmentsTab";
+import { MessagesTab } from "@/components/customer/tabs/MessagesTab";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 import { FilterTabs } from "@/components/ui/FilterTabs";
 
@@ -31,7 +32,7 @@ export default function CustomerDashboardClient() {
   const { isAuthenticated, userType, isLoading: authLoading, userProfile } = useAuthStore();
   const [authInitialized, setAuthInitialized] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    "overview" | "marketplace" | "orders" | "appointments" | "referrals" | "approvals" | "findshop" | "gifting" | "settings"
+    "overview" | "marketplace" | "orders" | "appointments" | "messages" | "referrals" | "approvals" | "findshop" | "gifting" | "settings"
   >("overview");
 
   // Mark auth as initialized once authentication has been attempted
@@ -167,6 +168,7 @@ export default function CustomerDashboardClient() {
             tabs={[
               { value: "overview", label: "Overview" },
               { value: "marketplace", label: "Marketplace" },
+              { value: "messages", label: "Messages" },
               { value: "orders", label: "Bookings" },
               { value: "appointments", label: "Appointments" },
               { value: "referrals", label: "Referrals" },
@@ -185,6 +187,11 @@ export default function CustomerDashboardClient() {
 
           {/* Marketplace Tab */}
           {activeTab === "marketplace" && <ServiceMarketplaceClient />}
+
+          {/* Messages Tab */}
+          {activeTab === "messages" && userProfile?.id && (
+            <MessagesTab customerId={userProfile.id} />
+          )}
 
           {/* Orders Tab */}
           {activeTab === "orders" && <ServiceOrdersTab />}

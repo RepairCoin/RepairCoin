@@ -23,7 +23,6 @@ import { FaFacebook, FaTwitter, FaInstagram } from "react-icons/fa";
 import { ShopService } from "@/services/shopService";
 import { getAllServices, getShopServices, ShopServiceWithShopInfo } from "@/services/api/services";
 import { getGalleryPhotos, type GalleryPhoto } from "@/services/api/shop";
-import { getShopAvailability } from "@/services/api/appointments";
 import { ServiceCard } from "./ServiceCard";
 import { ServiceDetailsModal } from "./ServiceDetailsModal";
 import { ServiceCheckoutModal } from "./ServiceCheckoutModal";
@@ -79,12 +78,11 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
     try {
       console.log("🔍 [ShopProfile] Loading data for shopId:", shopId);
 
-      // Fetch shop info, services, gallery, and availability in parallel
-      const [shopData, servicesData, gallery, availability] = await Promise.all([
+      // Fetch shop info, services, and gallery in parallel
+      const [shopData, servicesData, gallery] = await Promise.all([
         ShopService.getShopById(shopId),
         getShopServices(shopId),
         getGalleryPhotos(shopId),
-        getShopAvailability(shopId).catch(() => null), // Optional: fail gracefully
       ]);
 
       console.log("🔍 [ShopProfile] Shop data:", shopData);
@@ -709,6 +707,9 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
           onSuccess={handleCheckoutSuccess}
         />
       )}
+      </div>
     </div>
   );
 };
+
+export default ShopProfileClient;
