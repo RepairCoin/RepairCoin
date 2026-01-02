@@ -14,6 +14,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAppointment } from "@/feature/booking/hooks";
 import { MyAppointment } from "@/interfaces/appointment.interface";
 import { router } from "expo-router";
+import { FilterButton } from "@/components/shared/FilterButton";
+import { FilterModal, FilterOption } from "@/components/shared/FilterModal";
 
 type FilterTab = "upcoming" | "past" | "all";
 type StatusFilter = "all" | "pending" | "paid" | "completed" | "cancelled";
@@ -227,105 +229,19 @@ function AppointmentCard({ appointment, onPress, onCancel }: AppointmentCardProp
   );
 }
 
-const TIME_FILTERS: { key: FilterTab; label: string }[] = [
+const TIME_FILTERS: FilterOption[] = [
   { key: "upcoming", label: "Upcoming" },
   { key: "past", label: "Past" },
   { key: "all", label: "All" },
 ];
 
-const STATUS_FILTERS: { key: StatusFilter; label: string; color: string }[] = [
+const STATUS_FILTERS: FilterOption[] = [
   { key: "all", label: "All Status", color: "#FFCC00" },
   { key: "pending", label: "Pending", color: "#EAB308" },
   { key: "paid", label: "Paid", color: "#3B82F6" },
   { key: "completed", label: "Completed", color: "#22C55E" },
   { key: "cancelled", label: "Cancelled", color: "#EF4444" },
 ];
-
-function FilterModal({
-  title,
-  icon,
-  options,
-  selectedKey,
-  onSelect,
-  visible,
-  onClose,
-}: {
-  title: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  options: { key: string; label: string; color?: string }[];
-  selectedKey: string;
-  onSelect: (key: string) => void;
-  visible: boolean;
-  onClose: () => void;
-}) {
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <TouchableOpacity
-        activeOpacity={1}
-        onPress={onClose}
-        className="flex-1 bg-black/60 justify-end"
-      >
-        <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
-          <View className="bg-zinc-900 rounded-t-3xl">
-            {/* Header */}
-            <View className="flex-row items-center justify-between px-5 py-4 border-b border-zinc-800">
-              <View className="flex-row items-center">
-                <Ionicons name={icon} size={20} color="#FFCC00" />
-                <Text className="text-white text-lg font-semibold ml-2">{title}</Text>
-              </View>
-              <TouchableOpacity onPress={onClose} className="p-1">
-                <Ionicons name="close" size={24} color="#9CA3AF" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Options */}
-            <View className="px-4 py-3">
-              {options.map((option) => (
-                <TouchableOpacity
-                  key={option.key}
-                  onPress={() => {
-                    onSelect(option.key);
-                    onClose();
-                  }}
-                  className={`flex-row items-center justify-between px-4 py-4 rounded-xl mb-2 ${
-                    selectedKey === option.key ? "bg-zinc-800" : ""
-                  }`}
-                >
-                  <View className="flex-row items-center">
-                    {option.color && (
-                      <View
-                        className="w-3 h-3 rounded-full mr-3"
-                        style={{ backgroundColor: option.color }}
-                      />
-                    )}
-                    <Text
-                      className={`text-base ${
-                        selectedKey === option.key ? "text-[#FFCC00] font-semibold" : "text-gray-300"
-                      }`}
-                    >
-                      {option.label}
-                    </Text>
-                  </View>
-                  {selectedKey === option.key && (
-                    <Ionicons name="checkmark-circle" size={22} color="#FFCC00" />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Bottom safe area */}
-            <View className="h-8" />
-          </View>
-        </TouchableOpacity>
-      </TouchableOpacity>
-    </Modal>
-  );
-}
 
 export default function BookingsTab() {
   const { useMyAppointmentsQuery, useCancelAppointmentMutation } = useAppointment();
@@ -496,27 +412,16 @@ export default function BookingsTab() {
     <View className="flex-1">
       {/* Filter Buttons */}
       <View className="flex-row gap-3 mb-4">
-        <TouchableOpacity
+        <FilterButton
+          icon="calendar-outline"
+          label={currentTimeLabel}
           onPress={() => setShowTimeFilter(true)}
-          className="flex-1 flex-row items-center justify-between bg-zinc-900 rounded-xl px-3 py-3"
-        >
-          <View className="flex-row items-center">
-            <Ionicons name="calendar-outline" size={18} color="#FFCC00" />
-            <Text className="text-white text-sm font-medium ml-2">{currentTimeLabel}</Text>
-          </View>
-          <Ionicons name="chevron-down" size={16} color="#9CA3AF" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
+        />
+        <FilterButton
+          icon="filter-outline"
+          label={currentStatusLabel}
           onPress={() => setShowStatusFilter(true)}
-          className="flex-1 flex-row items-center justify-between bg-zinc-900 rounded-xl px-3 py-3"
-        >
-          <View className="flex-row items-center">
-            <Ionicons name="filter-outline" size={18} color="#FFCC00" />
-            <Text className="text-white text-sm font-medium ml-2">{currentStatusLabel}</Text>
-          </View>
-          <Ionicons name="chevron-down" size={16} color="#9CA3AF" />
-        </TouchableOpacity>
+        />
       </View>
 
       {/* Filter Modals */}
