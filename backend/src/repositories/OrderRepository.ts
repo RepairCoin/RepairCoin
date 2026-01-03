@@ -19,6 +19,9 @@ export interface ServiceOrder {
   bookingTime?: string;
   completedAt?: Date;
   notes?: string;
+  noShow?: boolean;
+  markedNoShowAt?: Date;
+  noShowNotes?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -534,6 +537,9 @@ export class OrderRepository extends BaseRepository {
       bookingTime: row.booking_time,
       completedAt: row.completed_at,
       notes: row.notes,
+      noShow: row.no_show || false,
+      markedNoShowAt: row.marked_no_show_at,
+      noShowNotes: row.no_show_notes,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
