@@ -3,7 +3,6 @@ import {
   Text,
   View,
   TouchableOpacity,
-  TextInput,
   ScrollView,
   Alert,
   Image,
@@ -15,12 +14,17 @@ import {
   Pressable,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { useLocalSearchParams } from "expo-router";
-import { AntDesign, Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams, router } from "expo-router";
+import { AntDesign, Feather, Ionicons } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
 import { useQueryClient } from "@tanstack/react-query";
+import { LinearGradient } from "expo-linear-gradient";
 
 import { ThemedView } from "@/components/ui/ThemedView";
+import FormInput from "@/components/ui/FormInput";
+import SectionHeader from "@/components/ui/SectionHeader";
+import PrimaryButton from "@/components/ui/PrimaryButton";
+import SubscriptionModal from "@/components/shop/SubscriptionModal";
 import { SERVICE_CATEGORIES } from "@/constants/service-categories";
 import { useAuthStore } from "@/store/auth.store";
 import { useService } from "@/hooks/service/useService";
@@ -31,6 +35,7 @@ import {
   ShopAvailability,
   TimeSlotConfig,
 } from "@/interfaces/appointment.interface";
+import { useShop } from "@/hooks/shop/useShop";
 
 type AvailabilityTab = "hours" | "settings";
 
@@ -561,9 +566,11 @@ export default function ServiceForm() {
   const serviceDataString = params.data as string;
 
   const queryClient = useQueryClient();
-  const { userProfile } = useAuthStore();
+  const { account, userProfile } = useAuthStore();
   const shopId = userProfile?.shopId;
+  const { useGetShopByWalletAddress } = useShop();
 
+  const { data: shopData } = useGetShopByWalletAddress(account?.address || "");
   const { mutateAsync: createServiceMutation } = useCreateService();
   const { mutateAsync: updateServiceMutation } = useUpdateService();
 
@@ -583,6 +590,7 @@ export default function ServiceForm() {
   const [showAvailability, setShowAvailability] = useState(false);
   const [pendingAvailabilityChanges, setPendingAvailabilityChanges] =
     useState<PendingAvailabilityChanges | null>(null);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   // Load service data for edit mode
   useEffect(() => {
@@ -622,6 +630,10 @@ export default function ServiceForm() {
   };
 
   const [isUploading, setIsUploading] = useState(false);
+
+  const isQualified =
+    shopData?.operational_status === "subscription_qualified" ||
+    shopData?.operational_status === "rcg_qualified";
 
   const uploadImage = async (uri: string): Promise<string | null> => {
     try {
@@ -752,6 +764,12 @@ export default function ServiceForm() {
   };
 
   const handleSubmit = async () => {
+    // Check if user is qualified (has subscription or RCG tokens)
+    if (!isQualified) {
+      setShowSubscriptionModal(true);
+      return;
+    }
+
     // Validation
     if (!formData.serviceName.trim()) {
       Alert.alert("Error", "Please enter a service name");
@@ -844,86 +862,120 @@ export default function ServiceForm() {
 
   return (
     <ThemedView className="h-full w-full">
-      <ScrollView
-        className="flex-1"
-        contentContainerStyle={{ paddingBottom: 100 }}
+      {/* Header */}
+      <LinearGradient
+        colors={["#2A2A2C", "#1A1A1C"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={{
+          paddingTop: Platform.OS === "ios" ? 60 : 50,
+          paddingBottom: 20,
+          paddingHorizontal: 16,
+        }}
       >
-        <View className={`px-4 ${Platform.OS === "ios" ? "pt-14" : "pt-20"}`}>
-          <View className="flex-row justify-between items-center mb-6">
-            <TouchableOpacity onPress={goBack}>
-              <AntDesign name="left" color="white" size={24} />
-            </TouchableOpacity>
-            <Text className="text-white text-xl font-semibold">
-              {isEditMode ? "Edit Service" : "Add New Service"}
-            </Text>
-            <View className="w-[24px]" />
-          </View>
+        <View className="flex-row justify-between items-center">
+          <TouchableOpacity
+            onPress={goBack}
+            className="w-10 h-10 rounded-full bg-[#333] items-center justify-center"
+          >
+            <AntDesign name="left" color="white" size={18} />
+          </TouchableOpacity>
+          <Text className="text-white text-xl font-bold">
+            {isEditMode ? "Edit Service" : "Add New Service"}
+          </Text>
+          <View className="w-10" />
+        </View>
+      </LinearGradient>
 
-          {/* Service Name */}
-          <View className="mb-4">
-            <Text className="text-gray-400 text-sm mb-2">Service Name *</Text>
-            <TextInput
-              className="bg-gray-800 text-white px-4 py-3 rounded-lg"
-              placeholder="e.g., Oil Change Service"
-              placeholderTextColor="#6B7280"
-              value={formData.serviceName}
-              onChangeText={(text) =>
-                setFormData({ ...formData, serviceName: text })
-              }
-            />
-          </View>
+      <ScrollView
+        className="flex-1 px-4"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 120 }}
+      >
+        {/* Service Details Section */}
+        <SectionHeader
+          icon={<Feather name="info" size={16} color="#000" />}
+          title="Service Details"
+        />
+
+        {/* Service Name */}
+          <FormInput
+            label="Service Name *"
+            placeholder="e.g., Oil Change Service"
+            value={formData.serviceName}
+            onChangeText={(text) =>
+              setFormData({ ...formData, serviceName: text })
+            }
+            icon={<Ionicons name="create-outline" size={20} color="#FFCC00" />}
+          />
 
           {/* Category */}
           <View className="mb-4">
-            <Text className="text-gray-400 text-sm mb-2">Category *</Text>
+            <Text className="text-sm font-medium text-gray-400 mb-2 ml-1">
+              Category *
+            </Text>
             <TouchableOpacity
               onPress={() => setCategoryModalVisible(true)}
-              className="bg-gray-800 px-4 py-3 rounded-lg flex-row items-center justify-between"
+              activeOpacity={0.7}
             >
-              <Text className="text-white">
-                {selectedCategory?.label || "Select a category"}
-              </Text>
-              <Ionicons name="chevron-down" size={20} color="#9CA3AF" />
+              <View className="flex-row items-center rounded-xl px-4 py-3 bg-[#2A2A2C]">
+                <View className="w-10 h-10 rounded-full bg-[#FFCC00] items-center justify-center mr-3">
+                  <Ionicons name="grid-outline" size={20} color="#000" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-white text-base">
+                    {selectedCategory?.label || "Select a category"}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#666" />
+              </View>
             </TouchableOpacity>
           </View>
 
           {/* Description */}
-          <View className="mb-4">
-            <Text className="text-gray-400 text-sm mb-2">
-              Short Description *
-            </Text>
-            <TextInput
-              className="bg-gray-800 text-white px-4 py-3 rounded-lg"
-              placeholder="Brief description of your service"
-              placeholderTextColor="#6B7280"
-              value={formData.description}
-              onChangeText={(text) =>
-                setFormData({ ...formData, description: text })
-              }
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-            />
-          </View>
+          <FormInput
+            label="Short Description *"
+            placeholder="Brief description of your service"
+            value={formData.description}
+            onChangeText={(text) =>
+              setFormData({ ...formData, description: text })
+            }
+            icon={<Ionicons name="document-text-outline" size={20} color="#FFCC00" />}
+            multiline
+            numberOfLines={3}
+            textAlignVertical="top"
+            style={{ height: 80, paddingTop: 12 }}
+          />
+
+          {/* Pricing Section */}
+          <SectionHeader
+            icon={<Feather name="dollar-sign" size={16} color="#000" />}
+            title="Pricing"
+          />
 
           {/* Price */}
-          <View className="mb-4">
-            <Text className="text-gray-400 text-sm mb-2">Price (USD) *</Text>
-            <TextInput
-              className="bg-gray-800 text-white px-4 py-3 rounded-lg"
-              placeholder="0.00"
-              placeholderTextColor="#6B7280"
-              value={formData.priceUsd}
-              onChangeText={(text) =>
-                setFormData({ ...formData, priceUsd: text })
-              }
-              keyboardType="decimal-pad"
-            />
-          </View>
+          <FormInput
+            label="Price (USD) *"
+            placeholder="0.00"
+            value={formData.priceUsd}
+            onChangeText={(text) =>
+              setFormData({ ...formData, priceUsd: text })
+            }
+            keyboardType="decimal-pad"
+            icon={<Ionicons name="cash-outline" size={20} color="#FFCC00" />}
+          />
+
+          {/* Media Section */}
+          <SectionHeader
+            icon={<Feather name="image" size={16} color="#000" />}
+            title="Media"
+          />
 
           {/* Image Upload */}
           <View className="mb-4">
-            <Text className="text-gray-400 text-sm mb-2">Service Image</Text>
+            <Text className="text-sm font-medium text-gray-400 mb-2 ml-1">
+              Service Image
+            </Text>
             <TouchableOpacity
               onPress={handleImagePick}
               disabled={isUploading}
@@ -988,38 +1040,48 @@ export default function ServiceForm() {
             </TouchableOpacity>
           </View>
 
+          {/* Settings Section */}
+          <SectionHeader
+            icon={<Feather name="settings" size={16} color="#000" />}
+            title="Settings"
+          />
+
           {/* Tags */}
-          <View className="mb-4">
-            <Text className="text-gray-400 text-sm mb-2">Tags (Optional)</Text>
-            <TextInput
-              className="bg-gray-800 text-white px-4 py-3 rounded-lg"
-              placeholder="e.g., maintenance, quick-service (comma separated)"
-              placeholderTextColor="#6B7280"
-              value={formData.tags}
-              onChangeText={(text) => setFormData({ ...formData, tags: text })}
-            />
-          </View>
+          <FormInput
+            label="Tags (Optional)"
+            placeholder="e.g., maintenance, quick-service (comma separated)"
+            value={formData.tags}
+            onChangeText={(text) => setFormData({ ...formData, tags: text })}
+            icon={<Ionicons name="pricetags-outline" size={20} color="#FFCC00" />}
+            helperText="Separate tags with commas"
+          />
 
           {/* Service Status */}
           <View className="mb-4">
-            <Text className="text-gray-400 text-sm mb-2">Service Status</Text>
-            <View className="bg-gray-800 px-4 py-4 rounded-lg flex-row items-center justify-between">
-              <View className="flex-row items-center flex-1">
+            <Text className="text-sm font-medium text-gray-400 mb-2 ml-1">
+              Service Status
+            </Text>
+            <View className="flex-row items-center rounded-xl px-4 py-3 bg-[#2A2A2C]">
+              <View
+                className={`w-10 h-10 rounded-full items-center justify-center mr-3 ${
+                  formData.active ? "bg-green-500/20" : "bg-red-500/20"
+                }`}
+              >
                 <Ionicons
                   name={formData.active ? "checkmark-circle" : "close-circle"}
                   size={20}
                   color={formData.active ? "#22c55e" : "#ef4444"}
                 />
-                <View className="ml-3 flex-1">
-                  <Text className="text-white font-medium">
-                    {formData.active ? "Active" : "Inactive"}
-                  </Text>
-                  <Text className="text-gray-500 text-xs">
-                    {formData.active
-                      ? "Service is visible to customers"
-                      : "Service is hidden from customers"}
-                  </Text>
-                </View>
+              </View>
+              <View className="flex-1">
+                <Text className="text-white font-medium">
+                  {formData.active ? "Active" : "Inactive"}
+                </Text>
+                <Text className="text-gray-500 text-xs">
+                  {formData.active
+                    ? "Service is visible to customers"
+                    : "Service is hidden from customers"}
+                </Text>
               </View>
               <Switch
                 value={formData.active}
@@ -1027,21 +1089,25 @@ export default function ServiceForm() {
                   setFormData({ ...formData, active: value })
                 }
                 trackColor={{ false: "#374151", true: "#22c55e" }}
-                thumbColor={formData.active ? "#fff" : "#9CA3AF"}
+                thumbColor="#fff"
               />
             </View>
           </View>
 
           {/* Availability Settings */}
           <View className="mb-4">
-            <Text className="text-gray-400 text-sm mb-2">Availability</Text>
+            <Text className="text-sm font-medium text-gray-400 mb-2 ml-1">
+              Availability
+            </Text>
             <TouchableOpacity
               onPress={() => setShowAvailability(true)}
-              className="bg-gray-800 px-4 py-4 rounded-lg flex-row items-center justify-between"
+              activeOpacity={0.7}
             >
-              <View className="flex-row items-center">
-                <Ionicons name="time-outline" size={20} color="#FFCC00" />
-                <View className="ml-3">
+              <View className="flex-row items-center rounded-xl px-4 py-3 bg-[#2A2A2C]">
+                <View className="w-10 h-10 rounded-full bg-[#FFCC00] items-center justify-center mr-3">
+                  <Ionicons name="time-outline" size={20} color="#000" />
+                </View>
+                <View className="flex-1">
                   <Text className="text-white font-medium">
                     Availability Settings
                   </Text>
@@ -1049,31 +1115,25 @@ export default function ServiceForm() {
                     Set operating hours, booking slots & holidays
                   </Text>
                 </View>
+                <Ionicons name="chevron-forward" size={20} color="#666" />
               </View>
-              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
             </TouchableOpacity>
           </View>
-        </View>
       </ScrollView>
-      {/* Submit Button */}
-      <View className="absolute bottom-0 left-0 right-0 bg-zinc-950 px-6 pt-4 pb-8 border-t border-gray-800">
-        <TouchableOpacity
+      {/* Fixed Bottom Button */}
+      <View
+        className="absolute bottom-0 left-0 right-0 px-4 pb-8 pt-4"
+        style={{
+          backgroundColor: "#121212",
+          borderTopWidth: 1,
+          borderTopColor: "#2A2A2C",
+        }}
+      >
+        <PrimaryButton
+          title={isEditMode ? "Update Service" : "Create Service"}
           onPress={handleSubmit}
-          disabled={isSubmitting}
-          className={`bg-[#FFCC00] rounded-lg py-4 items-center ${
-            isSubmitting ? "opacity-50" : ""
-          }`}
-        >
-          <Text className="text-black text-lg font-bold ml-2">
-            {isSubmitting
-              ? isEditMode
-                ? "Updating..."
-                : "Creating..."
-              : isEditMode
-                ? "Update Service"
-                : "Create Service"}
-          </Text>
-        </TouchableOpacity>
+          loading={isSubmitting}
+        />
       </View>
 
       {/* Category Selection Modal */}
@@ -1175,6 +1235,16 @@ export default function ServiceForm() {
           shopId={shopId}
         />
       )}
+
+      {/* Subscription Modal */}
+      <SubscriptionModal
+        visible={showSubscriptionModal}
+        onClose={() => setShowSubscriptionModal(false)}
+        onSubscribe={() => {
+          setShowSubscriptionModal(false);
+          router.push("/shop/subscription");
+        }}
+      />
     </ThemedView>
   );
 }

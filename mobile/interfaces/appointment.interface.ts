@@ -93,6 +93,7 @@ export interface MyAppointment {
   totalAmount: number;
   notes: string | null;
   createdAt: string;
+  hasReview?: boolean;
 }
 
 export interface TimeSlotsResponse extends BaseResponse<TimeSlot[]> {}

@@ -144,7 +144,9 @@ router.get('/', async (req: Request, res: Response) => {
       twitter: shop.twitter,
       instagram: shop.instagram,
       category: shop.category,
-      logoUrl: shop.logoUrl
+      logoUrl: shop.logoUrl,
+      bannerUrl: shop.bannerUrl,
+      aboutText: shop.aboutText
     }));
 
     res.json({
@@ -205,7 +207,9 @@ router.get('/:shopId', optionalAuthMiddleware, async (req: Request, res: Respons
         twitter: shop.twitter,
         instagram: shop.instagram,
         category: shop.category,
-        logoUrl: shop.logoUrl
+        logoUrl: shop.logoUrl,
+        bannerUrl: shop.bannerUrl,
+        aboutText: shop.aboutText
       };
     }
 
@@ -392,6 +396,8 @@ router.get('/wallet/:address',
           // Add other fields as needed
           website: shop.website,
           logoUrl: shop.logoUrl,
+          bannerUrl: shop.bannerUrl,
+          aboutText: shop.aboutText,
           firstName: shop.firstName,
           lastName: shop.lastName,
           companySize: shop.companySize,
@@ -2405,6 +2411,173 @@ router.get('/:shopId/transactions',
         success: false,
         error: 'Failed to retrieve shop transactions'
       });
+    }
+  }
+);
+
+// ========== SHOP PROFILE ENHANCEMENTS ==========
+
+// Update shop profile (banner, about, logo)
+router.put('/:shopId/profile',
+  authMiddleware,
+  requireRole(['shop']),
+  requireShopOwnership,
+  async (req: Request, res: Response) => {
+    try {
+      const { shopId } = req.params;
+      const { bannerUrl, aboutText, logoUrl } = req.body;
+
+      const updates: any = {};
+      if (bannerUrl !== undefined) updates.bannerUrl = bannerUrl;
+      if (aboutText !== undefined) {
+        // Validate about text length (max 2000 characters)
+        if (aboutText && aboutText.length > 2000) {
+          return res.status(400).json({
+            success: false,
+            error: 'About text cannot exceed 2000 characters'
+          });
+        }
+        updates.aboutText = aboutText;
+      }
+      if (logoUrl !== undefined) updates.logoUrl = logoUrl;
+
+      await shopRepository.updateShop(shopId, updates);
+
+      logger.info('Shop profile updated', { shopId, updates });
+
+      res.json({ success: true, message: 'Profile updated successfully' });
+    } catch (error: any) {
+      logger.error('Profile update error:', error);
+      res.status(500).json({ success: false, error: 'Failed to update profile' });
+    }
+  }
+);
+
+// Get shop gallery photos (public)
+router.get('/:shopId/gallery',
+  async (req: Request, res: Response) => {
+    try {
+      const { shopId } = req.params;
+      const photos = await shopRepository.getGalleryPhotos(shopId);
+
+      res.json({ success: true, data: photos });
+    } catch (error: any) {
+      logger.error('Get gallery error:', error);
+      res.status(500).json({ success: false, error: 'Failed to get gallery' });
+    }
+  }
+);
+
+// Add gallery photo (shop owner only)
+router.post('/:shopId/gallery',
+  authMiddleware,
+  requireRole(['shop']),
+  requireShopOwnership,
+  async (req: Request, res: Response) => {
+    try {
+      const { shopId } = req.params;
+      const { photoUrl, caption } = req.body;
+
+      if (!photoUrl) {
+        return res.status(400).json({ success: false, error: 'Photo URL is required' });
+      }
+
+      // Validate caption length if provided
+      if (caption && caption.length > 200) {
+        return res.status(400).json({
+          success: false,
+          error: 'Caption cannot exceed 200 characters'
+        });
+      }
+
+      const result = await shopRepository.addGalleryPhoto(shopId, photoUrl, caption);
+
+      logger.info('Gallery photo added', { shopId, photoId: result.id });
+
+      res.status(201).json({ success: true, data: result });
+    } catch (error: any) {
+      logger.error('Add gallery photo error:', error);
+      res.status(500).json({ success: false, error: error.message || 'Failed to add photo' });
+    }
+  }
+);
+
+// Delete gallery photo
+router.delete('/:shopId/gallery/:photoId',
+  authMiddleware,
+  requireRole(['shop']),
+  requireShopOwnership,
+  async (req: Request, res: Response) => {
+    try {
+      const { shopId, photoId } = req.params;
+
+      await shopRepository.deleteGalleryPhoto(shopId, parseInt(photoId));
+
+      logger.info('Gallery photo deleted', { shopId, photoId });
+
+      res.json({ success: true, message: 'Photo deleted successfully' });
+    } catch (error: any) {
+      logger.error('Delete gallery photo error:', error);
+      res.status(500).json({ success: false, error: error.message || 'Failed to delete photo' });
+    }
+  }
+);
+
+// Update gallery photo caption
+router.put('/:shopId/gallery/:photoId/caption',
+  authMiddleware,
+  requireRole(['shop']),
+  requireShopOwnership,
+  async (req: Request, res: Response) => {
+    try {
+      const { shopId, photoId } = req.params;
+      const { caption } = req.body;
+
+      // Validate caption length
+      if (caption && caption.length > 200) {
+        return res.status(400).json({
+          success: false,
+          error: 'Caption cannot exceed 200 characters'
+        });
+      }
+
+      await shopRepository.updateGalleryPhotoCaption(shopId, parseInt(photoId), caption);
+
+      logger.info('Gallery photo caption updated', { shopId, photoId });
+
+      res.json({ success: true, message: 'Caption updated successfully' });
+    } catch (error: any) {
+      logger.error('Update caption error:', error);
+      res.status(500).json({ success: false, error: error.message || 'Failed to update caption' });
+    }
+  }
+);
+
+// Reorder gallery photos
+router.put('/:shopId/gallery/:photoId/order',
+  authMiddleware,
+  requireRole(['shop']),
+  requireShopOwnership,
+  async (req: Request, res: Response) => {
+    try {
+      const { shopId, photoId } = req.params;
+      const { displayOrder } = req.body;
+
+      if (displayOrder === undefined || displayOrder < 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Display order must be a non-negative number'
+        });
+      }
+
+      await shopRepository.updateGalleryPhotoOrder(shopId, parseInt(photoId), displayOrder);
+
+      logger.info('Gallery photo order updated', { shopId, photoId, displayOrder });
+
+      res.json({ success: true, message: 'Photo order updated successfully' });
+    } catch (error: any) {
+      logger.error('Update photo order error:', error);
+      res.status(500).json({ success: false, error: error.message || 'Failed to update order' });
     }
   }
 );

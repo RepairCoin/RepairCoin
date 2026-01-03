@@ -21,7 +21,17 @@ import { useCustomer } from "@/hooks/customer/useCustomer";
 import { useAuthStore } from "@/store/auth.store";
 
 export default function ServiceDetail() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, orderId, bookingStatus, hasReview } = useLocalSearchParams<{
+    id: string;
+    orderId?: string;
+    bookingStatus?: string;
+    hasReview?: string;
+  }>();
+
+  // Check if this is a completed booking (coming from bookings tab) and not already reviewed
+  const isCompletedBooking = bookingStatus?.toLowerCase() === "completed";
+  const alreadyReviewed = hasReview === "true";
+  const canWriteReview = isCompletedBooking && !alreadyReviewed;
   const { useGetService } = useService();
   const { data: serviceData, isLoading, error } = useGetService(id!);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -160,6 +170,17 @@ export default function ServiceDetail() {
 
   const handleBookNow = () => {
     router.push(`/customer/booking/${id}`);
+  };
+
+  const handleWriteReview = () => {
+    if (orderId) {
+      const params = new URLSearchParams({
+        serviceId: id || "",
+        serviceName: serviceData?.serviceName || "",
+        shopName: serviceData?.shopName || "",
+      });
+      router.push(`/customer/review/${orderId}?${params.toString()}` as any);
+    }
   };
 
   const handleViewShop = () => {
@@ -449,14 +470,30 @@ export default function ServiceDetail() {
             <Ionicons name="storefront-outline" size={20} color="#FFCC00" />
             <Text className="text-white text-lg font-bold ml-2">View Shop</Text>
           </TouchableOpacity>
-          {serviceData.active && (
+          {canWriteReview ? (
             <TouchableOpacity
-              onPress={handleBookNow}
-              className="flex-1 bg-[#FFCC00] rounded-xl py-4 items-center"
+              onPress={handleWriteReview}
+              className="flex-1 bg-[#FFCC00] rounded-xl py-4 items-center flex-row justify-center"
               activeOpacity={0.8}
             >
-              <Text className="text-black text-lg font-bold">Book Now</Text>
+              <Ionicons name="star" size={20} color="black" />
+              <Text className="text-black text-lg font-bold ml-2">Review</Text>
             </TouchableOpacity>
+          ) : alreadyReviewed ? (
+            <View className="flex-1 bg-green-500/20 rounded-xl py-4 items-center flex-row justify-center">
+              <Ionicons name="checkmark-circle" size={20} color="#22C55E" />
+              <Text className="text-green-500 text-lg font-bold ml-2">Reviewed</Text>
+            </View>
+          ) : (
+            serviceData.active && (
+              <TouchableOpacity
+                onPress={handleBookNow}
+                className="flex-1 bg-[#FFCC00] rounded-xl py-4 items-center"
+                activeOpacity={0.8}
+              >
+                <Text className="text-black text-lg font-bold">Book Now</Text>
+              </TouchableOpacity>
+            )
           )}
         </View>
       </View>

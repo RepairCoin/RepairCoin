@@ -442,8 +442,12 @@ export class AppointmentRepository extends BaseRepository {
         SELECT
           so.order_id as "orderId",
           so.shop_id as "shopId",
+          s.business_name as "shopName",
+          s.address as "shopAddress",
+          s.phone as "shopPhone",
           so.service_id as "serviceId",
           ss.service_name as "serviceName",
+          ss.image_url as "serviceImage",
           so.customer_address as "customerAddress",
           c.name as "customerName",
           so.booking_date as "bookingDate",
@@ -452,10 +456,13 @@ export class AppointmentRepository extends BaseRepository {
           so.status,
           so.total_amount as "totalAmount",
           so.notes,
-          so.created_at as "createdAt"
+          so.created_at as "createdAt",
+          CASE WHEN sr.review_id IS NOT NULL THEN true ELSE false END as "hasReview"
         FROM service_orders so
         LEFT JOIN customers c ON c.wallet_address = so.customer_address
         LEFT JOIN shop_services ss ON ss.service_id = so.service_id
+        LEFT JOIN shops s ON s.shop_id = so.shop_id
+        LEFT JOIN service_reviews sr ON sr.order_id = so.order_id
         WHERE so.customer_address = $1
           AND so.booking_date IS NOT NULL
           AND (so.booking_time_slot IS NOT NULL OR so.booking_time IS NOT NULL)

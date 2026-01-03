@@ -58,6 +58,8 @@ interface ShopData {
   category?: string;
   city?: string; // Maps to location_city in database
   logoUrl?: string; // URL to shop logo stored in DigitalOcean Spaces
+  bannerUrl?: string; // URL to shop banner image stored in DigitalOcean Spaces
+  aboutText?: string; // Rich text about section (max 2000 characters)
 }
 
 export interface ShopFilters {
@@ -120,7 +122,9 @@ export class ShopRepository extends BaseRepository {
         country: row.country,
         category: row.category,
         city: row.location_city, // Map location_city to city
-        logoUrl: row.logo_url
+        logoUrl: row.logo_url,
+        bannerUrl: row.banner_url,
+        aboutText: row.about_text
       };
     } catch (error) {
       logger.error('Error fetching shop:', error);
@@ -233,6 +237,10 @@ export class ShopRepository extends BaseRepository {
         facebook: 'facebook',
         twitter: 'twitter',
         instagram: 'instagram',
+        // Profile enhancements
+        logoUrl: 'logo_url',
+        bannerUrl: 'banner_url',
+        aboutText: 'about_text',
         website: 'website',
         // Location field mappings for separate database columns
         locationLat: 'location_lat',
@@ -245,7 +253,6 @@ export class ShopRepository extends BaseRepository {
         lastName: 'last_name',
         category: 'category',
         country: 'country',
-        logoUrl: 'logo_url',
       };
 
       for (const [key, value] of Object.entries(updates)) {
@@ -1643,22 +1650,140 @@ export class ShopRepository extends BaseRepository {
   async getPurchasesInDateRange(startDate: Date, endDate: Date): Promise<any[]> {
     try {
       const query = `
-        SELECT 
+        SELECT
           p.*,
           s.rcg_tier as shop_tier
         FROM shop_rcn_purchases p
         JOIN shops s ON p.shop_id = s.shop_id
-        WHERE p.created_at >= $1 
+        WHERE p.created_at >= $1
           AND p.created_at <= $2
           AND p.status = 'completed'
         ORDER BY p.created_at DESC
       `;
-      
+
       const result = await this.pool.query(query, [startDate, endDate]);
       return result.rows;
     } catch (error) {
       logger.error('Error getting purchases in date range:', error);
       throw new Error('Failed to get purchases in date range');
+    }
+  }
+
+  /**
+   * Gallery Photo Management
+   */
+
+  async addGalleryPhoto(shopId: string, photoUrl: string, caption?: string): Promise<{id: number}> {
+    try {
+      // Check if shop already has 20 photos
+      const countQuery = 'SELECT COUNT(*) as count FROM shop_gallery_photos WHERE shop_id = $1';
+      const countResult = await this.pool.query(countQuery, [shopId]);
+      const currentCount = parseInt(countResult.rows[0].count);
+
+      if (currentCount >= 20) {
+        throw new Error('Maximum of 20 photos allowed per shop');
+      }
+
+      // Get next display order
+      const orderQuery = 'SELECT COALESCE(MAX(display_order), -1) + 1 as next_order FROM shop_gallery_photos WHERE shop_id = $1';
+      const orderResult = await this.pool.query(orderQuery, [shopId]);
+      const nextOrder = orderResult.rows[0].next_order;
+
+      const query = `
+        INSERT INTO shop_gallery_photos (shop_id, photo_url, caption, display_order)
+        VALUES ($1, $2, $3, $4)
+        RETURNING id
+      `;
+
+      const result = await this.pool.query(query, [shopId, photoUrl, caption || null, nextOrder]);
+
+      logger.info('Gallery photo added:', { shopId, photoId: result.rows[0].id });
+      return { id: result.rows[0].id };
+    } catch (error) {
+      logger.error('Error adding gallery photo:', error);
+      throw error;
+    }
+  }
+
+  async getGalleryPhotos(shopId: string): Promise<Array<{id: number; photoUrl: string; caption: string | null; displayOrder: number; createdAt: string}>> {
+    try {
+      const query = `
+        SELECT id, photo_url, caption, display_order, created_at
+        FROM shop_gallery_photos
+        WHERE shop_id = $1
+        ORDER BY display_order ASC, created_at ASC
+      `;
+
+      const result = await this.pool.query(query, [shopId]);
+
+      return result.rows.map(row => ({
+        id: row.id,
+        photoUrl: row.photo_url,
+        caption: row.caption,
+        displayOrder: row.display_order,
+        createdAt: row.created_at
+      }));
+    } catch (error) {
+      logger.error('Error fetching gallery photos:', error);
+      throw new Error('Failed to fetch gallery photos');
+    }
+  }
+
+  async deleteGalleryPhoto(shopId: string, photoId: number): Promise<void> {
+    try {
+      const query = 'DELETE FROM shop_gallery_photos WHERE id = $1 AND shop_id = $2';
+      const result = await this.pool.query(query, [photoId, shopId]);
+
+      if (result.rowCount === 0) {
+        throw new Error('Photo not found or does not belong to this shop');
+      }
+
+      logger.info('Gallery photo deleted:', { shopId, photoId });
+    } catch (error) {
+      logger.error('Error deleting gallery photo:', error);
+      throw error;
+    }
+  }
+
+  async updateGalleryPhotoOrder(shopId: string, photoId: number, newOrder: number): Promise<void> {
+    try {
+      const query = `
+        UPDATE shop_gallery_photos
+        SET display_order = $1
+        WHERE id = $2 AND shop_id = $3
+      `;
+
+      const result = await this.pool.query(query, [newOrder, photoId, shopId]);
+
+      if (result.rowCount === 0) {
+        throw new Error('Photo not found or does not belong to this shop');
+      }
+
+      logger.info('Gallery photo order updated:', { shopId, photoId, newOrder });
+    } catch (error) {
+      logger.error('Error updating photo order:', error);
+      throw error;
+    }
+  }
+
+  async updateGalleryPhotoCaption(shopId: string, photoId: number, caption: string): Promise<void> {
+    try {
+      const query = `
+        UPDATE shop_gallery_photos
+        SET caption = $1
+        WHERE id = $2 AND shop_id = $3
+      `;
+
+      const result = await this.pool.query(query, [caption, photoId, shopId]);
+
+      if (result.rowCount === 0) {
+        throw new Error('Photo not found or does not belong to this shop');
+      }
+
+      logger.info('Gallery photo caption updated:', { shopId, photoId });
+    } catch (error) {
+      logger.error('Error updating photo caption:', error);
+      throw error;
     }
   }
 }

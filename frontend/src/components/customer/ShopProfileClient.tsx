@@ -12,10 +12,17 @@ import {
   Package,
   ArrowLeft,
   Loader2,
+  Clock,
+  Image as ImageIcon,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Navigation,
 } from "lucide-react";
 import { FaFacebook, FaTwitter, FaInstagram } from "react-icons/fa";
 import { ShopService } from "@/services/shopService";
 import { getAllServices, getShopServices, ShopServiceWithShopInfo } from "@/services/api/services";
+import { getGalleryPhotos, type GalleryPhoto } from "@/services/api/shop";
 import { ServiceCard } from "./ServiceCard";
 import { ServiceDetailsModal } from "./ServiceDetailsModal";
 import { ServiceCheckoutModal } from "./ServiceCheckoutModal";
@@ -32,6 +39,9 @@ interface ShopInfo {
   twitter?: string;
   instagram?: string;
   verified: boolean;
+  logoUrl?: string;
+  bannerUrl?: string;
+  aboutText?: string;
   location?: {
     lat?: number;
     lng?: number;
@@ -52,7 +62,12 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
   const [services, setServices] = useState<ShopServiceWithShopInfo[]>([]);
   const [selectedService, setSelectedService] = useState<ShopServiceWithShopInfo | null>(null);
   const [checkoutService, setCheckoutService] = useState<ShopServiceWithShopInfo | null>(null);
-  const [activeTab, setActiveTab] = useState<"services" | "reviews">("services");
+  const [activeTab, setActiveTab] = useState<"services" | "about" | "gallery" | "reviews">("services");
+  const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[]>([]);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [operatingHours, setOperatingHours] = useState<any>(null);
+  const [isOpenNow, setIsOpenNow] = useState(false);
 
   useEffect(() => {
     loadShopData();
@@ -63,16 +78,16 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
     try {
       console.log("🔍 [ShopProfile] Loading data for shopId:", shopId);
 
-      // Fetch shop info and services using the dedicated getShopServices endpoint
-      const [shopData, servicesData] = await Promise.all([
+      // Fetch shop info, services, and gallery in parallel
+      const [shopData, servicesData, gallery] = await Promise.all([
         ShopService.getShopById(shopId),
         getShopServices(shopId),
+        getGalleryPhotos(shopId),
       ]);
 
       console.log("🔍 [ShopProfile] Shop data:", shopData);
       console.log("🔍 [ShopProfile] Services response:", servicesData);
-      console.log("🔍 [ShopProfile] Services data array:", servicesData?.data);
-      console.log("🔍 [ShopProfile] Number of services:", servicesData?.data?.length || 0);
+      console.log("🔍 [ShopProfile] Gallery photos:", gallery?.length || 0);
 
       if (shopData) {
         setShopInfo(shopData);
@@ -92,12 +107,48 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
         }));
         setServices(servicesWithShopInfo);
       }
+
+      // Set gallery photos
+      if (gallery) {
+        setGalleryPhotos(gallery);
+      }
+
+      // Set operating hours and calculate if open now
+      if (availability?.data) {
+        setOperatingHours(availability.data);
+        calculateIsOpen(availability.data);
+      }
     } catch (error) {
       console.error("Error loading shop data:", error);
       toast.error("Failed to load shop information");
     } finally {
       setLoading(false);
     }
+  };
+
+  const calculateIsOpen = (hours: any) => {
+    if (!hours) return;
+
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const currentTime = now.getHours() * 60 + now.getMinutes(); // Minutes since midnight
+
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const todayHours = hours[dayNames[dayOfWeek]];
+
+    if (!todayHours || !todayHours.isOpen) {
+      setIsOpenNow(false);
+      return;
+    }
+
+    // Parse start and end times
+    const [startHour, startMin] = todayHours.startTime.split(':').map(Number);
+    const [endHour, endMin] = todayHours.endTime.split(':').map(Number);
+
+    const startMinutes = startHour * 60 + startMin;
+    const endMinutes = endHour * 60 + endMin;
+
+    setIsOpenNow(currentTime >= startMinutes && currentTime <= endMinutes);
   };
 
   const handleViewDetails = (service: ShopServiceWithShopInfo) => {
@@ -121,6 +172,30 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
     if (services.length === 0) return 0;
     const totalRating = services.reduce((sum, service) => sum + (service.avgRating || 0), 0);
     return totalRating / services.length;
+  };
+
+  const openLightbox = (index: number) => {
+    setLightboxIndex(index);
+    setLightboxOpen(true);
+  };
+
+  const closeLightbox = () => {
+    setLightboxOpen(false);
+  };
+
+  const nextPhoto = () => {
+    setLightboxIndex((prev) => (prev + 1) % galleryPhotos.length);
+  };
+
+  const prevPhoto = () => {
+    setLightboxIndex((prev) => (prev - 1 + galleryPhotos.length) % galleryPhotos.length);
+  };
+
+  const getDirectionsUrl = () => {
+    if (!shopInfo?.location?.lat || !shopInfo?.location?.lng) {
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(shopInfo?.address || '')}`;
+    }
+    return `https://www.google.com/maps/dir/?api=1&destination=${shopInfo.location.lat},${shopInfo.location.lng}`;
   };
 
   const averageRating = calculateAverageRating();
@@ -155,22 +230,50 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white p-6">
+    <div className="min-h-screen bg-[#0A0A0A] text-white">
       <div className="max-w-7xl mx-auto">
         {/* Back Button */}
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-2 text-gray-400 hover:text-[#FFCC00] transition-colors mb-6"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          Back
-        </button>
+        <div className="p-6 pb-0">
+          <button
+            onClick={() => router.back()}
+            className="flex items-center gap-2 text-gray-400 hover:text-[#FFCC00] transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            Back
+          </button>
+        </div>
 
-        {/* Shop Header */}
-        <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-8 mb-8">
-          <div className="flex flex-col lg:flex-row gap-8">
-            {/* Shop Info */}
-            <div className="flex-1">
+        {/* Banner Image */}
+        {shopInfo?.bannerUrl && (
+          <div className="w-full h-64 md:h-80 relative overflow-hidden mt-6">
+            <img
+              src={shopInfo.bannerUrl}
+              alt={`${shopInfo.name} banner`}
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] to-transparent" />
+          </div>
+        )}
+
+        {/* Shop Header with Logo */}
+        <div className="px-6">
+          <div className={`bg-[#1A1A1A] border border-gray-800 rounded-2xl p-8 ${shopInfo?.bannerUrl ? '-mt-20 relative z-10' : 'mt-6'}`}>
+            <div className="flex flex-col lg:flex-row gap-8">
+              {/* Shop Logo (if no banner) or overlapping logo */}
+              {shopInfo?.logoUrl && (
+                <div className={`${shopInfo?.bannerUrl ? 'absolute -top-16 left-8' : ''}`}>
+                  <div className="w-32 h-32 bg-white rounded-full border-4 border-[#1A1A1A] overflow-hidden shadow-xl">
+                    <img
+                      src={shopInfo.logoUrl}
+                      alt={`${shopInfo.name} logo`}
+                      className="w-full h-full object-contain p-2"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Shop Info */}
+              <div className={`flex-1 ${shopInfo?.logoUrl && shopInfo?.bannerUrl ? 'pt-20' : ''}`}>
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <h1 className="text-4xl font-bold text-white mb-2">{shopInfo.name}</h1>
@@ -261,10 +364,35 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
               </div>
             </div>
 
-            {/* Social Media & Stats */}
-            <div className="lg:w-80">
+            {/* Sidebar: Operating Hours, Stats & Social Media */}
+            <div className="lg:w-80 space-y-6">
+              {/* Operating Hours */}
+              {operatingHours && (
+                <div className="bg-[#0A0A0A] rounded-xl p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Clock className="w-5 h-5 text-[#FFCC00]" />
+                    <h3 className="text-sm font-semibold text-white">Operating Hours</h3>
+                  </div>
+                  <div className="space-y-2">
+                    {Object.entries(operatingHours).map(([day, hours]: [string, any]) => (
+                      <div key={day} className="flex justify-between text-sm">
+                        <span className="text-gray-400 capitalize">{day}</span>
+                        <span className={hours.isOpen ? "text-white" : "text-gray-600"}>
+                          {hours.isOpen ? `${hours.startTime} - ${hours.endTime}` : "Closed"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-gray-800">
+                    <span className={`text-sm font-semibold ${isOpenNow ? 'text-green-400' : 'text-red-400'}`}>
+                      {isOpenNow ? '🟢 Open Now' : '🔴 Closed'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Stats */}
-              <div className="bg-[#0A0A0A] rounded-xl p-6 mb-6">
+              <div className="bg-[#0A0A0A] rounded-xl p-6">
                 <div className="flex items-center gap-3 mb-2">
                   <Package className="w-6 h-6 text-[#FFCC00]" />
                   <div>
@@ -328,37 +456,101 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="border-b border-gray-800 mb-8">
-          <div className="flex gap-8">
-            <button
-              onClick={() => setActiveTab("services")}
-              className={`pb-4 px-2 font-semibold transition-colors relative ${
-                activeTab === "services"
-                  ? "text-[#FFCC00]"
-                  : "text-gray-400 hover:text-gray-300"
-              }`}
-            >
-              Services ({services.length})
-              {activeTab === "services" && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCC00]" />
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab("reviews")}
-              className={`pb-4 px-2 font-semibold transition-colors relative ${
-                activeTab === "reviews"
-                  ? "text-[#FFCC00]"
-                  : "text-gray-400 hover:text-gray-300"
-              }`}
-            >
-              Reviews
-              {activeTab === "reviews" && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCC00]" />
-              )}
-            </button>
+        {/* Google Maps Embed */}
+        {shopInfo?.location?.lat && shopInfo?.location?.lng && (
+          <div className="px-6 mb-8">
+            <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-[#FFCC00]" />
+                  <h3 className="text-lg font-semibold text-white">Location</h3>
+                </div>
+                <a
+                  href={getDirectionsUrl()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2 bg-[#FFCC00] text-black rounded-lg font-semibold hover:bg-[#FFD700] transition-colors text-sm"
+                >
+                  <Navigation className="w-4 h-4" />
+                  Get Directions
+                </a>
+              </div>
+              <div className="w-full h-96 rounded-lg overflow-hidden">
+                <iframe
+                  width="100%"
+                  height="100%"
+                  frameBorder="0"
+                  style={{ border: 0 }}
+                  src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&q=${shopInfo.location.lat},${shopInfo.location.lng}`}
+                  allowFullScreen
+                />
+              </div>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Tabs */}
+        <div className="px-6">
+          <div className="border-b border-gray-800 mb-8">
+            <div className="flex gap-8 overflow-x-auto">
+              <button
+                onClick={() => setActiveTab("services")}
+                className={`pb-4 px-2 font-semibold transition-colors relative whitespace-nowrap ${
+                  activeTab === "services"
+                    ? "text-[#FFCC00]"
+                    : "text-gray-400 hover:text-gray-300"
+                }`}
+              >
+                Services ({services.length})
+                {activeTab === "services" && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCC00]" />
+                )}
+              </button>
+              {shopInfo?.aboutText && (
+                <button
+                  onClick={() => setActiveTab("about")}
+                  className={`pb-4 px-2 font-semibold transition-colors relative whitespace-nowrap ${
+                    activeTab === "about"
+                      ? "text-[#FFCC00]"
+                      : "text-gray-400 hover:text-gray-300"
+                  }`}
+                >
+                  About
+                  {activeTab === "about" && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCC00]" />
+                  )}
+                </button>
+              )}
+              {galleryPhotos.length > 0 && (
+                <button
+                  onClick={() => setActiveTab("gallery")}
+                  className={`pb-4 px-2 font-semibold transition-colors relative whitespace-nowrap ${
+                    activeTab === "gallery"
+                      ? "text-[#FFCC00]"
+                      : "text-gray-400 hover:text-gray-300"
+                  }`}
+                >
+                  Gallery ({galleryPhotos.length})
+                  {activeTab === "gallery" && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCC00]" />
+                  )}
+                </button>
+              )}
+              <button
+                onClick={() => setActiveTab("reviews")}
+                className={`pb-4 px-2 font-semibold transition-colors relative whitespace-nowrap ${
+                  activeTab === "reviews"
+                    ? "text-[#FFCC00]"
+                    : "text-gray-400 hover:text-gray-300"
+                }`}
+              >
+                Reviews
+                {activeTab === "reviews" && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCC00]" />
+                )}
+              </button>
+            </div>
+          </div>
 
         {/* Tab Content */}
         {activeTab === "services" && (
@@ -386,6 +578,42 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
           </div>
         )}
 
+        {/* About Tab */}
+        {activeTab === "about" && shopInfo?.aboutText && (
+          <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-8">
+            <h2 className="text-2xl font-bold text-white mb-6">About {shopInfo.name}</h2>
+            <div className="text-gray-300 whitespace-pre-wrap leading-relaxed">
+              {shopInfo.aboutText}
+            </div>
+          </div>
+        )}
+
+        {/* Gallery Tab */}
+        {activeTab === "gallery" && galleryPhotos.length > 0 && (
+          <div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {galleryPhotos.map((photo, index) => (
+                <div
+                  key={photo.id}
+                  onClick={() => openLightbox(index)}
+                  className="relative aspect-square bg-[#1A1A1A] border border-gray-800 rounded-xl overflow-hidden cursor-pointer group"
+                >
+                  <img
+                    src={photo.photoUrl}
+                    alt={photo.caption || `Gallery photo ${index + 1}`}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                  {photo.caption && (
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <p className="text-white text-sm truncate">{photo.caption}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {activeTab === "reviews" && (
           <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl p-12 text-center">
             <Star className="w-16 h-16 mx-auto mb-4 text-gray-600" />
@@ -395,7 +623,72 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
             </p>
           </div>
         )}
+        </div>
       </div>
+
+      {/* Lightbox Modal */}
+      {lightboxOpen && galleryPhotos.length > 0 && (
+        <div
+          className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4"
+          onClick={closeLightbox}
+        >
+          {/* Close Button */}
+          <button
+            onClick={closeLightbox}
+            className="absolute top-4 right-4 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors z-10"
+          >
+            <X className="w-6 h-6 text-white" />
+          </button>
+
+          {/* Previous Button */}
+          {galleryPhotos.length > 1 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                prevPhoto();
+              }}
+              className="absolute left-4 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors z-10"
+            >
+              <ChevronLeft className="w-6 h-6 text-white" />
+            </button>
+          )}
+
+          {/* Image */}
+          <div
+            className="max-w-7xl max-h-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={galleryPhotos[lightboxIndex].photoUrl}
+              alt={galleryPhotos[lightboxIndex].caption || `Photo ${lightboxIndex + 1}`}
+              className="max-w-full max-h-[90vh] object-contain rounded-lg"
+            />
+            {galleryPhotos[lightboxIndex].caption && (
+              <div className="mt-4 text-center">
+                <p className="text-white text-lg">{galleryPhotos[lightboxIndex].caption}</p>
+              </div>
+            )}
+            <div className="mt-2 text-center">
+              <p className="text-gray-400 text-sm">
+                {lightboxIndex + 1} / {galleryPhotos.length}
+              </p>
+            </div>
+          </div>
+
+          {/* Next Button */}
+          {galleryPhotos.length > 1 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                nextPhoto();
+              }}
+              className="absolute right-4 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors z-10"
+            >
+              <ChevronRight className="w-6 h-6 text-white" />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Service Details Modal */}
       {selectedService && (
@@ -414,6 +707,9 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
           onSuccess={handleCheckoutSuccess}
         />
       )}
+      </div>
     </div>
   );
 };
+
+export default ShopProfileClient;

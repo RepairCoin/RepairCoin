@@ -19,6 +19,7 @@ import {
   GlobeIcon,
   MapPinnedIcon,
   Calendar,
+  MessageCircle,
 } from "lucide-react";
 import {
   IssueRewardsIcon,
@@ -88,6 +89,12 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
           href: "/shop?tab=services",
           icon: <HeartHandshakeIcon className="w-5 h-5" />,
           tabId: "services",
+        },
+        {
+          title: "Messages",
+          href: "/shop?tab=messages",
+          icon: <MessageCircle className="w-5 h-5" />,
+          tabId: "messages",
         },
         {
           title: "Bookings",
