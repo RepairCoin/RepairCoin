@@ -71,6 +71,45 @@ export interface ServiceDuration {
   updatedAt: string;
 }
 
+// Reschedule Types
+export interface RescheduleRequest {
+  requestId: string;
+  orderId: string;
+  shopId: string;
+  customerAddress: string;
+  originalDate: string;
+  originalTimeSlot: string;
+  originalEndTime: string | null;
+  requestedDate: string;
+  requestedTimeSlot: string;
+  requestedEndTime: string | null;
+  customerReason: string | null;
+  status: 'pending' | 'approved' | 'rejected' | 'expired' | 'cancelled';
+  shopResponseReason: string | null;
+  respondedAt: string | null;
+  respondedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt: string | null;
+}
+
+export interface RescheduleRequestWithDetails extends RescheduleRequest {
+  customerName: string | null;
+  customerEmail: string | null;
+  serviceName: string;
+  serviceId: string;
+  hoursUntilExpiry: number | null;
+}
+
+export interface ReschedulePolicy {
+  allowReschedule: boolean;
+  maxReschedulesPerOrder: number;
+  rescheduleMinHours: number;
+  rescheduleExpirationHours: number;
+  autoApproveReschedule: boolean;
+  requireRescheduleReason: boolean;
+}
+
 // ==================== API CLIENT ====================
 
 // Note: apiClient already returns response.data and has withCredentials: true configured
@@ -214,5 +253,75 @@ export const appointmentsApi = {
   // Customer: Cancel appointment
   async cancelAppointment(orderId: string): Promise<void> {
     await apiClient.post(`/services/appointments/cancel/${orderId}`, {});
+  },
+
+  // ==================== RESCHEDULE API ====================
+
+  // Customer: Create reschedule request
+  async createRescheduleRequest(
+    orderId: string,
+    requestedDate: string,
+    requestedTimeSlot: string,
+    reason?: string
+  ): Promise<RescheduleRequest> {
+    const response = await apiClient.post<{ success: boolean; data: RescheduleRequest }>(
+      `/services/appointments/reschedule-request`,
+      { orderId, requestedDate, requestedTimeSlot, reason }
+    );
+    return (response as unknown as { success: boolean; data: RescheduleRequest }).data;
+  },
+
+  // Customer: Cancel reschedule request
+  async cancelRescheduleRequest(requestId: string): Promise<RescheduleRequest> {
+    const response = await apiClient.delete<{ success: boolean; data: RescheduleRequest }>(
+      `/services/appointments/reschedule-request/${requestId}`
+    );
+    return (response as unknown as { success: boolean; data: RescheduleRequest }).data;
+  },
+
+  // Customer: Get pending reschedule request for an order
+  async getRescheduleRequestForOrder(orderId: string): Promise<RescheduleRequest | null> {
+    const response = await apiClient.get<{ success: boolean; data: { hasPendingRequest: boolean; request: RescheduleRequest | null } }>(
+      `/services/appointments/reschedule-request/order/${orderId}`
+    );
+    const result = response as unknown as { success: boolean; data: { hasPendingRequest: boolean; request: RescheduleRequest | null } };
+    return result.data.request;
+  },
+
+  // Shop: Get all reschedule requests
+  async getShopRescheduleRequests(
+    status?: 'pending' | 'approved' | 'rejected' | 'expired' | 'cancelled' | 'all'
+  ): Promise<RescheduleRequestWithDetails[]> {
+    const response = await apiClient.get<{ success: boolean; data: { requests: RescheduleRequestWithDetails[]; pendingCount: number } }>(
+      `/services/appointments/reschedule-requests`,
+      { params: { status } }
+    );
+    const result = response as unknown as { success: boolean; data: { requests: RescheduleRequestWithDetails[]; pendingCount: number } };
+    return result.data.requests;
+  },
+
+  // Shop: Get pending reschedule request count
+  async getShopRescheduleRequestCount(): Promise<number> {
+    const response = await apiClient.get<{ success: boolean; data: { count: number } }>(
+      `/services/appointments/reschedule-requests/count`
+    );
+    return (response as unknown as { success: boolean; data: { count: number } }).data.count;
+  },
+
+  // Shop: Approve reschedule request
+  async approveRescheduleRequest(requestId: string): Promise<RescheduleRequest> {
+    const response = await apiClient.post<{ success: boolean; data: RescheduleRequest }>(
+      `/services/appointments/reschedule-request/${requestId}/approve`
+    );
+    return (response as unknown as { success: boolean; data: RescheduleRequest }).data;
+  },
+
+  // Shop: Reject reschedule request
+  async rejectRescheduleRequest(requestId: string, reason?: string): Promise<RescheduleRequest> {
+    const response = await apiClient.post<{ success: boolean; data: RescheduleRequest }>(
+      `/services/appointments/reschedule-request/${requestId}/reject`,
+      { reason }
+    );
+    return (response as unknown as { success: boolean; data: RescheduleRequest }).data;
   }
 };

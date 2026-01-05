@@ -2010,6 +2010,211 @@ export function initializeRoutes(stripe: StripeService): Router {
     appointmentController.cancelCustomerAppointment
   );
 
+  // ==================== RESCHEDULE REQUEST ROUTES ====================
+
+  /**
+   * @swagger
+   * /api/services/appointments/reschedule-request:
+   *   post:
+   *     summary: Create reschedule request (Customer only)
+   *     description: Request to change appointment date/time. Requires shop approval.
+   *     tags: [Appointments]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - orderId
+   *               - requestedDate
+   *               - requestedTimeSlot
+   *             properties:
+   *               orderId:
+   *                 type: string
+   *               requestedDate:
+   *                 type: string
+   *                 format: date
+   *               requestedTimeSlot:
+   *                 type: string
+   *                 example: "14:00"
+   *               reason:
+   *                 type: string
+   *     responses:
+   *       200:
+   *         description: Reschedule request created
+   *       400:
+   *         description: Invalid request or validation failed
+   */
+  router.post(
+    '/appointments/reschedule-request',
+    authMiddleware,
+    requireRole(['customer']),
+    appointmentController.createRescheduleRequest
+  );
+
+  /**
+   * @swagger
+   * /api/services/appointments/reschedule-request/{requestId}:
+   *   delete:
+   *     summary: Cancel reschedule request (Customer only)
+   *     description: Cancel a pending reschedule request before shop responds
+   *     tags: [Appointments]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: requestId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Request cancelled
+   */
+  router.delete(
+    '/appointments/reschedule-request/:requestId',
+    authMiddleware,
+    requireRole(['customer']),
+    appointmentController.cancelRescheduleRequest
+  );
+
+  /**
+   * @swagger
+   * /api/services/appointments/reschedule-request/order/{orderId}:
+   *   get:
+   *     summary: Get reschedule request for order (Customer only)
+   *     description: Get pending reschedule request for a specific order
+   *     tags: [Appointments]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: orderId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Reschedule request status
+   */
+  router.get(
+    '/appointments/reschedule-request/order/:orderId',
+    authMiddleware,
+    requireRole(['customer']),
+    appointmentController.getRescheduleRequestForOrder
+  );
+
+  /**
+   * @swagger
+   * /api/services/appointments/reschedule-requests:
+   *   get:
+   *     summary: Get shop reschedule requests (Shop only)
+   *     description: Get all reschedule requests for the shop
+   *     tags: [Appointments]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: status
+   *         schema:
+   *           type: string
+   *           enum: [pending, approved, rejected, expired, cancelled, all]
+   *     responses:
+   *       200:
+   *         description: List of reschedule requests
+   */
+  router.get(
+    '/appointments/reschedule-requests',
+    authMiddleware,
+    requireRole(['shop']),
+    appointmentController.getShopRescheduleRequests
+  );
+
+  /**
+   * @swagger
+   * /api/services/appointments/reschedule-requests/count:
+   *   get:
+   *     summary: Get pending reschedule request count (Shop only)
+   *     description: Get count of pending reschedule requests for badge display
+   *     tags: [Appointments]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Pending request count
+   */
+  router.get(
+    '/appointments/reschedule-requests/count',
+    authMiddleware,
+    requireRole(['shop']),
+    appointmentController.getShopRescheduleRequestCount
+  );
+
+  /**
+   * @swagger
+   * /api/services/appointments/reschedule-request/{requestId}/approve:
+   *   post:
+   *     summary: Approve reschedule request (Shop only)
+   *     description: Approve a customer's reschedule request and update the appointment
+   *     tags: [Appointments]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: requestId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Request approved, appointment updated
+   *       400:
+   *         description: Requested slot no longer available
+   */
+  router.post(
+    '/appointments/reschedule-request/:requestId/approve',
+    authMiddleware,
+    requireRole(['shop']),
+    appointmentController.approveRescheduleRequest
+  );
+
+  /**
+   * @swagger
+   * /api/services/appointments/reschedule-request/{requestId}/reject:
+   *   post:
+   *     summary: Reject reschedule request (Shop only)
+   *     description: Reject a customer's reschedule request
+   *     tags: [Appointments]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: requestId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               reason:
+   *                 type: string
+   *     responses:
+   *       200:
+   *         description: Request rejected
+   */
+  router.post(
+    '/appointments/reschedule-request/:requestId/reject',
+    authMiddleware,
+    requireRole(['shop']),
+    appointmentController.rejectRescheduleRequest
+  );
+
   // ==================== SERVICE GROUP ROUTES ====================
 
   /**

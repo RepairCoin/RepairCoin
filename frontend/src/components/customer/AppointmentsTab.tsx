@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import {Calendar, Clock, MapPin, DollarSign, Loader2, XCircle, Edit2, Star, MessageSquare } from 'lucide-react';
-import { appointmentsApi, CalendarBooking } from '@/services/api/appointments';
+import {Calendar, Clock, DollarSign, Loader2, XCircle, Edit2, Star, MessageSquare, RefreshCw } from 'lucide-react';
+import { appointmentsApi, CalendarBooking, RescheduleRequest } from '@/services/api/appointments';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { formatLocalDate } from '@/utils/dateUtils';
+import { RescheduleModal } from './RescheduleModal';
 
 export const AppointmentsTab: React.FC = () => {
   const router = useRouter();
@@ -13,6 +14,8 @@ export const AppointmentsTab: React.FC = () => {
   const [appointments, setAppointments] = useState<CalendarBooking[]>([]);
   const [activeView, setActiveView] = useState<'upcoming' | 'past'>('upcoming');
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [rescheduleAppointment, setRescheduleAppointment] = useState<CalendarBooking | null>(null);
+  const [pendingReschedules, setPendingReschedules] = useState<Map<string, RescheduleRequest>>(new Map());
 
   useEffect(() => {
     loadAppointments();
@@ -33,6 +36,15 @@ export const AppointmentsTab: React.FC = () => {
       );
 
       setAppointments(data);
+
+      // Load pending reschedule requests for upcoming appointments
+      const upcomingOrderIds = data
+        .filter(a => ['paid', 'confirmed'].includes(a.status))
+        .map(a => a.orderId);
+
+      if (upcomingOrderIds.length > 0) {
+        await loadPendingReschedules(upcomingOrderIds);
+      }
     } catch (error) {
       console.error('Error loading appointments:', error);
       toast.error('Failed to load appointments');
@@ -82,18 +94,62 @@ export const AppointmentsTab: React.FC = () => {
     const appointmentDate = new Date(appointment.bookingDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return appointmentDate >= today && appointment.status !== 'completed' && appointment.status !== 'cancelled';
+    const status = appointment.status.toLowerCase();
+    return appointmentDate >= today && status !== 'completed' && status !== 'cancelled';
   };
 
   const canCancel = (appointment: CalendarBooking): boolean => {
     const appointmentDate = new Date(appointment.bookingDate);
     const now = new Date();
     const hoursUntil = (appointmentDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-    return hoursUntil >= 24 && appointment.status !== 'completed' && appointment.status !== 'cancelled';
+    const status = appointment.status.toLowerCase();
+    return hoursUntil >= 24 && status !== 'completed' && status !== 'cancelled';
   };
 
   const canReview = (appointment: CalendarBooking): boolean => {
-    return appointment.status === 'completed';
+    return appointment.status.toLowerCase() === 'completed';
+  };
+
+  const canReschedule = (appointment: CalendarBooking): boolean => {
+    // Parse booking date - handle both ISO strings and date objects
+    const bookingDateStr = appointment.bookingDate;
+    const appointmentDate = new Date(bookingDateStr);
+
+    // Check for invalid date
+    if (isNaN(appointmentDate.getTime())) {
+      console.warn('Invalid booking date:', bookingDateStr);
+      return false;
+    }
+
+    const now = new Date();
+    const hoursUntil = (appointmentDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+    const status = appointment.status.toLowerCase();
+    // Allow reschedule if 24+ hours before and status is paid/confirmed
+    return hoursUntil >= 24 && ['paid', 'confirmed'].includes(status);
+  };
+
+  const hasPendingReschedule = (orderId: string): boolean => {
+    return pendingReschedules.has(orderId);
+  };
+
+  const loadPendingReschedules = async (orderIds: string[]) => {
+    const pendingMap = new Map<string, RescheduleRequest>();
+
+    // Check each order for pending reschedule requests
+    await Promise.all(
+      orderIds.map(async (orderId) => {
+        try {
+          const request = await appointmentsApi.getRescheduleRequestForOrder(orderId);
+          if (request) {
+            pendingMap.set(orderId, request);
+          }
+        } catch {
+          // Silently ignore - appointment might not have a pending request
+        }
+      })
+    );
+
+    setPendingReschedules(pendingMap);
   };
 
   const upcomingAppointments = appointments.filter(isUpcoming);
@@ -127,6 +183,18 @@ export const AppointmentsTab: React.FC = () => {
           </span>
         </div>
 
+        {/* Pending Reschedule Banner */}
+        {hasPendingReschedule(appointment.orderId) && (
+          <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-3 mb-4">
+            <div className="flex items-center gap-2">
+              <RefreshCw className="w-4 h-4 text-orange-400" />
+              <span className="text-sm text-orange-400 font-medium">
+                Reschedule request pending approval
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Date & Time */}
         <div className="space-y-2 mb-4">
           <div className="flex items-center gap-2 text-gray-300">
@@ -158,7 +226,22 @@ export const AppointmentsTab: React.FC = () => {
         )}
 
         {/* Actions */}
-        <div className="flex gap-2 pt-4 border-t border-gray-800">
+        <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-800">
+          {/* Reschedule Button */}
+          {isUpcoming(appointment) && canReschedule(appointment) && (
+            <button
+              onClick={() => setRescheduleAppointment(appointment)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm ${
+                hasPendingReschedule(appointment.orderId)
+                  ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30 hover:bg-orange-500/30'
+                  : 'bg-blue-600/20 text-blue-400 border border-blue-600/30 hover:bg-blue-600/30'
+              }`}
+            >
+              <Edit2 className="w-4 h-4" />
+              {hasPendingReschedule(appointment.orderId) ? 'View Request' : 'Reschedule'}
+            </button>
+          )}
+
           {isUpcoming(appointment) && canCancel(appointment) && (
             <button
               onClick={() => handleCancelAppointment(appointment.orderId)}
@@ -292,6 +375,18 @@ export const AppointmentsTab: React.FC = () => {
             pastAppointments.map(renderAppointment)
           )}
         </div>
+      )}
+
+      {/* Reschedule Modal */}
+      {rescheduleAppointment && (
+        <RescheduleModal
+          appointment={rescheduleAppointment}
+          onClose={() => setRescheduleAppointment(null)}
+          onSuccess={() => {
+            setRescheduleAppointment(null);
+            loadAppointments();
+          }}
+        />
       )}
     </div>
   );

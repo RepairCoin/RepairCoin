@@ -384,7 +384,15 @@ export default function SubscriptionManagementTab() {
   };
 
   const canReactivate = (sub: Subscription): boolean => {
-    if (sub.status !== "cancelled") return false;
+    // Allow reactivation for:
+    // - "cancelling" = pending cancellation (cancel at period end) - primary use case
+    // - "cancelled" = already cancelled but still within paid period
+    if (sub.status !== "cancelled" && sub.status !== "cancelling") return false;
+
+    // For "cancelling" status, always allow reactivation (undo pending cancellation)
+    if (sub.status === "cancelling") return true;
+
+    // For "cancelled" status, only allow if still within paid period
     let subscribedTillDate: Date | null = null;
 
     if (sub.stripePeriodEnd) {
@@ -427,13 +435,17 @@ export default function SubscriptionManagementTab() {
         color: "bg-red-500/10 text-red-400 border-red-500/20",
         icon: XCircle,
       },
+      cancelling: {
+        color: "bg-orange-500/10 text-orange-400 border-orange-500/20",
+        icon: Clock,
+      },
       defaulted: {
         color: "bg-red-500/10 text-red-400 border-red-500/20",
         icon: AlertCircle,
       },
     };
 
-    const config = statusConfig[sub.status];
+    const config = statusConfig[sub.status as keyof typeof statusConfig] || statusConfig.pending;
     const Icon = config.icon;
 
     return (
@@ -630,7 +642,7 @@ export default function SubscriptionManagementTab() {
             </button>
           )}
 
-          {sub.status === "cancelled" && (
+          {canReactivate(sub) && (
             <button
               onClick={(e) => {
                 e.stopPropagation();

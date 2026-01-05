@@ -51,6 +51,11 @@ export class NotificationDomain implements DomainModule {
     eventBus.subscribe('subscription:resumed', this.handleSubscriptionResumed.bind(this), 'NotificationDomain');
     eventBus.subscribe('subscription:reactivated', this.handleSubscriptionReactivated.bind(this), 'NotificationDomain');
 
+    // Listen to reschedule request events
+    eventBus.subscribe('reschedule:request_created', this.handleRescheduleRequestCreated.bind(this), 'NotificationDomain');
+    eventBus.subscribe('reschedule:request_approved', this.handleRescheduleRequestApproved.bind(this), 'NotificationDomain');
+    eventBus.subscribe('reschedule:request_rejected', this.handleRescheduleRequestRejected.bind(this), 'NotificationDomain');
+
     logger.info('Notification domain event subscriptions set up');
   }
 
@@ -319,6 +324,123 @@ export class NotificationDomain implements DomainModule {
       }
     } catch (error: any) {
       logger.error('Error handling subscription reactivated event:', error);
+    }
+  }
+
+  // Reschedule Request Event Handlers
+
+  private async handleRescheduleRequestCreated(event: any): Promise<void> {
+    try {
+      const {
+        requestId,
+        orderId,
+        shopId,
+        customerAddress,
+        originalDate,
+        originalTimeSlot,
+        requestedDate,
+        requestedTimeSlot
+      } = event.data;
+
+      logger.info(`Creating reschedule request notification for shop ${shopId}`, { requestId, orderId });
+
+      // We need to get additional info (customer name, service name, shop address) from the database
+      // For now, use placeholders - the event data could be enriched in RescheduleService
+      const customerName = event.data.customerName || 'Customer';
+      const serviceName = event.data.serviceName || 'Service';
+      const shopAddress = event.data.shopAddress || shopId;
+
+      const notification = await this.notificationService.createRescheduleRequestCreatedNotification(
+        customerAddress,
+        shopAddress,
+        customerName,
+        serviceName,
+        orderId,
+        requestId,
+        originalDate,
+        originalTimeSlot,
+        requestedDate,
+        requestedTimeSlot
+      );
+
+      // Send real-time notification via WebSocket to the shop
+      if (this.wsManager) {
+        this.wsManager.sendNotificationToUser(shopAddress, notification);
+      }
+    } catch (error: any) {
+      logger.error('Error handling reschedule request created event:', error);
+    }
+  }
+
+  private async handleRescheduleRequestApproved(event: any): Promise<void> {
+    try {
+      const {
+        requestId,
+        orderId,
+        shopId,
+        customerAddress,
+        newDate,
+        newTimeSlot
+      } = event.data;
+
+      logger.info(`Creating reschedule approved notification for customer ${customerAddress}`, { requestId, orderId });
+
+      const shopName = event.data.shopName || 'Shop';
+      const serviceName = event.data.serviceName || 'Service';
+      const shopAddress = event.data.shopAddress || shopId;
+
+      const notification = await this.notificationService.createRescheduleRequestApprovedNotification(
+        shopAddress,
+        customerAddress,
+        shopName,
+        serviceName,
+        orderId,
+        requestId,
+        newDate,
+        newTimeSlot
+      );
+
+      // Send real-time notification via WebSocket to the customer
+      if (this.wsManager) {
+        this.wsManager.sendNotificationToUser(customerAddress, notification);
+      }
+    } catch (error: any) {
+      logger.error('Error handling reschedule request approved event:', error);
+    }
+  }
+
+  private async handleRescheduleRequestRejected(event: any): Promise<void> {
+    try {
+      const {
+        requestId,
+        orderId,
+        shopId,
+        customerAddress,
+        reason
+      } = event.data;
+
+      logger.info(`Creating reschedule rejected notification for customer ${customerAddress}`, { requestId, orderId });
+
+      const shopName = event.data.shopName || 'Shop';
+      const serviceName = event.data.serviceName || 'Service';
+      const shopAddress = event.data.shopAddress || shopId;
+
+      const notification = await this.notificationService.createRescheduleRequestRejectedNotification(
+        shopAddress,
+        customerAddress,
+        shopName,
+        serviceName,
+        orderId,
+        requestId,
+        reason
+      );
+
+      // Send real-time notification via WebSocket to the customer
+      if (this.wsManager) {
+        this.wsManager.sendNotificationToUser(customerAddress, notification);
+      }
+    } catch (error: any) {
+      logger.error('Error handling reschedule request rejected event:', error);
     }
   }
 }

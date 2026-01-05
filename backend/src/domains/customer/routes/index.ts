@@ -21,6 +21,7 @@ import { CustomerService } from '../services/CustomerService';
 import crossShopRoutes from './crossShop';
 import exportDataRoutes from './exportData';
 import balanceRoutes from './balance';
+import notificationPreferencesRoutes from './notificationPreferences';
 
 const router = Router();
 
@@ -39,6 +40,9 @@ const unsuspendRateLimit = createRateLimitMiddleware(
 // Register sub-routes
 router.use('/cross-shop', crossShopRoutes);
 router.use('/balance', balanceRoutes);
+
+// Register notification preferences routes (must be before /:address dynamic route)
+router.use('/', notificationPreferencesRoutes);
 
 // Public endpoint to get shops for customers (QR code generation)
 router.get('/shops',
