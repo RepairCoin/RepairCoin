@@ -38,14 +38,14 @@ export default function ShopServiceScreen() {
     <ThemedView className="w-full h-full">
       <View className="pt-20 px-4 gap-4 flex-1">
         {/* Tab Selector */}
-        <View className="flex-row w-full h-10 bg-[#121212] rounded-xl">
+        <View className="flex-row w-full h-10 bg-[#121212] rounded-lg">
           {SERVICE_TABS.map((tab, i) => (
             <Pressable
               key={tab}
               onPress={() => setActiveTab(tab)}
               className={`flex-1 items-center justify-center ${
                 activeTab === tab ? "bg-[#FFCC00]" : "bg-[#121212]"
-              } ${i === 0 ? "rounded-l-xl" : "rounded-r-xl"}`}
+              } ${i === 0 ? "rounded-l-lg" : "rounded-r-lg"}`}
             >
               <Text
                 className={`text-base font-bold ${

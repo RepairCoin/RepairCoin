@@ -132,8 +132,8 @@ export default function CustomerCard({
 
               {total_transactions !== undefined && (
                 <View className="flex-row items-center">
-                  <Feather name="repeat" size={12} color="#888" />
-                  <Text className="text-[#888] text-xs ml-1">
+                  <Feather name="repeat" size={12} color="white" />
+                  <Text className="text-white text-xs ml-1">
                     {total_transactions} transactions
                   </Text>
                 </View>
