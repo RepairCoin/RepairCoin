@@ -16,8 +16,29 @@ export {
   StepIndicator,
 } from "./components";
 
-// Hooks
-export { useBooking, useAppointment } from "./hooks";
+// Hooks - Appointment
+export {
+  useAvailableTimeSlotsQuery,
+  useShopAvailabilityQuery,
+  useTimeSlotConfigQuery,
+  useDateOverridesQuery,
+  useShopCalendarQuery,
+  useMyAppointmentsQuery,
+  useUpdateShopAvailabilityMutation,
+  useUpdateTimeSlotConfigMutation,
+  useCreateDateOverrideMutation,
+  useDeleteDateOverrideMutation,
+  useUpdateServiceDurationMutation,
+  useCancelAppointmentMutation,
+} from "./hooks";
+
+// Hooks - Booking
+export {
+  useShopBookingQuery,
+  useCustomerBookingQuery,
+  useCreateBookingMutation,
+  useCreateStripeCheckoutMutation,
+} from "./hooks";
 
 // Services
 export { bookingApi, appointmentApi } from "./services";

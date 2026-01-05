@@ -15,7 +15,11 @@ import { useLocalSearchParams } from "expo-router";
 import { DateData } from "react-native-calendars";
 import { useService } from "@/hooks/service/useService";
 import { useBalance } from "@/hooks/balance/useBalance";
-import { useBooking, useAppointment } from "../hooks";
+import {
+  useCreateStripeCheckoutMutation,
+  useAvailableTimeSlotsQuery,
+  useShopAvailabilityQuery,
+} from "../hooks";
 import { useAuthStore } from "@/store/auth.store";
 import { StepIndicator } from "../components";
 import BookingScheduleScreen from "./BookingScheduleScreen";
@@ -26,8 +30,6 @@ export default function BookingCompleteScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { userProfile } = useAuthStore();
   const { useGetService } = useService();
-  const { useCreateStripeCheckoutMutation } = useBooking();
-  const { useAvailableTimeSlotsQuery, useShopAvailabilityQuery } = useAppointment();
   const { data: serviceData, isLoading, error } = useGetService(id!);
   const { data: balanceData } = useBalance(userProfile?.address || "");
   const stripeCheckoutMutation = useCreateStripeCheckoutMutation();

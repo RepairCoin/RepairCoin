@@ -8,12 +8,11 @@ import {
 } from "@expo/vector-icons";
 import { goBack } from "expo-router/build/global-state/routing";
 import HorizontalCard from "@/components/ui/HorizontalCard";
-import { useBooking } from "../hooks";
+import { useShopBookingQuery } from "../hooks";
 import { BookingData } from "@/interfaces/booking.interfaces";
 import { BookingCard } from "../components";
 
 export default function BookingShopScreen() {
-  const { useShopBookingQuery } = useBooking();
   const { data: bookingsData, isLoading, error } = useShopBookingQuery();
 
   const pending = bookingsData?.filter(

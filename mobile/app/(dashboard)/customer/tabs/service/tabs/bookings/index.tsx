@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import React, { useMemo, useState, useCallback, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { useAppointment } from "@/feature/booking/hooks";
+import { useMyAppointmentsQuery, useCancelAppointmentMutation } from "@/feature/booking/hooks";
 import { MyAppointment } from "@/interfaces/appointment.interface";
 import { router } from "expo-router";
 import { FilterButton } from "@/components/shared/FilterButton";
@@ -273,7 +273,6 @@ const STATUS_FILTERS: FilterOption[] = [
 ];
 
 export default function BookingsTab() {
-  const { useMyAppointmentsQuery, useCancelAppointmentMutation } = useAppointment();
   const { startDate, endDate } = getDateRange();
 
   const {
