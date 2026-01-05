@@ -9,14 +9,19 @@ import { SettingsItem, SettingsSection, Divider } from "../components";
 
 // Hooks
 import {
-  useShopSettings,
-  useLogout,
+  useSettingsUI,
+  useSettingsMutation,
   useSettingsNavigation,
 } from "../hooks";
 
 export default function ShopSettingsScreen() {
-  const { walletDisplay } = useShopSettings();
-  const { logout, isLoggingOut } = useLogout();
+  // UI state
+  const { walletDisplay } = useSettingsUI();
+
+  // Mutations
+  const { handleLogout, isLoggingOut } = useSettingsMutation();
+
+  // Navigation
   const {
     handleBack,
     handleEditProfile,
@@ -106,7 +111,7 @@ export default function ShopSettingsScreen() {
               )
             }
             title={isLoggingOut ? "Logging Out..." : "Log Out"}
-            onPress={logout}
+            onPress={handleLogout}
             danger
             disabled={isLoggingOut}
             showArrow={false}

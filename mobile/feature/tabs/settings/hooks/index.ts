@@ -1,3 +1,3 @@
-export { useShopSettings } from "./useShopSettings";
-export { useLogout } from "./useLogout";
+export { useSettingsMutation } from "./useSettingsMutation";
 export { useSettingsNavigation } from "./useSettingsNavigation";
+export { useSettingsUI } from "./useSettingsUI";

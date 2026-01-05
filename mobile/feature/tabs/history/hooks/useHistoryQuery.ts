@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useMemo, useCallback, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/hooks";
 import { purchaseApi } from "@/services/purchase.services";
@@ -6,28 +6,13 @@ import { useAuthStore } from "@/store/auth.store";
 import { PurchaseHistoryData } from "@/interfaces/purchase.interface";
 import { StatusFilter, DateFilter } from "../types";
 
-export const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "pending", label: "Pending" },
-  { id: "completed", label: "Completed" },
-  { id: "failed", label: "Failed" },
-];
-
-export const DATE_FILTERS: { id: DateFilter; label: string }[] = [
-  { id: "all", label: "All Time" },
-  { id: "today", label: "Today" },
-  { id: "week", label: "This Week" },
-  { id: "month", label: "This Month" },
-];
-
-export function useShopTransaction() {
+export function useHistoryQuery(
+  searchQuery: string,
+  statusFilter: StatusFilter,
+  dateFilter: DateFilter
+) {
   const { userProfile } = useAuthStore();
   const shopId = userProfile?.shopId || "";
-
-  // Filter states
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [refreshing, setRefreshing] = useState(false);
 
   const {
@@ -46,13 +31,13 @@ export function useShopTransaction() {
   });
 
   // Raw transactions
-  const transactions = useMemo((): PurchaseHistoryData[] => {
+  const rawTransactions = useMemo((): PurchaseHistoryData[] => {
     return transactionData?.purchases || [];
   }, [transactionData]);
 
   // Filtered transactions
-  const filteredTransactions = useMemo((): PurchaseHistoryData[] => {
-    let filtered = transactions;
+  const transactions = useMemo((): PurchaseHistoryData[] => {
+    let filtered = rawTransactions;
 
     // Filter by search query
     if (searchQuery.trim()) {
@@ -109,31 +94,28 @@ export function useShopTransaction() {
     }
 
     return filtered;
-  }, [transactions, searchQuery, statusFilter, dateFilter]);
+  }, [rawTransactions, searchQuery, statusFilter, dateFilter]);
 
   // Calculate summary stats
   const stats = useMemo(() => {
-    const completedTx = transactions.filter(
+    const completedTx = rawTransactions.filter(
       (tx) =>
         tx.status?.toLowerCase() === "completed" ||
         tx.status?.toLowerCase() === "success"
     );
     const totalRcnPurchased = completedTx.reduce((sum, tx) => sum + tx.amount, 0);
     const totalSpent = completedTx.reduce((sum, tx) => sum + (tx.totalCost || 0), 0);
-    const pendingTx = transactions.filter(
+    const pendingTx = rawTransactions.filter(
       (tx) => tx.status?.toLowerCase() === "pending"
     );
 
     return {
       totalRcnPurchased,
       totalSpent,
-      totalTransactions: transactions.length,
+      totalTransactions: rawTransactions.length,
       pendingCount: pendingTx.length,
     };
-  }, [transactions]);
-
-  // Check if any filter is active
-  const hasActiveFilters = statusFilter !== "all" || dateFilter !== "all";
+  }, [rawTransactions]);
 
   // Handle refresh
   const handleRefresh = useCallback(async () => {
@@ -145,27 +127,11 @@ export function useShopTransaction() {
     }
   }, [refetchTransaction]);
 
-  // Clear all filters
-  const clearFilters = useCallback(() => {
-    setSearchQuery("");
-    setStatusFilter("all");
-    setDateFilter("all");
-  }, []);
-
   return {
     // Data
-    transactions: filteredTransactions,
+    transactions,
     stats,
-    transactionCount: filteredTransactions.length,
-    // Filters
-    searchQuery,
-    setSearchQuery,
-    statusFilter,
-    setStatusFilter,
-    dateFilter,
-    setDateFilter,
-    hasActiveFilters,
-    clearFilters,
+    transactionCount: transactions.length,
     // Query state
     isLoading,
     error,

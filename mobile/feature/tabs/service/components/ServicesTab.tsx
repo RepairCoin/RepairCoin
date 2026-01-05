@@ -9,96 +9,58 @@ import {
   Modal,
   ScrollView,
 } from "react-native";
-import React, { useState, useMemo } from "react";
-import { useService } from "@/hooks/service/useService";
+import React from "react";
 import { ServiceData } from "@/interfaces/service.interface";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { SERVICE_CATEGORIES } from "@/constants/service-categories";
 import ServiceCard from "@/components/shared/ServiceCard";
 import { SearchInput } from "@/components/ui/SearchInput";
-import { useAuthStore } from "@/store/auth.store";
 
-type StatusFilter = "all" | "active" | "inactive";
+// Hooks
+import {
+  useServicesTabQuery,
+  useServicesTabUI,
+  SERVICE_STATUS_OPTIONS,
+  getCategoryLabel,
+} from "../hooks";
+
+interface ServicesTabProps {
+  setActionModalVisible: (visible: boolean) => void;
+  setSelectedService: (service: ServiceData) => void;
+}
 
 export default function ServicesTab({
   setActionModalVisible,
   setSelectedService,
-}: {
-  setActionModalVisible: (visible: boolean) => void;
-  setSelectedService: (service: ServiceData) => void;
-}) {
-  const { userProfile } = useAuthStore();
-  const shopId = userProfile?.shopId;
-  const { useShopServicesQuery } = useService();
+}: ServicesTabProps) {
+  // UI state
   const {
-    data: servicesData,
+    searchQuery,
+    setSearchQuery,
+    filterModalVisible,
+    openFilterModal,
+    closeFilterModal,
+    statusFilter,
+    setStatusFilter,
+    clearStatusFilter,
+    selectedCategories,
+    toggleCategory,
+    hasActiveFilters,
+    hasSearchOrFilters,
+    clearFilters,
+  } = useServicesTabUI();
+
+  // Data fetching
+  const {
+    services,
+    serviceCount,
     isLoading,
     error,
+    refreshing,
+    handleRefresh,
     refetch,
-  } = useShopServicesQuery({ shopId, page: 1, limit: 10 });
-
-  const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterModalVisible, setFilterModalVisible] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-
-  const toggleCategory = (category: string) => {
-    setSelectedCategories((prev) =>
-      prev.includes(category)
-        ? prev.filter((c) => c !== category)
-        : [...prev, category]
-    );
-  };
-
-  const clearFilters = () => {
-    setStatusFilter("all");
-    setSelectedCategories([]);
-  };
-
-  const hasActiveFilters =
-    statusFilter !== "all" || selectedCategories.length > 0;
-
-  const filteredServices = useMemo(() => {
-    let services = servicesData || [];
-
-    // Apply status filter
-    if (statusFilter === "active") {
-      services = services.filter((service: ServiceData) => service.active);
-    } else if (statusFilter === "inactive") {
-      services = services.filter((service: ServiceData) => !service.active);
-    }
-
-    // Apply category filter
-    if (selectedCategories.length > 0) {
-      services = services.filter((service: ServiceData) =>
-        selectedCategories.includes(service.category)
-      );
-    }
-
-    // Apply search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      services = services.filter((service: ServiceData) =>
-        service.serviceName.toLowerCase().includes(query)
-      );
-    }
-
-    return services;
-  }, [servicesData, statusFilter, selectedCategories, searchQuery]);
-
-  const getCategoryLabel = (category?: string) => {
-    if (!category) return "Other";
-    const cat = SERVICE_CATEGORIES.find((c) => c.value === category);
-    return cat?.label || category;
-  };
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await refetch();
-    setRefreshing(false);
-  };
+  } = useServicesTabQuery(searchQuery, statusFilter, selectedCategories);
 
   const handleMenuPress = (item: ServiceData) => {
     setSelectedService(item);
@@ -137,7 +99,7 @@ export default function ServicesTab({
 
         {/* Filter Button */}
         <Pressable
-          onPress={() => setFilterModalVisible(true)}
+          onPress={openFilterModal}
           className={`p-3 rounded-full ${
             hasActiveFilters ? "bg-[#FFCC00]" : ""
           }`}
@@ -158,7 +120,7 @@ export default function ServicesTab({
               <Text className="text-[#FFCC00] text-xs mr-1 capitalize">
                 {statusFilter}
               </Text>
-              <Pressable onPress={() => setStatusFilter("all")}>
+              <Pressable onPress={clearStatusFilter}>
                 <Feather name="x" size={14} color="#FFCC00" />
               </Pressable>
             </View>
@@ -185,10 +147,9 @@ export default function ServicesTab({
       )}
 
       {/* Results count when searching or filtering */}
-      {(searchQuery.length > 0 || hasActiveFilters) && (
+      {hasSearchOrFilters && (
         <Text className="text-gray-400 text-sm mb-2">
-          {filteredServices.length} result
-          {filteredServices.length !== 1 ? "s" : ""} found
+          {serviceCount} result{serviceCount !== 1 ? "s" : ""} found
         </Text>
       )}
 
@@ -205,7 +166,7 @@ export default function ServicesTab({
         </View>
       ) : (
         <FlatList
-          data={filteredServices}
+          data={services}
           keyExtractor={(item, index) => `${item.serviceId}-${index}`}
           renderItem={renderServiceItem}
           numColumns={2}
@@ -221,12 +182,12 @@ export default function ServicesTab({
             <View className="flex-1 justify-center items-center pt-20">
               <Ionicons name="briefcase-outline" size={64} color="#666" />
               <Text className="text-gray-400 text-center mt-4">
-                {searchQuery.length > 0 || hasActiveFilters
+                {hasSearchOrFilters
                   ? "No services match your filters"
                   : "No services yet"}
               </Text>
               <Text className="text-gray-500 text-sm text-center mt-2">
-                {searchQuery.length > 0 || hasActiveFilters
+                {hasSearchOrFilters
                   ? "Try adjusting your search or filters"
                   : "Tap the + button to add your first service"}
               </Text>
@@ -240,14 +201,14 @@ export default function ServicesTab({
         animationType="slide"
         transparent={true}
         visible={filterModalVisible}
-        onRequestClose={() => setFilterModalVisible(false)}
+        onRequestClose={closeFilterModal}
       >
         <View className="flex-1 justify-end bg-black/50">
           <View className="bg-zinc-900 rounded-t-3xl max-h-[80%]">
             {/* Modal Header */}
             <View className="flex-row items-center justify-between p-4 border-b border-zinc-800">
               <Text className="text-white text-lg font-semibold">Filters</Text>
-              <Pressable onPress={() => setFilterModalVisible(false)}>
+              <Pressable onPress={closeFilterModal}>
                 <Ionicons name="close-circle" size={28} color="#9CA3AF" />
               </Pressable>
             </View>
@@ -259,29 +220,27 @@ export default function ServicesTab({
                   Status
                 </Text>
                 <View className="flex-row flex-wrap gap-2">
-                  {(["all", "active", "inactive"] as StatusFilter[]).map(
-                    (status) => (
-                      <Pressable
-                        key={status}
-                        onPress={() => setStatusFilter(status)}
-                        className={`px-4 py-2 rounded-full ${
+                  {SERVICE_STATUS_OPTIONS.map((status) => (
+                    <Pressable
+                      key={status}
+                      onPress={() => setStatusFilter(status)}
+                      className={`px-4 py-2 rounded-full ${
+                        statusFilter === status
+                          ? "bg-[#FFCC00]"
+                          : "bg-zinc-800"
+                      }`}
+                    >
+                      <Text
+                        className={`capitalize ${
                           statusFilter === status
-                            ? "bg-[#FFCC00]"
-                            : "bg-zinc-800"
+                            ? "text-black font-semibold"
+                            : "text-gray-400"
                         }`}
                       >
-                        <Text
-                          className={`capitalize ${
-                            statusFilter === status
-                              ? "text-black font-semibold"
-                              : "text-gray-400"
-                          }`}
-                        >
-                          {status}
-                        </Text>
-                      </Pressable>
-                    )
-                  )}
+                        {status}
+                      </Text>
+                    </Pressable>
+                  ))}
                 </View>
               </View>
 
@@ -326,7 +285,7 @@ export default function ServicesTab({
                   </Text>
                 </Pressable>
                 <Pressable
-                  onPress={() => setFilterModalVisible(false)}
+                  onPress={closeFilterModal}
                   className="flex-1 py-3 rounded-full bg-[#FFCC00]"
                 >
                   <Text className="text-black text-center font-semibold">

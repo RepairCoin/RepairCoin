@@ -1,7 +1,7 @@
 import { useAuthStore } from "@/store/auth.store";
 import { useTheme } from "@/hooks/theme/useTheme";
 
-export function useShopSettings() {
+export function useSettingsUI() {
   const { account } = useAuthStore();
   const { useThemeColor } = useTheme();
   const { toggleColorScheme, isDarkMode } = useThemeColor();

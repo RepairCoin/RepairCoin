@@ -17,13 +17,16 @@ import { ThemedView } from "@/components/ui/ThemedView";
 import { SearchInput } from "@/components/ui/SearchInput";
 import TransactionHistoryCard from "../components/TransactionHistoryCard";
 
-// Others
-import { PurchaseHistoryData } from "@/interfaces/purchase.interface";
+// Hooks
 import {
-  useShopTransaction,
+  useHistoryQuery,
+  useHistoryUI,
   STATUS_FILTERS,
   DATE_FILTERS,
-} from "../hooks/useShopTransaction";
+} from "../hooks";
+
+// Others
+import { PurchaseHistoryData } from "@/interfaces/purchase.interface";
 
 const FilterChip = ({
   label,
@@ -52,9 +55,8 @@ const FilterChip = ({
 );
 
 export default function ShopHistoryScreen() {
+  // UI state (filters, search)
   const {
-    transactions,
-    transactionCount,
     searchQuery,
     setSearchQuery,
     statusFilter,
@@ -62,11 +64,17 @@ export default function ShopHistoryScreen() {
     dateFilter,
     setDateFilter,
     hasActiveFilters,
+  } = useHistoryUI();
+
+  // Data fetching with filtering
+  const {
+    transactions,
+    transactionCount,
     isLoading,
     error,
     refreshing,
     handleRefresh,
-  } = useShopTransaction();
+  } = useHistoryQuery(searchQuery, statusFilter, dateFilter);
 
   const renderTransaction = ({ item }: { item: PurchaseHistoryData }) => (
     <TransactionHistoryCard

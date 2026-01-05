@@ -14,8 +14,7 @@ import { FilterButton } from "@/components/shared/FilterButton";
 import { FilterModal, FilterOption } from "@/components/shared/FilterModal";
 import { useAuthStore } from "@/store/auth.store";
 import { ChartDataPoint, ChartFilter, TimeRange } from "../../../types";
-import { useAnalytics } from "../../../hooks";
-
+import { useAnalyticsQuery, useAnalyticsUI } from "../../../hooks";
 
 // Filter options
 const CHART_FILTERS: FilterOption[] = [
@@ -47,15 +46,14 @@ export default function AnalyticsTab() {
 
   const shopId = useAuthStore((state) => state.userProfile?.shopId) || "";
 
-  const {
-    chartData,
-    metrics,
-    timeRange,
-    setTimeRange,
-    isLoading,
-    error,
-    refetch,
-  } = useAnalytics(shopId);
+  // UI state (time range)
+  const { timeRange, setTimeRange } = useAnalyticsUI();
+
+  // Data fetching
+  const { chartData, metrics, isLoading, error, refetch } = useAnalyticsQuery(
+    shopId,
+    timeRange
+  );
   // Calculate spacing based on screen width and data points
   const dataLength = chartData.profit.length || 6;
   const spacing = useMemo(

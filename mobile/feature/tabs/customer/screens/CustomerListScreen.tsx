@@ -14,20 +14,19 @@ import { ThemedView } from "@/components/ui/ThemedView";
 import { SearchInput } from "@/components/ui/SearchInput";
 import CustomerCard from "../components/CustomerCard";
 
+// Hooks
+import { useCustomerQuery, useCustomerUI } from "../hooks";
+
 // Others
-import { useShopCustomer } from "../hooks/useShopCustomer";
 import { CustomerData } from "@/interfaces/customer.interface";
 
 export default function CustomerListScreen() {
-  const {
-    customers,
-    searchText,
-    setSearchText,
-    hasSearchQuery,
-    isLoading,
-    refreshing,
-    handleRefresh,
-  } = useShopCustomer();
+  // UI state (search)
+  const { searchText, setSearchText, hasSearchQuery } = useCustomerUI();
+
+  // Data fetching with filtering
+  const { customers, isLoading, refreshing, handleRefresh } =
+    useCustomerQuery(searchText);
 
   const renderCustomer = ({ item }: { item: CustomerData }) => (
     <CustomerCard

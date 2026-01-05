@@ -4,7 +4,7 @@ import { useAuthStore } from "@/store/auth.store";
 import { queryKeys } from "@/config/queryClient";
 import { shopApi } from "@/services/shop.services";
 
-export function useShopHome() {
+export function useHomeQuery() {
   const { account, userProfile } = useAuthStore();
   const walletAddress = account?.address || "";
   const shopId = userProfile?.shopId || "";

@@ -3,12 +3,12 @@ import { Image, Pressable, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { ThemedView } from "@/components/ui/ThemedView";
-import { useShopHome } from "../hooks";
+import { useHomeQuery } from "../hooks";
 import { ShopTabs } from "../types";
 import { WalletTab, PromoCodeTab, AnalyticsTab } from "../components";
 
 export default function Home() {
-  const { shopData, growthData, refetch } = useShopHome();
+  const { shopData, growthData, refetch } = useHomeQuery();
 
   const [activeTab, setActiveTab] = useState<ShopTabs>("Wallet");
   const shopTabs: ShopTabs[] = ["Wallet", "Analysis", "Promo Code"];

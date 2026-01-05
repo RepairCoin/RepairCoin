@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/auth.store";
 
-export function useLogout() {
+export function useSettingsMutation() {
   const queryClient = useQueryClient();
   const logout = useAuthStore((state) => state.logout);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -49,7 +49,7 @@ export function useLogout() {
   }, [queryClient, logout, isLoggingOut]);
 
   return {
-    logout: handleLogout,
+    handleLogout,
     isLoggingOut,
   };
 }

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/config/queryClient";
 import {
@@ -10,9 +10,7 @@ import {
 import { TimeRange, ProfitData, ProfitMetrics, ChartDataPoint } from "../types";
 import { analyticsApi } from "@/services/analytics.services";
 
-export function useAnalytics(shopId: string) {
-  const [timeRange, setTimeRange] = useState<TimeRange>("month");
-
+export function useAnalyticsQuery(shopId: string, timeRange: TimeRange) {
   const getProfitData = async (
     shopId: string,
     startDate: string,
@@ -282,9 +280,6 @@ export function useAnalytics(shopId: string) {
     profitData,
     chartData,
     metrics,
-    // State
-    timeRange,
-    setTimeRange,
     // Query state
     isLoading,
     error,

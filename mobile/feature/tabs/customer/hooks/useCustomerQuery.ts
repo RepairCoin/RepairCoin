@@ -1,16 +1,14 @@
-import { useState, useCallback, useMemo } from "react";
+import { useMemo, useCallback, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { shopApi } from "@/services/shop.services";
 import { queryKeys } from "@/config/queryClient";
+import { shopApi } from "@/services/shop.services";
 import { useAuthStore } from "@/store/auth.store";
 import { CustomerData } from "@/interfaces/customer.interface";
 
-export function useShopCustomer() {
+export function useCustomerQuery(searchText: string) {
   const { userProfile } = useAuthStore();
   const shopId = userProfile?.shopId || "";
-
   const [refreshing, setRefreshing] = useState(false);
-  const [searchText, setSearchText] = useState("");
 
   const {
     data: shopCustomerData,
@@ -41,13 +39,11 @@ export function useShopCustomer() {
     );
   }, [shopCustomerData, searchText]);
 
-  // Customer count
+  // Customer counts
   const customerCount = customers.length;
   const totalCount = shopCustomerData?.customers?.length || 0;
 
-  // Check if search is active
-  const hasSearchQuery = searchText.trim().length > 0;
-
+  // Handle refresh
   const handleRefresh = useCallback(async () => {
     try {
       setRefreshing(true);
@@ -57,20 +53,11 @@ export function useShopCustomer() {
     }
   }, [refetchShopCustomer]);
 
-  const clearSearch = useCallback(() => {
-    setSearchText("");
-  }, []);
-
   return {
     // Data
     customers,
     customerCount,
     totalCount,
-    // Search
-    searchText,
-    setSearchText,
-    hasSearchQuery,
-    clearSearch,
     // Query state
     isLoading,
     error,

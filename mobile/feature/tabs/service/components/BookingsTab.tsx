@@ -8,126 +8,53 @@ import {
   Dimensions,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { useBooking } from "@/feature/booking/hooks";
-import { BookingData, BookingStatus } from "@/interfaces/booking.interfaces";
+import { BookingData } from "@/interfaces/booking.interfaces";
 import { router } from "expo-router";
-import { useState, useMemo } from "react";
 
-type FilterStatus = "all" | BookingStatus;
-
-const STATUS_FILTERS: { label: string; value: FilterStatus }[] = [
-  { label: "All", value: "all" },
-  { label: "Pending", value: "pending" },
-  { label: "Paid", value: "paid" },
-  { label: "Completed", value: "completed" },
-];
-
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December"
-];
-
-const getStatusColor = (status: BookingStatus) => {
-  switch (status) {
-    case "completed": return "#22c55e";
-    case "paid": return "#3b82f6";
-    case "pending": return "#eab308";
-    case "cancelled": return "#ef4444";
-    default: return "#666";
-  }
-};
+// Hooks
+import {
+  useBookingsQuery,
+  useBookingsUI,
+  useCalendarUI,
+  BOOKING_STATUS_FILTERS,
+  getStatusColor,
+  formatBookingTime,
+  isToday,
+  isDateSelected,
+  getDaysInMonth,
+  getScrollableDays,
+  DAYS,
+  MONTHS,
+  YEARS,
+} from "../hooks";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const DAY_WIDTH = (SCREEN_WIDTH - 32) / 7;
-const YEARS = [2024, 2025, 2026, 2027, 2028, 2029, 2030];
 
-function BookingCalendar({ bookings }: { bookings: BookingData[] }) {
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [showFullCalendar, setShowFullCalendar] = useState(false);
-  const [showYearMonthPicker, setShowYearMonthPicker] = useState(false);
-  const [calendarMonth, setCalendarMonth] = useState(new Date());
+interface BookingCalendarProps {
+  getBookingsForDate: (date: Date) => BookingData[];
+}
 
-  // Generate 12 weeks (6 before, current, 5 after) for scrolling
-  const getScrollableDays = () => {
-    const days: Date[] = [];
-    const today = new Date();
-    const currentDay = today.getDay();
-
-    // Start from 6 weeks ago (Sunday of that week)
-    const startDate = new Date(today);
-    startDate.setDate(today.getDate() - currentDay - 42);
-
-    // Generate 84 days (12 weeks)
-    for (let i = 0; i < 84; i++) {
-      const day = new Date(startDate);
-      day.setDate(startDate.getDate() + i);
-      days.push(day);
-    }
-    return days;
-  };
+function BookingCalendar({ getBookingsForDate }: BookingCalendarProps) {
+  const {
+    selectedDate,
+    setSelectedDate,
+    showFullCalendar,
+    openFullCalendar,
+    closeFullCalendar,
+    showYearMonthPicker,
+    setShowYearMonthPicker,
+    calendarMonth,
+    goToPreviousMonth,
+    goToNextMonth,
+    selectYear,
+    selectMonth,
+    selectDateFromCalendar,
+    goToToday,
+  } = useCalendarUI();
 
   const scrollableDays = getScrollableDays();
-
-  const getBookingsForDate = (date: Date) => {
-    return bookings.filter((booking) => {
-      const bookingDate = booking.bookingDate
-        ? new Date(booking.bookingDate)
-        : new Date(booking.createdAt);
-      return (
-        bookingDate.getFullYear() === date.getFullYear() &&
-        bookingDate.getMonth() === date.getMonth() &&
-        bookingDate.getDate() === date.getDate()
-      );
-    });
-  };
-
-  const isToday = (date: Date) => {
-    const today = new Date();
-    return (
-      date.getDate() === today.getDate() &&
-      date.getMonth() === today.getMonth() &&
-      date.getFullYear() === today.getFullYear()
-    );
-  };
-
-  const isSelected = (date: Date) => {
-    return (
-      date.getDate() === selectedDate.getDate() &&
-      date.getMonth() === selectedDate.getMonth() &&
-      date.getFullYear() === selectedDate.getFullYear()
-    );
-  };
-
   const selectedBookings = getBookingsForDate(selectedDate);
-
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
-  };
-
-  // Full Calendar Modal helpers
-  const getDaysInMonth = (date: Date) => {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    return { firstDay, daysInMonth };
-  };
-
-  const handleDateSelectFromCalendar = (day: number) => {
-    const newDate = new Date(
-      calendarMonth.getFullYear(),
-      calendarMonth.getMonth(),
-      day
-    );
-    setSelectedDate(newDate);
-    setShowFullCalendar(false);
-  };
 
   return (
     <View className="flex-1">
@@ -138,10 +65,7 @@ function BookingCalendar({ bookings }: { bookings: BookingData[] }) {
             {MONTHS[selectedDate.getMonth()]} {selectedDate.getFullYear()}
           </Text>
           <TouchableOpacity
-            onPress={() => {
-              setCalendarMonth(selectedDate);
-              setShowFullCalendar(true);
-            }}
+            onPress={openFullCalendar}
             className="bg-[#1a1a1a] p-2 rounded-lg flex-row items-center"
           >
             <Ionicons name="calendar" size={18} color="#FFCC00" />
@@ -163,7 +87,7 @@ function BookingCalendar({ bookings }: { bookings: BookingData[] }) {
           {scrollableDays.map((date, idx) => {
             const dayBookings = getBookingsForDate(date);
             const hasBookings = dayBookings.length > 0;
-            const selected = isSelected(date);
+            const selected = isDateSelected(date, selectedDate);
             const today = isToday(date);
 
             return (
@@ -262,7 +186,7 @@ function BookingCalendar({ bookings }: { bookings: BookingData[] }) {
                   <View className="flex-row items-center mt-2">
                     <Ionicons name="time-outline" size={14} color="#FFCC00" />
                     <Text className="text-[#FFCC00] text-sm ml-1 font-medium">
-                      {formatTime(booking.bookingDate || booking.createdAt)}
+                      {formatBookingTime(booking.bookingDate || booking.createdAt)}
                     </Text>
                   </View>
                 </View>
@@ -309,34 +233,19 @@ function BookingCalendar({ bookings }: { bookings: BookingData[] }) {
         visible={showFullCalendar}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => {
-          setShowFullCalendar(false);
-          setShowYearMonthPicker(false);
-        }}
+        onRequestClose={closeFullCalendar}
       >
         <View className="flex-1 bg-black/70 justify-end">
           <View className="bg-[#121212] rounded-t-3xl pt-4 pb-8 px-4">
             {/* Modal Header */}
             <View className="flex-row items-center justify-between mb-4">
-              <TouchableOpacity
-                onPress={() => {
-                  setShowFullCalendar(false);
-                  setShowYearMonthPicker(false);
-                }}
-                className="p-2"
-              >
+              <TouchableOpacity onPress={closeFullCalendar} className="p-2">
                 <Ionicons name="close" size={24} color="#999" />
               </TouchableOpacity>
               <Text className="text-white text-lg font-semibold">
                 Select Date
               </Text>
-              <TouchableOpacity
-                onPress={() => {
-                  setSelectedDate(new Date());
-                  setShowFullCalendar(false);
-                }}
-                className="p-2"
-              >
+              <TouchableOpacity onPress={goToToday} className="p-2">
                 <Text className="text-[#FFCC00] font-medium">Today</Text>
               </TouchableOpacity>
             </View>
@@ -356,11 +265,7 @@ function BookingCalendar({ bookings }: { bookings: BookingData[] }) {
                     {YEARS.map((year) => (
                       <TouchableOpacity
                         key={year}
-                        onPress={() => {
-                          const newDate = new Date(calendarMonth);
-                          newDate.setFullYear(year);
-                          setCalendarMonth(newDate);
-                        }}
+                        onPress={() => selectYear(year)}
                         className={`px-4 py-2 rounded-full ${
                           calendarMonth.getFullYear() === year
                             ? "bg-[#FFCC00]"
@@ -387,12 +292,7 @@ function BookingCalendar({ bookings }: { bookings: BookingData[] }) {
                   {MONTHS.map((month, idx) => (
                     <TouchableOpacity
                       key={month}
-                      onPress={() => {
-                        const newDate = new Date(calendarMonth);
-                        newDate.setMonth(idx);
-                        setCalendarMonth(newDate);
-                        setShowYearMonthPicker(false);
-                      }}
+                      onPress={() => selectMonth(idx)}
                       className={`px-3 py-2 rounded-lg ${
                         calendarMonth.getMonth() === idx
                           ? "bg-[#FFCC00]"
@@ -416,14 +316,7 @@ function BookingCalendar({ bookings }: { bookings: BookingData[] }) {
             ) : (
               <View className="flex-row items-center justify-between mb-4">
                 <TouchableOpacity
-                  onPress={() => {
-                    const newMonth = new Date(calendarMonth);
-                    newMonth.setMonth(calendarMonth.getMonth() - 1);
-                    // Limit to 2024
-                    if (newMonth.getFullYear() >= 2024) {
-                      setCalendarMonth(newMonth);
-                    }
-                  }}
+                  onPress={goToPreviousMonth}
                   className="p-2"
                   disabled={calendarMonth.getFullYear() === 2024 && calendarMonth.getMonth() === 0}
                 >
@@ -443,14 +336,7 @@ function BookingCalendar({ bookings }: { bookings: BookingData[] }) {
                   <Ionicons name="chevron-down" size={18} color="#FFCC00" className="ml-1" />
                 </TouchableOpacity>
                 <TouchableOpacity
-                  onPress={() => {
-                    const newMonth = new Date(calendarMonth);
-                    newMonth.setMonth(calendarMonth.getMonth() + 1);
-                    // Limit to 2030
-                    if (newMonth.getFullYear() <= 2030) {
-                      setCalendarMonth(newMonth);
-                    }
-                  }}
+                  onPress={goToNextMonth}
                   className="p-2"
                   disabled={calendarMonth.getFullYear() === 2030 && calendarMonth.getMonth() === 11}
                 >
@@ -500,12 +386,12 @@ function BookingCalendar({ bookings }: { bookings: BookingData[] }) {
                       const dayBookings = getBookingsForDate(cellDate);
                       const hasBookings = dayBookings.length > 0;
                       const today = isToday(cellDate);
-                      const selected = isSelected(cellDate);
+                      const selected = isDateSelected(cellDate, selectedDate);
 
                       cells.push(
                         <TouchableOpacity
                           key={day}
-                          onPress={() => handleDateSelectFromCalendar(day)}
+                          onPress={() => selectDateFromCalendar(day)}
                           className="w-[14.28%] h-12 items-center justify-center"
                         >
                           <View
@@ -575,29 +461,19 @@ function BookingCalendar({ bookings }: { bookings: BookingData[] }) {
 }
 
 export default function BookingsTab() {
-  const { useShopBookingQuery } = useBooking();
-  const { data: bookingsData, isLoading } = useShopBookingQuery();
+  // UI state
+  const { statusFilter, setStatusFilter } = useBookingsUI();
 
-  const [statusFilter, setStatusFilter] = useState<FilterStatus>("all");
-
-  const filteredBookings = useMemo(() => {
-    if (!bookingsData) return [];
-    if (statusFilter === "all") return bookingsData;
-    return bookingsData.filter(
-      (booking: BookingData) => booking.status === statusFilter
-    );
-  }, [bookingsData, statusFilter]);
+  // Data fetching
+  const { isLoading, getBookingsForDate } = useBookingsQuery(statusFilter);
 
   return (
     <View className="flex-1 bg-zinc-950">
       {/* Status Filters */}
       <View className="px-4 mb-3">
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-        >
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View className="flex-row gap-2">
-            {STATUS_FILTERS.map((filter) => (
+            {BOOKING_STATUS_FILTERS.map((filter) => (
               <TouchableOpacity
                 key={filter.value}
                 onPress={() => setStatusFilter(filter.value)}
@@ -627,7 +503,7 @@ export default function BookingsTab() {
           <ActivityIndicator size="large" color="#ffcc00" />
         </View>
       ) : (
-        <BookingCalendar bookings={filteredBookings} />
+        <BookingCalendar getBookingsForDate={getBookingsForDate} />
       )}
     </View>
   );
