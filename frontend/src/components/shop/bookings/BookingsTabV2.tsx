@@ -7,6 +7,7 @@ import { BookingStatsCards } from "./BookingStatsCards";
 import { BookingFilters } from "./BookingFilters";
 import { BookingCard } from "./BookingCard";
 import { BookingDetailsPanel } from "./BookingDetailsPanel";
+import { CancelBookingModal } from "./CancelBookingModal";
 import { toast } from "react-hot-toast";
 import { getShopOrders, updateOrderStatus } from "@/services/api/services";
 
@@ -23,6 +24,7 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId }) => {
   const [activeTab, setActiveTab] = useState<'bookings' | 'messages'>('bookings');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cancelModalBooking, setCancelModalBooking] = useState<MockBooking | null>(null);
 
   // Load bookings from API
   const loadBookings = async () => {
@@ -180,6 +182,34 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId }) => {
     toast.success('Message sent!');
   };
 
+  const handleCancel = (bookingId: string) => {
+    const booking = bookings.find(b => b.bookingId === bookingId);
+    if (booking) {
+      setCancelModalBooking(booking);
+    }
+  };
+
+  const handleCancelComplete = () => {
+    if (cancelModalBooking) {
+      setBookings(prev => prev.map(b => {
+        if (b.bookingId === cancelModalBooking.bookingId) {
+          const newTimeline = [
+            ...b.timeline,
+            {
+              id: `tl-${Date.now()}`,
+              type: 'cancelled' as const,
+              timestamp: new Date().toISOString(),
+              description: 'Booking cancelled by shop'
+            }
+          ];
+          return { ...b, status: 'cancelled' as const, timeline: newTimeline };
+        }
+        return b;
+      }));
+    }
+    setCancelModalBooking(null);
+  };
+
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
@@ -264,6 +294,7 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId }) => {
                   onReschedule={() => handleReschedule(booking.bookingId)}
                   onSchedule={() => handleSchedule(booking.bookingId)}
                   onComplete={() => handleComplete(booking.bookingId)}
+                  onCancel={() => handleCancel(booking.bookingId)}
                 />
               ))
             )}
@@ -334,6 +365,18 @@ export const BookingsTabV2: React.FC<BookingsTabV2Props> = ({ shopId }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Cancel Booking Modal */}
+      {cancelModalBooking && (
+        <CancelBookingModal
+          bookingId={cancelModalBooking.bookingId}
+          orderId={cancelModalBooking.orderId}
+          serviceName={cancelModalBooking.serviceName}
+          customerName={cancelModalBooking.customerName}
+          onClose={() => setCancelModalBooking(null)}
+          onCancelled={handleCancelComplete}
+        />
       )}
     </div>
   );

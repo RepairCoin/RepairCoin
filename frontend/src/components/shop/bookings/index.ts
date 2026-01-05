@@ -6,6 +6,7 @@ export { BookingStatsCards } from './BookingStatsCards';
 export { BookingFilters } from './BookingFilters';
 export { BookingCard } from './BookingCard';
 export { BookingDetailsPanel } from './BookingDetailsPanel';
+export { CancelBookingModal } from './CancelBookingModal';
 
 // Tab components
 export { BookingOverviewTab } from './tabs/BookingOverviewTab';

@@ -12,6 +12,7 @@ interface BookingCardProps {
   onReschedule: () => void;
   onSchedule: () => void;
   onComplete: () => void;
+  onCancel: () => void;
 }
 
 // Progress steps for the booking flow
@@ -24,7 +25,8 @@ export const BookingCard: React.FC<BookingCardProps> = ({
   onApprove,
   onReschedule,
   onSchedule,
-  onComplete
+  onComplete,
+  onCancel
 }) => {
   const getStepStatus = (step: string, currentStatus: string): 'completed' | 'current' | 'pending' => {
     const currentIndex = progressSteps.indexOf(currentStatus);
@@ -49,10 +51,27 @@ export const BookingCard: React.FC<BookingCardProps> = ({
 
   // Render action buttons based on booking status
   const renderActionButtons = () => {
+    // Cancel button for all actionable statuses
+    const cancelButton = (
+      <button
+        onClick={onCancel}
+        className="px-3 py-1.5 text-sm font-medium text-red-400 bg-[#0D0D0D] border border-red-700/50 rounded-lg hover:border-red-500 hover:bg-red-900/20 transition-colors"
+      >
+        Cancel
+      </button>
+    );
+
     switch (booking.status) {
+      case 'requested':
+        return (
+          <>
+            {cancelButton}
+          </>
+        );
       case 'paid':
         return (
           <>
+            {cancelButton}
             <button
               onClick={onReschedule}
               className="px-3 py-1.5 text-sm font-medium text-gray-300 bg-[#0D0D0D] border border-gray-700 rounded-lg hover:border-gray-500 transition-colors"
@@ -71,6 +90,7 @@ export const BookingCard: React.FC<BookingCardProps> = ({
       case 'approved':
         return (
           <>
+            {cancelButton}
             <button
               onClick={onReschedule}
               className="px-3 py-1.5 text-sm font-medium text-gray-300 bg-[#0D0D0D] border border-gray-700 rounded-lg hover:border-gray-500 transition-colors"
@@ -89,6 +109,7 @@ export const BookingCard: React.FC<BookingCardProps> = ({
       case 'scheduled':
         return (
           <>
+            {cancelButton}
             <button
               onClick={onReschedule}
               className="px-3 py-1.5 text-sm font-medium text-gray-300 bg-[#0D0D0D] border border-gray-700 rounded-lg hover:border-gray-500 transition-colors"
@@ -109,7 +130,7 @@ export const BookingCard: React.FC<BookingCardProps> = ({
     }
   };
 
-  const hasActions = ['paid', 'approved', 'scheduled'].includes(booking.status);
+  const hasActions = ['requested', 'paid', 'approved', 'scheduled'].includes(booking.status);
 
   return (
     <div

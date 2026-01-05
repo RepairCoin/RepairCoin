@@ -713,6 +713,53 @@ export function initializeRoutes(stripe: StripeService): Router {
 
   /**
    * @swagger
+   * /api/services/orders/{id}/shop-cancel:
+   *   post:
+   *     summary: Cancel order (Shop only)
+   *     description: Cancel a paid/scheduled order. Cannot cancel completed orders.
+   *     tags: [Service Orders]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - cancellationReason
+   *             properties:
+   *               cancellationReason:
+   *                 type: string
+   *                 description: Reason for cancellation
+   *               cancellationNotes:
+   *                 type: string
+   *                 description: Optional additional notes
+   *     responses:
+   *       200:
+   *         description: Order cancelled successfully
+   *       400:
+   *         description: Cannot cancel completed/already cancelled order
+   *       403:
+   *         description: Unauthorized - order doesn't belong to shop
+   *       404:
+   *         description: Order not found
+   */
+  router.post(
+    '/orders/:id/shop-cancel',
+    authMiddleware,
+    requireRole(['shop']),
+    orderController.cancelOrderByShop
+  );
+
+  /**
+   * @swagger
    * /api/services/orders/{id}/mark-no-show:
    *   post:
    *     summary: Mark order as no-show (Shop only)
