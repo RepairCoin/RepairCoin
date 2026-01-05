@@ -156,10 +156,11 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
           });
 
           // Set new access token in cookie
+          // Using 'lax' for sameSite as it works for subdomain setup (api.repaircoin.ai <-> repaircoin.ai)
           const cookieOptions: any = {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            sameSite: 'lax' as 'lax',
             maxAge: 15 * 60 * 1000, // 15 minutes
             path: '/'
           };
@@ -260,10 +261,11 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
         });
 
         // Set cookie options
+        // Using 'lax' for sameSite as it works for subdomain setup (api.repaircoin.ai <-> repaircoin.ai)
         const cookieOptions: any = {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
-          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+          sameSite: 'lax' as 'lax',
           maxAge: 15 * 60 * 1000, // 15 minutes
           path: '/'
         };

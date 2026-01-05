@@ -372,6 +372,8 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
                         setBookingTimeSlot(null); // Reset time slot when date changes
                       }}
                       maxAdvanceDays={timeSlotConfig?.bookingAdvanceDays || 30}
+                      minBookingHours={timeSlotConfig?.minBookingHours || 0}
+                      allowWeekendBooking={timeSlotConfig?.allowWeekendBooking ?? true}
                     />
                   </div>
 

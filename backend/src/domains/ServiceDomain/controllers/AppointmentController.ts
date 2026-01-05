@@ -3,16 +3,19 @@ import { Request, Response } from 'express';
 import { AppointmentRepository } from '../../../repositories/AppointmentRepository';
 import { ServiceRepository } from '../../../repositories/ServiceRepository';
 import { AppointmentService } from '../services/AppointmentService';
+import { RescheduleService } from '../services/RescheduleService';
 import { logger } from '../../../utils/logger';
 
 export class AppointmentController {
   private appointmentRepo: AppointmentRepository;
   private appointmentService: AppointmentService;
+  private rescheduleService: RescheduleService;
   private serviceRepo: ServiceRepository;
 
   constructor() {
     this.appointmentRepo = new AppointmentRepository();
     this.appointmentService = new AppointmentService();
+    this.rescheduleService = new RescheduleService();
     this.serviceRepo = new ServiceRepository();
   }
 
@@ -557,6 +560,264 @@ export class AppointmentController {
       res.status(400).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to cancel appointment'
+      });
+    }
+  };
+
+  // ==================== RESCHEDULE ENDPOINTS ====================
+
+  /**
+   * Create reschedule request (Customer only)
+   * POST /api/services/appointments/reschedule-request
+   */
+  createRescheduleRequest = async (req: Request, res: Response) => {
+    try {
+      const customerAddress = req.user?.address;
+      if (!customerAddress) {
+        return res.status(401).json({ success: false, error: 'Customer authentication required' });
+      }
+
+      const { orderId, requestedDate, requestedTimeSlot, reason } = req.body;
+
+      if (!orderId || !requestedDate || !requestedTimeSlot) {
+        return res.status(400).json({
+          success: false,
+          error: 'orderId, requestedDate, and requestedTimeSlot are required'
+        });
+      }
+
+      const result = await this.rescheduleService.createRescheduleRequest(
+        orderId,
+        customerAddress,
+        requestedDate,
+        requestedTimeSlot,
+        reason
+      );
+
+      if (!result.success) {
+        return res.status(400).json({
+          success: false,
+          error: result.error,
+          errorCode: result.errorCode
+        });
+      }
+
+      res.json({
+        success: true,
+        data: result.request,
+        message: 'Reschedule request submitted successfully. The shop will respond within 48 hours.'
+      });
+    } catch (error: unknown) {
+      logger.error('Error in createRescheduleRequest controller:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create reschedule request'
+      });
+    }
+  };
+
+  /**
+   * Cancel reschedule request (Customer only - can only cancel their own pending requests)
+   * DELETE /api/services/appointments/reschedule-request/:requestId
+   */
+  cancelRescheduleRequest = async (req: Request, res: Response) => {
+    try {
+      const customerAddress = req.user?.address;
+      if (!customerAddress) {
+        return res.status(401).json({ success: false, error: 'Customer authentication required' });
+      }
+
+      const { requestId } = req.params;
+
+      const result = await this.rescheduleService.cancelRescheduleRequest(requestId, customerAddress);
+
+      if (!result.success) {
+        return res.status(400).json({
+          success: false,
+          error: result.error,
+          errorCode: result.errorCode
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'Reschedule request cancelled successfully'
+      });
+    } catch (error: unknown) {
+      logger.error('Error in cancelRescheduleRequest controller:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to cancel reschedule request'
+      });
+    }
+  };
+
+  /**
+   * Get pending reschedule request for an order (Customer only)
+   * GET /api/services/appointments/reschedule-request/order/:orderId
+   */
+  getRescheduleRequestForOrder = async (req: Request, res: Response) => {
+    try {
+      const customerAddress = req.user?.address;
+      if (!customerAddress) {
+        return res.status(401).json({ success: false, error: 'Customer authentication required' });
+      }
+
+      const { orderId } = req.params;
+
+      const request = await this.rescheduleService.getPendingRequestForOrder(orderId);
+
+      res.json({
+        success: true,
+        data: {
+          hasPendingRequest: !!request,
+          request
+        }
+      });
+    } catch (error: unknown) {
+      logger.error('Error in getRescheduleRequestForOrder controller:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get reschedule request'
+      });
+    }
+  };
+
+  /**
+   * Get all reschedule requests for shop (Shop only)
+   * GET /api/services/appointments/reschedule-requests
+   */
+  getShopRescheduleRequests = async (req: Request, res: Response) => {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+
+      const { status } = req.query;
+      const validStatuses = ['pending', 'approved', 'rejected', 'expired', 'cancelled', 'all'];
+      const statusFilter = status && validStatuses.includes(status as string)
+        ? (status as 'pending' | 'approved' | 'rejected' | 'expired' | 'cancelled' | 'all')
+        : undefined;
+
+      const requests = await this.rescheduleService.getShopRescheduleRequests(shopId, statusFilter);
+      const pendingCount = await this.rescheduleService.getPendingRequestCount(shopId);
+
+      res.json({
+        success: true,
+        data: {
+          requests,
+          pendingCount
+        }
+      });
+    } catch (error: unknown) {
+      logger.error('Error in getShopRescheduleRequests controller:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get reschedule requests'
+      });
+    }
+  };
+
+  /**
+   * Get pending reschedule request count for shop (Shop only)
+   * GET /api/services/appointments/reschedule-requests/count
+   */
+  getShopRescheduleRequestCount = async (req: Request, res: Response) => {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+
+      const count = await this.rescheduleService.getPendingRequestCount(shopId);
+
+      res.json({
+        success: true,
+        data: { count }
+      });
+    } catch (error: unknown) {
+      logger.error('Error in getShopRescheduleRequestCount controller:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get reschedule request count'
+      });
+    }
+  };
+
+  /**
+   * Approve reschedule request (Shop only)
+   * POST /api/services/appointments/reschedule-request/:requestId/approve
+   */
+  approveRescheduleRequest = async (req: Request, res: Response) => {
+    try {
+      const shopAddress = req.user?.address;
+      const shopId = req.user?.shopId;
+      if (!shopAddress || !shopId) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+
+      const { requestId } = req.params;
+
+      const result = await this.rescheduleService.approveRescheduleRequest(requestId, shopAddress);
+
+      if (!result.success) {
+        return res.status(400).json({
+          success: false,
+          error: result.error,
+          errorCode: result.errorCode
+        });
+      }
+
+      res.json({
+        success: true,
+        data: result.request,
+        message: 'Reschedule request approved. The appointment has been updated.'
+      });
+    } catch (error: unknown) {
+      logger.error('Error in approveRescheduleRequest controller:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to approve reschedule request'
+      });
+    }
+  };
+
+  /**
+   * Reject reschedule request (Shop only)
+   * POST /api/services/appointments/reschedule-request/:requestId/reject
+   */
+  rejectRescheduleRequest = async (req: Request, res: Response) => {
+    try {
+      const shopAddress = req.user?.address;
+      const shopId = req.user?.shopId;
+      if (!shopAddress || !shopId) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+
+      const { requestId } = req.params;
+      const { reason } = req.body;
+
+      const result = await this.rescheduleService.rejectRescheduleRequest(requestId, shopAddress, reason);
+
+      if (!result.success) {
+        return res.status(400).json({
+          success: false,
+          error: result.error,
+          errorCode: result.errorCode
+        });
+      }
+
+      res.json({
+        success: true,
+        data: result.request,
+        message: 'Reschedule request rejected.'
+      });
+    } catch (error: unknown) {
+      logger.error('Error in rejectRescheduleRequest controller:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to reject reschedule request'
       });
     }
   };

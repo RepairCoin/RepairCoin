@@ -32,6 +32,7 @@ import { MarketingTab } from "@/components/shop/tabs/MarketingTab";
 import ServiceAnalyticsTab from "@/components/shop/tabs/ServiceAnalyticsTab";
 import { AppointmentCalendar } from "@/components/shop/AppointmentCalendar";
 import { MessagesTab } from "@/components/shop/tabs/MessagesTab";
+import { RescheduleRequestsTab } from "@/components/shop/tabs/RescheduleRequestsTab";
 import { useShopRegistration } from "@/hooks/useShopRegistration";
 import { OnboardingModal } from "@/components/shop/OnboardingModal";
 import { SuspendedShopModal } from "@/components/shop/SuspendedShopModal";
@@ -949,6 +950,10 @@ export default function ShopDashboardClient() {
 
           {activeTab === "messages" && shopData && (
             <MessagesTab shopId={shopData.shopId} />
+          )}
+
+          {activeTab === "reschedules" && shopData && (
+            <RescheduleRequestsTab />
           )}
 
           {activeTab === "purchase" && (

@@ -1118,6 +1118,9 @@ router.post('/subscription/reactivate', async (req: Request, res: Response) => {
       const updateResult = await client.query(updateStripeQuery, [activeSubscription.stripeSubscriptionId]);
 
       // Also reactivate shop_subscriptions table
+      // Handle both cases:
+      // 1. status = 'cancelled' (already cancelled subscription)
+      // 2. status = 'active' with cancellation_reason set (pending cancellation / "cancelling" state)
       const updateShopSubQuery = `
         UPDATE shop_subscriptions
         SET
@@ -1126,7 +1129,7 @@ router.post('/subscription/reactivate', async (req: Request, res: Response) => {
           cancelled_at = NULL,
           cancellation_reason = NULL,
           resumed_at = CURRENT_TIMESTAMP
-        WHERE shop_id = $1 AND status = 'cancelled'
+        WHERE shop_id = $1 AND (status = 'cancelled' OR status = 'active')
       `;
 
       await client.query(updateShopSubQuery, [shopId]);

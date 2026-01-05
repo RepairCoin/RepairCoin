@@ -11,6 +11,8 @@ interface DateAvailabilityPickerProps {
   onDateSelect: (date: Date) => void;
   minDate?: Date;
   maxAdvanceDays?: number;
+  minBookingHours?: number;
+  allowWeekendBooking?: boolean;
 }
 
 export const DateAvailabilityPicker: React.FC<DateAvailabilityPickerProps> = ({
@@ -18,7 +20,9 @@ export const DateAvailabilityPicker: React.FC<DateAvailabilityPickerProps> = ({
   selectedDate,
   onDateSelect,
   minDate = new Date(),
-  maxAdvanceDays = 60
+  maxAdvanceDays = 60,
+  minBookingHours = 0,
+  allowWeekendBooking = true
 }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [shopAvailability, setShopAvailability] = useState<ShopAvailability[]>([]);
@@ -48,6 +52,7 @@ export const DateAvailabilityPicker: React.FC<DateAvailabilityPickerProps> = ({
   };
 
   const isDateSelectable = (date: Date): boolean => {
+    const now = new Date();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const checkDate = new Date(date);
@@ -60,6 +65,18 @@ export const DateAvailabilityPicker: React.FC<DateAvailabilityPickerProps> = ({
     const maxDate = new Date(today);
     maxDate.setDate(maxDate.getDate() + maxAdvanceDays);
     if (checkDate > maxDate) return false;
+
+    // Check weekend booking restriction
+    const dayOfWeek = date.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
+    if (isWeekend && !allowWeekendBooking) return false;
+
+    // Check minimum booking hours (for today only)
+    if (checkDate.getTime() === today.getTime() && minBookingHours > 0) {
+      // If today, check if there's enough hours left
+      const hoursLeftToday = 24 - now.getHours() - (now.getMinutes() / 60);
+      if (hoursLeftToday < minBookingHours) return false;
+    }
 
     // Check if shop is open on this day
     return isDateAvailable(date);

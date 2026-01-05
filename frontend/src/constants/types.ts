@@ -324,3 +324,27 @@ export interface NotificationPreferences {
   transactionAlerts?: boolean;
   referralAlerts?: boolean;
 }
+
+// Appointment Reminder Notification Preferences
+export interface AppointmentNotificationPreferences {
+  id?: string;
+  customerAddress: string;
+
+  // Channel preferences
+  emailEnabled: boolean;
+  smsEnabled: boolean;
+  inAppEnabled: boolean;
+
+  // Reminder timing preferences
+  reminder24hEnabled: boolean;
+  reminder2hEnabled: boolean;
+  reminder30mEnabled: boolean;
+
+  // Quiet hours
+  quietHoursEnabled: boolean;
+  quietHoursStart: string | null;
+  quietHoursEnd: string | null;
+
+  createdAt?: Date;
+  updatedAt?: Date;
+}

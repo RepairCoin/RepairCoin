@@ -48,28 +48,31 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
 
   // Auto-collapse/expand subtabs when switching tabs
   useEffect(() => {
-    // If activeTab changes and it's not "customers", collapse the customers subtab
-    if (activeTab && activeTab !== "customers") {
-      setExpandedItems((prev) => prev.filter((id) => id !== "customers"));
-    }
-    // If activeTab changes and it's not "shops-management", collapse the shops subtab
-    if (activeTab && activeTab !== "shops-management") {
-      setExpandedItems((prev) =>
-        prev.filter((id) => id !== "shops-management")
-      );
-    }
-    // Auto-expand customers when it becomes active
-    if (activeTab === "customers" && !expandedItems.includes("customers")) {
-      setExpandedItems((prev) => [...prev, "customers"]);
-    }
-    // Auto-expand shops when it becomes active
-    if (
-      activeTab === "shops-management" &&
-      !expandedItems.includes("shops-management")
-    ) {
-      setExpandedItems((prev) => [...prev, "shops-management"]);
-    }
-  }, [activeTab, expandedItems, setExpandedItems]);
+    // Use a single setExpandedItems call to avoid multiple state updates
+    setExpandedItems((prev) => {
+      let newItems = [...prev];
+
+      // If activeTab is "customers", expand it; otherwise collapse it
+      if (activeTab === "customers") {
+        if (!newItems.includes("customers")) {
+          newItems = [...newItems, "customers"];
+        }
+      } else if (activeTab) {
+        newItems = newItems.filter((id) => id !== "customers");
+      }
+
+      // If activeTab is "shops-management", expand it; otherwise collapse it
+      if (activeTab === "shops-management") {
+        if (!newItems.includes("shops-management")) {
+          newItems = [...newItems, "shops-management"];
+        }
+      } else if (activeTab) {
+        newItems = newItems.filter((id) => id !== "shops-management");
+      }
+
+      return newItems;
+    });
+  }, [activeTab, setExpandedItems]);
 
   // Build menu items based on admin role
   const getMenuItems = (): SidebarItem[] => {

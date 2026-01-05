@@ -587,9 +587,9 @@ class RepairCoinApp {
         });
         logger.info('🧹 Cleanup service scheduled (daily, webhook cleanup only)');
 
-        // Start appointment reminder service - runs every 2 hours
-        appointmentReminderService.scheduleReminders(2);
-        logger.info('📅 Appointment reminder service scheduled (every 2 hours)');
+        // Start appointment reminder service - runs every hour for 2h reminder accuracy
+        appointmentReminderService.scheduleReminders(1);
+        logger.info('📅 Appointment reminder service scheduled (every 1 hour for 24h and 2h reminders)');
 
         // Schedule platform statistics refresh every 5 minutes
         setInterval(async () => {

@@ -20,6 +20,7 @@ import {
   MapPinnedIcon,
   Calendar,
   MessageCircle,
+  RefreshCw,
 } from "lucide-react";
 import {
   IssueRewardsIcon,
@@ -113,6 +114,12 @@ const ShopSidebar: React.FC<ShopSidebarProps> = ({
           href: "/shop?tab=appointments",
           icon: <Calendar className="w-5 h-5" />,
           tabId: "appointments",
+        },
+        {
+          title: "Reschedules",
+          href: "/shop?tab=reschedules",
+          icon: <RefreshCw className="w-5 h-5" />,
+          tabId: "reschedules",
         },
       ],
     },

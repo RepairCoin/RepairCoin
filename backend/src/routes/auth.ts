@@ -1294,11 +1294,24 @@ router.post('/refresh', async (req, res) => {
       }
     });
   } catch (error: any) {
-    logger.error('Token refresh error:', error);
+    // Enhanced error logging to diagnose production issues
+    logger.error('Token refresh error:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      code: error.code,
+      ip: req.ip,
+      hasRefreshCookie: !!req.cookies?.refresh_token,
+      hasBodyToken: !!req.body?.refreshToken,
+      origin: req.get('origin'),
+      userAgent: req.get('User-Agent')?.substring(0, 100)
+    });
     res.status(500).json({
       success: false,
       error: 'Token refresh failed',
-      code: 'TOKEN_REFRESH_ERROR'
+      code: 'TOKEN_REFRESH_ERROR',
+      // Include error details in non-production for debugging
+      ...(process.env.NODE_ENV !== 'production' && { details: error.message })
     });
   }
 });

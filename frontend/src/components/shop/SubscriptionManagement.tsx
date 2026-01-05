@@ -823,21 +823,20 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
                 </div>
               </div>
 
-              {/* Reactivate CTA - subscription can still be reactivated */}
+              {/* Resubscribe CTA - subscription is cancelled, need to create new subscription */}
               <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
                 <h4 className="font-semibold text-green-400 mb-2">
                   Changed your mind?
                 </h4>
                 <p className="text-gray-300 mb-4">
-                  You can reactivate your subscription before it ends to continue
-                  using RepairCoin without interruption. Your billing will resume
-                  automatically.
+                  You can resubscribe before your access ends to continue
+                  using RepairCoin without interruption.
                 </p>
                 <Button
-                  onClick={() => setShowReactivateModal(true)}
+                  onClick={() => setShowSubscribeModal(true)}
                   className="bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold"
                 >
-                  Reactivate Subscription
+                  Resubscribe Now
                 </Button>
               </div>
             </>
@@ -993,18 +992,18 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
               </Button>
             </div>
 
-            {/* Show reactivate option if previously subscribed */}
+            {/* Show resubscribe option if previously subscribed */}
             {subscription && subscription.status === "cancelled" && (
               <div className="mt-4">
                 <p className="text-sm text-gray-600 mb-2">
-                  Previously subscribed? Reactivate instantly!
+                  Previously subscribed? Subscribe again to continue!
                 </p>
                 <Button
-                  onClick={handleReactivate}
+                  onClick={() => setShowSubscribeModal(true)}
                   variant="outline"
                   className="border-[#FFCC00] text-[#FFCC00] hover:bg-[#FFCC00] hover:text-black"
                 >
-                  Reactivate Subscription
+                  Resubscribe
                 </Button>
               </div>
             )}
