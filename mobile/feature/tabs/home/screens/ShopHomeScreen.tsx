@@ -46,7 +46,7 @@ export default function Home() {
             </Text>
           </View>
         </View>
-        <View className="flex-row w-full h-10 bg-[#121212] rounded-xl">
+        <View className="flex-row w-full h-10 bg-[#121212] rounded-lg">
           {shopTabs.map((tab, i) => {
             const isActive = activeTab === tab;
             const isFirst = i === 0;
@@ -58,7 +58,7 @@ export default function Home() {
                 onPress={() => setActiveTab(tab)}
                 className={`flex-1 items-center justify-center ${
                   isActive ? "bg-[#FFCC00]" : "bg-[#121212]"
-                } ${isFirst ? "rounded-l-xl" : ""} ${isLast ? "rounded-r-xl" : ""}`}
+                } ${isFirst ? "rounded-l-lg" : ""} ${isLast ? "rounded-r-lg" : ""}`}
               >
                 <Text
                   className={`text-base font-bold ${
