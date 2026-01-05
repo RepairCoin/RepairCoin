@@ -105,13 +105,18 @@ function BookingCalendar({ getBookingsForDate }: BookingCalendarProps) {
                   {DAYS[date.getDay()]}
                 </Text>
                 <View
-                  className={`w-11 h-11 rounded-full items-center justify-center ${
+                  className={`items-center justify-center ${
                     selected
                       ? "bg-[#FFCC00]"
                       : today
                       ? "bg-[#FFCC00]/20 border border-[#FFCC00]"
                       : "bg-[#1a1a1a]"
                   }`}
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 22,
+                  }}
                 >
                   <Text
                     className={`text-base font-semibold ${
@@ -465,7 +470,7 @@ export default function BookingsTab() {
   const { statusFilter, setStatusFilter } = useBookingsUI();
 
   // Data fetching
-  const { isLoading, getBookingsForDate } = useBookingsQuery(statusFilter);
+  const { bookings, isLoading, getBookingsForDate } = useBookingsQuery(statusFilter);
 
   return (
     <View className="flex-1 bg-zinc-950">
