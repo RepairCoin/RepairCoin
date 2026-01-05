@@ -1,3 +1,4 @@
+import React from "react";
 import {
   Text,
   View,
@@ -9,11 +10,10 @@ import {
   Modal,
   ScrollView,
 } from "react-native";
-import React from "react";
-import { ServiceData } from "@/interfaces/service.interface";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { SERVICE_CATEGORIES } from "@/constants/service-categories";
+
+// Components
 import ServiceCard from "@/components/shared/ServiceCard";
 import { SearchInput } from "@/components/ui/SearchInput";
 
@@ -23,7 +23,11 @@ import {
   useServicesTabUI,
   SERVICE_STATUS_OPTIONS,
   getCategoryLabel,
-} from "../hooks";
+} from "../../tabs/service/hooks";
+
+// Others
+import { ServiceData } from "@/interfaces/service.interface";
+import { SERVICE_CATEGORIES } from "@/constants/service-categories";
 
 interface ServicesTabProps {
   setActionModalVisible: (visible: boolean) => void;
