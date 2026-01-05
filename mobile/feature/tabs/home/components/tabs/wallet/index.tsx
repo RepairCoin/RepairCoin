@@ -7,6 +7,7 @@ import {
   Image,
   TouchableOpacity,
   ImageBackground,
+  Platform,
 } from "react-native";
 import { MaterialIcons, Octicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -100,9 +101,9 @@ export default function WalletTab({
               className="w-full"
               imageStyle={{
                 borderRadius: 24,
-                right: -110,
+                right: Platform.OS === "ios" ? -110 : -80,
               }}
-              style={{ minHeight: 180, backgroundColor: '#1a1a1c' }}
+              style={{ minHeight: Platform.OS === "ios" ? 180 : 160, backgroundColor: '#1a1a1c' }}
             >
               <View className="p-6 flex-1 justify-between">
                 {/* Logo + Title */}
@@ -110,7 +111,7 @@ export default function WalletTab({
                   <View className="flex-row items-center mb-3 ml-[-12px]">
                     <Image
                       source={logoImage}
-                      className="w-60 h-10"
+                      style={{ width: 180, height: 40 }}
                       resizeMode="contain"
                     />
                   </View>

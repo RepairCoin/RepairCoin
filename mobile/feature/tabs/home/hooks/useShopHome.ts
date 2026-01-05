@@ -2,12 +2,8 @@ import { useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/auth.store";
 import { queryKeys } from "@/config/queryClient";
-import { shopHomeApi } from "../services";
+import { shopApi } from "@/services/shop.services";
 
-/**
- * Hook for fetching shop home data
- * Aggregates shop data and customer growth data for the home screen
- */
 export function useShopHome() {
   const { account, userProfile } = useAuthStore();
   const walletAddress = account?.address || "";
@@ -21,7 +17,7 @@ export function useShopHome() {
   } = useQuery({
     queryKey: queryKeys.shopByWalletAddress(walletAddress),
     queryFn: async () => {
-      const response = await shopHomeApi.getShopByWalletAddress(walletAddress);
+      const response = await shopApi.getShopByWalletAddress(walletAddress);
       return response.data;
     },
     enabled: !!walletAddress,
@@ -36,7 +32,7 @@ export function useShopHome() {
   } = useQuery({
     queryKey: queryKeys.shopCustomerGrowth(shopId),
     queryFn: async () => {
-      const response = await shopHomeApi.getCustomerGrowth(shopId);
+      const response = await shopApi.getCustomerGrowth(shopId);
       return response?.data;
     },
     enabled: !!shopId,

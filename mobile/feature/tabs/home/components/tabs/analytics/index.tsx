@@ -13,7 +13,9 @@ import { ThemedView } from "@/components/ui/ThemedView";
 import { FilterButton } from "@/components/shared/FilterButton";
 import { FilterModal, FilterOption } from "@/components/shared/FilterModal";
 import { useAuthStore } from "@/store/auth.store";
-import { useAnalytics, ChartFilter, TimeRange } from "@/feature/analytics";
+import { ChartDataPoint, ChartFilter, TimeRange } from "../../../types";
+import { useAnalytics } from "../../../hooks";
+
 
 // Filter options
 const CHART_FILTERS: FilterOption[] = [
@@ -54,7 +56,6 @@ export default function AnalyticsTab() {
     error,
     refetch,
   } = useAnalytics(shopId);
-
   // Calculate spacing based on screen width and data points
   const dataLength = chartData.profit.length || 6;
   const spacing = useMemo(
@@ -74,7 +75,7 @@ export default function AnalyticsTab() {
 
   // Check if we have data
   const hasData =
-    currentData1.length > 0 && currentData1.some((d) => d.value > 0);
+    currentData1.length > 0 && currentData1.some((d: ChartDataPoint) => d.value > 0);
 
   // Get current filter labels
   const currentChartLabel =

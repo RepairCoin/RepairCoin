@@ -1,18 +1,50 @@
 import { useCallback, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/config/queryClient";
-import { analyticsApi } from "../services";
 import {
-  ChartDataPoint,
-  ProfitData,
-  ProfitMetrics,
-  TimeRange,
   Transaction,
   Purchase,
-} from "../types";
+  TransactionsResponse,
+  PurchasesResponse,
+} from "@/interfaces/shop.interface";
+import { TimeRange, ProfitData, ProfitMetrics, ChartDataPoint } from "../types";
+import { analyticsApi } from "@/services/analytics.services";
 
 export function useAnalytics(shopId: string) {
   const [timeRange, setTimeRange] = useState<TimeRange>("month");
+
+  const getProfitData = async (
+    shopId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<{
+    transactions: TransactionsResponse;
+    purchases: PurchasesResponse;
+  }> => {
+    const [transactions, purchases] = await Promise.all([
+      analyticsApi
+        .getShopTransactions(shopId, startDate, endDate)
+        .catch(() => ({
+          success: false,
+          data: { transactions: [], total: 0, totalPages: 0, page: 1 },
+        })),
+      analyticsApi.getShopPurchases(shopId, startDate, endDate).catch(() => ({
+        success: false,
+        data: {
+          items: [],
+          pagination: {
+            page: 1,
+            limit: 100,
+            totalItems: 0,
+            totalPages: 0,
+            hasMore: false,
+          },
+        },
+      })),
+    ]);
+
+    return { transactions, purchases };
+  };
 
   // Calculate date range based on timeRange
   const { startDate, endDate } = useMemo(() => {
@@ -42,10 +74,7 @@ export function useAnalytics(shopId: string) {
     refetch,
   } = useQuery({
     queryKey: queryKeys.shopAnalytics(shopId, timeRange),
-    queryFn: async () => {
-      const result = await analyticsApi.getProfitData(shopId, startDate, endDate);
-      return result;
-    },
+    queryFn: () => getProfitData(shopId, startDate, endDate),
     enabled: !!shopId,
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
@@ -58,23 +87,28 @@ export function useAnalytics(shopId: string) {
           return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
         case "year":
           return String(date.getFullYear());
+        default:
+          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
       }
     },
     []
   );
 
   // Format label for chart display
-  const formatLabel = useCallback((dateStr: string, range: TimeRange): string => {
-    switch (range) {
-      case "month":
-        const monthDate = new Date(dateStr + "-01");
-        return monthDate.toLocaleDateString("en-US", { month: "short" });
-      case "year":
-        return dateStr;
-      default:
-        return dateStr;
-    }
-  }, []);
+  const formatLabel = useCallback(
+    (dateStr: string, range: TimeRange): string => {
+      switch (range) {
+        case "month":
+          const monthDate = new Date(dateStr + "-01");
+          return monthDate.toLocaleDateString("en-US", { month: "short" });
+        case "year":
+          return dateStr;
+        default:
+          return dateStr;
+      }
+    },
+    []
+  );
 
   // Process raw data to profit data
   const profitData = useMemo((): ProfitData[] => {
@@ -144,7 +178,8 @@ export function useAnalytics(shopId: string) {
         dataMap.set(date, {
           ...existing,
           revenue: existing.revenue + repairRevenue,
-          rcnIssued: existing.rcnIssued + parseFloat(String(transaction.amount || 0)),
+          rcnIssued:
+            existing.rcnIssued + parseFloat(String(transaction.amount || 0)),
         });
       }
     });
@@ -171,7 +206,10 @@ export function useAnalytics(shopId: string) {
     if (profitData.length === 0) return null;
 
     const totalProfit = profitData.reduce((sum, item) => sum + item.profit, 0);
-    const totalRevenue = profitData.reduce((sum, item) => sum + item.revenue, 0);
+    const totalRevenue = profitData.reduce(
+      (sum, item) => sum + item.revenue,
+      0
+    );
     const totalCosts = profitData.reduce((sum, item) => sum + item.costs, 0);
     const averageProfitMargin =
       totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
@@ -183,11 +221,13 @@ export function useAnalytics(shopId: string) {
 
     const firstHalfAvg =
       firstHalf.length > 0
-        ? firstHalf.reduce((sum, item) => sum + item.profit, 0) / firstHalf.length
+        ? firstHalf.reduce((sum, item) => sum + item.profit, 0) /
+          firstHalf.length
         : 0;
     const secondHalfAvg =
       secondHalf.length > 0
-        ? secondHalf.reduce((sum, item) => sum + item.profit, 0) / secondHalf.length
+        ? secondHalf.reduce((sum, item) => sum + item.profit, 0) /
+          secondHalf.length
         : 0;
 
     let profitTrend: "up" | "down" | "flat" = "flat";

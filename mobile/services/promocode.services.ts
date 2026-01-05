@@ -2,36 +2,13 @@ import apiClient from "@/utilities/axios";
 import {
   CreatePromoCodeRequest,
   PromoCodeResponse,
+  PromoCodeValidateResponse,
 } from "@/interfaces/shop.interface";
 
-export interface PromoCode {
-  id: string;
-  code: string;
-  discount_type: "percentage" | "fixed";
-  discount_value: number;
-  max_uses: number | null;
-  current_uses: number;
-  expires_at: string | null;
-  is_active: boolean;
-  created_at: string;
-}
-
-export interface PromoCodesResponse {
-  success: boolean;
-  data: PromoCode[];
-}
-
-/**
- * Promo Code API Services
- * Handles API calls for promo code management
- */
 class PromoCodeApi {
-  /**
-   * Get all promo codes for a shop
-   */
-  async getPromoCodes(shopId: string): Promise<PromoCodesResponse> {
+  async getPromoCodes(shopId: string): Promise<PromoCodeResponse> {
     try {
-      return await apiClient.get<PromoCodesResponse>(
+      return await apiClient.get<PromoCodeResponse>(
         `/shops/${shopId}/promo-codes`
       );
     } catch (error) {
@@ -40,9 +17,6 @@ class PromoCodeApi {
     }
   }
 
-  /**
-   * Create a new promo code
-   */
   async createPromoCode(
     shopId: string,
     data: CreatePromoCodeRequest
@@ -58,9 +32,6 @@ class PromoCodeApi {
     }
   }
 
-  /**
-   * Toggle promo code active status
-   */
   async updateStatus(
     shopId: string,
     promoCodeId: string,
@@ -80,14 +51,14 @@ class PromoCodeApi {
         );
       }
     } catch (error) {
-      console.error("[PromoCodeApi] Failed to update promo code status:", error);
+      console.error(
+        "[PromoCodeApi] Failed to update promo code status:",
+        error
+      );
       throw error;
     }
   }
 
-  /**
-   * Delete a promo code permanently
-   */
   async deletePromoCode(
     shopId: string,
     promoCodeId: string
@@ -98,6 +69,24 @@ class PromoCodeApi {
       );
     } catch (error) {
       console.error("[PromoCodeApi] Failed to delete promo code:", error);
+      throw error;
+    }
+  }
+
+  async validatePromoCode(
+    shopId: string,
+    request: {
+      code: string;
+      customer_address: string;
+    }
+  ): Promise<PromoCodeValidateResponse> {
+    try {
+      return await apiClient.post(
+        `/shops/${shopId}/promo-codes/validate`,
+        request
+      );
+    } catch (error: any) {
+      console.error("Failed to validate promo code:", error.message);
       throw error;
     }
   }

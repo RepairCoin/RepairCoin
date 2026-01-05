@@ -9,6 +9,7 @@ import {
 import { shopApi } from "@/services/shop.services";
 import { queryClient, queryKeys } from "@/config/queryClient";
 import { ShopByWalletAddressResponse } from "@/interfaces/shop.interface";
+import { promoCodeApi } from "@/services/promocode.services";
 
 export function useShop() {
   const useGetShops = () => {
@@ -75,7 +76,7 @@ export function useShop() {
     return useQuery({
       queryKey: queryKeys.shopPromoCodes(shopId),
       queryFn: async () => {
-        const response: any = await shopApi.getShopPromoCodes(shopId);
+        const response: any = await promoCodeApi.getPromoCodes(shopId);
         return response.data;
       },
       enabled: !!shopId,
