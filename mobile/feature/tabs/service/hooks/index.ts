@@ -1,4 +1,3 @@
-export { useServiceQuery } from "./useServiceQuery";
 export { useServiceMutation } from "./useServiceMutation";
 export { useServiceNavigation } from "./useServiceNavigation";
 export { useServiceUI, SERVICE_TABS } from "./useServiceUI";
@@ -19,10 +18,10 @@ export {
   MONTHS,
   YEARS,
 } from "./useBookingsUI";
-export { useServicesTabQuery } from "./useServicesTabQuery";
-export type { ServiceStatusFilter } from "./useServicesTabQuery";
+export { useServicesTabQuery } from "../../../service/hooks/useServicesTabQuery";
+export type { ServiceStatusFilter } from "../../../service/hooks/useServicesTabQuery";
 export {
   useServicesTabUI,
   SERVICE_STATUS_OPTIONS,
   getCategoryLabel,
-} from "./useServicesTabUI";
+} from "../../../service/hooks/useServicesTabUI";

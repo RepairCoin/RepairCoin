@@ -1,4 +1,3 @@
-// Libraries
 import React from "react";
 import { View, Text, Pressable } from "react-native";
 
@@ -7,7 +6,6 @@ import { ThemedView } from "@/components/ui/ThemedView";
 import {
   ServiceActionModal,
   AddServiceFab,
-  ServicesTab,
   BookingsTab,
 } from "../components";
 
@@ -18,6 +16,9 @@ import {
   useServiceNavigation,
   SERVICE_TABS,
 } from "../hooks";
+
+// Feature
+import ServicesTab from "@/feature/service/components/ServicesTab";
 
 export default function ShopServiceScreen() {
   const {
