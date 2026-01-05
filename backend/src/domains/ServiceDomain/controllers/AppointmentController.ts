@@ -264,6 +264,32 @@ export class AppointmentController {
   };
 
   /**
+   * Delete time slot configuration (Shop only)
+   * DELETE /api/services/appointments/time-slot-config
+   */
+  deleteTimeSlotConfig = async (req: Request, res: Response) => {
+    try {
+      const shopId = req.user?.shopId;
+      if (!shopId) {
+        return res.status(401).json({ success: false, error: 'Shop authentication required' });
+      }
+
+      await this.appointmentRepo.deleteTimeSlotConfig(shopId);
+
+      res.json({
+        success: true,
+        message: 'Time slot configuration deleted successfully'
+      });
+    } catch (error: unknown) {
+      logger.error('Error in deleteTimeSlotConfig controller:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to delete time slot config'
+      });
+    }
+  };
+
+  /**
    * Get date overrides (Shop only)
    * GET /api/services/appointments/date-overrides
    */

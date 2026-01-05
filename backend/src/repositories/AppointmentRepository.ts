@@ -220,6 +220,16 @@ export class AppointmentRepository extends BaseRepository {
     }
   }
 
+  async deleteTimeSlotConfig(shopId: string): Promise<void> {
+    try {
+      const query = `DELETE FROM shop_time_slot_config WHERE shop_id = $1`;
+      await this.pool.query(query, [shopId]);
+    } catch (error) {
+      logger.error('Error deleting time slot config:', error);
+      throw new Error('Failed to delete time slot config');
+    }
+  }
+
   // ==================== DATE OVERRIDES ====================
 
   async getDateOverrides(shopId: string, startDate?: string, endDate?: string): Promise<DateOverride[]> {

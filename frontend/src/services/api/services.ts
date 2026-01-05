@@ -401,6 +401,26 @@ export const cancelOrder = async (
 };
 
 /**
+ * Cancel order by shop (Shop only)
+ */
+export const cancelOrderByShop = async (
+  orderId: string,
+  cancellationReason: string,
+  cancellationNotes?: string
+): Promise<boolean> => {
+  try {
+    await apiClient.post(`/services/orders/${orderId}/shop-cancel`, {
+      cancellationReason,
+      cancellationNotes,
+    });
+    return true;
+  } catch (error) {
+    console.error('Error canceling order by shop:', error);
+    throw error;
+  }
+};
+
+/**
  * Mark order as no-show (Shop only)
  */
 export const markOrderAsNoShow = async (
@@ -825,6 +845,7 @@ export const servicesApi = {
   getOrderById,
   updateOrderStatus,
   cancelOrder,
+  cancelOrderByShop,
   markOrderAsNoShow,
 
   // Favorites
