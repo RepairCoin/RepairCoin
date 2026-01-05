@@ -14,7 +14,6 @@ import {
   MaterialIcons,
 } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
-import * as Clipboard from "expo-clipboard";
 import { router } from "expo-router";
 import { useAuthStore } from "@/store/auth.store";
 import { useCustomer } from "@/hooks/customer/useCustomer";
