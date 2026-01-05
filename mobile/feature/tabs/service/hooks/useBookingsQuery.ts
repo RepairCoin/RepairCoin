@@ -1,11 +1,10 @@
 import { useMemo } from "react";
-import { useBooking } from "@/feature/booking/hooks";
+import { useShopBookingQuery } from "@/feature/booking/hooks";
 import { BookingData, BookingStatus } from "@/interfaces/booking.interfaces";
 
 export type BookingFilterStatus = "all" | BookingStatus;
 
 export function useBookingsQuery(statusFilter: BookingFilterStatus) {
-  const { useShopBookingQuery } = useBooking();
   const { data: bookingsData, isLoading, error, refetch } = useShopBookingQuery();
 
   // Filter bookings by status
