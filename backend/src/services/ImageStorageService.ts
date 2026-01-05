@@ -49,28 +49,28 @@ export class ImageStorageService {
     // Use Google DNS for resolution
     dns.setServers(['8.8.8.8', '8.8.4.4']);
 
-    // Resolve the Spaces endpoint IP address synchronously
-    const spacesHostname = `${this.bucketName}.${this.region}.digitaloceanspaces.com`;
+    // Use regional endpoint WITHOUT bucket name - the SDK will add it for virtual-hosted style
+    // Previously: repaircoinstorage.sfo3.digitaloceanspaces.com (bucket in endpoint)
+    // Now: sfo3.digitaloceanspaces.com (regional endpoint only)
+    // The SDK will construct: https://repaircoinstorage.sfo3.digitaloceanspaces.com when Bucket is specified
+    const spacesEndpoint = `${this.region}.digitaloceanspaces.com`;
 
-    logger.info('Resolving DigitalOcean Spaces endpoint...', { hostname: spacesHostname });
+    logger.info('Initializing DigitalOcean Spaces...', { endpoint: spacesEndpoint, bucket: this.bucketName });
 
-    // Use a simpler approach: create S3 client without custom lookup
-    // The DNS resolution will happen automatically with Google DNS
     this.s3Client = new S3Client({
-      endpoint: `https://${spacesHostname}`,
+      endpoint: `https://${spacesEndpoint}`,
       region: this.region,
       credentials: {
         accessKeyId: process.env.DO_SPACES_KEY || '',
         secretAccessKey: process.env.DO_SPACES_SECRET || '',
       },
-      forcePathStyle: false,
+      forcePathStyle: false, // Use virtual-hosted style: bucket.region.digitaloceanspaces.com
     });
 
     logger.info('ImageStorageService initialized', {
       bucket: this.bucketName,
       region: this.region,
-      endpoint: spacesHostname,
-      googleDNS: true,
+      endpoint: spacesEndpoint,
     });
   }
 

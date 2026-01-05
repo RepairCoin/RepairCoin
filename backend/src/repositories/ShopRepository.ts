@@ -184,11 +184,52 @@ export class ShopRepository extends BaseRepository {
       ];
       
       const result = await this.pool.query(query, values);
-      logger.info('Shop created successfully', { shopId: shop.shopId });
-      return { id: result.rows[0].shop_id };
+      const createdShopId = result.rows[0].shop_id;
+
+      // Auto-create time slot configuration for new shop
+      await this.createDefaultTimeSlotConfig(createdShopId);
+
+      logger.info('Shop created successfully with time slot config', { shopId: shop.shopId });
+      return { id: createdShopId };
     } catch (error) {
       logger.error('Error creating shop:', error);
       throw new Error('Failed to create shop');
+    }
+  }
+
+  /**
+   * Create default time slot configuration and availability for a new shop
+   * This ensures new shops have the appointment scheduling tables populated
+   */
+  private async createDefaultTimeSlotConfig(shopId: string): Promise<void> {
+    try {
+      // Create time slot config with defaults
+      await this.pool.query(`
+        INSERT INTO shop_time_slot_config (shop_id)
+        VALUES ($1)
+        ON CONFLICT (shop_id) DO NOTHING
+      `, [shopId]);
+
+      // Create availability for each day of the week (Mon-Fri 9am-6pm, weekend closed)
+      for (let day = 0; day <= 6; day++) {
+        const isOpen = day >= 1 && day <= 5; // Monday through Friday
+        await this.pool.query(`
+          INSERT INTO shop_availability (shop_id, day_of_week, is_open, open_time, close_time)
+          VALUES ($1, $2, $3, $4, $5)
+          ON CONFLICT (shop_id, day_of_week) DO NOTHING
+        `, [
+          shopId,
+          day,
+          isOpen,
+          isOpen ? '09:00:00' : null,
+          isOpen ? '18:00:00' : null
+        ]);
+      }
+
+      logger.info('Created default time slot config and availability', { shopId });
+    } catch (error) {
+      // Log but don't fail shop creation - time slot config is not critical
+      logger.warn('Failed to create default time slot config (non-fatal)', { shopId, error });
     }
   }
 

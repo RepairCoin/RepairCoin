@@ -109,7 +109,10 @@ class RepairCoinApp {
           // Production domains
           'https://repaircoin.ai',
           'https://www.repaircoin.ai',
-          'https://api.repaircoin.ai', // Backend subdomain (for internal API calls)
+          'https://api.repaircoin.ai',
+          // Staging domains
+          'https://staging.repaircoin.ai',
+          'https://api-staging.repaircoin.ai',
           process.env.FRONTEND_URL
         ].filter(Boolean);
 
