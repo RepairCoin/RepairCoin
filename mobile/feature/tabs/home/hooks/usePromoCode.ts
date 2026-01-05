@@ -1,7 +1,8 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/auth.store";
 import { queryClient, queryKeys } from "@/config/queryClient";
-import { promoCodeApi, PromoCode } from "../services";
+import { PromoCodeData } from "@/interfaces/shop.interface";
+import { promoCodeApi } from "@/services/promocode.services";
 
 /**
  * Hook for managing promo codes in shop home
@@ -48,7 +49,7 @@ export function usePromoCode() {
   };
 
   return {
-    promoCodes: (promoCodesData || []) as PromoCode[],
+    promoCodes: (promoCodesData || []) as PromoCodeData[],
     isLoading,
     isUpdating: updateStatusMutation.isPending,
     error,

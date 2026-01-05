@@ -1,1 +1,1 @@
-export { ShopHomeScreen as default } from "@/feature/tabs/home";
+export { ShopHomeScreen as default } from "@/feature/tabs/home/screens";

@@ -13,6 +13,8 @@ import {
   ShopData,
   RewardRequest,
   RewardResponse,
+  TransactionsResponse,
+  PurchasesResponse,
 } from "@/interfaces/shop.interface";
 
 class ShopApi {
@@ -97,15 +99,6 @@ class ShopApi {
     }
   }
 
-  async getShopPromoCodes(shopId: string): Promise<any> {
-    try {
-      return await apiClient.get(`/shops/${shopId}/promo-codes`);
-    } catch (error: any) {
-      console.error("Failed to get shop promo codes:", error.message);
-      throw error;
-    }
-  }
-
   async processRedemption(
     shopId: string,
     request: ProcessRedemptionRequest
@@ -114,65 +107,6 @@ class ShopApi {
       return await apiClient.post(`/shops/${shopId}/redeem`, request);
     } catch (error: any) {
       console.error("Failed to process redemption:", error.message);
-      throw error;
-    }
-  }
-
-  async createPromoCode(
-    shopId: string,
-    promoCodeData: CreatePromoCodeRequest
-  ): Promise<PromoCodeResponse> {
-    try {
-      return await apiClient.post(
-        `/shops/${shopId}/promo-codes`,
-        promoCodeData
-      );
-    } catch (error: any) {
-      console.error("Failed to create promo code:", error.message);
-      throw error;
-    }
-  }
-
-  async updatePromoCodeStatus(
-    shopId: string,
-    promoCodeId: string,
-    isActive: boolean
-  ): Promise<any> {
-    try {
-      if (!isActive) {
-        // Use DELETE endpoint to deactivate
-        return await apiClient.delete(
-          `/shops/${shopId}/promo-codes/${promoCodeId}`
-        );
-      } else {
-        // Use PUT endpoint to reactivate by updating is_active flag
-        return await apiClient.put(
-          `/shops/${shopId}/promo-codes/${promoCodeId}`,
-          {
-            is_active: true,
-          }
-        );
-      }
-    } catch (error: any) {
-      console.error("Failed to update promo code status:", error.message);
-      throw error;
-    }
-  }
-
-  async validatePromoCode(
-    shopId: string,
-    request: {
-      code: string;
-      customer_address: string;
-    }
-  ): Promise<PromoCodeValidateResponse> {
-    try {
-      return await apiClient.post(
-        `/shops/${shopId}/promo-codes/validate`,
-        request
-      );
-    } catch (error: any) {
-      console.error("Failed to validate promo code:", error.message);
       throw error;
     }
   }
@@ -187,7 +121,21 @@ class ShopApi {
       console.error("Failed to issue reward:", error.message);
       throw error;
     }
-  };
+  }
+
+  async getCustomerGrowth(
+    shopId: string,
+    period: string = "7d"
+  ): Promise<ShopCustomerGrowthResponse> {
+    try {
+      return await apiClient.get<ShopCustomerGrowthResponse>(
+        `/shops/${shopId}/customer-growth?period=${period}`
+      );
+    } catch (error) {
+      console.error("[ShopHomeApi] Failed to get customer growth:", error);
+      throw error;
+    }
+  }
 }
 
 export const shopApi = new ShopApi();

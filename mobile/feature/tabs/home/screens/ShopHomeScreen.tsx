@@ -5,9 +5,7 @@ import { router, useFocusEffect } from "expo-router";
 import { ThemedView } from "@/components/ui/ThemedView";
 import { useShopHome } from "../hooks";
 import { ShopTabs } from "../types";
-import WalletTab from "../components/tabs/wallet";
-import PromoCodeTab from "../components/tabs/promo-code";
-import AnalyticsTab from "../components/tabs/analytics";
+import { WalletTab, PromoCodeTab, AnalyticsTab } from "../components";
 
 export default function Home() {
   const { shopData, growthData, refetch } = useShopHome();
@@ -48,26 +46,30 @@ export default function Home() {
             </Text>
           </View>
         </View>
-        <View className="flex-row w-full h-10 bg-[#121212] rounded-xl justify-between">
-          {shopTabs.map((tab, i) => (
-            <React.Fragment key={i}>
+        <View className="flex-row w-full h-10 bg-[#121212] rounded-xl">
+          {shopTabs.map((tab, i) => {
+            const isActive = activeTab === tab;
+            const isFirst = i === 0;
+            const isLast = i === shopTabs.length - 1;
+
+            return (
               <Pressable
-                onPress={() => {
-                  activeTab !== tab && setActiveTab(tab);
-                }}
-                className={`bg-${activeTab === tab ? "[#FFCC00]" : "[#121212]"} w-[33%] flex-row ${i === 0 && "rounded-l-lg"} ${i === 2 && "rounded-r-lg"} items-center justify-center`}
+                key={tab}
+                onPress={() => setActiveTab(tab)}
+                className={`flex-1 items-center justify-center ${
+                  isActive ? "bg-[#FFCC00]" : "bg-[#121212]"
+                } ${isFirst ? "rounded-l-xl" : ""} ${isLast ? "rounded-r-xl" : ""}`}
               >
                 <Text
-                  className={`text-base font-bold text-${activeTab === tab ? "black" : "gray-400"}`}
+                  className={`text-base font-bold ${
+                    isActive ? "text-black" : "text-gray-400"
+                  }`}
                 >
                   {tab}
                 </Text>
               </Pressable>
-              {i !== 2 && activeTab === shopTabs[2 - 2 * i] && (
-                <View className="w-[0.1%] bg-gray-400 my-2" />
-              )}
-            </React.Fragment>
-          ))}
+            );
+          })}
         </View>
         {activeTab === "Wallet" && shopData && (
           <WalletTab shopData={shopData} growthData={growthData} />
