@@ -21,6 +21,30 @@ const DAYS_OF_WEEK = [
   { value: 6, label: 'Saturday' }
 ];
 
+/**
+ * Convert 24-hour time string (e.g., "09:00:00" or "18:00") to 12-hour format (e.g., "9:00 AM")
+ */
+const formatTime12Hour = (time: string | null | undefined): string => {
+  if (!time) return '';
+
+  // Parse hours and minutes from time string (handles both "HH:MM:SS" and "HH:MM")
+  const [hoursStr, minutesStr] = time.split(':');
+  let hours = parseInt(hoursStr, 10);
+  const minutes = minutesStr || '00';
+
+  // Determine AM/PM
+  const period = hours >= 12 ? 'PM' : 'AM';
+
+  // Convert to 12-hour format
+  if (hours === 0) {
+    hours = 12;
+  } else if (hours > 12) {
+    hours = hours - 12;
+  }
+
+  return `${hours}:${minutes.substring(0, 2)} ${period}`;
+};
+
 export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsProps> = ({
   serviceId,
   service
@@ -602,12 +626,12 @@ export const ServiceAvailabilitySettings: React.FC<ServiceAvailabilitySettingsPr
                         <div className="text-sm text-gray-400">
                           <div className="flex items-center gap-2">
                             <Clock className="w-4 h-4 text-gray-500" />
-                            <span>{dayAvail.openTime} - {dayAvail.closeTime}</span>
+                            <span>{formatTime12Hour(dayAvail.openTime)} - {formatTime12Hour(dayAvail.closeTime)}</span>
                           </div>
                           {dayAvail.breakStartTime && dayAvail.breakEndTime && (
                             <div className="flex items-center gap-2 mt-1 ml-6 text-xs">
                               <span className="text-gray-500">Break:</span>
-                              <span>{dayAvail.breakStartTime} - {dayAvail.breakEndTime}</span>
+                              <span>{formatTime12Hour(dayAvail.breakStartTime)} - {formatTime12Hour(dayAvail.breakEndTime)}</span>
                             </div>
                           )}
                         </div>
