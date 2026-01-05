@@ -1,24 +1,10 @@
 import { purchaseApi } from "@/services/purchase.services";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { Alert, Linking } from "react-native";
 import { usePaymentStore } from "@/store/payment.store";
-import { queryKeys } from "@/config/queryClient";
-import { PurchaseHistoryResponse } from "@/interfaces/purchase.interface";
 
 export function usePurchase() {
-  const useShopTransactions = (shopId: string) => {
-    return useQuery({
-      queryKey: queryKeys.shopTransactions(shopId),
-      queryFn: async () => {
-        const response: PurchaseHistoryResponse =
-          await purchaseApi.getShopTransactions(shopId);
-        return response.data;
-      },
-      staleTime: 10 * 60 * 1000, // 10 minutes
-    });
-  };
-
   // Hook for creating PaymentIntent (mobile - native card payment)
   const useCreatePaymentIntent = (shopId: string) => {
     return useMutation({
@@ -158,7 +144,6 @@ export function usePurchase() {
   };
 
   return {
-    useShopTransactions,
     useCreatePaymentIntent,
     useCreateStripeCheckout,
     usePurchaseAmount,

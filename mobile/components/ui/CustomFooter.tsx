@@ -39,7 +39,7 @@ export default function CustomFooter() {
           route: "/shop/tabs/home",
         },
         {
-          id: "Transaction",
+          id: "History",
           label: "History",
           icon: (isActive: boolean) => (
             <FontAwesome6
@@ -48,7 +48,7 @@ export default function CustomFooter() {
               color={isActive ? "#FFD600" : "#888"}
             />
           ),
-          route: "/shop/tabs/transaction",
+          route: "/shop/tabs/history",
         },
         {
           id: "Customer",
@@ -104,7 +104,7 @@ export default function CustomFooter() {
         route: "/customer/tabs/home",
       },
       {
-        id: "Transaction",
+        id: "History",
         label: "History",
         icon: (isActive: boolean) => (
           <FontAwesome6
@@ -113,7 +113,7 @@ export default function CustomFooter() {
             color={isActive ? "#FFD600" : "#888"}
           />
         ),
-        route: "/customer/tabs/transaction",
+        route: "/customer/tabs/history",
       },
       {
         id: "Services",
