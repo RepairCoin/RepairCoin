@@ -32,9 +32,28 @@ export interface TimeSlotConfig {
   bookingAdvanceDays: number;
   minBookingHours: number;
   allowWeekendBooking: boolean;
+  timezone: string; // IANA timezone identifier (e.g., 'America/New_York')
   createdAt: string;
   updatedAt: string;
 }
+
+// Common timezones for shop configuration
+export const COMMON_TIMEZONES = [
+  { value: 'America/New_York', label: 'Eastern Time (ET)' },
+  { value: 'America/Chicago', label: 'Central Time (CT)' },
+  { value: 'America/Denver', label: 'Mountain Time (MT)' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
+  { value: 'America/Anchorage', label: 'Alaska Time (AKT)' },
+  { value: 'Pacific/Honolulu', label: 'Hawaii Time (HT)' },
+  { value: 'America/Phoenix', label: 'Arizona (No DST)' },
+  { value: 'Europe/London', label: 'London (GMT/BST)' },
+  { value: 'Europe/Paris', label: 'Central European (CET)' },
+  { value: 'Asia/Tokyo', label: 'Japan (JST)' },
+  { value: 'Asia/Singapore', label: 'Singapore (SGT)' },
+  { value: 'Asia/Manila', label: 'Philippines (PHT)' },
+  { value: 'Australia/Sydney', label: 'Sydney (AEST)' },
+  { value: 'UTC', label: 'UTC' }
+];
 
 export interface DateOverride {
   overrideId: string;
@@ -115,6 +134,15 @@ export interface ReschedulePolicy {
 // Note: apiClient already returns response.data and has withCredentials: true configured
 // The response interceptor extracts the data, so we access .data directly from the result
 
+// Get user's timezone from browser for accurate time slot filtering
+const getUserTimezone = (): string => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return 'America/New_York'; // Fallback to US Eastern
+  }
+};
+
 export const appointmentsApi = {
   // Public: Get available time slots for a service
   async getAvailableTimeSlots(
@@ -122,10 +150,11 @@ export const appointmentsApi = {
     serviceId: string,
     date: string
   ): Promise<TimeSlot[]> {
+    const userTimezone = getUserTimezone();
     const response = await apiClient.get<{ success: boolean; data: TimeSlot[] }>(
       `/services/appointments/available-slots`,
       {
-        params: { shopId, serviceId, date }
+        params: { shopId, serviceId, date, userTimezone }
       }
     );
     return (response as unknown as { success: boolean; data: TimeSlot[] }).data;

@@ -2,6 +2,7 @@
 import { AppointmentRepository, TimeSlot } from '../../../repositories/AppointmentRepository';
 import { logger } from '../../../utils/logger';
 import { parseLocalDateString, createDateTime } from '../../../utils/dateUtils';
+import { getCurrentTimeInTimezone, hoursUntilSlotAccurate } from '../../../utils/timezoneUtils';
 
 export class AppointmentService {
   private appointmentRepo: AppointmentRepository;
@@ -12,14 +13,19 @@ export class AppointmentService {
 
   /**
    * Generate available time slots for a specific shop, service, and date
+   * @param shopId - The shop ID
+   * @param serviceId - The service ID
+   * @param date - The date in YYYY-MM-DD format
+   * @param userTimezone - Optional user's timezone for minimum notice calculations
    */
   async getAvailableTimeSlots(
     shopId: string,
     serviceId: string,
-    date: string
+    date: string,
+    userTimezone?: string
   ): Promise<TimeSlot[]> {
     try {
-      logger.info('getAvailableTimeSlots called', { shopId, serviceId, date });
+      logger.info('getAvailableTimeSlots called', { shopId, serviceId, date, userTimezone });
 
       // Get shop configuration
       const config = await this.appointmentRepo.getTimeSlotConfig(shopId);
@@ -28,11 +34,15 @@ export class AppointmentService {
         throw new Error('Shop time slot configuration not found');
       }
 
+      // Get shop's timezone (default to America/New_York if not set)
+      const shopTimezone = config.timezone || 'America/New_York';
+
       logger.debug('Time slot config loaded', {
         shopId,
         allowWeekendBooking: config.allowWeekendBooking,
         minBookingHours: config.minBookingHours,
-        bookingAdvanceDays: config.bookingAdvanceDays
+        bookingAdvanceDays: config.bookingAdvanceDays,
+        timezone: shopTimezone
       });
 
       // Get service duration (or use default)
@@ -115,46 +125,61 @@ export class AppointmentService {
       }
 
       // Check if booking is within advance booking window
-      const now = new Date();
-      const bookingDate = parseLocalDateString(date);
+      // Use user's timezone for minimum notice calculations (when will the slot occur from user's perspective)
+      // Fall back to shop timezone if user timezone not provided
+      const effectiveTimezone = userTimezone || shopTimezone;
+      const nowInShopTz = getCurrentTimeInTimezone(shopTimezone);
+      const nowInUserTz = getCurrentTimeInTimezone(effectiveTimezone);
 
-      // Calculate hours until start of booking date (midnight)
-      const hoursUntilBookingDate = (bookingDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+      logger.debug('Current time in timezones', {
+        shopTimezone,
+        userTimezone: effectiveTimezone,
+        shopCurrentDate: nowInShopTz.dateString,
+        shopCurrentTime: nowInShopTz.timeString,
+        userCurrentDate: nowInUserTz.dateString,
+        userCurrentTime: nowInUserTz.timeString,
+        requestedDate: date
+      });
 
       // For same-day or next-day bookings, we need more nuanced checking
       // Only reject if the entire day is too soon (date + last slot time < minBookingHours)
       const [closeHour, closeMin] = closeTime.split(':').map(Number);
-      const [openHourCheck, openMinCheck] = openTime.split(':').map(Number);
+      const closeTimeStr = `${String(closeHour).padStart(2, '0')}:${String(closeMin).padStart(2, '0')}`;
 
-      // Calculate last slot time, accounting for overnight hours
-      let lastSlotTime = createDateTime(date, `${String(closeHour).padStart(2, '0')}:${String(closeMin).padStart(2, '0')}`);
-
-      // CRITICAL FIX: Handle overnight hours for last slot calculation
-      const openMinsTotal = openHourCheck * 60 + openMinCheck;
-      const closeMinsTotal = closeHour * 60 + closeMin;
-      if (closeMinsTotal <= openMinsTotal) {
-        // Overnight hours: last slot is actually on the next day
-        lastSlotTime = new Date(lastSlotTime.getTime() + 24 * 60 * 60 * 1000);
-      }
-
-      const hoursUntilLastSlot = (lastSlotTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+      // Calculate hours until the last possible slot using USER's timezone
+      // This ensures users in different timezones see accurate availability based on their local time
+      const hoursUntilLastSlot = hoursUntilSlotAccurate(date, closeTimeStr, effectiveTimezone);
 
       // Only reject the entire day if even the last slot is too soon
       if (hoursUntilLastSlot < config.minBookingHours) {
         logger.info('All slots too soon to book', {
           date,
           hoursUntilLastSlot,
-          minBookingHours: config.minBookingHours
+          minBookingHours: config.minBookingHours,
+          userTimezone: effectiveTimezone,
+          currentTimeInUser: nowInUserTz.timeString
         });
         return [];
       }
 
-      const daysUntilBooking = hoursUntilBookingDate / 24;
-      if (daysUntilBooking > config.bookingAdvanceDays) {
+      // Check if date is too far in advance
+      const [reqYear, reqMonth, reqDay] = date.split('-').map(Number);
+      const [curYear, curMonth, curDay] = nowInShopTz.dateString.split('-').map(Number);
+      const reqDateNum = reqYear * 10000 + reqMonth * 100 + reqDay;
+      const curDateNum = curYear * 10000 + curMonth * 100 + curDay;
+      const daysUntilBooking = Math.floor((reqDateNum - curDateNum) / 1); // Approximate
+
+      // More accurate calculation using timestamps
+      const reqTimestamp = Date.UTC(reqYear, reqMonth - 1, reqDay);
+      const curTimestamp = Date.UTC(curYear, curMonth - 1, curDay);
+      const actualDaysUntil = (reqTimestamp - curTimestamp) / (1000 * 60 * 60 * 24);
+
+      if (actualDaysUntil > config.bookingAdvanceDays) {
         logger.info('Date too far in advance', {
           date,
-          daysUntilBooking,
-          bookingAdvanceDays: config.bookingAdvanceDays
+          daysUntilBooking: actualDaysUntil,
+          bookingAdvanceDays: config.bookingAdvanceDays,
+          shopTimezone
         });
         return [];
       }
@@ -260,9 +285,9 @@ export class AppointmentService {
             });
           }
 
-          // Check if it's too soon (same day booking)
-          const slotDateTime = createDateTime(date, timeStr);
-          const hoursUntilSlot = (slotDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+          // Check if it's too soon (same day booking) using USER's timezone
+          // This ensures users in different timezones see accurate availability based on their local time
+          const hoursUntilSlot = hoursUntilSlotAccurate(date, timeStr, effectiveTimezone);
 
           if (hoursUntilSlot >= config.minBookingHours) {
             slots.push({
@@ -273,6 +298,16 @@ export class AppointmentService {
             });
           } else {
             slotsSkippedTooSoon++;
+            // Debug logging for skipped slots
+            if (slotsSkippedTooSoon <= 3) {
+              logger.debug('Slot skipped (too soon)', {
+                timeStr,
+                hoursUntilSlot: hoursUntilSlot.toFixed(2),
+                minBookingHours: config.minBookingHours,
+                userTimezone: effectiveTimezone,
+                currentTimeInUser: nowInUserTz.timeString
+              });
+            }
           }
         }
 
@@ -289,7 +324,11 @@ export class AppointmentService {
         availableSlots: slots.filter(s => s.available).length,
         slotsSkippedBreak,
         slotsSkippedTooSoon,
-        slotsSkippedPastClose
+        slotsSkippedPastClose,
+        shopTimezone,
+        userTimezone: effectiveTimezone,
+        currentTimeInShop: nowInShopTz.timeString,
+        currentTimeInUser: nowInUserTz.timeString
       });
 
       return slots;
@@ -312,10 +351,11 @@ export class AppointmentService {
     shopId: string,
     serviceId: string,
     date: string,
-    timeSlot: string
+    timeSlot: string,
+    userTimezone?: string
   ): Promise<{ valid: boolean; error?: string }> {
     try {
-      const availableSlots = await this.getAvailableTimeSlots(shopId, serviceId, date);
+      const availableSlots = await this.getAvailableTimeSlots(shopId, serviceId, date, userTimezone);
 
       const slot = availableSlots.find(s => s.time === timeSlot);
       if (!slot) {

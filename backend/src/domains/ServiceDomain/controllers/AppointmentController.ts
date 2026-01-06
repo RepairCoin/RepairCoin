@@ -25,7 +25,7 @@ export class AppointmentController {
    */
   getAvailableTimeSlots = async (req: Request, res: Response) => {
     try {
-      const { shopId, serviceId, date } = req.query;
+      const { shopId, serviceId, date, userTimezone } = req.query;
 
       if (!shopId || !serviceId || !date) {
         return res.status(400).json({
@@ -37,7 +37,8 @@ export class AppointmentController {
       const slots = await this.appointmentService.getAvailableTimeSlots(
         shopId as string,
         serviceId as string,
-        date as string
+        date as string,
+        userTimezone as string | undefined
       );
 
       res.json({
