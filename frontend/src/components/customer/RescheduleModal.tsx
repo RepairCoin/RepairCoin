@@ -344,6 +344,7 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
                     selectedDate={selectedDate}
                     selectedTimeSlot={selectedTimeSlot}
                     onTimeSlotSelect={setSelectedTimeSlot}
+                    shopTimezone={timeSlotConfig?.timezone || 'America/New_York'}
                   />
                 </div>
               )}
