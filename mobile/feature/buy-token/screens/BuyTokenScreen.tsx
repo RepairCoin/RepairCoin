@@ -15,8 +15,8 @@ import SubscriptionModal from "@/components/shop/SubscriptionModal";
 
 // Hooks
 import {
-  useBuyTokenQuery,
-  useBuyTokenMutation,
+  useBuyTokenQueries,
+  usePurchaseUI,
   useBuyTokenUI,
   useBuyTokenNavigation,
   QUICK_AMOUNTS,
@@ -56,10 +56,10 @@ export default function BuyTokenScreen() {
   const { navigateBack, navigateToSubscriptionForm } = useBuyTokenNavigation();
 
   // Query
-  const { isQualified } = useBuyTokenQuery();
+  const { isQualified } = useBuyTokenQueries();
 
-  // Mutation
-  const { handlePurchase, isCreatingCheckout } = useBuyTokenMutation();
+  // Purchase UI
+  const { handlePurchase, isCreatingCheckout } = usePurchaseUI();
 
   // UI state
   const {

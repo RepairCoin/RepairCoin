@@ -1,9 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { usePurchase } from "@/hooks/purchase/usePurchase";
 
-// Quick purchase amounts
-export const QUICK_AMOUNTS = [10, 50, 100, 500, 1000, 5000];
-
 export function useBuyTokenUI() {
   const { usePurchaseAmount } = usePurchase();
   const {
@@ -38,8 +35,14 @@ export function useBuyTokenUI() {
   // Modal handlers
   const openHowItWorks = useCallback(() => setShowHowItWorks(true), []);
   const closeHowItWorks = useCallback(() => setShowHowItWorks(false), []);
-  const openSubscriptionModal = useCallback(() => setShowSubscriptionModal(true), []);
-  const closeSubscriptionModal = useCallback(() => setShowSubscriptionModal(false), []);
+  const openSubscriptionModal = useCallback(
+    () => setShowSubscriptionModal(true),
+    []
+  );
+  const closeSubscriptionModal = useCallback(
+    () => setShowSubscriptionModal(false),
+    []
+  );
 
   // Quick amount selection
   const selectQuickAmount = useCallback(
