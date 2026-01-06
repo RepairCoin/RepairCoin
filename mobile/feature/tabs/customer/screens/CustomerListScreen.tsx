@@ -15,18 +15,21 @@ import { SearchInput } from "@/components/ui/SearchInput";
 import CustomerCard from "../components/CustomerCard";
 
 // Hooks
-import { useCustomerQuery, useCustomerUI } from "../hooks";
+import { useCustomerListUI } from "../hooks";
 
 // Others
 import { CustomerData } from "@/interfaces/customer.interface";
 
 export default function CustomerListScreen() {
-  // UI state (search)
-  const { searchText, setSearchText, hasSearchQuery } = useCustomerUI();
-
-  // Data fetching with filtering
-  const { customers, isLoading, refreshing, handleRefresh } =
-    useCustomerQuery(searchText);
+  const {
+    customers,
+    isLoading,
+    refreshing,
+    handleRefresh,
+    searchText,
+    setSearchText,
+    hasSearchQuery,
+  } = useCustomerListUI();
 
   const renderCustomer = ({ item }: { item: CustomerData }) => (
     <CustomerCard

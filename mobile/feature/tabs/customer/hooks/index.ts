@@ -1,2 +1,5 @@
-export { useCustomerQuery } from "./useCustomerQuery";
-export { useCustomerUI } from "./useCustomerUI";
+// Queries
+export { useShopCustomersQuery } from "./queries";
+
+// UI
+export { useCustomerSearch, useCustomerListUI } from "./ui";

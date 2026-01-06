@@ -1,29 +1,16 @@
-import { useMemo, useCallback, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { queryKeys } from "@/config/queryClient";
-import { shopApi } from "@/services/shop.services";
-import { useAuthStore } from "@/store/auth.store";
+import { useState, useCallback, useMemo } from "react";
 import { CustomerData } from "@/interfaces/customer.interface";
+import { useShopCustomersQuery } from "../queries/useCustomerQueries";
+import { useCustomerSearch } from "./useCustomerSearch";
 
-export function useCustomerQuery(searchText: string) {
-  const { userProfile } = useAuthStore();
-  const shopId = userProfile?.shopId || "";
+export function useCustomerListUI() {
   const [refreshing, setRefreshing] = useState(false);
 
-  const {
-    data: shopCustomerData,
-    isLoading,
-    error,
-    refetch: refetchShopCustomer,
-  } = useQuery({
-    queryKey: queryKeys.shopCustomers(shopId),
-    queryFn: async () => {
-      const response = await shopApi.getShopCustomers(shopId);
-      return response?.data;
-    },
-    enabled: !!shopId,
-    staleTime: 10 * 60 * 1000, // 10 minutes
-  });
+  // Search
+  const { searchText, setSearchText, hasSearchQuery, clearSearch } = useCustomerSearch();
+
+  // Query
+  const { data: shopCustomerData, isLoading, error, refetch } = useShopCustomersQuery();
 
   // Filter customers by search text
   const customers = useMemo((): CustomerData[] => {
@@ -47,11 +34,11 @@ export function useCustomerQuery(searchText: string) {
   const handleRefresh = useCallback(async () => {
     try {
       setRefreshing(true);
-      await refetchShopCustomer();
+      await refetch();
     } finally {
       setRefreshing(false);
     }
-  }, [refetchShopCustomer]);
+  }, [refetch]);
 
   return {
     // Data
@@ -61,7 +48,13 @@ export function useCustomerQuery(searchText: string) {
     // Query state
     isLoading,
     error,
+    // Refresh
     refreshing,
     handleRefresh,
+    // Search
+    searchText,
+    setSearchText,
+    hasSearchQuery,
+    clearSearch,
   };
 }
