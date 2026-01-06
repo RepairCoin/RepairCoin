@@ -6,9 +6,8 @@ import {
   UpdateServiceData,
 } from "@/interfaces/service.interface";
 
-export function useServiceMutations() {
-  // Create service mutation
-  const createServiceMutation = useMutation({
+export function useCreateServiceMutation() {
+  return useMutation({
     mutationFn: async ({ serviceData }: { serviceData: CreateServiceRequest }) => {
       const response = await serviceApi.create(serviceData);
       return response.data;
@@ -18,9 +17,10 @@ export function useServiceMutations() {
       Alert.alert("Failed to create service", error.message);
     },
   });
+}
 
-  // Update service mutation
-  const updateServiceMutation = useMutation({
+export function useUpdateServiceMutation() {
+  return useMutation({
     mutationFn: async ({
       serviceId,
       serviceData,
@@ -36,9 +36,4 @@ export function useServiceMutations() {
       Alert.alert("Failed to update service", error.message);
     },
   });
-
-  return {
-    createServiceMutation,
-    updateServiceMutation,
-  };
 }

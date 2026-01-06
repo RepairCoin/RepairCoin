@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ServiceData } from "@/interfaces/service.interface";
 import { ShopAvailability } from "@/interfaces/appointment.interface";
 import { queryKeys } from "@/config/queryClient";
-import { useServiceMutations } from "../mutations/useServiceMutations";
+import { useUpdateServiceMutation } from "../mutations/useServiceMutations";
 import { DAYS } from "../../constants/DAYS";
 import { getCategoryLabel } from "../../../../utilities/getCategoryLabel";
 
@@ -23,7 +23,7 @@ export function useServiceDetailUI({
   availability,
 }: UseServiceDetailUIProps) {
   const queryClient = useQueryClient();
-  const { updateServiceMutation } = useServiceMutations();
+  const updateServiceMutation = useUpdateServiceMutation();
 
   // UI State
   const [isUpdating, setIsUpdating] = useState(false);

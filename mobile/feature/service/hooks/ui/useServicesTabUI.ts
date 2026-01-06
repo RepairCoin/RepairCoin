@@ -1,12 +1,11 @@
 import { useState, useCallback, useMemo } from "react";
 import { ServiceData } from "@/interfaces/service.interface";
 import { ServiceStatusFilter } from "../../types";
-import { useServiceQueries } from "../queries/useServiceQueries";
+import { useServicesTabQuery } from "../queries/useServiceQueries";
 
 export function useServicesTabUI() {
   // Query
-  const { servicesTabQuery } = useServiceQueries();
-  const { data: servicesData, isLoading, error, refetch } = servicesTabQuery;
+  const { data: servicesData, isLoading, error, refetch } = useServicesTabQuery();
 
   // UI State
   const [searchQuery, setSearchQuery] = useState("");

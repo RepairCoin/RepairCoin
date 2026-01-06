@@ -7,53 +7,46 @@ import {
   ServiceDetailResponse,
 } from "@/interfaces/service.interface";
 
-interface UseServiceQueriesParams {
-  serviceId?: string;
-}
-
-export function useServiceQueries(params: UseServiceQueriesParams = {}) {
+export function useServicesTabQuery() {
   const { userProfile } = useAuthStore();
-  const authShopId = userProfile?.shopId ?? "";
+  const shopId = userProfile?.shopId ?? "";
 
-  // Services Tab Query
-  const servicesTabQuery = useQuery({
-    queryKey: queryKeys.shopServices({ shopId: authShopId, page: 1, limit: 10 }),
+  return useQuery({
+    queryKey: queryKeys.shopServices({ shopId, page: 1, limit: 10 }),
     queryFn: async () => {
-      const response: ServiceResponse = await serviceApi.getShopServices(authShopId, {
+      const response: ServiceResponse = await serviceApi.getShopServices(shopId, {
         page: 1,
         limit: 10,
       });
       return response.data;
     },
-    enabled: !!authShopId,
+    enabled: !!shopId,
     staleTime: 5 * 60 * 1000,
   });
+}
 
-  // Service Detail Query
-  const serviceDetailQuery = useQuery({
-    queryKey: queryKeys.service(params.serviceId ?? ""),
+export function useServiceDetailQuery(serviceId?: string) {
+  return useQuery({
+    queryKey: queryKeys.service(serviceId ?? ""),
     queryFn: async () => {
-      const response: ServiceDetailResponse = await serviceApi.getService(params.serviceId!);
+      const response: ServiceDetailResponse = await serviceApi.getService(serviceId!);
       return response.data;
     },
-    enabled: !!params.serviceId,
+    enabled: !!serviceId,
     staleTime: 5 * 60 * 1000,
   });
+}
 
-  // Service Form Data (derived from auth store)
+export function useServiceFormData() {
+  const { userProfile } = useAuthStore();
+
   const isQualified =
     userProfile?.operational_status === "subscription_qualified" ||
     userProfile?.operational_status === "rcg_qualified";
 
-  const serviceFormData = {
+  return {
     shopData: userProfile,
     shopId: userProfile?.shopId,
     isQualified,
-  };
-
-  return {
-    servicesTabQuery,
-    serviceDetailQuery,
-    serviceFormData,
   };
 }

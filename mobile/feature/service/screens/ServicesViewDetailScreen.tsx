@@ -12,8 +12,8 @@ import { useLocalSearchParams } from "expo-router";
 // Feature imports
 import { useAuthStore } from "@/store/auth.store";
 import {
-  useServiceQueries,
-  useAppointmentQueries,
+  useServiceDetailQuery,
+  useShopAvailabilityWithConfigQuery,
   useServiceNavigation,
   useServiceDetailUI,
 } from "../hooks";
@@ -28,11 +28,8 @@ export default function ServicesViewDetailScreen() {
 
   // Hooks
   const { navigateBack, navigateToEdit } = useServiceNavigation();
-  const { serviceDetailQuery } = useServiceQueries({ serviceId: id });
-  const { shopAvailabilityQuery } = useAppointmentQueries({ shopId });
-
-  const { data: serviceData, isLoading, error } = serviceDetailQuery;
-  const { data: availabilityData, isLoading: loadingAvailability } = shopAvailabilityQuery;
+  const { data: serviceData, isLoading, error } = useServiceDetailQuery(id);
+  const { data: availabilityData, isLoading: loadingAvailability } = useShopAvailabilityWithConfigQuery(shopId);
 
   const availability = availabilityData?.availability ?? [];
   const timeSlotConfig = availabilityData?.timeSlotConfig ?? null;

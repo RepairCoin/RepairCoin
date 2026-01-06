@@ -1,4 +1,4 @@
-// Appointment Queries
+// Queries
 export {
   useAvailableTimeSlotsQuery,
   useShopAvailabilityQuery,
@@ -6,9 +6,11 @@ export {
   useDateOverridesQuery,
   useShopCalendarQuery,
   useMyAppointmentsQuery,
-} from "./useAppointmentQuery";
+  useShopBookingQuery,
+  useCustomerBookingQuery,
+} from "./queries";
 
-// Appointment Mutations
+// Mutations
 export {
   useUpdateShopAvailabilityMutation,
   useUpdateTimeSlotConfigMutation,
@@ -16,16 +18,6 @@ export {
   useDeleteDateOverrideMutation,
   useUpdateServiceDurationMutation,
   useCancelAppointmentMutation,
-} from "./useAppointmentMutation";
-
-// Booking Queries
-export {
-  useShopBookingQuery,
-  useCustomerBookingQuery,
-} from "./useBookingQuery";
-
-// Booking Mutations
-export {
   useCreateBookingMutation,
   useCreateStripeCheckoutMutation,
-} from "./useBookingMutation";
+} from "./mutations";

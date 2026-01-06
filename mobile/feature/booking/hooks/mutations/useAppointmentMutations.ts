@@ -1,15 +1,14 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/config/queryClient";
-import { appointmentApi } from "../services";
 import {
   ShopAvailability,
+  UpdateAvailabilityRequest,
   TimeSlotConfig,
   DateOverride,
-  UpdateAvailabilityRequest,
   CreateDateOverrideRequest,
 } from "@/interfaces/appointment.interface";
+import { appointmentApi } from "@/services/appointment.services";
 
-// Mutation: Update shop availability
 export function useUpdateShopAvailabilityMutation() {
   const queryClient = useQueryClient();
 
@@ -24,7 +23,6 @@ export function useUpdateShopAvailabilityMutation() {
   });
 }
 
-// Mutation: Update time slot configuration
 export function useUpdateTimeSlotConfigMutation() {
   const queryClient = useQueryClient();
 
@@ -39,7 +37,6 @@ export function useUpdateTimeSlotConfigMutation() {
   });
 }
 
-// Mutation: Create date override
 export function useCreateDateOverrideMutation() {
   const queryClient = useQueryClient();
 
@@ -54,7 +51,6 @@ export function useCreateDateOverrideMutation() {
   });
 }
 
-// Mutation: Delete date override
 export function useDeleteDateOverrideMutation() {
   const queryClient = useQueryClient();
 
@@ -68,7 +64,6 @@ export function useDeleteDateOverrideMutation() {
   });
 }
 
-// Mutation: Update service duration
 export function useUpdateServiceDurationMutation() {
   const queryClient = useQueryClient();
 
@@ -88,7 +83,6 @@ export function useUpdateServiceDurationMutation() {
   });
 }
 
-// Mutation: Cancel appointment
 export function useCancelAppointmentMutation() {
   const queryClient = useQueryClient();
 

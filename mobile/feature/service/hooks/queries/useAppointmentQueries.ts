@@ -2,17 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/auth.store";
 import { appointmentApi } from "@/services/appointment.services";
 
-interface UseAppointmentQueriesParams {
-  shopId?: string;
-}
-
-export function useAppointmentQueries(params: UseAppointmentQueriesParams = {}) {
+export function useShopAvailabilityWithConfigQuery(shopId?: string) {
   const { userProfile } = useAuthStore();
   const authShopId = userProfile?.shopId ?? "";
-  const effectiveShopId = params.shopId ?? authShopId;
+  const effectiveShopId = shopId ?? authShopId;
 
-  // Shop Availability Query
-  const shopAvailabilityQuery = useQuery({
+  return useQuery({
     queryKey: ["shopAvailability", effectiveShopId],
     queryFn: async () => {
       const [availRes, configRes] = await Promise.all([
@@ -32,8 +27,4 @@ export function useAppointmentQueries(params: UseAppointmentQueriesParams = {}) 
     enabled: !!effectiveShopId,
     staleTime: 5 * 60 * 1000,
   });
-
-  return {
-    shopAvailabilityQuery,
-  };
 }
