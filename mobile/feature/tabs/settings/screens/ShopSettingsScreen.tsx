@@ -10,7 +10,7 @@ import { SettingsItem, SettingsSection, Divider } from "../components";
 // Hooks
 import {
   useSettingsUI,
-  useSettingsMutation,
+  useLogoutUI,
   useSettingsNavigation,
 } from "../hooks";
 
@@ -18,8 +18,8 @@ export default function ShopSettingsScreen() {
   // UI state
   const { walletDisplay } = useSettingsUI();
 
-  // Mutations
-  const { handleLogout, isLoggingOut } = useSettingsMutation();
+  // Logout UI
+  const { handleLogout, isLoggingOut } = useLogoutUI();
 
   // Navigation
   const {

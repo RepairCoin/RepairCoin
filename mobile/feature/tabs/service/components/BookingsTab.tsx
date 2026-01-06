@@ -13,8 +13,8 @@ import { router } from "expo-router";
 
 // Hooks
 import {
-  useBookingsQuery,
-  useBookingsUI,
+  useBookingsData,
+  useBookingsFilter,
   useCalendarUI,
   BOOKING_STATUS_FILTERS,
   getStatusColor,
@@ -467,10 +467,10 @@ function BookingCalendar({ getBookingsForDate }: BookingCalendarProps) {
 
 export default function BookingsTab() {
   // UI state
-  const { statusFilter, setStatusFilter } = useBookingsUI();
+  const { statusFilter, setStatusFilter } = useBookingsFilter();
 
   // Data fetching
-  const { bookings, isLoading, getBookingsForDate } = useBookingsQuery(statusFilter);
+  const { bookings, isLoading, getBookingsForDate } = useBookingsData(statusFilter);
 
   return (
     <View className="flex-1 bg-zinc-950">

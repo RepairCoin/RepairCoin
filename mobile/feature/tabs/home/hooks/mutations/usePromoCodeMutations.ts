@@ -3,10 +3,10 @@ import { useAuthStore } from "@/store/auth.store";
 import { queryClient, queryKeys } from "@/config/queryClient";
 import { promoCodeApi } from "@/services/promocode.services";
 
-export function usePromoCodeMutation() {
+export function useUpdatePromoCodeStatusMutation() {
   const shopId = useAuthStore((state) => state.userProfile?.shopId) || "";
 
-  const updateStatusMutation = useMutation({
+  return useMutation({
     mutationFn: async ({
       promoCodeId,
       isActive,
@@ -17,19 +17,9 @@ export function usePromoCodeMutation() {
       return promoCodeApi.updateStatus(shopId, promoCodeId, isActive);
     },
     onSuccess: () => {
-      // Invalidate promo codes query to refetch
       queryClient.invalidateQueries({
         queryKey: queryKeys.shopPromoCodes(shopId),
       });
     },
   });
-
-  const togglePromoCodeStatus = (promoCodeId: string, isActive: boolean) => {
-    updateStatusMutation.mutate({ promoCodeId, isActive });
-  };
-
-  return {
-    isUpdating: updateStatusMutation.isPending,
-    togglePromoCodeStatus,
-  };
 }

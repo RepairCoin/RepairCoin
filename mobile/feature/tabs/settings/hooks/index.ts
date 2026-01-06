@@ -1,3 +1,5 @@
-export { useSettingsMutation } from "./useSettingsMutation";
-export { useSettingsNavigation } from "./useSettingsNavigation";
-export { useSettingsUI } from "./useSettingsUI";
+// UI Hooks
+export { useSettingsUI, useSettingsNavigation, useLogoutUI } from "./ui";
+
+// Mutations
+export { useSettingsMutations } from "./mutations";

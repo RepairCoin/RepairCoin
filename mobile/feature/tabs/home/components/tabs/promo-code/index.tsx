@@ -9,14 +9,10 @@ import { ThemedView } from "@/components/ui/ThemedView";
 import { PromoCodeCard } from "@/components/shop/PromoCodeCard";
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import ActionCard from "@/components/shared/ActionCard";
-import { usePromoCodeQuery, usePromoCodeMutation } from "../../../hooks";
+import { usePromoCodeUI } from "../../../hooks";
 
 export default function PromoCodeTab() {
-  // Data fetching
-  const { promoCodes, isLoading } = usePromoCodeQuery();
-
-  // Mutations
-  const { isUpdating, togglePromoCodeStatus } = usePromoCodeMutation();
+  const { promoCodes, isLoading, isUpdating, togglePromoCodeStatus } = usePromoCodeUI();
 
   return (
     <ThemedView className="w-full h-full">
