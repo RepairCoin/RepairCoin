@@ -143,13 +143,36 @@ export class AppointmentService {
 
       // For same-day or next-day bookings, we need more nuanced checking
       // Only reject if the entire day is too soon (date + last slot time < minBookingHours)
+      const [openHourParsed, openMinParsed] = openTime.split(':').map(Number);
       const [closeHour, closeMin] = closeTime.split(':').map(Number);
       const closeTimeStr = `${String(closeHour).padStart(2, '0')}:${String(closeMin).padStart(2, '0')}`;
+
+      // Check for overnight hours (close time <= open time means shop closes next day)
+      // e.g., 3:00 PM - 12:00 AM means close is at midnight of the NEXT day
+      const earlyOpenMinutes = openHourParsed * 60 + openMinParsed;
+      const earlyCloseMinutes = closeHour * 60 + closeMin;
+      const isOvernightHours = earlyCloseMinutes <= earlyOpenMinutes;
+
+      // For overnight hours, the close time is on the NEXT day
+      let lastSlotDate = date;
+      if (isOvernightHours) {
+        const [y, m, d] = date.split('-').map(Number);
+        const nextDay = new Date(y, m - 1, d + 1);
+        lastSlotDate = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, '0')}-${String(nextDay.getDate()).padStart(2, '0')}`;
+      }
 
       // Calculate hours until the last possible slot
       // The slot time is in the SHOP's timezone - hoursUntilSlotAccurate converts it to
       // an absolute timestamp and compares to the current time (works for any user timezone)
-      const hoursUntilLastSlot = hoursUntilSlotAccurate(date, closeTimeStr, shopTimezone);
+      const hoursUntilLastSlot = hoursUntilSlotAccurate(lastSlotDate, closeTimeStr, shopTimezone);
+
+      logger.debug('Hours until last slot calculation', {
+        date,
+        closeTime: closeTimeStr,
+        isOvernightHours,
+        lastSlotDate,
+        hoursUntilLastSlot: hoursUntilLastSlot.toFixed(2)
+      });
 
       // Only reject the entire day if even the last slot is too soon
       if (hoursUntilLastSlot < config.minBookingHours) {
@@ -158,7 +181,8 @@ export class AppointmentService {
           hoursUntilLastSlot,
           minBookingHours: config.minBookingHours,
           shopTimezone,
-          currentTimeInShop: nowInShopTz.timeString
+          currentTimeInShop: nowInShopTz.timeString,
+          isOvernightHours
         });
         return [];
       }
