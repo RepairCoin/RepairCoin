@@ -23,7 +23,7 @@ import { AvailabilityModal } from "../components/AvailabilityModal";
 
 // Feature imports
 import {
-  useServiceQueries,
+  useServiceFormData,
   useServiceFormUI,
   useServiceNavigation,
 } from "../hooks";
@@ -36,8 +36,7 @@ export default function ServicesFormScreen() {
 
   // Hooks
   const { navigateBack, navigateToSubscription } = useServiceNavigation();
-  const { serviceFormData } = useServiceQueries();
-  const { shopId, isQualified } = serviceFormData;
+  const { shopId, isQualified } = useServiceFormData();
   const {
     formData,
     updateFormField,

@@ -12,7 +12,7 @@ import {
   ServiceFormData,
   SubmitFormParams,
 } from "../../types";
-import { useServiceMutations } from "../mutations/useServiceMutations";
+import { useCreateServiceMutation, useUpdateServiceMutation } from "../mutations/useServiceMutations";
 import { INITIAL_FORM_DATA } from "../../constants/INITIAL_FORM_DATA";
 
 export function useServiceFormUI(
@@ -21,7 +21,8 @@ export function useServiceFormUI(
   shopId: string | undefined
 ) {
   const queryClient = useQueryClient();
-  const { createServiceMutation, updateServiceMutation } = useServiceMutations();
+  const createServiceMutation = useCreateServiceMutation();
+  const updateServiceMutation = useUpdateServiceMutation();
 
   // Form state
   const [formData, setFormData] = useState<ServiceFormData>(INITIAL_FORM_DATA);

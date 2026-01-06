@@ -40,9 +40,6 @@ export {
   useCreateStripeCheckoutMutation,
 } from "./hooks";
 
-// Services
-export { bookingApi, appointmentApi } from "./services";
-
 // Types
 export type {
   TimeSlotPickerProps,

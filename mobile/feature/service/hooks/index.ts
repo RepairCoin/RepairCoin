@@ -1,9 +1,13 @@
 // Queries
-export { useServiceQueries } from "./queries/useServiceQueries";
-export { useAppointmentQueries } from "./queries/useAppointmentQueries";
+export {
+  useServicesTabQuery,
+  useServiceDetailQuery,
+  useServiceFormData,
+  useShopAvailabilityWithConfigQuery,
+} from "./queries";
 
 // Mutations
-export { useServiceMutations } from "./mutations/useServiceMutations";
+export { useCreateServiceMutation, useUpdateServiceMutation } from "./mutations";
 
 // UI Hooks
 export {
