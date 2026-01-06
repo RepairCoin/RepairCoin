@@ -1,6 +1,6 @@
 import { useAuthStore } from "@/store/auth.store";
 
-export function useBuyTokenQuery() {
+export function useBuyTokenQueries() {
   const { userProfile } = useAuthStore();
 
   // Check if shop is qualified to buy RCN
