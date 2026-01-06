@@ -27,6 +27,7 @@ import { NotificationDomain } from './domains/notification/NotificationDomain';
 import { AffiliateShopGroupDomain } from './domains/AffiliateShopGroupDomain';
 import { ServiceDomain } from './domains/ServiceDomain';
 import { MarketingDomain } from './domains/MarketingDomain';
+import { MessagingDomain } from './domains/messaging';
 import { eventBus } from './events/EventBus';
 import { monitoringService } from './services/MonitoringService';
 import { cleanupService } from './services/CleanupService';
@@ -231,6 +232,7 @@ class RepairCoinApp {
     domainRegistry.register(new AffiliateShopGroupDomain());
     domainRegistry.register(new ServiceDomain());
     domainRegistry.register(new MarketingDomain());
+    domainRegistry.register(new MessagingDomain());
 
     // Initialize all domains (sets up event subscriptions)
     await domainRegistry.initializeAll();

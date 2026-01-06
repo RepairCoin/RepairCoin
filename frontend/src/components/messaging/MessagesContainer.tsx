@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { MessageInbox, type Conversation } from "./MessageInbox";
 import { ConversationThread, type Message } from "./ConversationThread";
 import { MessageCircle, ArrowLeft } from "lucide-react";
+import * as messagingApi from "@/services/api/messaging";
 
 interface MessagesContainerProps {
   userType: "customer" | "shop";
@@ -16,131 +17,102 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
 }) => {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [showMobileThread, setShowMobileThread] = useState(false);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock data - replace with actual API calls
-  const mockConversations: Conversation[] = [
-    {
-      id: "1",
-      serviceId: "service-1",
-      serviceName: "Oil Change & Filter Replacement",
-      shopId: userType === "customer" ? "shop-1" : undefined,
-      shopName: userType === "customer" ? "Premium Auto Repair" : undefined,
-      customerId: userType === "shop" ? "customer-1" : undefined,
-      customerName: userType === "shop" ? "John Doe" : undefined,
-      participantName: userType === "customer" ? "Premium Auto Repair" : "John Doe",
-      lastMessage: "Thank you! See you tomorrow at 2 PM.",
-      lastMessageTime: new Date(Date.now() - 300000).toISOString(), // 5 mins ago
-      unreadCount: 0,
-      status: "active",
-      hasAttachment: false,
-      isOnline: true,
-    },
-    {
-      id: "2",
-      serviceId: "service-2",
-      serviceName: "Brake Inspection & Repair",
-      shopId: userType === "customer" ? "shop-2" : undefined,
-      shopName: userType === "customer" ? "City Motors" : undefined,
-      customerId: userType === "shop" ? "customer-2" : undefined,
-      customerName: userType === "shop" ? "Jane Smith" : undefined,
-      participantName: userType === "customer" ? "City Motors" : "Jane Smith",
-      lastMessage: "Can you provide more details about the noise?",
-      lastMessageTime: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
-      unreadCount: 2,
-      status: "active",
-      hasAttachment: false,
-      isOnline: false,
-    },
-    {
-      id: "3",
-      serviceId: "service-3",
-      serviceName: "Tire Rotation Service",
-      shopId: userType === "customer" ? "shop-1" : undefined,
-      shopName: userType === "customer" ? "Premium Auto Repair" : undefined,
-      customerId: userType === "shop" ? "customer-3" : undefined,
-      customerName: userType === "shop" ? "Mike Johnson" : undefined,
-      participantName: userType === "customer" ? "Premium Auto Repair" : "Mike Johnson",
-      lastMessage: "Perfect! Your appointment is confirmed.",
-      lastMessageTime: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-      unreadCount: 0,
-      status: "resolved",
-      hasAttachment: true,
-      isOnline: false,
-    },
-  ];
+  // Fetch conversations from API
+  useEffect(() => {
+    const fetchConversations = async () => {
+      try {
+        setIsLoadingConversations(true);
+        setError(null);
+        const response = await messagingApi.getConversations({ page: 1, limit: 50 });
 
-  const mockMessages: Message[] = [
-    {
-      id: "msg-1",
-      conversationId: selectedConversationId || "1",
-      senderId: userType === "customer" ? currentUserId : "shop-1",
-      senderName: userType === "customer" ? "You" : "Premium Auto Repair",
-      senderType: userType === "customer" ? "customer" : "shop",
-      content: "Hi! I'd like to schedule an oil change for my 2020 Honda Civic.",
-      timestamp: new Date(Date.now() - 7200000).toISOString(), // 2 hours ago
-      status: "read",
-    },
-    {
-      id: "msg-2",
-      conversationId: selectedConversationId || "1",
-      senderId: userType === "shop" ? currentUserId : "customer-1",
-      senderName: userType === "shop" ? "You" : "John Doe",
-      senderType: userType === "shop" ? "shop" : "customer",
-      content: "Hello! We'd be happy to help. We have availability tomorrow at 2 PM or Thursday at 10 AM. Which works better for you?",
-      timestamp: new Date(Date.now() - 6900000).toISOString(),
-      status: "read",
-    },
-    {
-      id: "msg-3",
-      conversationId: selectedConversationId || "1",
-      senderId: "system",
-      senderName: "System",
-      senderType: "customer",
-      content: "Booking confirmed for Oil Change & Filter Replacement on March 15, 2025 at 2:00 PM",
-      timestamp: new Date(Date.now() - 6600000).toISOString(),
-      status: "read",
-      isSystemMessage: true,
-    },
-    {
-      id: "msg-4",
-      conversationId: selectedConversationId || "1",
-      senderId: userType === "customer" ? currentUserId : "shop-1",
-      senderName: userType === "customer" ? "You" : "Premium Auto Repair",
-      senderType: userType === "customer" ? "customer" : "shop",
-      content: "Tomorrow at 2 PM works perfectly! Do I need to bring anything?",
-      timestamp: new Date(Date.now() - 6300000).toISOString(),
-      status: "read",
-    },
-    {
-      id: "msg-5",
-      conversationId: selectedConversationId || "1",
-      senderId: userType === "shop" ? currentUserId : "customer-1",
-      senderName: userType === "shop" ? "You" : "John Doe",
-      senderType: userType === "shop" ? "shop" : "customer",
-      content: "Just your vehicle keys and registration. We'll take care of the rest! The service typically takes 30-45 minutes.",
-      timestamp: new Date(Date.now() - 5400000).toISOString(),
-      status: "read",
-      attachments: [
-        {
-          type: "image",
-          url: "https://via.placeholder.com/400x300?text=Oil+Change+Checklist",
-          name: "oil-change-checklist.jpg",
-        },
-      ],
-    },
-    {
-      id: "msg-6",
-      conversationId: selectedConversationId || "1",
-      senderId: userType === "customer" ? currentUserId : "shop-1",
-      senderName: userType === "customer" ? "You" : "Premium Auto Repair",
-      senderType: userType === "customer" ? "customer" : "shop",
-      content: "Thank you! See you tomorrow at 2 PM.",
-      timestamp: new Date(Date.now() - 300000).toISOString(), // 5 mins ago
-      status: "read",
-    },
-  ];
+        // Transform API response to match Conversation type
+        const transformedConversations: Conversation[] = response.data.map((conv) => ({
+          id: conv.conversationId,
+          serviceId: "", // Will need to fetch from service orders if needed
+          serviceName: "", // Will need to fetch from service orders if needed
+          shopId: userType === "customer" ? conv.shopId : undefined,
+          shopName: userType === "customer" ? conv.shopName : undefined,
+          customerId: userType === "shop" ? conv.customerAddress : undefined,
+          customerName: userType === "shop" ? conv.customerName : undefined,
+          participantName: userType === "customer" ? (conv.shopName || "Shop") : (conv.customerName || "Customer"),
+          lastMessage: conv.lastMessagePreview || "",
+          lastMessageTime: conv.lastMessageAt || conv.createdAt,
+          unreadCount: userType === "customer" ? conv.unreadCountCustomer : conv.unreadCountShop,
+          status: conv.isArchivedCustomer || conv.isArchivedShop ? "resolved" : "active",
+          hasAttachment: false,
+          isOnline: false,
+        }));
 
-  const selectedConversation = mockConversations.find((c) => c.id === selectedConversationId);
+        setConversations(transformedConversations);
+      } catch (err: any) {
+        console.error("Error fetching conversations:", err);
+
+        // Handle specific error cases
+        if (err?.status === 401 || err?.message?.includes('Authentication required')) {
+          setError("Please log in to view your messages");
+        } else if (err?.message?.includes('Network')) {
+          setError("Network error. Please check your connection");
+        } else {
+          setError(err?.message || "Failed to load conversations");
+        }
+      } finally {
+        setIsLoadingConversations(false);
+      }
+    };
+
+    fetchConversations();
+  }, [userType]);
+
+  // Fetch messages when conversation is selected
+  useEffect(() => {
+    const fetchMessages = async () => {
+      if (!selectedConversationId) {
+        setMessages([]);
+        return;
+      }
+
+      try {
+        setIsLoadingMessages(true);
+        const response = await messagingApi.getMessages(selectedConversationId, {
+          page: 1,
+          limit: 100,
+        });
+
+        // Transform API response to match Message type
+        const transformedMessages: Message[] = response.data.map((msg) => ({
+          id: msg.messageId,
+          conversationId: msg.conversationId,
+          senderId: msg.senderAddress,
+          senderName: msg.senderName || (msg.senderAddress === currentUserId ? "You" : "User"),
+          senderType: msg.senderType,
+          content: msg.messageText,
+          timestamp: msg.createdAt,
+          status: msg.isRead ? "read" : "delivered",
+          isSystemMessage: msg.messageType === "system",
+          attachments: msg.attachments?.length > 0 ? msg.attachments : undefined,
+        }));
+
+        setMessages(transformedMessages);
+
+        // Mark conversation as read
+        await messagingApi.markConversationAsRead(selectedConversationId);
+      } catch (err) {
+        console.error("Error fetching messages:", err);
+      } finally {
+        setIsLoadingMessages(false);
+      }
+    };
+
+    fetchMessages();
+  }, [selectedConversationId, currentUserId]);
+
+  const selectedConversation = conversations.find((c) => c.id === selectedConversationId);
 
   const handleSelectConversation = (conversationId: string) => {
     setSelectedConversationId(conversationId);
@@ -152,9 +124,54 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
     setSelectedConversationId(null);
   };
 
-  const handleSendMessage = (content: string, attachments?: File[]) => {
-    console.log("Sending message:", { content, attachments });
-    // TODO: Implement actual message sending logic
+  const handleSendMessage = async (content: string, attachments?: File[]) => {
+    if (!selectedConversationId || !content.trim()) return;
+
+    try {
+      const newMessage = await messagingApi.sendMessage({
+        conversationId: selectedConversationId,
+        messageText: content,
+        messageType: "text",
+      });
+
+      // Add the new message to the messages list
+      const transformedMessage: Message = {
+        id: newMessage.messageId,
+        conversationId: newMessage.conversationId,
+        senderId: newMessage.senderAddress,
+        senderName: newMessage.senderName || "You",
+        senderType: newMessage.senderType,
+        content: newMessage.messageText,
+        timestamp: newMessage.createdAt,
+        status: "delivered",
+        isSystemMessage: false,
+      };
+
+      setMessages((prev) => [...prev, transformedMessage]);
+
+      // Refresh conversations to update last message preview
+      const response = await messagingApi.getConversations({ page: 1, limit: 50 });
+      const transformedConversations: Conversation[] = response.data.map((conv) => ({
+        id: conv.conversationId,
+        serviceId: "",
+        serviceName: "",
+        shopId: userType === "customer" ? conv.shopId : undefined,
+        shopName: userType === "customer" ? conv.shopName : undefined,
+        customerId: userType === "shop" ? conv.customerAddress : undefined,
+        customerName: userType === "shop" ? conv.customerName : undefined,
+        participantName: userType === "customer" ? (conv.shopName || "Shop") : (conv.customerName || "Customer"),
+        lastMessage: conv.lastMessagePreview || "",
+        lastMessageTime: conv.lastMessageAt || conv.createdAt,
+        unreadCount: userType === "customer" ? conv.unreadCountCustomer : conv.unreadCountShop,
+        status: conv.isArchivedCustomer || conv.isArchivedShop ? "resolved" : "active",
+        hasAttachment: false,
+        isOnline: false,
+      }));
+      setConversations(transformedConversations);
+    } catch (err) {
+      console.error("Error sending message:", err);
+      alert("Failed to send message. Please try again.");
+    }
   };
 
   return (
@@ -164,7 +181,7 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
         {/* Inbox Sidebar */}
         <div className="w-96 flex-shrink-0">
           <MessageInbox
-            conversations={mockConversations}
+            conversations={conversations}
             selectedConversationId={selectedConversationId}
             onSelectConversation={handleSelectConversation}
             userType={userType}
@@ -173,10 +190,25 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
 
         {/* Conversation Thread */}
         <div className="flex-1">
-          {selectedConversation ? (
+          {isLoadingConversations ? (
+            <div className="flex flex-col items-center justify-center h-full text-center p-8">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FFCC00] mb-4"></div>
+              <p className="text-gray-400">Loading conversations...</p>
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center h-full text-center p-8">
+              <p className="text-red-400 mb-4">{error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-[#FFCC00] text-gray-900 rounded-lg hover:bg-yellow-500"
+              >
+                Retry
+              </button>
+            </div>
+          ) : selectedConversation ? (
             <ConversationThread
               conversationId={selectedConversation.id}
-              messages={mockMessages}
+              messages={messages}
               participantName={selectedConversation.participantName}
               participantAvatar={selectedConversation.participantAvatar}
               serviceName={selectedConversation.serviceName}
@@ -193,8 +225,9 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
                 Select a conversation
               </h2>
               <p className="text-gray-400 max-w-md">
-                Choose a conversation from the list to start messaging with{" "}
-                {userType === "customer" ? "shops" : "customers"}
+                {conversations.length === 0
+                  ? "No conversations yet. Book a service to start messaging with shops!"
+                  : `Choose a conversation from the list to start messaging with ${userType === "customer" ? "shops" : "customers"}`}
               </p>
             </div>
           )}
@@ -215,7 +248,7 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
 
             <ConversationThread
               conversationId={selectedConversation.id}
-              messages={mockMessages}
+              messages={messages}
               participantName={selectedConversation.participantName}
               participantAvatar={selectedConversation.participantAvatar}
               serviceName={selectedConversation.serviceName}
@@ -228,7 +261,7 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
           </div>
         ) : (
           <MessageInbox
-            conversations={mockConversations}
+            conversations={conversations}
             selectedConversationId={selectedConversationId}
             onSelectConversation={handleSelectConversation}
             userType={userType}

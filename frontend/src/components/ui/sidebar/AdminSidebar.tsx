@@ -72,7 +72,8 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
 
       return newItems;
     });
-  }, [activeTab, setExpandedItems]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   // Build menu items based on admin role
   const getMenuItems = (): SidebarItem[] => {
