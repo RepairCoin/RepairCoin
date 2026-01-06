@@ -162,29 +162,88 @@ export function hoursUntilSlotInTimezone(
 }
 
 /**
- * More accurate calculation using actual date objects
+ * Calculate hours until a slot by converting slot time to absolute UTC timestamp
+ *
+ * IMPORTANT: The dateStr and timeStr represent a moment in the SHOP's timezone.
+ * We convert this to an absolute timestamp and compare to the current time.
+ * This works correctly regardless of what timezone the user is in.
+ *
+ * @param dateStr - Date in YYYY-MM-DD format (in shop's timezone)
+ * @param timeStr - Time in HH:MM format (in shop's timezone)
+ * @param shopTimezone - The shop's timezone (e.g., 'America/New_York')
+ * @returns Hours until the slot (negative if in the past)
  */
 export function hoursUntilSlotAccurate(
   dateStr: string,
   timeStr: string,
-  timezone: string
+  shopTimezone: string
 ): number {
-  // Get current time components in the shop's timezone
-  const currentInTz = getCurrentTimeInTimezone(timezone);
+  // Parse the target date and time
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const [hours, minutes] = timeStr.split(':').map(Number);
 
-  // Parse target slot
-  const [targetYear, targetMonth, targetDay] = dateStr.split('-').map(Number);
-  const [targetHours, targetMinutes] = timeStr.split(':').map(Number);
+  // Get the current time in the SHOP's timezone to find the UTC offset
+  const now = new Date();
 
-  // Parse current time in timezone
-  const [currentYear, currentMonth, currentDay] = currentInTz.dateString.split('-').map(Number);
+  // Create a formatter to get the offset for the shop's timezone at the target date
+  // We need to find: what UTC time corresponds to this local time in the shop's timezone?
 
-  // Create comparable timestamps (as if both are in the same timezone)
-  // We use UTC dates but with the local time values, so the comparison is timezone-neutral
-  const targetTimestamp = Date.UTC(targetYear, targetMonth - 1, targetDay, targetHours, targetMinutes, 0);
-  const currentTimestamp = Date.UTC(currentYear, currentMonth - 1, currentDay, currentInTz.hours, currentInTz.minutes, 0);
+  // Method: Create a date, format it in the shop's timezone, and calculate the offset
+  // First, create a UTC date with the target values
+  const targetAsUtc = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
 
-  const diffMs = targetTimestamp - currentTimestamp;
+  // Format this UTC time in the shop's timezone to see what local time it shows
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: shopTimezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+
+  const parts = formatter.formatToParts(targetAsUtc);
+  const getPart = (type: string) => parseInt(parts.find(p => p.type === type)?.value || '0');
+
+  const tzYear = getPart('year');
+  const tzMonth = getPart('month');
+  const tzDay = getPart('day');
+  const tzHours = getPart('hour');
+  const tzMinutes = getPart('minute');
+
+  // Calculate the offset: how many minutes difference between what we want and what we got?
+  // We want: year/month/day hours:minutes in shopTimezone
+  // We got: tzYear/tzMonth/tzDay tzHours:tzMinutes when we interpreted UTC as shopTimezone
+
+  // The offset is: (wanted local time) - (got local time) = adjustment needed
+  let wantedMinutes = hours * 60 + minutes;
+  let gotMinutes = tzHours * 60 + tzMinutes;
+
+  // Handle day differences
+  let dayDiff = 0;
+  if (tzYear !== year || tzMonth !== month || tzDay !== day) {
+    // Calculate day difference
+    const wantedDays = year * 10000 + month * 100 + day;
+    const gotDays = tzYear * 10000 + tzMonth * 100 + tzDay;
+    if (gotDays > wantedDays) {
+      dayDiff = -1; // Shop timezone is ahead, we need to go back
+    } else if (gotDays < wantedDays) {
+      dayDiff = 1; // Shop timezone is behind, we need to go forward
+    }
+  }
+
+  // Calculate total offset in milliseconds
+  const offsetMinutes = (wantedMinutes - gotMinutes) + (dayDiff * 24 * 60);
+
+  // The actual UTC timestamp of the slot
+  const slotUtcTimestamp = targetAsUtc.getTime() + (offsetMinutes * 60 * 1000);
+
+  // Current UTC timestamp
+  const nowUtcTimestamp = now.getTime();
+
+  // Difference in hours
+  const diffMs = slotUtcTimestamp - nowUtcTimestamp;
   return diffMs / (1000 * 60 * 60);
 }
 

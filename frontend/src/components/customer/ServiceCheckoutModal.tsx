@@ -385,6 +385,7 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
                       selectedDate={bookingDate}
                       selectedTimeSlot={bookingTimeSlot}
                       onTimeSlotSelect={setBookingTimeSlot}
+                      shopTimezone={timeSlotConfig?.timezone || 'America/New_York'}
                     />
                   )}
                 </div>

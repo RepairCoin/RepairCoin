@@ -22,10 +22,14 @@ export class AppointmentController {
   /**
    * Get available time slots for a service
    * GET /api/services/appointments/available-slots
+   *
+   * Time slot availability is calculated using the SHOP's timezone.
+   * The slot times are converted to absolute UTC timestamps internally,
+   * so this works correctly for users in any timezone.
    */
   getAvailableTimeSlots = async (req: Request, res: Response) => {
     try {
-      const { shopId, serviceId, date, userTimezone } = req.query;
+      const { shopId, serviceId, date } = req.query;
 
       if (!shopId || !serviceId || !date) {
         return res.status(400).json({
@@ -37,8 +41,7 @@ export class AppointmentController {
       const slots = await this.appointmentService.getAvailableTimeSlots(
         shopId as string,
         serviceId as string,
-        date as string,
-        userTimezone as string | undefined
+        date as string
       );
 
       res.json({
