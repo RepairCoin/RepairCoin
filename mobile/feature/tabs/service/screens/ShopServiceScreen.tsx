@@ -14,11 +14,11 @@ import {
   useServiceTabUI,
   useServiceStatusUI,
   useServiceNavigation,
-  SERVICE_TABS,
 } from "../hooks";
 
 // Feature
 import ServicesTab from "@/feature/service/components/ServicesTab";
+import { SERVICE_TABS } from "../constants";
 
 export default function ShopServiceScreen() {
   const {
