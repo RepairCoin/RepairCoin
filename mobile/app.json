@@ -96,6 +96,13 @@
           "photosPermission": "Allow RepairCoin to access your photos to upload images.",
           "cameraPermission": "Allow RepairCoin to access your camera to take photos."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#FFCC00"
+        }
       ]
     ],
     "experiments": {

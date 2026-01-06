@@ -1,0 +1,99 @@
+// Push token registration params
+export interface RegisterPushTokenParams {
+  expoPushToken: string;
+  deviceId?: string;
+  deviceType: 'ios' | 'android';
+  deviceName?: string;
+  appVersion?: string;
+}
+
+// Device info returned from API
+export interface DeviceInfo {
+  id: string;
+  deviceType: 'ios' | 'android';
+  deviceName: string | null;
+  appVersion: string | null;
+  lastUsedAt: string;
+  createdAt: string;
+}
+
+// Response from register push token
+export interface RegisterPushTokenResponse {
+  message: string;
+  token: {
+    id: string;
+    deviceType: 'ios' | 'android';
+    deviceName: string | null;
+    createdAt: string;
+  };
+}
+
+// Response from get active devices
+export interface GetActiveDevicesResponse {
+  devices: DeviceInfo[];
+}
+
+// Response from deactivate tokens
+export interface DeactivateTokensResponse {
+  message: string;
+  count?: number;
+}
+
+// Push notification data payload types
+export type NotificationType =
+  | 'reward_issued'
+  | 'redemption_approval_requested'
+  | 'redemption_approved'
+  | 'redemption_rejected'
+  | 'booking_confirmed'
+  | 'appointment_reminder'
+  | 'order_completed'
+  | 'new_booking'
+  | 'token_gifted';
+
+// Base notification data
+export interface NotificationData {
+  type: NotificationType;
+  [key: string]: any;
+}
+
+// Specific notification data types
+export interface RewardIssuedData extends NotificationData {
+  type: 'reward_issued';
+  transactionId?: string;
+  amount: number;
+  shopName: string;
+}
+
+export interface BookingConfirmedData extends NotificationData {
+  type: 'booking_confirmed';
+  orderId: string;
+  shopName: string;
+  serviceName: string;
+  appointmentDate: string;
+  appointmentTime: string;
+}
+
+export interface AppointmentReminderData extends NotificationData {
+  type: 'appointment_reminder';
+  orderId: string;
+  shopName: string;
+  serviceName: string;
+  appointmentTime: string;
+}
+
+export interface RedemptionApprovalData extends NotificationData {
+  type: 'redemption_approval_requested';
+  sessionId: string;
+  amount: number;
+  shopName: string;
+}
+
+// Push notification state
+export interface PushNotificationState {
+  expoPushToken: string | null;
+  isRegistered: boolean;
+  isLoading: boolean;
+  permissionStatus: 'undetermined' | 'granted' | 'denied';
+  error: string | null;
+}

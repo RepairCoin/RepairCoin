@@ -2,6 +2,7 @@
 import { logger } from '../utils/logger';
 import { EmailService } from './EmailService';
 import { NotificationService } from '../domains/notification/services/NotificationService';
+import { getExpoPushService, ExpoPushService } from './ExpoPushService';
 import { OrderRepository } from '../repositories/OrderRepository';
 import { ShopRepository } from '../repositories/ShopRepository';
 import { CustomerRepository } from '../repositories/CustomerRepository';
@@ -31,6 +32,7 @@ export interface ReminderReport {
   emailsSent: number;
   emailsFailed: number;  // Track emails that failed after all retries
   inAppNotificationsSent: number;
+  pushNotificationsSent: number;
   errors: string[];
   // New fields for multi-reminder tracking
   reminder24hSent?: number;
@@ -88,6 +90,7 @@ const EMAIL_RETRY_CONFIG = {
 export class AppointmentReminderService {
   private emailService: EmailService;
   private notificationService: NotificationService;
+  private expoPushService: ExpoPushService;
   private orderRepository: OrderRepository;
   private shopRepository: ShopRepository;
   private customerRepository: CustomerRepository;
@@ -98,6 +101,7 @@ export class AppointmentReminderService {
   constructor() {
     this.emailService = new EmailService();
     this.notificationService = new NotificationService();
+    this.expoPushService = getExpoPushService();
     this.orderRepository = new OrderRepository();
     this.shopRepository = new ShopRepository();
     this.customerRepository = new CustomerRepository();
@@ -314,6 +318,15 @@ export class AppointmentReminderService {
           timestamp: new Date().toISOString()
         }
       });
+
+      // Send push notification
+      await this.expoPushService.sendAppointmentReminder(
+        data.customerAddress,
+        data.shopName,
+        data.serviceName,
+        this.formatTime(data.bookingTimeSlot),
+        data.orderId
+      );
     } catch (error) {
       logger.error('Error sending 24h in-app notification:', error);
       throw error;
@@ -553,6 +566,29 @@ export class AppointmentReminderService {
         }
       });
 
+      // Send push notification to customer
+      await this.expoPushService.sendBookingConfirmation(
+        order.customerAddress,
+        shop.name,
+        service.serviceName,
+        bookingDateTime.toLocaleDateString(),
+        this.formatTime(order.bookingTime!),
+        orderId
+      );
+
+      // Send push notification to shop
+      const shopWalletAddress = shop.walletAddress;
+      if (shopWalletAddress) {
+        await this.expoPushService.sendNewBookingToShop(
+          shopWalletAddress,
+          customer?.name || 'Customer',
+          service.serviceName,
+          bookingDateTime.toLocaleDateString(),
+          this.formatTime(order.bookingTime!),
+          orderId
+        );
+      }
+
       // Send notification to shop
       await this.notificationService.createServiceBookingReceivedNotification(
         order.customerAddress,
@@ -738,7 +774,7 @@ export class AppointmentReminderService {
     let reminder2hSent = 0;
     let skippedByPreference = 0;
     let skippedByQuietHours = 0;
-
+    let pushNotificationsSent = 0;
     try {
       logger.info('Starting multi-reminder processing (24h and 2h)');
 
@@ -776,7 +812,8 @@ export class AppointmentReminderService {
         reminder24hSent,
         reminder2hSent,
         skippedByPreference,
-        skippedByQuietHours
+        skippedByQuietHours,
+        pushNotificationsSent,
       };
 
       logger.info('Multi-reminder processing completed', report);
