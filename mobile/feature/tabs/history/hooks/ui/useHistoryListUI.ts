@@ -1,34 +1,27 @@
-import { useMemo, useCallback, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { queryKeys } from "@/hooks";
-import { purchaseApi } from "@/services/purchase.services";
-import { useAuthStore } from "@/store/auth.store";
+import { useState, useCallback, useMemo } from "react";
 import { PurchaseHistoryData } from "@/interfaces/purchase.interface";
-import { StatusFilter, DateFilter } from "../types";
+import { useShopTransactionsQuery } from "../queries/useHistoryQueries";
+import { useHistorySearch } from "./useHistorySearch";
+import { useHistoryFilters } from "./useHistoryFilters";
 
-export function useHistoryQuery(
-  searchQuery: string,
-  statusFilter: StatusFilter,
-  dateFilter: DateFilter
-) {
-  const { userProfile } = useAuthStore();
-  const shopId = userProfile?.shopId || "";
+export function useHistoryListUI() {
   const [refreshing, setRefreshing] = useState(false);
 
+  // Search
+  const { searchQuery, setSearchQuery, hasSearchQuery, clearSearch } = useHistorySearch();
+
+  // Filters
   const {
-    data: transactionData,
-    isLoading,
-    error,
-    refetch: refetchTransaction,
-  } = useQuery({
-    queryKey: queryKeys.shopTransactions(shopId),
-    queryFn: async () => {
-      const response = await purchaseApi.getShopTransactions(shopId);
-      return response?.data;
-    },
-    enabled: !!shopId,
-    staleTime: 10 * 60 * 1000, // 10 minutes
-  });
+    statusFilter,
+    setStatusFilter,
+    dateFilter,
+    setDateFilter,
+    hasActiveFilters,
+    clearFilters: clearFilterState,
+  } = useHistoryFilters();
+
+  // Query
+  const { data: transactionData, isLoading, error, refetch } = useShopTransactionsQuery();
 
   // Raw transactions
   const rawTransactions = useMemo((): PurchaseHistoryData[] => {
@@ -121,11 +114,17 @@ export function useHistoryQuery(
   const handleRefresh = useCallback(async () => {
     try {
       setRefreshing(true);
-      await refetchTransaction();
+      await refetch();
     } finally {
       setRefreshing(false);
     }
-  }, [refetchTransaction]);
+  }, [refetch]);
+
+  // Clear all filters and search
+  const clearFilters = useCallback(() => {
+    clearSearch();
+    clearFilterState();
+  }, [clearSearch, clearFilterState]);
 
   return {
     // Data
@@ -135,7 +134,19 @@ export function useHistoryQuery(
     // Query state
     isLoading,
     error,
+    // Refresh
     refreshing,
     handleRefresh,
+    // Search
+    searchQuery,
+    setSearchQuery,
+    hasSearchQuery,
+    // Filters
+    statusFilter,
+    setStatusFilter,
+    dateFilter,
+    setDateFilter,
+    hasActiveFilters,
+    clearFilters,
   };
 }

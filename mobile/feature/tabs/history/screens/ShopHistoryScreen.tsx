@@ -18,12 +18,10 @@ import { SearchInput } from "@/components/ui/SearchInput";
 import TransactionHistoryCard from "../components/TransactionHistoryCard";
 
 // Hooks
-import {
-  useHistoryQuery,
-  useHistoryUI,
-  STATUS_FILTERS,
-  DATE_FILTERS,
-} from "../hooks";
+import { useHistoryListUI } from "../hooks";
+
+// Constants
+import { STATUS_FILTERS, DATE_FILTERS } from "../constants";
 
 // Others
 import { PurchaseHistoryData } from "@/interfaces/purchase.interface";
@@ -55,18 +53,6 @@ const FilterChip = ({
 );
 
 export default function ShopHistoryScreen() {
-  // UI state (filters, search)
-  const {
-    searchQuery,
-    setSearchQuery,
-    statusFilter,
-    setStatusFilter,
-    dateFilter,
-    setDateFilter,
-    hasActiveFilters,
-  } = useHistoryUI();
-
-  // Data fetching with filtering
   const {
     transactions,
     transactionCount,
@@ -74,7 +60,14 @@ export default function ShopHistoryScreen() {
     error,
     refreshing,
     handleRefresh,
-  } = useHistoryQuery(searchQuery, statusFilter, dateFilter);
+    searchQuery,
+    setSearchQuery,
+    statusFilter,
+    setStatusFilter,
+    dateFilter,
+    setDateFilter,
+    hasActiveFilters,
+  } = useHistoryListUI();
 
   const renderTransaction = ({ item }: { item: PurchaseHistoryData }) => (
     <TransactionHistoryCard
