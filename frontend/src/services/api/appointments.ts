@@ -134,6 +134,15 @@ export interface ReschedulePolicy {
 // Note: apiClient already returns response.data and has withCredentials: true configured
 // The response interceptor extracts the data, so we access .data directly from the result
 
+// Get user's timezone from browser for accurate time slot filtering
+const getUserTimezone = (): string => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return 'America/New_York'; // Fallback to US Eastern
+  }
+};
+
 export const appointmentsApi = {
   // Public: Get available time slots for a service
   async getAvailableTimeSlots(
@@ -141,10 +150,11 @@ export const appointmentsApi = {
     serviceId: string,
     date: string
   ): Promise<TimeSlot[]> {
+    const userTimezone = getUserTimezone();
     const response = await apiClient.get<{ success: boolean; data: TimeSlot[] }>(
       `/services/appointments/available-slots`,
       {
-        params: { shopId, serviceId, date }
+        params: { shopId, serviceId, date, userTimezone }
       }
     );
     return (response as unknown as { success: boolean; data: TimeSlot[] }).data;

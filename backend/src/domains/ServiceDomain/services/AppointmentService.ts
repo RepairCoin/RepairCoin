@@ -13,14 +13,19 @@ export class AppointmentService {
 
   /**
    * Generate available time slots for a specific shop, service, and date
+   * @param shopId - The shop ID
+   * @param serviceId - The service ID
+   * @param date - The date in YYYY-MM-DD format
+   * @param userTimezone - Optional user's timezone for minimum notice calculations
    */
   async getAvailableTimeSlots(
     shopId: string,
     serviceId: string,
-    date: string
+    date: string,
+    userTimezone?: string
   ): Promise<TimeSlot[]> {
     try {
-      logger.info('getAvailableTimeSlots called', { shopId, serviceId, date });
+      logger.info('getAvailableTimeSlots called', { shopId, serviceId, date, userTimezone });
 
       // Get shop configuration
       const config = await this.appointmentRepo.getTimeSlotConfig(shopId);
@@ -120,13 +125,19 @@ export class AppointmentService {
       }
 
       // Check if booking is within advance booking window
-      // IMPORTANT: Use shop's timezone for all time comparisons
+      // Use user's timezone for minimum notice calculations (when will the slot occur from user's perspective)
+      // Fall back to shop timezone if user timezone not provided
+      const effectiveTimezone = userTimezone || shopTimezone;
       const nowInShopTz = getCurrentTimeInTimezone(shopTimezone);
+      const nowInUserTz = getCurrentTimeInTimezone(effectiveTimezone);
 
-      logger.debug('Current time in shop timezone', {
+      logger.debug('Current time in timezones', {
         shopTimezone,
-        currentDate: nowInShopTz.dateString,
-        currentTime: nowInShopTz.timeString,
+        userTimezone: effectiveTimezone,
+        shopCurrentDate: nowInShopTz.dateString,
+        shopCurrentTime: nowInShopTz.timeString,
+        userCurrentDate: nowInUserTz.dateString,
+        userCurrentTime: nowInUserTz.timeString,
         requestedDate: date
       });
 
@@ -135,8 +146,9 @@ export class AppointmentService {
       const [closeHour, closeMin] = closeTime.split(':').map(Number);
       const closeTimeStr = `${String(closeHour).padStart(2, '0')}:${String(closeMin).padStart(2, '0')}`;
 
-      // Calculate hours until the last possible slot using shop's timezone
-      const hoursUntilLastSlot = hoursUntilSlotAccurate(date, closeTimeStr, shopTimezone);
+      // Calculate hours until the last possible slot using USER's timezone
+      // This ensures users in different timezones see accurate availability based on their local time
+      const hoursUntilLastSlot = hoursUntilSlotAccurate(date, closeTimeStr, effectiveTimezone);
 
       // Only reject the entire day if even the last slot is too soon
       if (hoursUntilLastSlot < config.minBookingHours) {
@@ -144,8 +156,8 @@ export class AppointmentService {
           date,
           hoursUntilLastSlot,
           minBookingHours: config.minBookingHours,
-          shopTimezone,
-          currentTimeInShop: nowInShopTz.timeString
+          userTimezone: effectiveTimezone,
+          currentTimeInUser: nowInUserTz.timeString
         });
         return [];
       }
@@ -273,8 +285,9 @@ export class AppointmentService {
             });
           }
 
-          // Check if it's too soon (same day booking) using shop's timezone
-          const hoursUntilSlot = hoursUntilSlotAccurate(date, timeStr, shopTimezone);
+          // Check if it's too soon (same day booking) using USER's timezone
+          // This ensures users in different timezones see accurate availability based on their local time
+          const hoursUntilSlot = hoursUntilSlotAccurate(date, timeStr, effectiveTimezone);
 
           if (hoursUntilSlot >= config.minBookingHours) {
             slots.push({
@@ -291,8 +304,8 @@ export class AppointmentService {
                 timeStr,
                 hoursUntilSlot: hoursUntilSlot.toFixed(2),
                 minBookingHours: config.minBookingHours,
-                shopTimezone,
-                currentTimeInShop: nowInShopTz.timeString
+                userTimezone: effectiveTimezone,
+                currentTimeInUser: nowInUserTz.timeString
               });
             }
           }
@@ -313,7 +326,9 @@ export class AppointmentService {
         slotsSkippedTooSoon,
         slotsSkippedPastClose,
         shopTimezone,
-        currentTimeInShop: nowInShopTz.timeString
+        userTimezone: effectiveTimezone,
+        currentTimeInShop: nowInShopTz.timeString,
+        currentTimeInUser: nowInUserTz.timeString
       });
 
       return slots;
@@ -336,10 +351,11 @@ export class AppointmentService {
     shopId: string,
     serviceId: string,
     date: string,
-    timeSlot: string
+    timeSlot: string,
+    userTimezone?: string
   ): Promise<{ valid: boolean; error?: string }> {
     try {
-      const availableSlots = await this.getAvailableTimeSlots(shopId, serviceId, date);
+      const availableSlots = await this.getAvailableTimeSlots(shopId, serviceId, date, userTimezone);
 
       const slot = availableSlots.find(s => s.time === timeSlot);
       if (!slot) {
