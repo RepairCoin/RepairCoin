@@ -316,7 +316,8 @@ export default function ShopDashboardClient() {
     new Date(shopData.subscriptionEndsAt) > new Date();
 
   // Shop should be blocked if: suspended, rejected, pending, paused, or not operational (unsubscribed/expired)
-  const isBlocked = !!(isSuspended || isRejected || isPending || isPaused || !isOperational);
+  // However, if subscription is cancelled but still within the billing period, shop should NOT be blocked
+  const isBlocked = !!(isSuspended || isRejected || isPending || isPaused || (!isOperational && !isCancelledButActive));
 
   // Get the block reason
   const getBlockReason = () => {
@@ -1053,7 +1054,7 @@ export default function ShopDashboardClient() {
               })}
               <GroupsTab
                 shopId={shopData.shopId}
-                subscriptionActive={isOperational || false}
+                subscriptionActive={isOperational || isCancelledButActive || false}
               />
             </>
           )}

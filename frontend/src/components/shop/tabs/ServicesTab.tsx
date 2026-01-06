@@ -37,6 +37,9 @@ import { ShopServiceDetailsModal } from "@/components/shop/modals/ShopServiceDet
 
 interface ShopData {
   subscriptionActive?: boolean;
+  subscriptionStatus?: string | null;
+  subscriptionCancelledAt?: string | null;
+  subscriptionEndsAt?: string | null;
   rcg_balance?: number;
   rcg_tier?: string;
 }
@@ -154,7 +157,12 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
   };
 
   // Check if shop meets requirements to create services
-  const hasSubscription = shopData?.subscriptionActive === true;
+  // Check if subscription is active OR if it's cancelled but still within the billing period
+  const isCancelledButActive = shopData?.subscriptionStatus === 'cancelled' &&
+    shopData?.subscriptionCancelledAt &&
+    shopData?.subscriptionEndsAt &&
+    new Date(shopData.subscriptionEndsAt) > new Date();
+  const hasSubscription = shopData?.subscriptionActive === true || isCancelledButActive;
   const hasRCG = (shopData?.rcg_balance ?? 0) >= 10000;
   const canCreateServices = hasSubscription || hasRCG;
 
@@ -171,30 +179,6 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ shopId, shopData }) =>
 
   return (
     <div className="space-y-6">
-      {/* Requirement Warning Banner */}
-      {!canCreateServices && (
-        <div className="bg-red-900/20 border-2 border-red-500/50 rounded-xl p-4">
-          <div className="flex items-start gap-3">
-            <div className="text-2xl text-red-400">⚠️</div>
-            <div className="flex-1">
-              <h3 className="text-lg font-bold mb-1 text-red-400">
-                Subscription or RCG Holdings Required
-              </h3>
-              <p className="text-gray-300 text-sm mb-3">
-                To create and manage services in the marketplace, you need either:
-              </p>
-              <ul className="text-gray-300 text-sm space-y-1 mb-3 ml-4">
-                <li>• An active RepairCoin subscription ($500/month), OR</li>
-                <li>• Hold at least 10,000 RCG tokens</li>
-              </ul>
-              <p className="text-gray-400 text-xs">
-                Current Status: {hasSubscription ? '✅ Active Subscription' : '❌ No Subscription'} | {hasRCG ? `✅ ${shopData?.rcg_balance?.toFixed(2)} RCG` : `❌ ${shopData?.rcg_balance?.toFixed(2) || 0} RCG (need 10,000)`}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
