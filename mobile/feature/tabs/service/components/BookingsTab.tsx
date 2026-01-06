@@ -16,17 +16,14 @@ import {
   useBookingsData,
   useBookingsFilter,
   useCalendarUI,
-  BOOKING_STATUS_FILTERS,
   getStatusColor,
   formatBookingTime,
   isToday,
   isDateSelected,
   getDaysInMonth,
   getScrollableDays,
-  DAYS,
-  MONTHS,
-  YEARS,
 } from "../hooks";
+import { BOOKING_STATUS_FILTERS, DAYS, MONTHS, YEARS } from "../constants";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const DAY_WIDTH = (SCREEN_WIDTH - 32) / 7;
