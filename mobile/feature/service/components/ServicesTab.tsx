@@ -19,15 +19,14 @@ import { SearchInput } from "@/components/ui/SearchInput";
 
 // Hooks
 import {
-  useServicesTabQuery,
   useServicesTabUI,
-  SERVICE_STATUS_OPTIONS,
-  getCategoryLabel,
-} from "../../tabs/service/hooks";
+} from "../hooks";
+import { getCategoryLabel } from "@/utilities/getCategoryLabel";
 
 // Others
 import { ServiceData } from "@/interfaces/service.interface";
 import { SERVICE_CATEGORIES } from "@/constants/service-categories";
+import { SERVICE_STATUS_OPTIONS } from "../constants";
 
 interface ServicesTabProps {
   setActionModalVisible: (visible: boolean) => void;
@@ -38,25 +37,9 @@ export default function ServicesTab({
   setActionModalVisible,
   setSelectedService,
 }: ServicesTabProps) {
-  // UI state
+  // Combined UI state and data fetching
   const {
-    searchQuery,
-    setSearchQuery,
-    filterModalVisible,
-    openFilterModal,
-    closeFilterModal,
-    statusFilter,
-    setStatusFilter,
-    clearStatusFilter,
-    selectedCategories,
-    toggleCategory,
-    hasActiveFilters,
-    hasSearchOrFilters,
-    clearFilters,
-  } = useServicesTabUI();
-
-  // Data fetching
-  const {
+    // Data
     services,
     serviceCount,
     isLoading,
@@ -64,7 +47,25 @@ export default function ServicesTab({
     refreshing,
     handleRefresh,
     refetch,
-  } = useServicesTabQuery(searchQuery, statusFilter, selectedCategories);
+    // Search
+    searchQuery,
+    setSearchQuery,
+    // Filter modal
+    filterModalVisible,
+    openFilterModal,
+    closeFilterModal,
+    // Status filter
+    statusFilter,
+    setStatusFilter,
+    clearStatusFilter,
+    // Category filter
+    selectedCategories,
+    toggleCategory,
+    // Combined
+    hasActiveFilters,
+    hasSearchOrFilters,
+    clearFilters,
+  } = useServicesTabUI();
 
   const handleMenuPress = (item: ServiceData) => {
     setSelectedService(item);
