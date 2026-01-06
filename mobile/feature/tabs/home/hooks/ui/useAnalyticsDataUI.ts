@@ -1,81 +1,19 @@
 import { useCallback, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { queryKeys } from "@/config/queryClient";
-import {
-  Transaction,
-  Purchase,
-  TransactionsResponse,
-  PurchasesResponse,
-} from "@/interfaces/shop.interface";
-import { TimeRange, ProfitData, ProfitMetrics, ChartDataPoint } from "../types";
-import { analyticsApi } from "@/services/analytics.services";
+import { useAuthStore } from "@/store/auth.store";
+import { Transaction, Purchase } from "@/interfaces/shop.interface";
+import { TimeRange, ProfitData, ProfitMetrics, ChartDataPoint } from "../../types";
+import { useShopAnalyticsQuery } from "../queries/useAnalyticsQueries";
+import { useAnalyticsTimeRange } from "./useAnalyticsTimeRange";
 
-export function useAnalyticsQuery(shopId: string, timeRange: TimeRange) {
-  const getProfitData = async (
-    shopId: string,
-    startDate: string,
-    endDate: string
-  ): Promise<{
-    transactions: TransactionsResponse;
-    purchases: PurchasesResponse;
-  }> => {
-    const [transactions, purchases] = await Promise.all([
-      analyticsApi
-        .getShopTransactions(shopId, startDate, endDate)
-        .catch(() => ({
-          success: false,
-          data: { transactions: [], total: 0, totalPages: 0, page: 1 },
-        })),
-      analyticsApi.getShopPurchases(shopId, startDate, endDate).catch(() => ({
-        success: false,
-        data: {
-          items: [],
-          pagination: {
-            page: 1,
-            limit: 100,
-            totalItems: 0,
-            totalPages: 0,
-            hasMore: false,
-          },
-        },
-      })),
-    ]);
+export function useAnalyticsDataUI() {
+  const { userProfile } = useAuthStore();
+  const shopId = userProfile?.shopId || "";
 
-    return { transactions, purchases };
-  };
+  // Time range state
+  const { timeRange, setTimeRange } = useAnalyticsTimeRange();
 
-  // Calculate date range based on timeRange
-  const { startDate, endDate } = useMemo(() => {
-    const end = new Date();
-    const start = new Date();
-
-    switch (timeRange) {
-      case "month":
-        start.setMonth(end.getMonth() - 12); // Last 12 months
-        break;
-      case "year":
-        start.setFullYear(end.getFullYear() - 5); // Last 5 years
-        break;
-    }
-
-    return {
-      startDate: start.toISOString(),
-      endDate: end.toISOString(),
-    };
-  }, [timeRange]);
-
-  // Fetch profit data
-  const {
-    data: rawData,
-    isLoading,
-    error,
-    refetch,
-  } = useQuery({
-    queryKey: queryKeys.shopAnalytics(shopId, timeRange),
-    queryFn: () => getProfitData(shopId, startDate, endDate),
-    enabled: !!shopId,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-  });
+  // Query
+  const { data: rawData, isLoading, error, refetch } = useShopAnalyticsQuery(shopId, timeRange);
 
   // Format date by range
   const formatDateByRange = useCallback(
@@ -168,7 +106,6 @@ export function useAnalyticsQuery(shopId: string, timeRange: TimeRange) {
         if (transaction.repairAmount) {
           repairRevenue = transaction.repairAmount;
         } else {
-          // Fallback: 1 RCN = $10 repair work
           const rcnAmount = parseFloat(String(transaction.amount || 0));
           repairRevenue = rcnAmount * 10;
         }
@@ -243,25 +180,21 @@ export function useAnalyticsQuery(shopId: string, timeRange: TimeRange) {
 
   // Transform to chart data format
   const chartData = useMemo(() => {
-    // Profit data (positive profits)
     const profitChartData: ChartDataPoint[] = profitData.map((item) => ({
       value: Math.max(0, item.profit),
       label: formatLabel(item.date, timeRange),
     }));
 
-    // Loss data (absolute value of negative profits)
     const lossChartData: ChartDataPoint[] = profitData.map((item) => ({
       value: Math.abs(Math.min(0, item.profit)),
       label: formatLabel(item.date, timeRange),
     }));
 
-    // Revenue data
     const revenueChartData: ChartDataPoint[] = profitData.map((item) => ({
       value: item.revenue,
       label: formatLabel(item.date, timeRange),
     }));
 
-    // Cost data
     const costChartData: ChartDataPoint[] = profitData.map((item) => ({
       value: item.costs,
       label: formatLabel(item.date, timeRange),
@@ -284,5 +217,8 @@ export function useAnalyticsQuery(shopId: string, timeRange: TimeRange) {
     isLoading,
     error,
     refetch,
+    // Time range
+    timeRange,
+    setTimeRange,
   };
 }

@@ -1,14 +1,13 @@
 import { useState, useCallback } from "react";
 import { ServiceData } from "@/interfaces/service.interface";
+import { ServiceTab } from "../constants";
 
-export type ServiceTab = "Services" | "Booking";
-
-export const SERVICE_TABS: ServiceTab[] = ["Services", "Booking"];
-
-export function useServiceUI() {
+export function useServiceTabUI() {
   const [activeTab, setActiveTab] = useState<ServiceTab>("Services");
   const [actionModalVisible, setActionModalVisible] = useState(false);
-  const [selectedService, setSelectedService] = useState<ServiceData | null>(null);
+  const [selectedService, setSelectedService] = useState<ServiceData | null>(
+    null
+  );
 
   const openActionModal = useCallback((service: ServiceData) => {
     setSelectedService(service);

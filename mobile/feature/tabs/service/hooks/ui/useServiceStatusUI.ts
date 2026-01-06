@@ -1,18 +1,10 @@
-import { useCallback, useState } from "react";
+import { useState, useCallback } from "react";
 import { Alert } from "react-native";
-import { useQueryClient } from "@tanstack/react-query";
-import { useAuthStore } from "@/store/auth.store";
-import { useService } from "@/hooks/service/useService";
-import { queryKeys } from "@/config/queryClient";
 import { ServiceData } from "@/interfaces/service.interface";
+import { useServiceMutations } from "../mutations";
 
-export function useServiceMutation() {
-  const queryClient = useQueryClient();
-  const { userProfile } = useAuthStore();
-  const { useUpdateService } = useService();
-  const { mutateAsync: updateServiceMutation } = useUpdateService();
-
-  const shopId = userProfile?.shopId;
+export function useServiceStatusUI() {
+  const { toggleServiceStatus } = useServiceMutations();
   const [isUpdating, setIsUpdating] = useState(false);
 
   const handleToggleStatus = useCallback(
@@ -25,15 +17,7 @@ export function useServiceMutation() {
 
       setIsUpdating(true);
       try {
-        await updateServiceMutation({
-          serviceId: service.serviceId,
-          serviceData: { active: value },
-        });
-
-        // Invalidate and refetch services list
-        await queryClient.invalidateQueries({
-          queryKey: queryKeys.shopServices(shopId!),
-        });
+        await toggleServiceStatus(service.serviceId, value);
 
         // Callback with updated service
         onSuccess?.({ ...service, active: value });
@@ -49,7 +33,7 @@ export function useServiceMutation() {
         setIsUpdating(false);
       }
     },
-    [isUpdating, updateServiceMutation, queryClient, shopId]
+    [toggleServiceStatus, isUpdating]
   );
 
   return {

@@ -11,8 +11,8 @@ import {
 
 // Hooks
 import {
-  useServiceUI,
-  useServiceMutation,
+  useServiceTabUI,
+  useServiceStatusUI,
   useServiceNavigation,
   SERVICE_TABS,
 } from "../hooks";
@@ -30,9 +30,9 @@ export default function ShopServiceScreen() {
     setActionModalVisible,
     setSelectedService,
     updateSelectedService,
-  } = useServiceUI();
+  } = useServiceTabUI();
 
-  const { isUpdating, handleToggleStatus } = useServiceMutation();
+  const { isUpdating, handleToggleStatus } = useServiceStatusUI();
   const { handleEdit, handleAddService } = useServiceNavigation();
 
   return (
