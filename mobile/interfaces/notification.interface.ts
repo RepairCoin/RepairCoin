@@ -43,13 +43,23 @@ export interface DeactivateTokensResponse {
 export type NotificationType =
   | 'reward_issued'
   | 'redemption_approval_requested'
+  | 'redemption_approval_request'
   | 'redemption_approved'
   | 'redemption_rejected'
   | 'booking_confirmed'
   | 'appointment_reminder'
+  | 'upcoming_appointment'
   | 'order_completed'
+  | 'service_order_completed'
+  | 'service_booking_received'
   | 'new_booking'
-  | 'token_gifted';
+  | 'token_gifted'
+  | 'reschedule_request_created'
+  | 'reschedule_request_approved'
+  | 'reschedule_request_rejected'
+  | 'subscription_expiring'
+  | 'subscription_expired'
+  | 'subscription_renewed';
 
 // Base notification data
 export interface NotificationData {

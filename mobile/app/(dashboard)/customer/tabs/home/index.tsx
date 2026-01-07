@@ -1,11 +1,10 @@
 import { Image, View, Text, Pressable } from "react-native";
 import React, { useState } from "react";
-import { Feather } from "@expo/vector-icons";
-import { router } from "expo-router";
 import WalletTab from "./tabs/wallet";
 import ApprovalTab from "./tabs/approval";
 import { useCustomer } from "@/hooks/customer/useCustomer";
 import { useAuthStore } from "@/store/auth.store";
+import { NotificationBell } from "@/feature/notification/components";
 
 type CustomerTabs = "Wallet" | "Approval";
 
@@ -29,12 +28,9 @@ export default function CustomerDashboard() {
             className="w-[45%] h-10"
             resizeMode="contain"
           />
-          <Pressable
-            onPress={() => router.push("/customer/notification")}
-            className="w-10 h-10 bg-[#121212] rounded-full items-center justify-center"
-          >
-            <Feather name="bell" size={20} color="white" />
-          </Pressable>
+          <View style={{ marginRight: -10 }}>
+            <NotificationBell userType="customer" />
+          </View>
         </View>
         <View className="flex-row my-4 justify-between items-center">
           <View className="flex-row">

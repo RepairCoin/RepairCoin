@@ -1,11 +1,11 @@
 import React, { useCallback, useState } from "react";
 import { Image, Pressable, Text, View } from "react-native";
-import { Feather } from "@expo/vector-icons";
-import { router, useFocusEffect } from "expo-router";
+import { useFocusEffect } from "expo-router";
 import { ThemedView } from "@/components/ui/ThemedView";
 import { useHomeDataUI } from "../hooks";
 import { ShopTabs } from "../types";
 import { WalletTab, PromoCodeTab, AnalyticsTab } from "../components";
+import { NotificationBell } from "@/feature/notification/components";
 
 export default function Home() {
   const { shopData, growthData, refetch } = useHomeDataUI();
@@ -29,12 +29,9 @@ export default function Home() {
             className="w-[45%] h-10"
             resizeMode="contain"
           />
-          <Pressable
-            onPress={() => router.push("/shop/notification")}
-            className="w-10 h-10 bg-[#121212] rounded-full items-center justify-center"
-          >
-            <Feather name="bell" size={20} color="white" />
-          </Pressable>
+          <View style={{ marginRight: -10 }}>
+            <NotificationBell userType="shop" />
+          </View>
         </View>
         <View className="flex-row my-4 justify-between items-center">
           <View className="flex-row">

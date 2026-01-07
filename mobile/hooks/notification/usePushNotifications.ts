@@ -31,7 +31,7 @@ export function usePushNotifications() {
     error: null,
   });
 
-  const { isAuthenticated, accessToken } = useAuthStore();
+  const { isAuthenticated, accessToken, userType } = useAuthStore();
 
   // Refs for notification listeners
   const notificationListener = useRef<Notifications.EventSubscription | null>(null);
@@ -230,43 +230,79 @@ export function usePushNotifications() {
       const data = response.notification.request.content
         .data as NotificationData;
 
-      if (!data?.type) return;
+      const isShop = userType === "shop";
+      const notificationType = data?.type;
 
-      // Navigate based on notification type
-      // Using type assertion since routes depend on user type (customer vs shop)
-      switch (data.type) {
-        case "booking_confirmed":
-        case "appointment_reminder":
-        case "order_completed":
-          if (data.orderId) {
-            // Navigate to order details or bookings
-            // Route will be handled by the dashboard router based on user type
-            router.push("/customer/tabs/history" as any);
-          }
-          break;
+      // Get route based on notification type and user type
+      let route: string | null = null;
 
-        case "redemption_approval_requested":
-          // Navigate to redemption approval screen
-          router.push("/customer/tabs/home" as any);
-          break;
-
+      switch (notificationType) {
+        // Reward notifications → History tab
         case "reward_issued":
         case "token_gifted":
-          // Navigate to balance/home
-          router.push("/customer/tabs/home" as any);
+          route = isShop
+            ? "/(dashboard)/shop/tabs/history"
+            : "/(dashboard)/customer/tabs/history";
           break;
 
+        // Redemption notifications
+        case "redemption_approval_requested":
+        case "redemption_approval_request":
+          route = isShop
+            ? "/(dashboard)/shop/redeem-token"
+            : "/(dashboard)/customer/redeem";
+          break;
+
+        case "redemption_approved":
+        case "redemption_rejected":
+          route = isShop
+            ? "/(dashboard)/shop/tabs/history"
+            : "/(dashboard)/customer/tabs/history";
+          break;
+
+        // Appointment/Booking notifications → Service/Bookings tab
+        case "booking_confirmed":
+        case "appointment_reminder":
+        case "upcoming_appointment":
+        case "service_order_completed":
+        case "order_completed":
+        case "service_booking_received":
         case "new_booking":
-          // For shops - navigate to bookings
-          router.push("/shop/tabs/service" as any);
+          route = isShop
+            ? "/(dashboard)/shop/booking"
+            : "/(dashboard)/customer/tabs/service/";
+          break;
+
+        // Reschedule notifications → Bookings
+        case "reschedule_request_created":
+        case "reschedule_request_approved":
+        case "reschedule_request_rejected":
+          route = isShop
+            ? "/(dashboard)/shop/booking"
+            : "/(dashboard)/customer/tabs/service/";
+          break;
+
+        // Subscription notifications → Subscription screen (shop only)
+        case "subscription_expiring":
+        case "subscription_expired":
+        case "subscription_renewed":
+          route = isShop
+            ? "/(dashboard)/shop/subscription"
+            : "/(dashboard)/customer/notification";
           break;
 
         default:
-          // Default navigation - let the router handle based on auth state
-          console.log("[Push] Unknown notification type, not navigating");
+          // Default: Navigate to notification screen
+          route = isShop
+            ? "/(dashboard)/shop/notification"
+            : "/(dashboard)/customer/notification";
+      }
+
+      if (route) {
+        router.push(route as any);
       }
     },
-    []
+    [userType]
   );
 
   /**
