@@ -567,12 +567,14 @@ export class AppointmentReminderService {
       });
 
       // Send push notification to customer
+      const formattedTime = bookingTime ? this.formatTime(bookingTime) : 'TBD';
+
       await this.expoPushService.sendBookingConfirmation(
         order.customerAddress,
         shop.name,
         service.serviceName,
         bookingDateTime.toLocaleDateString(),
-        this.formatTime(order.bookingTime!),
+        formattedTime,
         orderId
       );
 
@@ -584,7 +586,7 @@ export class AppointmentReminderService {
           customer?.name || 'Customer',
           service.serviceName,
           bookingDateTime.toLocaleDateString(),
-          this.formatTime(order.bookingTime!),
+          formattedTime,
           orderId
         );
       }

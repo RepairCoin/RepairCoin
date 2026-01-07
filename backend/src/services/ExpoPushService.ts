@@ -422,6 +422,113 @@ export class ExpoPushService {
       },
     });
   }
+
+  /**
+   * Send reschedule request notification to shop
+   */
+  async sendRescheduleRequestToShop(
+    shopAddress: string,
+    customerName: string,
+    serviceName: string,
+    originalDate: string,
+    originalTime: string,
+    requestedDate: string,
+    requestedTime: string,
+    requestId: string
+  ): Promise<SendPushResult> {
+    return this.sendToUser(shopAddress, {
+      title: 'Reschedule Request',
+      body: `${customerName} wants to reschedule ${serviceName} from ${originalDate} to ${requestedDate}`,
+      channelId: NotificationChannels.APPOINTMENTS,
+      data: {
+        type: 'reschedule_request',
+        requestId,
+        customerName,
+        serviceName,
+        originalDate,
+        originalTime,
+        requestedDate,
+        requestedTime,
+      },
+    });
+  }
+
+  /**
+   * Send reschedule approved notification to customer
+   */
+  async sendRescheduleApproved(
+    customerAddress: string,
+    shopName: string,
+    serviceName: string,
+    newDate: string,
+    newTime: string,
+    requestId: string
+  ): Promise<SendPushResult> {
+    return this.sendToUser(customerAddress, {
+      title: 'Reschedule Approved',
+      body: `${shopName} approved your reschedule for ${serviceName}. New time: ${newDate} at ${newTime}`,
+      channelId: NotificationChannels.APPOINTMENTS,
+      data: {
+        type: 'reschedule_approved',
+        requestId,
+        shopName,
+        serviceName,
+        newDate,
+        newTime,
+      },
+    });
+  }
+
+  /**
+   * Send reschedule rejected notification to customer
+   */
+  async sendRescheduleRejected(
+    customerAddress: string,
+    shopName: string,
+    serviceName: string,
+    reason: string | undefined,
+    requestId: string
+  ): Promise<SendPushResult> {
+    const reasonText = reason ? `: ${reason}` : '';
+    return this.sendToUser(customerAddress, {
+      title: 'Reschedule Declined',
+      body: `${shopName} declined your reschedule request for ${serviceName}${reasonText}`,
+      channelId: NotificationChannels.APPOINTMENTS,
+      data: {
+        type: 'reschedule_rejected',
+        requestId,
+        shopName,
+        serviceName,
+        reason,
+      },
+    });
+  }
+
+  /**
+   * Send subscription expiring reminder to shop
+   */
+  async sendSubscriptionExpiringNotification(
+    shopAddress: string,
+    shopName: string,
+    daysRemaining: number,
+    expirationDate: string
+  ): Promise<SendPushResult> {
+    const urgency = daysRemaining <= 1 ? 'tomorrow' : `in ${daysRemaining} days`;
+    const title = daysRemaining <= 1 ? 'Subscription Expires Tomorrow!' : 'Subscription Expiring Soon';
+
+    return this.sendToUser(shopAddress, {
+      title,
+      body: `Your RepairCoin subscription expires ${urgency}. Renew now to keep earning rewards.`,
+      channelId: NotificationChannels.DEFAULT,
+      priority: daysRemaining <= 1 ? 'high' : 'default',
+      data: {
+        type: 'subscription_expiring',
+        shopName,
+        daysRemaining,
+        expirationDate,
+      },
+    });
+  }
 }
 
 // Singleton instance

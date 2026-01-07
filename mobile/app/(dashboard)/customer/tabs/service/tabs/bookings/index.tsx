@@ -242,17 +242,6 @@ function AppointmentCard({ appointment, onPress, onCancel, onReview }: Appointme
             </View>
           )}
         </View>
-
-        {/* Service Image */}
-        {appointment.serviceImage && (
-          <View className="w-24 h-full">
-            <Image
-              source={{ uri: appointment.serviceImage }}
-              className="w-full h-full"
-              resizeMode="cover"
-            />
-          </View>
-        )}
       </View>
     </TouchableOpacity>
   );

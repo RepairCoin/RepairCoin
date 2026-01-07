@@ -34,8 +34,9 @@ export function usePushNotifications() {
   const { isAuthenticated, accessToken } = useAuthStore();
 
   // Refs for notification listeners
-  const notificationListener = useRef<Notifications.Subscription | null>(null);
-  const responseListener = useRef<Notifications.Subscription | null>(null);
+  const notificationListener = useRef<Notifications.EventSubscription | null>(null);
+  const responseListener = useRef<Notifications.EventSubscription | null>(null);
+  const isRegistering = useRef(false);
 
   /**
    * Setup Android notification channels
@@ -84,6 +85,12 @@ export function usePushNotifications() {
    * Register for push notifications
    */
   const registerForPushNotifications = useCallback(async () => {
+    // Prevent concurrent registrations
+    if (isRegistering.current) {
+      console.log("[Push] Registration already in progress, skipping");
+      return null;
+    }
+
     // Only works on physical devices
     if (!Device.isDevice) {
       setState((prev) => ({
@@ -96,6 +103,7 @@ export function usePushNotifications() {
     }
 
     try {
+      isRegistering.current = true;
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       // Check existing permissions
@@ -191,6 +199,8 @@ export function usePushNotifications() {
         isLoading: false,
       }));
       return null;
+    } finally {
+      isRegistering.current = false;
     }
   }, [accessToken, setupAndroidChannels]);
 
@@ -328,42 +338,64 @@ export function usePushNotifications() {
       );
 
     return () => {
-      if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(
-          notificationListener.current
-        );
-      }
-      if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
-      }
+      notificationListener.current?.remove();
+      responseListener.current?.remove();
     };
   }, [handleNotificationReceived, handleNotificationResponse]);
 
   // Effect: Handle token refresh
   useEffect(() => {
     const subscription = Notifications.addPushTokenListener(async (newToken) => {
-      console.log("[Push] Token refreshed:", newToken.data);
+      console.log("[Push] Native token refreshed:", newToken.data);
 
-      if (newToken.data !== state.expoPushToken && accessToken) {
-        // Re-register with new token
+      // Skip if registration is already in progress
+      if (isRegistering.current) {
+        console.log("[Push] Skipping refresh - registration in progress");
+        return;
+      }
+
+      // The listener provides native FCM/APNs token, not Expo push token
+      // We need to get the Expo push token again
+      if (accessToken) {
+        isRegistering.current = true;
         try {
-          await notificationApi.registerPushToken({
-            expoPushToken: newToken.data,
-            deviceId: Constants.sessionId || undefined,
-            deviceType: Platform.OS as "ios" | "android",
-            deviceName: Device.deviceName || undefined,
-            appVersion: Constants.expoConfig?.version,
+          const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+          if (!projectId) {
+            console.error("[Push] No project ID for token refresh");
+            isRegistering.current = false;
+            return;
+          }
+
+          // Get the updated Expo push token
+          const tokenResult = await Notifications.getExpoPushTokenAsync({
+            projectId,
           });
+          const expoPushToken = tokenResult.data;
 
-          setState((prev) => ({
-            ...prev,
-            expoPushToken: newToken.data,
-            isRegistered: true,
-          }));
+          console.log("[Push] Got refreshed Expo push token:", expoPushToken);
 
-          console.log("[Push] Refreshed token registered");
+          // Only re-register if it's different from what we have
+          if (expoPushToken !== state.expoPushToken) {
+            await notificationApi.registerPushToken({
+              expoPushToken,
+              deviceId: Constants.sessionId || undefined,
+              deviceType: Platform.OS as "ios" | "android",
+              deviceName: Device.deviceName || undefined,
+              appVersion: Constants.expoConfig?.version,
+            });
+
+            setState((prev) => ({
+              ...prev,
+              expoPushToken,
+              isRegistered: true,
+            }));
+
+            console.log("[Push] Refreshed token registered");
+          }
         } catch (error) {
           console.error("[Push] Failed to register refreshed token:", error);
+        } finally {
+          isRegistering.current = false;
         }
       }
     });

@@ -27,46 +27,31 @@ export interface RegisterTokenParams {
 export class PushTokenRepository extends BaseRepository {
   /**
    * Register or update a push token for a device
-   * Uses upsert: if device_id exists for user, update token; else insert
+   * Handles account switching: same device token can be reassigned to different users
    */
   async registerToken(params: RegisterTokenParams): Promise<DevicePushToken> {
     const { walletAddress, expoPushToken, deviceId, deviceType, deviceName, appVersion } = params;
     const normalizedAddress = walletAddress.toLowerCase();
 
     try {
-      // If deviceId is provided, upsert based on wallet_address + device_id
-      // Otherwise, upsert based on expo_push_token
-      const query = deviceId
-        ? `
-          INSERT INTO device_push_tokens (
-            wallet_address, expo_push_token, device_id, device_type, device_name, app_version, is_active, last_used_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, TRUE, NOW())
-          ON CONFLICT (wallet_address, device_id)
-          DO UPDATE SET
-            expo_push_token = EXCLUDED.expo_push_token,
-            device_type = EXCLUDED.device_type,
-            device_name = EXCLUDED.device_name,
-            app_version = EXCLUDED.app_version,
-            is_active = TRUE,
-            last_used_at = NOW(),
-            updated_at = NOW()
-          RETURNING *
-        `
-        : `
-          INSERT INTO device_push_tokens (
-            wallet_address, expo_push_token, device_id, device_type, device_name, app_version, is_active, last_used_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, TRUE, NOW())
-          ON CONFLICT (expo_push_token)
-          DO UPDATE SET
-            wallet_address = EXCLUDED.wallet_address,
-            device_type = EXCLUDED.device_type,
-            device_name = EXCLUDED.device_name,
-            app_version = EXCLUDED.app_version,
-            is_active = TRUE,
-            last_used_at = NOW(),
-            updated_at = NOW()
-          RETURNING *
-        `;
+      // Always upsert based on expo_push_token since it's device-unique
+      // This handles account switching on the same device
+      const query = `
+        INSERT INTO device_push_tokens (
+          wallet_address, expo_push_token, device_id, device_type, device_name, app_version, is_active, last_used_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, TRUE, NOW())
+        ON CONFLICT (expo_push_token)
+        DO UPDATE SET
+          wallet_address = EXCLUDED.wallet_address,
+          device_id = EXCLUDED.device_id,
+          device_type = EXCLUDED.device_type,
+          device_name = EXCLUDED.device_name,
+          app_version = EXCLUDED.app_version,
+          is_active = TRUE,
+          last_used_at = NOW(),
+          updated_at = NOW()
+        RETURNING *
+      `;
 
       const result = await this.pool.query(query, [
         normalizedAddress,

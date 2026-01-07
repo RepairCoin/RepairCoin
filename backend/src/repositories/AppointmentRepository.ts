@@ -457,7 +457,7 @@ export class AppointmentRepository extends BaseRepository {
         SELECT
           so.order_id as "orderId",
           so.shop_id as "shopId",
-          s.business_name as "shopName",
+          s.name as "shopName",
           s.address as "shopAddress",
           s.phone as "shopPhone",
           so.service_id as "serviceId",
