@@ -13,6 +13,8 @@ import { notificationApi } from "@/services/notification.services";
 import { Notification } from "@/interfaces/notification.interface";
 import { NotificationCard } from "../components";
 
+type TabType = "unread" | "all";
+
 export default function NotificationScreen() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -20,6 +22,7 @@ export default function NotificationScreen() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabType>("unread");
 
   const fetchNotifications = useCallback(async (pageNum: number = 1, refresh: boolean = false) => {
     try {
@@ -91,12 +94,21 @@ export default function NotificationScreen() {
 
   const unreadCount = (notifications || []).filter((n) => !n.isRead).length;
 
+  // Filter notifications based on active tab
+  const filteredNotifications = activeTab === "unread"
+    ? (notifications || []).filter((n) => !n.isRead)
+    : notifications || [];
+
   const renderEmptyState = () => (
     <View className="flex-1 items-center justify-center py-20">
       <Ionicons name="notifications-off-outline" size={64} color="#666" />
-      <Text className="text-zinc-400 text-lg mt-4">No notifications yet</Text>
+      <Text className="text-zinc-400 text-lg mt-4">
+        {activeTab === "unread" ? "No unread notifications" : "No notifications yet"}
+      </Text>
       <Text className="text-zinc-600 text-sm mt-2 text-center px-8">
-        When you receive rewards, bookings, or updates, they'll appear here
+        {activeTab === "unread"
+          ? "You're all caught up!"
+          : "When you receive rewards, bookings, or updates, they'll appear here"}
       </Text>
     </View>
   );
@@ -121,36 +133,67 @@ export default function NotificationScreen() {
   return (
     <View className="w-full h-full bg-zinc-950">
       {/* Header */}
-      <View className="pt-16 px-4 pb-4">
+      <View className="pt-16 px-4 pb-2">
         <View className="flex-row justify-between items-center">
           <Pressable onPress={goBack} className="p-2 -ml-2">
             <AntDesign name="left" color="white" size={18} />
           </Pressable>
           <Text className="text-white text-xl font-bold">Notifications</Text>
-          {unreadCount > 0 ? (
-            <Pressable onPress={handleMarkAllAsRead} className="p-2 -mr-2">
-              <Ionicons name="checkmark-done" color="#FFCC00" size={22} />
-            </Pressable>
-          ) : (
-            <View className="w-[30px]" />
-          )}
+          <View className="w-[30px]" />
         </View>
 
-        {/* Unread badge */}
-        {unreadCount > 0 && (
-          <View className="flex-row items-center mt-3">
-            <View className="bg-yellow-500/20 px-3 py-1 rounded-full">
-              <Text className="text-yellow-500 text-xs font-medium">
-                {unreadCount} unread
+        {/* Tabs and Mark All as Read */}
+        <View className="flex-row justify-between items-center mt-4">
+          {/* Tabs */}
+          <View className="flex-row">
+            <Pressable
+              onPress={() => setActiveTab("unread")}
+              className={`px-4 py-2 rounded-full mr-2 ${
+                activeTab === "unread" ? "bg-[#FFCC00]" : "bg-white"
+              }`}
+            >
+              <Text
+                className={`text-sm font-medium ${
+                  activeTab === "unread" ? "text-black" : "text-gray-500"
+                }`}
+              >
+                Unread {unreadCount > 0 && `(${unreadCount})`}
               </Text>
-            </View>
+            </Pressable>
+            <Pressable
+              onPress={() => setActiveTab("all")}
+              className={`px-4 py-2 rounded-full ${
+                activeTab === "all" ? "bg-[#FFCC00]" : "bg-white"
+              }`}
+            >
+              <Text
+                className={`text-sm font-medium ${
+                  activeTab === "all" ? "text-black" : "text-gray-500"
+                }`}
+              >
+                All
+              </Text>
+            </Pressable>
           </View>
-        )}
+
+          {/* Mark All as Read Button */}
+          {unreadCount > 0 && (
+            <Pressable
+              onPress={handleMarkAllAsRead}
+              className="flex-row items-center px-3 py-2 rounded-full bg-zinc-800"
+            >
+              <Ionicons name="checkmark-done" color="#FFCC00" size={16} />
+              <Text className="text-yellow-500 text-xs font-medium ml-1">
+                Mark all read
+              </Text>
+            </Pressable>
+          )}
+        </View>
       </View>
 
       {/* Notification List */}
       <FlatList
-        data={notifications || []}
+        data={filteredNotifications}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <NotificationCard
@@ -173,6 +216,7 @@ export default function NotificationScreen() {
         contentContainerStyle={{
           flexGrow: 1,
           paddingBottom: 20,
+          marginTop: 10
         }}
         showsVerticalScrollIndicator={false}
       />
