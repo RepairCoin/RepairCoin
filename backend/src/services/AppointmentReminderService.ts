@@ -29,11 +29,15 @@ export interface ReminderReport {
   customerRemindersSent: number;
   shopNotificationsSent: number;
   emailsSent: number;
+  emailsFailed: number;  // Track emails that failed after all retries
   inAppNotificationsSent: number;
   errors: string[];
   // New fields for multi-reminder tracking
   reminder24hSent?: number;
   reminder2hSent?: number;
+  // Tracking for skipped reminders
+  skippedByPreference?: number;
+  skippedByQuietHours?: number;
 }
 
 // Reminder type configuration
@@ -72,6 +76,14 @@ const REMINDER_CONFIGS: ReminderConfig[] = [
     timestampColumn: 'reminder_2h_sent_at'
   }
 ];
+
+// Email retry configuration
+const EMAIL_RETRY_CONFIG = {
+  maxAttempts: 3,
+  initialDelayMs: 1000,  // 1 second
+  maxDelayMs: 5000,      // 5 seconds max
+  backoffMultiplier: 2   // Exponential backoff
+};
 
 export class AppointmentReminderService {
   private emailService: EmailService;
@@ -148,7 +160,60 @@ export class AppointmentReminderService {
   }
 
   /**
-   * Send 24-hour appointment reminder to customer via email
+   * Helper method to retry an async operation with exponential backoff
+   */
+  private async retryWithBackoff<T>(
+    operation: () => Promise<T>,
+    operationName: string,
+    orderId: string
+  ): Promise<{ success: boolean; result?: T; attempts: number; lastError?: string }> {
+    const { maxAttempts, initialDelayMs, maxDelayMs, backoffMultiplier } = EMAIL_RETRY_CONFIG;
+    let lastError: string | undefined;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const result = await operation();
+        if (attempt > 1) {
+          logger.info(`${operationName} succeeded on attempt ${attempt}`, { orderId });
+        }
+        return { success: true, result, attempts: attempt };
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : 'Unknown error';
+
+        logger.warn(`${operationName} attempt ${attempt}/${maxAttempts} failed`, {
+          orderId,
+          attempt,
+          error: lastError
+        });
+
+        // Don't wait after the last attempt
+        if (attempt < maxAttempts) {
+          const delay = Math.min(
+            initialDelayMs * Math.pow(backoffMultiplier, attempt - 1),
+            maxDelayMs
+          );
+          await this.sleep(delay);
+        }
+      }
+    }
+
+    logger.error(`${operationName} failed after ${maxAttempts} attempts`, {
+      orderId,
+      lastError
+    });
+
+    return { success: false, attempts: maxAttempts, lastError };
+  }
+
+  /**
+   * Helper to sleep for a given number of milliseconds
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Send 24-hour appointment reminder to customer via email with retry logic
    */
   async sendCustomerReminderEmail(data: AppointmentReminderData): Promise<boolean> {
     if (!data.customerEmail) {
@@ -206,7 +271,20 @@ export class AppointmentReminderService {
       </div>
     `;
 
-    return await this.emailService['sendEmail'](data.customerEmail, subject, html);
+    // Use retry logic for email sending
+    const retryResult = await this.retryWithBackoff(
+      async () => {
+        const sent = await this.emailService['sendEmail'](data.customerEmail!, subject, html);
+        if (!sent) {
+          throw new Error('Email service returned false');
+        }
+        return sent;
+      },
+      'Email reminder',
+      data.orderId
+    );
+
+    return retryResult.success;
   }
 
   /**
@@ -499,17 +577,21 @@ export class AppointmentReminderService {
   async processReminderType(config: ReminderConfig): Promise<{
     sent: number;
     emailsSent: number;
+    emailsFailed: number;
     inAppSent: number;
     shopNotificationsSent: number;
     skippedByPreference: number;
+    skippedByQuietHours: number;
     errors: string[];
   }> {
     const result = {
       sent: 0,
       emailsSent: 0,
+      emailsFailed: 0,
       inAppSent: 0,
       shopNotificationsSent: 0,
       skippedByPreference: 0,
+      skippedByQuietHours: 0,
       errors: [] as string[]
     };
 
@@ -536,11 +618,55 @@ export class AppointmentReminderService {
             continue;
           }
 
+          // Check quiet hours - if in quiet hours, skip customer notifications but notify shop
+          let skippedDueToQuietHours = false;
+          if (prefs.quietHoursEnabled && prefs.quietHoursStart && prefs.quietHoursEnd) {
+            const currentTime = this.getCurrentTime();
+            if (this.isInQuietHours(currentTime, prefs.quietHoursStart, prefs.quietHoursEnd)) {
+              skippedDueToQuietHours = true;
+              result.skippedByQuietHours++;
+
+              logger.info(`Skipping ${config.type} reminder for ${appointment.orderId} - customer in quiet hours`, {
+                orderId: appointment.orderId,
+                customerAddress: appointment.customerAddress,
+                currentTime,
+                quietHoursStart: prefs.quietHoursStart,
+                quietHoursEnd: prefs.quietHoursEnd
+              });
+
+              // Notify the shop that the customer wasn't reminded due to quiet hours
+              await this.sendShopQuietHoursSkippedNotification(
+                appointment,
+                config.type,
+                prefs.quietHoursStart,
+                prefs.quietHoursEnd
+              );
+
+              // Mark as sent to avoid re-processing
+              await this.markReminderTypeSent(appointment.orderId, config);
+              result.sent++;
+              continue;
+            }
+          }
+
+          // Track email status for this appointment
+          let emailAttempted = false;
+          let emailSucceeded = false;
+
           // Send email if configured AND customer has email enabled
           if (config.sendEmail && prefs.emailEnabled) {
+            emailAttempted = true;
             const emailSent = await this.sendCustomerReminderEmail(appointment);
             if (emailSent) {
               result.emailsSent++;
+              emailSucceeded = true;
+            } else {
+              result.emailsFailed++;
+              // Log the failure but continue with other notifications
+              logger.warn(`Email reminder failed for order ${appointment.orderId} after retries`, {
+                customerEmail: appointment.customerEmail,
+                shopName: appointment.shopName
+              });
             }
           }
 
@@ -564,15 +690,17 @@ export class AppointmentReminderService {
             result.shopNotificationsSent++;
           }
 
-          // Mark as sent
+          // Mark as sent (even if email failed, in-app was sent)
           await this.markReminderTypeSent(appointment.orderId, config);
           result.sent++;
 
-          logger.info(`${config.type} reminder sent successfully`, {
+          logger.info(`${config.type} reminder processed`, {
             orderId: appointment.orderId,
             customerAddress: appointment.customerAddress,
             shopId: appointment.shopId,
             emailEnabled: prefs.emailEnabled,
+            emailAttempted,
+            emailSucceeded,
             inAppEnabled: prefs.inAppEnabled
           });
         } catch (error) {
@@ -604,9 +732,12 @@ export class AppointmentReminderService {
     let customerRemindersSent = 0;
     let shopNotificationsSent = 0;
     let emailsSent = 0;
+    let emailsFailed = 0;
     let inAppNotificationsSent = 0;
     let reminder24hSent = 0;
     let reminder2hSent = 0;
+    let skippedByPreference = 0;
+    let skippedByQuietHours = 0;
 
     try {
       logger.info('Starting multi-reminder processing (24h and 2h)');
@@ -617,9 +748,12 @@ export class AppointmentReminderService {
 
         // Aggregate results
         emailsSent += result.emailsSent;
+        emailsFailed += result.emailsFailed;
         inAppNotificationsSent += result.inAppSent;
         shopNotificationsSent += result.shopNotificationsSent;
         customerRemindersSent += result.sent;
+        skippedByPreference += result.skippedByPreference;
+        skippedByQuietHours += result.skippedByQuietHours;
         errors.push(...result.errors);
 
         // Track by type
@@ -636,13 +770,33 @@ export class AppointmentReminderService {
         customerRemindersSent,
         shopNotificationsSent,
         emailsSent,
+        emailsFailed,
         inAppNotificationsSent,
         errors,
         reminder24hSent,
-        reminder2hSent
+        reminder2hSent,
+        skippedByPreference,
+        skippedByQuietHours
       };
 
       logger.info('Multi-reminder processing completed', report);
+
+      // Log a warning if there were email failures
+      if (emailsFailed > 0) {
+        logger.warn(`${emailsFailed} email(s) failed after ${EMAIL_RETRY_CONFIG.maxAttempts} retry attempts`, {
+          emailsSent,
+          emailsFailed,
+          successRate: emailsSent > 0 ? ((emailsSent / (emailsSent + emailsFailed)) * 100).toFixed(1) + '%' : '0%'
+        });
+      }
+
+      // Log info about skipped reminders
+      if (skippedByQuietHours > 0) {
+        logger.info(`${skippedByQuietHours} reminder(s) skipped due to customer quiet hours (shops notified)`, {
+          skippedByQuietHours,
+          skippedByPreference
+        });
+      }
 
       return report;
     } finally {
@@ -698,6 +852,79 @@ export class AppointmentReminderService {
     const ampm = hour >= 12 ? 'PM' : 'AM';
     const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
     return `${displayHour}:${minutes} ${ampm}`;
+  }
+
+  /**
+   * Check if current time is within quiet hours
+   */
+  private isInQuietHours(currentTime: string, start: string, end: string): boolean {
+    // Handle overnight quiet hours (e.g., 22:00 to 08:00)
+    if (start > end) {
+      // Quiet hours span midnight
+      return currentTime >= start || currentTime <= end;
+    } else {
+      // Normal quiet hours (e.g., 14:00 to 16:00)
+      return currentTime >= start && currentTime <= end;
+    }
+  }
+
+  /**
+   * Get current time in HH:MM format
+   */
+  private getCurrentTime(): string {
+    const now = new Date();
+    return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+  }
+
+  /**
+   * Send notification to shop when customer reminder was skipped due to quiet hours
+   * This helps shops know that their customer wasn't reminded
+   */
+  async sendShopQuietHoursSkippedNotification(
+    data: AppointmentReminderData,
+    reminderType: ReminderType,
+    quietHoursStart: string,
+    quietHoursEnd: string
+  ): Promise<void> {
+    try {
+      const bookingDateTime = new Date(data.bookingDate);
+      const [hours, minutes] = data.bookingTimeSlot.split(':');
+      bookingDateTime.setHours(parseInt(hours), parseInt(minutes));
+
+      const reminderTypeLabel = reminderType === '24h' ? '24-hour' : '2-hour';
+
+      const message = `Note: ${data.customerName || 'Customer'}'s ${reminderTypeLabel} reminder for their ${data.serviceName} appointment was not sent because they have Quiet Hours enabled (${this.formatTime(quietHoursStart)} - ${this.formatTime(quietHoursEnd)}). Consider reaching out directly if needed.`;
+
+      await this.notificationService.createNotification({
+        senderAddress: 'SYSTEM',
+        receiverAddress: data.shopId,
+        notificationType: 'reminder_skipped_quiet_hours',
+        message,
+        metadata: {
+          orderId: data.orderId,
+          customerAddress: data.customerAddress,
+          customerName: data.customerName,
+          serviceName: data.serviceName,
+          bookingDate: bookingDateTime.toISOString(),
+          bookingTime: data.bookingTimeSlot,
+          reminderType,
+          quietHoursStart,
+          quietHoursEnd,
+          reason: 'quiet_hours',
+          timestamp: new Date().toISOString()
+        }
+      });
+
+      logger.info('Shop notified about skipped quiet hours reminder', {
+        orderId: data.orderId,
+        shopId: data.shopId,
+        reminderType,
+        customerAddress: data.customerAddress
+      });
+    } catch (error) {
+      logger.error('Error sending quiet hours skipped notification to shop:', error);
+      // Don't throw - this is a best-effort notification
+    }
   }
 }
 

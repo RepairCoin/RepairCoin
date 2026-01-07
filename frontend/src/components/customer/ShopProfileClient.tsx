@@ -113,11 +113,8 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
         setGalleryPhotos(gallery);
       }
 
-      // Set operating hours and calculate if open now
-      if (availability?.data) {
-        setOperatingHours(availability.data);
-        calculateIsOpen(availability.data);
-      }
+      // Note: Operating hours would need to be fetched from shop availability API
+      // Currently not implemented - remove the undefined availability reference
     } catch (error) {
       console.error("Error loading shop data:", error);
       toast.error("Failed to load shop information");
