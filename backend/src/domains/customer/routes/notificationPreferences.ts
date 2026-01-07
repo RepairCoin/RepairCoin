@@ -81,6 +81,22 @@ router.put('/:address/notification-preferences',
         quietHoursEnd
       } = req.body;
 
+      // Validate at least one notification channel is enabled
+      // Only validate if all three channel fields are explicitly provided (full update)
+      // This allows partial updates while still enforcing the rule on complete saves
+      if (
+        emailEnabled !== undefined &&
+        smsEnabled !== undefined &&
+        inAppEnabled !== undefined
+      ) {
+        if (!emailEnabled && !smsEnabled && !inAppEnabled) {
+          return res.status(400).json({
+            success: false,
+            error: 'At least one notification channel must be enabled (Email, SMS, or In-App)'
+          });
+        }
+      }
+
       // Validate quiet hours format if provided
       if (quietHoursStart && !isValidTimeFormat(quietHoursStart)) {
         return res.status(400).json({

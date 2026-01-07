@@ -5,7 +5,7 @@ import { useActiveAccount } from "thirdweb/react";
 import { customerApi } from "@/services/api/customer";
 import { AppointmentNotificationPreferences } from "@/constants/types";
 import toast from "react-hot-toast";
-import { Bell, Mail, Smartphone, Clock, Moon, Info } from "lucide-react";
+import { Bell, Mail, Smartphone, Clock, Moon, Info, AlertCircle } from "lucide-react";
 
 interface ToggleSwitchProps {
   label: string;
@@ -112,7 +112,29 @@ export function NotificationPreferences() {
     loadPreferences();
   }, [account?.address]);
 
+  // Check if at least one notification channel would remain enabled
+  const wouldHaveChannelEnabled = (
+    keyToToggle: "emailEnabled" | "inAppEnabled" | "smsEnabled",
+    currentFormData: typeof formData
+  ): boolean => {
+    const newEmailEnabled = keyToToggle === "emailEnabled" ? !currentFormData.emailEnabled : currentFormData.emailEnabled;
+    const newInAppEnabled = keyToToggle === "inAppEnabled" ? !currentFormData.inAppEnabled : currentFormData.inAppEnabled;
+    const newSmsEnabled = keyToToggle === "smsEnabled" ? !currentFormData.smsEnabled : currentFormData.smsEnabled;
+    return newEmailEnabled || newInAppEnabled || newSmsEnabled;
+  };
+
+  // Check if any channel is currently enabled
+  const hasChannelEnabled = formData.emailEnabled || formData.inAppEnabled || formData.smsEnabled;
+
   const handleToggle = (key: keyof typeof formData) => {
+    // For channel toggles, prevent disabling all channels
+    if (key === "emailEnabled" || key === "inAppEnabled" || key === "smsEnabled") {
+      if (!wouldHaveChannelEnabled(key, formData)) {
+        toast.error("At least one notification channel must be enabled");
+        return;
+      }
+    }
+
     setFormData((prev) => ({
       ...prev,
       [key]: !prev[key],
@@ -229,6 +251,15 @@ export function NotificationPreferences() {
           <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
             Notification Channels
           </h3>
+          {/* Warning when only one channel is enabled */}
+          {[formData.emailEnabled, formData.inAppEnabled, formData.smsEnabled].filter(Boolean).length === 1 && (
+            <div className="flex items-start gap-2 p-3 mb-4 bg-amber-900/20 border border-amber-600/30 rounded-lg">
+              <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-400">
+                At least one notification channel must remain enabled. You cannot disable the last active channel.
+              </p>
+            </div>
+          )}
           <div className="space-y-1 divide-y divide-gray-700">
             <ToggleSwitch
               label="Email Notifications"
