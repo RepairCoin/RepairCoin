@@ -180,6 +180,7 @@ export class DiscoveryController {
           sh.location_state,
           sh.location_zip_code,
           rv.viewed_at,
+          (sf.customer_address IS NOT NULL) as is_favorited,
           (
             SELECT json_agg(json_build_object(
               'groupId', sga.group_id,
@@ -197,6 +198,7 @@ export class DiscoveryController {
         FROM recently_viewed_services rv
         INNER JOIN shop_services s ON rv.service_id = s.service_id
         INNER JOIN shops sh ON s.shop_id = sh.shop_id
+        LEFT JOIN service_favorites sf ON s.service_id = sf.service_id AND sf.customer_address = $1
         WHERE rv.customer_address = $1
           AND s.active = true
           AND sh.active = true
@@ -219,6 +221,7 @@ export class DiscoveryController {
         active: row.active,
         avgRating: row.average_rating ? parseFloat(row.average_rating) : null,
         reviewCount: row.review_count || 0,
+        isFavorited: row.is_favorited === true,
         companyName: row.company_name,
         shopName: row.shop_name,
         shopAddress: row.shop_address,
@@ -258,6 +261,7 @@ export class DiscoveryController {
     try {
       const { serviceId } = req.params;
       const limit = Math.min(parseInt(req.query.limit as string) || 6, 20);
+      const customerAddress = req.user?.role === 'customer' ? req.user.address?.toLowerCase() : null;
 
       const pool = getSharedPool();
 
@@ -282,6 +286,14 @@ export class DiscoveryController {
       const category = refService.category;
       const tags = refService.tags || [];
       const priceUsd = parseFloat(refService.price_usd);
+
+      // Build favorites join if customer is authenticated
+      const favoritesJoin = customerAddress
+        ? `LEFT JOIN service_favorites sf ON s.service_id = sf.service_id AND sf.customer_address = $7`
+        : '';
+      const favoritesSelect = customerAddress
+        ? '(sf.customer_address IS NOT NULL) as is_favorited,'
+        : 'false as is_favorited,';
 
       // Find similar services based on:
       // 1. Same category (highest priority)
@@ -314,6 +326,7 @@ export class DiscoveryController {
           sh.location_city,
           sh.location_state,
           sh.location_zip_code,
+          ${favoritesSelect}
           -- Calculate similarity score
           (
             CASE WHEN s.category = $2 THEN 100 ELSE 0 END +
@@ -339,6 +352,7 @@ export class DiscoveryController {
           ) as groups
         FROM shop_services s
         INNER JOIN shops sh ON s.shop_id = sh.shop_id
+        ${favoritesJoin}
         WHERE s.service_id != $1
           AND s.active = true
           AND sh.active = true
@@ -354,14 +368,12 @@ export class DiscoveryController {
       const minPrice = priceUsd * 0.7;
       const maxPrice = priceUsd * 1.3;
 
-      const result = await pool.query(query, [
-        serviceId,
-        category,
-        tags,
-        minPrice,
-        maxPrice,
-        limit
-      ]);
+      const params = [serviceId, category, tags, minPrice, maxPrice, limit];
+      if (customerAddress) {
+        params.push(customerAddress);
+      }
+
+      const result = await pool.query(query, params);
 
       const services = result.rows.map(row => ({
         serviceId: row.service_id,
@@ -376,6 +388,7 @@ export class DiscoveryController {
         active: row.active,
         avgRating: row.average_rating ? parseFloat(row.average_rating) : null,
         reviewCount: row.review_count || 0,
+        isFavorited: row.is_favorited === true,
         companyName: row.company_name,
         shopName: row.shop_name,
         shopAddress: row.shop_address,
@@ -414,8 +427,18 @@ export class DiscoveryController {
     try {
       const limit = Math.min(parseInt(req.query.limit as string) || 12, 50);
       const days = Math.min(parseInt(req.query.days as string) || 7, 30);
+      const customerAddress = req.user?.role === 'customer' ? req.user.address?.toLowerCase() : null;
 
       const pool = getSharedPool();
+
+      // Build favorites join if customer is authenticated
+      const favoritesJoin = customerAddress
+        ? `LEFT JOIN service_favorites sf ON s.service_id = sf.service_id AND sf.customer_address = $3`
+        : '';
+      const favoritesSelect = customerAddress
+        ? '(sf.customer_address IS NOT NULL) as is_favorited,'
+        : 'false as is_favorited,';
+      const favoritesGroupBy = customerAddress ? ', sf.customer_address' : '';
 
       // Find services with most bookings in last N days
       const query = `
@@ -445,6 +468,7 @@ export class DiscoveryController {
           sh.location_city,
           sh.location_state,
           sh.location_zip_code,
+          ${favoritesSelect}
           COUNT(o.order_id) as booking_count,
           COUNT(o.order_id) * 100 +
           COALESCE(s.average_rating, 0) * 20 as trending_score,
@@ -467,15 +491,21 @@ export class DiscoveryController {
         LEFT JOIN service_orders o ON s.service_id = o.service_id
           AND o.created_at >= NOW() - INTERVAL '1 day' * $1
           AND o.status IN ('paid', 'completed')
+        ${favoritesJoin}
         WHERE s.active = true
           AND sh.active = true
-        GROUP BY s.service_id, sh.shop_id
+        GROUP BY s.service_id, sh.shop_id${favoritesGroupBy}
         HAVING COUNT(o.order_id) > 0
         ORDER BY trending_score DESC, booking_count DESC
         LIMIT $2
       `;
 
-      const result = await pool.query(query, [days, limit]);
+      const params: (string | number)[] = [days, limit];
+      if (customerAddress) {
+        params.push(customerAddress);
+      }
+
+      const result = await pool.query(query, params);
 
       const services = result.rows.map(row => ({
         serviceId: row.service_id,
@@ -490,6 +520,7 @@ export class DiscoveryController {
         active: row.active,
         avgRating: row.average_rating ? parseFloat(row.average_rating) : null,
         reviewCount: row.review_count || 0,
+        isFavorited: row.is_favorited === true,
         companyName: row.company_name,
         shopName: row.shop_name,
         shopAddress: row.shop_address,

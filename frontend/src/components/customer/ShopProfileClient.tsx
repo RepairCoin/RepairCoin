@@ -165,6 +165,19 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
     }, 1500);
   };
 
+  const handleFavoriteChange = (serviceId: string, isFavorited: boolean) => {
+    // Update services array
+    setServices(prev => prev.map(service =>
+      service.serviceId === serviceId
+        ? { ...service, isFavorited }
+        : service
+    ));
+    // Also update selectedService if it's the same service
+    if (selectedService?.serviceId === serviceId) {
+      setSelectedService(prev => prev ? { ...prev, isFavorited } : prev);
+    }
+  };
+
   const calculateAverageRating = () => {
     if (services.length === 0) return 0;
     const totalRating = services.reduce((sum, service) => sum + (service.avgRating || 0), 0);
@@ -568,6 +581,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
                     service={service}
                     onBook={handleBook}
                     onViewDetails={handleViewDetails}
+                    onFavoriteChange={handleFavoriteChange}
                   />
                 ))}
               </div>
@@ -693,6 +707,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
           service={selectedService}
           onClose={() => setSelectedService(null)}
           onBook={handleBook}
+          onFavoriteChange={handleFavoriteChange}
         />
       )}
 

@@ -495,7 +495,8 @@ export class AppointmentRepository extends BaseRepository {
       }));
     } catch (error) {
       logger.error('Error getting customer appointments:', error);
-      throw new Error('Failed to get customer appointments');
+      // Return empty array instead of throwing - customer may have no appointments
+      return [];
     }
   }
 

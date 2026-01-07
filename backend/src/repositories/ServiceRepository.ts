@@ -30,6 +30,7 @@ export interface ShopServiceWithShopInfo extends ShopService {
   shopLogo?: string;
   avgRating?: number;
   reviewCount?: number;
+  isFavorited?: boolean;
   shopLocation?: {
     lat: number;
     lng: number;
@@ -151,8 +152,20 @@ export class ServiceRepository extends BaseRepository {
   /**
    * Get service with shop information
    */
-  async getServiceWithShopInfo(serviceId: string): Promise<ShopServiceWithShopInfo | null> {
+  async getServiceWithShopInfo(serviceId: string, customerAddress?: string): Promise<ShopServiceWithShopInfo | null> {
     try {
+      const normalizedAddress = customerAddress?.toLowerCase();
+      const params: string[] = [serviceId];
+
+      let favoritesJoin = '';
+      let favoritesSelect = 'false as is_favorited';
+
+      if (normalizedAddress) {
+        params.push(normalizedAddress);
+        favoritesJoin = `LEFT JOIN service_favorites sf ON s.service_id = sf.service_id AND sf.customer_address = $2`;
+        favoritesSelect = '(sf.customer_address IS NOT NULL) as is_favorited';
+      }
+
       const query = `
         SELECT
           s.*,
@@ -165,12 +178,14 @@ export class ServiceRepository extends BaseRepository {
           sh.location_city as shop_city,
           sh.location_state as shop_state,
           sh.location_zip_code as shop_zip_code,
-          NULL as shop_logo
+          NULL as shop_logo,
+          ${favoritesSelect}
         FROM shop_services s
         INNER JOIN shops sh ON s.shop_id = sh.shop_id
+        ${favoritesJoin}
         WHERE s.service_id = $1
       `;
-      const result = await this.pool.query(query, [serviceId]);
+      const result = await this.pool.query(query, params);
 
       if (result.rows.length === 0) {
         return null;
@@ -192,27 +207,43 @@ export class ServiceRepository extends BaseRepository {
       page?: number;
       limit?: number;
       activeOnly?: boolean;
+      customerAddress?: string;
     } = {}
   ): Promise<PaginatedResult<ShopService>> {
     try {
       const page = options.page || 1;
       const limit = options.limit || 20;
       const offset = (page - 1) * limit;
+      const normalizedAddress = options.customerAddress?.toLowerCase();
 
-      let whereClause = 'WHERE shop_id = $1';
+      let whereClause = 'WHERE s.shop_id = $1';
       if (options.activeOnly) {
-        whereClause += ' AND active = true';
+        whereClause += ' AND s.active = true';
       }
 
       // Get total count
-      const countQuery = `SELECT COUNT(*) as total FROM shop_services ${whereClause}`;
+      const countQuery = `SELECT COUNT(*) as total FROM shop_services s ${whereClause}`;
       const countResult = await this.pool.query(countQuery, [shopId]);
       const total = parseInt(countResult.rows[0].total);
+
+      // Build favorites join if customer is authenticated
+      const params: (string | number)[] = [shopId];
+      let paramCount = 1;
+      let favoritesJoin = '';
+      let favoritesSelect = 'false as is_favorited';
+
+      if (normalizedAddress) {
+        paramCount++;
+        favoritesJoin = `LEFT JOIN service_favorites sf ON s.service_id = sf.service_id AND sf.customer_address = $${paramCount}`;
+        favoritesSelect = '(sf.customer_address IS NOT NULL) as is_favorited';
+        params.push(normalizedAddress);
+      }
 
       // Get paginated results with groups
       const query = `
         SELECT
           s.*,
+          ${favoritesSelect},
           (
             SELECT json_agg(json_build_object(
               'groupId', sga.group_id,
@@ -228,17 +259,20 @@ export class ServiceRepository extends BaseRepository {
             WHERE sga.service_id = s.service_id AND sga.active = true
           ) as groups
         FROM shop_services s
+        ${favoritesJoin}
         ${whereClause}
         ORDER BY s.created_at DESC
-        LIMIT $2 OFFSET $3
+        LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
       `;
-      const result = await this.pool.query(query, [shopId, limit, offset]);
+      params.push(limit, offset);
+      const result = await this.pool.query(query, params);
 
       const items = result.rows.map(row => {
         const service = this.mapServiceRow(row);
         return {
           ...service,
-          groups: row.groups || []
+          groups: row.groups || [],
+          isFavorited: row.is_favorited === true
         };
       });
 
@@ -266,6 +300,7 @@ export class ServiceRepository extends BaseRepository {
     options: {
       page?: number;
       limit?: number;
+      customerAddress?: string;
     } = {}
   ): Promise<PaginatedResult<ShopServiceWithShopInfo>> {
     try {
@@ -360,6 +395,18 @@ export class ServiceRepository extends BaseRepository {
       const countResult = await this.pool.query(countQuery, params);
       const total = parseInt(countResult.rows[0].total);
 
+      // Build favorites join if customer is authenticated
+      const customerAddress = options.customerAddress?.toLowerCase();
+      let favoritesJoin = '';
+      let favoritesSelect = 'false as is_favorited';
+
+      if (customerAddress) {
+        paramCount++;
+        favoritesJoin = `LEFT JOIN service_favorites sf ON s.service_id = sf.service_id AND sf.customer_address = $${paramCount}`;
+        favoritesSelect = '(sf.customer_address IS NOT NULL) as is_favorited';
+        params.push(customerAddress);
+      }
+
       // Get paginated results with shop info and review stats
       const query = `
         SELECT
@@ -376,6 +423,7 @@ export class ServiceRepository extends BaseRepository {
           NULL as shop_logo,
           COALESCE(AVG(r.rating), 0) as avg_rating,
           COUNT(r.review_id) as review_count,
+          ${favoritesSelect},
           (
             SELECT json_agg(json_build_object(
               'groupId', sga.group_id,
@@ -393,8 +441,9 @@ export class ServiceRepository extends BaseRepository {
         FROM shop_services s
         INNER JOIN shops sh ON s.shop_id = sh.shop_id
         LEFT JOIN service_reviews r ON s.service_id = r.service_id
+        ${favoritesJoin}
         ${whereClause}
-        GROUP BY s.service_id, sh.shop_id
+        GROUP BY s.service_id, sh.shop_id${customerAddress ? ', sf.customer_address' : ''}
         ${orderByClause}
         LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
       `;
@@ -543,6 +592,7 @@ export class ServiceRepository extends BaseRepository {
       shopLogo: row.shop_logo,
       avgRating: row.avg_rating ? parseFloat(row.avg_rating) : 0,
       reviewCount: row.review_count ? parseInt(row.review_count) : 0,
+      isFavorited: row.is_favorited === true,
       shopLocation: row.shop_lat && row.shop_lng ? {
         lat: parseFloat(row.shop_lat),
         lng: parseFloat(row.shop_lng),
@@ -630,8 +680,23 @@ export class ServiceRepository extends BaseRepository {
   /**
    * Get all services in an affiliate group
    */
-  async getServicesByGroup(groupId: string, filters?: ServiceFilters): Promise<ShopServiceWithShopInfo[]> {
+  async getServicesByGroup(groupId: string, filters?: ServiceFilters, customerAddress?: string): Promise<ShopServiceWithShopInfo[]> {
     try {
+      const normalizedAddress = customerAddress?.toLowerCase();
+      const values: any[] = [groupId];
+      let paramCount = 1;
+
+      // Build favorites join if customer is authenticated
+      let favoritesJoin = '';
+      let favoritesSelect = 'false as is_favorited';
+
+      if (normalizedAddress) {
+        paramCount++;
+        favoritesJoin = `LEFT JOIN service_favorites sf ON ss.service_id = sf.service_id AND sf.customer_address = $${paramCount}`;
+        favoritesSelect = '(sf.customer_address IS NOT NULL) as is_favorited';
+        values.push(normalizedAddress);
+      }
+
       let query = `
         SELECT
           ss.*,
@@ -648,15 +713,14 @@ export class ServiceRepository extends BaseRepository {
           s.location_lng as shop_lng,
           s.location_city as shop_city,
           s.location_state as shop_state,
-          s.location_zip_code as shop_zip_code
+          s.location_zip_code as shop_zip_code,
+          ${favoritesSelect}
         FROM service_group_availability sga
         JOIN shop_services ss ON sga.service_id = ss.service_id
         JOIN shops s ON ss.shop_id = s.shop_id
+        ${favoritesJoin}
         WHERE sga.group_id = $1 AND sga.active = true AND ss.active = true
       `;
-
-      const values: any[] = [groupId];
-      let paramCount = 1;
 
       if (filters?.category) {
         paramCount++;

@@ -130,6 +130,7 @@ export function initializeRoutes(stripe: StripeService): Router {
    */
   router.get(
     '/',
+    optionalAuthMiddleware, // Authenticate if token present for isFavorited field
     serviceController.getAllServices
   );
 
@@ -321,6 +322,7 @@ export function initializeRoutes(stripe: StripeService): Router {
    */
   router.get(
     '/:id',
+    optionalAuthMiddleware, // Authenticate if token present for isFavorited field
     serviceController.getServiceById
   );
 
@@ -2458,6 +2460,7 @@ export function initializeRoutes(stripe: StripeService): Router {
    */
   router.get(
     '/groups/:groupId/services',
+    optionalAuthMiddleware, // Authenticate if token present for isFavorited field
     (req, res) => serviceGroupController.getGroupServices(req, res)
   );
 
@@ -2598,6 +2601,7 @@ export function initializeRoutes(stripe: StripeService): Router {
    */
   router.get(
     '/discovery/similar/:serviceId',
+    optionalAuthMiddleware, // Authenticate if token present for isFavorited field
     discoveryController.getSimilarServices
   );
 
@@ -2628,6 +2632,7 @@ export function initializeRoutes(stripe: StripeService): Router {
    */
   router.get(
     '/discovery/trending',
+    optionalAuthMiddleware, // Authenticate if token present for isFavorited field
     discoveryController.getTrendingServices
   );
 

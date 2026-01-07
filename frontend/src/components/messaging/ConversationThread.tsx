@@ -7,8 +7,6 @@ import {
   Image as ImageIcon,
   X,
   MoreVertical,
-  Phone,
-  Video,
   Info,
   Check,
   CheckCheck,
@@ -179,12 +177,6 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
 
         {/* Actions */}
         <div className="flex items-center gap-2">
-          <button className="p-2 hover:bg-[#0A0A0A] rounded-lg transition-colors">
-            <Phone className="w-5 h-5 text-gray-400" />
-          </button>
-          <button className="p-2 hover:bg-[#0A0A0A] rounded-lg transition-colors">
-            <Video className="w-5 h-5 text-gray-400" />
-          </button>
           <button className="p-2 hover:bg-[#0A0A0A] rounded-lg transition-colors">
             <Info className="w-5 h-5 text-gray-400" />
           </button>

@@ -152,9 +152,9 @@ export class ServiceManagementService {
   /**
    * Get service with shop information
    */
-  async getServiceWithShopInfo(serviceId: string): Promise<ShopServiceWithShopInfo | null> {
+  async getServiceWithShopInfo(serviceId: string, customerAddress?: string): Promise<ShopServiceWithShopInfo | null> {
     try {
-      return await this.repository.getServiceWithShopInfo(serviceId);
+      return await this.repository.getServiceWithShopInfo(serviceId, customerAddress);
     } catch (error) {
       logger.error('Error in getServiceWithShopInfo:', error);
       throw error;
@@ -170,6 +170,7 @@ export class ServiceManagementService {
       page?: number;
       limit?: number;
       activeOnly?: boolean;
+      customerAddress?: string;
     } = {}
   ): Promise<PaginatedResult<ShopService>> {
     try {
@@ -188,6 +189,7 @@ export class ServiceManagementService {
     options: {
       page?: number;
       limit?: number;
+      customerAddress?: string;
     } = {}
   ): Promise<PaginatedResult<ShopServiceWithShopInfo>> {
     try {
