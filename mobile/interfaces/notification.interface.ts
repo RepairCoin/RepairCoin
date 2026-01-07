@@ -97,3 +97,39 @@ export interface PushNotificationState {
   permissionStatus: 'undetermined' | 'granted' | 'denied';
   error: string | null;
 }
+
+// In-app notification from API
+export interface Notification {
+  id: string;
+  senderAddress: string;
+  receiverAddress: string;
+  notificationType: string;
+  message: string;
+  metadata: Record<string, any>;
+  isRead: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Response from get notifications
+export interface GetNotificationsResponse {
+  items: Notification[];
+  pagination: {
+    page: number;
+    limit: number;
+    totalItems: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
+}
+
+// Response from get unread count
+export interface GetUnreadCountResponse {
+  count: number;
+}
+
+// Response from mark as read
+export interface MarkAsReadResponse {
+  message: string;
+  notification?: Notification;
+}

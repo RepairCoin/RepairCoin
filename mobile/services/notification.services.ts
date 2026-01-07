@@ -4,6 +4,10 @@ import {
   RegisterPushTokenResponse,
   GetActiveDevicesResponse,
   DeactivateTokensResponse,
+  GetNotificationsResponse,
+  GetUnreadCountResponse,
+  MarkAsReadResponse,
+  Notification,
 } from "@/interfaces/notification.interface";
 
 class NotificationApi {
@@ -63,6 +67,79 @@ class NotificationApi {
       );
     } catch (error) {
       console.error("Failed to get active devices:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get paginated notifications for the current user
+   */
+  async getNotifications(
+    page: number = 1,
+    limit: number = 20
+  ): Promise<GetNotificationsResponse> {
+    try {
+      return await apiClient.get<GetNotificationsResponse>(
+        `/notifications?page=${page}&limit=${limit}`
+      );
+    } catch (error) {
+      console.error("Failed to get notifications:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all unread notifications
+   */
+  async getUnreadNotifications(): Promise<{ notifications: Notification[] }> {
+    try {
+      return await apiClient.get<{ notifications: Notification[] }>(
+        "/notifications/unread"
+      );
+    } catch (error) {
+      console.error("Failed to get unread notifications:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get unread notification count
+   */
+  async getUnreadCount(): Promise<GetUnreadCountResponse> {
+    try {
+      return await apiClient.get<GetUnreadCountResponse>(
+        "/notifications/unread/count"
+      );
+    } catch (error) {
+      console.error("Failed to get unread count:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Mark a notification as read
+   */
+  async markAsRead(notificationId: string): Promise<MarkAsReadResponse> {
+    try {
+      return await apiClient.patch<MarkAsReadResponse>(
+        `/notifications/${notificationId}/read`
+      );
+    } catch (error) {
+      console.error("Failed to mark notification as read:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Mark all notifications as read
+   */
+  async markAllAsRead(): Promise<MarkAsReadResponse> {
+    try {
+      return await apiClient.patch<MarkAsReadResponse>(
+        "/notifications/read-all"
+      );
+    } catch (error) {
+      console.error("Failed to mark all notifications as read:", error);
       throw error;
     }
   }
