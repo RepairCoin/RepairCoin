@@ -54,6 +54,7 @@ export interface ShopServiceWithShopInfo extends ShopService {
   distance?: number;
   avgRating?: number;
   reviewCount?: number;
+  isFavorited?: boolean;
   shopLocation?: {
     lat: number;
     lng: number;

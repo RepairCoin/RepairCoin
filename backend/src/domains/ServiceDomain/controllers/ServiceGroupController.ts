@@ -520,6 +520,9 @@ export class ServiceGroupController {
       const { groupId } = req.params;
       const { category, minPrice, maxPrice, search } = req.query;
 
+      // Get customer address if authenticated (for isFavorited field)
+      const customerAddress = req.user?.role === 'customer' ? req.user.address : undefined;
+
       const filters = {
         category: category as string,
         minPrice: minPrice ? parseFloat(minPrice as string) : undefined,
@@ -527,7 +530,7 @@ export class ServiceGroupController {
         search: search as string
       };
 
-      const services = await this.serviceRepository.getServicesByGroup(groupId, filters);
+      const services = await this.serviceRepository.getServicesByGroup(groupId, filters, customerAddress);
 
       res.json({
         success: true,

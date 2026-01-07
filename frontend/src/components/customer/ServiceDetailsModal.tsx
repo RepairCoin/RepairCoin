@@ -18,6 +18,7 @@ interface ServiceDetailsModalProps {
   onClose: () => void;
   onBook: (service: ShopServiceWithShopInfo) => void;
   onViewDetails?: (service: ShopServiceWithShopInfo) => void;
+  onFavoriteChange?: (serviceId: string, isFavorited: boolean) => void;
 }
 
 export const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({
@@ -25,6 +26,7 @@ export const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({
   onClose,
   onBook,
   onViewDetails,
+  onFavoriteChange,
 }) => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"details" | "reviews">("details");
@@ -66,7 +68,12 @@ export const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({
               )}
             </div>
             <div className="flex items-center gap-2">
-              <FavoriteButton serviceId={service.serviceId} size="md" />
+              <FavoriteButton
+                serviceId={service.serviceId}
+                initialIsFavorited={service.isFavorited}
+                size="md"
+                onFavoriteChange={(isFavorited) => onFavoriteChange?.(service.serviceId, isFavorited)}
+              />
               <ShareButton
                 serviceId={service.serviceId}
                 serviceName={service.serviceName}
