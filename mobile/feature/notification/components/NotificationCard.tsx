@@ -2,6 +2,7 @@ import { View, Text, Pressable } from "react-native";
 import { Ionicons, MaterialCommunityIcons, FontAwesome5, Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Notification } from "@/interfaces/notification.interface";
+import { useAuthStore } from "@/store/auth.store";
 import { formatDistanceToNow } from "date-fns";
 
 interface NotificationCardProps {
@@ -87,36 +88,62 @@ const getNotificationStyle = (type: string) => {
   }
 };
 
-// Get navigation route based on notification type
-const getNavigationRoute = (notification: Notification): string | null => {
-  const { notificationType, metadata } = notification;
+// Get navigation route based on notification type and user type
+const getNavigationRoute = (notification: Notification, userType: string | null): string | null => {
+  const { notificationType } = notification;
+  const isShop = userType === "shop";
 
   switch (notificationType) {
+    // Reward notifications → History/Transaction tab
     case "reward_issued":
     case "token_gifted":
-    case "redemption_approved":
-    case "redemption_rejected":
-      return "/(dashboard)/customer/tabs/home";
+      return isShop
+        ? "/(dashboard)/shop/tabs/history"
+        : "/(dashboard)/customer/tabs/history";
+
+    // Redemption notifications
     case "redemption_approval_requested":
     case "redemption_approval_request":
-      // Navigate to redemption approval screen if we have sessionId
-      if (metadata?.sessionId) {
-        return `/(dashboard)/customer/tabs/home`;
-      }
-      return "/(dashboard)/customer/tabs/home";
+      // Customer receives approval request → Home (approval section)
+      // Shop needs to approve → Redeem token screen
+      return isShop
+        ? "/(dashboard)/shop/redeem-token"
+        : "/(dashboard)/customer/redeem";
+
+    case "redemption_approved":
+    case "redemption_rejected":
+      // Result of redemption → History tab
+      return isShop
+        ? "/(dashboard)/shop/tabs/history"
+        : "/(dashboard)/customer/tabs/history";
+
+    // Appointment/Booking notifications → Service/Bookings tab
     case "booking_confirmed":
     case "appointment_reminder":
+    case "upcoming_appointment":
     case "service_order_completed":
     case "order_completed":
-      // Navigate to bookings tab
-      return "/(dashboard)/customer/tabs/service/tabs/bookings";
-    case "subscription_expiring":
-      // For shop owners - navigate to subscription settings
-      return null;
+    case "service_booking_received":
+      return isShop
+        ? "/(dashboard)/shop/booking"
+        : "/(dashboard)/customer/tabs/service/";
+
+    // Reschedule notifications → Bookings
     case "reschedule_request_created":
     case "reschedule_request_approved":
     case "reschedule_request_rejected":
-      return "/(dashboard)/customer/tabs/service/tabs/bookings";
+      return isShop
+        ? "/(dashboard)/shop/booking"
+        : "/(dashboard)/customer/tabs/service/";
+
+    // Subscription notifications → Subscription screen (shop only)
+    case "subscription_expiring":
+    case "subscription_expired":
+    case "subscription_renewed":
+      return isShop
+        ? "/(dashboard)/shop/subscription"
+        : null;
+
     default:
       return null;
   }
@@ -124,6 +151,7 @@ const getNavigationRoute = (notification: Notification): string | null => {
 
 export default function NotificationCard({ notification, onPress }: NotificationCardProps) {
   const router = useRouter();
+  const { userType } = useAuthStore();
   const style = getNotificationStyle(notification.notificationType);
 
   const handlePress = () => {
@@ -131,7 +159,7 @@ export default function NotificationCard({ notification, onPress }: Notification
       onPress();
     }
 
-    const route = getNavigationRoute(notification);
+    const route = getNavigationRoute(notification, userType);
     if (route) {
       router.push(route as any);
     }
