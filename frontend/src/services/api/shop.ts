@@ -403,8 +403,8 @@ export const getGalleryPhotos = async (shopId: string): Promise<GalleryPhoto[]> 
   try {
     const response = await apiClient.get<GalleryPhoto[]>(`/shops/${shopId}/gallery`);
     return response.data || [];
-  } catch (error) {
-    console.error('Error getting gallery photos:', error);
+  } catch {
+    // Gallery is optional - silently return empty array if not available
     return [];
   }
 };
