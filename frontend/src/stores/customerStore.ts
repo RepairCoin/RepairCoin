@@ -126,19 +126,23 @@ export const useCustomerStore = create<CustomerStore>()(
       // Fetch customer data
       fetchCustomerData: async (address: string, force: boolean = false) => {
         const state = get();
-        
+
         // Prevent duplicate fetches
         if (!force && state.isLoading) return;
 
         set({ isLoading: true, error: null });
 
         try {
-          // Fetch customer data (cookies sent automatically)
-          const customerResponse = await apiClient.get(`/customers/${address}`);
+          // Fetch all data in PARALLEL for better performance
+          const [customerResponse, balanceResponse, transactionsResponse] = await Promise.all([
+            apiClient.get(`/customers/${address}`),
+            apiClient.get(`/tokens/balance/${address}`),
+            apiClient.get(`/customers/${address}/transactions?limit=10`)
+          ]);
 
+          // Process customer data
           if (customerResponse.success && customerResponse.data) {
             const customerData = customerResponse.data.customer || customerResponse.data;
-
             set({ customerData });
 
             // Store blockchain balance separately (rounded to 2 decimal places)
@@ -150,11 +154,9 @@ export const useCustomerStore = create<CustomerStore>()(
             return;
           }
 
-          // Fetch balance data (cookies sent automatically)
-          const balanceResponse = await apiClient.get(`/tokens/balance/${address}`);
+          // Process balance data
           if (balanceResponse.success && balanceResponse.data) {
             const data = balanceResponse.data;
-            // Round all numeric values to 2 decimal places
             if (data) {
               const roundedData = {
                 ...data,
@@ -168,10 +170,7 @@ export const useCustomerStore = create<CustomerStore>()(
             }
           }
 
-          // Fetch recent transactions (cookies sent automatically)
-          const transactionsResponse = await apiClient.get(
-            `/customers/${address}/transactions?limit=10`
-          );
+          // Process transactions
           if (transactionsResponse.success) {
             set({ transactions: transactionsResponse.data?.transactions || [] });
           }
