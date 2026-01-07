@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Heart } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { servicesApi } from "@/services/api/services";
@@ -40,8 +40,7 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
 }) => {
   const [isFavorited, setIsFavorited] = useState(initialIsFavorited ?? false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isChecking, setIsChecking] = useState(initialIsFavorited === undefined);
-  const { isAuthenticated, isCustomer, userType } = useAuthStore();
+  const { isAuthenticated, isCustomer } = useAuthStore();
 
   // Size classes
   const sizeClasses = {
@@ -54,25 +53,6 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
     sm: "w-4 h-4",
     md: "w-5 h-5",
     lg: "w-6 h-6",
-  };
-
-  // Check initial favorite status if not provided
-  useEffect(() => {
-    if (initialIsFavorited === undefined && isAuthenticated && isCustomer) {
-      checkFavoriteStatus();
-    }
-  }, [serviceId, isAuthenticated, isCustomer]);
-
-  const checkFavoriteStatus = async () => {
-    try {
-      setIsChecking(true);
-      const favorited = await servicesApi.checkFavorite(serviceId);
-      setIsFavorited(favorited);
-    } catch (error) {
-      console.error("Error checking favorite status:", error);
-    } finally {
-      setIsChecking(false);
-    }
   };
 
   const handleToggleFavorite = async (e: React.MouseEvent) => {
@@ -115,7 +95,7 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
     }
   };
 
-  const isDisabled = isLoading || isChecking || !isAuthenticated || !isCustomer;
+  const isDisabled = isLoading || !isAuthenticated || !isCustomer;
   const tooltipText = !isAuthenticated
     ? "Sign in to favorite services"
     : !isCustomer
@@ -145,20 +125,14 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
       `}
       title={tooltipText}
     >
-      {isChecking ? (
-        <div className={`${iconSizes[size]} animate-spin rounded-full border-2 border-gray-400 border-t-transparent`} />
-      ) : (
-        <>
-          <Heart
-            className={`${iconSizes[size]} ${isFavorited ? "fill-current" : ""}`}
-            strokeWidth={isFavorited ? 0 : 2}
-          />
-          {showLabel && (
-            <span className="text-sm font-medium">
-              {isFavorited ? "Favorited" : "Favorite"}
-            </span>
-          )}
-        </>
+      <Heart
+        className={`${iconSizes[size]} ${isFavorited ? "fill-current" : ""}`}
+        strokeWidth={isFavorited ? 0 : 2}
+      />
+      {showLabel && (
+        <span className="text-sm font-medium">
+          {isFavorited ? "Favorited" : "Favorite"}
+        </span>
       )}
     </button>
   );

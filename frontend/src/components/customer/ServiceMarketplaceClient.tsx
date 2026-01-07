@@ -184,6 +184,19 @@ export const ServiceMarketplaceClient: React.FC = () => {
     setPage((prev) => prev + 1);
   };
 
+  const handleFavoriteChange = (serviceId: string, isFavorited: boolean) => {
+    // Update services array
+    setServices(prev => prev.map(service =>
+      service.serviceId === serviceId
+        ? { ...service, isFavorited }
+        : service
+    ));
+    // Also update selectedService if it's the same service
+    if (selectedService?.serviceId === serviceId) {
+      setSelectedService(prev => prev ? { ...prev, isFavorited } : prev);
+    }
+  };
+
   // Determine if any filters are active (for hiding discovery sections)
   const hasActiveFilters = Boolean(
     filters.search ||
@@ -530,6 +543,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
                   service={service}
                   onBook={handleBook}
                   onViewDetails={handleViewDetails}
+                  onFavoriteChange={handleFavoriteChange}
                 />
               ))}
             </div>
@@ -571,6 +585,7 @@ export const ServiceMarketplaceClient: React.FC = () => {
           onClose={() => setSelectedService(null)}
           onBook={handleBook}
           onViewDetails={handleViewDetails}
+          onFavoriteChange={handleFavoriteChange}
         />
       )}
 
