@@ -1,6 +1,6 @@
 import { Image, View, Text } from "react-native";
 import React from "react";
-import WalletTab from "../components/tabs/wallet";
+import { CustomerWalletTab } from "../components";
 import { useCustomer } from "@/hooks/customer/useCustomer";
 import { useAuthStore } from "@/store/auth.store";
 import { NotificationBell } from "@/feature/notification/components";
@@ -12,8 +12,8 @@ export default function CustomerDashboard() {
   const { data: customerData } = useGetCustomerByWalletAddress(account?.address);
 
   return (
-    <View className="h-full w-full bg-zinc-950">
-      <View className="h-full w-full pt-14 px-4">
+    <View className="flex-1 bg-zinc-950">
+      <View className="flex-1 pt-14 px-4">
         <View className="flex-row items-center justify-between">
           <Image
             source={require("@/assets/images/logo.png")}
@@ -34,7 +34,7 @@ export default function CustomerDashboard() {
             </Text>
           </View>
         </View>
-        <WalletTab />
+        <CustomerWalletTab />
       </View>
     </View>
   );

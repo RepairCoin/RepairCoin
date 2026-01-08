@@ -7,7 +7,7 @@ import { ShopTabs } from "../types";
 import { PromoCodeTab } from "@/feature/promo-code/components";
 import { AnalyticsTab } from "@/feature/analytics/components";
 import { NotificationBell } from "@/feature/notification/components";
-import { WalletTab } from "../components";
+import { ShopWalletTab } from "../components";
 
 export default function Home() {
   const { shopData, growthData, refetch } = useHomeDataUI();
@@ -71,7 +71,7 @@ export default function Home() {
           })}
         </View>
         {activeTab === "Wallet" && shopData && (
-          <WalletTab shopData={shopData} growthData={growthData} />
+          <ShopWalletTab shopData={shopData} growthData={growthData} />
         )}
         {activeTab === "Promo Code" && shopData && <PromoCodeTab />}
         {activeTab === "Analysis" && shopData && <AnalyticsTab />}

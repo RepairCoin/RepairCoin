@@ -20,7 +20,7 @@ import CustomerDetailSection from "./CustomerDetailSection";
 const subscriptionHomeImage = require("@/assets/images/subsciption_home.png");
 const logoImage = require("@/assets/images/logo.png");
 
-export default function WalletTab({
+export default function ShopWalletTab({
   shopData,
   growthData,
 }: {

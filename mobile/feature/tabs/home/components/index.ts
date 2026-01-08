@@ -1,1 +1,2 @@
-export { default as WalletTab } from "./shop-wallet";
+export { default as ShopWalletTab } from "./shop-wallet";
+export { default as CustomerWalletTab } from "./customer-wallet";

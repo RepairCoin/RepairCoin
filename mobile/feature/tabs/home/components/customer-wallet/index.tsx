@@ -24,7 +24,7 @@ import { useFavorite } from "@/hooks/favorite/useFavorite";
 import TrendingSection from "./TrendingSection";
 import ServiceSection from "./ServiceSection";
 
-export default function WalletTab() {
+export default function CustomerWalletTab() {
   const { account } = useAuthStore();
   const { useGetCustomerByWalletAddress } = useCustomer();
   const { useGetAllServicesQuery, useGetTrendingServices } = useService();
