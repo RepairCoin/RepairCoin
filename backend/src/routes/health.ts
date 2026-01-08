@@ -17,6 +17,41 @@ const getTokenMinter = (): TokenMinter => {
   return tokenMinter;
 };
 
+// Fast ping endpoint - NO database or blockchain calls
+router.get('/ping', (req: Request, res: Response) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
+// Performance diagnostic endpoint - measures actual DB query times
+router.get('/perf', asyncHandler(async (req: Request, res: Response) => {
+  const timings: { step: string; ms: number }[] = [];
+  const start = Date.now();
+
+  // Test 1: Simple DB query
+  const t1 = Date.now();
+  await healthRepository.healthCheck();
+  timings.push({ step: 'db_health_check', ms: Date.now() - t1 });
+
+  // Test 2: Pool stats
+  const poolStats = await healthRepository.getPoolStats();
+
+  res.json({
+    status: 'ok',
+    totalMs: Date.now() - start,
+    timings,
+    poolStats,
+    uptime: process.uptime(),
+    memory: {
+      heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+      heapTotal: Math.round(process.memoryUsage().heapTotal / 1024 / 1024)
+    }
+  });
+}));
+
 // Basic health check
 router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const health = {
