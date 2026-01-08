@@ -7,6 +7,7 @@ import { createPaymentIntent } from "@/services/api/services";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { loadStripe, StripeElementsOptions } from "@stripe/stripe-js";
 import { useCustomerStore } from "@/stores/customerStore";
+import { useAuthStore } from "@/stores/authStore";
 import { TimeSlotPicker } from "./TimeSlotPicker";
 import { DateAvailabilityPicker } from "./DateAvailabilityPicker";
 import { formatLocalDate } from "@/utils/dateUtils";
@@ -158,7 +159,8 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const { balanceData } = useCustomerStore();
+  const { balanceData, fetchCustomerData } = useCustomerStore();
+  const { address } = useAuthStore();
   const [clientSecret, setClientSecret] = useState<string>("");
   const [orderId, setOrderId] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -170,6 +172,13 @@ export const ServiceCheckoutModal: React.FC<ServiceCheckoutModalProps> = ({
   const [bookingDate, setBookingDate] = useState<Date | null>(null);
   const [bookingTimeSlot, setBookingTimeSlot] = useState<string | null>(null);
   const [timeSlotConfig, setTimeSlotConfig] = useState<TimeSlotConfig | null>(null);
+
+  // Fetch customer balance when modal opens
+  useEffect(() => {
+    if (address && !balanceData) {
+      fetchCustomerData(address);
+    }
+  }, [address, balanceData, fetchCustomerData]);
 
   // Load shop's time slot configuration for booking advance days
   useEffect(() => {
