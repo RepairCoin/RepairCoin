@@ -9,7 +9,7 @@ import { ThemedView } from "@/components/ui/ThemedView";
 import { PromoCodeCard } from "@/components/shop/PromoCodeCard";
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import ActionCard from "@/components/shared/ActionCard";
-import { usePromoCodeUI } from "../../../hooks";
+import { usePromoCodeUI } from "../hooks";
 
 export default function PromoCodeTab() {
   const { promoCodes, isLoading, isUpdating, togglePromoCodeStatus } = usePromoCodeUI();

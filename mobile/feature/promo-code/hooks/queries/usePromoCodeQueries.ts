@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/auth.store";
 import { queryKeys } from "@/config/queryClient";
 import { promoCodeApi } from "@/services/promocode.services";
-import { PromoCodeResponse } from "@/interfaces/shop.interface";
+import { PromoCodesListResponse } from "@/interfaces/shop.interface";
 
 export function useShopPromoCodesQuery() {
   const shopId = useAuthStore((state) => state.userProfile?.shopId) || "";
@@ -10,8 +10,8 @@ export function useShopPromoCodesQuery() {
   return useQuery({
     queryKey: queryKeys.shopPromoCodes(shopId),
     queryFn: async () => {
-      const response: PromoCodeResponse = await promoCodeApi.getPromoCodes(shopId);
-      return response.data;
+      const response: PromoCodesListResponse = await promoCodeApi.getPromoCodes(shopId);
+      return response.items || [];
     },
     enabled: !!shopId,
     staleTime: 5 * 60 * 1000,

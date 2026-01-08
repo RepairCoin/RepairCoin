@@ -2,13 +2,14 @@ import apiClient from "@/utilities/axios";
 import {
   CreatePromoCodeRequest,
   PromoCodeResponse,
+  PromoCodesListResponse,
   PromoCodeValidateResponse,
 } from "@/interfaces/shop.interface";
 
 class PromoCodeApi {
-  async getPromoCodes(shopId: string): Promise<PromoCodeResponse> {
+  async getPromoCodes(shopId: string): Promise<PromoCodesListResponse> {
     try {
-      return await apiClient.get<PromoCodeResponse>(
+      return await apiClient.get<PromoCodesListResponse>(
         `/shops/${shopId}/promo-codes`
       );
     } catch (error) {

@@ -232,6 +232,9 @@ export interface PurchasesResponse extends BaseResponse<PurchaseData> {}
 export interface TransactionsResponse extends BaseResponse<TransactionData> {}
 export interface PromoCodeValidateResponse extends BaseResponse<PromoCodeValidateData> {}
 export interface PromoCodeResponse extends BaseResponse<PromoCodeData> {}
+export interface PromoCodesListResponse {
+  items: PromoCodeData[];
+}
 export interface ProcessRedemptionResponse extends BaseResponse<ProcessRedemptionData> {}
 export interface ShopByWalletAddressResponse extends BaseResponse<ShopData> {}
 export interface ShopCustomersResponse extends BaseResponse<ShopCustomerData> {}

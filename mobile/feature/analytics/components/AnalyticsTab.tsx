@@ -12,8 +12,8 @@ import { Feather } from "@expo/vector-icons";
 import { ThemedView } from "@/components/ui/ThemedView";
 import { FilterButton } from "@/components/shared/FilterButton";
 import { FilterModal, FilterOption } from "@/components/shared/FilterModal";
-import { ChartDataPoint, ChartFilter, TimeRange } from "../../../types";
-import { useAnalyticsDataUI } from "../../../hooks";
+import { ChartDataPoint, ChartFilter, TimeRange } from "../types";
+import { useAnalyticsDataUI } from "../hooks";
 
 // Filter options
 const CHART_FILTERS: FilterOption[] = [
