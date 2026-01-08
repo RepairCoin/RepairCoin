@@ -97,6 +97,18 @@ class RepairCoinApp {
     // This must come BEFORE any middleware that uses req.ip or req.protocol
     this.app.set('trust proxy', true);
 
+    // Disable ETag for API routes to prevent slow 304 responses
+    // Express generates ETag by running full query, comparing result - defeating cache purpose
+    this.app.set('etag', false);
+
+    // Add Cache-Control headers to prevent browser caching of API responses
+    this.app.use('/api', (req, res, next) => {
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
+      next();
+    });
+
     // CORS must come before helmet to handle preflight requests properly
     // SUBDOMAIN SETUP: Backend at api.repaircoin.ai, Frontend at repaircoin.ai/www.repaircoin.ai
     this.app.use(cors({
