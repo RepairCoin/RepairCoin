@@ -443,7 +443,7 @@ export class ServiceRepository extends BaseRepository {
         LEFT JOIN service_reviews r ON s.service_id = r.service_id
         ${favoritesJoin}
         ${whereClause}
-        GROUP BY s.service_id, sh.shop_id${customerAddress ? ', sf.customer_address' : ''}
+        GROUP BY s.service_id, s.shop_id, s.service_name, s.description, s.price_usd, s.duration_minutes, s.category, s.image_url, s.tags, s.active, s.created_at, s.updated_at, sh.shop_id, sh.name, sh.address, sh.phone, sh.email, sh.location_lat, sh.location_lng, sh.location_city, sh.location_state, sh.location_zip_code${customerAddress ? ', sf.customer_address' : ''}
         ${orderByClause}
         LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
       `;
