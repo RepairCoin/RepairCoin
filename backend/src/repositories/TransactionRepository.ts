@@ -157,6 +157,41 @@ export class TransactionRepository extends BaseRepository {
     }
   }
 
+  /**
+   * Get aggregated transaction totals for a customer in a single efficient query
+   * This replaces the inefficient pattern of fetching 1000 rows and looping in JS
+   */
+  async getCustomerTransactionTotals(customerAddress: string): Promise<{
+    totalRedeemed: number;
+    totalMintedToWallet: number;
+    totalEarned: number;
+  }> {
+    try {
+      const query = `
+        SELECT
+          COALESCE(SUM(CASE WHEN type = 'redeem' THEN amount ELSE 0 END), 0) as total_redeemed,
+          COALESCE(SUM(CASE WHEN type = 'mint' AND (
+            metadata->>'mintType' = 'instant_mint' OR
+            metadata->>'source' = 'customer_dashboard'
+          ) THEN amount ELSE 0 END), 0) as total_minted_to_wallet,
+          COALESCE(SUM(CASE WHEN type IN ('earn', 'reward', 'referral_bonus', 'tier_bonus') THEN amount ELSE 0 END), 0) as total_earned
+        FROM transactions
+        WHERE customer_address = $1
+      `;
+
+      const result = await this.pool.query(query, [customerAddress.toLowerCase()]);
+
+      return {
+        totalRedeemed: parseFloat(result.rows[0]?.total_redeemed || 0),
+        totalMintedToWallet: parseFloat(result.rows[0]?.total_minted_to_wallet || 0),
+        totalEarned: parseFloat(result.rows[0]?.total_earned || 0)
+      };
+    } catch (error) {
+      logger.error('Error getting customer transaction totals:', error);
+      throw new Error('Failed to get customer transaction totals');
+    }
+  }
+
   async getTransactionsByShop(
     shopId: string,
     limit: number = 50,

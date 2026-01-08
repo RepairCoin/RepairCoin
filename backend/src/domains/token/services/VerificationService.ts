@@ -189,42 +189,32 @@ export class VerificationService {
         throw new Error('Customer not found');
       }
 
-      // Use available balance calculation
-      const currentBalance = await this.calculateAvailableBalance(customerAddress);
-      let rcnBreakdown = { 
-        earned: customer.lifetimeEarnings || 0, 
-        marketBought: 0, 
-        byShop: {}, 
-        byType: {} 
-      };
-      
+      // Get transaction totals using efficient SQL aggregation (single query)
+      const totals = await transactionRepository.getCustomerTransactionTotals(customerAddress);
+      const totalRedeemed = totals.totalRedeemed;
+      const totalMintedToWallet = totals.totalMintedToWallet;
+
+      const lifetimeEarnings = customer.lifetimeEarnings || 0;
+      const pendingMintBalance = customer.pendingMintBalance || 0;
+
+      // Calculate available balance
+      const availableBalance = Math.max(0, lifetimeEarnings - totalRedeemed - pendingMintBalance - totalMintedToWallet);
+
       // Try to get breakdown by type from ReferralRepository for additional details
+      let rcnBreakdown: any = {
+        earned: lifetimeEarnings,
+        marketBought: 0,
+        byShop: {},
+        byType: {}
+      };
+
       try {
         const detailedBreakdown = await this.referralRepository.getCustomerRcnBySource(customerAddress);
-        // Use the breakdown for type information, but keep lifetime earnings as the total
         rcnBreakdown.byShop = detailedBreakdown.byShop || {};
         rcnBreakdown.byType = detailedBreakdown.byType || {};
       } catch (error) {
         logger.warn('Failed to get detailed RCN breakdown, using customer lifetime earnings only', error);
       }
-      
-      // Get redemptions to calculate current balance
-      let totalRedeemed = 0;
-      try {
-        const transactions = await transactionRepository.getTransactionsByCustomer(customerAddress, 1000);
-        for (const tx of transactions) {
-          if (tx.type === 'redeem') {
-            totalRedeemed += tx.amount;
-          }
-        }
-      } catch (error) {
-        logger.warn('Failed to get redemption history', error);
-      }
-      
-      // Use the customer's lifetime earnings as available balance
-      // All RCN is redeemable regardless of how it was obtained
-      const availableBalance = currentBalance;
-      const pendingMintBalance = customer.pendingMintBalance || 0;
 
       // Get earning breakdown by type with safe access
       const earningHistory = {
@@ -236,7 +226,7 @@ export class VerificationService {
 
       return {
         availableBalance,
-        lifetimeEarned: rcnBreakdown.earned || 0,
+        lifetimeEarned: lifetimeEarnings,
         totalRedeemed,
         pendingMintBalance,
         earningHistory
@@ -373,6 +363,7 @@ export class VerificationService {
   /**
    * Calculate customer's available balance
    * Returns lifetime earnings minus total redemptions minus pending mint balance
+   * Uses efficient SQL aggregation instead of fetching all transactions
    */
   private async calculateAvailableBalance(customerAddress: string): Promise<number> {
     try {
@@ -385,26 +376,15 @@ export class VerificationService {
       const lifetimeEarnings = customer.lifetimeEarnings || 0;
       const pendingMintBalance = customer.pendingMintBalance || 0;
 
-      // Get totals from transactions in a single query
+      // Get totals using efficient SQL aggregation (single query instead of 1000 row fetch)
       let totalRedeemed = 0;
       let totalMintedToWallet = 0;
       try {
-        const transactions = await transactionRepository.getTransactionsByCustomer(customerAddress, 1000);
-        for (const tx of transactions) {
-          if (tx.type === 'redeem') {
-            totalRedeemed += tx.amount;
-          }
-          // Check for wallet mint transactions (tokens sent to blockchain wallet)
-          // These have metadata.mintType = 'instant_mint' or reason contains 'instant mint'
-          if ((tx.type as string) === 'mint' && tx.metadata) {
-            const metadata = typeof tx.metadata === 'string' ? JSON.parse(tx.metadata) : tx.metadata;
-            if (metadata.mintType === 'instant_mint' || metadata.source === 'customer_dashboard') {
-              totalMintedToWallet += tx.amount;
-            }
-          }
-        }
+        const totals = await transactionRepository.getCustomerTransactionTotals(customerAddress);
+        totalRedeemed = totals.totalRedeemed;
+        totalMintedToWallet = totals.totalMintedToWallet;
       } catch (error) {
-        logger.warn('Failed to get transaction history for balance calculation', error);
+        logger.warn('Failed to get transaction totals for balance calculation', error);
       }
 
       // Available balance = lifetime earnings - total redeemed - pending mint - already minted to wallet
