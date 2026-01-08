@@ -1,1 +1,1 @@
-export { WalletTab } from "./shop-wallet";
+export { default as WalletTab } from "./shop-wallet";

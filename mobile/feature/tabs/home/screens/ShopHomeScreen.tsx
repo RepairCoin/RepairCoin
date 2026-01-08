@@ -7,7 +7,7 @@ import { ShopTabs } from "../types";
 import { PromoCodeTab } from "@/feature/promo-code/components";
 import { AnalyticsTab } from "@/feature/analytics/components";
 import { NotificationBell } from "@/feature/notification/components";
-import WalletTab from "../components/shop-wallet";
+import { WalletTab } from "../components";
 
 export default function Home() {
   const { shopData, growthData, refetch } = useHomeDataUI();
