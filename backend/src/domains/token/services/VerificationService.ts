@@ -200,28 +200,14 @@ export class VerificationService {
       // Calculate available balance
       const availableBalance = Math.max(0, lifetimeEarnings - totalRedeemed - pendingMintBalance - totalMintedToWallet);
 
-      // Try to get breakdown by type from ReferralRepository for additional details
-      let rcnBreakdown: any = {
-        earned: lifetimeEarnings,
-        marketBought: 0,
-        byShop: {},
-        byType: {}
-      };
-
-      try {
-        const detailedBreakdown = await this.referralRepository.getCustomerRcnBySource(customerAddress);
-        rcnBreakdown.byShop = detailedBreakdown.byShop || {};
-        rcnBreakdown.byType = detailedBreakdown.byType || {};
-      } catch (error) {
-        logger.warn('Failed to get detailed RCN breakdown, using customer lifetime earnings only', error);
-      }
-
-      // Get earning breakdown by type with safe access
+      // Note: Removed slow getCustomerRcnBySource call that was taking ~2 seconds
+      // The earningHistory breakdown is nice-to-have but not critical for balance display
+      // If needed, can be fetched separately via a dedicated endpoint
       const earningHistory = {
-        fromRepairs: rcnBreakdown.byType?.['shop_repair'] || 0,
-        fromReferrals: rcnBreakdown.byType?.['referral_bonus'] || 0,
-        fromBonuses: rcnBreakdown.byType?.['promotion'] || 0,
-        fromTierBonuses: rcnBreakdown.byType?.['tier_bonus'] || 0
+        fromRepairs: 0,
+        fromReferrals: 0,
+        fromBonuses: 0,
+        fromTierBonuses: 0
       };
 
       return {
