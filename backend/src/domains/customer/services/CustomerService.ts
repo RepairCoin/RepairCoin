@@ -81,21 +81,20 @@ export class CustomerService {
         throw new Error('Customer not found');
       }
 
-      // Get current blockchain balance
-      const blockchainBalance = await this.getTokenMinter().getCustomerBalance(address);
-      
+      // Note: Blockchain balance is fetched by frontend via thirdweb's useReadContract
+      // Removed redundant blockchain call that was causing 1-2s delay per request
+
       // Get tier benefits
       const tierBenefits = this.getTierManager().getTierBenefits(customer.tier);
-      
+
       // Get earning capacity
       const earningCapacity = this.getTierManager().getEarningCapacity(customer);
-      
+
       // Get tier progression
       const tierProgression = this.getTierManager().getTierProgression(customer);
 
       return {
         customer,
-        blockchainBalance,
         tierBenefits,
         earningCapacity,
         tierProgression
