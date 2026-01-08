@@ -28,6 +28,8 @@ export interface Message {
     name: string;
   }[];
   isSystemMessage?: boolean;
+  messageType?: "text" | "service_link" | "booking_link" | "system";
+  metadata?: Record<string, any>;
 }
 
 interface ConversationThreadProps {
@@ -236,6 +238,46 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
                               : "bg-[#1A1A1A] text-white border border-gray-800"
                           }`}
                         >
+                          {/* Service Link Card */}
+                          {message.messageType === "service_link" && message.metadata && (
+                            <div className="mb-2">
+                              <div className={`rounded-lg overflow-hidden border ${
+                                isOwnMessage
+                                  ? "border-black/20 bg-black/10"
+                                  : "border-gray-700 bg-[#0A0A0A]"
+                              }`}>
+                                {/* Service Image */}
+                                {message.metadata.serviceImage && (
+                                  <img
+                                    src={message.metadata.serviceImage}
+                                    alt={message.metadata.serviceName}
+                                    className="w-full h-32 object-cover"
+                                  />
+                                )}
+                                {/* Service Details */}
+                                <div className="p-3">
+                                  <h4 className={`font-semibold text-sm mb-1 ${
+                                    isOwnMessage ? "text-black" : "text-white"
+                                  }`}>
+                                    {message.metadata.serviceName}
+                                  </h4>
+                                  <div className="flex items-center justify-between">
+                                    <span className={`text-xs ${
+                                      isOwnMessage ? "text-black/70" : "text-gray-400"
+                                    }`}>
+                                      {message.metadata.serviceCategory}
+                                    </span>
+                                    <span className={`text-sm font-bold ${
+                                      isOwnMessage ? "text-black" : "text-[#FFCC00]"
+                                    }`}>
+                                      ${message.metadata.servicePrice}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
                           {/* Attachments */}
                           {message.attachments && message.attachments.length > 0 && (
                             <div className="mb-2 space-y-2">

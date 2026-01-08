@@ -18,6 +18,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Navigation,
+  MessageCircle,
 } from "lucide-react";
 import { FaFacebook, FaTwitter, FaInstagram } from "react-icons/fa";
 import { ShopService } from "@/services/shopService";
@@ -26,6 +27,8 @@ import { getGalleryPhotos, type GalleryPhoto } from "@/services/api/shop";
 import { ServiceCard } from "./ServiceCard";
 import { ServiceDetailsModal } from "./ServiceDetailsModal";
 import { ServiceCheckoutModal } from "./ServiceCheckoutModal";
+import { useAuthStore } from "@/stores/authStore";
+import * as messagingApi from "@/services/api/messaging";
 
 interface ShopInfo {
   shopId: string;
@@ -68,6 +71,8 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [operatingHours, setOperatingHours] = useState<any>(null);
   const [isOpenNow, setIsOpenNow] = useState(false);
+  const [isMessaging, setIsMessaging] = useState(false);
+  const { userProfile } = useAuthStore();
 
   useEffect(() => {
     loadShopData();
@@ -163,6 +168,36 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
     setTimeout(() => {
       router.push("/customer?tab=orders");
     }, 1500);
+  };
+
+  const handleMessageShop = async () => {
+    if (!userProfile?.address || !shopInfo) {
+      toast.error("Please connect your wallet to send messages");
+      return;
+    }
+
+    try {
+      setIsMessaging(true);
+
+      // Send initial general message (no service reference)
+      const initialMessage = `Hi! I'd like to inquire about your services.`;
+
+      await messagingApi.sendMessage({
+        shopId: shopInfo.shopId,
+        customerAddress: userProfile.address,
+        messageText: initialMessage,
+        messageType: "text",
+      });
+
+      // Navigate to messages tab
+      router.push("/customer?tab=messages");
+      toast.success("Conversation started!");
+    } catch (error) {
+      console.error("Error sending message:", error);
+      toast.error("Failed to start conversation. Please try again.");
+    } finally {
+      setIsMessaging(false);
+    }
   };
 
   const handleFavoriteChange = (serviceId: string, isFavorited: boolean) => {
@@ -291,11 +326,21 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
                     <p className="text-gray-400 text-lg">{shopInfo.category}</p>
                   )}
                 </div>
-                {shopInfo.verified && (
-                  <span className="px-4 py-2 bg-green-900 bg-opacity-30 text-green-400 text-sm font-medium rounded-full border border-green-700">
-                    ✓ Verified
-                  </span>
-                )}
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleMessageShop}
+                    disabled={isMessaging}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#FFCC00] hover:bg-[#FFD700] text-black font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                    <span className="hidden sm:inline">Message Shop</span>
+                  </button>
+                  {shopInfo.verified && (
+                    <span className="px-4 py-2 bg-green-900 bg-opacity-30 text-green-400 text-sm font-medium rounded-full border border-green-700">
+                      ✓ Verified
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Rating */}

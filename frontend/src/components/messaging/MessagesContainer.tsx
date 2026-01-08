@@ -95,6 +95,8 @@ export const MessagesContainer: React.FC<MessagesContainerProps> = ({
           timestamp: msg.createdAt,
           status: msg.isRead ? "read" : "delivered",
           isSystemMessage: msg.messageType === "system",
+          messageType: msg.messageType,
+          metadata: msg.metadata,
           attachments: msg.attachments?.length > 0 ? msg.attachments : undefined,
         }));
 

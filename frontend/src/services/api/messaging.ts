@@ -68,8 +68,8 @@ export interface PaginatedResponse<T> {
  * Send a message in a conversation
  */
 export const sendMessage = async (request: SendMessageRequest): Promise<Message> => {
-  const response = await apiClient.post('/api/messages/send', request);
-  return response.data.data;
+  const response = await apiClient.post('/messages/send', request);
+  return response.data;
 };
 
 /**
@@ -83,10 +83,10 @@ export const getConversations = async (options?: {
   if (options?.page) params.append('page', options.page.toString());
   if (options?.limit) params.append('limit', options.limit.toString());
 
-  const response = await apiClient.get(`/api/messages/conversations?${params.toString()}`);
+  const response = await apiClient.get(`/messages/conversations?${params.toString()}`);
   return {
-    data: response.data.data,
-    pagination: response.data.pagination
+    data: response.data,
+    pagination: response.pagination
   };
 };
 
@@ -102,11 +102,11 @@ export const getMessages = async (
   if (options?.limit) params.append('limit', options.limit.toString());
 
   const response = await apiClient.get(
-    `/api/messages/conversations/${conversationId}/messages?${params.toString()}`
+    `/messages/conversations/${conversationId}/messages?${params.toString()}`
   );
   return {
-    data: response.data.data,
-    pagination: response.data.pagination
+    data: response.data,
+    pagination: response.pagination
   };
 };
 
@@ -114,20 +114,20 @@ export const getMessages = async (
  * Mark all messages in a conversation as read
  */
 export const markConversationAsRead = async (conversationId: string): Promise<void> => {
-  await apiClient.post(`/api/messages/conversations/${conversationId}/read`);
+  await apiClient.post(`/messages/conversations/${conversationId}/read`);
 };
 
 /**
  * Set typing indicator
  */
 export const setTypingIndicator = async (conversationId: string): Promise<void> => {
-  await apiClient.post(`/api/messages/conversations/${conversationId}/typing`);
+  await apiClient.post(`/messages/conversations/${conversationId}/typing`);
 };
 
 /**
  * Get typing indicators for a conversation
  */
 export const getTypingIndicators = async (conversationId: string): Promise<any[]> => {
-  const response = await apiClient.get(`/api/messages/conversations/${conversationId}/typing`);
-  return response.data.data;
+  const response = await apiClient.get(`/messages/conversations/${conversationId}/typing`);
+  return response.data;
 };
