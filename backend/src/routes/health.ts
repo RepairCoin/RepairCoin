@@ -4,6 +4,7 @@ import { TokenMinter } from '../contracts/TokenMinter';
 import { ResponseHelper } from '../utils/responseHelper';
 import { asyncHandler } from '../middleware/errorHandler';
 import { healthRepository } from '../repositories';
+import { getPoolStats } from '../utils/database-pool';
 
 const router = Router();
 
@@ -36,8 +37,8 @@ router.get('/perf', asyncHandler(async (req: Request, res: Response) => {
   await healthRepository.healthCheck();
   timings.push({ step: 'db_health_check', ms: Date.now() - t1 });
 
-  // Test 2: Pool stats
-  const poolStats = await healthRepository.getPoolStats();
+  // Test 2: Pool stats from connection pool
+  const poolStats = getPoolStats();
 
   res.json({
     status: 'ok',
