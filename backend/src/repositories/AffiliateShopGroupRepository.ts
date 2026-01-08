@@ -509,18 +509,46 @@ export class AffiliateShopGroupRepository extends BaseRepository {
 
   async getAllCustomerBalances(customerAddress: string): Promise<CustomerAffiliateGroupBalance[]> {
     try {
+      // Join with affiliate_shop_groups to include group details in single query
       const query = `
-        SELECT * FROM customer_affiliate_group_balances
-        WHERE customer_address = $1 AND balance > 0
-        ORDER BY balance DESC
+        SELECT
+          b.*,
+          g.group_name,
+          g.custom_token_symbol,
+          g.custom_token_name,
+          g.icon,
+          g.description as group_description
+        FROM customer_affiliate_group_balances b
+        LEFT JOIN affiliate_shop_groups g ON b.group_id = g.group_id
+        WHERE b.customer_address = $1 AND b.balance > 0
+        ORDER BY b.balance DESC
       `;
 
       const result = await this.pool.query(query, [customerAddress.toLowerCase()]);
-      return result.rows.map(row => this.mapBalanceRow(row));
+      return result.rows.map(row => this.mapBalanceRowWithGroup(row));
     } catch (error) {
       logger.error('Error getting customer balances:', error);
       throw error;
     }
+  }
+
+  private mapBalanceRowWithGroup(row: any): CustomerAffiliateGroupBalance & { group?: any } {
+    const balance = this.mapBalanceRow(row);
+    // Include group details if joined
+    if (row.group_name) {
+      return {
+        ...balance,
+        group: {
+          groupId: row.group_id,
+          groupName: row.group_name,
+          customTokenSymbol: row.custom_token_symbol,
+          customTokenName: row.custom_token_name,
+          icon: row.icon,
+          description: row.group_description
+        }
+      };
+    }
+    return balance;
   }
 
   async updateCustomerBalance(

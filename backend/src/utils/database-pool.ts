@@ -94,19 +94,22 @@ export async function closeSharedPool(): Promise<void> {
   }
 }
 
-// Warm up the connection pool by pre-establishing connections
+// Warm up the connection pool by pre-establishing multiple connections
 export async function warmUpPool(): Promise<void> {
   const pool = getSharedPool();
   try {
-    // Execute a simple query with timeout to establish connection
+    // Execute multiple parallel queries to establish several connections at once
+    // This ensures the pool has ready connections for incoming requests
+    const warmupQueries = Array(5).fill(null).map(() => pool.query('SELECT 1'));
+
     await Promise.race([
-      pool.query('SELECT 1 as test'),
+      Promise.all(warmupQueries),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Pool warmup timeout after 3s')), 3000)
+        setTimeout(() => reject(new Error('Pool warmup timeout after 8s')), 8000)
       )
     ]);
 
-    logger.info('Database pool warmed up successfully');
+    logger.info('Database pool warmed up successfully with 5 connections');
   } catch (error) {
     logger.error('Failed to warm up database pool:', error);
     // Don't crash the app, just continue without warmup

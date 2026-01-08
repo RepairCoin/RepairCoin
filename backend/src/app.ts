@@ -480,13 +480,13 @@ class RepairCoinApp {
     if (process.env.SKIP_DB_CONNECTION_TESTS === 'true') {
       console.log('🔥 Skipping database pool warmup (connection tests disabled)');
     } else {
-      console.log('🔥 Warming up database connection pool...');
+      console.log('🔥 Warming up database connection pool (this may take a few seconds for remote DB)...');
       const { warmUpPool, startPoolMonitoring } = await import('./utils/database-pool');
       try {
         await Promise.race([
           warmUpPool(),
           new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Pool warmup timeout after 3s')), 3000)
+            setTimeout(() => reject(new Error('Pool warmup timeout after 10s')), 10000)
           )
         ]);
 

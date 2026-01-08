@@ -2,13 +2,24 @@
 
 import { useState, useEffect } from "react";
 import { useActiveAccount } from "thirdweb/react";
-import { Coins, TrendingUp, ChevronRight } from "lucide-react";
+import { Coins, ChevronRight } from "lucide-react";
 import * as shopGroupsAPI from "../../services/api/affiliateShopGroups";
+
+// Extended type to include embedded group data from backend
+interface BalanceWithGroup extends shopGroupsAPI.CustomerAffiliateGroupBalance {
+  group?: {
+    groupId: string;
+    groupName: string;
+    customTokenSymbol: string;
+    customTokenName: string;
+    icon: string;
+    description: string;
+  };
+}
 
 export default function GroupBalancesCard() {
   const account = useActiveAccount();
-  const [balances, setBalances] = useState<shopGroupsAPI.CustomerAffiliateGroupBalance[]>([]);
-  const [groups, setGroups] = useState<Map<string, shopGroupsAPI.ShopGroup>>(new Map());
+  const [balances, setBalances] = useState<BalanceWithGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
 
@@ -23,23 +34,9 @@ export default function GroupBalancesCard() {
 
     try {
       setLoading(true);
-      const balancesData = await shopGroupsAPI.getAllCustomerBalances(account.address);
-
-      // Load group details for each balance
-      const groupsMap = new Map<string, shopGroupsAPI.ShopGroup>();
-      await Promise.all(
-        balancesData.map(async (balance) => {
-          if (!groupsMap.has(balance.groupId)) {
-            const group = await shopGroupsAPI.getGroup(balance.groupId);
-            if (group) {
-              groupsMap.set(balance.groupId, group);
-            }
-          }
-        })
-      );
-
+      // Backend now returns group details embedded in the response - single API call!
+      const balancesData = await shopGroupsAPI.getAllCustomerBalances(account.address) as BalanceWithGroup[];
       setBalances(balancesData);
-      setGroups(groupsMap);
     } catch (error) {
       console.error("Error loading group balances:", error);
     } finally {
@@ -98,7 +95,7 @@ export default function GroupBalancesCard() {
       <div className="bg-[#212121] p-4 sm:p-6">
         <div className="space-y-3">
           {displayBalances.map((balance) => {
-            const group = groups.get(balance.groupId);
+            const group = balance.group;
             if (!group) return null;
 
             return (

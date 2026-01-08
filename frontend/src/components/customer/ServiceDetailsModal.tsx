@@ -52,7 +52,7 @@ export const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-[#1A1A1A] border border-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-[#1A1A1A] z-10 border-b border-gray-800">
+        <div className="sticky top-0 bg-[#1A1A1A] z-20 border-b border-gray-800">
           <div className="flex items-center justify-between p-6">
             <div className="flex-1">
               <h2 className="text-2xl font-bold text-white mb-2">Service Details</h2>
