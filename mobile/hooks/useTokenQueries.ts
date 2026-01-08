@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/auth.store";
 import { queryKeys } from "@/config/queryClient";
 import { tokenApi } from "@/services/token.services";
-import { RedemptionSessionStatusResponse } from "@/interfaces/token.interface";
+import { MyRedemptionSessionsResponse } from "@/interfaces/token.interface";
 
 // Interfaces
 export interface BalanceData {
@@ -112,10 +112,10 @@ export const useRedemptionSessions = () => {
   const { userProfile } = useAuthStore();
   const walletAddress = userProfile?.address;
 
-  return useQuery<RedemptionSessionStatusResponse>({
+  return useQuery<MyRedemptionSessionsResponse>({
     queryKey: queryKeys.redemptionSessions(walletAddress || ""),
     queryFn: async () => {
-      const response: RedemptionSessionStatusResponse = await tokenApi.fetchMyRedemptionSessions();
+      const response: MyRedemptionSessionsResponse = await tokenApi.fetchMyRedemptionSessions();
       return response;
     },
     enabled: !!walletAddress,
