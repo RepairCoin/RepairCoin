@@ -6,12 +6,16 @@ import {
   RefreshControl,
   ActivityIndicator,
   Pressable,
+  TouchableOpacity,
+  Modal,
+  Alert,
 } from "react-native";
-import { AntDesign, Ionicons } from "@expo/vector-icons";
-import { goBack } from "expo-router/build/global-state/routing";
+import { Ionicons } from "@expo/vector-icons";
 import { notificationApi } from "@/services/notification.services";
 import { Notification } from "@/interfaces/notification.interface";
 import { NotificationCard } from "../components";
+import { AppHeader } from "@/components/ui/AppHeader";
+import { usePushNotificationContext } from "@/providers/PushNotificationProvider";
 
 type TabType = "unread" | "all";
 
@@ -23,6 +27,41 @@ export default function NotificationScreen() {
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("unread");
+  const [showMenu, setShowMenu] = useState(false);
+
+  const { unregisterPushNotifications, registerForPushNotifications, isRegistered } = usePushNotificationContext();
+
+  const handleTurnOffNotifications = () => {
+    setShowMenu(false);
+    Alert.alert(
+      "Turn Off Notifications",
+      "Are you sure you want to turn off push notifications? You won't receive any notifications until you turn them back on.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Turn Off",
+          style: "destructive",
+          onPress: async () => {
+            await unregisterPushNotifications();
+            Alert.alert("Success", "Push notifications have been turned off.");
+          },
+        },
+      ]
+    );
+  };
+
+  const handleTurnOnNotifications = async () => {
+    setShowMenu(false);
+    const token = await registerForPushNotifications();
+    if (token) {
+      Alert.alert("Success", "Push notifications have been turned on.");
+    } else {
+      Alert.alert(
+        "Permission Required",
+        "Please enable notifications in your device settings to receive push notifications."
+      );
+    }
+  };
 
   const fetchNotifications = useCallback(async (pageNum: number = 1, refresh: boolean = false) => {
     try {
@@ -133,17 +172,50 @@ export default function NotificationScreen() {
   return (
     <View className="w-full h-full bg-zinc-950">
       {/* Header */}
-      <View className="pt-16 px-4 pb-2">
-        <View className="flex-row justify-between items-center">
-          <Pressable onPress={goBack} className="p-2 -ml-2">
-            <AntDesign name="left" color="white" size={18} />
-          </Pressable>
-          <Text className="text-white text-xl font-bold">Notifications</Text>
-          <View className="w-[30px]" />
-        </View>
+      <AppHeader
+        title="Notifications"
+        rightElement={
+          <TouchableOpacity
+            onPress={() => setShowMenu(true)}
+            className="p-2"
+          >
+            <Ionicons name="ellipsis-vertical" size={20} color="white" />
+          </TouchableOpacity>
+        }
+      />
 
-        {/* Tabs and Mark All as Read */}
-        <View className="flex-row justify-between items-center mt-4">
+      {/* Menu Modal */}
+      <Modal
+        visible={showMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowMenu(false)}
+      >
+        <Pressable
+          className="flex-1 bg-black/50"
+          onPress={() => setShowMenu(false)}
+        >
+          <View className="absolute top-24 right-4 bg-zinc-800 rounded-xl overflow-hidden min-w-[200px]">
+            <TouchableOpacity
+              onPress={isRegistered ? handleTurnOffNotifications : handleTurnOnNotifications}
+              className="flex-row items-center px-4 py-3"
+            >
+              <Ionicons
+                name={isRegistered ? "notifications-off-outline" : "notifications-outline"}
+                size={20}
+                color={isRegistered ? "#EF4444" : "#22C55E"}
+              />
+              <Text className={`ml-3 text-base ${isRegistered ? "text-red-400" : "text-green-400"}`}>
+                {isRegistered ? "Turn off notifications" : "Turn on notifications"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* Tabs and Mark All as Read */}
+      <View className="px-4">
+        <View className="flex-row justify-between items-center">
           {/* Tabs */}
           <View className="flex-row">
             <Pressable
