@@ -146,9 +146,9 @@ export default function CustomerWalletTab() {
   }
 
   return (
-    <View className="mt-4 h-full">
+    <View className="flex-1">
       <ScrollView
-        className="mb-44 h-full"
+        className="h-full"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -188,24 +188,27 @@ export default function CustomerWalletTab() {
         />
 
         {/* Trending Services Section */}
-        <TrendingSection
-          handleViewAllTrendingServices={handleViewAllTrendingServices}
-          trendingLoading={trendingLoading}
-          trendingData={trendingData || []}
-          getCategoryLabel={getCategoryLabel}
-          handleServicePress={(item) => handleServicePress(item)}
-          favoritedIds={favoritedIds}
-        />
-
+        {trendingData && trendingData.length > 0 && (
+          <TrendingSection
+            handleViewAllTrendingServices={handleViewAllTrendingServices}
+            trendingLoading={trendingLoading}
+            trendingData={trendingData}
+            getCategoryLabel={getCategoryLabel}
+            handleServicePress={(item) => handleServicePress(item)}
+            favoritedIds={favoritedIds}
+          />
+        )}
         {/* Choose Service Section */}
-        <ServiceSection
-          handleViewAllServices={handleViewAllServices}
-          servicesLoading={servicesLoading}
-          displayedServices={displayedServices}
-          getCategoryLabel={getCategoryLabel}
-          handleServicePress={handleServicePress}
-          favoritedIds={favoritedIds}
-        />
+        {displayedServices && displayedServices.length > 0 && (
+          <ServiceSection
+            handleViewAllServices={handleViewAllServices}
+            servicesLoading={servicesLoading}
+            displayedServices={displayedServices}
+            getCategoryLabel={getCategoryLabel}
+            handleServicePress={handleServicePress}
+            favoritedIds={favoritedIds}
+          />
+        )}
       </ScrollView>
     </View>
   );
