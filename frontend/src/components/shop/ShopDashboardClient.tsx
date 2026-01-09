@@ -270,11 +270,13 @@ export default function ShopDashboardClient() {
       'subscription_self_cancelled',
       'subscription_paused',
       'subscription_resumed',
-      'subscription_reactivated'
+      'subscription_reactivated',
+      'shop_suspended',
+      'shop_unsuspended'
     ];
 
     if (subscriptionNotificationTypes.includes(latestNotification.notificationType)) {
-      console.log('📋 Subscription notification received, refreshing shop data...', {
+      console.log('📋 Shop/Subscription notification received, refreshing shop data...', {
         type: latestNotification.notificationType,
         id: latestNotification.id
       });
@@ -495,6 +497,12 @@ export default function ShopDashboardClient() {
   };
 
   const initiatePurchase = async () => {
+    // For suspended/rejected/paused shops, show the suspended modal instead of onboarding
+    if (isSuspended || isRejected || isPaused) {
+      setShowSuspendedModal(true);
+      return;
+    }
+
     if (!isOperational) {
       setShowOnboardingModal(true);
     } else {
@@ -1027,7 +1035,11 @@ export default function ShopDashboardClient() {
           )}
 
           {activeTab === "subscription" && shopData && (
-            <SubscriptionManagement shopId={shopData.shopId} />
+            <SubscriptionManagement
+              shopId={shopData.shopId}
+              isSuspended={!!isSuspended}
+              isPaused={!!isPaused}
+            />
           )}
 
           {activeTab === "marketing" && shopData && (
@@ -1039,6 +1051,8 @@ export default function ShopDashboardClient() {
               shopId={shopData.shopId}
               shopData={shopData}
               onSettingsUpdate={loadShopData}
+              isSuspended={!!isSuspended}
+              isPaused={!!isPaused}
             />
           )}
 
@@ -1116,12 +1130,12 @@ export default function ShopDashboardClient() {
             showCoinsAnimation={true}
           />
 
-          {/* Onboarding Modal */}
+          {/* Onboarding Modal - Don't show for suspended/rejected/paused shops */}
           {shopData && (
             <>
               <OnboardingModal
                 shopData={shopData}
-                open={showOnboardingModal}
+                open={showOnboardingModal && !isSuspended && !isRejected && !isPaused}
                 onClose={() => setShowOnboardingModal(false)}
               />
 
@@ -1149,8 +1163,8 @@ export default function ShopDashboardClient() {
                 }
               />
 
-              {/* Cancelled Subscription Modal */}
-              {isCancelledButActive && shopData?.subscriptionEndsAt && (
+              {/* Cancelled Subscription Modal - Don't show for suspended/paused shops */}
+              {isCancelledButActive && shopData?.subscriptionEndsAt && !isSuspended && !isPaused && (
                 <CancelledSubscriptionModal
                   isOpen={showCancelledModal}
                   onClose={() => setShowCancelledModal(false)}

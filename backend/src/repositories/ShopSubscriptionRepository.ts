@@ -368,6 +368,70 @@ export class ShopSubscriptionRepository extends BaseRepository {
     await this.pool.query(query, [subscriptionIds]);
   }
 
+  /**
+   * Sync next_payment_date from stripe_subscriptions.current_period_end
+   * This ensures shop_subscriptions stays in sync with Stripe data
+   */
+  async syncNextPaymentDateFromStripe(shopId: string, currentPeriodEnd: Date): Promise<void> {
+    try {
+      const query = `
+        UPDATE shop_subscriptions
+        SET next_payment_date = $1,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE shop_id = $2
+        AND status IN ('active', 'cancelled')
+      `;
+
+      const result = await this.pool.query(query, [currentPeriodEnd, shopId]);
+
+      if (result.rowCount && result.rowCount > 0) {
+        logger.info('Synced shop_subscriptions.next_payment_date from Stripe', {
+          shopId,
+          nextPaymentDate: currentPeriodEnd.toISOString(),
+          rowsUpdated: result.rowCount
+        });
+      }
+    } catch (error) {
+      logger.error('Error syncing next_payment_date from Stripe:', {
+        shopId,
+        currentPeriodEnd,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      // Don't throw - this is a sync operation, shouldn't block main flow
+    }
+  }
+
+  /**
+   * Sync next_payment_date by shop_id using stripe_subscription_id lookup
+   */
+  async syncNextPaymentDateByStripeSubscriptionId(stripeSubscriptionId: string, currentPeriodEnd: Date): Promise<void> {
+    try {
+      // First get the shop_id from stripe_subscriptions
+      const shopIdQuery = `
+        SELECT shop_id FROM stripe_subscriptions
+        WHERE stripe_subscription_id = $1
+        LIMIT 1
+      `;
+      const shopIdResult = await this.pool.query(shopIdQuery, [stripeSubscriptionId]);
+
+      if (shopIdResult.rows.length === 0) {
+        logger.warn('No shop found for stripe subscription, cannot sync next_payment_date', {
+          stripeSubscriptionId
+        });
+        return;
+      }
+
+      const shopId = shopIdResult.rows[0].shop_id;
+      await this.syncNextPaymentDateFromStripe(shopId, currentPeriodEnd);
+    } catch (error) {
+      logger.error('Error syncing next_payment_date by stripe subscription id:', {
+        stripeSubscriptionId,
+        currentPeriodEnd,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
   protected mapSnakeToCamel(row: any): ShopSubscription {
     return {
       id: row.id,

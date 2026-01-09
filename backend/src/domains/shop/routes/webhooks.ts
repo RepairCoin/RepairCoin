@@ -923,6 +923,16 @@ async function updateSubscriptionInDatabase(subscription: Stripe.Subscription) {
           rcgBalance
         });
       }
+
+      // Sync shop_subscriptions.next_payment_date with stripe's current_period_end
+      const currentPeriodEnd = (subscription as any).current_period_end;
+      if (currentPeriodEnd) {
+        const shopSubRepo = new ShopSubscriptionRepository();
+        await shopSubRepo.syncNextPaymentDateFromStripe(
+          shopId,
+          new Date(currentPeriodEnd * 1000)
+        );
+      }
     }
 
     logger.info('Subscription updated in database', {

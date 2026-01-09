@@ -54,11 +54,15 @@ interface Subscription {
 interface SubscriptionManagementProps {
   shopId: string;
   shopWallet?: string;
+  isSuspended?: boolean;
+  isPaused?: boolean;
 }
 
 export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
   shopId,
   shopWallet,
+  isSuspended = false,
+  isPaused = false,
 }) => {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
@@ -383,8 +387,9 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
 
       {subscription && subscription.status === "active" ? (
         <div className="space-y-6">
-          {/* Active Subscription Status */}
-          {subscription.cancelAtPeriodEnd ? (
+          {/* Subscription Status Banner */}
+          {/* When suspended, always show normal active view - cancellation warning is irrelevant */}
+          {!isSuspended && subscription.cancelAtPeriodEnd ? (
             <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-4">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
@@ -490,42 +495,44 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
             </div>
           </div>
 
-          {/* Cancel/Reactivate Button */}
-          <div className="pt-4 border-t border-gray-700">
-            {subscription.cancelAtPeriodEnd ? (
-              <div>
-                <Button
-                  onClick={() => setShowReactivateModal(true)}
-                  className="bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold"
-                >
-                  Reactivate Subscription
-                </Button>
-                <p className="text-sm text-gray-400 mt-2">
-                  Changed your mind? Reactivate to keep your subscription after{" "}
-                  {subscription.currentPeriodEnd
-                    ? new Date(
-                        subscription.currentPeriodEnd
-                      ).toLocaleDateString()
-                    : "the current period"}
-                  .
-                </p>
-              </div>
-            ) : (
-              <div>
-                <Button
-                  onClick={() => setShowCancelModal(true)}
-                  variant="destructive"
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors
+          {/* Cancel/Reactivate Button - Hidden for suspended/paused shops */}
+          {!isSuspended && !isPaused && (
+            <div className="pt-4 border-t border-gray-700">
+              {subscription.cancelAtPeriodEnd ? (
+                <div>
+                  <Button
+                    onClick={() => setShowReactivateModal(true)}
+                    className="bg-[#FFCC00] hover:bg-[#FFD700] text-black font-bold"
+                  >
+                    Reactivate Subscription
+                  </Button>
+                  <p className="text-sm text-gray-400 mt-2">
+                    Changed your mind? Reactivate to keep your subscription after{" "}
+                    {subscription.currentPeriodEnd
+                      ? new Date(
+                          subscription.currentPeriodEnd
+                        ).toLocaleDateString()
+                      : "the current period"}
+                    .
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <Button
+                    onClick={() => setShowCancelModal(true)}
+                    variant="destructive"
+                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors
   font-medium flex items-center justify-center gap-2"
-                >
-                  Cancel Subscription
-                </Button>
-                <p className="text-sm text-gray-400 mt-2">
-                  You can cancel anytime and resubscribe when needed.
-                </p>
-              </div>
-            )}
-          </div>
+                  >
+                    Cancel Subscription
+                  </Button>
+                  <p className="text-sm text-gray-400 mt-2">
+                    You can cancel anytime and resubscribe when needed.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       ) : subscription && subscription.status === "paused" ? (
         <div className="space-y-6">
