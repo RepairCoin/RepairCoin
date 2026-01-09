@@ -474,7 +474,7 @@ export class AppointmentRepository extends BaseRepository {
           so.created_at as "createdAt",
           CASE WHEN sr.review_id IS NOT NULL THEN true ELSE false END as "hasReview"
         FROM service_orders so
-        LEFT JOIN customers c ON c.wallet_address = so.customer_address
+        LEFT JOIN customers c ON c.address = so.customer_address
         LEFT JOIN shop_services ss ON ss.service_id = so.service_id
         LEFT JOIN shops s ON s.shop_id = so.shop_id
         LEFT JOIN service_reviews sr ON sr.order_id = so.order_id

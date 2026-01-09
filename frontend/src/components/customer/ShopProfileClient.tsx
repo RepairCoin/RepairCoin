@@ -510,6 +510,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
             </div>
           </div>
         </div>
+        </div>
 
         {/* Google Maps Embed */}
         {shopInfo?.location?.lat && shopInfo?.location?.lng && (
@@ -726,7 +727,7 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
             )}
             <div className="mt-2 text-center">
               <p className="text-gray-400 text-sm">
-                {lightboxIndex + 1} / {galleryPhotos.length}
+                {`${lightboxIndex + 1} / ${galleryPhotos.length}`}
               </p>
             </div>
           </div>
@@ -764,7 +765,6 @@ export const ShopProfileClient: React.FC<ShopProfileClientProps> = ({ shopId }) 
           onSuccess={handleCheckoutSuccess}
         />
       )}
-      </div>
     </div>
   );
 };

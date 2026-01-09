@@ -804,6 +804,114 @@ export function initializeRoutes(stripe: StripeService): Router {
     orderController.markNoShow
   );
 
+  /**
+   * @swagger
+   * /api/services/orders/{id}/approve:
+   *   post:
+   *     summary: Approve a booking (Shop only)
+   *     description: Approve a paid booking to confirm the appointment
+   *     tags: [Service Orders]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Order ID
+   *     responses:
+   *       200:
+   *         description: Booking approved successfully
+   *       400:
+   *         description: Invalid request or order status
+   *       401:
+   *         description: Unauthorized
+   *       403:
+   *         description: Order doesn't belong to this shop
+   *       404:
+   *         description: Order not found
+   */
+  router.post(
+    '/orders/:id/approve',
+    authMiddleware,
+    requireRole(['shop']),
+    orderController.approveBooking
+  );
+
+  /**
+   * @swagger
+   * /api/services/orders/{id}/reschedule:
+   *   post:
+   *     summary: Reschedule a booking (Shop only)
+   *     description: Reschedule a paid booking to a new date/time
+   *     tags: [Service Orders]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Order ID
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - newBookingDate
+   *               - newBookingTime
+   *             properties:
+   *               newBookingDate:
+   *                 type: string
+   *                 format: date
+   *               newBookingTime:
+   *                 type: string
+   *                 example: "10:00"
+   *               reason:
+   *                 type: string
+   *     responses:
+   *       200:
+   *         description: Booking rescheduled successfully
+   *       400:
+   *         description: Invalid request or order status
+   *       401:
+   *         description: Unauthorized
+   *       403:
+   *         description: Order doesn't belong to this shop
+   *       404:
+   *         description: Order not found
+   */
+  router.post(
+    '/orders/:id/reschedule',
+    authMiddleware,
+    requireRole(['shop']),
+    orderController.rescheduleBooking
+  );
+
+  /**
+   * @swagger
+   * /api/services/orders/pending-approval:
+   *   get:
+   *     summary: Get pending approval bookings (Shop only)
+   *     description: Get all bookings waiting for shop approval
+   *     tags: [Service Orders]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: List of pending approval bookings
+   */
+  router.get(
+    '/orders/pending-approval',
+    authMiddleware,
+    requireRole(['shop']),
+    orderController.getPendingApprovalBookings
+  );
+
   // ==================== REVIEWS ROUTES ====================
 
   /**
