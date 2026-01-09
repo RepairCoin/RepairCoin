@@ -31,7 +31,7 @@ import { ShopServiceOrdersTab } from "@/components/shop/tabs/ShopServiceOrdersTa
 import { BookingsTabV2 } from "@/components/shop/bookings";
 import { MarketingTab } from "@/components/shop/tabs/MarketingTab";
 import ServiceAnalyticsTab from "@/components/shop/tabs/ServiceAnalyticsTab";
-import { AppointmentCalendar } from "@/components/shop/AppointmentCalendar";
+import { AppointmentsTab } from "@/components/shop/tabs/AppointmentsTab";
 import { MessagesTab } from "@/components/shop/tabs/MessagesTab";
 import { RescheduleRequestsTab } from "@/components/shop/tabs/RescheduleRequestsTab";
 import { useShopRegistration } from "@/hooks/useShopRegistration";
@@ -955,7 +955,7 @@ export default function ShopDashboardClient() {
           )}
 
           {activeTab === "appointments" && shopData && (
-            <AppointmentCalendar />
+            <AppointmentsTab />
           )}
 
           {activeTab === "messages" && shopData && (
