@@ -51,8 +51,15 @@ export const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({
     try {
       setIsMessaging(true);
 
-      // Send initial message with service reference and full details
-      const initialMessage = `Hi! I'm interested in this service.`;
+      // Create detailed message with service information
+      const initialMessage = `Hi! I'm interested in your service "${service.serviceName}".
+
+📍 Service: ${service.serviceName}
+💰 Price: $${service.priceUsd}
+📂 Category: ${getCategoryLabel(service.category)}
+${service.estimatedDuration ? `⏱️ Duration: ${service.estimatedDuration}` : ''}
+
+Could you provide more details?`;
 
       await messagingApi.sendMessage({
         shopId: service.shopId,
@@ -66,6 +73,7 @@ export const ServiceDetailsModal: React.FC<ServiceDetailsModalProps> = ({
           servicePrice: service.priceUsd,
           serviceCategory: service.category,
           shopName: service.companyName,
+          estimatedDuration: service.estimatedDuration,
         }
       });
 

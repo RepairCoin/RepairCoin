@@ -42,7 +42,7 @@ interface ConversationThreadProps {
   isTyping?: boolean;
   currentUserId: string;
   currentUserType: "customer" | "shop";
-  onSendMessage: (content: string, attachments?: File[]) => void;
+  onSendMessage: (content: string, attachments?: File[]) => Promise<void>;
   onLoadMore?: () => void;
 }
 
@@ -62,6 +62,8 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
   const [messageInput, setMessageInput] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -73,11 +75,23 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const handleSend = () => {
-    if (messageInput.trim() || selectedFiles.length > 0) {
-      onSendMessage(messageInput.trim(), selectedFiles);
+  const handleSend = async () => {
+    if (!messageInput.trim() && selectedFiles.length === 0) return;
+    if (isSending) return; // Prevent double-sending
+
+    try {
+      setIsSending(true);
+      setSendError(null);
+      await onSendMessage(messageInput.trim(), selectedFiles);
+      // Only clear on success
       setMessageInput("");
       setSelectedFiles([]);
+    } catch (error: any) {
+      console.error("Error sending message:", error);
+      setSendError(error?.message || "Failed to send message. Please try again.");
+      // Keep the message in the input box for retry
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -395,11 +409,27 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
 
       {/* Input Area */}
       <div className="p-4 border-t border-gray-800 bg-[#1A1A1A]">
+        {/* Error Message */}
+        {sendError && (
+          <div className="mb-3 p-3 bg-red-900/20 border border-red-500/50 rounded-lg flex items-start justify-between">
+            <div className="flex-1">
+              <p className="text-red-400 text-sm">{sendError}</p>
+            </div>
+            <button
+              onClick={() => setSendError(null)}
+              className="ml-2 text-red-400 hover:text-red-300"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         <div className="flex items-end gap-2">
           {/* Attachment Button */}
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="p-2 hover:bg-[#0A0A0A] rounded-lg transition-colors flex-shrink-0"
+            disabled={isSending}
+            className="p-2 hover:bg-[#0A0A0A] rounded-lg transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Paperclip className="w-5 h-5 text-gray-400" />
           </button>
@@ -413,14 +443,17 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
           />
 
           {/* Message Input */}
-          <div className="flex-1 bg-[#0A0A0A] border border-gray-700 rounded-lg focus-within:ring-2 focus-within:ring-[#FFCC00] focus-within:border-transparent">
+          <div className={`flex-1 bg-[#0A0A0A] border rounded-lg focus-within:ring-2 focus-within:ring-[#FFCC00] focus-within:border-transparent ${
+            sendError ? 'border-red-500/50' : 'border-gray-700'
+          }`}>
             <textarea
               value={messageInput}
               onChange={(e) => setMessageInput(e.target.value)}
               onKeyDown={handleKeyPress}
               placeholder="Type a message..."
               rows={1}
-              className="w-full px-4 py-3 bg-transparent text-white placeholder-gray-500 resize-none focus:outline-none max-h-32"
+              disabled={isSending}
+              className="w-full px-4 py-3 bg-transparent text-white placeholder-gray-500 resize-none focus:outline-none max-h-32 disabled:opacity-50"
               style={{
                 minHeight: "44px",
                 height: "auto",
@@ -431,7 +464,8 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
           {/* Emoji Button */}
           <button
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className="p-2 hover:bg-[#0A0A0A] rounded-lg transition-colors flex-shrink-0"
+            disabled={isSending}
+            className="p-2 hover:bg-[#0A0A0A] rounded-lg transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Smile className="w-5 h-5 text-gray-400" />
           </button>
@@ -439,10 +473,14 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({
           {/* Send Button */}
           <button
             onClick={handleSend}
-            disabled={!messageInput.trim() && selectedFiles.length === 0}
+            disabled={(!messageInput.trim() && selectedFiles.length === 0) || isSending}
             className="p-3 bg-gradient-to-br from-[#FFCC00] to-[#FFD700] rounded-lg hover:from-[#FFD700] hover:to-[#FFCC00] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
           >
-            <Send className="w-5 h-5 text-black" />
+            {isSending ? (
+              <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Send className="w-5 h-5 text-black" />
+            )}
           </button>
         </div>
       </div>

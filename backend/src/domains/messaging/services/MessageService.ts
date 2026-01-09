@@ -8,7 +8,7 @@ export interface SendMessageRequest {
   conversationId?: string;
   customerAddress?: string;
   shopId?: string;
-  senderAddress: string;
+  senderIdentifier: string; // For customers: wallet address, For shops: shopId
   senderType: 'customer' | 'shop';
   messageText: string;
   messageType?: 'text' | 'booking_link' | 'service_link' | 'system';
@@ -48,10 +48,12 @@ export class MessageService {
       }
 
       // Validate sender is part of conversation
-      if (request.senderType === 'customer' && request.senderAddress !== conversation.customerAddress) {
+      // For customers: senderIdentifier is wallet address
+      if (request.senderType === 'customer' && request.senderIdentifier !== conversation.customerAddress) {
         throw new Error('Sender does not match conversation customer');
       }
-      if (request.senderType === 'shop' && request.senderAddress !== conversation.shopId) {
+      // For shops: senderIdentifier is shopId
+      if (request.senderType === 'shop' && request.senderIdentifier !== conversation.shopId) {
         throw new Error('Sender does not match conversation shop');
       }
 
@@ -74,7 +76,7 @@ export class MessageService {
       const messageParams: CreateMessageParams = {
         messageId,
         conversationId: conversation.conversationId,
-        senderAddress: request.senderAddress,
+        senderAddress: request.senderIdentifier, // This stores the identifier (wallet or shopId)
         senderType: request.senderType,
         messageText: request.messageText.trim(),
         messageType: request.messageType || 'text',
@@ -95,7 +97,7 @@ export class MessageService {
           : (conversation.shopName || 'Shop');
 
         await this.notificationService.createNotification({
-          senderAddress: request.senderAddress,
+          senderAddress: request.senderIdentifier,
           receiverAddress,
           notificationType: 'new_message',
           message: `New message from ${senderName}: ${request.messageText.substring(0, 50)}${request.messageText.length > 50 ? '...' : ''}`,
@@ -126,17 +128,21 @@ export class MessageService {
 
   /**
    * Get conversations for a user
+   * @param userIdentifier - For customers: wallet address, For shops: shopId
+   * @param userType - 'customer' or 'shop'
+   * @param options - Pagination options
    */
   async getConversations(
-    userAddress: string,
+    userIdentifier: string,
     userType: 'customer' | 'shop',
     options: { page?: number; limit?: number } = {}
   ): Promise<any> {
     try {
       if (userType === 'customer') {
-        return await this.messageRepo.getCustomerConversations(userAddress, options);
+        return await this.messageRepo.getCustomerConversations(userIdentifier, options);
       } else {
-        return await this.messageRepo.getShopConversations(userAddress, options);
+        // For shops, userIdentifier is shopId
+        return await this.messageRepo.getShopConversations(userIdentifier, options);
       }
     } catch (error) {
       logger.error('Error in getConversations:', error);
@@ -146,10 +152,14 @@ export class MessageService {
 
   /**
    * Get messages in a conversation
+   * @param conversationId - The conversation ID
+   * @param userIdentifier - For customers: wallet address, For shops: shopId
+   * @param userType - 'customer' or 'shop'
+   * @param options - Pagination options
    */
   async getMessages(
     conversationId: string,
-    userAddress: string,
+    userIdentifier: string,
     userType: 'customer' | 'shop',
     options: { page?: number; limit?: number } = {}
   ): Promise<any> {
@@ -160,11 +170,12 @@ export class MessageService {
         throw new Error('Conversation not found');
       }
 
-      if (userType === 'customer' && userAddress !== conversation.customerAddress) {
+      if (userType === 'customer' && userIdentifier !== conversation.customerAddress) {
         throw new Error('Unauthorized: Not part of this conversation');
       }
 
-      if (userType === 'shop' && userAddress !== conversation.shopId) {
+      // For shops, userIdentifier is shopId
+      if (userType === 'shop' && userIdentifier !== conversation.shopId) {
         throw new Error('Unauthorized: Not part of this conversation');
       }
 
@@ -178,10 +189,13 @@ export class MessageService {
 
   /**
    * Mark conversation as read
+   * @param conversationId - The conversation ID
+   * @param userIdentifier - For customers: wallet address, For shops: shopId
+   * @param userType - 'customer' or 'shop'
    */
   async markConversationAsRead(
     conversationId: string,
-    userAddress: string,
+    userIdentifier: string,
     userType: 'customer' | 'shop'
   ): Promise<void> {
     try {
@@ -191,11 +205,12 @@ export class MessageService {
         throw new Error('Conversation not found');
       }
 
-      if (userType === 'customer' && userAddress !== conversation.customerAddress) {
+      if (userType === 'customer' && userIdentifier !== conversation.customerAddress) {
         throw new Error('Unauthorized');
       }
 
-      if (userType === 'shop' && userAddress !== conversation.shopId) {
+      // For shops, userIdentifier is shopId
+      if (userType === 'shop' && userIdentifier !== conversation.shopId) {
         throw new Error('Unauthorized');
       }
 
