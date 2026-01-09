@@ -6,6 +6,9 @@ import {
 } from "../../../../repositories";
 import { logger } from "../../../../utils/logger";
 import { eventBus, createDomainEvent } from "../../../../events/EventBus";
+import { EmailService } from "../../../../services/EmailService";
+
+const emailService = new EmailService();
 
 export interface ShopFilters {
   active?: boolean;
@@ -258,6 +261,36 @@ export class ShopManagementService {
 
       logger.info("Shop suspended", { shopId, reason, adminAddress });
 
+      // Emit event for real-time notification via WebSocket
+      if (shop.walletAddress) {
+        const shopAddress = shop.walletAddress.toLowerCase();
+        await eventBus.publish(createDomainEvent(
+          'shop:suspended',
+          shopId,
+          {
+            shopAddress,
+            shopName: shop.name,
+            reason: reason || 'Suspended by administrator'
+          },
+          'ShopManagementService'
+        ));
+        logger.info('Shop suspension event emitted', { shopId, shopAddress });
+      }
+
+      // Send email notification
+      if (shop.email) {
+        try {
+          await emailService.sendShopSuspendedByAdmin(
+            shop.email,
+            shop.name || 'Shop Owner',
+            reason || 'Suspended by administrator'
+          );
+          logger.info('Shop suspension email sent', { shopId, email: shop.email });
+        } catch (emailError) {
+          logger.error('Failed to send suspension email:', emailError);
+        }
+      }
+
       return {
         success: true,
         message: "Shop suspended successfully",
@@ -297,6 +330,34 @@ export class ShopManagementService {
       });
 
       logger.info("Shop unsuspended", { shopId, adminAddress });
+
+      // Emit event for real-time notification via WebSocket
+      if (shop.walletAddress) {
+        const shopAddress = shop.walletAddress.toLowerCase();
+        await eventBus.publish(createDomainEvent(
+          'shop:unsuspended',
+          shopId,
+          {
+            shopAddress,
+            shopName: shop.name
+          },
+          'ShopManagementService'
+        ));
+        logger.info('Shop unsuspension event emitted', { shopId, shopAddress });
+      }
+
+      // Send email notification
+      if (shop.email) {
+        try {
+          await emailService.sendShopUnsuspendedByAdmin(
+            shop.email,
+            shop.name || 'Shop Owner'
+          );
+          logger.info('Shop unsuspension email sent', { shopId, email: shop.email });
+        } catch (emailError) {
+          logger.error('Failed to send unsuspension email:', emailError);
+        }
+      }
 
       return {
         success: true,

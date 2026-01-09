@@ -26,6 +26,8 @@ export interface NotificationMessageTemplates {
   reschedule_request_approved: (data: { shopName: string; serviceName: string; newDate: string; newTime: string }) => string;
   reschedule_request_rejected: (data: { shopName: string; serviceName: string; reason?: string }) => string;
   reschedule_request_expired: (data: { shopName: string; serviceName: string }) => string;
+  shop_suspended: (data: { shopName?: string; reason?: string }) => string;
+  shop_unsuspended: (data: { shopName?: string }) => string;
 }
 
 export class NotificationService {
@@ -106,7 +108,13 @@ export class NotificationService {
         `${data.shopName} declined your reschedule request for ${data.serviceName}${data.reason ? ': ' + data.reason : '.'}`,
 
       reschedule_request_expired: (data) =>
-        `Your reschedule request for ${data.serviceName} at ${data.shopName} has expired. Please submit a new request if needed.`
+        `Your reschedule request for ${data.serviceName} at ${data.shopName} has expired. Please submit a new request if needed.`,
+
+      shop_suspended: (data) =>
+        `Your shop${data.shopName ? ` (${data.shopName})` : ''} has been suspended by an administrator${data.reason ? ': ' + data.reason : '.'}`,
+
+      shop_unsuspended: (data) =>
+        `Your shop${data.shopName ? ` (${data.shopName})` : ''} has been unsuspended. You can now resume normal operations.`
     };
   }
 
@@ -427,6 +435,46 @@ export class NotificationService {
       notificationType: 'subscription_reactivated',
       message,
       metadata: {
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  // Shop Suspension Notifications
+
+  async createShopSuspendedNotification(
+    shopAddress: string,
+    shopName?: string,
+    reason?: string
+  ): Promise<Notification> {
+    const message = this.messageTemplates.shop_suspended({ shopName, reason });
+
+    return this.createNotification({
+      senderAddress: 'SYSTEM',
+      receiverAddress: shopAddress,
+      notificationType: 'shop_suspended',
+      message,
+      metadata: {
+        shopName,
+        reason,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  async createShopUnsuspendedNotification(
+    shopAddress: string,
+    shopName?: string
+  ): Promise<Notification> {
+    const message = this.messageTemplates.shop_unsuspended({ shopName });
+
+    return this.createNotification({
+      senderAddress: 'SYSTEM',
+      receiverAddress: shopAddress,
+      notificationType: 'shop_unsuspended',
+      message,
+      metadata: {
+        shopName,
         timestamp: new Date().toISOString()
       }
     });

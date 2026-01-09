@@ -531,6 +531,96 @@ export class EmailService {
   }
 
   /**
+   * Send shop suspended by admin notice
+   */
+  async sendShopSuspendedByAdmin(shopEmail: string, shopName: string, reason?: string): Promise<boolean> {
+    const subject = '🚫 Your RepairCoin Shop Has Been Suspended';
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #dc2626;">Shop Suspended</h2>
+
+        <p>Dear ${shopName},</p>
+
+        <p>Your RepairCoin shop has been suspended by an administrator.</p>
+
+        <div style="background-color: #fef2f2; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc2626;">
+          <p style="margin: 5px 0;"><strong>Status:</strong> Suspended</p>
+          <p style="margin: 5px 0;"><strong>Reason:</strong> ${reason || 'Not specified'}</p>
+        </div>
+
+        <p><strong>While your shop is suspended, you will not be able to:</strong></p>
+
+        <ul>
+          <li>Issue RCN rewards to customers</li>
+          <li>Process RCN redemptions</li>
+          <li>Manage services in the marketplace</li>
+          <li>Look up customer information</li>
+          <li>Purchase additional RCN tokens</li>
+        </ul>
+
+        <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <p style="margin: 0;"><strong>Important:</strong> Your subscription billing will continue during the suspension period. If you believe this suspension was made in error, please contact our support team immediately to resolve the issue.</p>
+        </div>
+
+        <p style="color: #666;"><em>Note: You will still be able to view your purchase history and limited analytics.</em></p>
+
+        <hr style="border: 1px solid #ddd; margin: 30px 0;">
+
+        <p style="color: #666; font-size: 12px;">
+          This is an automated message from RepairCoin. For support, please contact support@repaircoin.com
+        </p>
+      </div>
+    `;
+
+    return this.sendEmail(shopEmail, subject, html);
+  }
+
+  /**
+   * Send shop unsuspended by admin notice
+   */
+  async sendShopUnsuspendedByAdmin(shopEmail: string, shopName: string): Promise<boolean> {
+    const subject = '✅ Your RepairCoin Shop Has Been Unsuspended';
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #10b981;">Shop Unsuspended</h2>
+
+        <p>Dear ${shopName},</p>
+
+        <p>Great news! Your RepairCoin shop has been unsuspended by an administrator.</p>
+
+        <div style="background-color: #d1fae5; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
+          <p style="margin: 5px 0;"><strong>Status:</strong> Active</p>
+          <p style="margin: 0;"><strong>All platform features are now available.</strong></p>
+        </div>
+
+        <p><strong>You can now:</strong></p>
+
+        <ul>
+          <li>Issue RCN rewards to customers</li>
+          <li>Process RCN redemptions</li>
+          <li>Manage services in the marketplace</li>
+          <li>Look up customer information</li>
+          <li>Purchase RCN tokens at $0.10 each</li>
+        </ul>
+
+        <p>Thank you for your patience. We apologize for any inconvenience caused during the suspension period.</p>
+
+        <p>If you have any questions, please don't hesitate to contact our support team.</p>
+
+        <hr style="border: 1px solid #ddd; margin: 30px 0;">
+
+        <p style="color: #666; font-size: 12px;">
+          This is an automated message from RepairCoin. For support, please contact support@repaircoin.com
+        </p>
+      </div>
+    `;
+
+    return this.sendEmail(shopEmail, subject, html);
+  }
+
+  /**
    * Send welcome email for new trial subscription
    */
   async sendTrialWelcome(shopEmail: string, shopName: string, trialDays: number): Promise<boolean> {

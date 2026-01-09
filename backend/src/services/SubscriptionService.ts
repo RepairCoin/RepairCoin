@@ -2,6 +2,7 @@ import { getStripeService, StripeService } from './StripeService';
 import { logger } from '../utils/logger';
 import { BaseRepository } from '../repositories/BaseRepository';
 import { eventBus } from '../events/EventBus';
+import { ShopSubscriptionRepository } from '../repositories/ShopSubscriptionRepository';
 
 export interface SubscriptionData {
   id: number;
@@ -140,6 +141,10 @@ export class SubscriptionService extends BaseRepository {
 
       const subscription = this.mapSubscriptionRow(subscriptionResult.rows[0]);
 
+      // Sync shop_subscriptions.next_payment_date with stripe's current_period_end
+      const shopSubRepo = new ShopSubscriptionRepository();
+      await shopSubRepo.syncNextPaymentDateFromStripe(shopId, new Date(currentPeriodEnd * 1000));
+
       // Publish event
       eventBus.publish({
         type: 'subscription.created',
@@ -147,7 +152,7 @@ export class SubscriptionService extends BaseRepository {
         timestamp: new Date(),
         source: 'SubscriptionService',
         version: 1,
-        data: { 
+        data: {
           subscriptionId: subscription.stripeSubscriptionId,
           status: subscription.status,
           priceId: subscription.stripePriceId
@@ -575,6 +580,10 @@ export class SubscriptionService extends BaseRepository {
         });
       }
 
+      // Sync shop_subscriptions.next_payment_date with stripe's current_period_end
+      const shopSubRepo = new ShopSubscriptionRepository();
+      await shopSubRepo.syncNextPaymentDateFromStripe(shopId, periodEnd);
+
       await client.query('COMMIT');
 
       logger.info('Subscription synced from Stripe', {
@@ -683,6 +692,12 @@ export class SubscriptionService extends BaseRepository {
           currentPeriodEnd,
           reason
         });
+      }
+
+      // Sync shop_subscriptions.next_payment_date with stripe's current_period_end
+      if (currentPeriodEnd) {
+        const shopSubRepo = new ShopSubscriptionRepository();
+        await shopSubRepo.syncNextPaymentDateFromStripe(shopId, currentPeriodEnd);
       }
 
       await client.query('COMMIT');

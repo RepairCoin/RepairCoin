@@ -54,6 +54,10 @@ export class NotificationDomain implements DomainModule {
     eventBus.subscribe('subscription:resumed', this.handleSubscriptionResumed.bind(this), 'NotificationDomain');
     eventBus.subscribe('subscription:reactivated', this.handleSubscriptionReactivated.bind(this), 'NotificationDomain');
 
+    // Listen to shop suspension events
+    eventBus.subscribe('shop:suspended', this.handleShopSuspended.bind(this), 'NotificationDomain');
+    eventBus.subscribe('shop:unsuspended', this.handleShopUnsuspended.bind(this), 'NotificationDomain');
+
     // Listen to reschedule request events
     eventBus.subscribe('reschedule:request_created', this.handleRescheduleRequestCreated.bind(this), 'NotificationDomain');
     eventBus.subscribe('reschedule:request_approved', this.handleRescheduleRequestApproved.bind(this), 'NotificationDomain');
@@ -336,6 +340,75 @@ export class NotificationDomain implements DomainModule {
       }
     } catch (error: any) {
       logger.error('Error handling subscription reactivated event:', error);
+    }
+  }
+
+  // Shop Suspension Event Handlers
+
+  private async handleShopSuspended(event: any): Promise<void> {
+    try {
+      const { shopAddress, shopName, reason } = event.data;
+
+      logger.info(`Creating shop suspended notification for ${shopAddress}`);
+
+      const notification = await this.notificationService.createShopSuspendedNotification(
+        shopAddress,
+        shopName,
+        reason
+      );
+
+      // Send real-time notification via WebSocket
+      if (this.wsManager) {
+        this.wsManager.sendNotificationToUser(shopAddress, notification);
+
+        // Also notify admins so their dashboard can refresh
+        const adminAddresses = this.getAdminAddresses();
+        if (adminAddresses.length > 0) {
+          this.wsManager.sendToAddresses(adminAddresses, {
+            type: 'shop_status_changed',
+            payload: {
+              shopAddress,
+              action: 'suspended'
+            }
+          });
+          logger.info('Sent shop status change event to admins', { shopAddress, action: 'suspended' });
+        }
+      }
+    } catch (error: any) {
+      logger.error('Error handling shop suspended event:', error);
+    }
+  }
+
+  private async handleShopUnsuspended(event: any): Promise<void> {
+    try {
+      const { shopAddress, shopName } = event.data;
+
+      logger.info(`Creating shop unsuspended notification for ${shopAddress}`);
+
+      const notification = await this.notificationService.createShopUnsuspendedNotification(
+        shopAddress,
+        shopName
+      );
+
+      // Send real-time notification via WebSocket
+      if (this.wsManager) {
+        this.wsManager.sendNotificationToUser(shopAddress, notification);
+
+        // Also notify admins so their dashboard can refresh
+        const adminAddresses = this.getAdminAddresses();
+        if (adminAddresses.length > 0) {
+          this.wsManager.sendToAddresses(adminAddresses, {
+            type: 'shop_status_changed',
+            payload: {
+              shopAddress,
+              action: 'unsuspended'
+            }
+          });
+          logger.info('Sent shop status change event to admins', { shopAddress, action: 'unsuspended' });
+        }
+      }
+    } catch (error: any) {
+      logger.error('Error handling shop unsuspended event:', error);
     }
   }
 

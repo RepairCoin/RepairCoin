@@ -26,6 +26,10 @@ This document outlines the current state of subscription-related notifications, 
 | Dec 26, 2024 | Days Remaining Bug Fix | Backend | `shop/routes/subscription.ts` |
 | Dec 29, 2024 | Shop Self-Cancel Email | Email | `EmailService.ts`, `shop/routes/subscription.ts` |
 | Dec 29, 2024 | Shop Self-Cancel In-App | In-App | `NotificationService.ts`, `NotificationDomain.ts`, `shop/routes/subscription.ts` |
+| Jan 09, 2026 | Shop Suspend In-App + WebSocket | In-App | `NotificationService.ts`, `NotificationDomain.ts`, `ShopManagementService.ts` |
+| Jan 09, 2026 | Shop Suspend Email | Email | `EmailService.ts`, `ShopManagementService.ts` |
+| Jan 09, 2026 | Shop Unsuspend In-App + WebSocket | In-App | `NotificationService.ts`, `NotificationDomain.ts`, `ShopManagementService.ts` |
+| Jan 09, 2026 | Shop Unsuspend Email | Email | `EmailService.ts`, `ShopManagementService.ts` |
 
 ### In Progress 🔄
 
@@ -56,6 +60,8 @@ This document outlines the current state of subscription-related notifications, 
 | Shop Self-Cancel | ✅ Yes | Shop action | `shop/routes/subscription.ts:975` |
 | Shop Self-Reactivate | ❌ No | - | Not implemented |
 | Auto-Cancel (Grace Period) | ❌ No | - | Only email sent |
+| Admin Suspend Shop | ✅ Yes | Admin action | `ShopManagementService.ts` |
+| Admin Unsuspend Shop | ✅ Yes | Admin action | `ShopManagementService.ts` |
 
 ### Email Notifications (EmailService)
 
@@ -71,6 +77,8 @@ This document outlines the current state of subscription-related notifications, 
 | Admin Resume | ✅ Yes | `sendSubscriptionResumedByAdmin()` | **Added Dec 26, 2024** |
 | Admin Reactivate | ✅ Yes | `sendSubscriptionReactivatedByAdmin()` | **Added Dec 26, 2024** |
 | Shop Self-Cancel | ✅ Yes | `sendSubscriptionCancelledByShop()` | **Added Dec 29, 2024** |
+| Admin Suspend Shop | ✅ Yes | `sendShopSuspendedByAdmin()` | **Added Jan 09, 2026** |
+| Admin Unsuspend Shop | ✅ Yes | `sendShopUnsuspendedByAdmin()` | **Added Jan 09, 2026** |
 | Subscription Activated | ❌ No | - | Only in-app (no email) |
 
 ### SMS Notifications
@@ -312,6 +320,8 @@ ALTER TABLE shops ADD COLUMN sms_opt_out_at TIMESTAMP;
 | Admin Reactivate | ✅ | ✅ | ❌ |
 | Shop Self-Cancel | ✅ | ✅ | ❌ |
 | Shop Self-Reactivate | ✅ | ✅ | ❌ |
+| Admin Suspend Shop | ✅ | ✅ | ✅ |
+| Admin Unsuspend Shop | ✅ | ✅ | ❌ |
 | Trial Welcome | ✅ | ✅ | ❌ |
 | Trial Ending | ✅ | ✅ | ✅ |
 

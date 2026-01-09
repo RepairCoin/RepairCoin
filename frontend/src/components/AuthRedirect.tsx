@@ -18,8 +18,9 @@ export default function AuthRedirect() {
         (userType === "shop" && pathname.startsWith("/shop")) ||
         (userType === "customer" && pathname.startsWith("/customer"));
 
-      // Only redirect from landing page or if on wrong dashboard
-      const shouldRedirect = pathname === "/" || 
+      // Only redirect from landing/choose pages or if on wrong dashboard
+      const shouldRedirect = pathname === "/" ||
+        pathname === "/choose" ||
         (pathname.startsWith("/admin") && userType !== "admin") ||
         (pathname.startsWith("/shop") && userType !== "shop") ||
         (pathname.startsWith("/customer") && userType !== "customer");
