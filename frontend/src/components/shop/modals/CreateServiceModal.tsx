@@ -367,13 +367,13 @@ export const CreateServiceModal: React.FC<CreateServiceModalProps> = ({
                   <button
                     type="button"
                     onClick={() => handleChange("active", !formData.active)}
-                    className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
+                    className={`relative inline-flex h-6 w-11 sm:h-8 sm:w-14 items-center rounded-full transition-colors flex-shrink-0 ${
                       formData.active ? "bg-green-500" : "bg-gray-600"
                     }`}
                   >
                     <span
-                      className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
-                        formData.active ? "translate-x-7" : "translate-x-1"
+                      className={`inline-block h-4 w-4 sm:h-6 sm:w-6 transform rounded-full bg-white transition-transform ${
+                        formData.active ? "translate-x-5 sm:translate-x-7" : "translate-x-1"
                       }`}
                     />
                   </button>
