@@ -1,7 +1,7 @@
 // frontend/src/components/shop/tabs/AppointmentsTab.tsx
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -24,56 +24,6 @@ interface DayBookings {
   bookings: CalendarBooking[];
 }
 
-const STATUS_CONFIG = {
-  pending: {
-    icon: ClockAlert,
-    bgCard: 'bg-[#FFCC00]',
-    textCard: 'text-black',
-    bgBadge: 'bg-[#FFCC00]/20',
-    textBadge: 'text-[#FFCC00]',
-    borderBadge: 'border-[#FFCC00]/30'
-  },
-  confirmed: {
-    icon: CalendarCheck2,
-    bgCard: 'bg-[#1A1A1A]',
-    textCard: 'text-green-400',
-    bgBadge: 'bg-green-500/20',
-    textBadge: 'text-green-400',
-    borderBadge: 'border-green-500/30'
-  },
-  paid: {
-    icon: CalendarCheck2,
-    bgCard: 'bg-[#1A1A1A]',
-    textCard: 'text-green-400',
-    bgBadge: 'bg-green-500/20',
-    textBadge: 'text-green-400',
-    borderBadge: 'border-green-500/30'
-  },
-  completed: {
-    icon: CalendarCheck,
-    bgCard: 'bg-[#1A1A1A]',
-    textCard: 'text-green-400',
-    bgBadge: 'bg-green-500/20',
-    textBadge: 'text-green-400',
-    borderBadge: 'border-green-500/30'
-  },
-  cancelled: {
-    icon: CalendarX,
-    bgCard: 'bg-[#1A1A1A]',
-    textCard: 'text-red-400',
-    bgBadge: 'bg-red-500/20',
-    textBadge: 'text-red-400',
-    borderBadge: 'border-red-500/30'
-  },
-  refunded: {
-    icon: CalendarX,
-    bgCard: 'bg-[#1A1A1A]',
-    textCard: 'text-gray-400',
-    bgBadge: 'bg-gray-500/20',
-    textBadge: 'text-gray-400',
-    borderBadge: 'border-gray-500/30'
-  },
-};
 
 export const AppointmentsTab: React.FC = () => {
   const router = useRouter();
@@ -82,11 +32,15 @@ export const AppointmentsTab: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadBookings();
-  }, [currentDate]);
+  // Helper function to format date as YYYY-MM-DD without timezone conversion
+  const formatDateLocal = useCallback((date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }, []);
 
-  const loadBookings = async () => {
+  const loadBookings = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -101,9 +55,10 @@ export const AppointmentsTab: React.FC = () => {
 
       const data = await appointmentsApi.getShopCalendar(startDate, endDate);
       setAllBookings(data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading calendar:', error);
-      if (error.response?.status === 401) {
+      const axiosError = error as { response?: { status?: number } };
+      if (axiosError.response?.status === 401) {
         toast.error('Please log in as a shop owner to view bookings');
       } else {
         toast.error('Failed to load calendar bookings');
@@ -111,7 +66,11 @@ export const AppointmentsTab: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentDate, formatDateLocal]);
+
+  useEffect(() => {
+    loadBookings();
+  }, [loadBookings]);
 
   const navigateMonth = (direction: 'prev' | 'next') => {
     setSelectedDate(null); // Clear selection when changing months
@@ -124,14 +83,6 @@ export const AppointmentsTab: React.FC = () => {
       }
       return newDate;
     });
-  };
-
-  // Helper function to format date as YYYY-MM-DD without timezone conversion
-  const formatDateLocal = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
   };
 
   // Format date for display
@@ -231,12 +182,6 @@ export const AppointmentsTab: React.FC = () => {
     return dateStr === todayStr;
   };
 
-  const isTomorrow = (dateStr: string): boolean => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = formatDateLocal(tomorrow);
-    return dateStr === tomorrowStr;
-  };
 
   const isCurrentMonth = (dateStr: string): boolean => {
     const date = new Date(dateStr);
@@ -311,7 +256,7 @@ export const AppointmentsTab: React.FC = () => {
       selectedBookings: [] as CalendarBooking[],
       upcoming
     };
-  }, [allBookings, selectedDate]);
+  }, [allBookings, selectedDate, formatDateLocal]);
 
   // Group upcoming appointments by date for display
   const groupedUpcoming = useMemo(() => {
@@ -347,7 +292,7 @@ export const AppointmentsTab: React.FC = () => {
     });
 
     return groups;
-  }, [sidebarAppointments]);
+  }, [sidebarAppointments, formatDateLocal]);
 
   // Handle date cell click
   const handleDateClick = (dateStr: string, hasBookings: boolean) => {
@@ -436,27 +381,27 @@ export const AppointmentsTab: React.FC = () => {
       <button
         key={booking.orderId}
         onClick={() => navigateToBooking(booking.orderId)}
-        className="w-full text-left bg-[#0D0D0D] border border-gray-800 rounded-lg p-3 hover:border-[#FFCC00]/50 hover:bg-[#1A1A1A] transition-colors cursor-pointer"
+        className="w-full text-left bg-[#0D0D0D] border border-gray-800 rounded-lg p-2 sm:p-3 hover:border-[#FFCC00]/50 hover:bg-[#1A1A1A] transition-colors cursor-pointer"
       >
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <span className="text-[#FFCC00] font-medium text-sm truncate flex-1">
+        <div className="flex items-start justify-between gap-2 mb-1 sm:mb-2">
+          <span className="text-[#FFCC00] font-medium text-xs sm:text-sm truncate flex-1">
             {booking.serviceName}
           </span>
-          <Icon className={`w-4 h-4 flex-shrink-0 ${iconColor}`} />
+          <Icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0 ${iconColor}`} />
         </div>
-        <div className="flex items-center justify-between text-xs text-gray-400">
+        <div className="flex items-center justify-between text-[10px] sm:text-xs text-gray-400">
           <div className="flex items-center gap-1">
-            <User className="w-3.5 h-3.5" />
-            <span className="truncate max-w-[100px]">{booking.customerName || 'Customer'}</span>
+            <User className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+            <span className="truncate max-w-[80px] sm:max-w-[100px]">{booking.customerName || 'Customer'}</span>
           </div>
           <div className="flex items-center gap-1">
-            <Clock className="w-3.5 h-3.5" />
+            <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
             <span>{booking.bookingTimeSlot ? formatTime(booking.bookingTimeSlot) : 'TBD'}</span>
           </div>
         </div>
         {/* Status badge */}
-        <div className="mt-2 flex items-center gap-2">
-          <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${badgeBg}`}>
+        <div className="mt-1.5 sm:mt-2 flex items-center gap-2">
+          <span className={`text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full font-medium ${badgeBg}`}>
             {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
           </span>
         </div>
@@ -467,100 +412,109 @@ export const AppointmentsTab: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         {/* Pending Booking */}
-        <div className="bg-[#FFCC00] rounded-xl p-5 flex items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-black/20 flex items-center justify-center">
-            <ClockAlert className="w-5 h-5 text-black" />
+        <div className="bg-[#FFCC00] rounded-xl p-3 sm:p-5 flex items-center gap-3 sm:gap-4">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-black/20 flex items-center justify-center flex-shrink-0">
+            <ClockAlert className="w-4 h-4 sm:w-5 sm:h-5 text-black" />
           </div>
-          <div>
-            <div className="text-sm text-black/70 font-medium">Pending</div>
-            <div className="text-2xl font-bold text-black">{stats.pending}</div>
+          <div className="min-w-0">
+            <div className="text-xs sm:text-sm text-black/70 font-medium truncate">Pending</div>
+            <div className="text-xl sm:text-2xl font-bold text-black">{stats.pending}</div>
           </div>
         </div>
 
         {/* Confirmed */}
-        <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-5 flex items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center">
-            <CalendarCheck2 className="w-5 h-5 text-cyan-400" />
+        <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-3 sm:p-5 flex items-center gap-3 sm:gap-4">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-cyan-500/20 flex items-center justify-center flex-shrink-0">
+            <CalendarCheck2 className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
           </div>
-          <div>
-            <div className="text-sm text-gray-400 font-medium">Confirmed</div>
-            <div className="text-2xl font-bold text-white">{stats.confirmed}</div>
+          <div className="min-w-0">
+            <div className="text-xs sm:text-sm text-gray-400 font-medium truncate">Confirmed</div>
+            <div className="text-xl sm:text-2xl font-bold text-white">{stats.confirmed}</div>
           </div>
         </div>
 
         {/* Completed */}
-        <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-5 flex items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
-            <CalendarCheck className="w-5 h-5 text-green-400" />
+        <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-3 sm:p-5 flex items-center gap-3 sm:gap-4">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
+            <CalendarCheck className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
           </div>
-          <div>
-            <div className="text-sm text-gray-400 font-medium">Completed</div>
-            <div className="text-2xl font-bold text-white">{stats.completed}</div>
+          <div className="min-w-0">
+            <div className="text-xs sm:text-sm text-gray-400 font-medium truncate">Completed</div>
+            <div className="text-xl sm:text-2xl font-bold text-white">{stats.completed}</div>
           </div>
         </div>
 
         {/* Cancelled */}
-        <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-5 flex items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
-            <CalendarX className="w-5 h-5 text-red-400" />
+        <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-3 sm:p-5 flex items-center gap-3 sm:gap-4">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
+            <CalendarX className="w-4 h-4 sm:w-5 sm:h-5 text-red-400" />
           </div>
-          <div>
-            <div className="text-sm text-gray-400 font-medium">Cancelled</div>
-            <div className="text-2xl font-bold text-white">{stats.cancelled}</div>
+          <div className="min-w-0">
+            <div className="text-xs sm:text-sm text-gray-400 font-medium truncate">Cancelled</div>
+            <div className="text-xl sm:text-2xl font-bold text-white">{stats.cancelled}</div>
           </div>
         </div>
 
         {/* No Show */}
-        <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-5 flex items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center">
-            <CalendarX className="w-5 h-5 text-orange-400" />
+        <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl p-3 sm:p-5 flex items-center gap-3 sm:gap-4 col-span-2 sm:col-span-1">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+            <CalendarX className="w-4 h-4 sm:w-5 sm:h-5 text-orange-400" />
           </div>
-          <div>
-            <div className="text-sm text-gray-400 font-medium">No Show</div>
-            <div className="text-2xl font-bold text-white">{stats.noShow}</div>
+          <div className="min-w-0">
+            <div className="text-xs sm:text-sm text-gray-400 font-medium truncate">No Show</div>
+            <div className="text-xl sm:text-2xl font-bold text-white">{stats.noShow}</div>
           </div>
         </div>
       </div>
 
       {/* Main Content: Calendar + Sidebar */}
-      <div className="flex gap-6">
+      <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
         {/* Calendar Section */}
-        <div className="flex-1 bg-[#1A1A1A] border border-gray-800 rounded-xl overflow-hidden">
+        <div className="flex-1 bg-[#1A1A1A] border border-gray-800 rounded-xl overflow-hidden order-2 lg:order-1">
           {/* Calendar Header */}
-          <div className="p-4 flex items-center justify-between border-b border-gray-800">
-            <h2 className="text-xl font-bold text-white">
+          <div className="p-3 sm:p-4 flex items-center justify-between border-b border-gray-800">
+            <h2 className="text-base sm:text-xl font-bold text-white">
               {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
             </h2>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2">
               <button
                 onClick={() => navigateMonth('prev')}
-                className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+                className="p-1.5 sm:p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
               >
-                <ChevronLeft className="w-5 h-5" />
+                <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
               <button
                 onClick={() => navigateMonth('next')}
-                className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+                className="p-1.5 sm:p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
               >
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </div>
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="w-8 h-8 animate-spin text-[#FFCC00]" />
-              <span className="ml-3 text-gray-400">Loading calendar...</span>
+            <div className="flex items-center justify-center py-10 sm:py-20">
+              <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin text-[#FFCC00]" />
+              <span className="ml-2 sm:ml-3 text-gray-400 text-sm sm:text-base">Loading calendar...</span>
             </div>
           ) : (
             <>
               {/* Day Headers */}
               <div className="grid grid-cols-7 bg-[#0D0D0D] border-b border-gray-800">
-                {['SUN', 'MON', 'TUE', 'WED', 'THUR', 'FRI', 'SAT'].map(day => (
-                  <div key={day} className="py-3 text-center text-xs font-semibold text-gray-500">
-                    {day}
+                {[
+                  { short: 'S', full: 'SUN' },
+                  { short: 'M', full: 'MON' },
+                  { short: 'T', full: 'TUE' },
+                  { short: 'W', full: 'WED' },
+                  { short: 'T', full: 'THU' },
+                  { short: 'F', full: 'FRI' },
+                  { short: 'S', full: 'SAT' }
+                ].map((day, idx) => (
+                  <div key={idx} className="py-2 sm:py-3 text-center text-[10px] sm:text-xs font-semibold text-gray-500">
+                    <span className="sm:hidden">{day.short}</span>
+                    <span className="hidden sm:inline">{day.full}</span>
                   </div>
                 ))}
               </div>
@@ -579,18 +533,18 @@ export const AppointmentsTab: React.FC = () => {
                     <div
                       key={index}
                       onClick={() => handleDateClick(day.date, hasBookings)}
-                      className={`min-h-[140px] border-r border-b border-gray-800 p-2 transition-colors ${
+                      className={`min-h-[60px] sm:min-h-[100px] lg:min-h-[140px] border-r border-b border-gray-800 p-1 sm:p-2 transition-colors ${
                         !isInCurrentMonth ? 'bg-[#0A0A0A]' : ''
                       } ${index % 7 === 6 ? 'border-r-0' : ''} ${
                         hasBookings ? 'cursor-pointer hover:bg-[#252525]' : ''
                       } ${isSelected ? 'bg-[#252525] ring-1 ring-[#FFCC00]' : ''}`}
                     >
                       {/* Day Number & Customer Count */}
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center justify-between mb-1 sm:mb-2">
                         <span
-                          className={`text-sm font-semibold ${
+                          className={`text-xs sm:text-sm font-semibold ${
                             isTodayDate
-                              ? 'bg-[#FFCC00] text-black w-7 h-7 rounded-full flex items-center justify-center'
+                              ? 'bg-[#FFCC00] text-black w-5 h-5 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] sm:text-sm'
                               : isInCurrentMonth
                               ? 'text-white'
                               : 'text-gray-600'
@@ -599,15 +553,42 @@ export const AppointmentsTab: React.FC = () => {
                           {dayNumber}
                         </span>
                         {uniqueCustomers > 0 && (
-                          <div className="flex items-center gap-1 text-gray-400">
+                          <div className="hidden sm:flex items-center gap-1 text-gray-400">
                             <User className="w-3.5 h-3.5" />
                             <span className="text-xs">{uniqueCustomers}</span>
                           </div>
                         )}
                       </div>
 
-                      {/* Appointment Badges */}
-                      <div className="space-y-1">
+                      {/* Appointment Badges - Mobile shows dots, desktop shows full badges */}
+                      {/* Mobile: Show dots only */}
+                      <div className="sm:hidden flex flex-wrap gap-1">
+                        {day.bookings.slice(0, 3).map(booking => {
+                          const dotColor = (() => {
+                            switch (booking.status) {
+                              case 'pending': return 'bg-[#FFCC00]';
+                              case 'paid': return 'bg-blue-400';
+                              case 'confirmed':
+                              case 'approved':
+                              case 'scheduled': return 'bg-cyan-400';
+                              case 'completed': return 'bg-green-400';
+                              case 'cancelled':
+                              case 'refunded': return 'bg-red-400';
+                              case 'no_show': return 'bg-orange-400';
+                              default: return 'bg-gray-400';
+                            }
+                          })();
+                          return (
+                            <div key={booking.orderId} className={`w-2 h-2 rounded-full ${dotColor}`} />
+                          );
+                        })}
+                        {day.bookings.length > 3 && (
+                          <span className="text-[8px] text-gray-500">+{day.bookings.length - 3}</span>
+                        )}
+                      </div>
+
+                      {/* Desktop: Show full badges */}
+                      <div className="hidden sm:block space-y-1">
                         {day.bookings.slice(0, 4).map(booking => {
                           // Status-based styling
                           const getStatusStyles = () => {
@@ -681,14 +662,14 @@ export const AppointmentsTab: React.FC = () => {
           )}
         </div>
 
-        {/* Sidebar */}
-        <div className="w-[320px] bg-[#1A1A1A] border border-gray-800 rounded-xl overflow-hidden flex-shrink-0">
+        {/* Sidebar - Shows above calendar on mobile */}
+        <div className="w-full lg:w-[320px] bg-[#1A1A1A] border border-gray-800 rounded-xl overflow-hidden lg:flex-shrink-0 order-1 lg:order-2">
           {/* Sidebar Header */}
-          <div className="p-4 border-b border-gray-800">
+          <div className="p-3 sm:p-4 border-b border-gray-800">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-[#FFCC00]">
-                <CalendarClock className="w-5 h-5" />
-                <span className="font-semibold">
+                <CalendarClock className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="font-semibold text-sm sm:text-base">
                   {sidebarAppointments.mode === 'selected' ? 'Appointments' : 'Upcoming'}
                 </span>
               </div>
@@ -704,7 +685,7 @@ export const AppointmentsTab: React.FC = () => {
             </div>
           </div>
 
-          <div className="p-4 space-y-4 max-h-[600px] overflow-y-auto">
+          <div className="p-3 sm:p-4 space-y-3 sm:space-y-4 max-h-[300px] lg:max-h-[600px] overflow-y-auto">
             {/* Selected Date View */}
             {sidebarAppointments.mode === 'selected' && selectedDate && (
               <>
@@ -716,8 +697,8 @@ export const AppointmentsTab: React.FC = () => {
                     {sidebarAppointments.selectedBookings.map(booking => renderAppointmentCard(booking))}
                   </div>
                 ) : (
-                  <div className="text-center py-6">
-                    <p className="text-gray-500 text-sm">No appointments on this date</p>
+                  <div className="text-center py-4 sm:py-6">
+                    <p className="text-gray-500 text-xs sm:text-sm">No appointments on this date</p>
                   </div>
                 )}
               </>
@@ -738,10 +719,10 @@ export const AppointmentsTab: React.FC = () => {
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-8">
-                    <CalendarClock className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-                    <p className="text-gray-400 text-sm">No upcoming appointments</p>
-                    <p className="text-gray-500 text-xs mt-1">Future appointments will appear here</p>
+                  <div className="text-center py-4 sm:py-8">
+                    <CalendarClock className="w-8 h-8 sm:w-12 sm:h-12 text-gray-600 mx-auto mb-2 sm:mb-3" />
+                    <p className="text-gray-400 text-xs sm:text-sm">No upcoming appointments</p>
+                    <p className="text-gray-500 text-[10px] sm:text-xs mt-1">Future appointments will appear here</p>
                   </div>
                 )}
               </>
